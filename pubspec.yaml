@@ -58,11 +58,14 @@ dependencies:
 
   # Image & Camera
   image_picker: ^1.1.2
-  camera: ^0.12.0
   file_picker: ^8.1.6
 
   # Emoji Picker
   emoji_picker_flutter: ^3.1.0
+
+  # Speech Recognition
+  speech_to_text: ^6.6.0
+  permission_handler: ^11.0.1
 
 dev_dependencies:
   flutter_test:

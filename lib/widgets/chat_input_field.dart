@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/emoji_picker_widget.dart';
 import '../services/media_service.dart';
-import '../services/chat_response_service.dart';
+import '../services/speech_input_service.dart';
 
 class ChatInputField extends StatefulWidget {
   final Function(String content) onSend;
@@ -31,11 +32,25 @@ class _ChatInputFieldState extends State<ChatInputField> {
   bool _isComposing = false;
   bool _showEmojiPicker = false;
 
+  // 语音输入相关
+  final SpeechInputService _speechService = SpeechInputService();
+  bool _isListening = false;
+  String _speechStatus = '点击说话';
+
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? TextEditingController();
     _controller.addListener(_onTextChanged);
+
+    // 初始化语音识别
+    _speechService.initialize().then((available) {
+      if (available && mounted) {
+        setState(() {
+          _speechStatus = '点击说话';
+        });
+      }
+    });
   }
 
   @override
@@ -45,6 +60,7 @@ class _ChatInputFieldState extends State<ChatInputField> {
     } else {
       _controller.removeListener(_onTextChanged);
     }
+    _speechService.dispose();
     super.dispose();
   }
 
@@ -246,6 +262,57 @@ class _ChatInputFieldState extends State<ChatInputField> {
     }
   }
 
+  // 语音输入处理
+  Future<void> _handleSpeechInput() async {
+    if (_isListening) {
+      // 停止监听
+      await _speechService.stopListening();
+      setState(() {
+        _isListening = false;
+        _speechStatus = '点击说话';
+      });
+      return;
+    }
+
+    // 开始监听
+    final success = await _speechService.startListening(
+      onResult: (text) {
+        setState(() {
+          _speechStatus = '识别中...';
+        });
+      },
+      onListeningStateChanged: (state) {
+        if (mounted) {
+          setState(() {
+            switch (state) {
+              case 'listening':
+                _isListening = true;
+                _speechStatus = '正在聆听...';
+                break;
+              case 'stopped':
+                _isListening = false;
+                _speechStatus = '点击说话';
+                break;
+              case 'error':
+                _isListening = false;
+                _speechStatus = '点击重试';
+                break;
+            }
+          });
+        }
+      },
+    );
+
+    if (!success && mounted) {
+      setState(() {
+        _speechStatus = '点击重试';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('语音识别启动失败，请检查麦克风权限')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -255,6 +322,34 @@ class _ChatInputFieldState extends State<ChatInputField> {
         if (_showEmojiPicker)
           InlineEmojiPicker(
             onEmojiSelected: _onEmojiSelected,
+          ),
+        // 识别状态提示
+        if (_isListening)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _speechStatus,
+                  style: TextStyle(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
           ),
         Container(
           decoration: BoxDecoration(
@@ -328,6 +423,20 @@ class _ChatInputFieldState extends State<ChatInputField> {
                     onPressed: _toggleEmojiPicker,
                   ),
 
+                  // Voice input button
+                  IconButton(
+                    icon: Icon(
+                      _isListening ? Icons.stop : Icons.mic,
+                      color: _isListening
+                          ? Colors.red
+                          : (_speechStatus == '点击重试'
+                              ? Colors.orange
+                              : theme.colorScheme.onSurface.withOpacity(0.6)),
+                      size: 24,
+                    ),
+                    onPressed: _handleSpeechInput,
+                  ),
+
                   // Send button
                   IconButton(
                     icon: widget.isLoading
@@ -340,7 +449,7 @@ class _ChatInputFieldState extends State<ChatInputField> {
                             ),
                           )
                         : Icon(
-                            _isComposing ? Icons.send : Icons.mic,
+                            _isComposing ? Icons.send : Icons.mic_none,
                             color: _isComposing
                                 ? theme.colorScheme.primary
                                 : theme.colorScheme.onSurface.withOpacity(0.6),

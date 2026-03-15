@@ -12,6 +12,15 @@
 -dontwarn com.google.android.play.**
 -keep class com.google.android.play.** { *; }
 
+# Speech to Text
+-keep class com.csdn.plugin.speech.** { *; }
+-keep class io.flutter.plugins.speechtotext.** { *; }
+-dontwarn io.flutter.plugins.speechtotext.**
+
+# Permission Handler
+-keep class com.baseflow.permissionhandler.** { *; }
+-dontwarn com.baseflow.permissionhandler.**
+
 # Image Picker
 -keep class io.flutter.plugins.imagepicker.** { *; }
 -dontwarn io.flutter.plugins.imagepicker.**
