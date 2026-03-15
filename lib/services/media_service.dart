@@ -1,41 +1,15 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:camera/camera.dart';
 import 'package:file_picker/file_picker.dart';
 
-/// 媒体服务 - 处理摄像头和图库访问
+/// 媒体服务 - 处理图库和文件访问
 /// 在Web环境下使用image_picker的Web实现
 class MediaService {
   static final ImagePicker _imagePicker = ImagePicker();
-  static CameraController? _cameraController;
-  static List<CameraDescription>? _cameras;
-
-  /// 初始化摄像头（仅移动端）
-  static Future<void> initializeCamera() async {
-    if (kIsWeb) {
-      debugPrint('Web环境使用HTML5摄像头API');
-      return;
-    }
-
-    try {
-      // 注意：在Web环境中不调用availableCameras()
-      // 移动端需要camera包的availableCameras()函数
-      // 这里简化处理，仅做标记
-      debugPrint('移动端摄像头初始化（需在原生平台测试）');
-    } catch (e) {
-      debugPrint('摄像头初始化失败: $e');
-    }
-  }
-
-  /// 释放摄像头资源
-  static Future<void> disposeCamera() async {
-    await _cameraController?.dispose();
-    _cameraController = null;
-  }
 
   /// 从图库选择图片
-  /// 返回图片文件路径，Web环境返回null（使用base64）
+  /// 返回图片文件路径，Web环境返回base64
   static Future<String?> pickImageFromGallery() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -149,9 +123,6 @@ class MediaService {
       // Web环境：浏览器会自动请求权限
       return true;
     }
-
-    // 移动端权限检查需要permission_handler包
-    // 这里简化处理，返回true
     return true;
   }
 
@@ -162,12 +133,6 @@ class MediaService {
     }
     return true;
   }
-
-  /// 获取可用的摄像头列表（仅移动端）
-  static List<CameraDescription>? get availableCameras => _cameras;
-
-  /// 获取当前摄像头控制器（仅移动端）
-  static CameraController? get cameraController => _cameraController;
 
   /// Base64编码
   static String base64Encode(List<int> bytes) {
