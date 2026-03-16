@@ -28,12 +28,31 @@ class _ClockDemoPage extends StatefulWidget {
 }
 
 class _ClockDemoPageState extends State<_ClockDemoPage> {
+  final ScrollController _scrollController = ScrollController();
+  double _dragExtent = 0;
+  bool _isAtTop = true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LabClockProvider>().loadClocks();
     });
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final atTop = _scrollController.position.pixels <= 0;
+    if (atTop != _isAtTop) {
+      setState(() => _isAtTop = atTop);
+    }
   }
 
   @override
@@ -41,20 +60,40 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
     return SafeArea(
       child: Column(
         children: [
-          // 深下拉区域 - 显示使用记录
-          _ClockPullDownArea(
-            onShowRecords: () => _showRecordsPanel(context),
+          // 深下拉触发区域
+          _DeepPullHeader(
+            isAtTop: _isAtTop,
+            onPull: _onVerticalDragUpdate,
+            onDragEnd: _onVerticalDragEnd,
           ),
           Expanded(
             child: Stack(
               children: [
-                Consumer<LabClockProvider>(
-                  builder: (context, provider, child) {
-                    if (provider.clocks.isEmpty) {
-                      return _buildEmpty(context);
+                NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollUpdateNotification) {
+                      _onScroll();
+                      if (_isAtTop && notification.scrollDelta != null && notification.scrollDelta! > 0) {
+                        _dragExtent += notification.scrollDelta!;
+                        setState(() {});
+                      }
                     }
-                    return _buildClockGrid(context, provider.clocks);
+                    if (notification is ScrollEndNotification) {
+                      if (_dragExtent > 100) {
+                        _showRecordsPanel(context);
+                      }
+                      setState(() => _dragExtent = 0);
+                    }
+                    return false;
                   },
+                  child: Consumer<LabClockProvider>(
+                    builder: (context, provider, child) {
+                      if (provider.clocks.isEmpty) {
+                        return _buildEmpty(context);
+                      }
+                      return _buildClockGrid(context, provider.clocks);
+                    },
+                  ),
                 ),
                 Positioned(
                   right: 16,
@@ -70,6 +109,22 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
         ],
       ),
     );
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    if (_isAtTop) {
+      setState(() {
+        _dragExtent += details.delta.dy;
+        if (_dragExtent < 0) _dragExtent = 0;
+      });
+    }
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    if (_dragExtent > 100) {
+      _showRecordsPanel(context);
+    }
+    setState(() => _dragExtent = 0);
   }
 
   void _showRecordsPanel(BuildContext context) {
@@ -494,59 +549,43 @@ class _ClockCard extends StatelessWidget {
   }
 }
 
-/// 深下拉区域 - 显示使用记录
-class _ClockPullDownArea extends StatefulWidget {
-  final VoidCallback onShowRecords;
+/// 深下拉头部组件
+class _DeepPullHeader extends StatelessWidget {
+  final bool isAtTop;
+  final Function(DragUpdateDetails) onPull;
+  final Function(DragEndDetails) onDragEnd;
 
-  const _ClockPullDownArea({required this.onShowRecords});
-
-  @override
-  State<_ClockPullDownArea> createState() => _ClockPullDownAreaState();
-}
-
-class _ClockPullDownAreaState extends State<_ClockPullDownArea> {
-  double _dragOffset = 0;
-  static const double _triggerThreshold = 60;
+  const _DeepPullHeader({
+    required this.isAtTop,
+    required this.onPull,
+    required this.onDragEnd,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        setState(() {
-          _dragOffset += details.delta.dy;
-          if (_dragOffset < 0) _dragOffset = 0;
-        });
-      },
-      onVerticalDragEnd: (_) {
-        if (_dragOffset > _triggerThreshold) {
-          widget.onShowRecords();
-        }
-        setState(() => _dragOffset = 0);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: _dragOffset > 0 ? _dragOffset : 20,
+      onVerticalDragUpdate: onPull,
+      onVerticalDragEnd: onDragEnd,
+      child: Container(
+        height: 30,
+        color: Colors.transparent,
         child: Center(
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 150),
-            opacity: _dragOffset > 15 ? 1.0 : 0.5,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 18,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isAtTop ? Icons.keyboard_arrow_down : Icons.drag_handle,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              Text(
+                '下拉查看记录',
+                style: TextStyle(
+                  fontSize: 10,
                   color: Theme.of(context).colorScheme.primary,
                 ),
-                Text(
-                  '下拉查看记录',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
