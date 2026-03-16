@@ -24,7 +24,7 @@ android {
         applicationId = "com.example.flutter_application_1"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21  // 设置最低SDK版本为21以支持更多功能
+        minSdk = flutter.minSdkVersion  // 设置最低SDK版本为21以支持更多功能
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

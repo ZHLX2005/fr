@@ -5,8 +5,14 @@ import 'screens/home/home_page.dart';
 import 'screens/friends/friends_page.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/notebook/notebook_page.dart';
+import 'screens/lab/lab_page.dart';
+import 'lab/lab_container.dart';
+import 'lab/demos/grid_dashboard_demo.dart';
 
 void main() {
+  // 注册 Demo 页面
+  registerGridDashboardDemo();
+
   runApp(const MyApp());
 }
 
