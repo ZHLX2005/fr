@@ -150,43 +150,49 @@ class _GridDashboardPageState extends State<_GridDashboardPage> {
 
   /// 标准 2 列网格
   Widget _buildStandardGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.5,
+    return SizedBox(
+      height: 240, // 固定高度避免溢出
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.5,
+        ),
+        itemCount: 4,
+        itemBuilder: (context, index) {
+          final item = _dashboardItems[index];
+          return _DashboardCard(data: item);
+        },
       ),
-      itemCount: 4,
-      itemBuilder: (context, index) {
-        final item = _dashboardItems[index];
-        return _DashboardCard(data: item);
-      },
     );
   }
 
   /// 交错网格 - 类似 Pinterest/瀑布流
   Widget _buildStaggeredGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
+    return SizedBox(
+      height: 400, // 固定高度避免溢出
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+        ),
+        itemCount: _dashboardItems.length,
+        itemBuilder: (context, index) {
+          final item = _dashboardItems[index];
+          // 让特定卡片跨行
+          final isLarge = item.span > 1;
+          return SizedBox(
+            height: isLarge ? 160 : 100,
+            child: _DashboardCard(data: item),
+          );
+        },
       ),
-      itemCount: _dashboardItems.length,
-      itemBuilder: (context, index) {
-        final item = _dashboardItems[index];
-        // 让特定卡片跨行
-        final isLarge = item.span > 1;
-        return SizedBox(
-          height: isLarge ? 180 : 120,
-          child: _DashboardCard(data: item),
-        );
-      },
     );
   }
 
