@@ -130,56 +130,95 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
 
   void _showRecordsPanel(BuildContext context) {
     final records = context.read<LabClockProvider>().records;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.8,
-        builder: (_, controller) => Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // 拖动手柄
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(2),
-                ),
+    final overlay = Navigator.of(context).overlay;
+    if (overlay == null) return;
+
+    final animationController = AnimationController(
+      vsync: Navigator.of(context),
+      duration: const Duration(milliseconds: 300),
+    );
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          // 遮罩
+          GestureDetector(
+            onTap: () {
+              animationController.reverse().then((_) => entry.remove());
+            },
+            child: AnimatedBuilder(
+              animation: animationController,
+              builder: (_, __) => Container(
+                color: Colors.black54.withValues(alpha: animationController.value * 0.5),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+            ),
+          ),
+          // 顶部抽屉
+          SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animationController,
+              curve: Curves.easeOutCubic,
+            )),
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.6,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                ),
+                child: Column(
                   children: [
-                    Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text('使用记录', style: Theme.of(context).textTheme.titleLarge),
+                    GestureDetector(
+                      onVerticalDragEnd: (details) {
+                        if (details.primaryVelocity != null && details.primaryVelocity! > 500) {
+                          animationController.reverse().then((_) => entry.remove());
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 12),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Text('使用记录', style: Theme.of(context).textTheme.titleLarge),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: records.isEmpty
+                          ? Center(child: Text('暂无记录', style: TextStyle(color: Theme.of(context).colorScheme.outline)))
+                          : ListView.builder(
+                              itemCount: records.length,
+                              itemBuilder: (_, index) => _buildRecordItem(context, records[index]),
+                            ),
+                    ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              Expanded(
-                child: records.isEmpty
-                    ? Center(child: Text('暂无记录', style: TextStyle(color: Theme.of(context).colorScheme.outline)))
-                    : ListView.builder(
-                        controller: controller,
-                        itemCount: records.length,
-                        itemBuilder: (_, index) => _buildRecordItem(context, records[index]),
-                      ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
+
+    overlay.insert(entry);
+    animationController.forward();
   }
 
   Widget _buildRecordItem(BuildContext context, LabClockRecord record) {
