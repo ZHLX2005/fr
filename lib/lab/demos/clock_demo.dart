@@ -36,79 +36,105 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
     });
   }
 
+  double _dragOffset = 0;
+  bool _isDrawerOpen = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // 主页面
-          Consumer<LabClockProvider>(
-            builder: (context, provider, child) {
-              if (provider.clocks.isEmpty) {
-                return _buildEmpty(context);
-              }
-              return _buildClockGrid(context, provider.clocks);
-            },
-          ),
-          // 顶部抽屉 - 使用DraggableScrollableSheet
-          Align(
-            alignment: Alignment.topCenter,
-            child: DraggableScrollableSheet(
-              initialChildSize: 0.0,
-              minChildSize: 0.0,
-              maxChildSize: 0.5,
-              expand: false,
-              builder: (context, scrollController) {
-                return Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  elevation: 4,
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-                  child: Column(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 12),
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[400],
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: Row(
-                          children: [
-                            Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text('使用记录', style: Theme.of(context).textTheme.titleLarge),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      Expanded(
-                        child: Consumer<LabClockProvider>(
-                          builder: (context, provider, child) {
-                            final records = provider.records;
-                            if (records.isEmpty) {
-                              return Center(
-                                child: Text('暂无记录', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
-                              );
-                            }
-                            return ListView.builder(
-                              controller: scrollController,
-                              itemCount: records.length,
-                              itemBuilder: (_, index) => _buildRecordItem(context, records[index]),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                );
+      body: GestureDetector(
+        onVerticalDragUpdate: (details) {
+          setState(() {
+            _dragOffset += details.delta.dy;
+            _dragOffset = _dragOffset.clamp(0, 300);
+          });
+        },
+        onVerticalDragEnd: (details) {
+          if (_dragOffset > 100) {
+            setState(() {
+              _isDrawerOpen = true;
+            });
+          } else {
+            setState(() {
+              _dragOffset = 0;
+              _isDrawerOpen = false;
+            });
+          }
+        },
+        child: Stack(
+          children: [
+            // 主页面
+            Consumer<LabClockProvider>(
+              builder: (context, provider, child) {
+                if (provider.clocks.isEmpty) {
+                  return _buildEmpty(context);
+                }
+                return _buildClockGrid(context, provider.clocks);
               },
             ),
-          ),
-        ],
+            // 顶部抽屉
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              height: _isDrawerOpen ? 300 : (_dragOffset > 50 ? 50 + _dragOffset : 0),
+              child: _dragOffset > 20 || _isDrawerOpen
+                  ? Material(
+                      color: Theme.of(context).colorScheme.surface,
+                      elevation: 4,
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                      child: Column(
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.symmetric(vertical: 12),
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[400],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: Row(
+                              children: [
+                                Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Text('使用记录', style: Theme.of(context).textTheme.titleLarge),
+                                const Spacer(),
+                                GestureDetector(
+                                  onTap: () => setState(() {
+                                    _isDrawerOpen = false;
+                                    _dragOffset = 0;
+                                  }),
+                                  child: const Icon(Icons.close),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          Expanded(
+                            child: Consumer<LabClockProvider>(
+                              builder: (context, provider, child) {
+                                final records = provider.records;
+                                if (records.isEmpty) {
+                                  return Center(
+                                    child: Text('暂无记录', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+                                  );
+                                }
+                                return ListView.builder(
+                                  itemCount: records.length,
+                                  itemBuilder: (_, index) => _buildRecordItem(context, records[index]),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _addClock(context),
