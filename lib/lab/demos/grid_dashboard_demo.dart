@@ -21,7 +21,7 @@ class DashboardData {
   final String value;
   final IconData icon;
   final Color color;
-  final int span; // 跨列数 1 或 2
+  final int span;
 
   const DashboardData({
     required this.title,
@@ -40,51 +40,14 @@ class _GridDashboardPage extends StatefulWidget {
 }
 
 class _GridDashboardPageState extends State<_GridDashboardPage> {
-  // 模拟数据看板
   final List<DashboardData> _dashboardItems = const [
-    DashboardData(
-      title: '今日收益',
-      value: '¥12,580',
-      icon: Icons.account_balance_wallet,
-      color: Colors.green,
-    ),
-    DashboardData(
-      title: '订单数量',
-      value: '328',
-      icon: Icons.shopping_cart,
-      color: Colors.blue,
-    ),
-    DashboardData(
-      title: '新增用户',
-      value: '+86',
-      icon: Icons.person_add,
-      color: Colors.orange,
-    ),
-    DashboardData(
-      title: '活跃度',
-      value: '92%',
-      icon: Icons.trending_up,
-      color: Colors.purple,
-    ),
-    DashboardData(
-      title: '课表',
-      value: '5节/天',
-      icon: Icons.calendar_today,
-      color: Colors.teal,
-      span: 2,
-    ),
-    DashboardData(
-      title: '消息',
-      value: '12',
-      icon: Icons.message,
-      color: Colors.red,
-    ),
-    DashboardData(
-      title: '待办事项',
-      value: '8',
-      icon: Icons.checklist,
-      color: Colors.indigo,
-    ),
+    DashboardData(title: '今日收益', value: '¥12,580', icon: Icons.account_balance_wallet, color: Colors.green),
+    DashboardData(title: '订单数量', value: '328', icon: Icons.shopping_cart, color: Colors.blue),
+    DashboardData(title: '新增用户', value: '+86', icon: Icons.person_add, color: Colors.orange),
+    DashboardData(title: '活跃度', value: '92%', icon: Icons.trending_up, color: Colors.purple),
+    DashboardData(title: '课表', value: '5节/天', icon: Icons.calendar_today, color: Colors.teal, span: 2),
+    DashboardData(title: '消息', value: '12', icon: Icons.message, color: Colors.red),
+    DashboardData(title: '待办事项', value: '8', icon: Icons.checklist, color: Colors.indigo),
   ];
 
   @override
@@ -94,53 +57,19 @@ class _GridDashboardPageState extends State<_GridDashboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 标题
-          Text(
-            '数据看板',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
+          Text('数据看板', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            '网格视图布局示例',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-          ),
+          Text('网格视图布局示例', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline)),
           const SizedBox(height: 24),
-
-          // 网格视图 1: 标准 2 列网格
-          Text(
-            '标准 2 列网格',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
+          Text('标准 2 列网格', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           _buildStandardGrid(),
-
           const SizedBox(height: 32),
-
-          // 网格视图 2: 交错网格（类似瀑布流）
-          Text(
-            '交错网格 (Staggered)',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
+          Text('交错网格 (Staggered)', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           _buildStaggeredGrid(),
-
           const SizedBox(height: 32),
-
-          // 网格视图 3: 课表视图
-          Text(
-            '课表视图',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
+          Text('课表视图', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           _buildScheduleGrid(),
         ],
@@ -148,60 +77,33 @@ class _GridDashboardPageState extends State<_GridDashboardPage> {
     );
   }
 
-  /// 标准 2 列网格
   Widget _buildStandardGrid() {
-    return SizedBox(
-      height: 240, // 固定高度避免溢出
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
-        ),
-        itemCount: 4,
-        itemBuilder: (context, index) {
-          final item = _dashboardItems[index];
-          return _DashboardCard(data: item);
-        },
-      ),
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: _dashboardItems.take(4).map((item) => SizedBox(
+        width: (MediaQuery.of(context).size.width - 56) / 2,
+        child: _DashboardCard(data: item),
+      )).toList(),
     );
   }
 
-  /// 交错网格 - 类似 Pinterest/瀑布流
   Widget _buildStaggeredGrid() {
-    return SizedBox(
-      height: 480, // 增加高度避免溢出
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.2,
-        ),
-        itemCount: _dashboardItems.length,
-        itemBuilder: (context, index) {
-          final item = _dashboardItems[index];
-          // 让特定卡片跨列
-          if (item.span > 1) {
-            return SizedBox(
-              height: 160,
-              child: _DashboardCard(data: item),
-            );
-          }
-          return _DashboardCard(data: item);
-        },
-      ),
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: _dashboardItems.map((item) {
+        final width = item.span > 1 ? MediaQuery.of(context).size.width - 56 : (MediaQuery.of(context).size.width - 56) / 2;
+        return SizedBox(
+          width: width,
+          height: item.span > 1 ? 160 : 100,
+          child: _DashboardCard(data: item),
+        );
+      }).toList(),
     );
   }
 
-  /// 课表视图
   Widget _buildScheduleGrid() {
-    // 课表数据: [时间, 周一, 周二, 周三, 周四, 周五]
     final scheduleData = [
       ['08:00', '数学', '英语', '物理', '化学', '数学'],
       ['09:00', '英语', '数学', '数学', '物理', '英语'],
@@ -211,121 +113,68 @@ class _GridDashboardPageState extends State<_GridDashboardPage> {
       ['15:00', '自习', '自习', '自习', '自习', '自习'],
     ];
 
-    return SizedBox(
-      height: 420, // 增加高度确保完全显示
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(
+        child: Table(
+          border: TableBorder.all(color: Colors.grey.shade300),
+          defaultColumnWidth: const FixedColumnWidth(60),
           children: [
-          // 表头
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
-            ),
-            child: const Row(
-              children: [
-                SizedBox(width: 60, child: Center(child: Text('时间'))),
-                Expanded(child: Center(child: Text('周一'))),
-                Expanded(child: Center(child: Text('周二'))),
-                Expanded(child: Center(child: Text('周三'))),
-                Expanded(child: Center(child: Text('周四'))),
-                Expanded(child: Center(child: Text('周五'))),
-              ],
-            ),
-          ),
-          // 课表内容
-          ...scheduleData.asMap().entries.map((entry) {
-            final rowIndex = entry.key;
-            final row = entry.value;
-            final isEven = rowIndex.isEven;
+            TableRow(decoration: BoxDecoration(color: Colors.blue.shade50), children: [
+              _tableCell('时间', isHeader: true),
+              _tableCell('周一', isHeader: true),
+              _tableCell('周二', isHeader: true),
+              _tableCell('周三', isHeader: true),
+              _tableCell('周四', isHeader: true),
+              _tableCell('周五', isHeader: true),
+            ]),
+            ...scheduleData.map((row) => TableRow(children: [
+              _tableCell(row[0]),
+              _tableCell(row[1], course: row[1]),
+              _tableCell(row[2], course: row[2]),
+              _tableCell(row[3], course: row[3]),
+              _tableCell(row[4], course: row[4]),
+              _tableCell(row[5], course: row[5]),
+            ])),
+          ],
+        ),
+      ),
+    );
+  }
 
-            return Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: isEven ? Colors.white : Colors.grey.shade50,
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey.shade200),
-                ),
-              ),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 60,
-                    child: Center(
-                      child: Text(
-                        row[0],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                  ...row.sublist(1).map((course) => Expanded(
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getCourseColor(course).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              course,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: _getCourseColor(course),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )),
-                ],
-              ),
-            );
-          }),
-        ],
+  Widget _tableCell(String text, {bool isHeader = false, String? course}) {
+    final color = course != null ? _getCourseColor(course) : null;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color?.withOpacity(0.1),
       ),
-      ),
+      child: Text(text, style: TextStyle(
+        fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+        color: color,
+        fontSize: 12,
+      )),
     );
   }
 
   Color _getCourseColor(String course) {
     switch (course) {
-      case '数学':
-        return Colors.blue;
-      case '英语':
-        return Colors.green;
-      case '物理':
-        return Colors.orange;
-      case '化学':
-        return Colors.purple;
-      case '体育':
-        return Colors.red;
-      case '美术':
-        return Colors.pink;
-      case '音乐':
-        return Colors.teal;
-      case '班会':
-        return Colors.indigo;
-      default:
-        return Colors.grey;
+      case '数学': return Colors.blue;
+      case '英语': return Colors.green;
+      case '物理': return Colors.orange;
+      case '化学': return Colors.purple;
+      case '体育': return Colors.red;
+      case '美术': return Colors.pink;
+      case '音乐': return Colors.teal;
+      case '班会': return Colors.indigo;
+      default: return Colors.grey;
     }
   }
 }
 
-/// 数据卡片组件
 class _DashboardCard extends StatelessWidget {
   final DashboardData data;
-
   const _DashboardCard({required this.data});
 
   @override
@@ -337,10 +186,7 @@ class _DashboardCard extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              data.color.withOpacity(0.1),
-              data.color.withOpacity(0.05),
-            ],
+            colors: [data.color.withOpacity(0.1), data.color.withOpacity(0.05)],
           ),
         ),
         padding: const EdgeInsets.all(12),
@@ -353,44 +199,15 @@ class _DashboardCard extends StatelessWidget {
               children: [
                 Icon(data.icon, color: data.color, size: 20),
                 if (data.span > 1)
-                  Flexible(
-                    child: Text(
-                      data.title,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: data.color,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  Flexible(child: Text(data.title, style: TextStyle(fontSize: 10, color: data.color, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
               ],
             ),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    data.value,
-                    style: TextStyle(
-                      fontSize: data.span > 1 ? 24 : 18,
-                      fontWeight: FontWeight.bold,
-                      color: data.color,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (data.span == 1)
-                    Text(
-                      data.title,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(data.value, style: TextStyle(fontSize: data.span > 1 ? 24 : 18, fontWeight: FontWeight.bold, color: data.color), overflow: TextOverflow.ellipsis),
+                if (data.span == 1) Text(data.title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), overflow: TextOverflow.ellipsis),
+              ],
             ),
           ],
         ),
@@ -399,7 +216,6 @@ class _DashboardCard extends StatelessWidget {
   }
 }
 
-// 注册 Demo
 void registerGridDashboardDemo() {
   demoRegistry.register(GridDashboardDemo());
 }
