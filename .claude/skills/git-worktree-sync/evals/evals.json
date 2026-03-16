@@ -1,0 +1,23 @@
+{
+  "skill_name": "git-worktree-sync",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "同步所有工作树，使用变基方式",
+      "expected_output": "检测所有 worktree，执行变基同步，生成同步报告文档",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我有三个功能分支在各自的 worktree 中开发，现在想把它们都合并到主分支，然后同步到其他分支",
+      "expected_output": "收集各 worktree 的变更信息，分析冲突，按顺序合并到主分支，再扇出到其他分支，生成详细文档",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "执行 git worktree 同步，自动处理冲突并记录处理过程",
+      "expected_output": "完整的同步流程：信息收集 -> 变更分析 -> 扇入合并 -> 冲突处理 -> 编译验证 -> 扇出同步 -> 生成文档",
+      "files": []
+    }
+  ]
+}

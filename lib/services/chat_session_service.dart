@@ -64,7 +64,7 @@ class ChatSessionService {
       );
     }
 
-    await createOrUpdateSession(session!);
+    await createOrUpdateSession(session);
   }
 
   static Future<void> markSessionAsRead(String sessionId) async {

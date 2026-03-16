@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../services/media_service.dart';
+import '../../services/audio_recording_service.dart';
 
 /// 媒体功能测试页面
 /// 用于在Web和移动端验证摄像头和图库访问功能
@@ -16,6 +17,12 @@ class _MediaTestPageState extends State<MediaTestPage> {
   String _testResult = '';
   MediaCapability? _capability;
   bool _isLoading = false;
+
+  // 录音相关
+  final AudioRecordingService _audioService = AudioRecordingService();
+  bool _isAudioRecording = false;
+  String? _recordedAudioPath;
+  int _recordingDuration = 0;
 
   @override
   void initState() {
@@ -156,6 +163,76 @@ class _MediaTestPageState extends State<MediaTestPage> {
     }
   }
 
+  Future<void> _startRecording() async {
+    setState(() {
+      _testResult = '正在请求麦克风权限...';
+    });
+
+    final hasPermission = await _audioService.checkPermission();
+    if (!hasPermission) {
+      setState(() {
+        _testResult = '麦克风权限被拒绝';
+      });
+      return;
+    }
+
+    setState(() {
+      _testResult = '正在开始录音...';
+    });
+
+    final success = await _audioService.startRecording();
+    if (success && mounted) {
+      setState(() {
+        _isAudioRecording = true;
+        _recordingDuration = 0;
+        _testResult = '录音中...';
+      });
+      // 更新录音时长
+      _updateRecordingDuration();
+    } else {
+      setState(() {
+        _testResult = '开始录音失败';
+      });
+    }
+  }
+
+  void _updateRecordingDuration() {
+    if (!_isAudioRecording) return;
+
+    Future.delayed(const Duration(seconds: 1), () {
+      if (_isAudioRecording && mounted) {
+        setState(() {
+          _recordingDuration = _audioService.getDurationInSeconds();
+        });
+        _updateRecordingDuration();
+      }
+    });
+  }
+
+  Future<void> _stopRecording() async {
+    final path = await _audioService.stopRecording();
+    setState(() {
+      _isAudioRecording = false;
+      _recordedAudioPath = path;
+      _testResult = path != null
+          ? '录音完成!\n\n路径: $path\n时长: $_recordingDuration 秒'
+          : '录音失败';
+    });
+  }
+
+  Future<void> _checkAudioPermission() async {
+    setState(() {
+      _testResult = '正在检查麦克风权限...';
+    });
+
+    final hasPermission = await _audioService.checkPermission();
+    setState(() {
+      _testResult = hasPermission
+          ? '麦克风权限: 已授权'
+          : '麦克风权限: 未授权';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -289,6 +366,58 @@ class _MediaTestPageState extends State<MediaTestPage> {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 录音测试
+                    Text(
+                      '录音功能测试',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isAudioRecording ? null : _startRecording,
+                            icon: const Icon(Icons.mic),
+                            label: const Text('开始录音'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isAudioRecording ? _stopRecording : null,
+                            icon: const Icon(Icons.stop),
+                            label: const Text('停止录音'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_isAudioRecording) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.fiber_manual_record,
+                              color: Colors.red, size: 16),
+                          const SizedBox(width: 8),
+                          Text('录音中: $_recordingDuration 秒'),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _checkAudioPermission,
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('检查麦克风权限'),
                     ),
                   ],
                 ),
