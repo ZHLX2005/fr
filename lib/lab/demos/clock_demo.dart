@@ -191,24 +191,39 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
               const SizedBox(height: 8),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final colorCount = (constraints.maxWidth / 44).floor();
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: colors.map((c) {
-                      final isSelected = c == selectedColor;
-                      return GestureDetector(
-                        onTap: () => setState(() => selectedColor = c),
-                        child: Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(
-                            color: Color(int.parse(c.replaceFirst('#', '0xFF'))),
-                            shape: BoxShape.circle,
-                            border: isSelected ? Border.all(color: Colors.black, width: 3) : null,
-                          ),
+                  // 计算每行显示几个颜色，实现均衡分布
+                  final itemWidth = 36.0 + 8.0; // 颜色球宽度 + 间距
+                  final maxPerRow = (constraints.maxWidth / itemWidth).floor().clamp(1, 8);
+                  final rows = (colors.length / maxPerRow).ceil();
+                  final itemsPerRow = (colors.length / rows).ceil();
+
+                  return Column(
+                    children: List.generate(rows, (rowIndex) {
+                      final start = rowIndex * itemsPerRow;
+                      final end = (start + itemsPerRow).clamp(0, colors.length);
+                      final rowColors = colors.sublist(start, end);
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: rowColors.map((c) {
+                            final isSelected = c == selectedColor;
+                            return GestureDetector(
+                              onTap: () => setState(() => selectedColor = c),
+                              child: Container(
+                                width: 36, height: 36,
+                                decoration: BoxDecoration(
+                                  color: Color(int.parse(c.replaceFirst('#', '0xFF'))),
+                                  shape: BoxShape.circle,
+                                  border: isSelected ? Border.all(color: Colors.black, width: 3) : null,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       );
-                    }).toList(),
+                    }),
                   );
                 },
               ),
