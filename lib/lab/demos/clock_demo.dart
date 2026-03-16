@@ -27,87 +27,42 @@ class _ClockDemoPage extends StatefulWidget {
   State<_ClockDemoPage> createState() => _ClockDemoPageState();
 }
 
-class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProviderStateMixin {
-  double _offsetY = 0;
-  static const double _drawerHeight = 350;
-  late AnimationController _animController;
-  late Animation<double> _anim;
-  bool _isDrawerOpen = false;
-
+class _ClockDemoPageState extends State<_ClockDemoPage> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LabClockProvider>().loadClocks();
     });
-
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _anim = Tween<double>(begin: 0, end: _drawerHeight).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-    );
-    _animController.addListener(() {
-      setState(() {
-        _offsetY = _anim.value;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
-  void _onDragUpdate(DragUpdateDetails details) {
-    // 抽屉打开时，向上拖可以关闭
-    if (_isDrawerOpen && details.delta.dy < 0) {
-      _offsetY += details.delta.dy;
-      if (_offsetY < 0) _offsetY = 0;
-      setState(() {});
-      return;
-    }
-    // 抽屉关闭时，向下拖可以打开
-    if (!_isDrawerOpen && details.delta.dy > 0) {
-      _offsetY += details.delta.dy;
-      if (_offsetY > _drawerHeight) _offsetY = _drawerHeight;
-      setState(() {});
-    }
-  }
-
-  void _onDragEnd(DragEndDetails details) {
-    if (_offsetY > _drawerHeight / 2) {
-      _animController.forward();
-      _isDrawerOpen = true;
-    } else {
-      _animController.reverse();
-      _isDrawerOpen = false;
-    }
-  }
-
-  void _closeDrawer() {
-    _animController.reverse();
-    _isDrawerOpen = false;
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Stack(
+    return Scaffold(
+      body: Stack(
         children: [
-          // 顶部抽屉页面
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: _drawerHeight,
-            child: Material(
-                color: Theme.of(context).colorScheme.surface,
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+          // 主页面
+          Consumer<LabClockProvider>(
+            builder: (context, provider, child) {
+              if (provider.clocks.isEmpty) {
+                return _buildEmpty(context);
+              }
+              return _buildClockGrid(context, provider.clocks);
+            },
+          ),
+          // 顶部抽屉 - 使用DraggableScrollableSheet
+          Align(
+            alignment: Alignment.topCenter,
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.0,
+              minChildSize: 0.0,
+              maxChildSize: 0.5,
+              expand: false,
+              builder: (context, scrollController) {
+                return Material(
+                  color: Theme.of(context).colorScheme.surface,
+                  elevation: 4,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
                   child: Column(
                     children: [
                       Container(
@@ -135,9 +90,12 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProvide
                           builder: (context, provider, child) {
                             final records = provider.records;
                             if (records.isEmpty) {
-                              return Center(child: Text('暂无记录', style: TextStyle(color: Theme.of(context).colorScheme.outline)));
+                              return Center(
+                                child: Text('暂无记录', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+                              );
                             }
                             return ListView.builder(
+                              controller: scrollController,
                               itemCount: records.length,
                               itemBuilder: (_, index) => _buildRecordItem(context, records[index]),
                             );
@@ -146,123 +104,17 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProvide
                       ),
                     ],
                   ),
-                ),
-              ),
-            ),
-
-          // 主页面 - 随下拉移动
-          Transform.translate(
-            offset: Offset(0, _offsetY),
-            child: GestureDetector(
-              onVerticalDragUpdate: _onDragUpdate,
-              onVerticalDragEnd: _onDragEnd,
-              child: Column(
-                children: [
-                  const SizedBox(height: 30),
-                  Expanded(
-                    child: Consumer<LabClockProvider>(
-                      builder: (context, provider, child) {
-                        if (provider.clocks.isEmpty) {
-                          return _buildEmpty(context);
-                        }
-                        return _buildClockGrid(context, provider.clocks);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 下拉提示区域
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: GestureDetector(
-              onVerticalDragUpdate: _onDragUpdate,
-              onVerticalDragEnd: _onDragEnd,
-              child: Container(
-                height: 30,
-                color: Colors.transparent,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Icon(
-                      _isDrawerOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                      size: 20,
-                      color: _offsetY > 10
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                    ),
-                    Text(
-                      _isDrawerOpen ? '上拉关闭' : '下拉查看记录',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: _offsetY > 10
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // FAB
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              onPressed: () => _addClock(context),
-              child: const Icon(Icons.add),
+                );
+              },
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildRecordItem(BuildContext context, LabClockRecord record) {
-    final theme = Theme.of(context);
-    final dateFormat = DateFormat('MM-dd HH:mm');
-    final actualDuration = record.endTime != null
-        ? record.endTime!.difference(record.startTime).inSeconds
-        : 0;
-    final durationStr = _formatDuration(actualDuration);
-
-    return ListTile(
-      leading: Icon(
-        record.completed ? Icons.check_circle : Icons.pause_circle,
-        color: record.completed ? Colors.green : Colors.orange,
-      ),
-      title: Text(record.clockTitle),
-      subtitle: Text(
-        '${dateFormat.format(record.startTime)} • 计划: ${_formatDuration(record.durationSeconds)}',
-      ),
-      trailing: Text(
-        '实际: $durationStr',
-        style: TextStyle(
-          color: record.completed ? Colors.green : Colors.orange,
-          fontWeight: FontWeight.bold,
-        ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _addClock(context),
+        child: const Icon(Icons.add),
       ),
     );
-  }
-
-  String _formatDuration(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    if (h > 0) {
-      return '${h}小时${m}分';
-    } else if (m > 0) {
-      return '${m}分${s}秒';
-    } else {
-      return '${s}秒';
-    }
   }
 
   Widget _buildEmpty(BuildContext context) {
@@ -332,6 +184,45 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProvide
         ],
       ),
     );
+  }
+
+  Widget _buildRecordItem(BuildContext context, LabClockRecord record) {
+    final dateFormat = DateFormat('MM-dd HH:mm');
+    final actualDuration = record.endTime != null
+        ? record.endTime!.difference(record.startTime).inSeconds
+        : 0;
+    final durationStr = _formatDuration(actualDuration);
+
+    return ListTile(
+      leading: Icon(
+        record.completed ? Icons.check_circle : Icons.pause_circle,
+        color: record.completed ? Colors.green : Colors.orange,
+      ),
+      title: Text(record.clockTitle),
+      subtitle: Text(
+        '${dateFormat.format(record.startTime)} • 计划: ${_formatDuration(record.durationSeconds)}',
+      ),
+      trailing: Text(
+        '实际: $durationStr',
+        style: TextStyle(
+          color: record.completed ? Colors.green : Colors.orange,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(int seconds) {
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    if (h > 0) {
+      return '${h}小时${m}分';
+    } else if (m > 0) {
+      return '${m}分${s}秒';
+    } else {
+      return '${s}秒';
+    }
   }
 
   void _showClockEditor(BuildContext context, LabClock? clock) {
