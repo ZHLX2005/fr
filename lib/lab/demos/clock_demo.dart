@@ -273,49 +273,44 @@ class _ClockCard extends StatelessWidget {
               colors: [clockColor.withOpacity(0.1), clockColor.withOpacity(0.05)],
             ),
           ),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 标题行
               Row(
                 children: [
                   Expanded(
-                    child: Text(clock.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    child: Text(clock.title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
-                  SizedBox(
-                    width: 24,
-                    child: PopupMenuButton<String>(
-                      padding: EdgeInsets.zero,
-                      onSelected: (v) { if (v == 'delete') onDelete(); },
-                      itemBuilder: (_) => [const PopupMenuItem(value: 'delete', child: Text('删除'))],
-                      icon: const Icon(Icons.more_vert, size: 18),
-                    ),
+                  GestureDetector(
+                    onTap: onDelete,
+                    child: Icon(Icons.close, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.5)),
                   ),
                 ],
               ),
+              // 描述
               if (clock.description.isNotEmpty)
-                Text(clock.description, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(clock.description, style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.5)), maxLines: 1, overflow: TextOverflow.ellipsis),
               const Spacer(),
+              // 时间显示
               Center(
-                child: Text(
-                  _formatTime(clock.remainingSeconds),
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: clockColor, fontFamily: 'monospace'),
-                ),
+                child: Text(_formatTime(clock.remainingSeconds), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: clockColor)),
               ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: Icon(clock.isRunning ? Icons.pause : Icons.play_arrow, size: 24),
-                    color: clockColor,
-                    onPressed: clock.isRunning ? onPause : onStart,
-                    padding: const EdgeInsets.all(4),
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 16),
-                  IconButton(icon: const Icon(Icons.refresh, size: 24), onPressed: onReset, padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
-                ],
+              const Spacer(),
+              // 按钮
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: clock.isRunning ? onPause : onStart,
+                      child: Icon(clock.isRunning ? Icons.pause_circle : Icons.play_circle, size: 28, color: clockColor),
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(onTap: onReset, child: Icon(Icons.refresh, size: 24, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                  ],
+                ),
               ),
             ],
           ),
