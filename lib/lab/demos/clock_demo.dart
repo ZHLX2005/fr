@@ -159,32 +159,59 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
               const SizedBox(height: 12),
               const Text('倒计时时长:', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  _timePicker('时', hours, 23, (v) => setState(() => hours = v)),
-                  const Text(' : '),
-                  _timePicker('分', minutes, 59, (v) => setState(() => minutes = v)),
-                  const Text(' : '),
-                  _timePicker('秒', seconds, 59, (v) => setState(() => seconds = v)),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 360;
+                  if (isWide) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _timePicker('时', hours, 23, (v) => setState(() => hours = v)),
+                        const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text(' : ', style: TextStyle(fontSize: 16))),
+                        _timePicker('分', minutes, 59, (v) => setState(() => minutes = v)),
+                        const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text(' : ', style: TextStyle(fontSize: 16))),
+                        _timePicker('秒', seconds, 59, (v) => setState(() => seconds = v)),
+                      ],
+                    );
+                  }
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _timePicker('时', hours, 23, (v) => setState(() => hours = v)),
+                      const Text(' : ', style: TextStyle(fontSize: 14)),
+                      _timePicker('分', minutes, 59, (v) => setState(() => minutes = v)),
+                      const Text(' : ', style: TextStyle(fontSize: 14)),
+                      _timePicker('秒', seconds, 59, (v) => setState(() => seconds = v)),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
               const Text('颜色:', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
-              Wrap(spacing: 8, children: colors.map((c) {
-                final isSelected = c == selectedColor;
-                return GestureDetector(
-                  onTap: () => setState(() => selectedColor = c),
-                  child: Container(
-                    width: 36, height: 36,
-                    decoration: BoxDecoration(
-                      color: Color(int.parse(c.replaceFirst('#', '0xFF'))),
-                      shape: BoxShape.circle,
-                      border: isSelected ? Border.all(color: Colors.black, width: 3) : null,
-                    ),
-                  ),
-                );
-              }).toList()),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final colorCount = (constraints.maxWidth / 44).floor();
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: colors.map((c) {
+                      final isSelected = c == selectedColor;
+                      return GestureDetector(
+                        onTap: () => setState(() => selectedColor = c),
+                        child: Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(
+                            color: Color(int.parse(c.replaceFirst('#', '0xFF'))),
+                            shape: BoxShape.circle,
+                            border: isSelected ? Border.all(color: Colors.black, width: 3) : null,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -223,16 +250,37 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
 
   Widget _timePicker(String label, int value, int max, Function(int) onChanged) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(label, style: const TextStyle(fontSize: 12)),
         const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(icon: const Icon(Icons.remove, size: 16), onPressed: value > 0 ? () => onChanged(value - 1) : null),
-            Text(value.toString().padLeft(2, '0'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            IconButton(icon: const Icon(Icons.add, size: 16), onPressed: value < max ? () => onChanged(value + 1) : null),
-          ],
+        SizedBox(
+          height: 80,
+          width: 50,
+          child: ListWheelScrollView.useDelegate(
+            itemExtent: 28,
+            perspective: 0.003,
+            diameterRatio: 1.2,
+            physics: const FixedExtentScrollPhysics(),
+            controller: FixedExtentScrollController(initialItem: value),
+            onSelectedItemChanged: (index) => onChanged(index),
+            childDelegate: ListWheelChildBuilderDelegate(
+              childCount: max + 1,
+              builder: (context, index) {
+                final isSelected = index == value;
+                return Center(
+                  child: Text(
+                    index.toString().padLeft(2, '0'),
+                    style: TextStyle(
+                      fontSize: isSelected ? 18 : 14,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ],
     );
