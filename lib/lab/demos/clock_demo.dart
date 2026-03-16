@@ -34,7 +34,9 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProvide
   double _splitPosition = 0.65; // 默认时钟占65%，记录占35%
   bool _isDragging = false;
   late AnimationController _animController;
+  late AnimationController _snapController;
   late Animation<double> _waveAnimation;
+  late Animation<double> _snapAnimation;
 
   // 吸附点位置
   static const double _snapOneThird = 1.0 / 3.0;
@@ -42,8 +44,8 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProvide
   static const double _snapFull = 1.0;
   static const double _snapClockOnly = 0.0;
 
-  // 吸附阈值
-  static const double _snapThreshold = 0.08;
+  // 吸附阈值 - 增大范围让吸附更容易触发
+  static const double _snapThreshold = 0.12;
 
   final ScrollController _clockScrollController = ScrollController();
   final ScrollController _recordScrollController = ScrollController();
@@ -63,26 +65,41 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProvide
     _waveAnimation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
+
+    // 吸附动画
+    _snapController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _snapAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _snapController, curve: Curves.easeOutCubic),
+    );
+    _snapAnimation.addListener(() {
+      if (_snapAnimation.isCompleted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
     _animController.dispose();
+    _snapController.dispose();
     _clockScrollController.dispose();
     _recordScrollController.dispose();
     super.dispose();
   }
 
-  // 吸附到最近的点
-  double _snapToNearest(double position) {
+  // 执行吸附动画
+  void _snapToNearest(double fromPosition) {
     final distances = {
-      _snapClockOnly: (position - _snapClockOnly).abs(),
-      _snapOneThird: (position - _snapOneThird).abs(),
-      _snapTwoThird: (position - _snapTwoThird).abs(),
-      _snapFull: (position - _snapFull).abs(),
+      _snapClockOnly: (fromPosition - _snapClockOnly).abs(),
+      _snapOneThird: (fromPosition - _snapOneThird).abs(),
+      _snapTwoThird: (fromPosition - _snapTwoThird).abs(),
+      _snapFull: (fromPosition - _snapFull).abs(),
     };
 
-    double nearest = position;
+    double nearest = fromPosition;
     double minDistance = distances[_snapClockOnly]!;
 
     distances.forEach((key, value) {
@@ -94,9 +111,34 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProvide
 
     // 只有在阈值范围内才吸附
     if (minDistance <= _snapThreshold) {
-      return nearest;
+      _animateSnap(fromPosition, nearest);
     }
-    return position;
+  }
+
+  // 吸附动画
+  void _animateSnap(double from, double to) {
+    final startPosition = from;
+    final targetPosition = to;
+
+    _snapController.reset();
+    _snapController.forward();
+
+    _snapAnimation.addListener(() {
+      if (_snapAnimation.status == AnimationStatus.forward) {
+        setState(() {
+          _splitPosition = startPosition + (targetPosition - startPosition) * _snapAnimation.value;
+        });
+      }
+    });
+
+    _snapController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _snapController.removeStatusListener((_) {});
+        setState(() {
+          _splitPosition = targetPosition;
+        });
+      }
+    });
   }
 
   @override
@@ -138,10 +180,8 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with SingleTickerProvide
                 });
               },
               onVerticalDragEnd: (_) {
-                setState(() {
-                  _isDragging = false;
-                  _splitPosition = _snapToNearest(_splitPosition);
-                });
+                setState(() => _isDragging = false);
+                _snapToNearest(_splitPosition);
               },
               child: Container(
                 height: 40,
