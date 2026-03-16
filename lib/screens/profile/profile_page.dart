@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import '../../lab/lab_container.dart';
 import '../media_test_page.dart';
 import '../lab/lab_page.dart';
 
@@ -119,12 +118,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-                ),
-              ),
-              // 深下拉区域 - 触发实验室面板
-              SliverToBoxAdapter(
-                child: _LabPullDownArea(
-                  onShowLabPanel: () => _showLabPanel(context),
                 ),
               ),
               SliverToBoxAdapter(
@@ -516,150 +509,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-    );
-  }
-
-  void _showLabPanel(BuildContext context) {
-    final demos = demoRegistry.getAll();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.8,
-        builder: (_, controller) => Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // 拖动手柄
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(Icons.science, color: Theme.of(context).colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text('实验室', style: Theme.of(context).textTheme.titleLarge),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.builder(
-                  controller: controller,
-                  itemCount: demos.length,
-                  itemBuilder: (_, index) {
-                    final demo = demos[index].value;
-                    return ListTile(
-                      leading: Icon(Icons.apps, color: Theme.of(context).colorScheme.primary),
-                      title: Text(demo.title),
-                      subtitle: Text(demo.description, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => _DemoDetailPage(demo: demo)),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 深下拉区域组件
-class _LabPullDownArea extends StatefulWidget {
-  final VoidCallback onShowLabPanel;
-
-  const _LabPullDownArea({required this.onShowLabPanel});
-
-  @override
-  State<_LabPullDownArea> createState() => _LabPullDownAreaState();
-}
-
-class _LabPullDownAreaState extends State<_LabPullDownArea> {
-  double _dragOffset = 0;
-  static const double _triggerThreshold = 80;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        setState(() {
-          _dragOffset += details.delta.dy;
-          if (_dragOffset < 0) _dragOffset = 0;
-        });
-      },
-      onVerticalDragEnd: (_) {
-        if (_dragOffset > _triggerThreshold) {
-          widget.onShowLabPanel();
-        }
-        setState(() => _dragOffset = 0);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: _dragOffset > 0 ? _dragOffset : 24,
-        child: Center(
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 150),
-            opacity: _dragOffset > 20 ? 1.0 : 0.5,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                Text(
-                  '下拉打开实验室',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Demo 详情页面
-class _DemoDetailPage extends StatelessWidget {
-  final DemoPage demo;
-
-  const _DemoDetailPage({required this.demo});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(demo.title),
-      ),
-      body: demo.buildPage(context),
     );
   }
 }

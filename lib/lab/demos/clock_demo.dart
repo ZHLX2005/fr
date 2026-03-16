@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../lab_container.dart';
 import '../models/lab_clock.dart';
+import '../models/lab_clock_record.dart';
 import '../providers/lab_clock_provider.dart';
 
 /// 时钟 Demo
@@ -38,27 +39,131 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Stack(
+      child: Column(
         children: [
-          Consumer<LabClockProvider>(
-            builder: (context, provider, child) {
-              if (provider.clocks.isEmpty) {
-                return _buildEmpty(context);
-              }
-              return _buildClockGrid(context, provider.clocks);
-            },
+          // 深下拉区域 - 显示使用记录
+          _ClockPullDownArea(
+            onShowRecords: () => _showRecordsPanel(context),
           ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              onPressed: () => _addClock(context),
-              child: const Icon(Icons.add),
+          Expanded(
+            child: Stack(
+              children: [
+                Consumer<LabClockProvider>(
+                  builder: (context, provider, child) {
+                    if (provider.clocks.isEmpty) {
+                      return _buildEmpty(context);
+                    }
+                    return _buildClockGrid(context, provider.clocks);
+                  },
+                ),
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: FloatingActionButton(
+                    onPressed: () => _addClock(context),
+                    child: const Icon(Icons.add),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _showRecordsPanel(BuildContext context) {
+    final records = context.read<LabClockProvider>().records;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        builder: (_, controller) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // 拖动手柄
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text('使用记录', style: Theme.of(context).textTheme.titleLarge),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: records.isEmpty
+                    ? Center(child: Text('暂无记录', style: TextStyle(color: Theme.of(context).colorScheme.outline)))
+                    : ListView.builder(
+                        controller: controller,
+                        itemCount: records.length,
+                        itemBuilder: (_, index) => _buildRecordItem(context, records[index]),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecordItem(BuildContext context, LabClockRecord record) {
+    final theme = Theme.of(context);
+    final dateFormat = DateFormat('MM-dd HH:mm');
+    final actualDuration = record.endTime != null
+        ? record.endTime!.difference(record.startTime).inSeconds
+        : 0;
+    final durationStr = _formatDuration(actualDuration);
+
+    return ListTile(
+      leading: Icon(
+        record.completed ? Icons.check_circle : Icons.pause_circle,
+        color: record.completed ? Colors.green : Colors.orange,
+      ),
+      title: Text(record.clockTitle),
+      subtitle: Text(
+        '${dateFormat.format(record.startTime)} • 计划: ${_formatDuration(record.durationSeconds)}',
+      ),
+      trailing: Text(
+        '实际: $durationStr',
+        style: TextStyle(
+          color: record.completed ? Colors.green : Colors.orange,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(int seconds) {
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    if (h > 0) {
+      return '${h}小时${m}分';
+    } else if (m > 0) {
+      return '${m}分${s}秒';
+    } else {
+      return '${s}秒';
+    }
   }
 
   Widget _buildEmpty(BuildContext context) {
@@ -386,6 +491,66 @@ class _ClockCard extends StatelessWidget {
     final m = (seconds % 3600) ~/ 60;
     final s = seconds % 60;
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+}
+
+/// 深下拉区域 - 显示使用记录
+class _ClockPullDownArea extends StatefulWidget {
+  final VoidCallback onShowRecords;
+
+  const _ClockPullDownArea({required this.onShowRecords});
+
+  @override
+  State<_ClockPullDownArea> createState() => _ClockPullDownAreaState();
+}
+
+class _ClockPullDownAreaState extends State<_ClockPullDownArea> {
+  double _dragOffset = 0;
+  static const double _triggerThreshold = 60;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        setState(() {
+          _dragOffset += details.delta.dy;
+          if (_dragOffset < 0) _dragOffset = 0;
+        });
+      },
+      onVerticalDragEnd: (_) {
+        if (_dragOffset > _triggerThreshold) {
+          widget.onShowRecords();
+        }
+        setState(() => _dragOffset = 0);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: _dragOffset > 0 ? _dragOffset : 20,
+        child: Center(
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 150),
+            opacity: _dragOffset > 15 ? 1.0 : 0.5,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                Text(
+                  '下拉查看记录',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

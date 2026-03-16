@@ -4,13 +4,18 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/lab_clock.dart';
+import '../models/lab_clock_record.dart';
 
 class LabClockProvider with ChangeNotifier {
   List<LabClock> _clocks = [];
+  List<LabClockRecord> _records = [];
   static const String _storageKey = 'lab_clocks';
+  static const String _recordsKey = 'lab_clock_records';
   Timer? _timer;
+  String? _currentRecordId; // 当前正在进行的记录ID
 
   List<LabClock> get clocks => _clocks;
+  List<LabClockRecord> get records => _records;
 
   LabClockProvider() {
     _startTimer();
@@ -30,14 +35,31 @@ class LabClockProvider with ChangeNotifier {
         _clocks[i] = clock.copyWith(remainingSeconds: clock.remainingSeconds - 1);
         hasChanges = true;
       } else if (clock.isRunning && clock.remainingSeconds <= 0) {
-        // 倒计时结束，自动暂停
+        // 倒计时结束，自动暂停，完成记录
         _clocks[i] = clock.copyWith(isRunning: false, remainingSeconds: 0, startTime: null);
         hasChanges = true;
-        _saveClocks(); // 保存结束状态
+        _completeRecord(clock.id, completed: true);
+        _saveClocks();
       }
     }
     if (hasChanges) {
       notifyListeners();
+    }
+  }
+
+  // 完成记录
+  void _completeRecord(String clockId, {bool completed = false}) {
+    if (_currentRecordId != null) {
+      final index = _records.indexWhere((r) => r.id == _currentRecordId);
+      if (index != -1) {
+        final record = _records[index];
+        _records[index] = record.copyWith(
+          endTime: DateTime.now(),
+          completed: completed,
+        );
+        _saveRecords();
+      }
+      _currentRecordId = null;
     }
   }
 
@@ -65,9 +87,38 @@ class LabClockProvider with ChangeNotifier {
           }
         }
       }
+
+      // 加载记录
+      await loadRecords();
+
       notifyListeners();
     } catch (e) {
       debugPrint('加载时钟失败: $e');
+    }
+  }
+
+  Future<void> loadRecords() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recordsJson = prefs.getString(_recordsKey);
+      if (recordsJson != null) {
+        final List<dynamic> recordsList = json.decode(recordsJson);
+        _records = recordsList.map((e) => LabClockRecord.fromJson(e)).toList();
+        // 按时间倒序
+        _records.sort((a, b) => b.startTime.compareTo(a.startTime));
+      }
+    } catch (e) {
+      debugPrint('加载记录失败: $e');
+    }
+  }
+
+  Future<void> _saveRecords() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final recordsJson = json.encode(_records.map((e) => e.toJson()).toList());
+      await prefs.setString(_recordsKey, recordsJson);
+    } catch (e) {
+      debugPrint('保存记录失败: $e');
     }
   }
 
@@ -133,12 +184,26 @@ class LabClockProvider with ChangeNotifier {
     final index = _clocks.indexWhere((c) => c.id == id);
     if (index != -1) {
       final clock = _clocks[index];
+      final now = DateTime.now();
       _clocks[index] = clock.copyWith(
         isRunning: true,
         remainingSeconds: clock.durationSeconds ?? 0,
-        startTime: DateTime.now(),
+        startTime: now,
       );
+
+      // 创建使用记录
+      final record = LabClockRecord(
+        id: const Uuid().v4(),
+        clockId: clock.id,
+        clockTitle: clock.title,
+        startTime: now,
+        durationSeconds: clock.durationSeconds ?? 0,
+      );
+      _records.insert(0, record);
+      _currentRecordId = record.id;
+
       await _saveClocks();
+      await _saveRecords();
       notifyListeners();
     }
   }
@@ -148,6 +213,10 @@ class LabClockProvider with ChangeNotifier {
     if (index != -1) {
       final clock = _clocks[index];
       _clocks[index] = clock.copyWith(isRunning: false, startTime: null);
+
+      // 完成记录（未完成）
+      _completeRecord(id, completed: false);
+
       await _saveClocks();
       notifyListeners();
     }
@@ -161,6 +230,10 @@ class LabClockProvider with ChangeNotifier {
         isRunning: false,
         remainingSeconds: clock.durationSeconds ?? 0,
       );
+
+      // 完成记录（未完成）
+      _completeRecord(id, completed: false);
+
       await _saveClocks();
       notifyListeners();
     }
