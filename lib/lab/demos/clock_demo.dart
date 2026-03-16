@@ -28,9 +28,7 @@ class _ClockDemoPage extends StatefulWidget {
 }
 
 class _ClockDemoPageState extends State<_ClockDemoPage> {
-  final ScrollController _scrollController = ScrollController();
   double _dragExtent = 0;
-  bool _isAtTop = true;
 
   @override
   void initState() {
@@ -38,93 +36,96 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LabClockProvider>().loadClocks();
     });
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    final atTop = _scrollController.position.pixels <= 0;
-    if (atTop != _isAtTop) {
-      setState(() => _isAtTop = atTop);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Column(
+      child: Stack(
         children: [
-          // 深下拉触发区域
-          _DeepPullHeader(
-            isAtTop: _isAtTop,
-            onPull: _onVerticalDragUpdate,
-            onDragEnd: _onVerticalDragEnd,
-          ),
-          Expanded(
-            child: Stack(
-              children: [
-                NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification is ScrollUpdateNotification) {
-                      _onScroll();
-                      if (_isAtTop && notification.scrollDelta != null && notification.scrollDelta! > 0) {
-                        _dragExtent += notification.scrollDelta!;
-                        setState(() {});
-                      }
+          // 主内容区域
+          Column(
+            children: [
+              const SizedBox(height: 30), // 为下拉区域留空间
+              Expanded(
+                child: Consumer<LabClockProvider>(
+                  builder: (context, provider, child) {
+                    if (provider.clocks.isEmpty) {
+                      return _buildEmpty(context);
                     }
-                    if (notification is ScrollEndNotification) {
-                      if (_dragExtent > 100) {
-                        _showRecordsPanel(context);
-                      }
-                      setState(() => _dragExtent = 0);
-                    }
-                    return false;
+                    return _buildClockGrid(context, provider.clocks);
                   },
-                  child: Consumer<LabClockProvider>(
-                    builder: (context, provider, child) {
-                      if (provider.clocks.isEmpty) {
-                        return _buildEmpty(context);
-                      }
-                      return _buildClockGrid(context, provider.clocks);
-                    },
+                ),
+              ),
+            ],
+          ),
+          // 深下拉触发区域 - 始终在最上面
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: GestureDetector(
+              onVerticalDragUpdate: (details) {
+                setState(() {
+                  _dragExtent += details.delta.dy;
+                });
+              },
+              onVerticalDragEnd: (details) {
+                if (_dragExtent > 50) {
+                  _showRecordsPanel(context);
+                }
+                setState(() => _dragExtent = 0);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 100),
+                height: 30 + _dragExtent.clamp(0, 100),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: FloatingActionButton(
-                    onPressed: () => _addClock(context),
-                    child: const Icon(Icons.add),
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 20,
+                      color: _dragExtent > 20
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                    ),
+                    Text(
+                      '下拉查看记录',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: _dragExtent > 20
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                 ),
-              ],
+              ),
+            ),
+          ),
+          // FAB
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              onPressed: () => _addClock(context),
+              child: const Icon(Icons.add),
             ),
           ),
         ],
       ),
     );
-  }
-
-  void _onVerticalDragUpdate(DragUpdateDetails details) {
-    if (_isAtTop) {
-      setState(() {
-        _dragExtent += details.delta.dy;
-        if (_dragExtent < 0) _dragExtent = 0;
-      });
-    }
-  }
-
-  void _onVerticalDragEnd(DragEndDetails details) {
-    if (_dragExtent > 100) {
-      _showRecordsPanel(context);
-    }
-    setState(() => _dragExtent = 0);
   }
 
   void _showRecordsPanel(BuildContext context) {
@@ -546,50 +547,6 @@ class _ClockCard extends StatelessWidget {
     final m = (seconds % 3600) ~/ 60;
     final s = seconds % 60;
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-}
-
-/// 深下拉头部组件
-class _DeepPullHeader extends StatelessWidget {
-  final bool isAtTop;
-  final Function(DragUpdateDetails) onPull;
-  final Function(DragEndDetails) onDragEnd;
-
-  const _DeepPullHeader({
-    required this.isAtTop,
-    required this.onPull,
-    required this.onDragEnd,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onVerticalDragUpdate: onPull,
-      onVerticalDragEnd: onDragEnd,
-      child: Container(
-        height: 30,
-        color: Colors.transparent,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isAtTop ? Icons.keyboard_arrow_down : Icons.drag_handle,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              Text(
-                '下拉查看记录',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
