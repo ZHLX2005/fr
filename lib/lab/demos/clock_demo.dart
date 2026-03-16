@@ -28,38 +28,68 @@ class _ClockDemoPage extends StatefulWidget {
 }
 
 class _ClockDemoPageState extends State<_ClockDemoPage> {
+  double _scrollOffset = 0;
+  bool _isDrawerOpen = false;
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LabClockProvider>().loadClocks();
     });
+    _scrollController.addListener(_onScroll);
   }
 
-  double _dragOffset = 0;
-  bool _isDrawerOpen = false;
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final offset = _scrollController.offset;
+    if (offset < 0 && !_isDrawerOpen) {
+      // 向下拉并且在顶部，展开抽屉
+      setState(() {
+        _scrollOffset = -offset;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GestureDetector(
-        onVerticalDragUpdate: (details) {
-          setState(() {
-            _dragOffset += details.delta.dy;
-            _dragOffset = _dragOffset.clamp(0, 300);
-          });
-        },
-        onVerticalDragEnd: (details) {
-          if (_dragOffset > 100) {
-            setState(() {
-              _isDrawerOpen = true;
-            });
-          } else {
-            setState(() {
-              _dragOffset = 0;
-              _isDrawerOpen = false;
-            });
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollUpdateNotification) {
+            // 当滚动到最顶部时，允许下拉展开抽屉
+            if (_scrollController.position.pixels <= 0) {
+              final delta = notification.scrollDelta ?? 0;
+              if (delta < 0) {
+                // 向下拉
+                setState(() {
+                  _scrollOffset = (_scrollOffset - delta).clamp(0, 300);
+                });
+              }
+            }
           }
+          if (notification is ScrollEndNotification) {
+            if (_scrollController.position.pixels <= 0) {
+              if (_scrollOffset > 80) {
+                setState(() {
+                  _isDrawerOpen = true;
+                });
+              } else {
+                setState(() {
+                  _scrollOffset = 0;
+                  _isDrawerOpen = false;
+                });
+              }
+            }
+          }
+          return false;
         },
         child: Stack(
           children: [
@@ -69,15 +99,44 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
                 if (provider.clocks.isEmpty) {
                   return _buildEmpty(context);
                 }
-                return _buildClockGrid(context, provider.clocks);
+                return CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.only(top: _isDrawerOpen ? 310 : (_scrollOffset > 20 ? _scrollOffset : 0)),
+                      sliver: SliverGrid(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 1.0,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final clock = provider.clocks[index];
+                            return _ClockCard(
+                              clock: clock,
+                              onTap: () => _editClock(context, clock),
+                              onDelete: () => _deleteClock(context, clock),
+                              onStart: () => context.read<LabClockProvider>().startCountdown(clock.id),
+                              onPause: () => context.read<LabClockProvider>().pauseCountdown(clock.id),
+                              onReset: () => context.read<LabClockProvider>().resetCountdown(clock.id),
+                            );
+                          },
+                          childCount: provider.clocks.length,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
               },
             ),
             // 顶部抽屉
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
-              height: _isDrawerOpen ? 300 : (_dragOffset > 50 ? 50 + _dragOffset : 0),
-              child: _dragOffset > 20 || _isDrawerOpen
+              height: _isDrawerOpen ? 300 : (_scrollOffset > 20 ? _scrollOffset : 0),
+              child: _scrollOffset > 20 || _isDrawerOpen
                   ? Material(
                       color: Theme.of(context).colorScheme.surface,
                       elevation: 4,
@@ -104,7 +163,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
                                 GestureDetector(
                                   onTap: () => setState(() {
                                     _isDrawerOpen = false;
-                                    _dragOffset = 0;
+                                    _scrollOffset = 0;
                                   }),
                                   child: const Icon(Icons.close),
                                 ),
