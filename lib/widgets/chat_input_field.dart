@@ -122,7 +122,7 @@ class _ChatInputFieldState extends State<ChatInputField> {
   }
 
   // 发送预览内容
-  void _sendPreview(int index) {
+  Future<void> _sendPreview(int index) async {
     final preview = _previews[index];
     switch (preview.type) {
       case PreviewType.text:
@@ -130,16 +130,16 @@ class _ChatInputFieldState extends State<ChatInputField> {
         _controller.text = preview.content;
         break;
       case PreviewType.image:
-        widget.onImageSend?.call(preview.filePath, type: MessageType.image);
+        await widget.onImageSend?.call(preview.filePath, type: MessageType.image);
         break;
       case PreviewType.video:
-        widget.onImageSend?.call(preview.filePath, type: MessageType.video);
+        await widget.onImageSend?.call(preview.filePath, type: MessageType.video);
         break;
       case PreviewType.audio:
-        widget.onImageSend?.call(preview.filePath, type: MessageType.audio);
+        await widget.onImageSend?.call(preview.filePath, type: MessageType.audio);
         break;
       case PreviewType.file:
-        widget.onImageSend?.call(preview.filePath, type: MessageType.file);
+        await widget.onImageSend?.call(preview.filePath, type: MessageType.file);
         break;
     }
     _removePreview(index);

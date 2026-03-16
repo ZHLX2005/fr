@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../services/media_service.dart';
 import '../../services/audio_recording_service.dart';
 
@@ -24,10 +26,47 @@ class _MediaTestPageState extends State<MediaTestPage> {
   String? _recordedAudioPath;
   int _recordingDuration = 0;
 
+  // 音频播放相关
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlaying = false;
+  Duration _audioDuration = Duration.zero;
+  Duration _audioPosition = Duration.zero;
+
   @override
   void initState() {
     super.initState();
     _checkCapabilities();
+
+    // 监听音频播放状态
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = state == PlayerState.playing;
+        });
+      }
+    });
+
+    _audioPlayer.onDurationChanged.listen((duration) {
+      if (mounted) {
+        setState(() {
+          _audioDuration = duration;
+        });
+      }
+    });
+
+    _audioPlayer.onPositionChanged.listen((position) {
+      if (mounted) {
+        setState(() {
+          _audioPosition = position;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _checkCapabilities() async {
@@ -231,6 +270,46 @@ class _MediaTestPageState extends State<MediaTestPage> {
           ? '麦克风权限: 已授权'
           : '麦克风权限: 未授权';
     });
+  }
+
+  Future<void> _playAudio(String path) async {
+    try {
+      if (_isPlaying) {
+        await _audioPlayer.pause();
+      } else {
+        if (kIsWeb) {
+          await _audioPlayer.play(UrlSource(path));
+        } else {
+          await _audioPlayer.play(DeviceFileSource(path));
+        }
+      }
+    } catch (e) {
+      debugPrint('播放音频失败: $e');
+    }
+  }
+
+  Future<void> _downloadFile(String url, String fileName) async {
+    try {
+      if (kIsWeb) {
+        // Web 环境下使用 JavaScript 下载
+        // ignore:: undefined_prefixed_name
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Web端无法直接下载，请复制链接: $url')),
+          );
+        }
+      } else {
+        // 移动端提示
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('文件路径: $url')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('下载失败: $e');
+    }
   }
 
   @override
@@ -445,6 +524,57 @@ class _MediaTestPageState extends State<MediaTestPage> {
                 ),
               ),
 
+            // 录音预览
+            if (_recordedAudioPath != null && _recordedAudioPath!.isNotEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '录音预览',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(_isPlaying ? Icons.pause_circle : Icons.play_circle),
+                              iconSize: 40,
+                              color: theme.colorScheme.primary,
+                              onPressed: () => _playAudio(_recordedAudioPath!),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '录音文件',
+                                    style: theme.textTheme.bodyMedium,
+                                  ),
+                                  Text(
+                                    '时长: $_recordingDuration 秒',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             // 图片预览
             if (_selectedImagePath.isNotEmpty)
               Card(
@@ -460,10 +590,11 @@ class _MediaTestPageState extends State<MediaTestPage> {
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: kIsWeb
+                        child: _selectedImagePath.startsWith('data:')
                             ? Image.network(
                                 _selectedImagePath,
                                 width: double.infinity,
+                                height: 200,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
                                   return Container(
@@ -475,22 +606,37 @@ class _MediaTestPageState extends State<MediaTestPage> {
                                   );
                                 },
                               )
-                            : Image.file(
-                                // Native implementation would use File(_selectedImagePath)
-                                // For now, just show placeholder
-                                null as dynamic,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
+                            : kIsWeb
+                                ? Image.network(
+                                    _selectedImagePath,
+                                    width: double.infinity,
                                     height: 200,
-                                    color: Colors.grey[300],
-                                    child: Center(
-                                      child: Text(_selectedImagePath),
-                                    ),
-                                  );
-                                },
-                              ),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        height: 200,
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                          child: Text('图片加载失败'),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Image.file(
+                                    File(_selectedImagePath),
+                                    width: double.infinity,
+                                    height: 200,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        height: 200,
+                                        color: Colors.grey[300],
+                                        child: Center(
+                                          child: Text('图片加载失败: $_selectedImagePath'),
+                                        ),
+                                      );
+                                    },
+                                  ),
                       ),
                     ],
                   ),
