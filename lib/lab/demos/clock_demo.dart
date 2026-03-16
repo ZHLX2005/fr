@@ -37,21 +37,26 @@ class _ClockDemoPageState extends State<_ClockDemoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('时钟'),
-      ),
-      body: Consumer<LabClockProvider>(
-        builder: (context, provider, child) {
-          if (provider.clocks.isEmpty) {
-            return _buildEmpty(context);
-          }
-          return _buildClockGrid(context, provider.clocks);
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _addClock(context),
-        child: const Icon(Icons.add),
+    return SafeArea(
+      child: Stack(
+        children: [
+          Consumer<LabClockProvider>(
+            builder: (context, provider, child) {
+              if (provider.clocks.isEmpty) {
+                return _buildEmpty(context);
+              }
+              return _buildClockGrid(context, provider.clocks);
+            },
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              onPressed: () => _addClock(context),
+              child: const Icon(Icons.add),
+            ),
+          ),
+        ],
       ),
     );
   }

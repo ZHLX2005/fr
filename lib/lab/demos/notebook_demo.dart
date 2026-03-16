@@ -40,45 +40,50 @@ class _NotebookDemoPageState extends State<_NotebookDemoPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('笔记本'),
-      ),
-      body: Consumer<LabNoteProvider>(
-        builder: (context, provider, child) {
-          if (provider.notes.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.note_alt_outlined, size: 64, color: theme.colorScheme.outline),
-                  const SizedBox(height: 16),
-                  Text('暂无笔记', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.outline)),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _createNote(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('创建笔记'),
+    return SafeArea(
+      child: Stack(
+        children: [
+          Consumer<LabNoteProvider>(
+            builder: (context, provider, child) {
+              if (provider.notes.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.note_alt_outlined, size: 64, color: theme.colorScheme.outline),
+                      const SizedBox(height: 16),
+                      Text('暂无笔记', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.outline)),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () => _createNote(context),
+                        icon: const Icon(Icons.add),
+                        label: const Text('创建笔记'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }
+                );
+              }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: provider.notes.length,
-            itemBuilder: (context, index) => _NoteCard(
-              note: provider.notes[index],
-              onTap: () => _editNote(context, provider.notes[index]),
-              onDelete: () => _deleteNote(context, provider.notes[index]),
+              return ListView.builder(
+                padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 80),
+                itemCount: provider.notes.length,
+                itemBuilder: (context, index) => _NoteCard(
+                  note: provider.notes[index],
+                  onTap: () => _editNote(context, provider.notes[index]),
+                  onDelete: () => _deleteNote(context, provider.notes[index]),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              onPressed: () => _createNote(context),
+              child: const Icon(Icons.add),
             ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _createNote(context),
-        child: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }
