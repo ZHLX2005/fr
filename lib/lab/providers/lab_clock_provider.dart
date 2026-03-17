@@ -31,18 +31,14 @@ class LabClockProvider with ChangeNotifier {
     bool hasChanges = false;
     for (int i = 0; i < _clocks.length; i++) {
       final clock = _clocks[i];
-      if (clock.isRunning && clock.remainingSeconds > 0) {
+      if (clock.isRunning) {
+        // 倒计时完成后继续负数运行，不停止
         _clocks[i] = clock.copyWith(remainingSeconds: clock.remainingSeconds - 1);
         hasChanges = true;
-      } else if (clock.isRunning && clock.remainingSeconds <= 0) {
-        // 倒计时结束，自动暂停，完成记录
-        _clocks[i] = clock.copyWith(isRunning: false, remainingSeconds: 0, startTime: null);
-        hasChanges = true;
-        _completeRecord(clock.id, completed: true);
-        _saveClocks();
       }
     }
     if (hasChanges) {
+      _saveClocks();
       notifyListeners();
     }
   }
@@ -211,12 +207,8 @@ class LabClockProvider with ChangeNotifier {
   Future<void> pauseCountdown(String id) async {
     final index = _clocks.indexWhere((c) => c.id == id);
     if (index != -1) {
-      final clock = _clocks[index];
-      _clocks[index] = clock.copyWith(isRunning: false, startTime: null);
-
-      // 完成记录（未完成）
-      _completeRecord(id, completed: false);
-
+      // 只是暂停，不完成记录
+      _clocks[index] = _clocks[index].copyWith(isRunning: false);
       await _saveClocks();
       notifyListeners();
     }
@@ -231,9 +223,26 @@ class LabClockProvider with ChangeNotifier {
         remainingSeconds: clock.durationSeconds ?? 0,
       );
 
-      // 完成记录（未完成）
-      _completeRecord(id, completed: false);
+      // 重置时完成记录
+      _completeRecord(id, completed: true);
 
+      await _saveClocks();
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateTime(String id, int newDurationSeconds) async {
+    final index = _clocks.indexWhere((c) => c.id == id);
+    if (index != -1) {
+      final clock = _clocks[index];
+      final wasRunning = clock.isRunning;
+      _clocks[index] = clock.copyWith(
+        durationSeconds: newDurationSeconds,
+        // 如果时钟正在运行且新时间不为负，调整remainingSeconds
+        remainingSeconds: wasRunning && newDurationSeconds >= 0
+            ? newDurationSeconds
+            : clock.remainingSeconds,
+      );
       await _saveClocks();
       notifyListeners();
     }

@@ -960,10 +960,13 @@ class _ClockCard extends StatelessWidget {
   }
 
   String _formatTime(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    final isNegative = seconds < 0;
+    final absSeconds = seconds.abs();
+    final h = absSeconds ~/ 3600;
+    final m = (absSeconds % 3600) ~/ 60;
+    final s = absSeconds % 60;
+    final sign = isNegative ? '-' : '';
+    return '$sign${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 }
 
