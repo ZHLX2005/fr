@@ -57,7 +57,7 @@ jobs:
       - name: Build Android APK (arm64 only)
         run: |
           flutter build apk --release \
-            --target-platform android-arm64-v8a \
+            --target-platform android-arm64 \
             --obfuscate \
             --split-debug-info=./debug_symbols
 
