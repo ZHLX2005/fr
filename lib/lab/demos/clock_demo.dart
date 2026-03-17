@@ -443,22 +443,9 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   Widget _buildModernRecordItem(BuildContext context, LabClockRecord record) {
     final dateFormat = DateFormat('MM-dd HH:mm');
 
-    // 计算实时运行时间
-    int liveDuration = record.actualDuration;
-
-    // 如果记录正在进行中，获取当前时钟状态计算实时消耗
-    if (!record.completed) {
-      final provider = context.read<LabClockProvider>();
-      final clock = provider.getClockById(record.clockId);
-      if (clock != null && clock.isRunning && clock.durationSeconds != null) {
-        // 实时消耗 = 总时长 - 当前剩余时间
-        final currentConsumed = clock.durationSeconds! - clock.remainingSeconds;
-        if (currentConsumed > 0) {
-          liveDuration = record.actualDuration + currentConsumed;
-        }
-      }
-    }
-
+    // 直接使用 provider 提供的统一方法计算实时时间
+    final provider = context.read<LabClockProvider>();
+    final liveDuration = provider.getRecordLiveDuration(record);
     final durationStr = _formatDuration(liveDuration);
 
     return Dismissible(

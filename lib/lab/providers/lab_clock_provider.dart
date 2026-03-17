@@ -6,6 +6,8 @@ import 'package:uuid/uuid.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 
+/// 简单数据驱动的时钟Provider
+/// 核心原则：所有时间计算统一在provider内完成，UI只负责显示
 class LabClockProvider with ChangeNotifier {
   List<LabClock> _clocks = [];
   List<LabClockRecord> _records = [];
@@ -22,24 +24,9 @@ class LabClockProvider with ChangeNotifier {
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _updateCountdowns();
-    });
-  }
-
-  void _updateCountdowns() {
-    bool hasChanges = false;
-    for (int i = 0; i < _clocks.length; i++) {
-      final clock = _clocks[i];
-      if (clock.isRunning) {
-        // 倒计时完成后继续负数运行
-        _clocks[i] = clock.copyWith(remainingSeconds: clock.remainingSeconds - 1);
-        hasChanges = true;
-      }
-    }
-    if (hasChanges) {
-      _saveClocks();
+      // 每秒更新，触发UI刷新
       notifyListeners();
-    }
+    });
   }
 
   Future<void> loadClocks() async {
@@ -50,20 +37,17 @@ class LabClockProvider with ChangeNotifier {
         final List<dynamic> clocksList = json.decode(clocksJson);
         _clocks = clocksList.map((e) => LabClock.fromJson(e)).toList();
 
+        // 恢复运行时状态
         final now = DateTime.now();
         for (int i = 0; i < _clocks.length; i++) {
           final clock = _clocks[i];
           if (clock.isRunning && clock.startTime != null) {
             final elapsed = now.difference(clock.startTime!).inSeconds;
             final newRemaining = (clock.durationSeconds ?? 0) - elapsed;
-            _clocks[i] = clock.copyWith(
-              remainingSeconds: newRemaining <= 0 ? newRemaining : newRemaining,
-              isRunning: newRemaining > 0,
-            );
+            _clocks[i] = clock.copyWith(remainingSeconds: newRemaining);
           }
         }
       }
-
       await loadRecords();
       notifyListeners();
     } catch (e) {
@@ -103,6 +87,7 @@ class LabClockProvider with ChangeNotifier {
     }
   }
 
+  /// 创建时钟
   Future<LabClock> createClock({
     String title = '新时钟',
     String description = '',
@@ -128,6 +113,7 @@ class LabClockProvider with ChangeNotifier {
     return clock;
   }
 
+  /// 更新时钟
   Future<void> updateClock({
     required String id,
     String? title,
@@ -152,157 +138,182 @@ class LabClockProvider with ChangeNotifier {
     }
   }
 
+  /// 启动倒计时
   Future<void> startCountdown(String id) async {
     final index = _clocks.indexWhere((c) => c.id == id);
-    if (index != -1) {
-      final clock = _clocks[index];
-      final now = DateTime.now();
+    if (index == -1) return;
 
-      if (clock.isRunning) return;
+    final clock = _clocks[index];
+    if (clock.isRunning) return;
 
-      // 查找是否有该时钟的未完成记录
-      final existingIndex = _records.indexWhere(
-        (r) => r.clockId == id && r.endTime == null
-      );
+    final now = DateTime.now();
 
-      if (existingIndex != -1) {
-        // 已有记录，恢复
-        _records[existingIndex] = _records[existingIndex].copyWith(
-          lastStartTime: now,
-        );
-      } else {
-        // 新建记录
-        final record = LabClockRecord(
-          id: const Uuid().v4(),
-          clockId: clock.id,
-          clockTitle: clock.title,
-          startTime: now,
-          durationSeconds: clock.durationSeconds ?? 0,
-          lastStartTime: now,
-        );
-        _records.insert(0, record);
-      }
+    // 查找是否有该时钟的未结束记录
+    final recordIndex = _records.indexWhere(
+      (r) => r.clockId == id && r.endTime == null
+    );
 
-      // 恢复时保持当前剩余时间不变
-      _clocks[index] = clock.copyWith(
-        isRunning: true,
+    if (recordIndex != -1) {
+      // 恢复记录
+      final record = _records[recordIndex];
+      _records[recordIndex] = record.copyWith(lastStartTime: now);
+    } else {
+      // 新建记录
+      final record = LabClockRecord(
+        id: const Uuid().v4(),
+        clockId: clock.id,
+        clockTitle: clock.title,
         startTime: now,
+        durationSeconds: clock.durationSeconds ?? 0,
+        lastStartTime: now,
       );
-
-      await _saveRecords();
-      await _saveClocks();
-      notifyListeners();
+      _records.insert(0, record);
     }
+
+    // 启动时钟
+    _clocks[index] = clock.copyWith(
+      isRunning: true,
+      remainingSeconds: clock.durationSeconds ?? 0,
+      startTime: now,
+    );
+
+    await _saveRecords();
+    await _saveClocks();
+    notifyListeners();
   }
 
+  /// 暂停倒计时 - 保存已运行时间
   Future<void> pauseCountdown(String id) async {
     final index = _clocks.indexWhere((c) => c.id == id);
-    if (index != -1) {
-      final clock = _clocks[index];
-      if (!clock.isRunning) return;
+    if (index == -1) return;
 
-      // 暂停时钟
-      _clocks[index] = clock.copyWith(isRunning: false);
+    final clock = _clocks[index];
+    if (!clock.isRunning) return;
 
-      // 更新记录的实际时间
-      final recordIndex = _records.indexWhere(
-        (r) => r.clockId == id && r.endTime == null
+    final now = DateTime.now();
+
+    // 查找记录并累加时间
+    final recordIndex = _records.indexWhere(
+      (r) => r.clockId == id && r.endTime == null
+    );
+
+    if (recordIndex != -1) {
+      final record = _records[recordIndex];
+      final consumed = now.difference(record.lastStartTime!).inSeconds;
+      _records[recordIndex] = record.copyWith(
+        accumulatedSeconds: (record.accumulatedSeconds ?? 0) + consumed,
+        lastStartTime: null,
       );
-
-      if (recordIndex != -1) {
-        final record = _records[recordIndex];
-        final now = DateTime.now();
-        final consumed = now.difference(record.lastStartTime!).inSeconds;
-
-        _records[recordIndex] = record.copyWith(
-          accumulatedSeconds: (record.accumulatedSeconds ?? 0) + consumed,
-          lastStartTime: null,
-        );
-      }
-
-      await _saveRecords();
-      await _saveClocks();
-      notifyListeners();
     }
+
+    // 暂停时钟
+    _clocks[index] = clock.copyWith(isRunning: false);
+
+    await _saveRecords();
+    await _saveClocks();
+    notifyListeners();
   }
 
+  /// 重置倒计时 - 完成记录
   Future<void> resetCountdown(String id) async {
     final index = _clocks.indexWhere((c) => c.id == id);
-    if (index != -1) {
-      final clock = _clocks[index];
-      final now = DateTime.now();
+    if (index == -1) return;
 
-      // 先计算最后一次运行时间
-      final recordIndex = _records.indexWhere(
-        (r) => r.clockId == id && r.endTime == null
-      );
+    final clock = _clocks[index];
+    final now = DateTime.now();
 
-      if (recordIndex != -1) {
-        final record = _records[recordIndex];
-        int totalSeconds = record.accumulatedSeconds ?? 0;
+    // 查找并完成记录
+    final recordIndex = _records.indexWhere(
+      (r) => r.clockId == id && r.endTime == null
+    );
 
-        // 如果正在运行，加上最后一次运行时间
-        if (clock.isRunning && record.lastStartTime != null) {
-          totalSeconds += now.difference(record.lastStartTime!).inSeconds;
-        }
+    if (recordIndex != -1) {
+      final record = _records[recordIndex];
+      int total = record.accumulatedSeconds ?? 0;
 
-        _records[recordIndex] = record.copyWith(
-          accumulatedSeconds: totalSeconds,
-          endTime: now,
-          completed: true,
-          lastStartTime: null,
-        );
+      // 如果正在运行，加上最后一段时间
+      if (clock.isRunning && record.lastStartTime != null) {
+        total += now.difference(record.lastStartTime!).inSeconds;
       }
 
-      // 重置时钟
-      _clocks[index] = clock.copyWith(
-        isRunning: false,
-        remainingSeconds: clock.durationSeconds ?? 0,
+      _records[recordIndex] = record.copyWith(
+        accumulatedSeconds: total,
+        endTime: now,
+        completed: true,
+        lastStartTime: null,
       );
-
-      await _saveRecords();
-      await _saveClocks();
-      notifyListeners();
     }
+
+    // 重置时钟
+    _clocks[index] = clock.copyWith(
+      isRunning: false,
+      remainingSeconds: clock.durationSeconds ?? 0,
+    );
+
+    await _saveRecords();
+    await _saveClocks();
+    notifyListeners();
   }
 
+  /// 更新时间
   Future<void> updateTime(String id, int newDurationSeconds) async {
     final index = _clocks.indexWhere((c) => c.id == id);
-    if (index != -1) {
-      final clock = _clocks[index];
-      _clocks[index] = clock.copyWith(
-        durationSeconds: newDurationSeconds,
-        remainingSeconds: clock.isRunning ? clock.remainingSeconds : newDurationSeconds,
-      );
-      await _saveClocks();
-      notifyListeners();
-    }
+    if (index == -1) return;
+
+    final clock = _clocks[index];
+    _clocks[index] = clock.copyWith(
+      durationSeconds: newDurationSeconds,
+      remainingSeconds: clock.isRunning ? clock.remainingSeconds : newDurationSeconds,
+    );
+    await _saveClocks();
+    notifyListeners();
   }
 
+  /// 删除时钟
   Future<void> deleteClock(String id) async {
     _clocks.removeWhere((c) => c.id == id);
     await _saveClocks();
     notifyListeners();
   }
 
+  /// 删除记录
   Future<void> deleteRecord(String id) async {
     _records.removeWhere((r) => r.id == id);
     await _saveRecords();
     notifyListeners();
   }
 
+  /// 清空记录
   Future<void> clearRecords() async {
     _records.clear();
     await _saveRecords();
     notifyListeners();
   }
 
+  /// 获取时钟
   LabClock? getClockById(String id) {
     try {
       return _clocks.firstWhere((c) => c.id == id);
     } catch (e) {
       return null;
     }
+  }
+
+  /// 获取记录的实时运行时间（用于UI显示）
+  int getRecordLiveDuration(LabClockRecord record) {
+    // 如果已完成，直接返回累计时间
+    if (record.completed || record.endTime != null) {
+      return record.accumulatedSeconds ?? 0;
+    }
+
+    // 如果正在进行，加上当前运行的时间
+    if (record.lastStartTime != null) {
+      final now = DateTime.now();
+      final currentRun = now.difference(record.lastStartTime!).inSeconds;
+      return (record.accumulatedSeconds ?? 0) + currentRun;
+    }
+
+    return record.accumulatedSeconds ?? 0;
   }
 
   @override
