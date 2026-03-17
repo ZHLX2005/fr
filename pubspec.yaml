@@ -47,6 +47,9 @@ dependencies:
   # HTTP Requests
   http: ^1.2.2
 
+  # URL Launcher
+  url_launcher: ^6.3.1
+
   # Date Formatting
   intl: ^0.20.1
 
