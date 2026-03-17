@@ -36,20 +36,20 @@ android {
         multiDexEnabled = true
     }
 
-    // 签名配置 - 修改默认的 debug keystore 路径
+    // 签名配置
     signingConfigs {
-        getByName("debug") {
-            storeFile = file("debug.keystore")
+        create("release") {
+            storeFile = file("release.keystore")
             storePassword = "android"
-            keyAlias = "androiddebugkey"
+            keyAlias = "release"
             keyPassword = "android"
         }
     }
 
     buildTypes {
         release {
-            // 使用自定义的 debug 签名配置
-            signingConfig = signingConfigs.getByName("debug")
+            // 使用固定签名密钥
+            signingConfig = signingConfigs.getByName("release")
 
             // 启用代码压缩和混淆
             isMinifyEnabled = true
