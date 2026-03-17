@@ -1,6 +1,6 @@
 ---
 name: flutter-work-flow
-description: flutter的开发操作流程,在任何问题都需要优先加载这个SKILL
+description: flutter的开发操作流程,在dart-flutter任何问题都需要优先加载这个SKILL
 ---
 import: 任何不能立即完成的任务,请使用todolist相关的工具 先规划任务 然后再每个条目进行完成 禁止没有任何流程的进行代码控制
 
