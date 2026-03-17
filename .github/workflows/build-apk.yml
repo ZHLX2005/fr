@@ -61,11 +61,14 @@ jobs:
             --obfuscate \
             --split-debug-info=./debug_symbols
 
-      - name: Upload APK (arm64)
+      - name: List output files
+        run: find build/app/outputs/flutter-apk -name "*.apk"
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: flutter-app-arm64-${{ github.sha }}
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          path: build/app/outputs/flutter-apk/app-*.apk
           retention-days: 30
 
       - name: Upload debug symbols
