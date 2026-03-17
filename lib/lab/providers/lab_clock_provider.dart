@@ -13,7 +13,6 @@ class LabClockProvider with ChangeNotifier {
   static const String _recordsKey = 'lab_clock_records';
   Timer? _timer;
   String? _currentRecordId; // 当前正在进行的记录ID
-  DateTime? _currentRecordSessionStart; // 当前记录本次会话的开始时间
 
   List<LabClock> get clocks => _clocks;
   List<LabClockRecord> get records => _records;
@@ -44,29 +43,32 @@ class LabClockProvider with ChangeNotifier {
     }
   }
 
-  // 完成记录
-  void _completeRecord(String clockId, {bool completed = false}) {
+  /// 向记录添加事件
+  Future<void> _addEventToRecord(String recordId, ClockEvent event) async {
+    final index = _records.indexWhere((r) => r.id == recordId);
+    if (index != -1) {
+      _records[index] = _records[index].addEvent(event);
+      await _saveRecords();
+    }
+  }
+
+  /// 完成记录
+  Future<void> _completeRecord(String clockId, {bool completed = false}) async {
     if (_currentRecordId != null) {
       final index = _records.indexWhere((r) => r.id == _currentRecordId);
       if (index != -1) {
         final record = _records[index];
         final now = DateTime.now();
 
-        // 计算本次会话的运行时间并累加
-        int accumulated = record.accumulatedRunningSeconds;
-        if (_currentRecordSessionStart != null) {
-          accumulated += now.difference(_currentRecordSessionStart!).inSeconds;
-        }
+        // 添加结束事件
+        final updatedRecord = record
+            .addEvent(ClockEvent(type: ClockEventType.reset, timestamp: now))
+            .copyWith(endTime: now, completed: completed);
 
-        _records[index] = record.copyWith(
-          endTime: now,
-          completed: completed,
-          accumulatedRunningSeconds: accumulated,
-        );
-        _saveRecords();
+        _records[index] = updatedRecord;
+        await _saveRecords();
       }
       _currentRecordId = null;
-      _currentRecordSessionStart = null;
     }
   }
 
@@ -204,24 +206,24 @@ class LabClockProvider with ChangeNotifier {
       );
 
       if (existingRecordIndex != -1) {
-        // 恢复现有记录
+        // 恢复现有记录，添加恢复事件
         _currentRecordId = _records[existingRecordIndex].id;
+        await _addEventToRecord(_currentRecordId!, ClockEvent(type: ClockEventType.resume, timestamp: now));
       } else {
-        // 创建新记录
+        // 创建新记录，添加开始事件
+        final startEvent = ClockEvent(type: ClockEventType.start, timestamp: now);
         final record = LabClockRecord(
           id: const Uuid().v4(),
           clockId: clock.id,
           clockTitle: clock.title,
           startTime: now,
           durationSeconds: clock.durationSeconds ?? 0,
+          events: [startEvent],
         );
         _records.insert(0, record);
         _currentRecordId = record.id;
         await _saveRecords();
       }
-
-      // 记录本次会话开始时间（用于累加运行时间）
-      _currentRecordSessionStart = now;
 
       _clocks[index] = clock.copyWith(
         isRunning: true,
@@ -238,22 +240,22 @@ class LabClockProvider with ChangeNotifier {
     final index = _clocks.indexWhere((c) => c.id == id);
     if (index != -1) {
       final clock = _clocks[index];
+
+      // 如果时钟不在运行，不做任何事
+      if (!clock.isRunning) {
+        return;
+      }
+
       // 只是暂停，不完成记录
       _clocks[index] = clock.copyWith(isRunning: false);
 
-      // 累加本次会话的运行时间到记录中
-      if (_currentRecordId != null && _currentRecordSessionStart != null) {
+      // 添加暂停事件到记录中
+      if (_currentRecordId != null) {
         // 确认是此时钟的记录
         final recordIndex = _records.indexWhere((r) => r.id == _currentRecordId && r.clockId == id);
         if (recordIndex != -1) {
-          final record = _records[recordIndex];
-          final elapsed = DateTime.now().difference(_currentRecordSessionStart!).inSeconds;
-          _records[recordIndex] = record.copyWith(
-            accumulatedRunningSeconds: record.accumulatedRunningSeconds + elapsed,
-          );
-          await _saveRecords();
+          await _addEventToRecord(_currentRecordId!, ClockEvent(type: ClockEventType.pause, timestamp: DateTime.now()));
         }
-        _currentRecordSessionStart = null;  // 清除会话开始时间
       }
 
       await _saveClocks();
@@ -271,7 +273,7 @@ class LabClockProvider with ChangeNotifier {
       );
 
       // 重置时完成记录
-      _completeRecord(id, completed: true);
+      await _completeRecord(id, completed: true);
 
       await _saveClocks();
       notifyListeners();
@@ -282,13 +284,13 @@ class LabClockProvider with ChangeNotifier {
     final index = _clocks.indexWhere((c) => c.id == id);
     if (index != -1) {
       final clock = _clocks[index];
-      final wasRunning = clock.isRunning;
+
+      // 更新时钟时长
+      // 如果时钟未运行，直接更新剩余时间为新时长
+      // 如果时钟正在运行，保持当前的剩余时间（或可根据需求调整）
       _clocks[index] = clock.copyWith(
         durationSeconds: newDurationSeconds,
-        // 如果时钟正在运行且新时间不为负，调整remainingSeconds
-        remainingSeconds: wasRunning && newDurationSeconds >= 0
-            ? newDurationSeconds
-            : clock.remainingSeconds,
+        remainingSeconds: clock.isRunning ? clock.remainingSeconds : newDurationSeconds,
       );
       await _saveClocks();
       notifyListeners();
