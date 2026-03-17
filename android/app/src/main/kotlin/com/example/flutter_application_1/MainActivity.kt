@@ -40,8 +40,9 @@ class MainActivity : FlutterActivity() {
             // 检查是否是 fr://lab
             if (uri.toString() == "fr://lab" || uri.path == "/lab") {
                 // 通过 MethodChannel 通知 Flutter 跳转
-                MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger, CHANNEL)
-                    .invokeMethod("navigateToLab", null)
+                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                    MethodChannel(messenger, CHANNEL).invokeMethod("navigateToLab", null)
+                }
             }
         }
     }
