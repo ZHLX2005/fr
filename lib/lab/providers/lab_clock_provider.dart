@@ -179,6 +179,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       color: color ?? c.color,
     );
     await _saveClocks();
+    _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
   }
 
