@@ -17,6 +17,8 @@ LabClockRecord _$LabClockRecordFromJson(Map<String, dynamic> json) =>
           : DateTime.parse(json['endTime'] as String),
       durationSeconds: (json['durationSeconds'] as num).toInt(),
       completed: json['completed'] as bool? ?? false,
+      accumulatedRunningSeconds:
+          (json['accumulatedRunningSeconds'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$LabClockRecordToJson(LabClockRecord instance) =>
@@ -28,4 +30,5 @@ Map<String, dynamic> _$LabClockRecordToJson(LabClockRecord instance) =>
       'endTime': instance.endTime?.toIso8601String(),
       'durationSeconds': instance.durationSeconds,
       'completed': instance.completed,
+      'accumulatedRunningSeconds': instance.accumulatedRunningSeconds,
     };

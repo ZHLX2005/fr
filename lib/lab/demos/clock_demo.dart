@@ -7,6 +7,7 @@ import '../lab_container.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 import '../providers/lab_clock_provider.dart';
+import '../utils/clock_color_util.dart';
 
 /// 时钟 Demo
 class ClockDemo extends DemoPage {
@@ -43,8 +44,11 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   static const double _snapTwoThird = 2.0 / 3.0;   // 记录占67%
   static const double _snapDefault = 0.65;       // 默认时钟65%，记录35%
 
-  // 吸附阈值
-  static const double _snapThreshold = 0.20;
+  // 吸附阈值 - 增强磁吸范围
+  static const double _snapThreshold = 0.30;  // 从0.20提高到0.30，更容易吸附
+
+  // 检测接近磁吸点的阈值（用于视觉反馈）
+  static const double _snapProximityThreshold = 0.12;
 
   final ScrollController _clockScrollController = ScrollController();
   final ScrollController _recordScrollController = ScrollController();
@@ -65,13 +69,13 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
 
-    // 吸附动画
+    // 吸附动画 - 更快的吸附速度和更平滑的曲线
     _snapController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 250),  // 从400ms减少到250ms，更灵敏
     );
     _snapAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _snapController, curve: Curves.easeOutCubic),
+      CurvedAnimation(parent: _snapController, curve: Curves.easeOutBack),  // 使用easeOutBack获得更有力的吸附感
     );
     _snapAnimation.addListener(() {
       if (_snapAnimation.isCompleted) {
@@ -89,7 +93,18 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
     super.dispose();
   }
 
-  // 执行吸附动画 - 只吸附到中间两个磁力点
+  // 检查是否接近磁吸点
+  (bool isNear, int? snapPointIndex) _checkSnapProximity(double position) {
+    for (int i = 0; i < 2; i++) {
+      final snapPoint = i == 0 ? _snapOneThird : _snapTwoThird;
+      if ((position - snapPoint).abs() <= _snapProximityThreshold) {
+        return (true, i);
+      }
+    }
+    return (false, null);
+  }
+
+  // 执行吸附动画 - 增强磁吸效果
   void _snapToNearest(double fromPosition) {
     final distances = {
       _snapOneThird: (fromPosition - _snapOneThird).abs(),
@@ -193,12 +208,17 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                           child: AnimatedBuilder(
                             animation: _waveAnimation,
                             builder: (context, child) {
+                              // 检查是否接近磁吸点，用于增强视觉效果
+                              final proximity = _checkSnapProximity(_splitPosition);
+
                               return CustomPaint(
                                 size: Size.infinite,
                                 painter: _WaveLinePainter(
                                   waveAnimation: _waveAnimation.value,
                                   isDragging: _isDragging,
                                   color: const Color(0xFF007AFF),
+                                  isNearSnapPoint: proximity.$1,
+                                  snapPointIndex: proximity.$2,
                                 ),
                               );
                             },
@@ -753,26 +773,35 @@ class _WaveLinePainter extends CustomPainter {
   final double waveAnimation;
   final bool isDragging;
   final Color color;
+  final bool isNearSnapPoint;  // 是否接近磁吸点
+  final int? snapPointIndex;   // 磁吸点索引 (0=1/3, 1=2/3)
 
   _WaveLinePainter({
     required this.waveAnimation,
     required this.isDragging,
     required this.color,
+    this.isNearSnapPoint = false,
+    this.snapPointIndex,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 根据是否接近磁吸点调整样式
+    final isNear = isNearSnapPoint || isDragging;
+    final opacity = isNear ? 0.8 : 0.4;
+    final strokeWidth = isNear ? 3.5 : 2.0;
+
     final paint = Paint()
-      ..color = isDragging ? color : color.withOpacity(0.4)
-      ..strokeWidth = isDragging ? 3 : 2
+      ..color = color.withOpacity(opacity)
+      ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final path = Path();
 
-    // 绘制波浪线
-    final waveHeight = isDragging ? 12.0 : 8.0;
-    final waveLength = size.width / 3;
+    // 增强波浪效果 - 接近磁吸点时波浪更大
+    final baseWaveHeight = isDragging ? 12.0 : 8.0;
+    final waveHeight = isNearSnapPoint ? baseWaveHeight * 1.5 : baseWaveHeight;
 
     path.moveTo(0, size.height / 2);
 
@@ -781,16 +810,29 @@ class _WaveLinePainter extends CustomPainter {
       final wavePhase = waveAnimation + (normalizedX * 4 * math.pi);
       final yOffset = math.sin(wavePhase) * waveHeight;
 
-      // 在1/3和2/3位置添加磁吸点效果
+      // 在1/3和2/3位置添加增强的磁吸点效果
       final snapEffect = _getSnapEffect(normalizedX);
-      final snapYOffset = snapEffect * math.sin(waveAnimation * 2) * 6;
+      final snapAmplitude = isNearSnapPoint ? 10.0 : 6.0;  // 接近时振幅更大
+      final snapYOffset = snapEffect * math.sin(waveAnimation * 2) * snapAmplitude;
 
-      path.lineTo(x, size.height / 2 + yOffset + snapYOffset);
+      // 如果接近特定磁吸点，在该位置产生脉冲效果
+      double pulseOffset = 0;
+      if (isNearSnapPoint && snapPointIndex != null) {
+        final targetX = snapPointIndex == 0 ? 1.0 / 3.0 : 2.0 / 3.0;
+        final distToTarget = (normalizedX - targetX).abs();
+        if (distToTarget < 0.15) {
+          // 在磁吸点附近产生脉冲
+          final pulseIntensity = 1.0 - (distToTarget / 0.15);
+          pulseOffset = math.sin(waveAnimation * 3) * 4 * pulseIntensity;
+        }
+      }
+
+      path.lineTo(x, size.height / 2 + yOffset + snapYOffset + pulseOffset);
     }
 
     canvas.drawPath(path, paint);
 
-    // 绘制磁吸点指示器
+    // 绘制增强的磁吸点指示器
     _drawSnapPoints(canvas, size);
   }
 
@@ -802,31 +844,48 @@ class _WaveLinePainter extends CustomPainter {
     final distToFirst = (normalizedX - snapOneThird).abs();
     final distToSecond = (normalizedX - snapTwoThird).abs();
 
-    if (distToFirst < 0.1) {
-      return (1.0 - distToFirst / 0.1);
-    } else if (distToSecond < 0.1) {
-      return (1.0 - distToSecond / 0.1);
+    // 增加影响范围从0.1到0.15
+    if (distToFirst < 0.15) {
+      return (1.0 - distToFirst / 0.15);
+    } else if (distToSecond < 0.15) {
+      return (1.0 - distToSecond / 0.15);
     }
     return 0.0;
   }
 
   void _drawSnapPoints(Canvas canvas, Size size) {
-    final dotPaint = Paint()
-      ..color = color.withOpacity(0.3)
-      ..style = PaintingStyle.fill;
-
-    // 在1/3、2/3、1位置绘制小点
     final snapPoints = [1.0 / 3.0, 2.0 / 3.0, 1.0];
 
     for (int i = 0; i < snapPoints.length; i++) {
       final x = snapPoints[i] * size.width;
 
-      // 绘制小圆点
+      // 接近磁吸点时，该点变大且更亮
+      final isThisPointNear = isNearSnapPoint && snapPointIndex == i;
+      final dotRadius = isThisPointNear ? 6.0 : (isDragging ? 4.0 : 3.0);
+      final dotOpacity = isThisPointNear ? 0.8 : (isDragging ? 0.5 : 0.3);
+
+      final dotPaint = Paint()
+        ..color = color.withOpacity(dotOpacity)
+        ..style = PaintingStyle.fill;
+
+      // 绘制主圆点
       canvas.drawCircle(
         Offset(x, size.height / 2),
-        isDragging ? 4.0 : 3.0,
+        dotRadius,
         dotPaint,
       );
+
+      // 如果接近这个点，绘制外圈光环效果
+      if (isThisPointNear) {
+        final glowPaint = Paint()
+          ..color = color.withOpacity(0.2)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(
+          Offset(x, size.height / 2),
+          dotRadius + 4 + math.sin(waveAnimation * 4) * 2,  // 脉冲光环
+          glowPaint,
+        );
+      }
     }
   }
 
@@ -834,7 +893,9 @@ class _WaveLinePainter extends CustomPainter {
   bool shouldRepaint(_WaveLinePainter oldDelegate) {
     return waveAnimation != oldDelegate.waveAnimation ||
         isDragging != oldDelegate.isDragging ||
-        color != oldDelegate.color;
+        color != oldDelegate.color ||
+        isNearSnapPoint != oldDelegate.isNearSnapPoint ||
+        snapPointIndex != oldDelegate.snapPointIndex;
   }
 }
 
@@ -858,14 +919,35 @@ class _ClockCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final clockColor = Color(int.parse(clock.color?.replaceFirst('#', '0xFF') ?? '0xFF2196F3'));
+    final baseColor = Color(int.parse(clock.color?.replaceFirst('#', '0xFF') ?? '0xFF2196F3'));
+
+    // 使用颜色工具类计算动态颜色
+    final clockColor = ClockColorUtil.getClockColor(
+      baseColor: baseColor,
+      remainingSeconds: clock.remainingSeconds,
+      durationSeconds: clock.durationSeconds ?? 0,
+      maxDarkness: 0.75,
+      curve: ClockColorUtil.curves['easeInQuad'],
+    );
+
+    final bgColor = ClockColorUtil.getBackgroundColor(
+      baseColor: baseColor,
+      remainingSeconds: clock.remainingSeconds,
+      durationSeconds: clock.durationSeconds ?? 0,
+    );
+
+    final borderColor = ClockColorUtil.getBorderColor(
+      baseColor: baseColor,
+      remainingSeconds: clock.remainingSeconds,
+      durationSeconds: clock.durationSeconds ?? 0,
+    );
 
     return Container(
       decoration: BoxDecoration(
-        color: clockColor.withOpacity(0.08),
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: clockColor.withOpacity(0.2),
+          color: borderColor,
           width: 1,
         ),
       ),
