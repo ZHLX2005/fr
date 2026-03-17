@@ -6,8 +6,8 @@ import 'package:uuid/uuid.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 
-/// 简单数据驱动的时钟Provider
-/// 核心原则：所有时间计算统一在provider内完成，UI只负责显示
+/// 极简时钟Provider - 数据驱动
+/// 核心：只用一个数据源，每次操作直接写入最终状态
 class LabClockProvider with ChangeNotifier {
   List<LabClock> _clocks = [];
   List<LabClockRecord> _records = [];
@@ -24,74 +24,68 @@ class LabClockProvider with ChangeNotifier {
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      // 每秒更新，触发UI刷新
-      notifyListeners();
+      bool changed = false;
+      for (int i = 0; i < _clocks.length; i++) {
+        if (_clocks[i].isRunning) {
+          _clocks[i] = _clocks[i].copyWith(
+            remainingSeconds: _clocks[i].remainingSeconds - 1
+          );
+          changed = true;
+        }
+      }
+      if (changed) {
+        _saveClocks();
+        notifyListeners();
+      }
     });
   }
 
   Future<void> loadClocks() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final clocksJson = prefs.getString(_storageKey);
-      if (clocksJson != null) {
-        final List<dynamic> clocksList = json.decode(clocksJson);
-        _clocks = clocksList.map((e) => LabClock.fromJson(e)).toList();
+    final prefs = await SharedPreferences.getInstance();
+    final clocksJson = prefs.getString(_storageKey);
+    if (clocksJson != null) {
+      final List<dynamic> list = json.decode(clocksJson);
+      _clocks = list.map((e) => LabClock.fromJson(e)).toList();
 
-        // 恢复运行时状态
-        final now = DateTime.now();
-        for (int i = 0; i < _clocks.length; i++) {
-          final clock = _clocks[i];
-          if (clock.isRunning && clock.startTime != null) {
-            final elapsed = now.difference(clock.startTime!).inSeconds;
-            final newRemaining = (clock.durationSeconds ?? 0) - elapsed;
-            _clocks[i] = clock.copyWith(remainingSeconds: newRemaining);
-          }
+      // 恢复运行状态
+      final now = DateTime.now();
+      for (int i = 0; i < _clocks.length; i++) {
+        final c = _clocks[i];
+        if (c.isRunning && c.startTime != null) {
+          final elapsed = now.difference(c.startTime!).inSeconds;
+          _clocks[i] = c.copyWith(remainingSeconds: (c.durationSeconds ?? 0) - elapsed);
         }
       }
-      await loadRecords();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('加载时钟失败: $e');
     }
+
+    await loadRecords();
+    notifyListeners();
   }
 
   Future<void> loadRecords() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final recordsJson = prefs.getString(_recordsKey);
-      if (recordsJson != null) {
-        final List<dynamic> recordsList = json.decode(recordsJson);
-        _records = recordsList.map((e) => LabClockRecord.fromJson(e)).toList();
-        _records.sort((a, b) => b.startTime.compareTo(a.startTime));
-      }
-    } catch (e) {
-      debugPrint('加载记录失败: $e');
-    }
-  }
-
-  Future<void> _saveRecords() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_recordsKey, json.encode(_records.map((e) => e.toJson()).toList()));
-    } catch (e) {
-      debugPrint('保存记录失败: $e');
+    final prefs = await SharedPreferences.getInstance();
+    final String? recordsJson = prefs.getString(_recordsKey);
+    if (recordsJson != null) {
+      final List<dynamic> list = json.decode(recordsJson);
+      _records = list.map((e) => LabClockRecord.fromJson(e)).toList();
+      _records.sort((a, b) => b.startTime.compareTo(a.startTime));
     }
   }
 
   Future<void> _saveClocks() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_storageKey, json.encode(_clocks.map((e) => e.toJson()).toList()));
-    } catch (e) {
-      debugPrint('保存时钟失败: $e');
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storageKey, json.encode(_clocks.map((e) => e.toJson()).toList()));
+  }
+
+  Future<void> _saveRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_recordsKey, json.encode(_records.map((e) => e.toJson()).toList()));
   }
 
   /// 创建时钟
   Future<LabClock> createClock({
     String title = '新时钟',
     String description = '',
-    String? targetTime,
     int? durationSeconds,
     String? color,
   }) async {
@@ -100,13 +94,11 @@ class LabClockProvider with ChangeNotifier {
       title: title,
       description: description,
       createdAt: DateTime.now(),
-      targetTime: targetTime,
       durationSeconds: durationSeconds,
       isRunning: false,
       remainingSeconds: durationSeconds ?? 0,
       color: color ?? '#2196F3',
     );
-
     _clocks.insert(0, clock);
     await _saveClocks();
     notifyListeners();
@@ -118,62 +110,54 @@ class LabClockProvider with ChangeNotifier {
     required String id,
     String? title,
     String? description,
-    String? targetTime,
     int? durationSeconds,
     String? color,
   }) async {
-    final index = _clocks.indexWhere((c) => c.id == id);
-    if (index != -1) {
-      final clock = _clocks[index];
-      _clocks[index] = clock.copyWith(
-        title: title ?? clock.title,
-        description: description ?? clock.description,
-        targetTime: targetTime ?? clock.targetTime,
-        durationSeconds: durationSeconds ?? clock.durationSeconds,
-        remainingSeconds: clock.isRunning ? clock.remainingSeconds : (durationSeconds ?? clock.remainingSeconds),
-        color: color ?? clock.color,
-      );
-      await _saveClocks();
-      notifyListeners();
-    }
+    final i = _clocks.indexWhere((c) => c.id == id);
+    if (i == -1) return;
+
+    final c = _clocks[i];
+    _clocks[i] = c.copyWith(
+      title: title ?? c.title,
+      description: description ?? c.description,
+      durationSeconds: durationSeconds ?? c.durationSeconds,
+      remainingSeconds: c.isRunning ? c.remainingSeconds : (durationSeconds ?? c.remainingSeconds),
+      color: color ?? c.color,
+    );
+    await _saveClocks();
+    notifyListeners();
   }
 
-  /// 启动倒计时
+  /// 启动
   Future<void> startCountdown(String id) async {
-    final index = _clocks.indexWhere((c) => c.id == id);
-    if (index == -1) return;
+    final i = _clocks.indexWhere((c) => c.id == id);
+    if (i == -1) return;
 
-    final clock = _clocks[index];
-    if (clock.isRunning) return;
+    final c = _clocks[i];
+    if (c.isRunning) return;
 
     final now = DateTime.now();
 
-    // 查找是否有该时钟的未结束记录
-    final recordIndex = _records.indexWhere(
-      (r) => r.clockId == id && r.endTime == null
-    );
+    // 查找或创建记录
+    int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
 
-    if (recordIndex != -1) {
-      // 恢复记录
-      final record = _records[recordIndex];
-      _records[recordIndex] = record.copyWith(lastStartTime: now);
-    } else {
-      // 新建记录
+    if (recordIdx == -1) {
+      // 新建记录 - 记录当前开始时的remainingSeconds
       final record = LabClockRecord(
         id: const Uuid().v4(),
-        clockId: clock.id,
-        clockTitle: clock.title,
+        clockId: c.id,
+        clockTitle: c.title,
         startTime: now,
-        durationSeconds: clock.durationSeconds ?? 0,
-        lastStartTime: now,
+        durationSeconds: c.durationSeconds ?? 0,
+        startRemaining: c.remainingSeconds,  // 启动时的剩余时间
       );
       _records.insert(0, record);
+      recordIdx = 0;
     }
 
-    // 启动时钟
-    _clocks[index] = clock.copyWith(
+    // 更新时钟状态
+    _clocks[i] = c.copyWith(
       isRunning: true,
-      remainingSeconds: clock.durationSeconds ?? 0,
       startTime: now,
     );
 
@@ -182,72 +166,60 @@ class LabClockProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 暂停倒计时 - 保存已运行时间
+  /// 暂停 - 计算并保存实际消耗时间
   Future<void> pauseCountdown(String id) async {
-    final index = _clocks.indexWhere((c) => c.id == id);
-    if (index == -1) return;
+    final i = _clocks.indexWhere((c) => c.id == id);
+    if (i == -1) return;
 
-    final clock = _clocks[index];
-    if (!clock.isRunning) return;
+    final c = _clocks[i];
+    if (!c.isRunning) return;
 
-    final now = DateTime.now();
+    // 更新时钟状态
+    _clocks[i] = c.copyWith(isRunning: false);
 
-    // 查找记录并累加时间
-    final recordIndex = _records.indexWhere(
-      (r) => r.clockId == id && r.endTime == null
-    );
-
-    if (recordIndex != -1) {
-      final record = _records[recordIndex];
-      final consumed = now.difference(record.lastStartTime!).inSeconds;
-      _records[recordIndex] = record.copyWith(
+    // 计算本次消耗时间并保存
+    int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
+    if (recordIdx != -1) {
+      final record = _records[recordIdx];
+      final consumed = (record.startRemaining ?? c.durationSeconds ?? 0) - c.remainingSeconds;
+      _records[recordIdx] = record.copyWith(
         accumulatedSeconds: (record.accumulatedSeconds ?? 0) + consumed,
-        lastStartTime: null,
+        startRemaining: null,  // 暂停后清除
       );
     }
-
-    // 暂停时钟
-    _clocks[index] = clock.copyWith(isRunning: false);
 
     await _saveRecords();
     await _saveClocks();
     notifyListeners();
   }
 
-  /// 重置倒计时 - 完成记录
+  /// 重置
   Future<void> resetCountdown(String id) async {
-    final index = _clocks.indexWhere((c) => c.id == id);
-    if (index == -1) return;
+    final i = _clocks.indexWhere((c) => c.id == id);
+    if (i == -1) return;
 
-    final clock = _clocks[index];
+    final c = _clocks[i];
     final now = DateTime.now();
 
-    // 查找并完成记录
-    final recordIndex = _records.indexWhere(
-      (r) => r.clockId == id && r.endTime == null
-    );
-
-    if (recordIndex != -1) {
-      final record = _records[recordIndex];
-      int total = record.accumulatedSeconds ?? 0;
-
-      // 如果正在运行，加上最后一段时间
-      if (clock.isRunning && record.lastStartTime != null) {
-        total += now.difference(record.lastStartTime!).inSeconds;
+    // 如果正在运行，先计算最后一次消耗
+    if (c.isRunning) {
+      int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
+      if (recordIdx != -1) {
+        final record = _records[recordIdx];
+        final consumed = (record.startRemaining ?? c.durationSeconds ?? 0) - c.remainingSeconds;
+        _records[recordIdx] = record.copyWith(
+          accumulatedSeconds: (record.accumulatedSeconds ?? 0) + consumed,
+          endTime: now,
+          completed: true,
+          startRemaining: null,
+        );
       }
-
-      _records[recordIndex] = record.copyWith(
-        accumulatedSeconds: total,
-        endTime: now,
-        completed: true,
-        lastStartTime: null,
-      );
     }
 
     // 重置时钟
-    _clocks[index] = clock.copyWith(
+    _clocks[i] = c.copyWith(
       isRunning: false,
-      remainingSeconds: clock.durationSeconds ?? 0,
+      remainingSeconds: c.durationSeconds ?? 0,
     );
 
     await _saveRecords();
@@ -255,15 +227,15 @@ class LabClockProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 更新时间
-  Future<void> updateTime(String id, int newDurationSeconds) async {
-    final index = _clocks.indexWhere((c) => c.id == id);
-    if (index == -1) return;
+  /// 更新时长
+  Future<void> updateTime(String id, int newDuration) async {
+    final i = _clocks.indexWhere((c) => c.id == id);
+    if (i == -1) return;
 
-    final clock = _clocks[index];
-    _clocks[index] = clock.copyWith(
-      durationSeconds: newDurationSeconds,
-      remainingSeconds: clock.isRunning ? clock.remainingSeconds : newDurationSeconds,
+    final c = _clocks[i];
+    _clocks[i] = c.copyWith(
+      durationSeconds: newDuration,
+      remainingSeconds: c.isRunning ? c.remainingSeconds : newDuration,
     );
     await _saveClocks();
     notifyListeners();
@@ -299,18 +271,18 @@ class LabClockProvider with ChangeNotifier {
     }
   }
 
-  /// 获取记录的实时运行时间（用于UI显示）
+  /// 获取记录实时运行时间
   int getRecordLiveDuration(LabClockRecord record) {
-    // 如果已完成，直接返回累计时间
+    // 已完成：直接返回
     if (record.completed || record.endTime != null) {
       return record.accumulatedSeconds ?? 0;
     }
 
-    // 如果正在进行，加上当前运行的时间
-    if (record.lastStartTime != null) {
-      final now = DateTime.now();
-      final currentRun = now.difference(record.lastStartTime!).inSeconds;
-      return (record.accumulatedSeconds ?? 0) + currentRun;
+    // 进行中：加上当前运行时间
+    final clock = getClockById(record.clockId);
+    if (clock != null && clock.isRunning && record.startRemaining != null) {
+      final consumed = record.startRemaining! - clock.remainingSeconds;
+      return (record.accumulatedSeconds ?? 0) + consumed;
     }
 
     return record.accumulatedSeconds ?? 0;

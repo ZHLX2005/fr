@@ -11,8 +11,8 @@ class LabClockRecord {
   final DateTime? endTime;
   final int durationSeconds;
   final bool completed;
-  final int? accumulatedSeconds; // 累计运行秒数
-  final DateTime? lastStartTime; // 最后一次启动时间
+  final int? accumulatedSeconds;
+  final int? startRemaining;  // 启动时的剩余秒数
 
   LabClockRecord({
     required this.id,
@@ -23,11 +23,10 @@ class LabClockRecord {
     required this.durationSeconds,
     this.completed = false,
     this.accumulatedSeconds,
-    this.lastStartTime,
+    this.startRemaining,
   });
 
   factory LabClockRecord.fromJson(Map<String, dynamic> json) => _$LabClockRecordFromJson(json);
-
   Map<String, dynamic> toJson() => _$LabClockRecordToJson(this);
 
   LabClockRecord copyWith({
@@ -39,7 +38,7 @@ class LabClockRecord {
     int? durationSeconds,
     bool? completed,
     int? accumulatedSeconds,
-    DateTime? lastStartTime,
+    int? startRemaining,
   }) {
     return LabClockRecord(
       id: id ?? this.id,
@@ -50,10 +49,7 @@ class LabClockRecord {
       durationSeconds: durationSeconds ?? this.durationSeconds,
       completed: completed ?? this.completed,
       accumulatedSeconds: accumulatedSeconds ?? this.accumulatedSeconds,
-      lastStartTime: lastStartTime ?? this.lastStartTime,
+      startRemaining: startRemaining ?? this.startRemaining,
     );
   }
-
-  /// 实际运行时间（已保存的累计时间）
-  int get actualDuration => accumulatedSeconds ?? 0;
 }
