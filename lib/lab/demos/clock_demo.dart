@@ -1160,80 +1160,84 @@ class _RecordSwipeActionState extends State<_RecordSwipeAction> {
       onHorizontalDragUpdate: (details) {
         setState(() {
           _offsetX += details.delta.dx;
-          // 向左滑(负值)显示创建，向右滑(正值)显示删除
-          _offsetX = _offsetX.clamp(-_actionWidth * 1.5, _actionWidth);
+          _offsetX = _offsetX.clamp(-_actionWidth, _actionWidth);
         });
       },
       onHorizontalDragEnd: (details) {
         if (_offsetX < -_actionWidth * 0.5) {
-          // 向左滑，展开创建按钮
           setState(() => _offsetX = -_actionWidth);
         } else if (_offsetX > _actionWidth * 0.5) {
-          // 向右滑，展开删除按钮
           setState(() => _offsetX = _actionWidth);
         } else {
-          // 复位
           setState(() => _offsetX = 0);
         }
       },
-      child: Stack(
-        children: [
-          // 左侧按钮（向左滑显示创建）
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: _actionWidth,
-            child: GestureDetector(
-              onTap: () {
-                setState(() => _offsetX = 0);
-                widget.onCreate();
-              },
-              child: Container(
-                color: const Color(0xFF007AFF),
-                alignment: Alignment.center,
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add, color: Colors.white, size: 22),
-                    SizedBox(height: 2),
-                    Text('创建', style: TextStyle(color: Colors.white, fontSize: 11)),
-                  ],
+      child: SizedBox(
+        height: 70,
+        child: Stack(
+          children: [
+            // 删除按钮（向右滑显示，在内容左侧）
+            if (_offsetX > 0)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: _actionWidth,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() => _offsetX = 0);
+                    widget.onDelete();
+                  },
+                  child: Container(
+                    color: const Color(0xFFFF3B30),
+                    alignment: Alignment.center,
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.delete, color: Colors.white, size: 22),
+                        SizedBox(height: 2),
+                        Text('删除', style: TextStyle(color: Colors.white, fontSize: 11)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          // 右侧按钮（向右滑显示删除）
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: _actionWidth,
-            child: GestureDetector(
-              onTap: () {
-                setState(() => _offsetX = 0);
-                widget.onDelete();
-              },
-              child: Container(
-                color: const Color(0xFFFF3B30),
-                alignment: Alignment.center,
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.delete, color: Colors.white, size: 22),
-                    SizedBox(height: 2),
-                    Text('删除', style: TextStyle(color: Colors.white, fontSize: 11)),
-                  ],
+            // 创建按钮（向左滑显示，在内容右侧）
+            if (_offsetX < 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: _actionWidth,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() => _offsetX = 0);
+                    widget.onCreate();
+                  },
+                  child: Container(
+                    color: const Color(0xFF007AFF),
+                    alignment: Alignment.center,
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add, color: Colors.white, size: 22),
+                        SizedBox(height: 2),
+                        Text('创建', style: TextStyle(color: Colors.white, fontSize: 11)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+            // 内容层
+            Transform.translate(
+              offset: Offset(_offsetX, 0),
+              child: Container(
+                color: Colors.white,
+                child: widget.child,
+              ),
             ),
-          ),
-          // 内容层
-          Transform.translate(
-            offset: Offset(_offsetX, 0),
-            child: widget.child,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
