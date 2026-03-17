@@ -10,6 +10,7 @@ import 'lab/demos/grid_dashboard_demo.dart';
 import 'lab/demos/notebook_demo.dart';
 import 'lab/demos/clock_demo.dart';
 import 'lab/demos/network_demo.dart';
+import 'lab/demos/game_2048_demo.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 
@@ -19,6 +20,7 @@ void main() {
   registerNotebookDemo();
   registerClockDemo();
   registerNetworkDemo();
+  registerGame2048Demo();
 
   runApp(const MyApp());
 }
