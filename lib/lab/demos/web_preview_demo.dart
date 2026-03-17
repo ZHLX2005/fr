@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../lab_container.dart';
 
-/// 浏览器预览Demo - 在应用内打开URL
+/// 浏览器预览Demo - 内嵌浏览器
 class WebPreviewDemo extends DemoPage {
   @override
   String get title => '浏览器预览';
@@ -25,9 +25,11 @@ class _WebPreviewPage extends StatefulWidget {
 
 class _WebPreviewPageState extends State<_WebPreviewPage> {
   final _urlController = TextEditingController();
+  late final WebViewController _webViewController;
+  bool _isLoading = true;
+  double _loadProgress = 0;
   String _currentUrl = '';
-  bool _isLoading = false;
-  String? _errorMessage;
+  bool _showWebView = false;
 
   final List<_QuickLink> _quickLinks = [
     _QuickLink(name: 'Google', url: 'https://www.google.com', icon: Icons.search),
@@ -38,11 +40,45 @@ class _WebPreviewPageState extends State<_WebPreviewPage> {
     _QuickLink(name: '百度', url: 'https://www.baidu.com', icon: Icons.language),
     _QuickLink(name: '知乎', url: 'https://www.zhihu.com', icon: Icons.question_answer),
     _QuickLink(name: '掘金', url: 'https://juejin.cn', icon: Icons.edit),
-    _QuickLink(name: 'CSDN', url: 'https://blog.csdn.net', icon: Icons.computer),
-    _QuickLink(name: 'Gitee', url: 'https://gitee.com', icon: Icons.source),
-    _QuickLink(name: 'Stack Overflow', url: 'https://stackoverflow.com', icon: Icons.help),
-    _QuickLink(name: 'MDN', url: 'https://developer.mozilla.org', icon: Icons.book),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebViewController();
+  }
+
+  void _initWebViewController() {
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            setState(() {
+              _isLoading = true;
+              _loadProgress = 0;
+              _currentUrl = url;
+            });
+          },
+          onProgress: (int progress) {
+            setState(() {
+              _loadProgress = progress / 100;
+            });
+          },
+          onPageFinished: (String url) {
+            setState(() {
+              _isLoading = false;
+              _currentUrl = url;
+              _urlController.text = url;
+            });
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            // 允许所有导航
+            return NavigationDecision.navigate;
+          },
+        ),
+      );
+  }
 
   @override
   void dispose() {
@@ -50,41 +86,44 @@ class _WebPreviewPageState extends State<_WebPreviewPage> {
     super.dispose();
   }
 
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        setState(() {
-          _errorMessage = '无法打开该链接';
-        });
-      }
-    }
-  }
-
-  Future<void> _loadUrl() async {
-    var url = _urlController.text.trim();
-    if (url.isEmpty) return;
+  Future<void> _loadUrl(String url) async {
+    var finalUrl = url.trim();
+    if (finalUrl.isEmpty) return;
 
     // 自动添加 https:// 前缀
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
+    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      finalUrl = 'https://$finalUrl';
     }
 
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _currentUrl = url;
+      _showWebView = true;
+      _currentUrl = finalUrl;
     });
 
-    await _openUrl(url);
+    await _webViewController.loadRequest(Uri.parse(finalUrl));
+  }
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+  void _goBack() async {
+    if (await _webViewController.canGoBack()) {
+      await _webViewController.goBack();
     }
+  }
+
+  void _goForward() async {
+    if (await _webViewController.canGoForward()) {
+      await _webViewController.goForward();
+    }
+  }
+
+  void _reload() async {
+    await _webViewController.reload();
+  }
+
+  void _closeWebView() {
+    setState(() {
+      _showWebView = false;
+      _currentUrl = '';
+    });
   }
 
   @override
@@ -92,199 +131,228 @@ class _WebPreviewPageState extends State<_WebPreviewPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
-        title: const Text('浏览器预览'),
+        title: Text(_showWebView ? '浏览器' : '浏览器预览'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        leading: _showWebView
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  _goBack();
+                },
+              )
+            : null,
+        actions: _showWebView
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward),
+                  onPressed: _goForward,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _reload,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _closeWebView,
+                ),
+              ]
+            : null,
       ),
-      body: Column(
-        children: [
-          // 搜索栏
-          Container(
-            padding: const EdgeInsets.all(16),
+      body: _showWebView ? _buildWebView() : _buildHomePage(),
+    );
+  }
+
+  Widget _buildWebView() {
+    return Stack(
+      children: [
+        WebViewWidget(controller: _webViewController),
+        // 加载进度条
+        if (_isLoading)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(
+              value: _loadProgress,
+              backgroundColor: Colors.grey[200],
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
+              minHeight: 2,
+            ),
+          ),
+        // URL地址栏（固定在底部）
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            padding: const EdgeInsets.all(12),
             color: Colors.white,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF2F2F7),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: TextField(
-                      controller: _urlController,
-                      decoration: InputDecoration(
-                        hintText: '输入网址...',
-                        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
-                        prefixIcon: Icon(Icons.link, color: Colors.grey[400], size: 20),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      ),
-                      style: const TextStyle(fontSize: 15),
-                      textInputAction: TextInputAction.go,
-                      onSubmitted: (_) => _loadUrl(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: _isLoading ? null : _loadUrl,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF007AFF),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: _isLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+            child: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _showWebView = false;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF2F2F7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.home, size: 16, color: Color(0xFF007AFF)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _currentUrl,
+                                style: const TextStyle(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          )
-                        : const Icon(Icons.arrow_forward, color: Colors.white),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomePage() {
+    return Column(
+      children: [
+        // 搜索栏
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.white,
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F2F7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: TextField(
+                    controller: _urlController,
+                    decoration: InputDecoration(
+                      hintText: '输入网址...',
+                      hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
+                      prefixIcon: Icon(Icons.link, color: Colors.grey[400], size: 20),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    style: const TextStyle(fontSize: 15),
+                    textInputAction: TextInputAction.go,
+                    onSubmitted: _loadUrl,
                   ),
                 ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => _loadUrl(_urlController.text),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF007AFF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.arrow_forward, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // 快速链接网格
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '快速访问',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF000000),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: _quickLinks.length,
+                  itemBuilder: (context, index) {
+                    final link = _quickLinks[index];
+                    return _QuickLinkCard(
+                      link: link,
+                      onTap: () => _loadUrl(link.url),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
+                // 常用网站
+                const Text(
+                  '常用网站',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF000000),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildSection([
+                  _QuickLink(name: '淘宝', url: 'https://www.taobao.com', icon: Icons.shopping_bag),
+                  _QuickLink(name: '京东', url: 'https://www.jd.com', icon: Icons.local_mall),
+                  _QuickLink(name: '拼多多', url: 'https://www.pinduoduo.com', icon: Icons.thumb_up),
+                  _QuickLink(name: '美团', url: 'https://www.meituan.com', icon: Icons.fastfood),
+                ]),
+
+                const SizedBox(height: 16),
+                _buildSection([
+                  _QuickLink(name: '抖音', url: 'https://www.douyin.com', icon: Icons.music_video),
+                  _QuickLink(name: '微博', url: 'https://weibo.com', icon: Icons.alternate_email),
+                  _QuickLink(name: '微信', url: 'https://web.wechat.com', icon: Icons.chat),
+                  _QuickLink(name: 'QQ邮箱', url: 'https://mail.qq.com', icon: Icons.email),
+                ]),
+
+                const SizedBox(height: 16),
+                _buildSection([
+                  _QuickLink(name: '腾讯视频', url: 'https://v.qq.com', icon: Icons.tv),
+                  _QuickLink(name: '爱奇艺', url: 'https://www.iq.com', icon: Icons.play_circle_outline),
+                  _QuickLink(name: '网易云', url: 'https://music.163.com', icon: Icons.music_note),
+                  _QuickLink(name: 'Gitee', url: 'https://gitee.com', icon: Icons.source),
+                ]),
               ],
             ),
           ),
-
-          // 错误提示
-          if (_errorMessage != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              color: Colors.red[50],
-              child: Row(
-                children: [
-                  Icon(Icons.error_outline, color: Colors.red[400], size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Colors.red[400], fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-
-          // 当前URL显示
-          if (_currentUrl.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  Icon(Icons.public, size: 16, color: Colors.grey[500]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _currentUrl,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _openUrl(_currentUrl),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF007AFF),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Text(
-                        '在浏览器打开',
-                        style: TextStyle(color: Colors.white, fontSize: 11),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 8),
-
-          // 快速链接网格
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '快速访问',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF000000),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.1,
-                    ),
-                    itemCount: _quickLinks.length,
-                    itemBuilder: (context, index) {
-                      final link = _quickLinks[index];
-                      return _QuickLinkCard(
-                        link: link,
-                        onTap: () {
-                          _urlController.text = link.url;
-                          _openUrl(link.url);
-                        },
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // 常用网站
-                  const Text(
-                    '常用网站',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF000000),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildSection([
-                    _QuickLink(name: '淘宝', url: 'https://www.taobao.com', icon: Icons.shopping_bag),
-                    _QuickLink(name: '京东', url: 'https://www.jd.com', icon: Icons.local_mall),
-                    _QuickLink(name: '拼多多', url: 'https://www.pinduoduo.com', icon: Icons.thumb_up),
-                    _QuickLink(name: '美团', url: 'https://www.meituan.com', icon: Icons.fastfood),
-                  ]),
-
-                  const SizedBox(height: 16),
-                  _buildSection([
-                    _QuickLink(name: '抖音', url: 'https://www.douyin.com', icon: Icons.music_video),
-                    _QuickLink(name: '微博', url: 'https://weibo.com', icon: Icons.alternate_email),
-                    _QuickLink(name: '微信', url: 'https://web.wechat.com', icon: Icons.chat),
-                    _QuickLink(name: 'QQ邮箱', url: 'https://mail.qq.com', icon: Icons.email),
-                  ]),
-
-                  const SizedBox(height: 16),
-                  _buildSection([
-                    _QuickLink(name: '腾讯视频', url: 'https://v.qq.com', icon: Icons.tv),
-                    _QuickLink(name: '爱奇艺', url: 'https://www.iq.com', icon: Icons.play_circle_outline),
-                    _QuickLink(name: '网易云音乐', url: 'https://music.163.com', icon: Icons.music_note),
-                    _QuickLink(name: '虾米音乐', url: 'https://www.xiami.com', icon: Icons.headphones),
-                  ]),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -312,10 +380,7 @@ class _WebPreviewPageState extends State<_WebPreviewPage> {
                 ),
                 title: Text(link.name, style: const TextStyle(fontSize: 15)),
                 trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
-                onTap: () {
-                  _urlController.text = link.url;
-                  _openUrl(link.url);
-                },
+                onTap: () => _loadUrl(link.url),
               ),
               if (index < links.length - 1)
                 Divider(height: 1, indent: 56, color: Colors.grey[200]),
@@ -363,18 +428,18 @@ class _QuickLinkCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: const Color(0xFF007AFF).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(link.icon, color: const Color(0xFF007AFF), size: 24),
+              child: Icon(link.icon, color: const Color(0xFF007AFF), size: 22),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               link.name,
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 11, color: Colors.grey[700]),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

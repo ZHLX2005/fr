@@ -50,6 +50,9 @@ dependencies:
   # URL Launcher
   url_launcher: ^6.3.1
 
+  # WebView
+  webview_flutter: ^4.10.0
+
   # Date Formatting
   intl: ^0.20.1
 
