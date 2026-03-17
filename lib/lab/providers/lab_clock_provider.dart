@@ -6,8 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 
-/// 极简时钟Provider - 数据驱动
-/// 核心：只用一个数据源，每次操作直接写入最终状态
+/// 极简时钟Provider
 class LabClockProvider with ChangeNotifier {
   List<LabClock> _clocks = [];
   List<LabClockRecord> _records = [];
@@ -46,18 +45,7 @@ class LabClockProvider with ChangeNotifier {
     if (clocksJson != null) {
       final List<dynamic> list = json.decode(clocksJson);
       _clocks = list.map((e) => LabClock.fromJson(e)).toList();
-
-      // 恢复运行状态
-      final now = DateTime.now();
-      for (int i = 0; i < _clocks.length; i++) {
-        final c = _clocks[i];
-        if (c.isRunning && c.startTime != null) {
-          final elapsed = now.difference(c.startTime!).inSeconds;
-          _clocks[i] = c.copyWith(remainingSeconds: (c.durationSeconds ?? 0) - elapsed);
-        }
-      }
     }
-
     await loadRecords();
     notifyListeners();
   }
@@ -142,58 +130,35 @@ class LabClockProvider with ChangeNotifier {
     int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
 
     if (recordIdx == -1) {
-      // 新建记录 - 记录当前开始时的remainingSeconds
       final record = LabClockRecord(
         id: const Uuid().v4(),
         clockId: c.id,
         clockTitle: c.title,
         startTime: now,
         durationSeconds: c.durationSeconds ?? 0,
-        startRemaining: c.remainingSeconds,  // 启动时的剩余时间
       );
       _records.insert(0, record);
       recordIdx = 0;
     }
 
-    // 更新时钟状态
-    _clocks[i] = c.copyWith(
-      isRunning: true,
-      startTime: now,
-    );
+    _clocks[i] = c.copyWith(isRunning: true, startTime: now);
 
     await _saveRecords();
     await _saveClocks();
     notifyListeners();
   }
 
-  /// 暂停 - 计算并保存实际消耗时间
+  /// 暂停
   Future<void> pauseCountdown(String id) async {
     final i = _clocks.indexWhere((c) => c.id == id);
     if (i == -1) return;
 
-    final c = _clocks[i];
-    if (!c.isRunning) return;
-
-    // 更新时钟状态
-    _clocks[i] = c.copyWith(isRunning: false);
-
-    // 计算本次消耗时间并保存
-    int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
-    if (recordIdx != -1) {
-      final record = _records[recordIdx];
-      final consumed = (record.startRemaining ?? c.durationSeconds ?? 0) - c.remainingSeconds;
-      _records[recordIdx] = record.copyWith(
-        accumulatedSeconds: (record.accumulatedSeconds ?? 0) + consumed,
-        startRemaining: null,  // 暂停后清除
-      );
-    }
-
-    await _saveRecords();
+    _clocks[i] = _clocks[i].copyWith(isRunning: false);
     await _saveClocks();
     notifyListeners();
   }
 
-  /// 重置
+  /// 重置 - 直接记录当前显示的时间作为实际时间
   Future<void> resetCountdown(String id) async {
     final i = _clocks.indexWhere((c) => c.id == id);
     if (i == -1) return;
@@ -201,26 +166,22 @@ class LabClockProvider with ChangeNotifier {
     final c = _clocks[i];
     final now = DateTime.now();
 
-    // 如果正在运行，先计算最后一次消耗
-    if (c.isRunning) {
-      int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
-      if (recordIdx != -1) {
-        final record = _records[recordIdx];
-        final consumed = (record.startRemaining ?? c.durationSeconds ?? 0) - c.remainingSeconds;
-        _records[recordIdx] = record.copyWith(
-          accumulatedSeconds: (record.accumulatedSeconds ?? 0) + consumed,
-          endTime: now,
-          completed: true,
-          startRemaining: null,
-        );
-      }
+    // 计算已消耗时间 = 总时长 - 当前剩余
+    final consumed = (c.durationSeconds ?? 0) - c.remainingSeconds;
+
+    // 查找或更新记录
+    int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
+
+    if (recordIdx != -1) {
+      _records[recordIdx] = _records[recordIdx].copyWith(
+        accumulatedSeconds: consumed,
+        endTime: now,
+        completed: true,
+      );
     }
 
     // 重置时钟
-    _clocks[i] = c.copyWith(
-      isRunning: false,
-      remainingSeconds: c.durationSeconds ?? 0,
-    );
+    _clocks[i] = c.copyWith(isRunning: false, remainingSeconds: c.durationSeconds ?? 0);
 
     await _saveRecords();
     await _saveClocks();
@@ -274,18 +235,15 @@ class LabClockProvider with ChangeNotifier {
   /// 获取记录实时运行时间
   int getRecordLiveDuration(LabClockRecord record) {
     // 已完成：直接返回
-    if (record.completed || record.endTime != null) {
+    if (record.completed) {
       return record.accumulatedSeconds ?? 0;
     }
-
-    // 进行中：加上当前运行时间
+    // 进行中：计算当前消耗时间
     final clock = getClockById(record.clockId);
-    if (clock != null && clock.isRunning && record.startRemaining != null) {
-      final consumed = record.startRemaining! - clock.remainingSeconds;
-      return (record.accumulatedSeconds ?? 0) + consumed;
+    if (clock != null && clock.isRunning) {
+      return (record.durationSeconds) - clock.remainingSeconds;
     }
-
-    return record.accumulatedSeconds ?? 0;
+    return 0;
   }
 
   @override
