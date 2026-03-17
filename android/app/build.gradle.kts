@@ -36,9 +36,9 @@ android {
         multiDexEnabled = true
     }
 
-    // 签名配置 - 使用固定的 debug keystore
+    // 签名配置 - 修改默认的 debug keystore 路径
     signingConfigs {
-        create("debug") {
+        getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
