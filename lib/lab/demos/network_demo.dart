@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../lab_container.dart';
 
 /// 网络测试 Demo
@@ -512,6 +513,25 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
       _isScanning = true;
       _bleLogs.add('[${_time()}] 开始扫描...');
     });
+
+    // 请求蓝牙相关权限
+    final permissions = [
+      Permission.locationWhenInUse,
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+    ];
+
+    final statuses = await permissions.request();
+    final denied = statuses.values.any((s) => s.isDenied || s.isPermanentlyDenied);
+
+    if (denied) {
+      setState(() {
+        _bleLogs.add('[${_time()}] 错误: 需要蓝牙和位置权限才能扫描');
+        _bleLogs.add('[${_time()}] 请在设置中开启权限');
+        _isScanning = false;
+      });
+      return;
+    }
 
     // 检查蓝牙状态
     if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
