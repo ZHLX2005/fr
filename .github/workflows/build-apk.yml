@@ -54,18 +54,18 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Build Android APK (x64 only)
+      - name: Build Android APK (arm64 only)
         run: |
           flutter build apk --release \
-            --target-platform android-x64 \
+            --target-platform android-arm64-v8a \
             --obfuscate \
             --split-debug-info=./debug_symbols
 
-      - name: Upload APK (x64)
+      - name: Upload APK (arm64)
         uses: actions/upload-artifact@v4
         with:
-          name: flutter-app-x64-${{ github.sha }}
-          path: build/app/outputs/flutter-apk/app-x86_64-release.apk
+          name: flutter-app-arm64-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           retention-days: 30
 
       - name: Upload debug symbols
