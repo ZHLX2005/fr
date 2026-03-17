@@ -503,6 +503,11 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
   final List<String> _bleLogs = [];
   final _bleMessageController = TextEditingController();
 
+  // 过滤选项
+  bool _filterNamedOnly = false; // 只显示有名称的设备
+  int _minRssi = -100; // 最小信号强度
+  String _searchKeyword = ''; // 搜索关键词
+
   StreamSubscription<List<ScanResult>>? _scanSubscription;
   StreamSubscription<BluetoothConnectionEvent>? _connectionSubscription;
   StreamSubscription<List<int>>? _characteristicSubscription;
@@ -545,11 +550,23 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
     // 开始扫描
     await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
 
+    // 使用Map进行去重，按设备ID保留最新信号强度的设备
+    final Map<String, ScanResult> deviceMap = {};
+
     _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
+      for (final result in results) {
+        final key = result.device.remoteId.str;
+        // 只保留信号最强的
+        if (!deviceMap.containsKey(key) || result.rssi > deviceMap[key]!.rssi) {
+          deviceMap[key] = result;
+        }
+      }
       setState(() {
-        _bleDevices = results;
-        if (results.isNotEmpty) {
-          _bleLogs.add('[${_time()}] 发现 ${results.length} 个设备');
+        _bleDevices = deviceMap.values.toList();
+        // 按信号强度排序
+        _bleDevices.sort((a, b) => b.rssi.compareTo(a.rssi));
+        if (_bleDevices.isNotEmpty) {
+          _bleLogs.add('[${_time()}] 发现 ${_bleDevices.length} 个设备');
         }
       });
     });
@@ -675,6 +692,49 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
     return DateTime.now().toIso8601String().substring(11, 19);
   }
 
+  // 过滤后的设备列表
+  List<ScanResult> get _filteredDevices {
+    return _bleDevices.where((device) {
+      final name = device.device.name;
+      final isNamed = name.isNotEmpty;
+
+      // 过滤：只显示有名称的设备
+      if (_filterNamedOnly && !isNamed) return false;
+
+      // 过滤：信号强度
+      if (device.rssi < _minRssi) return false;
+
+      // 过滤：搜索关键词
+      if (_searchKeyword.isNotEmpty) {
+        if (isNamed && !name.toLowerCase().contains(_searchKeyword)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
+  }
+
+  // 信号强度图标
+  Widget _buildSignalIcon(int rssi) {
+    IconData icon;
+    Color color;
+    if (rssi > -50) {
+      icon = Icons.signal_wifi_4_bar;
+      color = Colors.green;
+    } else if (rssi > -70) {
+      icon = Icons.network_wifi_3_bar;
+      color = Colors.lightGreen;
+    } else if (rssi > -80) {
+      icon = Icons.network_wifi_2_bar;
+      color = Colors.orange;
+    } else {
+      icon = Icons.network_wifi_1_bar;
+      color = Colors.red;
+    }
+    return Icon(icon, size: 16, color: color);
+  }
+
   Widget _buildBluetoothTab() {
     return Column(
       children: [
@@ -712,6 +772,72 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
           ),
         ),
 
+        // 过滤选项
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            children: [
+              // 搜索框
+              TextField(
+                decoration: const InputDecoration(
+                  hintText: '搜索设备名称...',
+                  prefixIcon: Icon(Icons.filter_list),
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchKeyword = value.toLowerCase();
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              // 过滤选项行
+              Row(
+                children: [
+                  // 只显示有名称的设备
+                  FilterChip(
+                    label: const Text('仅显示已命名'),
+                    selected: _filterNamedOnly,
+                    onSelected: (selected) {
+                      setState(() {
+                        _filterNamedOnly = selected;
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  // 信号强度过滤
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Text('信号>', style: TextStyle(fontSize: 12)),
+                        SizedBox(
+                          width: 100,
+                          child: Slider(
+                            value: _minRssi.toDouble(),
+                            min: -100,
+                            max: -30,
+                            divisions: 14,
+                            label: '${_minRssi}',
+                            onChanged: (value) {
+                              setState(() {
+                                _minRssi = value.toInt();
+                              });
+                            },
+                          ),
+                        ),
+                        Text('${_minRssi}dBm', style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
         // 设备列表
         if (!_isConnected)
           Container(
@@ -725,13 +851,24 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
                     ),
                   )
                 : ListView.builder(
-                    itemCount: _bleDevices.length,
+                    itemCount: _filteredDevices.length,
                     itemBuilder: (context, index) {
-                      final device = _bleDevices[index];
+                      final device = _filteredDevices[index];
+                      final deviceName = device.device.name;
+                      final isNamed = deviceName.isNotEmpty;
                       return ListTile(
-                        leading: const Icon(Icons.bluetooth),
-                        title: Text(device.device.name.isEmpty ? '未知设备' : device.device.name),
-                        subtitle: Text('RSSI: ${device.rssi}'),
+                        leading: Icon(
+                          Icons.bluetooth,
+                          color: isNamed ? Colors.blue : Colors.grey,
+                        ),
+                        title: Text(isNamed ? deviceName : '未知设备'),
+                        subtitle: Row(
+                          children: [
+                            Text('RSSI: ${device.rssi}'),
+                            const SizedBox(width: 8),
+                            _buildSignalIcon(device.rssi),
+                          ],
+                        ),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => _connectToDevice(device.device),
                       );
