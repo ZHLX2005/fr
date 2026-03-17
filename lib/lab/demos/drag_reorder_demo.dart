@@ -25,7 +25,8 @@ class _DragReorderPage extends StatefulWidget {
 class _DragReorderPageState extends State<_DragReorderPage> {
   final List<_AppItem> _items = [];
   int _nextId = 1;
-  int _draggingIndex = -1;
+  int? _draggingIndex;
+  int? _targetIndex;
 
   @override
   void initState() {
@@ -96,6 +97,36 @@ class _DragReorderPageState extends State<_DragReorderPage> {
       }
       final item = _items.removeAt(oldIndex);
       _items.insert(newIndex, item);
+    });
+  }
+
+  void _handleDragStarted(int index) {
+    setState(() {
+      _draggingIndex = index;
+    });
+  }
+
+  void _handleDragEnd() {
+    setState(() {
+      _draggingIndex = null;
+      _targetIndex = null;
+    });
+  }
+
+  void _handleDragOver(int index) {
+    if (_draggingIndex != null && _draggingIndex != index) {
+      setState(() {
+        _targetIndex = index;
+      });
+    }
+  }
+
+  void _handleDragAccept(int oldIndex, int newIndex) {
+    setState(() {
+      final item = _items.removeAt(oldIndex);
+      _items.insert(newIndex, item);
+      _draggingIndex = null;
+      _targetIndex = null;
     });
   }
 
@@ -257,7 +288,6 @@ class _DragReorderPageState extends State<_DragReorderPage> {
       ),
       body: Column(
         children: [
-          // 网格区域
           Expanded(
             child: _items.isEmpty
                 ? Center(
@@ -274,7 +304,6 @@ class _DragReorderPageState extends State<_DragReorderPage> {
                   )
                 : _buildGrid(),
           ),
-          // 底部提示
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.white,
@@ -318,18 +347,13 @@ class _DragReorderPageState extends State<_DragReorderPage> {
             item: item,
             index: index,
             isDragging: _draggingIndex == index,
+            isTarget: _targetIndex == index,
             onEdit: () => _editItem(item),
             onDelete: () => _deleteItem(item),
-            onDragStarted: () {
-              setState(() {
-                _draggingIndex = index;
-              });
-            },
-            onDragEnd: () {
-              setState(() {
-                _draggingIndex = -1;
-              });
-            },
+            onDragStarted: () => _handleDragStarted(index),
+            onDragEnd: _handleDragEnd,
+            onDragOver: () => _handleDragOver(index),
+            onDragAccept: (oldIndex) => _handleDragAccept(oldIndex, index),
           );
         },
       ),
@@ -366,20 +390,26 @@ class _DraggableAppItem extends StatefulWidget {
   final _AppItem item;
   final int index;
   final bool isDragging;
+  final bool isTarget;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnd;
+  final VoidCallback onDragOver;
+  final void Function(int oldIndex) onDragAccept;
 
   const _DraggableAppItem({
     super.key,
     required this.item,
     required this.index,
     required this.isDragging,
+    required this.isTarget,
     required this.onEdit,
     required this.onDelete,
     required this.onDragStarted,
     required this.onDragEnd,
+    required this.onDragOver,
+    required this.onDragAccept,
   });
 
   @override
@@ -388,22 +418,62 @@ class _DraggableAppItem extends StatefulWidget {
 
 class _DraggableAppItemState extends State<_DraggableAppItem> with SingleTickerProviderStateMixin {
   double _offsetX = 0;
-  double _offsetY = 0;
   bool _isExpanded = false;
   static const double _actionWidth = 60;
+  _AppItem? _draggingItem;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onLongPressStart: (_) {
+    return LongPressDraggable<int>(
+      data: widget.index,
+      delay: const Duration(milliseconds: 200),
+      onDragStarted: () {
         widget.onDragStarted();
+        setState(() {
+          _draggingItem = widget.item;
+        });
       },
-      onLongPressMoveUpdate: (details) {
-        // 可以在这里处理拖动过程中的视觉反馈
-      },
-      onLongPressEnd: (_) {
+      onDragEnd: (_) {
         widget.onDragEnd();
+        setState(() {
+          _draggingItem = null;
+        });
       },
+      onDraggableCanceled: (_, __) {
+        widget.onDragEnd();
+        setState(() {
+          _draggingItem = null;
+        });
+      },
+      feedback: Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: 80,
+          height: 90,
+          child: _buildAppIcon(isDragging: true),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _buildAppIcon(),
+      ),
+      child: DragTarget<int>(
+        onWillAcceptWithDetails: (details) {
+          widget.onDragOver();
+          return true;
+        },
+        onAcceptWithDetails: (details) {
+          widget.onDragAccept(details.data);
+        },
+        builder: (context, candidateData, rejectedData) {
+          return _buildItemContent();
+        },
+      ),
+    );
+  }
+
+  Widget _buildItemContent() {
+    return GestureDetector(
       onHorizontalDragUpdate: (details) {
         setState(() {
           _offsetX += details.delta.dx;
@@ -454,7 +524,7 @@ class _DraggableAppItemState extends State<_DraggableAppItem> with SingleTickerP
                     width: _actionWidth,
                     decoration: BoxDecoration(
                       color: Colors.red,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -469,65 +539,76 @@ class _DraggableAppItemState extends State<_DraggableAppItem> with SingleTickerP
               ),
             // 应用图标
             Transform.translate(
-              offset: Offset(_offsetX, _offsetY),
+              offset: Offset(_offsetX, 0),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                transform: Matrix4.identity()..scale(widget.isDragging ? 1.1 : 1.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: widget.isDragging
-                            ? widget.item.color.withValues(alpha: 0.3)
-                            : Colors.black.withValues(alpha: 0.08),
-                        blurRadius: widget.isDragging ? 12 : 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: widget.item.color,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: widget.item.color.withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          widget.item.icon,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.item.title,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[700],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
+                child: widget.isTarget
+                    ? Transform.scale(
+                        scale: 0.95,
+                        child: _buildAppIcon(isHighlight: true),
+                      )
+                    : _buildAppIcon(),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAppIcon({bool isDragging = false, bool isHighlight = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: isHighlight
+            ? Border.all(color: widget.item.color, width: 2)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: isDragging
+                ? widget.item.color.withValues(alpha: 0.4)
+                : Colors.black.withValues(alpha: isDragging ? 0.2 : 0.08),
+            blurRadius: isDragging ? 16 : 4,
+            offset: Offset(0, isDragging ? 8.0 : 2.0),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: widget.item.color,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.item.color.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              widget.item.icon,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            widget.item.title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
