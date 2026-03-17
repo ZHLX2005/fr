@@ -185,7 +185,8 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
+      body: SafeArea(
+        child: Stack(
         children: [
           // 时钟页面（上半部分）
           Positioned(
@@ -300,6 +301,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
             ),
         ],
       ),
+      ),
       floatingActionButton: _buildFloatingActionButton(context),
     );
   }
@@ -314,7 +316,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
           color: Colors.white,
           child: GridView.builder(
             controller: _clockScrollController,
-            padding: const EdgeInsets.fromLTRB(16, 80, 16, 60),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               mainAxisSpacing: 16,
