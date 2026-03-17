@@ -42,6 +42,8 @@ jobs:
           mkdir -p android/app
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > android/app/debug.keystore
+            # 验证 keystore
+            keytool -list -keystore android/app/debug.keystore -storepass android
           else
             echo "请在GitHub Secrets中添加KEYSTORE_BASE64"
             exit 1
