@@ -542,9 +542,15 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
       return;
     }
 
+    // 开始扫描
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+
     _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
       setState(() {
         _bleDevices = results;
+        if (results.isNotEmpty) {
+          _bleLogs.add('[${_time()}] 发现 ${results.length} 个设备');
+        }
       });
     });
 
