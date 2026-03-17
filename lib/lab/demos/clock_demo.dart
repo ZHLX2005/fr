@@ -57,6 +57,18 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   // 是否有时钟正在运行
   bool _hasRunningClock = false;
 
+  // 当前展开的记录索引（用于点击空白处收回）
+  int? _expandedRecordIndex;
+
+  // 关闭展开的记录
+  void _closeExpandedRecord() {
+    if (_expandedRecordIndex != null) {
+      setState(() {
+        _expandedRecordIndex = null;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -186,8 +198,11 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Stack(
-        children: [
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _closeExpandedRecord, // 点击屏幕任何位置收回
+          child: Stack(
+          children: [
           // 时钟页面（上半部分）
           Positioned(
             top: 0,
@@ -300,6 +315,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
               ),
             ),
         ],
+      ),
       ),
       ),
       floatingActionButton: _buildFloatingActionButton(context),
@@ -415,11 +431,14 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        controller: _recordScrollController,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: records.length,
-                        itemBuilder: (_, index) => _buildModernRecordItem(context, records[index]),
+                    : GestureDetector(
+                        onTap: _closeExpandedRecord, // 点击空白处收回
+                        child: ListView.builder(
+                          controller: _recordScrollController,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: records.length,
+                          itemBuilder: (_, index) => _buildModernRecordItem(context, records[index], index),
+                        ),
                       ),
               ),
             ],
@@ -463,7 +482,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
     );
   }
 
-  Widget _buildModernRecordItem(BuildContext context, LabClockRecord record) {
+  Widget _buildModernRecordItem(BuildContext context, LabClockRecord record, int index) {
     final dateFormat = DateFormat('MM-dd HH:mm');
 
     // 直接使用 provider 提供的统一方法计算实时时间
@@ -487,82 +506,94 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
             ),
           ],
         ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: record.completed
-                  ? const Color(0xFF34C759).withOpacity(0.1)
-                  : const Color(0xFFFF9500).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              record.completed ? Icons.check_rounded : Icons.schedule_rounded,
-              color: record.completed ? const Color(0xFF34C759) : const Color(0xFFFF9500),
-              size: 22,
-            ),
-          ),
-          title: Text(
-            record.clockTitle,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF000000),
-            ),
-          ),
-          subtitle: Text(
-            '${dateFormat.format(record.startTime)} • 计划: ${_formatDuration(record.durationSeconds)}',
-            style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF8E8E93),
-            ),
-          ),
-          trailing: _RecordSwipeAction(
-            onCreate: () async {
-              if (actualDuration > 0) {
-                await context.read<LabClockProvider>().createClock(
-                  title: '${record.clockTitle} (参考)',
-                  durationSeconds: actualDuration,
-                  color: '#007AFF',
+        child: _RecordSwipeAction(
+          onCreate: () async {
+            if (actualDuration > 0) {
+              await context.read<LabClockProvider>().createClock(
+                title: '${record.clockTitle} (参考)',
+                durationSeconds: actualDuration,
+                color: '#007AFF',
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('已创建新时钟: $durationStr'),
+                    backgroundColor: const Color(0xFF007AFF),
+                  ),
                 );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('已创建新时钟: $durationStr'),
-                      backgroundColor: const Color(0xFF007AFF),
-                    ),
-                  );
-                }
-              } else {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('记录时间无效'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                }
               }
-            },
-            onDelete: () {
-              context.read<LabClockProvider>().deleteRecord(record.id);
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: record.completed
-                    ? const Color(0xFF34C759).withOpacity(0.1)
-                    : const Color(0xFFFF9500).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '实际: $durationStr',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+            } else {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('记录时间无效'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            }
+          },
+          onDelete: () {
+            context.read<LabClockProvider>().deleteRecord(record.id);
+          },
+          index: index,
+          onExpand: () {
+            setState(() {
+              _expandedRecordIndex = index;
+            });
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: record.completed
+                      ? const Color(0xFF34C759).withOpacity(0.1)
+                      : const Color(0xFFFF9500).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  record.completed ? Icons.check_rounded : Icons.schedule_rounded,
                   color: record.completed ? const Color(0xFF34C759) : const Color(0xFFFF9500),
+                  size: 22,
+                ),
+              ),
+              title: Text(
+                record.clockTitle,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF000000),
+                ),
+              ),
+              subtitle: Text(
+                '${dateFormat.format(record.startTime)} • 计划: ${_formatDuration(record.durationSeconds)}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF8E8E93),
+                ),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: record.completed
+                      ? const Color(0xFF34C759).withOpacity(0.1)
+                      : const Color(0xFFFF9500).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '实际: $durationStr',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: record.completed ? const Color(0xFF34C759) : const Color(0xFFFF9500),
+                  ),
                 ),
               ),
             ),
@@ -1133,17 +1164,21 @@ class _BreathingWavePainter extends CustomPainter {
   }
 }
 
-/// 记录项滑动操作组件（类似iMessage滑动效果）
+/// 记录项滑动操作组件（类似QQ滑动效果）
 class _RecordSwipeAction extends StatefulWidget {
   final Widget child;
-  final VoidCallback onCreate;  // 向左滑显示：创建
-  final VoidCallback onDelete; // 向右滑显示：删除
+  final VoidCallback onCreate;
+  final VoidCallback onDelete;
+  final int index;
+  final VoidCallback onExpand; // 展开时回调，用于点击空白处收回
 
   const _RecordSwipeAction({
     super.key,
     required this.child,
     required this.onCreate,
     required this.onDelete,
+    required this.index,
+    required this.onExpand,
   });
 
   @override
@@ -1152,7 +1187,7 @@ class _RecordSwipeAction extends StatefulWidget {
 
 class _RecordSwipeActionState extends State<_RecordSwipeAction> {
   double _offsetX = 0;
-  static const double _actionWidth = 70;
+  static const double _actionWidth = 80;
   bool _isExpanded = false;
 
   @override
@@ -1160,17 +1195,17 @@ class _RecordSwipeActionState extends State<_RecordSwipeAction> {
     return GestureDetector(
       onHorizontalDragUpdate: (details) {
         setState(() {
-          // 只响应向左滑动（负值）
           _offsetX += details.delta.dx;
           _offsetX = _offsetX.clamp(-_actionWidth * 2, 0);
         });
       },
       onHorizontalDragEnd: (details) {
-        if (_offsetX < -_actionWidth * 0.5) {
+        if (_offsetX < -_actionWidth * 0.4) {
           setState(() {
             _offsetX = -_actionWidth * 2;
             _isExpanded = true;
           });
+          widget.onExpand(); // 通知父组件展开
         } else {
           setState(() {
             _offsetX = 0;
@@ -1178,90 +1213,121 @@ class _RecordSwipeActionState extends State<_RecordSwipeAction> {
           });
         }
       },
-      child: GestureDetector(
-        // 点击其他区域收起按钮
-        onTap: () {
-          if (_isExpanded) {
-            setState(() {
-              _offsetX = 0;
-              _isExpanded = false;
-            });
-          }
-        },
-        child: SizedBox(
-          height: 70,
-          child: Stack(
-            children: [
-              // 按钮层（向左滑显示）
-              if (_offsetX < 0)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: _actionWidth * 2,
-                  child: Row(
-                    children: [
-                      // 删除按钮
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _offsetX = 0;
-                              _isExpanded = false;
-                            });
-                            widget.onDelete();
-                          },
-                          child: Container(
-                            color: const Color(0xFFFF3B30),
-                            alignment: Alignment.center,
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.delete, color: Colors.white, size: 22),
-                                SizedBox(height: 2),
-                                Text('删除', style: TextStyle(color: Colors.white, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      // 创建按钮
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _offsetX = 0;
-                              _isExpanded = false;
-                            });
-                            widget.onCreate();
-                          },
-                          child: Container(
-                            color: const Color(0xFF007AFF),
-                            alignment: Alignment.center,
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add, color: Colors.white, size: 22),
-                                SizedBox(height: 2),
-                                Text('创建', style: TextStyle(color: Colors.white, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              // 内容层
-              Transform.translate(
-                offset: Offset(_offsetX, 0),
-                child: Container(
-                  color: Colors.white,
-                  child: widget.child,
+      onTap: () {
+        // 点击内容区域，如果已展开则收起
+        if (_isExpanded) {
+          setState(() {
+            _offsetX = 0;
+            _isExpanded = false;
+          });
+        }
+      },
+      child: SizedBox(
+        height: 70,
+        child: Stack(
+          children: [
+            // 空白区域点击收回
+            if (_isExpanded)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _offsetX = 0;
+                      _isExpanded = false;
+                    });
+                  },
+                  child: Container(color: Colors.transparent),
                 ),
               ),
-            ],
-          ),
+            // 按钮层（溢出在右侧）
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: _actionWidth * 2,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // 删除按钮
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _offsetX = 0;
+                        _isExpanded = false;
+                      });
+                      widget.onDelete();
+                    },
+                    child: Container(
+                      width: _actionWidth,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF3B30),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          bottomLeft: Radius.circular(12),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete, color: Colors.white, size: 24),
+                          SizedBox(height: 4),
+                          Text('删除', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // 创建按钮
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _offsetX = 0;
+                        _isExpanded = false;
+                      });
+                      widget.onCreate();
+                    },
+                    child: Container(
+                      width: _actionWidth,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF007AFF),
+                        borderRadius: BorderRadius.only(
+                          topRight: Radius.circular(12),
+                          bottomRight: Radius.circular(12),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add, color: Colors.white, size: 24),
+                          SizedBox(height: 4),
+                          Text('创建', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 内容层（随手势移动）
+            Transform.translate(
+              offset: Offset(_offsetX, 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: widget.child,
+              ),
+            ),
+          ],
         ),
       ),
     );
