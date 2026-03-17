@@ -182,8 +182,8 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                     _snapToNearest(_splitPosition);
                   },
                   child: Container(
-                    height: 60, // 增加拖动响应区域
-                    color: const Color(0xFFF9F9F9),
+                    height: 50, // 拖动响应区域
+                    color: Colors.transparent,
                     child: Stack(
                       children: [
                         // 波浪线
@@ -191,7 +191,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                           top: 0,
                           left: 0,
                           right: 0,
-                          height: 30,
+                          height: 20,
                           child: AnimatedBuilder(
                             animation: _waveAnimation,
                             builder: (context, child) {
@@ -206,49 +206,20 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                             },
                           ),
                         ),
-                        // 拖动手柄
+                        // iOS 26风格手柄 - 极简
                         Positioned(
-                          top: 8,
+                          top: 4,
                           left: 0,
                           right: 0,
                           child: Center(
                             child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: _isDragging ? 50 : 42,
-                              height: _isDragging ? 6 : 5,
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOut,
+                              width: _isDragging ? 44 : 36,
+                              height: _isDragging ? 5 : 4,
                               decoration: BoxDecoration(
-                                color: _isDragging
-                                    ? const Color(0xFF007AFF)
-                                    : const Color(0xFFE5E5EA),
-                                borderRadius: BorderRadius.circular(_isDragging ? 3 : 2.5),
-                                boxShadow: _isDragging
-                                    ? [
-                                        BoxShadow(
-                                          color: const Color(0xFF007AFF).withOpacity(0.3),
-                                          blurRadius: 8,
-                                          spreadRadius: 2,
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // 拖动提示
-                        Positioned(
-                          bottom: 5,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: AnimatedOpacity(
-                              duration: const Duration(milliseconds: 200),
-                              opacity: _isDragging ? 1.0 : 0.4,
-                              child: Text(
-                                _isDragging ? '释放以吸附' : '拖动调整占比',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF8E8E93),
-                                ),
+                                color: const Color(0xFFC7C7CC),
+                                borderRadius: BorderRadius.circular(2.5),
                               ),
                             ),
                           ),
