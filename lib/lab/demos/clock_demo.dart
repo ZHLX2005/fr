@@ -1153,90 +1153,115 @@ class _RecordSwipeAction extends StatefulWidget {
 class _RecordSwipeActionState extends State<_RecordSwipeAction> {
   double _offsetX = 0;
   static const double _actionWidth = 70;
+  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onHorizontalDragUpdate: (details) {
         setState(() {
+          // 只响应向左滑动（负值）
           _offsetX += details.delta.dx;
-          _offsetX = _offsetX.clamp(-_actionWidth, _actionWidth);
+          _offsetX = _offsetX.clamp(-_actionWidth * 2, 0);
         });
       },
       onHorizontalDragEnd: (details) {
         if (_offsetX < -_actionWidth * 0.5) {
-          setState(() => _offsetX = -_actionWidth);
-        } else if (_offsetX > _actionWidth * 0.5) {
-          setState(() => _offsetX = _actionWidth);
+          setState(() {
+            _offsetX = -_actionWidth * 2;
+            _isExpanded = true;
+          });
         } else {
-          setState(() => _offsetX = 0);
+          setState(() {
+            _offsetX = 0;
+            _isExpanded = false;
+          });
         }
       },
-      child: SizedBox(
-        height: 70,
-        child: Stack(
-          children: [
-            // 删除按钮（向右滑显示，在内容左侧）
-            if (_offsetX > 0)
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: _actionWidth,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _offsetX = 0);
-                    widget.onDelete();
-                  },
-                  child: Container(
-                    color: const Color(0xFFFF3B30),
-                    alignment: Alignment.center,
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.delete, color: Colors.white, size: 22),
-                        SizedBox(height: 2),
-                        Text('删除', style: TextStyle(color: Colors.white, fontSize: 11)),
-                      ],
-                    ),
+      child: GestureDetector(
+        // 点击其他区域收起按钮
+        onTap: () {
+          if (_isExpanded) {
+            setState(() {
+              _offsetX = 0;
+              _isExpanded = false;
+            });
+          }
+        },
+        child: SizedBox(
+          height: 70,
+          child: Stack(
+            children: [
+              // 按钮层（向左滑显示）
+              if (_offsetX < 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: _actionWidth * 2,
+                  child: Row(
+                    children: [
+                      // 删除按钮
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _offsetX = 0;
+                              _isExpanded = false;
+                            });
+                            widget.onDelete();
+                          },
+                          child: Container(
+                            color: const Color(0xFFFF3B30),
+                            alignment: Alignment.center,
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.delete, color: Colors.white, size: 22),
+                                SizedBox(height: 2),
+                                Text('删除', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // 创建按钮
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _offsetX = 0;
+                              _isExpanded = false;
+                            });
+                            widget.onCreate();
+                          },
+                          child: Container(
+                            color: const Color(0xFF007AFF),
+                            alignment: Alignment.center,
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add, color: Colors.white, size: 22),
+                                SizedBox(height: 2),
+                                Text('创建', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            // 创建按钮（向左滑显示，在内容右侧）
-            if (_offsetX < 0)
-              Positioned(
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: _actionWidth,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _offsetX = 0);
-                    widget.onCreate();
-                  },
-                  child: Container(
-                    color: const Color(0xFF007AFF),
-                    alignment: Alignment.center,
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add, color: Colors.white, size: 22),
-                        SizedBox(height: 2),
-                        Text('创建', style: TextStyle(color: Colors.white, fontSize: 11)),
-                      ],
-                    ),
-                  ),
+              // 内容层
+              Transform.translate(
+                offset: Offset(_offsetX, 0),
+                child: Container(
+                  color: Colors.white,
+                  child: widget.child,
                 ),
               ),
-            // 内容层
-            Transform.translate(
-              offset: Offset(_offsetX, 0),
-              child: Container(
-                color: Colors.white,
-                child: widget.child,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
