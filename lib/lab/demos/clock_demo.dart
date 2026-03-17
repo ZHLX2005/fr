@@ -442,9 +442,8 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
 
   Widget _buildModernRecordItem(BuildContext context, LabClockRecord record) {
     final dateFormat = DateFormat('MM-dd HH:mm');
-    final actualDuration = record.endTime != null
-        ? record.endTime!.difference(record.startTime).inSeconds
-        : 0;
+    // 使用 actualDuration（累计运行时间），而不是物理时间差
+    final actualDuration = record.actualDuration;
     final durationStr = _formatDuration(actualDuration);
 
     return Dismissible(
