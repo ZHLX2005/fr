@@ -2,40 +2,57 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'lab_clock_record.g.dart';
 
-/// 时钟记录事件类型
-enum ClockEventType {
-  start,   // 开始倒计时
-  pause,   // 暂停
-  resume,  // 恢复
-  reset,   // 重置/结束
-}
-
-/// 时钟记录事件
+/// 单次运行会话
+/// 每次启动倒计时创建一个会话，暂停时结束会话
 @JsonSerializable()
-class ClockEvent {
-  final ClockEventType type;
-  final DateTime timestamp;
+class ClockSession {
+  final String id;
+  final DateTime startTime;
+  final DateTime? endTime;  // null 表示会话正在进行中
 
-  ClockEvent({
-    required this.type,
-    required this.timestamp,
+  ClockSession({
+    required this.id,
+    required this.startTime,
+    this.endTime,
   });
 
-  factory ClockEvent.fromJson(Map<String, dynamic> json) => _$ClockEventFromJson(json);
+  factory ClockSession.fromJson(Map<String, dynamic> json) => _$ClockSessionFromJson(json);
 
-  Map<String, dynamic> toJson() => _$ClockEventToJson(this);
+  Map<String, dynamic> toJson() => _$ClockSessionToJson(this);
 
-  ClockEvent copyWith({
-    ClockEventType? type,
-    DateTime? timestamp,
+  /// 获取会话时长（秒）
+  /// 只有会话结束时才有值
+  int get duration {
+    if (endTime == null) return 0;
+    return endTime!.difference(startTime).inSeconds;
+  }
+
+  /// 判断会话是否已结束
+  bool get isCompleted => endTime != null;
+
+  ClockSession copyWith({
+    String? id,
+    DateTime? startTime,
+    DateTime? endTime,
   }) {
-    return ClockEvent(
-      type: type ?? this.type,
-      timestamp: timestamp ?? this.timestamp,
+    return ClockSession(
+      id: id ?? this.id,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+    );
+  }
+
+  /// 结束会话
+  ClockSession end() {
+    return ClockSession(
+      id: id,
+      startTime: startTime,
+      endTime: DateTime.now(),
     );
   }
 }
 
+/// 时钟使用记录
 @JsonSerializable()
 class LabClockRecord {
   final String id;
@@ -43,9 +60,9 @@ class LabClockRecord {
   final String clockTitle;
   final DateTime startTime;
   final DateTime? endTime;
-  final int durationSeconds; // 本次倒计时时长（秒）
+  final int durationSeconds; // 计划倒计时时长（秒）
   final bool completed; // 是否完成
-  final List<ClockEvent> events; // 事件列表
+  final List<ClockSession> sessions; // 运行会话列表
 
   LabClockRecord({
     required this.id,
@@ -55,8 +72,8 @@ class LabClockRecord {
     this.endTime,
     required this.durationSeconds,
     this.completed = false,
-    List<ClockEvent>? events,
-  }) : events = events ?? [];
+    List<ClockSession>? sessions,
+  }) : sessions = sessions ?? [];
 
   factory LabClockRecord.fromJson(Map<String, dynamic> json) => _$LabClockRecordFromJson(json);
 
@@ -70,7 +87,7 @@ class LabClockRecord {
     DateTime? endTime,
     int? durationSeconds,
     bool? completed,
-    List<ClockEvent>? events,
+    List<ClockSession>? sessions,
   }) {
     return LabClockRecord(
       id: id ?? this.id,
@@ -80,12 +97,12 @@ class LabClockRecord {
       endTime: endTime ?? this.endTime,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       completed: completed ?? this.completed,
-      events: events ?? this.events,
+      sessions: sessions ?? this.sessions,
     );
   }
 
-  /// 添加事件
-  LabClockRecord addEvent(ClockEvent event) {
+  /// 添加新会话（开始运行）
+  LabClockRecord addSession(ClockSession session) {
     return LabClockRecord(
       id: id,
       clockId: clockId,
@@ -94,62 +111,60 @@ class LabClockRecord {
       endTime: endTime,
       durationSeconds: durationSeconds,
       completed: completed,
-      events: [...events, event],
+      sessions: [...sessions, session],
     );
   }
 
-  /// 获取实际使用时长（秒）- 基于事件计算
-  /// 只计算从 start 到 pause、resume 到 pause、resume 到 reset 之间的时间
-  /// 不包括暂停期间
+  /// 结束当前会话（暂停）
+  LabClockRecord endCurrentSession() {
+    if (sessions.isEmpty) return this;
+
+    final lastIndex = sessions.length - 1;
+    final lastSession = sessions[lastIndex];
+
+    // 如果最后一个会话已经结束，不做任何事
+    if (lastSession.isCompleted) return this;
+
+    // 结束最后一个会话
+    final updatedSessions = List<ClockSession>.from(sessions);
+    updatedSessions[lastIndex] = lastSession.end();
+
+    return LabClockRecord(
+      id: id,
+      clockId: clockId,
+      clockTitle: clockTitle,
+      startTime: startTime,
+      endTime: endTime,
+      durationSeconds: durationSeconds,
+      completed: completed,
+      sessions: updatedSessions,
+    );
+  }
+
+  /// 获取实际运行时长（秒）
+  /// 累计所有已结束会话的时长
   int get actualDuration {
-    int totalSeconds = 0;
-    DateTime? sessionStart;
-    bool isRunning = false;
-
-    for (final event in events) {
-      switch (event.type) {
-        case ClockEventType.start:
-        case ClockEventType.resume:
-          // 开始一个新的运行会话
-          sessionStart = event.timestamp;
-          isRunning = true;
-          break;
-        case ClockEventType.pause:
-        case ClockEventType.reset:
-          // 结束当前运行会话
-          if (isRunning && sessionStart != null) {
-            totalSeconds += event.timestamp.difference(sessionStart!).inSeconds;
-            sessionStart = null;
-            isRunning = false;
-          }
-          break;
-      }
-    }
-
-    // 如果记录已完成（有 reset 事件），返回累计时间
-    // 如果记录未完成，也返回已累计的时间（不包括当前运行中的时间）
-    // 这样避免了计算物理时间的问题
-    return totalSeconds;
+    return sessions.fold(0, (sum, session) => sum + session.duration);
   }
 
-  /// 获取格式化的事件描述
-  String get eventsDescription {
-    if (events.isEmpty) return '无事件';
-
-    final buffer = StringBuffer();
-    for (final event in events) {
-      final timeStr = '${event.timestamp.hour.toString().padLeft(2, '0')}:${event.timestamp.minute.toString().padLeft(2, '0')}';
-      buffer.write('$timeStr ${_eventTypeToString(event.type)} ');
-    }
-    return buffer.toString().trim();
+  /// 获取当前会话（用于检查是否在运行中）
+  ClockSession? get currentSession {
+    if (sessions.isEmpty) return null;
+    final last = sessions.last;
+    return last.isCompleted ? null : last;
   }
 
-  String _eventTypeToString(ClockEventType type) {
-    switch (type) {
-      case ClockEventType.start: return '开始';
-      case ClockEventType.pause: return '暂停';
-      case ClockEventType.resume: return '恢复';
-      case ClockEventType.reset: return '重置';
-    }
+  /// 是否正在运行
+  bool get isRunning => currentSession != null;
+
+  /// 获取格式化的时间摘要
+  String get summary {
+    final running = actualDuration;
+    final planned = durationSeconds;
+
+    if (running == 0) return '未开始';
+    if (running < 60) return '${running}秒';
+    if (running < 3600) return '${(running / 60).toStringAsFixed(1)}分钟';
+    return '${(running / 3600).toStringAsFixed(1)}小时';
   }
 }
