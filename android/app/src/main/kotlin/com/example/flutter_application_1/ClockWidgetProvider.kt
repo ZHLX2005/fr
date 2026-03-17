@@ -3,11 +3,9 @@ package com.example.flutter_application_1
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.graphics.Color
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class ClockWidgetProvider : AppWidgetProvider() {
 
@@ -29,33 +27,57 @@ class ClockWidgetProvider : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             appWidgetId: Int
         ) {
-            // 从 HomeWidget 获取存储的数据
+            // 从 HomeWidget 获取存储的时钟数据
             val widgetData = HomeWidgetPlugin.getData(context)
-            val time = widgetData.getString("widget_time", getCurrentTime())
-            val date = widgetData.getString("widget_date", getCurrentDate())
-            val title = widgetData.getString("widget_title", "时钟小组件")
+
+            val title = widgetData.getString("clock_title", "暂无倒计时")
+            val formattedTime = widgetData.getString("clock_formatted_time", "00:00:00")
+            val remainingSeconds = widgetData.getString("clock_remaining_seconds", "0")?.toIntOrNull() ?: 0
+            val isRunning = widgetData.getString("clock_is_running", "0") == "1"
+            val isOvertime = widgetData.getString("clock_is_overtime", "0") == "1"
+            val colorHex = widgetData.getString("clock_color", "#2196F3")
+
+            // 解析颜色
+            val textColor = try {
+                Color.parseColor(colorHex ?: "#2196F3")
+            } catch (e: Exception) {
+                Color.WHITE
+            }
+
+            // 根据超时状态设置背景颜色
+            val bgColor = if (isOvertime) {
+                // 超时：红色系
+                Color.parseColor("#FF5722")
+            } else if (isRunning) {
+                // 运行中：使用主题色
+                try {
+                    Color.parseColor(colorHex ?: "#2196F3")
+                } catch (e: Exception) {
+                    Color.parseColor("#2196F3")
+                }
+            } else {
+                // 暂停/未运行：灰色
+                Color.parseColor("#757575")
+            }
 
             // 构建 RemoteViews
             val views = RemoteViews(context.packageName, R.layout.clock_widget).apply {
-                setTextViewText(R.id.widget_time, time)
-                setTextViewText(R.id.widget_date, date)
                 setTextViewText(R.id.widget_title, title)
+                setTextViewText(R.id.widget_time, formattedTime)
+                setTextViewText(R.id.widget_status, when {
+                    isOvertime -> "已超时"
+                    isRunning -> "进行中"
+                    else -> "已暂停"
+                })
+
+                // 设置颜色
+                setTextColor(R.id.widget_time, Color.WHITE)
+                setTextColor(R.id.widget_title, Color.WHITE)
+                setTextColor(R.id.widget_status, Color.WHITE)
             }
 
             // 更新 widget
             appWidgetManager.updateAppWidget(appWidgetId, views)
-        }
-
-        // 获取当前时间
-        private fun getCurrentTime(): String {
-            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-            return sdf.format(Date())
-        }
-
-        // 获取当前日期
-        private fun getCurrentDate(): String {
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            return sdf.format(Date())
         }
     }
 

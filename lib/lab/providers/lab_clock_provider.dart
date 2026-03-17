@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../../home_widget/clock_widget_data.dart';
+import '../../home_widget/clock_widget_service.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 
@@ -76,9 +78,30 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       if (changed) {
         _saveClocks();
+        _syncToWidget(); // 同步到桌面小组件
         notifyListeners();
       }
     });
+  }
+
+  /// 同步第一个时钟数据到桌面小组件
+  void _syncToWidget() {
+    if (_clocks.isEmpty) {
+      ClockWidgetService.clearClockWidget();
+      return;
+    }
+
+    // 获取第一个时钟
+    final clock = _clocks.first;
+    final widgetData = ClockWidgetData.fromClock(
+      title: clock.title,
+      remainingSeconds: clock.remainingSeconds,
+      durationSeconds: clock.durationSeconds ?? 0,
+      isRunning: clock.isRunning,
+      color: clock.color ?? '#2196F3',
+    );
+
+    ClockWidgetService.updateClockWidget(widgetData);
   }
 
   Future<void> loadClocks() async {
@@ -131,6 +154,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     );
     _clocks.insert(0, clock);
     await _saveClocks();
+    _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
     return clock;
   }
@@ -191,6 +215,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
 
     await _saveRecords();
     await _saveClocks();
+    _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
   }
 
@@ -201,6 +226,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
 
     _clocks[i] = _clocks[i].copyWith(isRunning: false);
     await _saveClocks();
+    _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
   }
 
@@ -231,6 +257,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
 
     await _saveRecords();
     await _saveClocks();
+    _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
   }
 
@@ -245,6 +272,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       remainingSeconds: c.isRunning ? c.remainingSeconds : newDuration,
     );
     await _saveClocks();
+    _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
   }
 
@@ -252,6 +280,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> deleteClock(String id) async {
     _clocks.removeWhere((c) => c.id == id);
     await _saveClocks();
+    _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
   }
 

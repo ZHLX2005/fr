@@ -7,34 +7,36 @@
     android:padding="16dp"
     android:background="@drawable/widget_background">
 
-    <!-- 时间显示 -->
-    <TextView
-        android:id="@+id/widget_time"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="00:00"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF" />
-
-    <!-- 日期显示 -->
-    <TextView
-        android:id="@+id/widget_date"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="2024-01-01"
-        android:textSize="14sp"
-        android:textColor="#CCCCCC"
-        android:layout_marginTop="4dp" />
-
     <!-- 标题 -->
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="时钟小组件"
+        android:text="暂无倒计时"
+        android:textSize="14sp"
+        android:textColor="#CCCCCC"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <!-- 时间显示 -->
+    <TextView
+        android:id="@+id/widget_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="00:00:00"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="4dp" />
+
+    <!-- 状态显示 -->
+    <TextView
+        android:id="@+id/widget_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="进行中"
         android:textSize="12sp"
-        android:textColor="#888888"
+        android:textColor="#CCCCCC"
         android:layout_marginTop="8dp" />
 
 </LinearLayout>
