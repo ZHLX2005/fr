@@ -26,7 +26,7 @@ class FileApi {
   ///   File ID
   Future<Response> apiV1DownloadIdGetWithHttpInfo({ String? id, }) async {
     // ignore: prefer_const_declarations
-    var path = r'/api/v1/download/:id';
+    final path = r'/api/v1/download/:id';
 
     // ignore: prefer_final_locals
     Object? postBody;
@@ -35,9 +35,9 @@ class FileApi {
     final headerParams = <String, String>{};
     final formParams = <String, String>{};
 
-    // Replace path parameter
+    // Query parameter (as per API spec)
     if (id != null) {
-      path = path.replaceAll(':id', id);
+      queryParams.addAll(_queryParams('', 'id', id));
     }
 
     const contentTypes = <String>[];
@@ -85,7 +85,7 @@ class FileApi {
   ///   File ID
   Future<Response> apiV1FileIdDeleteWithHttpInfo({ String? id, }) async {
     // ignore: prefer_const_declarations
-    var path = r'/api/v1/file/:id';
+    final path = r'/api/v1/file/:id';
 
     // ignore: prefer_final_locals
     Object? postBody;
@@ -94,9 +94,9 @@ class FileApi {
     final headerParams = <String, String>{};
     final formParams = <String, String>{};
 
-    // Replace path parameter
+    // Query parameter (as per API spec)
     if (id != null) {
-      path = path.replaceAll(':id', id);
+      queryParams.addAll(_queryParams('', 'id', id));
     }
 
     const contentTypes = <String>[];
@@ -144,7 +144,7 @@ class FileApi {
   ///   File ID
   Future<Response> apiV1FileIdMetadataGetWithHttpInfo({ String? id, }) async {
     // ignore: prefer_const_declarations
-    var path = r'/api/v1/file/:id/metadata';
+    final path = r'/api/v1/file/:id/metadata';
 
     // ignore: prefer_final_locals
     Object? postBody;
@@ -153,9 +153,9 @@ class FileApi {
     final headerParams = <String, String>{};
     final formParams = <String, String>{};
 
-    // Replace path parameter
+    // Query parameter (as per API spec)
     if (id != null) {
-      path = path.replaceAll(':id', id);
+      queryParams.addAll(_queryParams('', 'id', id));
     }
 
     const contentTypes = <String>[];
