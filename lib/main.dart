@@ -22,6 +22,7 @@ import 'lab/demos/typewriter_demo.dart';
 import 'lab/demos/animated_search_bar_demo.dart';
 import 'lab/demos/snake_game_demo.dart';
 import 'lab/demos/music_player_ui_demo.dart';
+import 'lab/demos/api_test_demo.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 
@@ -42,6 +43,7 @@ void main() {
   registerAnimatedSearchBarDemo();
   registerSnakeGameDemo();
   registerMusicPlayerUIDemo();
+  registerApiTestDemo();
   runApp(const MyApp());
 }
 
