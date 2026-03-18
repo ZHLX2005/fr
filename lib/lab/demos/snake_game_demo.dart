@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import '../lab_container.dart';
 
 /// 贪吃蛇游戏 Demo
@@ -146,6 +147,31 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
     }
   }
 
+  void _handleSwipe(PointerScrollEvent event) {
+    final dy = event.scrollDelta.dy;
+    final dx = event.scrollDelta.dx;
+
+    if (dy.abs() > dx.abs()) {
+      // 垂直滑动
+      if (dy < 0 && _direction != Direction.down) {
+        _direction = Direction.up;
+      } else if (dy > 0 && _direction != Direction.up) {
+        _direction = Direction.down;
+      }
+    } else {
+      // 水平滑动
+      if (dx < 0 && _direction != Direction.right) {
+        _direction = Direction.left;
+      } else if (dx > 0 && _direction != Direction.left) {
+        _direction = Direction.right;
+      }
+    }
+  }
+
+  void _handleSwipeFromGesture(DragEndDetails details) {
+    // 这个方法保留用于可能的滑动手势
+  }
+
   void _handleKey(RawKeyEvent event) {
     if (event is RawKeyDownEvent) {
       switch (event.logicalKey) {
@@ -228,28 +254,48 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                 ],
               ),
             ),
-            // 游戏区域
+            // 游戏区域 - 支持触屏滑动控制
             Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.blue, width: 3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _noOfRow * _noOfColumn,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _noOfColumn,
+              child: GestureDetector(
+                onVerticalDragEnd: (details) {
+                  if (details.primaryVelocity != null) {
+                    if (details.primaryVelocity! < 0 && _direction != Direction.down) {
+                      _direction = Direction.up;
+                    } else if (details.primaryVelocity! > 0 && _direction != Direction.up) {
+                      _direction = Direction.down;
+                    }
+                  }
+                },
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity != null) {
+                    if (details.primaryVelocity! < 0 && _direction != Direction.right) {
+                      _direction = Direction.left;
+                    } else if (details.primaryVelocity! > 0 && _direction != Direction.left) {
+                      _direction = Direction.right;
+                    }
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.blue, width: 3),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _noOfRow * _noOfColumn,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: _noOfColumn,
+                      ),
+                      itemBuilder: (context, index) {
+                        return Container(
+                          margin: const EdgeInsets.all(0.5),
+                          color: _boxFillColor(index),
+                        );
+                      },
                     ),
-                    itemBuilder: (context, index) {
-                      return Container(
-                        margin: const EdgeInsets.all(0.5),
-                        color: _boxFillColor(index),
-                      );
-                    },
                   ),
                 ),
               ),
@@ -281,15 +327,15 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _ControlHint(icon: Icons.arrow_upward, label: 'W/↑'),
-                      _ControlHint(icon: Icons.arrow_downward, label: 'S/↓'),
-                      _ControlHint(icon: Icons.arrow_back, label: 'A/←'),
-                      _ControlHint(icon: Icons.arrow_forward, label: 'D/→'),
+                      _ControlHint(icon: Icons.swipe_up, label: '向上滑'),
+                      _ControlHint(icon: Icons.swipe_down, label: '向下滑'),
+                      _ControlHint(icon: Icons.swipe_left, label: '向左滑'),
+                      _ControlHint(icon: Icons.swipe_right, label: '向右滑'),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '或使用方向键控制蛇的移动',
+                    '在游戏区域滑动控制蛇的移动',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
