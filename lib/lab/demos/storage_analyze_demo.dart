@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import '../lab_container.dart';
 
 /// 存储分析 Demo
@@ -26,8 +28,10 @@ class _StorageAnalyzePage extends StatefulWidget {
 
 class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
   Map<String, StorageItem> _storageData = {};
+  List<FileItem> _mediaFiles = [];
   bool _isLoading = true;
   int _totalSize = 0;
+  int _mediaTotalSize = 0;
 
   // 存储键到名称的映射
   static const Map<String, String> _keyLabels = {
@@ -39,6 +43,13 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
     'lab_clocks': '时钟数据',
     'lab_clock_records': '时钟记录',
     'lab_notes': '笔记数据',
+  };
+
+  // 多媒体文件扩展名
+  static const _mediaExtensions = {
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
+    'mp4', 'mov', 'avi', 'mkv', 'webm',
+    'mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac',
   };
 
   @override
@@ -104,9 +115,18 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
         sortedData[key] = data[key]!;
       }
 
+      // 扫描多媒体文件
+      final mediaFiles = await _scanMediaFiles();
+      int mediaTotal = 0;
+      for (final f in mediaFiles) {
+        mediaTotal += f.size;
+      }
+
       setState(() {
         _storageData = sortedData;
         _totalSize = total;
+        _mediaFiles = mediaFiles;
+        _mediaTotalSize = mediaTotal;
         _isLoading = false;
       });
     } catch (e) {
@@ -134,6 +154,64 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
     if (size < 1024) return Colors.green;
     if (size < 10 * 1024) return Colors.orange;
     return Colors.red;
+  }
+
+  Future<List<FileItem>> _scanMediaFiles() async {
+    final List<FileItem> files = [];
+
+    try {
+      // 扫描临时目录
+      final tempDir = await getTemporaryDirectory();
+      await _scanDirectory(tempDir, files);
+
+      // 扫描应用文档目录
+      final docDir = await getApplicationDocumentsDirectory();
+      await _scanDirectory(docDir, files);
+    } catch (e) {
+      debugPrint('扫描文件目录失败: $e');
+    }
+
+    // 按大小排序
+    files.sort((a, b) => b.size.compareTo(a.size));
+    return files;
+  }
+
+  Future<void> _scanDirectory(Directory dir, List<FileItem> files) async {
+    try {
+      if (!await dir.exists()) return;
+
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          final ext = entity.path.split('.').last.toLowerCase();
+          if (_mediaExtensions.contains(ext)) {
+            try {
+              final size = await entity.length();
+              files.add(FileItem(
+                path: entity.path,
+                name: entity.path.split('/').last,
+                size: size,
+                type: _getMediaType(ext),
+              ));
+            } catch (e) {
+              // 忽略无法读取的文件
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('扫描目录失败: $dir, $e');
+    }
+  }
+
+  String _getMediaType(String ext) {
+    const images = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'};
+    const videos = {'mp4', 'mov', 'avi', 'mkv', 'webm'};
+    const audios = {'mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac'};
+
+    if (images.contains(ext)) return '图片';
+    if (videos.contains(ext)) return '视频';
+    if (audios.contains(ext)) return '音频';
+    return '文件';
   }
 
   @override
@@ -195,31 +273,93 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _storageData.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
-                            const SizedBox(height: 16),
-                            Text('暂无存储数据', style: TextStyle(color: Colors.grey[600])),
+                : DefaultTabController(
+                    length: 2,
+                    child: Column(
+                      children: [
+                        const TabBar(
+                          tabs: [
+                            Tab(text: '存储数据'),
+                            Tab(text: '多媒体文件'),
                           ],
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount: _storageData.length,
-                        itemBuilder: (context, index) {
-                          final item = _storageData.values.elementAt(index);
-                          return _StorageItemCard(
-                            item: item,
-                            label: _keyLabels[item.key] ?? item.key,
-                            formatSize: _formatSize,
-                            getSizeColor: _getSizeColor,
-                            onTap: () => _showDetailDialog(context, item),
-                          );
-                        },
-                      ),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              // 存储数据列表
+                              _storageData.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+                                          const SizedBox(height: 16),
+                                          Text('暂无存储数据', style: TextStyle(color: Colors.grey[600])),
+                                        ],
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.all(12),
+                                      itemCount: _storageData.length,
+                                      itemBuilder: (context, index) {
+                                        final item = _storageData.values.elementAt(index);
+                                        return _StorageItemCard(
+                                          item: item,
+                                          label: _keyLabels[item.key] ?? item.key,
+                                          formatSize: _formatSize,
+                                          getSizeColor: _getSizeColor,
+                                          onTap: () => _showDetailDialog(context, item),
+                                        );
+                                      },
+                                    ),
+                              // 多媒体文件列表
+                              _mediaFiles.isEmpty
+                                  ? Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.folder_open, size: 64, color: Colors.grey[400]),
+                                          const SizedBox(height: 16),
+                                          Text('暂无多媒体文件', style: TextStyle(color: Colors.grey[600])),
+                                        ],
+                                      ),
+                                    )
+                                  : Column(
+                                      children: [
+                                        // 多媒体文件统计
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          color: theme.colorScheme.surfaceContainerHighest,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                            children: [
+                                              Text('文件数: ${_mediaFiles.length}'),
+                                              Text('总大小: ${_formatSize(_mediaTotalSize)}'),
+                                            ],
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: ListView.builder(
+                                            padding: const EdgeInsets.all(12),
+                                            itemCount: _mediaFiles.length,
+                                            itemBuilder: (context, index) {
+                                              final file = _mediaFiles[index];
+                                              return _MediaFileCard(
+                                                file: file,
+                                                formatSize: _formatSize,
+                                                getSizeColor: _getSizeColor,
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -343,6 +483,20 @@ class StorageItem {
     required this.value,
     required this.size,
     required this.itemCount,
+    required this.type,
+  });
+}
+
+class FileItem {
+  final String path;
+  final String name;
+  final int size;
+  final String type;
+
+  FileItem({
+    required this.path,
+    required this.name,
+    required this.size,
     required this.type,
   });
 }
@@ -480,6 +634,104 @@ class _DetailChip extends StatelessWidget {
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
       ],
+    );
+  }
+}
+
+class _MediaFileCard extends StatelessWidget {
+  final FileItem file;
+  final String Function(int) formatSize;
+  final Color Function(int) getSizeColor;
+
+  const _MediaFileCard({
+    required this.file,
+    required this.formatSize,
+    required this.getSizeColor,
+  });
+
+  IconData _getIcon() {
+    switch (file.type) {
+      case '图片':
+        return Icons.image;
+      case '视频':
+        return Icons.videocam;
+      case '音频':
+        return Icons.audiotrack;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  Color _getColor() {
+    switch (file.type) {
+      case '图片':
+        return Colors.green;
+      case '视频':
+        return Colors.red;
+      case '音频':
+        return Colors.orange;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _getColor().withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(_getIcon(), color: _getColor(), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    file.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    file.path,
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  formatSize(file.size),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: getSizeColor(file.size),
+                  ),
+                ),
+                Text(
+                  file.type,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
