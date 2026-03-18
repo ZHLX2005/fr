@@ -19,8 +19,7 @@ import 'lab/demos/storage_analyze_demo.dart';
 import 'lab/demos/hexagon_panel_demo.dart';
 import 'lab/demos/ripple_effect_demo.dart';
 import 'lab/demos/typewriter_demo.dart';
-import 'lab/demos/audio_visualizer_demo.dart';
-import 'lab/demos/mic_visualizer_demo.dart';
+import 'lab/demos/sound_visualizer_demo.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 
@@ -38,8 +37,7 @@ void main() {
   registerHexagonPanelDemo();
   registerRippleEffectDemo();
   registerTypewriterDemo();
-  registerAudioVisualizerDemo();
-  registerMicVisualizerDemo();
+  registerSoundVisualizerDemo();
   runApp(const MyApp());
 }
 
