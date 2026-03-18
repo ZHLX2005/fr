@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import '../models/models.dart';
 
 class MessageBubble extends StatelessWidget {
@@ -181,37 +184,49 @@ class MessageBubble extends StatelessWidget {
   Widget _buildImageMessage(BuildContext context, ThemeData theme) {
     final filePath = message.content;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: kIsWeb
-          ? (filePath.startsWith('data:') == true
-              ? Image.network(
-                  filePath,
-                  width: 200,
-                  height: 200,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildImageError(theme);
-                  },
-                )
-              : Image.file(
-                  File(filePath),
-                  width: 200,
-                  height: 200,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildImageError(theme);
-                  },
-                ))
-          : Image.file(
-              File(filePath),
-              width: 200,
-              height: 200,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return _buildImageError(theme);
-              },
-            ),
+    return GestureDetector(
+      onTap: () => _showImageViewer(context, filePath),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: kIsWeb
+            ? (filePath.startsWith('data:') == true
+                ? Image.network(
+                    filePath,
+                    width: 200,
+                    height: 200,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildImageError(theme);
+                    },
+                  )
+                : Image.file(
+                    File(filePath),
+                    width: 200,
+                    height: 200,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildImageError(theme);
+                    },
+                  ))
+            : Image.file(
+                File(filePath),
+                width: 200,
+                height: 200,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildImageError(theme);
+                },
+              ),
+      ),
+    );
+  }
+
+  void _showImageViewer(BuildContext context, String filePath) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _ImageViewerPage(filePath: filePath),
+      ),
     );
   }
 
@@ -242,89 +257,123 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildVideoMessage(BuildContext context, ThemeData theme) {
-    return Container(
-      width: 200,
-      height: 150,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: () => _showVideoPlayer(context),
+      child: Container(
+        width: 200,
+        height: 150,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 视频封面（如果有本地文件，显示第一帧）
+            if (kIsWeb)
+              const Icon(Icons.videocam, size: 48, color: Colors.white70)
+            else
+              Image.file(
+                File(message.content),
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(Icons.videocam, size: 48, color: Colors.white70);
+                },
+              ),
+            const Icon(
+              Icons.play_circle_filled,
+              color: Colors.white70,
+              size: 48,
+            ),
+            Positioned(
+              bottom: 8,
+              left: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  '视频消息',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // 视频封面（如果有本地文件，显示第一帧）
-          if (kIsWeb)
-            const Icon(Icons.videocam, size: 48, color: Colors.white70)
-          else
-            Image.file(
-              File(message.content),
-              width: double.infinity,
-              height: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.videocam, size: 48, color: Colors.white70);
-              },
-            ),
-          const Icon(
-            Icons.play_circle_filled,
-            color: Colors.white70,
-            size: 48,
-          ),
-          Positioned(
-            bottom: 8,
-            left: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                '视频消息',
-                style: TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            ),
-          ),
-        ],
+    );
+  }
+
+  void _showVideoPlayer(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _VideoPlayerPage(videoPath: message.content),
       ),
     );
   }
 
   Widget _buildAudioMessage(BuildContext context, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isMe
-            ? theme.colorScheme.primary.withOpacity(0.2)
-            : theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.play_circle_filled,
-            color: isMe
-                ? theme.colorScheme.onPrimary
-                : theme.colorScheme.primary,
-            size: 32,
-          ),
-          const SizedBox(width: 8),
-          // 模拟音频波形
-          _buildAudioWave(theme),
-          const SizedBox(width: 8),
-          Text(
-            '语音',
-            style: theme.textTheme.bodyMedium?.copyWith(
+    return GestureDetector(
+      onTap: () => _playAudio(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isMe
+              ? theme.colorScheme.primary.withOpacity(0.2)
+              : theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.play_circle_filled,
               color: isMe
                   ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurface,
+                  : theme.colorScheme.primary,
+              size: 32,
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            // 模拟音频波形
+            _buildAudioWave(theme),
+            const SizedBox(width: 8),
+            Text(
+              '语音',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isMe
+                    ? theme.colorScheme.onPrimary
+                    : theme.colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  void _playAudio(BuildContext context) async {
+    try {
+      await _audioPlayer.play(DeviceFileSource(message.content));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('正在播放语音...'), duration: Duration(seconds: 1)),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('播放失败: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildAudioWave(ThemeData theme) {
@@ -440,5 +489,128 @@ class MessageBubble extends StatelessWidget {
       default:
         return Icons.insert_drive_file;
     }
+  }
+}
+
+/// 图片查看器页面
+class _ImageViewerPage extends StatelessWidget {
+  final String filePath;
+
+  const _ImageViewerPage({required this.filePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: kIsWeb
+              ? (filePath.startsWith('data:')
+                  ? Image.network(filePath)
+                  : Image.file(File(filePath)))
+              : Image.file(File(filePath)),
+        ),
+      ),
+    );
+  }
+}
+
+/// 视频播放器页面
+class _VideoPlayerPage extends StatefulWidget {
+  final String videoPath;
+
+  const _VideoPlayerPage({required this.videoPath});
+
+  @override
+  State<_VideoPlayerPage> createState() => _VideoPlayerPageState();
+}
+
+class _VideoPlayerPageState extends State<_VideoPlayerPage> {
+  late VideoPlayerController _videoController;
+  ChewieController? _chewieController;
+  bool _isInitialized = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _videoController = VideoPlayerController.file(File(widget.videoPath));
+      await _videoController.initialize();
+      _chewieController = ChewieController(
+        videoPlayerController: _videoController,
+        autoPlay: true,
+        looping: false,
+        allowFullScreen: true,
+        allowMuting: true,
+        showControls: true,
+      );
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoController.dispose();
+    _chewieController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('视频播放', style: TextStyle(color: Colors.white)),
+      ),
+      body: Center(
+        child: _errorMessage != null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, color: Colors.white, size: 48),
+                  const SizedBox(height: 16),
+                  Text(
+                    '视频加载失败',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              )
+            : _isInitialized && _chewieController != null
+                ? Chewie(controller: _chewieController!)
+                : const CircularProgressIndicator(color: Colors.white),
+      ),
+    );
   }
 }

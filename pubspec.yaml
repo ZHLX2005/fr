@@ -75,6 +75,10 @@ dependencies:
   # Audio Player
   audioplayers: ^5.2.1
 
+  # Video Player
+  video_player: ^2.8.7
+  chewie: ^1.8.1
+
   # Audio Recording
   record: ^6.0.0
   path_provider: ^2.1.4
