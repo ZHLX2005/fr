@@ -117,30 +117,38 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
   }
 
   void _updateSnake() {
-    setState(() {
-      switch (_direction) {
-        case Direction.up:
-          _snakePosition.insert(0, _snakeHead - _noOfColumn);
-          break;
-        case Direction.down:
-          _snakePosition.insert(0, _snakeHead + _noOfColumn);
-          break;
-        case Direction.right:
-          _snakePosition.insert(0, _snakeHead + 1);
-          break;
-        case Direction.left:
-          _snakePosition.insert(0, _snakeHead - 1);
-          break;
-      }
-    });
-
-    if (_snakeHead == _foodPosition) {
-      _score++;
-      _generateFood();
-    } else {
-      _snakePosition.removeLast();
+    // 先计算新的头部位置
+    int newHead;
+    switch (_direction) {
+      case Direction.up:
+        newHead = _snakeHead - _noOfColumn;
+        break;
+      case Direction.down:
+        newHead = _snakeHead + _noOfColumn;
+        break;
+      case Direction.right:
+        newHead = _snakeHead + 1;
+        break;
+      case Direction.left:
+        newHead = _snakeHead - 1;
+        break;
     }
-    _snakeHead = _snakePosition.first;
+
+    // 检查是否吃到食物（在移动之前检查）
+    bool ateFood = (newHead == _foodPosition);
+
+    setState(() {
+      _snakePosition.insert(0, newHead);
+
+      if (ateFood) {
+        _score++;
+        // 先生成新食物，再移除尾巴（蛇变长）
+        _generateFood();
+      } else {
+        _snakePosition.removeLast();
+      }
+      _snakeHead = _snakePosition.first;
+    });
 
     if (_checkCollision()) {
       _gameTimer?.cancel();
