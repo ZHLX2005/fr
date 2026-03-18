@@ -329,8 +329,8 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     if (clock != null && clock.isRunning) {
       return (record.durationSeconds) - clock.remainingSeconds;
     }
-    // 暂停中：显示0
-    return 0;
+    // 暂停中：显示已累积的时间
+    return record.accumulatedSeconds ?? 0;
   }
 
   @override
