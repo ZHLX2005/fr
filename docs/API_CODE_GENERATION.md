@@ -103,6 +103,25 @@ cp -r generated_temp/lib/* lib/generated/
 # 重新应用修复（见 2.3）
 # - 修改 basePath
 # - 修复 MultipartFile.fromJson
+# - 修复路径参数替换 (重要!)
+```
+
+### 4.4 修复路径参数问题
+
+生成器会把 `:key`、`:id` 等路径参数错误地放入 queryParams，需要手动修复：
+
+```dart
+// kv_api.dart - GET /api/v1/kv/:key
+var path = r'/api/v1/kv/:key';
+if (key != null) {
+  path = path.replaceAll(':key', key);  // 替换为路径参数
+}
+
+// file_api.dart - 同理修复 :id
+var path = r'/api/v1/file/:id';
+if (id != null) {
+  path = path.replaceAll(':id', id);
+}
 ```
 
 ### 4.4 编译验证
