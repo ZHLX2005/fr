@@ -178,8 +178,10 @@ class _ChatInputFieldState extends State<ChatInputField> {
             GridView.count(
               shrinkWrap: true,
               crossAxisCount: 4,
-              mainAxisSpacing: 16,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              childAspectRatio: 0.9,
               children: [
                 _buildAttachmentItem(
                   icon: Icons.photo_library,
@@ -236,20 +238,22 @@ class _ChatInputFieldState extends State<ChatInputField> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 28),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: 11),
           ),
         ],
       ),
