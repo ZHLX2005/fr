@@ -68,22 +68,31 @@ class AudioRecordingService {
     }
   }
 
-  /// 停止录音
-  Future<String?> stopRecording() async {
-    if (!_isRecording) return null;
+  /// 停止录音并返回录音时长
+  Future<(String?, int)> stopRecordingWithDuration() async {
+    if (!_isRecording) return (null, 0);
 
     try {
+      // 先获取时长（在清除 _startTime 之前）
+      final durationSeconds = getDurationInSeconds();
+
       final path = await _recorder.stop();
       _isRecording = false;
       _startTime = null;
 
-      debugPrint('停止录音: $path');
-      return path ?? _recordPath;
+      debugPrint('停止录音: $path, 时长: $durationSeconds 秒');
+      return (path ?? _recordPath, durationSeconds);
     } catch (e) {
       debugPrint('停止录音失败: $e');
       _isRecording = false;
-      return null;
+      return (null, 0);
     }
+  }
+
+  /// 停止录音（兼容旧代码）
+  Future<String?> stopRecording() async {
+    final (path, _) = await stopRecordingWithDuration();
+    return path;
   }
 
   /// 取消录音

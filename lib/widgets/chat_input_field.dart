@@ -340,12 +340,10 @@ class _ChatInputFieldState extends State<ChatInputField> {
   // 录音功能
   Future<void> _handleAudioRecording() async {
     if (_isRecording) {
-      // 停止录音
-      final path = await _audioService.stopRecording();
+      // 停止录音，获取时长
+      final (path, durationSeconds) = await _audioService.stopRecordingWithDuration();
       if (path != null) {
-        final duration = Duration(
-          seconds: _audioService.getDurationInSeconds(),
-        );
+        final duration = Duration(seconds: durationSeconds);
         _addPreview(PreviewMessage(
           type: PreviewType.audio,
           content: '语音',

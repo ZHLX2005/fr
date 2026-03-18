@@ -25,6 +25,25 @@ class MessageBubble extends StatefulWidget {
 
 class _MessageBubbleState extends State<MessageBubble> {
   AudioPlayer? _audioPlayer;
+  bool _isPlaying = false;
+  String? _currentlyPlayingPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _initAudioPlayer();
+  }
+
+  void _initAudioPlayer() {
+    _audioPlayer = AudioPlayer();
+    _audioPlayer!.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = state == PlayerState.playing;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -332,6 +351,9 @@ class _MessageBubbleState extends State<MessageBubble> {
   }
 
   Widget _buildAudioMessage(BuildContext context, ThemeData theme) {
+    // 检查当前是否正在播放这条语音
+    final isCurrentPlaying = _isPlaying && _currentlyPlayingPath == widget.message.content;
+
     return GestureDetector(
       onTap: () => _playAudio(context),
       child: Container(
@@ -346,7 +368,7 @@ class _MessageBubbleState extends State<MessageBubble> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.play_circle_filled,
+              isCurrentPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
               color: widget.isMe
                   ? theme.colorScheme.onPrimary
                   : theme.colorScheme.primary,
@@ -385,11 +407,18 @@ class _MessageBubbleState extends State<MessageBubble> {
 
       _audioPlayer ??= AudioPlayer();
 
-      // 监听播放状态
-      _audioPlayer!.onPlayerStateChanged.listen((state) {
-        if (mounted) {
-          setState(() {});
-        }
+      // 如果当前正在播放这条语音，暂停它
+      if (_isPlaying && _currentlyPlayingPath == widget.message.content) {
+        await _audioPlayer!.pause();
+        setState(() {
+          _currentlyPlayingPath = null;
+        });
+        return;
+      }
+
+      // 设置当前播放路径并播放
+      setState(() {
+        _currentlyPlayingPath = widget.message.content;
       });
 
       await _audioPlayer!.play(DeviceFileSource(widget.message.content));
@@ -404,6 +433,9 @@ class _MessageBubbleState extends State<MessageBubble> {
       }
     } catch (e) {
       debugPrint('播放音频失败: $e');
+      setState(() {
+        _currentlyPlayingPath = null;
+      });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('播放失败: $e')),
