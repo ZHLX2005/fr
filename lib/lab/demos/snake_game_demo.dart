@@ -254,89 +254,88 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                 ],
               ),
             ),
-            // 游戏区域 - 支持触屏滑动控制
+            // 游戏区域和方向控制
             Expanded(
-              child: GestureDetector(
-                onVerticalDragEnd: (details) {
-                  if (details.primaryVelocity != null) {
-                    if (details.primaryVelocity! < 0 && _direction != Direction.down) {
-                      _direction = Direction.up;
-                    } else if (details.primaryVelocity! > 0 && _direction != Direction.up) {
-                      _direction = Direction.down;
-                    }
-                  }
-                },
-                onHorizontalDragEnd: (details) {
-                  if (details.primaryVelocity != null) {
-                    if (details.primaryVelocity! < 0 && _direction != Direction.right) {
-                      _direction = Direction.left;
-                    } else if (details.primaryVelocity! > 0 && _direction != Direction.left) {
-                      _direction = Direction.right;
-                    }
-                  }
-                },
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blue, width: 3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _noOfRow * _noOfColumn,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: _noOfColumn,
-                      ),
-                      itemBuilder: (context, index) {
-                        return Container(
-                          margin: const EdgeInsets.all(0.5),
-                          color: _boxFillColor(index),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // 操作说明
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
               child: Column(
                 children: [
-                  const Text(
-                    '操作说明',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  // 游戏区域
+                  Expanded(
+                    flex: 3,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blue, width: 2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _noOfRow * _noOfColumn,
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: _noOfColumn,
+                          ),
+                          itemBuilder: (context, index) {
+                            return Container(
+                              margin: const EdgeInsets.all(0.5),
+                              color: _boxFillColor(index),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _ControlHint(icon: Icons.swipe_up, label: '向上滑'),
-                      _ControlHint(icon: Icons.swipe_down, label: '向下滑'),
-                      _ControlHint(icon: Icons.swipe_left, label: '向左滑'),
-                      _ControlHint(icon: Icons.swipe_right, label: '向右滑'),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '在游戏区域滑动控制蛇的移动',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  // 方向控制按钮
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // 向上按钮
+                          _DirectionButton(
+                            icon: Icons.arrow_upward,
+                            onTap: () {
+                              if (_direction != Direction.down) {
+                                _direction = Direction.up;
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          // 下一行：左、向下、右
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _DirectionButton(
+                                icon: Icons.arrow_back,
+                                onTap: () {
+                                  if (_direction != Direction.right) {
+                                    _direction = Direction.left;
+                                  }
+                                },
+                              ),
+                              _DirectionButton(
+                                icon: Icons.arrow_downward,
+                                onTap: () {
+                                  if (_direction != Direction.up) {
+                                    _direction = Direction.down;
+                                  }
+                                },
+                              ),
+                              _DirectionButton(
+                                icon: Icons.arrow_forward,
+                                onTap: () {
+                                  if (_direction != Direction.left) {
+                                    _direction = Direction.right;
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -397,6 +396,36 @@ class _ControlHint extends StatelessWidget {
         const SizedBox(height: 4),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
+    );
+  }
+}
+
+/// 方向控制按钮
+class _DirectionButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _DirectionButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.blue,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 56,
+          height: 56,
+          alignment: Alignment.center,
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 32,
+          ),
+        ),
+      ),
     );
   }
 }
