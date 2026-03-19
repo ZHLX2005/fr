@@ -81,7 +81,7 @@ jobs:
             echo "Uploading $APK_FILE to file server..."
             RESPONSE=$(curl -s -X POST "http://139.9.42.203:8988/api/v1/upload/fr_latest_apk" \
               -F "file=@$APK_FILE" \
-              -F "ttl=30d")
+              -F "ttl=0")
             echo "Upload response: $RESPONSE"
             if echo "$RESPONSE" | grep -q '"code":0'; then
               echo "APK uploaded successfully"
