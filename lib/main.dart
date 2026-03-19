@@ -19,7 +19,6 @@ import 'lab/demos/storage_analyze_demo.dart';
 import 'lab/demos/hexagon_panel_demo.dart';
 import 'lab/demos/ripple_effect_demo.dart';
 import 'lab/demos/typewriter_demo.dart';
-import 'lab/demos/animated_search_bar_demo.dart';
 import 'lab/demos/snake_game_demo.dart';
 import 'lab/demos/music_player_ui_demo.dart';
 import 'lab/demos/api_test_demo.dart';
@@ -42,7 +41,6 @@ void main() {
   registerHexagonPanelDemo();
   registerRippleEffectDemo();
   registerTypewriterDemo();
-  registerAnimatedSearchBarDemo();
   registerSnakeGameDemo();
   registerMusicPlayerUIDemo();
   registerApiTestDemo();

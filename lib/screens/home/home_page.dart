@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../widgets/animated_search_bar.dart';
 import '../chat/chat_detail_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,32 +17,54 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Consumer<ChatSessionProvider>(
-        builder: (context, sessionProvider, child) {
-          if (sessionProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Column(
+        children: [
+          // 搜索栏头部
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Center(
+              child: AnimatedSearchBar(
+                hintText: '搜索聊天记录...',
+                onSearch: (value) {
+                  // TODO: 实现搜索功能
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('搜索: $value')),
+                  );
+                },
+              ),
+            ),
+          ),
+          // 聊天列表
+          Expanded(
+            child: Consumer<ChatSessionProvider>(
+              builder: (context, sessionProvider, child) {
+                if (sessionProvider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          final sessions = sessionProvider.sessions;
+                final sessions = sessionProvider.sessions;
 
-          if (sessions.isEmpty) {
-            return _buildEmptyState();
-          }
+                if (sessions.isEmpty) {
+                  return _buildEmptyState();
+                }
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              final userProvider = context.read<UserProvider>();
-              await sessionProvider.refreshSessions(userProvider.currentUser!.id);
-            },
-            child: ListView.separated(
-              itemCount: sessions.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                return _buildSessionItem(context, sessions[index], sessionProvider);
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    final userProvider = context.read<UserProvider>();
+                    await sessionProvider.refreshSessions(userProvider.currentUser!.id);
+                  },
+                  child: ListView.separated(
+                    itemCount: sessions.length,
+                    separatorBuilder: (context, index) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      return _buildSessionItem(context, sessions[index], sessionProvider);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
