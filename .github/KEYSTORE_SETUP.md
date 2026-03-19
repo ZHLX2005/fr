@@ -4,6 +4,8 @@
 
 在有 Android SDK 的电脑上运行以下命令生成 debug.keystore：
 
+
+
 ```bash
 keytool -genkey -v -keystore debug.keystore \
   -storepass android -alias androiddebugkey -keypass android \
