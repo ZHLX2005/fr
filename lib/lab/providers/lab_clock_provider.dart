@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../home_widget/clock_widget_data.dart';
@@ -68,6 +69,12 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
           final elapsed = DateTime.now().difference(clock.startTime!).inSeconds;
           final newRemaining = baseSeconds - elapsed;
 
+          // 检测倒计时是否刚到达0（从正数变为0或负数）
+          if (clock.remainingSeconds > 0 && newRemaining <= 0) {
+            // 倒计时结束，震动3秒
+            _vibrate3Seconds();
+          }
+
           if (newRemaining != clock.remainingSeconds) {
             _clocks[i] = clock.copyWith(
               remainingSeconds: newRemaining,
@@ -82,6 +89,15 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
         notifyListeners();
       }
     });
+  }
+
+  // 震动3秒
+  void _vibrate3Seconds() async {
+    // 连续震动3秒，每200ms震动一次
+    for (int i = 0; i < 15; i++) {
+      await HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
   }
 
   /// 同步第一个时钟数据到桌面小组件
