@@ -98,11 +98,8 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     // 播放系统通知铃声（通过原生方法）
     _playNotificationSound();
 
-    // 连续震动3秒，每200ms震动一次
-    for (int i = 0; i < 15; i++) {
-      await HapticFeedback.heavyImpact();
-      await Future.delayed(const Duration(milliseconds: 200));
-    }
+    // 调用原生震动方法（3秒）
+    _vibrate(3000);
   }
 
   // 播放系统通知铃声
@@ -114,7 +111,6 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     } catch (e) {
       // 如果原生方法调用失败，使用 audioplayers 播放默认提示音
       try {
-        // 使用在线的短提示音
         await _audioPlayer.setReleaseMode(ReleaseMode.release);
         await _audioPlayer.setSourceUrl(
           'https://www.soundjay.com/buttons/beep-01a.mp3',
@@ -122,6 +118,19 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
         await _audioPlayer.resume();
       } catch (_) {
         // 忽略音频播放错误
+      }
+    }
+  }
+
+  // 调用原生震动方法
+  Future<void> _vibrate(int milliseconds) async {
+    try {
+      await _soundChannel.invokeMethod('vibrate', {'duration': milliseconds});
+    } catch (e) {
+      // 如果原生方法调用失败，使用 Flutter 的 HapticFeedback 作为降级
+      for (int i = 0; i < 3; i++) {
+        await HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 300));
       }
     }
   }

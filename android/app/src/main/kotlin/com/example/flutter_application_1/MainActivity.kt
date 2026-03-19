@@ -3,6 +3,11 @@ package com.example.flutter_application_1
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.content.Context
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -27,11 +32,17 @@ class MainActivity : FlutterActivity() {
 
         // 时钟相关 MethodChannel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CLOCK_CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "playNotificationSound") {
-                playNotificationSound()
-                result.success(null)
-            } else {
-                result.notImplemented()
+            when (call.method) {
+                "playNotificationSound" -> {
+                    playNotificationSound()
+                    result.success(null)
+                }
+                "vibrate" -> {
+                    val duration = call.argument<Long>("duration") ?: 3000L
+                    vibrate(duration)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
         }
     }
@@ -42,6 +53,30 @@ class MainActivity : FlutterActivity() {
             val notification: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
             ringtone?.play()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // 震动指定时长（毫秒）
+    private fun vibrate(duration: Long) {
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vibratorManager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Android 8.0+ 使用 VibrationEffect
+                vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                // Android 8.0 以下
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(duration)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
