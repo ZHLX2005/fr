@@ -20,7 +20,6 @@ import 'lab/demos/hexagon_panel_demo.dart';
 import 'lab/demos/ripple_effect_demo.dart';
 import 'lab/demos/typewriter_demo.dart';
 import 'lab/demos/snake_game_demo.dart';
-import 'lab/demos/music_player_ui_demo.dart';
 import 'lab/demos/api_test_demo.dart';
 import 'lab/demos/calendar_demo.dart';
 import 'lab/demos/my_diary_header_demo.dart';
@@ -43,7 +42,6 @@ void main() {
   registerRippleEffectDemo();
   registerTypewriterDemo();
   registerSnakeGameDemo();
-  registerMusicPlayerUIDemo();
   registerApiTestDemo();
   registerCalendarDemo();
   registerMyDiaryHeaderDemo();
