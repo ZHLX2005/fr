@@ -165,7 +165,7 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  remove_alpha_ios: true
-  image_path: "res/image.png"
+  remove_alpha_ios: false
+  image_path: "res/image_transparent.png"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "res/image.png"
+  adaptive_icon_foreground: "res/image_transparent.png"
