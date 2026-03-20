@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../media_test_page.dart';
 import '../lab/lab_page.dart';
+import '../banner_crop_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -34,19 +34,16 @@ class _ProfilePageState extends State<ProfilePage> {
     await prefs.setString(_bannerKey, path);
   }
 
-  Future<void> _pickBannerImage() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+  Future<void> _openCropPage() async {
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const BannerCropPage()),
+    );
+    if (result != null) {
       setState(() {
-        _bannerPath = image.path;
+        _bannerPath = result;
       });
-      await _saveBanner(image.path);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Banner已更新')),
-        );
-      }
+      await _saveBanner(result);
     }
   }
 
@@ -71,11 +68,11 @@ class _ProfilePageState extends State<ProfilePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('从相册选择'),
+              leading: const Icon(Icons.crop),
+              title: const Text('选择并裁剪图片'),
               onTap: () {
                 Navigator.pop(context);
-                _pickBannerImage();
+                _openCropPage();
               },
             ),
             if (_bannerPath != null)
@@ -96,74 +93,89 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // Banner 区域
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: GestureDetector(
-                onTap: _showBannerOptions,
-                child: _bannerPath != null
-                    ? Image.file(
-                        File(_bannerPath!),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildDefaultBanner(context),
-                      )
-                    : _buildDefaultBanner(context),
+      body: SafeArea(
+        top: false, // 让SliverAppBar处理顶部安全区域
+        child: CustomScrollView(
+          slivers: [
+            // Banner 区域
+            SliverAppBar(
+              expandedHeight: 200,
+              pinned: true,
+              // 标题不浮动，正常显示在AppBar区域
+              floating: false,
+              snap: false,
+              flexibleSpace: FlexibleSpaceBar(
+                // 标题只在收起状态显示
+                title: _bannerPath == null
+                    ? const Text('小豆子')
+                    : null,
+                titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+                background: GestureDetector(
+                  onTap: _showBannerOptions,
+                  child: _bannerPath != null
+                      ? Image.file(
+                          File(_bannerPath!),
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (_, __, ___) => _buildDefaultBanner(context),
+                        )
+                      : _buildDefaultBanner(context),
+                ),
               ),
             ),
-            title: const Text('小豆子'),
-            centerTitle: true,
-          ),
-          // 功能列表
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  // 媒体功能测试
-                  _buildMenuCard(
-                    context,
-                    icon: Icons.camera_alt,
-                    title: '媒体功能测试',
-                    subtitle: '测试相机、相册、音视频播放等功能',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const MediaTestPage()),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // 开发者实验室
-                  _buildMenuCard(
-                    context,
-                    icon: Icons.science,
-                    title: '开发者实验室',
-                    subtitle: '各种Demo示例和实验性功能',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LabPage()),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 48),
-                  // 底部说明
-                  Text(
-                    '小豆子 - 为了满足好奇心而生',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-                        ),
-                  ),
-                ],
+            // 功能列表
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    // 媒体功能测试
+                    _buildMenuCard(
+                      context,
+                      icon: Icons.camera_alt,
+                      title: '媒体功能测试',
+                      subtitle: '测试相机、相册、音视频播放等功能',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const MediaTestPage()),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // 开发者实验室
+                    _buildMenuCard(
+                      context,
+                      icon: Icons.science,
+                      title: '开发者实验室',
+                      subtitle: '各种Demo示例和实验性功能',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const LabPage()),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 48),
+                    // 底部说明
+                    Text(
+                      '小豆子 - 为了满足好奇心而生',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.4),
+                          ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -262,7 +274,8 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               Icon(
                 Icons.chevron_right,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                color:
+                    Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
               ),
             ],
           ),
