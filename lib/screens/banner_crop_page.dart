@@ -28,6 +28,11 @@ class _BannerCropPageState extends State<BannerCropPage> {
           initAspectRatio: CropAspectRatioPreset.ratio16x9,
           lockAspectRatio: false,
           hideBottomControls: false,
+          aspectRatioPresets: [
+            CropAspectRatioPreset.ratio16x9,
+            CropAspectRatioPreset.original,
+            CropAspectRatioPreset.ratio4x3,
+          ],
         ),
         IOSUiSettings(
           title: '裁剪Banner',
