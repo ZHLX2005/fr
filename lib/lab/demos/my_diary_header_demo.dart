@@ -42,6 +42,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '今天的计划',
       content: '完成项目报告，阅读一本书籍',
+      expandedContent: '今日待办：\n• 完成项目报告\n• 阅读《Flutter实战》第5章\n• 整理笔记\n• 复习React组件',
       time: '08:30',
       color: _primaryColor,
       icon: Icons.assignment,
@@ -49,6 +50,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '健身记录',
       content: '跑步5公里，瑜伽30分钟',
+      expandedContent: '今日运动详情：\n• 晨跑：5公里（30分钟）\n• 瑜伽：30分钟\n• 消耗卡路里：约350kcal\n• 明天计划：游泳1小时',
       time: '09:15',
       color: _secondaryColor,
       icon: Icons.fitness_center,
@@ -56,6 +58,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '学习笔记',
       content: 'Flutter高级组件与动画技巧',
+      expandedContent: '学习内容总结：\n• CustomPainter绘制波浪动画\n• AnimationController控制器\n• Tween动画插值\n• 实战：水位胶囊组件',
       time: '14:20',
       color: _tertiaryColor,
       icon: Icons.school,
@@ -63,6 +66,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '晚餐计划',
       content: '沙拉、鸡胸肉、水果',
+      expandedContent: '晚餐菜单：\n• 鸡胸肉 150g\n• 混合沙拉\n• 水果拼盘\n• 饮用水 500ml',
       time: '18:00',
       color: _accentColor,
       icon: Icons.restaurant,
@@ -70,6 +74,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '阅读时光',
       content: '《Flutter实战》Chapter 5',
+      expandedContent: '读书笔记：\n• Flutter状态管理\n• Provider使用\n• 生命周期管理\n• 性能优化技巧',
       time: '21:00',
       color: _primaryColor,
       icon: Icons.menu_book,
@@ -77,6 +82,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '每日反思',
       content: '今天完成了很多事情，很充实！',
+      expandedContent: '今日总结：\n✓ 项目报告进度80%\n✓ 完成运动计划\n✓ 学习Flutter动画\n○ 明天需要加强...',
       time: '22:30',
       color: _secondaryColor,
       icon: Icons.nightlight_round,
@@ -336,6 +342,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
 class _DiaryCard {
   final String title;
   final String content;
+  final String expandedContent;
   final String time;
   final Color color;
   final IconData icon;
@@ -343,6 +350,7 @@ class _DiaryCard {
   _DiaryCard({
     required this.title,
     required this.content,
+    required this.expandedContent,
     required this.time,
     required this.color,
     required this.icon,
@@ -455,7 +463,7 @@ class _DiaryCardWidgetState extends State<_DiaryCardWidget>
                             overflow: TextOverflow.ellipsis,
                           ),
                           secondChild: Text(
-                            widget.card.content,
+                            widget.card.expandedContent,
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[700],
