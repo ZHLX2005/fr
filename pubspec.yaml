@@ -100,6 +100,9 @@ dependencies:
   home_widget: ^0.7.0
   flutter_local_notifications: ^21.0.0
 
+  # Image Cropper (图片裁剪)
+  image_cropper: ^8.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
