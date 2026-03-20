@@ -90,8 +90,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
+      value: 1.0, // 设置为最终状态，避免初始化时布局抖动
     );
-    _animationController.forward();
   }
 
   @override
