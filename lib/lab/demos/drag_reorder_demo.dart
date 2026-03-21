@@ -184,112 +184,240 @@ class _HomeGridView extends StatelessWidget {
 
   void _showAddDialog(BuildContext context) {
     final controller = context.read<HomeController>();
+
+    // 选择类型：应用或文件夹
+    bool isFolder = false;
+
     final titleController = TextEditingController();
     IconData selectedIcon = Icons.apps;
     Color selectedColor = Colors.blue;
 
+    // 选择要放入文件夹的应用（创建文件夹时）
+    final Set<String> selectedApps = {};
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('添加应用'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: '名称',
-                    border: OutlineInputBorder(),
+        builder: (context, setState) {
+          final availableApps = controller.items.whereType<AppItem>().toList();
+
+          return AlertDialog(
+            title: Text(isFolder ? '创建文件夹' : '添加应用'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 切换类型
+                  Row(
+                    children: [
+                      ChoiceChip(
+                        label: const Text('应用'),
+                        selected: !isFolder,
+                        onSelected: (selected) {
+                          setState(() {
+                            isFolder = false;
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text('文件夹'),
+                        selected: isFolder,
+                        onSelected: (selected) {
+                          setState(() {
+                            isFolder = true;
+                          });
+                        },
+                      ),
+                    ],
                   ),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 16),
-                const Text('选择图标:', style: TextStyle(fontSize: 14)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _icons.map((icon) {
-                    final isSelected = selectedIcon == icon;
-                    return GestureDetector(
-                      onTap: () => setState(() => selectedIcon = icon),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? selectedColor.withAlpha(51)
-                              : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isSelected ? selectedColor : Colors.grey[300]!,
-                            width: isSelected ? 2 : 1,
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(
+                      labelText: isFolder ? '文件夹名称' : '应用名称',
+                      border: const OutlineInputBorder(),
+                    ),
+                    autofocus: true,
+                  ),
+
+                  if (!isFolder) ...[
+                    const SizedBox(height: 16),
+                    const Text('选择图标:', style: TextStyle(fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _icons.map((icon) {
+                        final isSelected = selectedIcon == icon;
+                        return GestureDetector(
+                          onTap: () => setState(() => selectedIcon = icon),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? selectedColor.withAlpha(51)
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected ? selectedColor : Colors.grey[300]!,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Icon(icon,
+                                color: isSelected ? selectedColor : Colors.grey[600],
+                                size: 24),
                           ),
-                        ),
-                        child: Icon(icon,
-                            color: isSelected ? selectedColor : Colors.grey[600],
-                            size: 24),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                const Text('选择颜色:', style: TextStyle(fontSize: 14)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _colors.map((color) {
-                    final isSelected = selectedColor == color;
-                    return GestureDetector(
-                      onTap: () => setState(() => selectedColor = color),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected ? Colors.black : Colors.grey[300]!,
-                            width: isSelected ? 3 : 1,
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('选择颜色:', style: TextStyle(fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _colors.map((color) {
+                        final isSelected = selectedColor == color;
+                        return GestureDetector(
+                          onTap: () => setState(() => selectedColor = color),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected ? Colors.black : Colors.grey[300]!,
+                                width: isSelected ? 3 : 1,
+                              ),
+                            ),
+                            child: isSelected
+                                ? const Icon(Icons.check,
+                                    color: Colors.white, size: 20)
+                                : null,
                           ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+
+                  if (isFolder && availableApps.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text('选择应用放入文件夹:', style: TextStyle(fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: availableApps.map((app) {
+                        final isSelected = selectedApps.contains(app.id);
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                selectedApps.remove(app.id);
+                              } else {
+                                selectedApps.add(app.id);
+                              }
+                            });
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? app.color.withAlpha(51)
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected ? app.color : Colors.grey[300]!,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Stack(
+                              children: [
+                                Icon(app.icon,
+                                    color: isSelected ? app.color : Colors.grey[600],
+                                    size: 24),
+                                if (isSelected)
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      width: 14,
+                                      height: 14,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.green,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.check,
+                                          color: Colors.white, size: 10),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    if (selectedApps.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          '请至少选择2个应用',
+                          style: TextStyle(color: Colors.orange[700], fontSize: 12),
                         ),
-                        child: isSelected
-                            ? const Icon(Icons.check,
-                                color: Colors.white, size: 20)
-                            : null,
                       ),
-                    );
-                  }).toList(),
-                ),
-              ],
+                  ],
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final title = titleController.text.trim();
-                if (title.isNotEmpty) {
-                  controller.addItem(AppItem(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    title: title,
-                    icon: selectedIcon,
-                    color: selectedColor,
-                  ));
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final title = titleController.text.trim();
+                  if (title.isEmpty) return;
+
+                  if (isFolder) {
+                    // 创建文件夹
+                    if (selectedApps.length < 2) return;
+
+                    final folderApps = availableApps
+                        .where((app) => selectedApps.contains(app.id))
+                        .toList();
+
+                    controller.addFolder(FolderItem(
+                      id: 'folder_${DateTime.now().millisecondsSinceEpoch}',
+                      title: title,
+                      children: folderApps,
+                    ));
+
+                    // 从桌面移除已放入文件夹的应用
+                    for (final app in folderApps) {
+                      controller.items.removeWhere((e) => e.id == app.id);
+                    }
+                  } else {
+                    // 创建应用
+                    controller.addItem(AppItem(
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      title: title,
+                      icon: selectedIcon,
+                      color: selectedColor,
+                    ));
+                  }
                   Navigator.pop(context);
-                }
-              },
-              child: const Text('添加'),
-            ),
-          ],
-        ),
+                },
+                child: const Text('创建'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

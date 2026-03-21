@@ -195,6 +195,31 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 添加文件夹
+  void addFolder(FolderItem folder) {
+    _items.add(folder);
+    notifyListeners();
+  }
+
+  /// 从文件夹移除应用（解散文件夹时用到）
+  void removeAppFromFolder(String folderId, String appId) {
+    final index = _items.indexWhere((e) => e.id == folderId);
+    if (index >= 0 && _items[index] is FolderItem) {
+      final folder = _items[index] as FolderItem;
+      final newChildren = folder.children.where((c) => c.id != appId).toList();
+      if (newChildren.isEmpty) {
+        // 如果文件夹空了，移除文件夹
+        _items.removeAt(index);
+      } else if (newChildren.length == 1) {
+        // 只剩一个应用，解散文件夹
+        _items[index] = newChildren.first;
+      } else {
+        _items[index] = folder.copyWith(children: newChildren);
+      }
+      notifyListeners();
+    }
+  }
+
   /// 编辑应用
   void editItem(String id, {String? title, IconData? icon, Color? color}) {
     final index = _items.indexWhere((e) => e.id == id);
