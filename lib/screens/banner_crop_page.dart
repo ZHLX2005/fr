@@ -43,6 +43,7 @@ class _BannerCropPageState extends State<BannerCropPage> {
     setState(() {
       _isLoading = true;
       _selectedPath = image.path;
+      _croppedPath = null; // 重置裁剪结果
     });
 
     try {
@@ -77,11 +78,12 @@ class _BannerCropPageState extends State<BannerCropPage> {
         if (savedPath != null && mounted) {
           setState(() {
             _croppedPath = savedPath;
+            _selectedPath = savedPath; // 同步路径，确保一致性
             _isLoading = false;
           });
         }
       } else {
-        // 用户取消裁剪，保留原图
+        // 用户取消裁剪，使用原图
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -160,6 +162,7 @@ class _BannerCropPageState extends State<BannerCropPage> {
         if (savedPath != null && mounted) {
           setState(() {
             _croppedPath = savedPath;
+            _selectedPath = savedPath; // 同步路径
             _isLoading = false;
           });
         }
