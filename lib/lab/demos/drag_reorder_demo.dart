@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../lab_container.dart';
+import '../models/home_item.dart';
+import '../models/home_controller.dart';
+import '../widgets/home_widgets.dart';
 
-/// 拖拽排序Demo - 类似手机App图标拖拽排序
+/// 桌面式拖拽排序Demo
 class DragReorderDemo extends DemoPage {
   @override
-  String get title => '拖拽排序';
+  String get title => '桌面拖拽';
 
   @override
-  String get description => 'App图标风格拖拽排序';
+  String get description => '手机桌面风格拖拽排序';
 
   @override
   Widget buildPage(BuildContext context) {
@@ -23,102 +28,171 @@ class _DragReorderPage extends StatefulWidget {
 }
 
 class _DragReorderPageState extends State<_DragReorderPage> {
-  final List<_AppItem> _items = [];
-  int _nextId = 1;
-  int? _draggingIndex;
-  int? _targetIndex;
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => HomeController(),
+      child: const _HomeGridView(),
+    );
+  }
+}
+
+class _HomeGridView extends StatelessWidget {
+  const _HomeGridView();
 
   @override
-  void initState() {
-    super.initState();
-    _items.addAll([
-      _AppItem(id: _nextId++, title: '微信', icon: Icons.chat, color: const Color(0xFF07C160)),
-      _AppItem(id: _nextId++, title: 'QQ', icon: Icons.message, color: const Color(0xFF12B7F5)),
-      _AppItem(id: _nextId++, title: '淘宝', icon: Icons.shopping_bag, color: const Color(0xFFFF6A00)),
-      _AppItem(id: _nextId++, title: '抖音', icon: Icons.music_video, color: const Color(0xFF000000)),
-      _AppItem(id: _nextId++, title: '京东', icon: Icons.local_mall, color: const Color(0xFFE4393C)),
-      _AppItem(id: _nextId++, title: '拼多多', icon: Icons.thumb_up, color: const Color(0xFFE22018)),
-      _AppItem(id: _nextId++, title: '美团', icon: Icons.fastfood, color: const Color(0xFFFF6B00)),
-      _AppItem(id: _nextId++, title: '支付宝', icon: Icons.payment, color: const Color(0xFF1677FF)),
-      _AppItem(id: _nextId++, title: '银行', icon: Icons.account_balance, color: const Color(0xFF2196F3)),
-    ]);
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
+      appBar: AppBar(
+        title: const Text('桌面拖拽'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        actions: [
+          Consumer<HomeController>(
+            builder: (context, controller, _) {
+              return IconButton(
+                icon: const Icon(Icons.undo),
+                onPressed: controller.canUndo ? controller.undo : null,
+                tooltip: '撤销',
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => _showAddDialog(context),
+            tooltip: '添加',
+          ),
+        ],
+      ),
+      body: Consumer<HomeController>(
+        builder: (context, controller, _) {
+          final items = controller.visibleItems;
+
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 0.85,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+
+              // 占位符
+              if (item is PlaceholderItem) {
+                return const PlaceholderTile();
+              }
+
+              // 应用/文件夹 - 可拖拽
+              return _buildDraggableTile(context, controller, item, index);
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddDialog(context),
+        backgroundColor: const Color(0xFF007AFF),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
   }
 
-  void _addItem() async {
-    final result = await _showEditDialog(context, null);
-    if (result != null) {
-      setState(() {
-        _items.add(_AppItem(
-          id: _nextId++,
-          title: result.title,
-          icon: result.icon,
-          color: result.color,
-        ));
-      });
+  Widget _buildDraggableTile(
+    BuildContext context,
+    HomeController controller,
+    HomeItem item,
+    int index,
+  ) {
+    return LongPressDraggable<HomeItem>(
+      data: item,
+      delay: const Duration(milliseconds: 200),
+      onDragStarted: () {
+        HapticFeedback.lightImpact();
+        controller.startDrag(item.id);
+      },
+      onDragEnd: (_) {
+        // 如果没有被 accept，最终会走 cancel
+      },
+      onDraggableCanceled: (_, __) {
+        controller.cancelDrag();
+      },
+      feedback: Material(
+        color: Colors.transparent,
+        child: Opacity(
+          opacity: 0.95,
+          child: Transform.scale(
+            scale: 1.05,
+            child: SizedBox(
+              width: 80,
+              height: 90,
+              child: HomeTile(
+                item: item,
+                isDraggingFeedback: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.0,
+        child: HomeTile(item: item),
+      ),
+      child: _buildTileWithTarget(context, controller, item),
+    );
+  }
+
+  Widget _buildTileWithTarget(
+    BuildContext context,
+    HomeController controller,
+    HomeItem item,
+  ) {
+    // 文件夹点击打开
+    VoidCallback? onTap;
+    if (item is FolderItem) {
+      onTap = () => FolderSheet.show(context, item as FolderItem);
     }
+
+    // 应用/文件夹拖到其他图标上触发合并
+    return ItemMergeTarget(
+      controller: controller,
+      targetItem: item,
+      child: DragTarget<HomeItem>(
+        onWillAcceptWithDetails: (details) {
+          controller.updateHoverIndex(_findItemIndex(controller, item));
+          return true;
+        },
+        onAcceptWithDetails: (_) {
+          controller.commitReorder();
+        },
+        builder: (context, candidateData, rejectedData) {
+          return HomeTile(
+            item: item,
+            onTap: onTap,
+          );
+        },
+      ),
+    );
   }
 
-  void _editItem(_AppItem item) async {
-    final result = await _showEditDialog(context, item);
-    if (result != null) {
-      setState(() {
-        item.title = result.title;
-        item.icon = result.icon;
-        item.color = result.color;
-      });
-    }
+  int _findItemIndex(HomeController controller, HomeItem item) {
+    return controller.visibleItems.indexWhere((e) => e.id == item.id);
   }
 
-  void _onReorder(int oldIndex, int newIndex) {
-    setState(() {
-      if (newIndex > oldIndex) {
-        newIndex -= 1;
-      }
-      final item = _items.removeAt(oldIndex);
-      _items.insert(newIndex, item);
-    });
-  }
+  void _showAddDialog(BuildContext context) {
+    final controller = context.read<HomeController>();
+    final titleController = TextEditingController();
+    IconData selectedIcon = Icons.apps;
+    Color selectedColor = Colors.blue;
 
-  void _handleDragStarted(int index) {
-    setState(() {
-      _draggingIndex = index;
-    });
-  }
-
-  void _handleDragEnd() {
-    setState(() {
-      _draggingIndex = null;
-      _targetIndex = null;
-    });
-  }
-
-  void _handleDragOver(int index) {
-    if (_draggingIndex != null && _draggingIndex != index) {
-      setState(() {
-        _targetIndex = index;
-      });
-    }
-  }
-
-  void _handleDragAccept(int oldIndex, int newIndex) {
-    setState(() {
-      final item = _items.removeAt(oldIndex);
-      _items.insert(newIndex, item);
-      _draggingIndex = null;
-      _targetIndex = null;
-    });
-  }
-
-  Future<_EditResult?> _showEditDialog(BuildContext context, _AppItem? item) async {
-    final titleController = TextEditingController(text: item?.title ?? '');
-    IconData selectedIcon = item?.icon ?? Icons.apps;
-    Color selectedColor = item?.color ?? Colors.blue;
-
-    return showDialog<_EditResult>(
+    showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(item == null ? '添加应用' : '编辑应用'),
+        builder: (context, setState) => AlertDialog(
+          title: const Text('添加应用'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -141,23 +215,23 @@ class _DragReorderPageState extends State<_DragReorderPage> {
                   children: _icons.map((icon) {
                     final isSelected = selectedIcon == icon;
                     return GestureDetector(
-                      onTap: () {
-                        setDialogState(() {
-                          selectedIcon = icon;
-                        });
-                      },
+                      onTap: () => setState(() => selectedIcon = icon),
                       child: Container(
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: isSelected ? selectedColor.withValues(alpha: 0.2) : Colors.grey[100],
+                          color: isSelected
+                              ? selectedColor.withAlpha(51)
+                              : Colors.grey[100],
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isSelected ? selectedColor : Colors.grey[300]!,
                             width: isSelected ? 2 : 1,
                           ),
                         ),
-                        child: Icon(icon, color: isSelected ? selectedColor : Colors.grey[600], size: 24),
+                        child: Icon(icon,
+                            color: isSelected ? selectedColor : Colors.grey[600],
+                            size: 24),
                       ),
                     );
                   }).toList(),
@@ -171,11 +245,7 @@ class _DragReorderPageState extends State<_DragReorderPage> {
                   children: _colors.map((color) {
                     final isSelected = selectedColor == color;
                     return GestureDetector(
-                      onTap: () {
-                        setDialogState(() {
-                          selectedColor = color;
-                        });
-                      },
+                      onTap: () => setState(() => selectedColor = color),
                       child: Container(
                         width: 36,
                         height: 36,
@@ -188,7 +258,8 @@ class _DragReorderPageState extends State<_DragReorderPage> {
                           ),
                         ),
                         child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white, size: 20)
+                            ? const Icon(Icons.check,
+                                color: Colors.white, size: 20)
                             : null,
                       ),
                     );
@@ -206,10 +277,16 @@ class _DragReorderPageState extends State<_DragReorderPage> {
               onPressed: () {
                 final title = titleController.text.trim();
                 if (title.isNotEmpty) {
-                  Navigator.pop(context, _EditResult(title: title, icon: selectedIcon, color: selectedColor));
+                  controller.addItem(AppItem(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    title: title,
+                    icon: selectedIcon,
+                    color: selectedColor,
+                  ));
+                  Navigator.pop(context);
                 }
               },
-              child: const Text('保存'),
+              child: const Text('添加'),
             ),
           ],
         ),
@@ -248,259 +325,6 @@ class _DragReorderPageState extends State<_DragReorderPage> {
     Colors.amber,
     Colors.indigo,
   ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
-      appBar: AppBar(
-        title: const Text('拖拽排序'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _addItem,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _items.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.apps, size: 64, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        Text('暂无应用', style: TextStyle(fontSize: 16, color: Colors.grey[500])),
-                        const SizedBox(height: 8),
-                        Text('点击右上角添加', style: TextStyle(fontSize: 14, color: Colors.grey[400])),
-                      ],
-                    ),
-                  )
-                : _buildGrid(),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.touch_app, size: 18, color: Colors.grey[400]),
-                const SizedBox(width: 8),
-                Text(
-                  '长按拖动排序 • 点击编辑',
-                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addItem,
-        backgroundColor: const Color(0xFF007AFF),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-    );
-  }
-
-  Widget _buildGrid() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 0.85,
-        ),
-        itemCount: _items.length,
-        itemBuilder: (context, index) {
-          final item = _items[index];
-          return _DraggableAppItem(
-            key: ValueKey(item.id),
-            item: item,
-            index: index,
-            isDragging: _draggingIndex == index,
-            isTarget: _targetIndex == index,
-            onEdit: () => _editItem(item),
-            onDragStarted: () => _handleDragStarted(index),
-            onDragEnd: _handleDragEnd,
-            onDragOver: () => _handleDragOver(index),
-            onDragAccept: (oldIndex) => _handleDragAccept(oldIndex, index),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// 应用数据
-class _AppItem {
-  int id;
-  String title;
-  IconData icon;
-  Color color;
-
-  _AppItem({
-    required this.id,
-    required this.title,
-    required this.icon,
-    required this.color,
-  });
-}
-
-/// 编辑结果
-class _EditResult {
-  String title;
-  IconData icon;
-  Color color;
-
-  _EditResult({required this.title, required this.icon, required this.color});
-}
-
-/// 可拖拽的应用图标组件
-class _DraggableAppItem extends StatefulWidget {
-  final _AppItem item;
-  final int index;
-  final bool isDragging;
-  final bool isTarget;
-  final VoidCallback onEdit;
-  final VoidCallback onDragStarted;
-  final VoidCallback onDragEnd;
-  final VoidCallback onDragOver;
-  final void Function(int oldIndex) onDragAccept;
-
-  const _DraggableAppItem({
-    super.key,
-    required this.item,
-    required this.index,
-    required this.isDragging,
-    required this.isTarget,
-    required this.onEdit,
-    required this.onDragStarted,
-    required this.onDragEnd,
-    required this.onDragOver,
-    required this.onDragAccept,
-  });
-
-  @override
-  State<_DraggableAppItem> createState() => _DraggableAppItemState();
-}
-
-class _DraggableAppItemState extends State<_DraggableAppItem> {
-  @override
-  Widget build(BuildContext context) {
-    return LongPressDraggable<int>(
-      data: widget.index,
-      delay: const Duration(milliseconds: 200),
-      onDragStarted: () {
-        widget.onDragStarted();
-      },
-      onDragEnd: (_) {
-        widget.onDragEnd();
-      },
-      onDraggableCanceled: (_, __) {
-        widget.onDragEnd();
-      },
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: 80,
-          height: 90,
-          child: _buildAppIcon(isDragging: true),
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _buildAppIcon(),
-      ),
-      child: DragTarget<int>(
-        onWillAcceptWithDetails: (details) {
-          widget.onDragOver();
-          return true;
-        },
-        onAcceptWithDetails: (details) {
-          widget.onDragAccept(details.data);
-        },
-        builder: (context, candidateData, rejectedData) {
-          return GestureDetector(
-            onTap: widget.onEdit,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              child: widget.isTarget
-                  ? Transform.scale(
-                      scale: 0.95,
-                      child: _buildAppIcon(isHighlight: true),
-                    )
-                  : _buildAppIcon(),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildAppIcon({bool isDragging = false, bool isHighlight = false}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: isHighlight
-            ? Border.all(color: widget.item.color, width: 2)
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: isDragging
-                ? widget.item.color.withValues(alpha: 0.4)
-                : Colors.black.withValues(alpha: isDragging ? 0.2 : 0.08),
-            blurRadius: isDragging ? 16 : 4,
-            offset: Offset(0, isDragging ? 8.0 : 2.0),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: widget.item.color,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.item.color.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Icon(
-              widget.item.icon,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.item.title,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[700],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 void registerDragReorderDemo() {
