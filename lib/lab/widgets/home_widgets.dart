@@ -83,6 +83,9 @@ class HomeTile extends StatelessWidget {
   }
 
   Widget _buildFolderTile(FolderItem folder) {
+    // 获取前9个应用
+    final children = folder.children.take(9).toList();
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -97,55 +100,104 @@ class HomeTile extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 文件夹内容网格（显示前9个小图标）
+            Expanded(
+              child: _buildFolderPreviewGrid(children),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              folder.title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF333333),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${folder.children.length}',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建文件夹预览网格（前9个图标）
+  Widget _buildFolderPreviewGrid(List<AppItem> children) {
+    final count = children.length;
+
+    if (count == 1) {
+      // 1个图标：居中显示
+      return Center(
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: children[0].color,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(children[0].icon, color: Colors.white, size: 20),
+        ),
+      );
+    } else if (count == 2) {
+      // 2个图标：上下排列
+      return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              // 底部图标
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              // 顶部图标
-              Container(
-                width: 40,
-                height: 40,
-                margin: const EdgeInsets.only(left: 12, top: 12),
-                decoration: BoxDecoration(
-                  color: Colors.amber[200],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.folder, color: Colors.white, size: 24),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            folder.title,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF333333),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          _buildMiniIcon(children[0], 28),
           const SizedBox(height: 2),
-          Text(
-            '${folder.children.length}',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[500],
-            ),
-          ),
+          _buildMiniIcon(children[1], 28),
         ],
+      );
+    } else if (count <= 4) {
+      // 4个图标：2x2
+      return GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 2,
+          crossAxisSpacing: 2,
+        ),
+        itemCount: count,
+        itemBuilder: (context, index) => _buildMiniIcon(children[index], 24),
+      );
+    } else {
+      // 5-9个图标：3x3
+      return GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 2,
+          crossAxisSpacing: 2,
+        ),
+        itemCount: count > 9 ? 9 : count,
+        itemBuilder: (context, index) => _buildMiniIcon(children[index], 20),
+      );
+    }
+  }
+
+  /// 构建小图标
+  Widget _buildMiniIcon(AppItem app, double size) {
+    return Container(
+      decoration: BoxDecoration(
+        color: app.color,
+        borderRadius: BorderRadius.circular(6),
       ),
+      child: Icon(app.icon, color: Colors.white, size: size * 0.55),
     );
   }
 }
