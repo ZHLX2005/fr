@@ -110,20 +110,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => MessageProvider()),
-        ChangeNotifierProvider(create: (_) => FriendProvider()),
         ChangeNotifierProvider(create: (_) => LabNoteProvider()),
         ChangeNotifierProvider(create: (_) => LabClockProvider()),
         ChangeNotifierProvider(create: (_) => AIChatProvider()),
         ChangeNotifierProvider(create: (_) => AgentChatProvider()),
-        ChangeNotifierProxyProvider<UserProvider, ChatSessionProvider>(
-          create: (_) => ChatSessionProvider(),
-          update: (_, userProvider, sessionProvider) {
-            sessionProvider!.init(userProvider.currentUser?.id ?? '');
-            return sessionProvider;
-          },
-        ),
       ],
       child: MaterialApp(
         navigatorKey: navigatorKey,
@@ -175,15 +166,6 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _initApp();
-  }
-
-  Future<void> _initApp() async {
-    final userProvider = context.read<UserProvider>();
-    final friendProvider = context.read<FriendProvider>();
-
-    await userProvider.init();
-    await friendProvider.init();
   }
 
   @override
