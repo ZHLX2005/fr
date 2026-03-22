@@ -1,285 +1,142 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import '../../models/models.dart';
-import '../../providers/providers.dart';
 import '../chat/ai_chat_page.dart';
 import '../chat/agent_chat_page.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Consumer<ChatSessionProvider>(
-        builder: (context, sessionProvider, child) {
-          if (sessionProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final sessions = sessionProvider.sessions;
-
-          if (sessions.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              final userProvider = context.read<UserProvider>();
-              await sessionProvider.refreshSessions(userProvider.currentUser!.id);
-            },
-            child: ListView.separated(
-              itemCount: sessions.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                return _buildSessionItem(context, sessions[index], sessionProvider);
-              },
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.chat_bubble_outline,
-            size: 80,
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '暂无聊天',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '开始与好友聊天吧',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSessionItem(
-    BuildContext context,
-    ChatSession session,
-    ChatSessionProvider sessionProvider,
-  ) {
-    final userProvider = context.read<UserProvider>();
-    final friend = userProvider.getUserById(session.friendId ?? '');
-
-    return InkWell(
-      onTap: () async {
-        // Mark as read
-        await sessionProvider.markAsRead(session.id);
-
-        // Show chat type selection dialog
-        if (context.mounted && friend != null) {
-          final choice = await _showChatTypeDialog(context);
-          if (context.mounted && choice != null) {
-            if (choice == 'ai') {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AIChatPage(title: 'AI 聊天'),
-                ),
-              );
-            } else {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AgentChatPage(title: 'Agent'),
-                ),
-              );
-            }
-            // Refresh sessions when returning
-            if (context.mounted) {
-              await sessionProvider.refreshSessions(userProvider.currentUser!.id);
-            }
-          }
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Avatar
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundImage: friend?.avatar != null
-                      ? NetworkImage(friend!.avatar!)
-                      : null,
-                  child: friend?.avatar == null
-                      ? Text(friend?.nickname.substring(0, 1) ?? '?')
-                      : null,
-                ),
-                if (friend?.status == 'online')
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
+            const SizedBox(height: 32),
+            Text(
+              'AI 助手',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-              ],
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(width: 12),
-
-            // Content
+            const SizedBox(height: 8),
+            Text(
+              '选择聊天方式',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.6),
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 48),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        friend?.nickname ?? '未知用户',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      Text(
-                        _formatTime(session.updatedAt),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withOpacity(0.5),
-                            ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          session.lastMessage?.content ?? '暂无消息',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withOpacity(0.6),
-                              ),
-                        ),
-                      ),
-                      if (session.unreadCount > 0) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 18,
-                            minHeight: 18,
-                          ),
-                          child: Text(
-                            session.unreadCount > 99
-                                ? '99+'
-                                : '${session.unreadCount}',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onPrimary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
+              child: _ChatTypeCard(
+                icon: Icons.smart_toy,
+                title: 'AI 聊天',
+                subtitle: '通用对话助手',
+                color: Theme.of(context).colorScheme.primary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AIChatPage(title: 'AI 聊天'),
+                    ),
+                  );
+                },
               ),
             ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: _ChatTypeCard(
+                icon: Icons.assistant,
+                title: 'Agent',
+                subtitle: '事件记录与分析',
+                color: Theme.of(context).colorScheme.secondary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AgentChatPage(title: 'Agent'),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
+}
 
-  Future<String?> _showChatTypeDialog(BuildContext context) async {
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('选择聊天方式'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+class _ChatTypeCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ChatTypeCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(
-                  Icons.smart_toy,
-                  color: Theme.of(context).colorScheme.primary,
+                  icon,
+                  size: 48,
+                  color: color,
                 ),
               ),
-              title: const Text('AI 聊天'),
-              subtitle: const Text('通用对话助手'),
-              onTap: () => Navigator.pop(context, 'ai'),
-            ),
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                child: Icon(
-                  Icons.assistant,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
-              title: const Text('Agent'),
-              subtitle: const Text('事件记录与分析'),
-              onTap: () => Navigator.pop(context, 'agent'),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) {
-      return '刚刚';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes}分钟前';
-    } else if (difference.inDays < 1) {
-      return DateFormat('HH:mm').format(dateTime);
-    } else if (difference.inDays < 7) {
-      return DateFormat('EEEE').format(dateTime);
-    } else {
-      return DateFormat('MM/dd').format(dateTime);
-    }
   }
 }
