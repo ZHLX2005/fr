@@ -92,11 +92,7 @@ class LabPage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Row(
-          children: [
-            Icon(Icons.science),
-            SizedBox(width: 8),
-            Text('开发者实验室'),
-          ],
+          children: [Icon(Icons.science), SizedBox(width: 8), Text('开发者实验室')],
         ),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
@@ -145,11 +141,7 @@ class _DemoCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.widgets,
-                color: theme.colorScheme.primary,
-                size: 32,
-              ),
+              Icon(Icons.widgets, color: theme.colorScheme.primary, size: 32),
               const SizedBox(height: 12),
               Text(
                 title,
@@ -187,9 +179,7 @@ class _DemoDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(demo.title),
-      ),
+      appBar: AppBar(title: Text(demo.title)),
       body: demo.buildPage(context),
     );
   }

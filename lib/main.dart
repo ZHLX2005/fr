@@ -16,6 +16,7 @@ import 'lab/demos/game_2048_demo.dart';
 import 'lab/demos/canvas_demo.dart';
 import 'lab/demos/drag_reorder_demo.dart';
 import 'lab/demos/web_preview_demo.dart';
+import 'lab/demos/web_bookmark_demo.dart';
 import 'lab/demos/storage_analyze_demo.dart';
 import 'lab/demos/hexagon_panel_demo.dart';
 import 'lab/demos/ripple_effect_demo.dart';
@@ -40,6 +41,7 @@ void main() {
   registerCanvasDemo();
   registerDragReorderDemo();
   registerWebPreviewDemo();
+  registerWebBookmarkDemo();
   registerStorageAnalyzeDemo();
   registerHexagonPanelDemo();
   registerRippleEffectDemo();
