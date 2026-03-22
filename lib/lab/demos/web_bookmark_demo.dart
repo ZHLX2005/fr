@@ -830,31 +830,31 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile> {
       onTap = () => _openBookmark(context, item);
     }
 
-    return GestureDetector(
-      onLongPressStart: _onLongPressStart,
-      behavior: HitTestBehavior.opaque,
-      child: _ItemMergeTarget(
-        controller: controller,
-        targetItem: item,
-        child: DragTarget<BookmarkItem>(
-          onWillAcceptWithDetails: (details) {
-            if (details.data.id == item.id) return false;
-            final canMerge = item is SingleBookmark || item is BookmarkFolder;
-            if (canMerge && details.data is SingleBookmark) {
-              controller.updateHoverIndex(displayIndex);
-            }
-            return canMerge;
-          },
-          onAcceptWithDetails: (details) {
-            controller.commitMergeToFolder(item.id);
-          },
-          onLeave: (_) {
-            controller.updateHoverIndex(-1);
-          },
-          builder: (context, candidateData, rejectedData) {
-            return _BookmarkCard(item: item, onTap: onTap);
-          },
-        ),
+    return _ItemMergeTarget(
+      controller: controller,
+      targetItem: item,
+      child: DragTarget<BookmarkItem>(
+        onWillAcceptWithDetails: (details) {
+          if (details.data.id == item.id) return false;
+          final canMerge = item is SingleBookmark || item is BookmarkFolder;
+          if (canMerge && details.data is SingleBookmark) {
+            controller.updateHoverIndex(displayIndex);
+          }
+          return canMerge;
+        },
+        onAcceptWithDetails: (details) {
+          controller.commitMergeToFolder(item.id);
+        },
+        onLeave: (_) {
+          controller.updateHoverIndex(-1);
+        },
+        builder: (context, candidateData, rejectedData) {
+          return GestureDetector(
+            onLongPressStart: _onLongPressStart,
+            behavior: HitTestBehavior.opaque,
+            child: _BookmarkCard(item: item, onTap: onTap),
+          );
+        },
       ),
     );
   }
