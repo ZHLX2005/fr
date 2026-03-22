@@ -743,6 +743,37 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
     }
   }
 
+  /// 删除书签或文件夹
+  Future<void> _deleteItem(BuildContext context, BookmarkProvider controller, String itemId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除此项吗？\n此操作不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      controller.deleteItem(itemId);
+      Navigator.pop(context); // 关闭编辑对话框
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已删除')),
+        );
+      }
+    }
+  }
+
   void _showEditBookmarkDialog(BuildContext context, BookmarkProvider controller, SingleBookmark item) {
     final nameController = TextEditingController(text: item.name);
     final urlController = TextEditingController(text: item.url);
@@ -896,6 +927,19 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
                       );
                     }).toList(),
                   ),
+                  const SizedBox(height: 24),
+                  // 删除按钮
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _deleteItem(context, controller, item.id),
+                      icon: const Icon(Icons.delete, size: 18),
+                      label: const Text('Delete Bookmark'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -953,6 +997,19 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
             ),
             const SizedBox(height: 16),
             Text('Contents: ${item.children.length} bookmarks'),
+            const SizedBox(height: 16),
+            // 删除按钮
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _deleteItem(context, controller, item.id),
+                icon: const Icon(Icons.delete, size: 18),
+                label: const Text('Delete Folder'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -1026,13 +1083,6 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
     BookmarkItem item,
     int displayIndex,
   ) {
-    VoidCallback? onTap;
-    if (item is BookmarkFolder) {
-      onTap = () => _FolderSheet.show(context, item);
-    } else if (item is SingleBookmark) {
-      onTap = () => _openBookmark(context, item);
-    }
-
     return _ItemMergeTarget(
       controller: controller,
       targetItem: item,
@@ -1054,15 +1104,24 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
         builder: (context, candidateData, rejectedData) {
           return GestureDetector(
             key: _cardKey,
+            onTap: () => _handleItemTap(context, item),
             onLongPressStart: _enterFloatingState,
             onLongPressMoveUpdate: _handleMoveUpdate,
             onLongPressEnd: (_) => _handleLongPressEnd(),
-            behavior: HitTestBehavior.opaque,
-            child: _BookmarkCard(item: item, onTap: onTap),
+            child: _BookmarkCard(item: item),
           );
         },
       ),
     );
+  }
+
+  /// 处理 item 点击
+  void _handleItemTap(BuildContext context, BookmarkItem item) {
+    if (item is BookmarkFolder) {
+      _FolderSheet.show(context, item);
+    } else if (item is SingleBookmark) {
+      _openBookmark(context, item);
+    }
   }
 
   /// 处理长按结束
@@ -1104,20 +1163,15 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
 class _BookmarkCard extends StatelessWidget {
   final BookmarkItem item;
   final bool isDragging;
-  final VoidCallback? onTap;
 
   const _BookmarkCard({
     required this.item,
     this.isDragging = false,
-    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: _buildContent(),
-    );
+    return _buildContent();
   }
 
   Widget _buildContent() {
