@@ -283,87 +283,17 @@ class _BannerCropPageState extends State<BannerCropPage> {
         borderRadius: BorderRadius.circular(12),
         child: Column(
           children: [
-            // 实际比例预览区域
             Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // 使用实际显示比例
-                  AspectRatio(
-                    aspectRatio: _targetRatio,
-                    child: Image.file(
-                      File(path),
-                      fit: BoxFit.cover,
-                    ),
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: _targetRatio,
+                  child: Image.file(
+                    File(path),
+                    fit: BoxFit.cover,
                   ),
-                  // 半透明边框
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.5),
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  // 提示
-                  if (_croppedPath == null)
-                    Positioned(
-                      bottom: 8,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            '点击"调整裁剪区域"手动选择',
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (_croppedPath != null)
-                    Positioned(
-                      bottom: 8,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.check, color: Colors.white, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                '已裁剪为${_getRatioString()}',
-                                style: const TextStyle(color: Colors.white, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
-            // 图片信息
             Container(
               padding: const EdgeInsets.all(12),
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
