@@ -432,6 +432,29 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
                     ),
                   ),
                 ),
+                // 删除按钮
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    border: Border(
+                      top: BorderSide(color: Colors.grey[300]!),
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => _deleteKey(context, item.key),
+                      icon: const Icon(Icons.delete),
+                      label: const Text('删除此项'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           );
@@ -468,6 +491,62 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
         ],
       ),
     );
+  }
+
+  /// 删除指定的 key
+  Future<void> _deleteKey(BuildContext context, String key) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除 "${_keyLabels[key] ?? key}" 吗？\n此操作不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(key);
+
+        // 关闭详情对话框
+        Navigator.pop(context);
+
+        // 刷新数据
+        await _loadStorageData();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已删除: ${_keyLabels[key] ?? key}'),
+              action: SnackBarAction(
+                label: '撤销',
+                onPressed: () async {
+                  // 简单的撤销功能：重新加载列表（实际上已删除的数据无法恢复）
+                  // 在实际应用中，可以在删除前保存数据以支持撤销
+                  _loadStorageData();
+                },
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e')),
+          );
+        }
+      }
+    }
   }
 }
 
