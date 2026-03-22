@@ -21,28 +21,74 @@ class WebBookmarkDemo extends DemoPage {
   }
 }
 
+/// Icon name to IconData constant mapping
+class BookmarkIcons {
+  static const Map<String, IconData> _iconMap = {
+    'public': Icons.public,
+    'search': Icons.search,
+    'code': Icons.code,
+    'play_circle_filled': Icons.play_circle_filled,
+    'flutter_dash': Icons.flutter_dash,
+    'edit': Icons.edit,
+    'video_library': Icons.video_library,
+    'shopping_bag': Icons.shopping_bag,
+    'music_video': Icons.music_video,
+    'new_releases': Icons.new_releases,
+    'article': Icons.article,
+    'school': Icons.school,
+    'business': Icons.business,
+    'gamepad': Icons.gamepad,
+    'alternate_email': Icons.alternate_email,
+  };
+
+  static IconData getIcon(String name) {
+    return _iconMap[name] ?? Icons.public;
+  }
+
+  static String getName(IconData icon) {
+    for (final entry in _iconMap.entries) {
+      if (entry.value == icon) {
+        return entry.key;
+      }
+    }
+    return 'public';
+  }
+
+  static List<String> get availableNames => _iconMap.keys.toList();
+}
+
 /// Bookmark Item Model
 class BookmarkItem {
   final String id;
   final String name;
   final String url;
-  final IconData icon;
+  final String iconName;
   final Color color;
+
+  IconData get icon => BookmarkIcons.getIcon(iconName);
 
   BookmarkItem({
     required this.id,
     required this.name,
     required this.url,
-    required this.icon,
+    required this.iconName,
     required this.color,
   });
+
+  BookmarkItem.withIcon({
+    required this.id,
+    required this.name,
+    required this.url,
+    required IconData icon,
+    required this.color,
+  }) : iconName = BookmarkIcons.getName(icon);
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'url': url,
-      'iconCode': icon.codePoint,
+      'iconName': iconName,
       'colorValue': color.value,
     };
   }
@@ -52,7 +98,7 @@ class BookmarkItem {
       id: json['id'] as String,
       name: json['name'] as String,
       url: json['url'] as String,
-      icon: IconData(json['iconCode'] as int, fontFamily: 'MaterialIcons'),
+      iconName: json['iconName'] as String? ?? 'public',
       color: Color(json['colorValue'] as int),
     );
   }
@@ -61,14 +107,14 @@ class BookmarkItem {
     String? id,
     String? name,
     String? url,
-    IconData? icon,
+    String? iconName,
     Color? color,
   }) {
     return BookmarkItem(
       id: id ?? this.id,
       name: name ?? this.name,
       url: url ?? this.url,
-      icon: icon ?? this.icon,
+      iconName: iconName ?? this.iconName,
       color: color ?? this.color,
     );
   }
@@ -127,42 +173,42 @@ class BookmarkController extends ChangeNotifier {
         id: '1',
         name: 'Google',
         url: 'https://www.google.com',
-        icon: Icons.search,
+        iconName: 'search',
         color: const Color(0xFF4285F4),
       ),
       BookmarkItem(
         id: '2',
         name: 'GitHub',
         url: 'https://github.com',
-        icon: Icons.code,
+        iconName: 'code',
         color: const Color(0xFF24292E),
       ),
       BookmarkItem(
         id: '3',
         name: 'Bilibili',
         url: 'https://www.bilibili.com',
-        icon: Icons.play_circle_filled,
+        iconName: 'play_circle_filled',
         color: const Color(0xFF00A1D6),
       ),
       BookmarkItem(
         id: '4',
         name: 'Flutter',
         url: 'https://flutter.dev',
-        icon: Icons.flutter_dash,
+        iconName: 'flutter_dash',
         color: const Color(0xFF02569B),
       ),
       BookmarkItem(
         id: '5',
         name: 'YouTube',
         url: 'https://www.youtube.com',
-        icon: Icons.video_library,
+        iconName: 'video_library',
         color: const Color(0xFFFF0000),
       ),
       BookmarkItem(
         id: '6',
         name: 'Twitter',
         url: 'https://twitter.com',
-        icon: Icons.alternate_email,
+        iconName: 'alternate_email',
         color: const Color(0xFF1DA1F2),
       ),
     ];
@@ -523,7 +569,7 @@ class _BookmarkGridView extends StatelessWidget {
     final controller = Provider.of<BookmarkController>(context, listen: false);
     final nameController = TextEditingController();
     final urlController = TextEditingController();
-    IconData selectedIcon = Icons.public;
+    String selectedIconName = 'public';
     Color selectedColor = Colors.blue;
 
     showDialog(
@@ -557,10 +603,11 @@ class _BookmarkGridView extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _availableIcons.map((icon) {
-                    final isSelected = selectedIcon == icon;
+                  children: _availableIconNames.map((iconName) {
+                    final isSelected = selectedIconName == iconName;
+                    final icon = BookmarkIcons.getIcon(iconName);
                     return GestureDetector(
-                      onTap: () => setState(() => selectedIcon = icon),
+                      onTap: () => setState(() => selectedIconName = iconName),
                       child: Container(
                         width: 44,
                         height: 44,
@@ -631,7 +678,7 @@ class _BookmarkGridView extends StatelessWidget {
                   id: DateTime.now().millisecondsSinceEpoch.toString(),
                   name: name,
                   url: url,
-                  icon: selectedIcon,
+                  iconName: selectedIconName,
                   color: selectedColor,
                 ));
                 Navigator.pop(context);
@@ -648,7 +695,7 @@ class _BookmarkGridView extends StatelessWidget {
     final controller = Provider.of<BookmarkController>(context, listen: false);
     final nameController = TextEditingController(text: item.name);
     final urlController = TextEditingController(text: item.url);
-    IconData selectedIcon = item.icon;
+    String selectedIconName = item.iconName;
     Color selectedColor = item.color;
 
     showDialog(
@@ -681,10 +728,11 @@ class _BookmarkGridView extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _availableIcons.map((icon) {
-                    final isSelected = selectedIcon == icon;
+                  children: _availableIconNames.map((iconName) {
+                    final isSelected = selectedIconName == iconName;
+                    final icon = BookmarkIcons.getIcon(iconName);
                     return GestureDetector(
-                      onTap: () => setState(() => selectedIcon = icon),
+                      onTap: () => setState(() => selectedIconName = iconName),
                       child: Container(
                         width: 44,
                         height: 44,
@@ -756,7 +804,7 @@ class _BookmarkGridView extends StatelessWidget {
                   item.copyWith(
                     name: name,
                     url: url,
-                    icon: selectedIcon,
+                    iconName: selectedIconName,
                     color: selectedColor,
                   ),
                 );
@@ -770,21 +818,21 @@ class _BookmarkGridView extends StatelessWidget {
     );
   }
 
-  static const List<IconData> _availableIcons = [
-    Icons.public,
-    Icons.search,
-    Icons.code,
-    Icons.play_circle_filled,
-    Icons.flutter_dash,
-    Icons.edit,
-    Icons.video_library,
-    Icons.shopping_bag,
-    Icons.music_video,
-    Icons.new_releases,
-    Icons.article,
-    Icons.school,
-    Icons.business,
-    Icons.gamepad,
+  static const List<String> _availableIconNames = [
+    'public',
+    'search',
+    'code',
+    'play_circle_filled',
+    'flutter_dash',
+    'edit',
+    'video_library',
+    'shopping_bag',
+    'music_video',
+    'new_releases',
+    'article',
+    'school',
+    'business',
+    'gamepad',
   ];
 
   static const List<Color> _availableColors = [
