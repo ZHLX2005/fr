@@ -1,10 +1,14 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../lab_container.dart';
 import '../models/bookmark_item.dart';
 import '../providers/bookmark_provider.dart';
+import '../../services/favicon_api_service.dart';
 
 /// Web Bookmark Demo
 class WebBookmarkDemo extends DemoPage {
@@ -101,12 +105,11 @@ class _BookmarkGridView extends StatelessWidget {
                 return const _PlaceholderTile();
               }
 
-              return _buildDraggableTile(
-                context,
-                controller,
-                item,
-                index,
-                originalIndex,
+              return _LongPressDraggableTile(
+                key: ValueKey(item.id),
+                item: item,
+                index: index,
+                originalIndex: originalIndex,
               );
             },
           );
@@ -118,100 +121,6 @@ class _BookmarkGridView extends StatelessWidget {
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
-  }
-
-  Widget _buildDraggableTile(
-    BuildContext context,
-    BookmarkProvider controller,
-    BookmarkItem item,
-    int displayIndex,
-    int originalIndex,
-  ) {
-    return LongPressDraggable<BookmarkItem>(
-      data: item,
-      delay: const Duration(milliseconds: 200),
-      onDragStarted: () {
-        controller.startDrag(item);
-      },
-      onDraggableCanceled: (_, __) {
-        controller.cancelDrag();
-      },
-      feedback: Material(
-        color: Colors.transparent,
-        child: Opacity(
-          opacity: 0.95,
-          child: Transform.scale(
-            scale: 1.05,
-            child: SizedBox(
-              width: 80,
-              height: 90,
-              child: _BookmarkCard(item: item, isDragging: true),
-            ),
-          ),
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.0,
-        child: _BookmarkCard(item: item),
-      ),
-      child: _buildTileWithTarget(context, controller, item, displayIndex),
-    );
-  }
-
-  Widget _buildTileWithTarget(
-    BuildContext context,
-    BookmarkProvider controller,
-    BookmarkItem item,
-    int displayIndex,
-  ) {
-    VoidCallback? onTap;
-    if (item is BookmarkFolder) {
-      onTap = () => _FolderSheet.show(context, item);
-    } else if (item is SingleBookmark) {
-      onTap = () => _openBookmark(context, item);
-    }
-
-    return _ItemMergeTarget(
-      controller: controller,
-      targetItem: item,
-      child: DragTarget<BookmarkItem>(
-        onWillAcceptWithDetails: (details) {
-          if (details.data.id == item.id) return false;
-          final canMerge = item is SingleBookmark || item is BookmarkFolder;
-          if (canMerge && details.data is SingleBookmark) {
-            controller.updateHoverIndex(displayIndex);
-          }
-          return canMerge;
-        },
-        onAcceptWithDetails: (details) {
-          controller.commitMergeToFolder(item.id);
-        },
-        onLeave: (_) {
-          controller.updateHoverIndex(-1);
-        },
-        builder: (context, candidateData, rejectedData) {
-          return _BookmarkCard(item: item, onTap: onTap);
-        },
-      ),
-    );
-  }
-
-  void _openBookmark(BuildContext context, SingleBookmark item) async {
-    final controller = Provider.of<BookmarkProvider>(context, listen: false);
-
-    if (controller.useExternalBrowser) {
-      final uri = Uri.parse(item.url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => _WebViewPage(bookmark: item),
-        ),
-      );
-    }
   }
 
   void _showBrowserSettingDialog(BuildContext context, BookmarkProvider controller) {
@@ -262,6 +171,49 @@ class _BookmarkGridView extends StatelessWidget {
     String selectedIconName = 'public';
     Color selectedColor = Colors.blue;
     final Set<String> selectedBookmarks = {};
+    bool isFetchingIcon = false;
+
+    // Local helper function for fetching icon
+    Future<void> fetchIconForUrl(String url, StateSetter dialogSetState) async {
+      if (url.isEmpty) return;
+
+      dialogSetState(() => isFetchingIcon = true);
+
+      try {
+        var fetchUrl = url;
+        if (!fetchUrl.startsWith('http://') && !fetchUrl.startsWith('https://')) {
+          fetchUrl = 'https://$fetchUrl';
+        }
+
+        final iconPath = await FaviconApiService.downloadAndSaveFavicon(
+          fetchUrl,
+          'temp_${DateTime.now().millisecondsSinceEpoch}',
+        );
+
+        if (iconPath != null && context.mounted) {
+          dialogSetState(() => isFetchingIcon = false);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Icon downloaded! Select an icon style.')),
+            );
+          }
+        } else {
+          if (context.mounted) {
+            dialogSetState(() => isFetchingIcon = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not fetch icon. Please select manually.')),
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          dialogSetState(() => isFetchingIcon = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error fetching icon: $e')),
+          );
+        }
+      }
+    }
 
     showDialog(
       context: context,
@@ -312,6 +264,26 @@ class _BookmarkGridView extends StatelessWidget {
                         labelText: 'URL',
                         border: OutlineInputBorder(),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: isFetchingIcon
+                                ? null
+                                : () => fetchIconForUrl(urlController.text, setState),
+                            icon: isFetchingIcon
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.refresh),
+                            label: const Text('Auto Icon'),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     const Text('Select Icon:', style: TextStyle(fontSize: 14)),
@@ -507,6 +479,412 @@ class _BookmarkGridView extends StatelessWidget {
     Color(0xFFFFCC00),
     Color(0xFF8E8E93),
   ];
+}
+
+/// 长按拖拽卡片组件 - 支持长按2秒后弹出编辑框
+class _LongPressDraggableTile extends StatefulWidget {
+  final BookmarkItem item;
+  final int index;
+  final int originalIndex;
+
+  const _LongPressDraggableTile({
+    required this.item,
+    required this.index,
+    required this.originalIndex,
+    super.key,
+  });
+
+  @override
+  State<_LongPressDraggableTile> createState() => _LongPressDraggableTileState();
+}
+
+class _LongPressDraggableTileState extends State<_LongPressDraggableTile> {
+  Timer? _longPressTimer;
+  bool _hasDragStarted = false;
+  Offset? _startPosition;
+
+  @override
+  void dispose() {
+    _longPressTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onLongPressStart(LongPressStartDetails details) {
+    _startPosition = details.globalPosition;
+    _hasDragStarted = false;
+
+    // 启动2秒定时器
+    _longPressTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted && !_hasDragStarted) {
+        // 2秒后没有拖动，弹出编辑框
+        _showEditDialog();
+      }
+    });
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    // 检测是否真的发生了位置变化（拖动）
+    if (_startPosition != null) {
+      final currentPosition = details.globalPosition;
+      final distance = (currentPosition - _startPosition!).distance;
+      if (distance > 10) {
+        _hasDragStarted = true;
+        _longPressTimer?.cancel();
+      }
+    }
+  }
+
+  void _onDragEnd(DraggableDetails details) {
+    _longPressTimer?.cancel();
+    if (!_hasDragStarted) {
+      // 没有真正拖动，可能是长按触发
+      // 但定时器会处理这个情况
+    }
+  }
+
+  void _showEditDialog() {
+    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+
+    if (widget.item is SingleBookmark) {
+      _showEditBookmarkDialog(context, controller, widget.item as SingleBookmark);
+    } else if (widget.item is BookmarkFolder) {
+      _showEditFolderDialog(context, controller, widget.item as BookmarkFolder);
+    }
+  }
+
+  void _showEditBookmarkDialog(BuildContext context, BookmarkProvider controller, SingleBookmark item) {
+    final nameController = TextEditingController(text: item.name);
+    final urlController = TextEditingController(text: item.url);
+    String selectedIconName = item.iconName;
+    Color selectedColor = item.color;
+    bool isFetchingIcon = false;
+
+    // Local helper function for fetching icon
+    Future<void> fetchIconForUrl(String url, StateSetter dialogSetState) async {
+      if (url.isEmpty) return;
+
+      dialogSetState(() => isFetchingIcon = true);
+
+      try {
+        var fetchUrl = url;
+        if (!fetchUrl.startsWith('http://') && !fetchUrl.startsWith('https://')) {
+          fetchUrl = 'https://$fetchUrl';
+        }
+
+        final iconPath = await FaviconApiService.downloadAndSaveFavicon(
+          fetchUrl,
+          'temp_${DateTime.now().millisecondsSinceEpoch}',
+        );
+
+        if (iconPath != null && context.mounted) {
+          dialogSetState(() => isFetchingIcon = false);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Icon downloaded! Select an icon style.')),
+            );
+          }
+        } else {
+          if (context.mounted) {
+            dialogSetState(() => isFetchingIcon = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not fetch icon. Please select manually.')),
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          dialogSetState(() => isFetchingIcon = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error fetching icon: $e')),
+          );
+        }
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Edit Bookmark'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: urlController,
+                    decoration: const InputDecoration(
+                      labelText: 'URL',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isFetchingIcon
+                              ? null
+                              : () => fetchIconForUrl(urlController.text, setState),
+                          icon: isFetchingIcon
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.refresh),
+                          label: const Text('Auto Icon'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Select Icon:', style: TextStyle(fontSize: 14)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: BookmarkIcons.availableNames.map((iconName) {
+                      final isSelected = selectedIconName == iconName;
+                      final icon = BookmarkIcons.getIcon(iconName);
+                      return GestureDetector(
+                        onTap: () => setState(() => selectedIconName = iconName),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? selectedColor.withAlpha(51)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected ? selectedColor : Colors.grey[300]!,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Icon(icon,
+                              color: isSelected ? selectedColor : Colors.grey[600],
+                              size: 24),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Select Color:', style: TextStyle(fontSize: 14)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _BookmarkGridView._availableColors.map((color) {
+                      final isSelected = selectedColor == color;
+                      return GestureDetector(
+                        onTap: () => setState(() => selectedColor = color),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? Colors.black : Colors.grey[300]!,
+                              width: isSelected ? 3 : 1,
+                            ),
+                          ),
+                          child: isSelected
+                              ? const Icon(Icons.check, color: Colors.white, size: 20)
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  final name = nameController.text.trim();
+                  var url = urlController.text.trim();
+                  if (name.isEmpty || url.isEmpty) return;
+
+                  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://$url';
+                  }
+
+                  controller.editItem(
+                    item.id,
+                    item.copyWith(
+                      name: name,
+                      url: url,
+                      iconName: selectedIconName,
+                      color: selectedColor,
+                    ),
+                  );
+                  Navigator.pop(context);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEditFolderDialog(BuildContext context, BookmarkProvider controller, BookmarkFolder item) {
+    final nameController = TextEditingController(text: item.name);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Folder'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Folder Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Contents: ${item.children.length} bookmarks'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isEmpty) return;
+
+              controller.editItem(
+                item.id,
+                item.copyWith(name: name),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+
+    return LongPressDraggable<BookmarkItem>(
+      data: widget.item,
+      delay: const Duration(milliseconds: 200),
+      onDragStarted: () {
+        controller.startDrag(widget.item);
+        HapticFeedback.lightImpact();
+      },
+      onDragUpdate: _onDragUpdate,
+      onDragEnd: _onDragEnd,
+      onDraggableCanceled: (_, __) {
+        controller.cancelDrag();
+        _longPressTimer?.cancel();
+      },
+      feedback: Material(
+        color: Colors.transparent,
+        child: Opacity(
+          opacity: 0.95,
+          child: Transform.scale(
+            scale: 1.05,
+            child: SizedBox(
+              width: 80,
+              height: 90,
+              child: _BookmarkCard(item: widget.item, isDragging: true),
+            ),
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.0,
+        child: _BookmarkCard(item: widget.item),
+      ),
+      child: _buildTileWithTarget(context, controller, widget.item, widget.index),
+    );
+  }
+
+  Widget _buildTileWithTarget(
+    BuildContext context,
+    BookmarkProvider controller,
+    BookmarkItem item,
+    int displayIndex,
+  ) {
+    VoidCallback? onTap;
+    if (item is BookmarkFolder) {
+      onTap = () => _FolderSheet.show(context, item);
+    } else if (item is SingleBookmark) {
+      onTap = () => _openBookmark(context, item);
+    }
+
+    return GestureDetector(
+      onLongPressStart: _onLongPressStart,
+      behavior: HitTestBehavior.opaque,
+      child: _ItemMergeTarget(
+        controller: controller,
+        targetItem: item,
+        child: DragTarget<BookmarkItem>(
+          onWillAcceptWithDetails: (details) {
+            if (details.data.id == item.id) return false;
+            final canMerge = item is SingleBookmark || item is BookmarkFolder;
+            if (canMerge && details.data is SingleBookmark) {
+              controller.updateHoverIndex(displayIndex);
+            }
+            return canMerge;
+          },
+          onAcceptWithDetails: (details) {
+            controller.commitMergeToFolder(item.id);
+          },
+          onLeave: (_) {
+            controller.updateHoverIndex(-1);
+          },
+          builder: (context, candidateData, rejectedData) {
+            return _BookmarkCard(item: item, onTap: onTap);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _openBookmark(BuildContext context, SingleBookmark item) async {
+    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+
+    if (controller.useExternalBrowser) {
+      final uri = Uri.parse(item.url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => _WebViewPage(bookmark: item),
+        ),
+      );
+    }
+  }
 }
 
 /// Bookmark Card Widget
@@ -755,8 +1133,7 @@ class _ItemMergeTarget extends StatelessWidget {
       },
       builder: (context, candidateData, rejectedData) {
         final isHover = controller.draggingItem != null &&
-            controller.hoverIndex != null &&
-            targetItem.id == controller.displayItems[controller.hoverIndex!]?.id;
+            controller.hoverIndex != null;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
