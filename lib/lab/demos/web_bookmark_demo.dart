@@ -518,6 +518,7 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
 
   // 拖拽位置（用于更新 Overlay，不触发 rebuild）
   Offset _overlayPosition = Offset.zero;
+  Offset _lastOverlayPosition = Offset.zero; // 上次更新 Overlay 的位置
 
   // 动画控制器
   late AnimationController _floatController;
@@ -581,7 +582,7 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
   /// 显示 Overlay
   void _showOverlay(Offset position, Size size) {
     _removeOverlay();
-
+    _lastOverlayPosition = position;
     _overlayEntry = OverlayEntry(
       builder: (context) => _DraggableOverlayCard(
         item: widget.item,
@@ -591,13 +592,25 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
         elevation: _elevationAnimation.value * 8,
       ),
     );
-
     Overlay.of(context).insert(_overlayEntry!);
   }
 
   /// 更新 Overlay 位置
   void _updateOverlay(Offset position) {
-    _overlayEntry?.markNeedsBuild();
+    if (_overlayEntry == null) return;
+
+    // 只在位置变化超过阈值时才重建，减少性能消耗
+    final threshold = 1.0; // 1 像素阈值
+    if ((position - _lastOverlayPosition).distance > threshold) {
+      _lastOverlayPosition = position;
+
+      // 获取当前渲染的卡片大小
+      final renderBox = _cardKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox == null) return;
+
+      // 重新创建 OverlayEntry 以更新位置
+      _showOverlay(position, renderBox.size);
+    }
   }
 
   /// 移除 Overlay
@@ -657,6 +670,7 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
       _dragOffset = null;
       _hoverIndex = null;
       _overlayPosition = Offset.zero;
+      _lastOverlayPosition = Offset.zero;
     });
 
     // 清除 provider 中的悬停状态
