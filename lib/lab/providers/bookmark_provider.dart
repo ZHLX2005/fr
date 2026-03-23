@@ -5,6 +5,37 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/bookmark_item.dart';
 
+/// 索引映射器 - 处理 displayIndex 和 bookmarkIndex 之间的转换
+class IndexMapper {
+  final Map<int, int> _displayToBookmark = {};
+  final Map<int, int> _bookmarkToDisplay = {};
+
+  void rebuild(List<BookmarkItem> displayItems) {
+    _displayToBookmark.clear();
+    _bookmarkToDisplay.clear();
+    int bookmarkIdx = 0;
+    for (int displayIdx = 0; displayIdx < displayItems.length; displayIdx++) {
+      final item = displayItems[displayIdx];
+      if (item is SingleBookmark && item is! BookmarkPlaceholder) {
+        _displayToBookmark[displayIdx] = bookmarkIdx;
+        _bookmarkToDisplay[bookmarkIdx] = displayIdx;
+        bookmarkIdx++;
+      } else {
+        _displayToBookmark[displayIdx] = -1; // Folder 或 Placeholder，不参与排序
+      }
+    }
+  }
+
+  int? toBookmarkIndex(int displayIndex) {
+    final idx = _displayToBookmark[displayIndex];
+    return (idx != null && idx >= 0) ? idx : null;
+  }
+
+  int? toDisplayIndex(int bookmarkIndex) => _bookmarkToDisplay[bookmarkIndex];
+
+  int get bookmarkCount => _bookmarkToDisplay.length;
+}
+
 /// Bookmark Controller/Provider
 class BookmarkProvider with ChangeNotifier {
   static const String _storageKey = 'web_bookmarks';
@@ -12,50 +43,64 @@ class BookmarkProvider with ChangeNotifier {
 
   List<BookmarkItem> _items = [];
   bool _useExternalBrowser = false;
-  BookmarkItem? _draggingItem;
-  int? _hoverIndex;
+  SingleBookmark? _draggingBookmark;
+  int? _hoverBookmarkIndex;
 
-  // Tile key 管理，用于位置计算
-  final Map<String, GlobalKey> _tileKeys = {};
+  // 索引映射器
+  final IndexMapper indexMapper = IndexMapper();
 
   List<BookmarkItem> get items => _items;
   bool get useExternalBrowser => _useExternalBrowser;
-  BookmarkItem? get draggingItem => _draggingItem;
-  int? get hoverIndex => _hoverIndex;
+  SingleBookmark? get draggingBookmark => _draggingBookmark;
+  int? get hoverBookmarkIndex => _hoverBookmarkIndex;
+
+  // 兼容旧接口
+  BookmarkItem? get draggingItem => _draggingBookmark;
+  int? get hoverIndex => _hoverBookmarkIndex;
 
   List<BookmarkItem> get displayItems {
-    if (_draggingItem != null && _hoverIndex != null) {
+    if (_draggingBookmark != null && _hoverBookmarkIndex != null) {
       final list = <BookmarkItem>[];
-      final folders = <BookmarkFolder>[];
-      final bookmarks = <BookmarkItem>[];
+      final bookmarks = _items.whereType<SingleBookmark>().toList();
 
-      // Separate folders and bookmarks
-      for (final item in _items) {
-        if (item is BookmarkFolder) {
-          folders.add(item);
-        } else if (item is SingleBookmark) {
-          bookmarks.add(item);
-        }
-      }
-
-      // Insert placeholder at hover position
-      final clamped = _hoverIndex!.clamp(0, bookmarks.length);
-      bookmarks.insert(clamped, BookmarkPlaceholder());
-
-      // Rebuild with folders at their positions
+      // 构建显示列表：保持 Folder 位置，在 hover 位置插入占位符
       int bookmarkIdx = 0;
       for (final item in _items) {
         if (item is BookmarkFolder) {
           list.add(item);
-        } else {
-          if (bookmarkIdx < bookmarks.length) {
-            list.add(bookmarks[bookmarkIdx]);
+        } else if (item is SingleBookmark) {
+          // 跳过正在拖动的 bookmark
+          if (item.id == _draggingBookmark!.id) {
             bookmarkIdx++;
+            continue;
           }
+
+          // 在 hover 位置前插入占位符
+          if (bookmarkIdx == _hoverBookmarkIndex) {
+            list.add(BookmarkPlaceholder());
+          }
+
+          list.add(item);
+          bookmarkIdx++;
         }
       }
+
+      // 边界：hover 在末尾
+      if (_hoverBookmarkIndex == bookmarks.length - 1) {
+        // 检查最后一个是否是拖动的 item
+        final lastBookmark = bookmarks.last;
+        if (lastBookmark.id != _draggingBookmark!.id) {
+          list.add(BookmarkPlaceholder());
+        }
+      }
+
+      // 同步索引映射
+      indexMapper.rebuild(list);
       return list;
     }
+
+    // 同步索引映射（无拖动状态）
+    indexMapper.rebuild(_items);
     return _items;
   }
 
@@ -154,47 +199,68 @@ class BookmarkProvider with ChangeNotifier {
   }
 
   void startDrag(BookmarkItem item) {
-    _draggingItem = item;
-    _hoverIndex = null;
-    HapticFeedback.lightImpact();
+    if (item is! SingleBookmark) return;
+    _draggingBookmark = item as SingleBookmark;
+    _hoverBookmarkIndex = null;
     notifyListeners();
   }
 
-  void updateHoverIndex(int index) {
-    _hoverIndex = index;
+  void updateHoverIndex(int bookmarkIndex) {
+    if (bookmarkIndex == _hoverBookmarkIndex) return; // 未变化
+    _hoverBookmarkIndex = bookmarkIndex;
     notifyListeners();
   }
 
   void cancelDrag() {
-    _draggingItem = null;
-    _hoverIndex = null;
+    _draggingBookmark = null;
+    _hoverBookmarkIndex = null;
     notifyListeners();
   }
 
-  void commitReorder(int oldIndex, int newIndex) {
-    if (_draggingItem == null || _hoverIndex == null) {
+  void commitReorder() {
+    if (_draggingBookmark == null || _hoverBookmarkIndex == null) {
       cancelDrag();
       return;
     }
 
-    final item = _draggingItem!;
-    final clampedIndex = _hoverIndex!.clamp(0, _items.length);
+    final item = _draggingBookmark!;
+    final targetIndex = _hoverBookmarkIndex!;
 
-    _items.removeWhere((e) => e.id == item.id);
-    _items.insert(clampedIndex, item);
+    // 获取所有 SingleBookmark
+    final bookmarks = _items.whereType<SingleBookmark>().toList();
+    final currentIndex = bookmarks.indexWhere((b) => b.id == item.id);
+    if (currentIndex < 0) {
+      cancelDrag();
+      return;
+    }
 
-    _draggingItem = null;
-    _hoverIndex = null;
+    // 从原位置移除
+    _items.removeWhere((b) => b.id == item.id);
 
+    // 在目标位置插入
+    final insertIdx = targetIndex.clamp(0, _items.length);
+    _items.insert(insertIdx, item);
+
+    // 保存并通知
     _saveToStorage();
+
+    // 清理状态
+    _draggingBookmark = null;
+    _hoverBookmarkIndex = null;
+
     notifyListeners();
   }
 
-  void commitMergeToFolder(String targetId) {
-    if (_draggingItem == null) return;
+  // 保留旧方法以兼容
+  void commitReorderWithIndexes(int oldIndex, int newIndex) {
+    commitReorder();
+  }
 
-    final dragging = _draggingItem!;
-    if (dragging.id == targetId || dragging is! SingleBookmark) {
+  void commitMergeToFolder(String targetId) {
+    if (_draggingBookmark == null) return;
+
+    final dragging = _draggingBookmark!;
+    if (dragging.id == targetId) {
       cancelDrag();
       return;
     }
@@ -283,21 +349,10 @@ class BookmarkProvider with ChangeNotifier {
     return _items.whereType<SingleBookmark>().toList();
   }
 
-  /// 注册 tile 的 GlobalKey
-  void registerTileKey(String itemId, GlobalKey key) {
-    _tileKeys[itemId] = key;
-  }
-
-  /// 获取 tile 的 GlobalKey
-  GlobalKey getTileKey(String itemId) {
-    if (!_tileKeys.containsKey(itemId)) {
-      _tileKeys[itemId] = GlobalKey();
-    }
-    return _tileKeys[itemId]!;
-  }
-
-  /// 清除所有 tile keys
-  void clearTileKeys() {
-    _tileKeys.clear();
+  /// Reorder items from flutter_reorderable_grid_view
+  void reorderItems(List<BookmarkItem> newItems) {
+    _items = newItems;
+    _saveToStorage();
+    notifyListeners();
   }
 }
