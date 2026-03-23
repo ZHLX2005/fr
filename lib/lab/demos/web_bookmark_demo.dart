@@ -10,6 +10,10 @@ import '../models/bookmark_item.dart';
 import '../providers/bookmark_provider.dart';
 import '../../services/favicon_api_service.dart';
 
+/// 编辑模式触发延迟（毫秒）
+/// 长按后如果没有移动超过此时间则进入编辑模式
+const _editModeDelay = Duration(milliseconds: 800);
+
 /// Web Bookmark Demo
 class WebBookmarkDemo extends DemoPage {
   @override
@@ -92,7 +96,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
 
   void _startEditModeTimer(VoidCallback onEditMode) {
     _editModeTimer?.cancel();
-    _editModeTimer = Timer(const Duration(milliseconds: 400), () {
+    _editModeTimer = Timer(_editModeDelay, () {
       if (mounted) {
         onEditMode();
       }
