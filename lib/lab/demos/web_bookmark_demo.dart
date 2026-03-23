@@ -323,23 +323,70 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
           return;
         }
 
-        // 直接使用 Google Favicon API，最快最可靠
-        final googleIconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=128';
-        final response = await http.get(Uri.parse(googleIconUrl))
-            .timeout(const Duration(seconds: 5));
-
+        // 1. 获取网页 HTML
+        final response = await http.get(uri).timeout(const Duration(seconds: 8));
         dialogSetState(() => isFetchingIcon = false);
 
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        if (response.statusCode != 200) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Icon fetched! Use it in your bookmark.')),
+              const SnackBar(content: Text('Failed to fetch page')),
             );
           }
-        } else {
+          return;
+        }
+
+        // 2. 用正则提取 icon URL
+        String? iconUrl;
+        final html = response.body;
+
+        // 尝试多种 icon 选择器
+        final patterns = [
+          RegExp(r'''<link[^>]+rel=["']?(?:shortcut )?icon["']?[^>]+href=["']([^"']+)["']''', caseSensitive: false),
+          RegExp(r'''<link[^>]+href=["']([^"']+)["'][^>]+rel=["']?(?:shortcut )?icon["']?''', caseSensitive: false),
+          RegExp(r'''<meta[^>]+itemprop=["']?image["']?[^>]+content=["']([^"']+)["']''', caseSensitive: false),
+        ];
+
+        for (final pattern in patterns) {
+          final match = pattern.firstMatch(html);
+          if (match != null) {
+            iconUrl = match.group(1);
+            break;
+          }
+        }
+
+        // 3. 如果没找到，使用默认的 favicon.ico
+        iconUrl ??= '${uri.scheme}://${uri.host}/favicon.ico';
+
+        // 4. 如果是相对路径，转为绝对路径
+        if (iconUrl.startsWith('//')) {
+          iconUrl = '${uri.scheme}:$iconUrl';
+        } else if (iconUrl.startsWith('/')) {
+          iconUrl = '${uri.scheme}://${uri.host}$iconUrl';
+        } else if (!iconUrl.startsWith('http')) {
+          iconUrl = '${uri.scheme}://${uri.host}/$iconUrl';
+        }
+
+        // 5. 验证 icon URL 是否可访问
+        try {
+          final iconResponse = await http.get(Uri.parse(iconUrl!)).timeout(const Duration(seconds: 5));
+          if (iconResponse.statusCode == 200 && iconResponse.bodyBytes.isNotEmpty) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Found icon: $iconUrl')),
+              );
+            }
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Icon not accessible, please select manually')),
+              );
+            }
+          }
+        } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not fetch icon. Please select manually.')),
+              SnackBar(content: Text('Icon error: $e')),
             );
           }
         }
@@ -524,23 +571,70 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
           return;
         }
 
-        // 直接使用 Google Favicon API，最快最可靠
-        final googleIconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=128';
-        final response = await http.get(Uri.parse(googleIconUrl))
-            .timeout(const Duration(seconds: 5));
-
+        // 1. 获取网页 HTML
+        final response = await http.get(uri).timeout(const Duration(seconds: 8));
         dialogSetState(() => isFetchingIcon = false);
 
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        if (response.statusCode != 200) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Icon fetched! Use it in your bookmark.')),
+              const SnackBar(content: Text('Failed to fetch page')),
             );
           }
-        } else {
+          return;
+        }
+
+        // 2. 用正则提取 icon URL
+        String? iconUrl;
+        final html = response.body;
+
+        // 尝试多种 icon 选择器
+        final patterns = [
+          RegExp(r'''<link[^>]+rel=["']?(?:shortcut )?icon["']?[^>]+href=["']([^"']+)["']''', caseSensitive: false),
+          RegExp(r'''<link[^>]+href=["']([^"']+)["'][^>]+rel=["']?(?:shortcut )?icon["']?''', caseSensitive: false),
+          RegExp(r'''<meta[^>]+itemprop=["']?image["']?[^>]+content=["']([^"']+)["']''', caseSensitive: false),
+        ];
+
+        for (final pattern in patterns) {
+          final match = pattern.firstMatch(html);
+          if (match != null) {
+            iconUrl = match.group(1);
+            break;
+          }
+        }
+
+        // 3. 如果没找到，使用默认的 favicon.ico
+        iconUrl ??= '${uri.scheme}://${uri.host}/favicon.ico';
+
+        // 4. 如果是相对路径，转为绝对路径
+        if (iconUrl.startsWith('//')) {
+          iconUrl = '${uri.scheme}:$iconUrl';
+        } else if (iconUrl.startsWith('/')) {
+          iconUrl = '${uri.scheme}://${uri.host}$iconUrl';
+        } else if (!iconUrl.startsWith('http')) {
+          iconUrl = '${uri.scheme}://${uri.host}/$iconUrl';
+        }
+
+        // 5. 验证 icon URL 是否可访问
+        try {
+          final iconResponse = await http.get(Uri.parse(iconUrl!)).timeout(const Duration(seconds: 5));
+          if (iconResponse.statusCode == 200 && iconResponse.bodyBytes.isNotEmpty) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Found icon: $iconUrl')),
+              );
+            }
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Icon not accessible, please select manually')),
+              );
+            }
+          }
+        } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not fetch icon. Please select manually.')),
+              SnackBar(content: Text('Icon error: $e')),
             );
           }
         }
