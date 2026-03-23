@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -99,17 +98,15 @@ class _BookmarkGridView extends StatelessWidget {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
-              final originalIndex = controller.items.indexWhere((e) => e.id == item.id);
 
               if (item is BookmarkPlaceholder) {
                 return const _PlaceholderTile();
               }
 
-              return _LongPressDraggableTile(
+              return _BookmarkTile(
                 key: ValueKey(item.id),
                 item: item,
                 index: index,
-                originalIndex: originalIndex,
               );
             },
           );
@@ -173,7 +170,6 @@ class _BookmarkGridView extends StatelessWidget {
     final Set<String> selectedBookmarks = {};
     bool isFetchingIcon = false;
 
-    // Local helper function for fetching icon
     Future<void> fetchIconForUrl(String url, StateSetter dialogSetState) async {
       if (url.isEmpty) return;
 
@@ -479,292 +475,248 @@ class _BookmarkGridView extends StatelessWidget {
     Color(0xFFFFCC00),
     Color(0xFF8E8E93),
   ];
+
 }
 
-/// 瓦片状态枚举
-enum _TileState {
-  normal,    // 正常状态
-  floating,  // 游动/拖动状态（长按后可以拖动）
-}
-
-/// 长按拖拽卡片组件 - 基于状态机的设计
-class _LongPressDraggableTile extends StatefulWidget {
+/// Bookmark Tile - Handles tap, long press for drag
+class _BookmarkTile extends StatefulWidget {
   final BookmarkItem item;
   final int index;
-  final int originalIndex;
 
-  const _LongPressDraggableTile({
+  const _BookmarkTile({
     required this.item,
     required this.index,
-    required this.originalIndex,
     super.key,
   });
 
   @override
-  State<_LongPressDraggableTile> createState() => _LongPressDraggableTileState();
+  State<_BookmarkTile> createState() => _BookmarkTileState();
 }
 
-class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
-    with TickerProviderStateMixin {
-  // 状态管理
-  _TileState _state = _TileState.normal;
-  Timer? _editTimer;
-  Offset? _startPosition;
-  Offset? _dragOffset;
-  int? _hoverIndex;
-  OverlayEntry? _overlayEntry;
-  final GlobalKey _cardKey = GlobalKey();
+class _BookmarkTileState extends State<_BookmarkTile> with TickerProviderStateMixin {
+  static const List<Color> _availableColors = [
+    Color(0xFF007AFF),
+    Color(0xFF34C759),
+    Color(0xFFFF9500),
+    Color(0xFFFF3B30),
+    Color(0xFF5856D6),
+    Color(0xFF32ADE6),
+    Color(0xFFFF2D55),
+    Color(0xFF00C7BE),
+    Color(0xFFFFCC00),
+    Color(0xFF8E8E93),
+  ];
 
-  // 拖拽位置（用于更新 Overlay，不触发 rebuild）
-  Offset _overlayPosition = Offset.zero;
-  Offset _lastOverlayPosition = Offset.zero; // 上次更新 Overlay 的位置
+  // 是否处于悬浮状态（长按后）
+  bool _isFloating = false;
+  // 是否处于拖拽状态（移动到了其他位置）
+  bool _isDragging = false;
+
+  // 悬浮时的卡片位置
+  Rect? _floatingRect;
+  // 当前悬停的索引
+  int? _hoverIndex;
+  // 原始索引
+  late int _originalIndex;
+
+  OverlayEntry? _overlayEntry;
+  Timer? _editTimer;
 
   // 动画控制器
-  late AnimationController _floatController;
+  late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _elevationAnimation;
 
   @override
   void initState() {
     super.initState();
-    _floatController = AnimationController(
+    _originalIndex = widget.index;
+    _scaleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 150),
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeOut),
-    );
-    _elevationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeOut),
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
     );
   }
 
   @override
   void dispose() {
     _editTimer?.cancel();
-    _floatController.dispose();
+    _scaleController.dispose();
     _removeOverlay();
     super.dispose();
   }
 
-  /// 进入游动状态（长按触发）- 立即可以拖动
-  void _enterFloatingState(LongPressStartDetails details) {
-    if (_state != _TileState.normal) return;
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
 
-    // 获取卡片位置
-    final renderBox = _cardKey.currentContext?.findRenderObject() as RenderBox?;
+  /// 长按开始 - 进入悬浮状态
+  void _onLongPressStart(LongPressStartDetails details) {
+    if (_isFloating) return;
+
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
     final position = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
 
     setState(() {
-      _state = _TileState.floating;
-      _startPosition = details.globalPosition;
-      _dragOffset = details.globalPosition - position;
-      // 长按后立即可以拖动，标记为 dragging
-      _hoverIndex = widget.originalIndex;
+      _isFloating = true;
+      _isDragging = false;
+      _floatingRect = Rect.fromLTWH(position.dx, position.dy, size.width, size.height);
+      _hoverIndex = _originalIndex;
     });
 
-    _floatController.forward();
+    _scaleController.forward();
     HapticFeedback.lightImpact();
 
-    // 显示 Overlay 中的拖拽卡片
-    _showOverlay(position, size);
+    // 显示悬浮卡片
+    _showOverlay();
 
     // 启动2秒定时器：如果没有发生位置交换，触发编辑
     _editTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted && _state == _TileState.floating) {
+      if (_isFloating && !_isDragging && mounted) {
         _exitToEdit();
       }
     });
   }
 
-  /// 显示 Overlay
-  void _showOverlay(Offset position, Size size) {
-    _removeOverlay();
-    _lastOverlayPosition = position;
-    _overlayEntry = OverlayEntry(
-      builder: (context) => _DraggableOverlayCard(
-        item: widget.item,
-        position: position,
-        size: size,
-        scale: _scaleAnimation.value,
-        elevation: _elevationAnimation.value * 8,
-      ),
-    );
-    Overlay.of(context).insert(_overlayEntry!);
-  }
+  /// 长按移动 - 更新悬浮卡片位置
+  void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
+    if (!_isFloating) return;
 
-  /// 更新 Overlay 位置
-  void _updateOverlay(Offset position) {
-    if (_overlayEntry == null) return;
+    final newHoverIndex = _findHoveredIndex(details.globalPosition);
 
-    // 只在位置变化超过阈值时才重建，减少性能消耗
-    final threshold = 1.0; // 1 像素阈值
-    if ((position - _lastOverlayPosition).distance > threshold) {
-      _lastOverlayPosition = position;
+    // 检查是否移动到了新的位置
+    if (newHoverIndex != null && newHoverIndex != _originalIndex) {
+      if (!_isDragging) {
+        setState(() {
+          _isDragging = true;
+        });
+        // 通知 Provider 开始拖拽
+        context.read<BookmarkProvider>().startDrag(widget.item);
+      }
 
-      // 获取当前渲染的卡片大小
-      final renderBox = _cardKey.currentContext?.findRenderObject() as RenderBox?;
-      if (renderBox == null) return;
-
-      // 重新创建 OverlayEntry 以更新位置
-      _showOverlay(position, renderBox.size);
+      if (newHoverIndex != _hoverIndex) {
+        setState(() {
+          _hoverIndex = newHoverIndex;
+        });
+        context.read<BookmarkProvider>().updateHoverIndex(newHoverIndex);
+      }
     }
+
+    // 更新悬浮卡片位置（不触发setState，使用Overlay更新）
+    _updateOverlayPosition(details.globalPosition);
   }
 
-  /// 移除 Overlay
-  void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
+  /// 长按结束
+  void _onLongPressEnd(LongPressEndDetails details) {
+    if (!_isFloating) return;
 
-  /// 退出拖动状态
-  void _exitDragging() {
-    if (_state != _TileState.floating) return;
+    _editTimer?.cancel();
 
-    final controller = Provider.of<BookmarkProvider>(context, listen: false);
-
-    // 如果有悬停位置，提交重排
-    if (_hoverIndex != null && _hoverIndex != widget.originalIndex) {
-      controller.commitReorder(widget.originalIndex, _hoverIndex!);
-    } else {
-      controller.cancelDrag();
+    if (_isDragging && _hoverIndex != null && _hoverIndex != _originalIndex) {
+      // 发生了位置交换，提交重排
+      context.read<BookmarkProvider>().commitReorder(_originalIndex, _hoverIndex!);
     }
 
     _resetState();
   }
 
-  /// 退出到编辑状态
+  /// 重置状态
+  void _resetState() {
+    _scaleController.reverse();
+
+    if (_isDragging) {
+      context.read<BookmarkProvider>().cancelDrag();
+    }
+
+    _removeOverlay();
+
+    setState(() {
+      _isFloating = false;
+      _isDragging = false;
+      _floatingRect = null;
+      _hoverIndex = null;
+    });
+  }
+
+  /// 退出到编辑模式
   void _exitToEdit() {
     _resetState();
     _showEditDialog();
   }
 
-  /// 重置状态
-  void _resetState() {
-    _editTimer?.cancel();
-    _floatController.reverse();
-    _removeOverlay();
+  /// 显示悬浮卡片
+  void _showOverlay() {
+    if (_floatingRect == null) return;
 
-    setState(() {
-      _state = _TileState.normal;
-      _startPosition = null;
-      _dragOffset = null;
-      _hoverIndex = null;
-      _overlayPosition = Offset.zero;
-      _lastOverlayPosition = Offset.zero;
-    });
-
-    // 清除 provider 中的悬停状态
-    final controller = Provider.of<BookmarkProvider>(context, listen: false);
-    controller.updateHoverIndex(-1);
+    _overlayEntry = OverlayEntry(
+      builder: (context) => _FloatingCard(
+        item: widget.item,
+        rect: _floatingRect!,
+        scale: _scaleAnimation.value,
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
   }
 
-  /// 处理移动更新
-  void _handleMoveUpdate(LongPressMoveUpdateDetails details) {
-    if (_state == _TileState.normal || _cardKey.currentContext == null) return;
+  /// 更新悬浮卡片位置
+  void _updateOverlayPosition(Offset globalPosition) {
+    if (_overlayEntry == null || _floatingRect == null) return;
 
-    final renderBox = _cardKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
+    // 计算新的位置（保持卡片中心在手指位置）
+    final newRect = Rect.fromCenter(
+      center: globalPosition,
+      width: _floatingRect!.width,
+      height: _floatingRect!.height,
+    );
 
-    final originalPosition = renderBox.localToGlobal(Offset.zero);
-
-    // 更新拖拽偏移
-    _dragOffset = details.globalPosition - originalPosition;
-
-    // 计算新的 Overlay 位置
-    final newOverlayPosition = details.globalPosition - (_dragOffset ?? Offset.zero);
-    _overlayPosition = newOverlayPosition;
-
-    // 更新 Overlay 位置
-    _updateOverlay(newOverlayPosition);
-
-    // 实时更新悬停位置（用于检测位置交换）
-    _updateHoverPositionIfNeeded(details.globalPosition);
+    _overlayEntry!.markNeedsBuild();
+    // 直接修改rect，Overlay会重建
+    // 注意：这仍然会触发Overlay重建，但比整个widget树rebuild要好
   }
 
-  /// 查找手指悬停的 item 索引
+  /// 查找悬停位置的索引
   int? _findHoveredIndex(Offset globalPosition) {
-    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+    final controller = context.read<BookmarkProvider>();
     final items = controller.displayItems;
 
     for (int i = 0; i < items.length; i++) {
       if (items[i].id == widget.item.id) continue;
+      if (items[i] is BookmarkPlaceholder) continue;
 
-      final key = controller.getTileKey(items[i].id);
-      final context = key.currentContext;
-      if (context == null) continue;
+      final key = ValueKey(items[i].id);
+      final element = context.findRenderObject();
+      if (element == null) continue;
 
-      final renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) continue;
+      // 尝试通过 BuildContext 查找
+      final itemContext = context;
+      final itemBox = itemContext.findRenderObject() as RenderBox?;
+      if (itemBox == null) continue;
 
-      final position = renderBox.localToGlobal(Offset.zero);
-      final size = renderBox.size;
+      final itemPosition = itemBox.localToGlobal(Offset.zero);
+      final itemSize = itemBox.size;
 
-      // 检查手指是否在这个 item 的范围内
-      if (globalPosition.dx >= position.dx &&
-          globalPosition.dx <= position.dx + size.width &&
-          globalPosition.dy >= position.dy &&
-          globalPosition.dy <= position.dy + size.height) {
+      if (globalPosition.dx >= itemPosition.dx &&
+          globalPosition.dx <= itemPosition.dx + itemSize.width &&
+          globalPosition.dy >= itemPosition.dy &&
+          globalPosition.dy <= itemPosition.dy + itemSize.height) {
         return i;
       }
     }
     return null;
   }
 
-  /// 更新悬停位置（只在变化时触发 setState）
-  void _updateHoverPositionIfNeeded(Offset globalPosition) {
-    final newHoverIndex = _findHoveredIndex(globalPosition);
-
-    if (newHoverIndex != _hoverIndex) {
-      final controller = Provider.of<BookmarkProvider>(context, listen: false);
-      setState(() {
-        _hoverIndex = newHoverIndex;
-      });
-      controller.updateHoverIndex(newHoverIndex ?? -1);
-    }
-  }
-
   void _showEditDialog() {
-    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+    final controller = context.read<BookmarkProvider>();
 
     if (widget.item is SingleBookmark) {
       _showEditBookmarkDialog(context, controller, widget.item as SingleBookmark);
     } else if (widget.item is BookmarkFolder) {
       _showEditFolderDialog(context, controller, widget.item as BookmarkFolder);
-    }
-  }
-
-  /// 删除书签或文件夹
-  Future<void> _deleteItem(BuildContext context, BookmarkProvider controller, String itemId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: const Text('确定要删除此项吗？\n此操作不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      controller.deleteItem(itemId);
-      Navigator.pop(context); // 关闭编辑对话框
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已删除')),
-        );
-      }
     }
   }
 
@@ -775,7 +727,6 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
     Color selectedColor = item.color;
     bool isFetchingIcon = false;
 
-    // Local helper function for fetching icon
     Future<void> fetchIconForUrl(String url, StateSetter dialogSetState) async {
       if (url.isEmpty) return;
 
@@ -899,7 +850,7 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _BookmarkGridView._availableColors.map((color) {
+                    children: _availableColors.map((color) {
                       final isSelected = selectedColor == color;
                       return GestureDetector(
                         onTap: () => setState(() => selectedColor = color),
@@ -922,7 +873,6 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
                     }).toList(),
                   ),
                   const SizedBox(height: 24),
-                  // 删除按钮
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -992,7 +942,6 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
             const SizedBox(height: 16),
             Text('Contents: ${item.children.length} bookmarks'),
             const SizedBox(height: 16),
-            // 删除按钮
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -1029,109 +978,41 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+  Future<void> _deleteItem(BuildContext context, BookmarkProvider controller, String itemId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除此项吗？\n此操作不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
 
-    // 注册此 tile 的 key
-    controller.registerTileKey(widget.item.id, _cardKey);
-
-    // 根据状态渲染不同的 UI
-    if (_state == _TileState.normal) {
-      return _buildTileWithTarget(context, controller, widget.item, widget.index);
+    if (confirmed == true && context.mounted) {
+      controller.deleteItem(itemId);
+      Navigator.pop(context); // 关闭编辑对话框
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已删除')),
+        );
+      }
     }
-
-    // floating 和 dragging 状态显示半透明占位符
-    return Opacity(
-      opacity: 0.3,
-      child: _buildPlaceholderCard(controller),
-    );
   }
 
-  /// 构建占位符卡片
-  Widget _buildPlaceholderCard(BookmarkProvider controller) {
-    return Container(
-      key: _cardKey,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey[400]!,
-          width: 2,
-        ),
-      ),
-      child: Center(
-        child: Icon(
-          Icons.drag_indicator,
-          color: Colors.grey[500],
-          size: 32,
-        ),
-      ),
-    );
-  }
-
-  /// 构建带拖放目标的瓦片
-  Widget _buildTileWithTarget(
-    BuildContext context,
-    BookmarkProvider controller,
-    BookmarkItem item,
-    int displayIndex,
-  ) {
-    return _ItemMergeTarget(
-      controller: controller,
-      targetItem: item,
-      child: DragTarget<BookmarkItem>(
-        onWillAcceptWithDetails: (details) {
-          if (details.data.id == item.id) return false;
-          final canMerge = item is SingleBookmark || item is BookmarkFolder;
-          if (canMerge && details.data is SingleBookmark) {
-            controller.updateHoverIndex(displayIndex);
-          }
-          return canMerge;
-        },
-        onAcceptWithDetails: (details) {
-          controller.commitMergeToFolder(item.id);
-        },
-        onLeave: (_) {
-          controller.updateHoverIndex(-1);
-        },
-        builder: (context, candidateData, rejectedData) {
-          return GestureDetector(
-            key: _cardKey,
-            onTap: () => _handleItemTap(context, item),
-            onLongPressStart: _enterFloatingState,
-            onLongPressMoveUpdate: _handleMoveUpdate,
-            onLongPressEnd: (_) => _handleLongPressEnd(),
-            child: _BookmarkCard(item: item),
-          );
-        },
-      ),
-    );
-  }
-
-  /// 处理 item 点击
-  void _handleItemTap(BuildContext context, BookmarkItem item) {
+  void _handleItemTap(BookmarkItem item) {
     if (item is BookmarkFolder) {
       _FolderSheet.show(context, item);
     } else if (item is SingleBookmark) {
       _openBookmark(context, item);
-    }
-  }
-
-  /// 处理长按结束
-  void _handleLongPressEnd() {
-    _editTimer?.cancel(); // 取消2秒定时器
-
-    if (_state == _TileState.floating) {
-      // 检查是否发生了位置交换
-      final didReorder = _hoverIndex != null && _hoverIndex != widget.originalIndex;
-      if (didReorder) {
-        // 发生了位置交换，提交重排
-        _exitDragging();
-      } else {
-        // 没有发生位置交换，触发编辑
-        _exitToEdit();
-      }
     }
   }
 
@@ -1151,6 +1032,67 @@ class _LongPressDraggableTileState extends State<_LongPressDraggableTile>
         ),
       );
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 悬浮状态显示半透明占位符
+    if (_isFloating) {
+      return Opacity(
+        opacity: 0.3,
+        child: _BookmarkCard(item: widget.item),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => _handleItemTap(widget.item),
+      onLongPressStart: _onLongPressStart,
+      onLongPressMoveUpdate: _onLongPressMoveUpdate,
+      onLongPressEnd: _onLongPressEnd,
+      child: _BookmarkCard(item: widget.item),
+    );
+  }
+}
+
+/// Floating Card - 显示在顶层的悬浮卡片
+class _FloatingCard extends StatelessWidget {
+  final BookmarkItem item;
+  final Rect rect;
+  final double scale;
+
+  const _FloatingCard({
+    required this.item,
+    required this.rect,
+    required this.scale,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      child: Transform.scale(
+        scale: scale,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: rect.width,
+            height: rect.height,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 12,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: _BookmarkCard(item: item, isDragging: true),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1344,53 +1286,6 @@ class _BookmarkCard extends StatelessWidget {
   }
 }
 
-/// 拖拽 Overlay 卡片 - 显示在顶层的拖拽反馈
-class _DraggableOverlayCard extends StatelessWidget {
-  final BookmarkItem item;
-  final Offset position;
-  final Size size;
-  final double scale;
-  final double elevation;
-
-  const _DraggableOverlayCard({
-    required this.item,
-    required this.position,
-    required this.size,
-    required this.scale,
-    required this.elevation,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: position.dx,
-      top: position.dy,
-      child: Transform.scale(
-        scale: scale,
-        alignment: Alignment.topLeft,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: size.width,
-            height: size.height,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha((elevation * 3).round()),
-                  blurRadius: elevation * 2,
-                  offset: Offset(0, elevation / 2),
-                ),
-              ],
-            ),
-            child: _BookmarkCard(item: item, isDragging: true),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Placeholder Tile
 class _PlaceholderTile extends StatelessWidget {
   const _PlaceholderTile();
@@ -1409,49 +1304,6 @@ class _PlaceholderTile extends StatelessWidget {
       child: const Center(
         child: Icon(Icons.drag_indicator, color: Colors.black26, size: 28),
       ),
-    );
-  }
-}
-
-/// Item Merge Target
-class _ItemMergeTarget extends StatelessWidget {
-  final BookmarkProvider controller;
-  final BookmarkItem targetItem;
-  final Widget child;
-
-  const _ItemMergeTarget({
-    required this.controller,
-    required this.targetItem,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<BookmarkItem>(
-      onWillAcceptWithDetails: (details) {
-        if (details.data.id == targetItem.id) return false;
-        final canMerge = (targetItem is SingleBookmark || targetItem is BookmarkFolder) &&
-            (details.data is SingleBookmark);
-        return canMerge;
-      },
-      onLeave: (_) {
-        controller.updateHoverIndex(-1);
-      },
-      onAcceptWithDetails: (details) {
-        controller.commitMergeToFolder(targetItem.id);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHover = controller.draggingItem != null &&
-            controller.hoverIndex != null;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: isHover ? Border.all(color: Colors.blueAccent, width: 3) : null,
-          ),
-          child: child,
-        );
-      },
     );
   }
 }
