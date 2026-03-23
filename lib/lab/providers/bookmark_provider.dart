@@ -40,11 +40,13 @@ class IndexMapper {
 class BookmarkProvider with ChangeNotifier {
   static const String _storageKey = 'web_bookmarks';
   static const String _settingsKey = 'web_bookmark_settings';
+  static const String _editModeDelayKey = 'edit_mode_delay_ms';
 
   List<BookmarkItem> _items = [];
   bool _useExternalBrowser = false;
   SingleBookmark? _draggingBookmark;
   int? _hoverBookmarkIndex;
+  int _editModeDelayMs = 800; // 默认 800ms
 
   // 索引映射器
   final IndexMapper indexMapper = IndexMapper();
@@ -53,6 +55,7 @@ class BookmarkProvider with ChangeNotifier {
   bool get useExternalBrowser => _useExternalBrowser;
   SingleBookmark? get draggingBookmark => _draggingBookmark;
   int? get hoverBookmarkIndex => _hoverBookmarkIndex;
+  int get editModeDelayMs => _editModeDelayMs;
 
   // 兼容旧接口
   BookmarkItem? get draggingItem => _draggingBookmark;
@@ -112,6 +115,7 @@ class BookmarkProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _useExternalBrowser = prefs.getBool(_settingsKey) ?? false;
+      _editModeDelayMs = prefs.getInt(_editModeDelayKey) ?? 800;
 
       final itemsJson = prefs.getString(_storageKey);
       if (itemsJson != null) {
@@ -303,6 +307,13 @@ class BookmarkProvider with ChangeNotifier {
     _useExternalBrowser = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_settingsKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setEditModeDelayMs(int ms) async {
+    _editModeDelayMs = ms;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_editModeDelayKey, ms);
     notifyListeners();
   }
 

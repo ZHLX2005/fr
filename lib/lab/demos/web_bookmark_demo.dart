@@ -10,10 +10,6 @@ import '../models/bookmark_item.dart';
 import '../providers/bookmark_provider.dart';
 import '../../services/favicon_api_service.dart';
 
-/// 编辑模式触发延迟（毫秒）
-/// 长按后如果没有移动超过此时间则进入编辑模式
-const _editModeDelay = Duration(milliseconds: 800);
-
 /// Web Bookmark Demo
 class WebBookmarkDemo extends DemoPage {
   @override
@@ -94,9 +90,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     });
   }
 
-  void _startEditModeTimer(VoidCallback onEditMode) {
+  void _startEditModeTimer(Duration delay, VoidCallback onEditMode) {
     _editModeTimer?.cancel();
-    _editModeTimer = Timer(_editModeDelay, () {
+    _editModeTimer = Timer(delay, () {
       if (mounted) {
         onEditMode();
       }
@@ -169,7 +165,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
       longPressDelay: const Duration(milliseconds: 300),
       onDragStarted: (index) {
         HapticFeedback.lightImpact();
-        _startEditModeTimer(() {
+        _startEditModeTimer(Duration(milliseconds: controller.editModeDelayMs), () {
           final item = bookmarks[index];
           _enterEditMode();
           _showEditBookmarkDialog(context, controller, item);
@@ -236,39 +232,63 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
   void _showBrowserSettingDialog(BuildContext context, BookmarkProvider controller) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Browser Setting'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<bool>(
-              title: const Text('In-App Browser'),
-              subtitle: const Text('Use built-in WebView'),
-              value: false,
-              groupValue: controller.useExternalBrowser,
-              onChanged: (value) {
-                controller.setUseExternalBrowser(value!);
-                Navigator.pop(context);
-              },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Settings'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Browser', style: TextStyle(fontWeight: FontWeight.bold)),
+                RadioListTile<bool>(
+                  title: const Text('In-App Browser'),
+                  value: false,
+                  groupValue: controller.useExternalBrowser,
+                  onChanged: (value) {
+                    controller.setUseExternalBrowser(value!);
+                    Navigator.pop(context);
+                  },
+                ),
+                RadioListTile<bool>(
+                  title: const Text('External Browser'),
+                  value: true,
+                  groupValue: controller.useExternalBrowser,
+                  onChanged: (value) {
+                    controller.setUseExternalBrowser(value!);
+                    Navigator.pop(context);
+                  },
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Edit Mode Delay: ${controller.editModeDelayMs}ms',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Slider(
+                  value: controller.editModeDelayMs.toDouble(),
+                  min: 300,
+                  max: 2000,
+                  divisions: 17,
+                  label: '${controller.editModeDelayMs}ms',
+                  onChanged: (value) {
+                    controller.setEditModeDelayMs(value.toInt());
+                    setState(() {});
+                  },
+                ),
+                const Text(
+                  'Long press duration before entering edit mode',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
             ),
-            RadioListTile<bool>(
-              title: const Text('External Browser'),
-              subtitle: const Text('Use system browser'),
-              value: true,
-              groupValue: controller.useExternalBrowser,
-              onChanged: (value) {
-                controller.setUseExternalBrowser(value!);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
