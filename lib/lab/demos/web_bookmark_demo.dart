@@ -201,7 +201,6 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                 key: ValueKey(item.id),
                 bookmark: item,
                 isEditMode: _isEditMode,
-                onDelete: () => _showDeleteConfirmation(context, controller, item.id),
                 onTap: () => _openBookmark(context, item),
               ),
               index,
@@ -711,14 +710,12 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
 class _BookmarkCard extends StatelessWidget {
   final SingleBookmark bookmark;
   final bool isEditMode;
-  final VoidCallback? onDelete;
   final VoidCallback? onTap;
 
   const _BookmarkCard({
     super.key,
     required this.bookmark,
     required this.isEditMode,
-    this.onDelete,
     this.onTap,
   });
 
@@ -726,7 +723,6 @@ class _BookmarkCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _EditModeWrapper(
       isActive: isEditMode,
-      onDelete: onDelete,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
@@ -783,16 +779,14 @@ class _BookmarkCard extends StatelessWidget {
   }
 }
 
-/// Edit Mode Wrapper - adds shake animation and delete button
+/// Edit Mode Wrapper - adds shake animation
 class _EditModeWrapper extends StatefulWidget {
   final Widget child;
   final bool isActive;
-  final VoidCallback? onDelete;
 
   const _EditModeWrapper({
     required this.child,
     required this.isActive,
-    this.onDelete,
   });
 
   @override
@@ -838,33 +832,7 @@ class _EditModeWrapperState extends State<_EditModeWrapper>
       builder: (context, child) {
         return Transform.rotate(
           angle: 0.02 * (2 * _controller.value - 1),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              widget.child,
-              if (widget.onDelete != null)
-                Positioned(
-                  top: -6,
-                  right: -6,
-                  child: GestureDetector(
-                    onTap: widget.onDelete,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          child: widget.child,
         );
       },
     );
