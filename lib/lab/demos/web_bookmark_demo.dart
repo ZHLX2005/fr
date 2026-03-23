@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -8,7 +9,6 @@ import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import '../lab_container.dart';
 import '../models/bookmark_item.dart';
 import '../providers/bookmark_provider.dart';
-import '../../services/favicon_api_service.dart';
 
 /// Web Bookmark Demo
 class WebBookmarkDemo extends DemoPage {
@@ -312,31 +312,42 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
           fetchUrl = 'https://$fetchUrl';
         }
 
-        final iconPath = await FaviconApiService.downloadAndSaveFavicon(
-          fetchUrl,
-          'temp_${DateTime.now().millisecondsSinceEpoch}',
-        );
-
-        if (iconPath != null && context.mounted) {
+        final uri = Uri.tryParse(fetchUrl);
+        if (uri == null || uri.host.isEmpty) {
           dialogSetState(() => isFetchingIcon = false);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Icon downloaded! Select an icon style.')),
+              const SnackBar(content: Text('Invalid URL')),
+            );
+          }
+          return;
+        }
+
+        // 直接使用 Google Favicon API，最快最可靠
+        final googleIconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=128';
+        final response = await http.get(Uri.parse(googleIconUrl))
+            .timeout(const Duration(seconds: 5));
+
+        dialogSetState(() => isFetchingIcon = false);
+
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Icon fetched! Use it in your bookmark.')),
             );
           }
         } else {
           if (context.mounted) {
-            dialogSetState(() => isFetchingIcon = false);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Could not fetch icon. Please select manually.')),
             );
           }
         }
       } catch (e) {
+        dialogSetState(() => isFetchingIcon = false);
         if (context.mounted) {
-          dialogSetState(() => isFetchingIcon = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error fetching icon: $e')),
+            SnackBar(content: Text('Error: ${e.toString()}')),
           );
         }
       }
@@ -502,31 +513,42 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
           fetchUrl = 'https://$fetchUrl';
         }
 
-        final iconPath = await FaviconApiService.downloadAndSaveFavicon(
-          fetchUrl,
-          'temp_${DateTime.now().millisecondsSinceEpoch}',
-        );
-
-        if (iconPath != null && context.mounted) {
+        final uri = Uri.tryParse(fetchUrl);
+        if (uri == null || uri.host.isEmpty) {
           dialogSetState(() => isFetchingIcon = false);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Icon downloaded! Select an icon style.')),
+              const SnackBar(content: Text('Invalid URL')),
+            );
+          }
+          return;
+        }
+
+        // 直接使用 Google Favicon API，最快最可靠
+        final googleIconUrl = 'https://www.google.com/s2/favicons?domain=${uri.host}&sz=128';
+        final response = await http.get(Uri.parse(googleIconUrl))
+            .timeout(const Duration(seconds: 5));
+
+        dialogSetState(() => isFetchingIcon = false);
+
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Icon fetched! Use it in your bookmark.')),
             );
           }
         } else {
           if (context.mounted) {
-            dialogSetState(() => isFetchingIcon = false);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Could not fetch icon. Please select manually.')),
             );
           }
         }
       } catch (e) {
+        dialogSetState(() => isFetchingIcon = false);
         if (context.mounted) {
-          dialogSetState(() => isFetchingIcon = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error fetching icon: $e')),
+            SnackBar(content: Text('Error: ${e.toString()}')),
           );
         }
       }
