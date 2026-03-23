@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 /// Bookmark type enum
 enum BookmarkItemType { bookmark, folder, placeholder }
 
+/// Bookmark icon type enum
+enum BookmarkIconType { icon, network, local }
+
 /// Icon name to IconData constant mapping
 class BookmarkIcons {
   static const Map<String, IconData> _iconMap = {
@@ -53,6 +56,8 @@ class SingleBookmark implements BookmarkItem {
   final String url;
   final String iconName;
   final Color color;
+  final BookmarkIconType iconType;
+  final String? iconUrl; // 网络图标URL或本地文件路径
 
   SingleBookmark({
     required this.id,
@@ -60,6 +65,8 @@ class SingleBookmark implements BookmarkItem {
     required this.url,
     required this.iconName,
     required this.color,
+    this.iconType = BookmarkIconType.icon,
+    this.iconUrl,
   });
 
   IconData get icon => BookmarkIcons.getIcon(iconName);
@@ -74,6 +81,8 @@ class SingleBookmark implements BookmarkItem {
       'url': url,
       'iconName': iconName,
       'colorValue': color.value,
+      'iconType': iconType.name,
+      'iconUrl': iconUrl,
       'type': 'bookmark',
     };
   }
@@ -85,6 +94,11 @@ class SingleBookmark implements BookmarkItem {
       url: json['url'] as String,
       iconName: json['iconName'] as String? ?? 'public',
       color: Color(json['colorValue'] as int),
+      iconType: BookmarkIconType.values.firstWhere(
+        (e) => e.name == json['iconType'],
+        orElse: () => BookmarkIconType.icon,
+      ),
+      iconUrl: json['iconUrl'] as String?,
     );
   }
 
@@ -94,6 +108,8 @@ class SingleBookmark implements BookmarkItem {
     String? url,
     String? iconName,
     Color? color,
+    BookmarkIconType? iconType,
+    String? iconUrl,
   }) {
     return SingleBookmark(
       id: id ?? this.id,
@@ -101,6 +117,8 @@ class SingleBookmark implements BookmarkItem {
       url: url ?? this.url,
       iconName: iconName ?? this.iconName,
       color: color ?? this.color,
+      iconType: iconType ?? this.iconType,
+      iconUrl: iconUrl ?? this.iconUrl,
     );
   }
 }
