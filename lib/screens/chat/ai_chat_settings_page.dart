@@ -3,8 +3,51 @@ import 'package:provider/provider.dart';
 import '../../providers/ai_chat_provider.dart';
 
 /// AI 聊天设置页面
-class AIChatSettingsPage extends StatelessWidget {
+class AIChatSettingsPage extends StatefulWidget {
   const AIChatSettingsPage({super.key});
+
+  @override
+  State<AIChatSettingsPage> createState() => _AIChatSettingsPageState();
+}
+
+class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
+  late TextEditingController _apiKeyController;
+  late TextEditingController _modelController;
+  late TextEditingController _baseURLController;
+  late TextEditingController _dbHostController;
+  late TextEditingController _dbPortController;
+  late TextEditingController _dbNameController;
+  late TextEditingController _dbUserController;
+  late TextEditingController _dbPasswordController;
+  bool _isInit = false;
+
+  @override
+  void dispose() {
+    _apiKeyController.dispose();
+    _modelController.dispose();
+    _baseURLController.dispose();
+    _dbHostController.dispose();
+    _dbPortController.dispose();
+    _dbNameController.dispose();
+    _dbUserController.dispose();
+    _dbPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _initControllers(AIChatProvider provider) {
+    if (_isInit) return;
+    _isInit = true;
+
+    final s = provider.settings;
+    _apiKeyController = TextEditingController(text: s.apiKey);
+    _modelController = TextEditingController(text: s.model);
+    _baseURLController = TextEditingController(text: s.baseURL);
+    _dbHostController = TextEditingController(text: s.dbHost);
+    _dbPortController = TextEditingController(text: s.dbPort);
+    _dbNameController = TextEditingController(text: s.dbName);
+    _dbUserController = TextEditingController(text: s.dbUser);
+    _dbPasswordController = TextEditingController(text: s.dbPassword);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,14 +62,14 @@ class AIChatSettingsPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final settings = provider.settings;
+          _initControllers(provider);
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               // API Key
               TextField(
-                controller: TextEditingController(text: settings.apiKey),
+                controller: _apiKeyController,
                 decoration: const InputDecoration(
                   labelText: 'API Key *',
                   hintText: '请输入您的 API Key',
@@ -40,7 +83,7 @@ class AIChatSettingsPage extends StatelessWidget {
 
               // 模型类型
               DropdownButtonFormField<String>(
-                value: settings.type,
+                value: provider.settings.type,
                 decoration: const InputDecoration(
                   labelText: '模型类型',
                   border: OutlineInputBorder(),
@@ -60,7 +103,7 @@ class AIChatSettingsPage extends StatelessWidget {
 
               // Model
               TextField(
-                controller: TextEditingController(text: settings.model),
+                controller: _modelController,
                 decoration: const InputDecoration(
                   labelText: '模型名称 (可选)',
                   hintText: '如: claude-3-5-sonnet-20241022',
@@ -73,7 +116,7 @@ class AIChatSettingsPage extends StatelessWidget {
 
               // Base URL
               TextField(
-                controller: TextEditingController(text: settings.baseURL),
+                controller: _baseURLController,
                 decoration: const InputDecoration(
                   labelText: '自定义 Base URL (可选)',
                   hintText: '如: https://api.anthropic.com',
@@ -109,7 +152,7 @@ class AIChatSettingsPage extends StatelessWidget {
 
               // 数据库 Host
               TextField(
-                controller: TextEditingController(text: settings.dbHost),
+                controller: _dbHostController,
                 decoration: const InputDecoration(
                   labelText: '数据库 Host',
                   border: OutlineInputBorder(),
@@ -121,7 +164,7 @@ class AIChatSettingsPage extends StatelessWidget {
 
               // 数据库 Port
               TextField(
-                controller: TextEditingController(text: settings.dbPort),
+                controller: _dbPortController,
                 decoration: const InputDecoration(
                   labelText: '端口',
                   border: OutlineInputBorder(),
@@ -133,7 +176,7 @@ class AIChatSettingsPage extends StatelessWidget {
 
               // 数据库名
               TextField(
-                controller: TextEditingController(text: settings.dbName),
+                controller: _dbNameController,
                 decoration: const InputDecoration(
                   labelText: '数据库名',
                   border: OutlineInputBorder(),
@@ -145,7 +188,7 @@ class AIChatSettingsPage extends StatelessWidget {
 
               // 数据库用户名
               TextField(
-                controller: TextEditingController(text: settings.dbUser),
+                controller: _dbUserController,
                 decoration: const InputDecoration(
                   labelText: '数据库用户',
                   border: OutlineInputBorder(),
@@ -157,7 +200,7 @@ class AIChatSettingsPage extends StatelessWidget {
 
               // 数据库密码
               TextField(
-                controller: TextEditingController(text: settings.dbPassword),
+                controller: _dbPasswordController,
                 decoration: const InputDecoration(
                   labelText: '数据库密码',
                   border: OutlineInputBorder(),
@@ -175,10 +218,10 @@ class AIChatSettingsPage extends StatelessWidget {
                   color: Colors.blue[50],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(Icons.info_outline, color: Colors.blue),
                         SizedBox(width: 8),
@@ -191,10 +234,10 @@ class AIChatSettingsPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _buildTip('1. 修改后会立即保存'),
-                    _buildTip('2. 模型类型默认为 Claude'),
-                    _buildTip('3. 数据库配置用于 Agent 功能'),
+                    SizedBox(height: 12),
+                    Text('1. 修改后会立即保存', style: TextStyle(fontSize: 13)),
+                    Text('2. 模型类型默认为 Claude', style: TextStyle(fontSize: 13)),
+                    Text('3. 数据库配置用于 Agent 功能', style: TextStyle(fontSize: 13)),
                   ],
                 ),
               ),
@@ -202,13 +245,6 @@ class AIChatSettingsPage extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-
-  Widget _buildTip(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(text, style: const TextStyle(fontSize: 13)),
     );
   }
 }
