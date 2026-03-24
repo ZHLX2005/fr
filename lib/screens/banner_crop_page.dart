@@ -285,11 +285,13 @@ class _BannerCropPageState extends State<BannerCropPage> {
           children: [
             Expanded(
               child: Center(
-                child: AspectRatio(
-                  aspectRatio: _targetRatio,
+                child: FittedBox(
+                  fit: BoxFit.contain,
                   child: Image.file(
                     File(path),
-                    fit: BoxFit.cover,
+                    // 根据实际图片尺寸自适应，避免溢出
+                    width: 800,
+                    height: 800 / _targetRatio,
                   ),
                 ),
               ),
