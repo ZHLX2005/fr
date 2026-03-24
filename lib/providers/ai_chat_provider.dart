@@ -85,6 +85,160 @@ class AIChatProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // 直接更新单个字段（响应式）
+  void updateApiKey(String value) {
+    _settings = AISettings(
+      apiKey: value,
+      model: _settings.model,
+      baseURL: _settings.baseURL,
+      type: _settings.type,
+      dbHost: _settings.dbHost,
+      dbPort: _settings.dbPort,
+      dbName: _settings.dbName,
+      dbUser: _settings.dbUser,
+      dbPassword: _settings.dbPassword,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void updateModel(String value) {
+    _settings = AISettings(
+      apiKey: _settings.apiKey,
+      model: value,
+      baseURL: _settings.baseURL,
+      type: _settings.type,
+      dbHost: _settings.dbHost,
+      dbPort: _settings.dbPort,
+      dbName: _settings.dbName,
+      dbUser: _settings.dbUser,
+      dbPassword: _settings.dbPassword,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void updateBaseURL(String value) {
+    _settings = AISettings(
+      apiKey: _settings.apiKey,
+      model: _settings.model,
+      baseURL: value,
+      type: _settings.type,
+      dbHost: _settings.dbHost,
+      dbPort: _settings.dbPort,
+      dbName: _settings.dbName,
+      dbUser: _settings.dbUser,
+      dbPassword: _settings.dbPassword,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void updateType(String value) {
+    _settings = AISettings(
+      apiKey: _settings.apiKey,
+      model: _settings.model,
+      baseURL: _settings.baseURL,
+      type: value,
+      dbHost: _settings.dbHost,
+      dbPort: _settings.dbPort,
+      dbName: _settings.dbName,
+      dbUser: _settings.dbUser,
+      dbPassword: _settings.dbPassword,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void updateDbHost(String value) {
+    _settings = AISettings(
+      apiKey: _settings.apiKey,
+      model: _settings.model,
+      baseURL: _settings.baseURL,
+      type: _settings.type,
+      dbHost: value,
+      dbPort: _settings.dbPort,
+      dbName: _settings.dbName,
+      dbUser: _settings.dbUser,
+      dbPassword: _settings.dbPassword,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void updateDbPort(String value) {
+    _settings = AISettings(
+      apiKey: _settings.apiKey,
+      model: _settings.model,
+      baseURL: _settings.baseURL,
+      type: _settings.type,
+      dbHost: _settings.dbHost,
+      dbPort: value,
+      dbName: _settings.dbName,
+      dbUser: _settings.dbUser,
+      dbPassword: _settings.dbPassword,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void updateDbName(String value) {
+    _settings = AISettings(
+      apiKey: _settings.apiKey,
+      model: _settings.model,
+      baseURL: _settings.baseURL,
+      type: _settings.type,
+      dbHost: _settings.dbHost,
+      dbPort: _settings.dbPort,
+      dbName: value,
+      dbUser: _settings.dbUser,
+      dbPassword: _settings.dbPassword,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void updateDbUser(String value) {
+    _settings = AISettings(
+      apiKey: _settings.apiKey,
+      model: _settings.model,
+      baseURL: _settings.baseURL,
+      type: _settings.type,
+      dbHost: _settings.dbHost,
+      dbPort: _settings.dbPort,
+      dbName: _settings.dbName,
+      dbUser: value,
+      dbPassword: _settings.dbPassword,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void updateDbPassword(String value) {
+    _settings = AISettings(
+      apiKey: _settings.apiKey,
+      model: _settings.model,
+      baseURL: _settings.baseURL,
+      type: _settings.type,
+      dbHost: _settings.dbHost,
+      dbPort: _settings.dbPort,
+      dbName: _settings.dbName,
+      dbUser: _settings.dbUser,
+      dbPassword: value,
+      dbType: _settings.dbType,
+    );
+    _saveSettings();
+    notifyListeners();
+  }
+
   // 发送消息并获取 AI 响应
   Future<void> sendMessage(String content) async {
     if (!_settings.isConfigured) {
