@@ -191,8 +191,40 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onAddPressed() {
-    // TODO: 实现添加功能
-    debugPrint('添加按钮被点击');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.construction_outlined, color: Colors.grey),
+            SizedBox(width: 8),
+            Text('提示'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(height: 8),
+            Text(
+              '功能待实现',
+              style: TextStyle(fontSize: 18),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '该功能正在开发中',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
