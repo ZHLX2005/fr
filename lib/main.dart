@@ -13,7 +13,6 @@ import 'lab/demos/notebook_demo.dart';
 import 'lab/demos/clock_demo.dart';
 import 'lab/demos/network_demo.dart';
 import 'lab/demos/game_2048_demo.dart';
-import 'lab/demos/canvas_demo.dart';
 import 'lab/demos/free_canvas_demo.dart';
 import 'lab/demos/drag_reorder_demo.dart';
 import 'lab/demos/web_bookmark_demo.dart';
@@ -38,7 +37,6 @@ void main() {
   registerClockDemo();
   registerNetworkDemo();
   registerGame2048Demo();
-  registerCanvasDemo();
   registerFreeCanvasDemo();
   registerDragReorderDemo();
   registerWebBookmarkDemo();

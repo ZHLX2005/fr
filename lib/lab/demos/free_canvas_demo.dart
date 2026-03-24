@@ -212,13 +212,13 @@ class _FreeCanvasPageState extends State<_FreeCanvasPage> {
           setState(() {});
         },
         child: SizedBox(
-          width: 2000,
-          height: 2000,
+          width: 4000,
+          height: 4000,
           child: Stack(
             children: [
               // 网格背景
               CustomPaint(
-                size: const Size(2000, 2000),
+                size: const Size(4000, 4000),
                 painter: _GridPainter(),
               ),
               // 所有节点
