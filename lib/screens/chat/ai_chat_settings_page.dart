@@ -23,10 +23,15 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
   late TextEditingController _dbPasswordController;
   String _selectedType = 'claude';
   bool _isSaving = false;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    _initControllers();
+  }
+
+  void _initControllers() {
     final settings = context.read<AIChatProvider>().settings;
     _apiKeyController = TextEditingController(text: settings.apiKey);
     _modelController = TextEditingController(text: settings.model);
@@ -53,6 +58,8 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
   }
 
   Future<void> _saveSettings() async {
+    if (_isSaving) return;
+
     setState(() {
       _isSaving = true;
     });
@@ -71,13 +78,15 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
 
     await context.read<AIChatProvider>().updateSettings(settings);
 
-    setState(() {
-      _isSaving = false;
-    });
-
     if (mounted) {
+      setState(() {
+        _isSaving = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('设置已保存')),
+        const SnackBar(
+          content: Text('设置已保存'),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.pop(context);
     }
@@ -108,7 +117,7 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
+      builder: (dialogContext) => const AlertDialog(
         content: Row(
           children: [
             CircularProgressIndicator(),
@@ -167,105 +176,145 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // API Key
-          TextField(
-            controller: _apiKeyController,
-            decoration: const InputDecoration(
-              labelText: 'API Key *',
-              hintText: '请输入您的 API Key',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.key),
-            ),
-            obscureText: true,
-          ),
-          const SizedBox(height: 16),
+      body: Consumer<AIChatProvider>(
+        builder: (context, provider, _) {
+          // 等待设置加载完成
+          if (provider.isLoadingSettings && !_isInitialized) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          // 模型类型
-          DropdownButtonFormField<String>(
-            value: _selectedType,
-            decoration: const InputDecoration(
-              labelText: '模型类型',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.model_training),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'claude', child: Text('Claude')),
-              DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
-              DropdownMenuItem(value: 'gemini', child: Text('Gemini')),
-              DropdownMenuItem(value: 'other', child: Text('Other')),
-            ],
-            onChanged: (value) {
+          // 初始化控制器（仅在首次加载完成时）
+          if (!_isInitialized) {
+            _isInitialized = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final settings = provider.settings;
+              _apiKeyController.text = settings.apiKey;
+              _modelController.text = settings.model;
+              _baseURLController.text = settings.baseURL;
+              _dbHostController.text = settings.dbHost;
+              _dbPortController.text = settings.dbPort;
+              _dbNameController.text = settings.dbName;
+              _dbUserController.text = settings.dbUser;
+              _dbPasswordController.text = settings.dbPassword;
               setState(() {
-                _selectedType = value ?? 'claude';
+                _selectedType = settings.type;
               });
-            },
-          ),
-          const SizedBox(height: 16),
+            });
+          }
 
-          // Model
-          TextField(
-            controller: _modelController,
-            decoration: const InputDecoration(
-              labelText: '模型名称 (可选)',
-              hintText: '如: claude-3-5-sonnet-20241022',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.psychology),
-            ),
-          ),
-          const SizedBox(height: 16),
+          return _buildSettingsContent();
+        },
+      ),
+    );
+  }
 
-          // Base URL
-          TextField(
-            controller: _baseURLController,
-            decoration: const InputDecoration(
-              labelText: '自定义 Base URL (可选)',
-              hintText: '如: https://api.anthropic.com',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.link),
-            ),
-          ),
-          const SizedBox(height: 24),
+  Widget _buildSettingsContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 600;
+        final horizontalPadding = isWide ? constraints.maxWidth * 0.1 : 16.0;
 
-          // 数据库配置标题
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.green[50],
-              borderRadius: BorderRadius.circular(8),
+        return ListView(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: 16,
+          ),
+          children: [
+            // API Key
+            TextField(
+              controller: _apiKeyController,
+              decoration: const InputDecoration(
+                labelText: 'API Key *',
+                hintText: '请输入您的 API Key',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.key),
+              ),
+              obscureText: true,
             ),
-            child: Row(
-              children: [
-                Icon(Icons.storage, color: Colors.green[700]),
-                const SizedBox(width: 8),
-                Text(
-                  '数据库配置 (Agent)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[700],
-                  ),
-                ),
+            const SizedBox(height: 16),
+
+            // 模型类型
+            DropdownButtonFormField<String>(
+              value: _selectedType,
+              decoration: const InputDecoration(
+                labelText: '模型类型',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.model_training),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'claude', child: Text('Claude')),
+                DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
+                DropdownMenuItem(value: 'gemini', child: Text('Gemini')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
               ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedType = value ?? 'claude';
+                });
+              },
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-          // 数据库 Host
-          TextField(
-            controller: _dbHostController,
-            decoration: const InputDecoration(
-              labelText: '数据库 Host',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.dns),
+            // Model
+            TextField(
+              controller: _modelController,
+              decoration: const InputDecoration(
+                labelText: '模型名称 (可选)',
+                hintText: '如: claude-3-5-sonnet-20241022',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.psychology),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-          // 数据库 Port 和 Database 并排
-          Row(
-            children: [
+            // Base URL
+            TextField(
+              controller: _baseURLController,
+              decoration: const InputDecoration(
+                labelText: '自定义 Base URL (可选)',
+                hintText: '如: https://api.anthropic.com',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.link),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 数据库配置标题
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.storage, color: Colors.green[700]),
+                  const SizedBox(width: 8),
+                  Text(
+                    '数据库配置 (Agent)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 数据库 Host
+            TextField(
+              controller: _dbHostController,
+              decoration: const InputDecoration(
+                labelText: '数据库 Host',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.dns),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 数据库 Port 和 Database 并排 (自适应布局)
+            _buildResponsiveRow([
               Expanded(
                 child: TextField(
                   controller: _dbPortController,
@@ -288,78 +337,101 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
+            ]),
+            const SizedBox(height: 12),
 
-          // 数据库用户名
-          TextField(
-            controller: _dbUserController,
-            decoration: const InputDecoration(
-              labelText: '数据库用户',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.person),
+            // 数据库用户名
+            TextField(
+              controller: _dbUserController,
+              decoration: const InputDecoration(
+                labelText: '数据库用户',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          // 数据库密码
-          TextField(
-            controller: _dbPasswordController,
-            decoration: const InputDecoration(
-              labelText: '数据库密码',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.lock),
+            // 数据库密码
+            TextField(
+              controller: _dbPasswordController,
+              decoration: const InputDecoration(
+                labelText: '数据库密码',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
             ),
-            obscureText: true,
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // 测试连接按钮
-          OutlinedButton.icon(
-            onPressed: _testConnection,
-            icon: const Icon(Icons.wifi_tethering),
-            label: const Text('测试连接'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+            // 测试连接按钮
+            OutlinedButton.icon(
+              onPressed: _testConnection,
+              icon: const Icon(Icons.wifi_tethering),
+              label: const Text('测试连接'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
-          ),
-          const SizedBox(height: 32),
+            const SizedBox(height: 32),
 
-          // 说明
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Text(
-                      '使用说明',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+            // 说明
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text(
+                        '使用说明',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildTip('1. 请输入有效的 API Key'),
-                _buildTip('2. 模型类型默认为 Claude'),
-                _buildTip('3. 模型名称和 Base URL 为可选配置'),
-                _buildTip('4. 点击"测试连接"验证配置'),
-                _buildTip('5. 保存设置后可开始 AI 聊天'),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTip('1. 请输入有效的 API Key'),
+                  _buildTip('2. 模型类型默认为 Claude'),
+                  _buildTip('3. 模型名称和 Base URL 为可选配置'),
+                  _buildTip('4. 点击"测试连接"验证配置'),
+                  _buildTip('5. 保存设置后可开始 AI 聊天'),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildResponsiveRow(List<Widget> children) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 400) {
+          // 窄屏：垂直排列
+          return Column(
+            children: children.map((child) {
+              if (child is Expanded) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: child,
+                );
+              }
+              return child;
+            }).toList(),
+          );
+        }
+        // 宽屏：水平排列
+        return Row(children: children);
+      },
     );
   }
 

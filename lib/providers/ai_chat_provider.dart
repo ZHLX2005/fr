@@ -13,11 +13,13 @@ class AIChatProvider with ChangeNotifier {
   List<AIChatMessage> _messages = [];
   AISettings _settings = AISettings();
   bool _isLoading = false;
+  bool _isLoadingSettings = true; // 设置加载状态
   String? _error;
 
   List<AIChatMessage> get messages => _messages;
   AISettings get settings => _settings;
   bool get isLoading => _isLoading;
+  bool get isLoadingSettings => _isLoadingSettings; // 新增
   String? get error => _error;
   bool get isConfigured => _settings.isConfigured;
 
@@ -57,10 +59,12 @@ class AIChatProvider with ChangeNotifier {
       final jsonString = prefs.getString(_settingsKey);
       if (jsonString != null && jsonString.isNotEmpty) {
         _settings = AISettings.decode(jsonString);
-        notifyListeners();
       }
     } catch (e) {
       debugPrint('加载 AI 设置失败: $e');
+    } finally {
+      _isLoadingSettings = false;
+      notifyListeners();
     }
   }
 
