@@ -153,23 +153,23 @@ class AppTheme {
 
   /// 创建深色主题数据（舒适的夜间模式）
   static ThemeData createDarkTheme() {
-    // 使用舒适的深色调，不是纯黑
-    const primaryColor = Color(0xFF64B5F6); // 柔和的蓝色
-    const secondaryColor = Color(0xFF4DD0E1); // 柔和的青色
+    // 使用柔和的蓝紫色调，不刺眼
+    const primaryColor = Color(0xFF7986CB); // 柔和的蓝紫色
+    const secondaryColor = Color(0xFF81D4FA); // 柔和的天蓝色
 
     return ThemeData(
       colorScheme: ColorScheme.dark(
-        // 主色系 - 柔和但清晰
+        // 主色系 - 柔和的蓝紫色
         primary: primaryColor,
-        onPrimary: const Color(0xFF0D47A1),
-        primaryContainer: const Color(0xFF1E3A5F),
-        onPrimaryContainer: const Color(0xFFBBDEFB),
+        onPrimary: const Color(0xFF1A237E),
+        primaryContainer: const Color(0xFF2D3766),
+        onPrimaryContainer: const Color(0xFFC5CAE9),
 
-        // 次要色系
+        // 次要色系 - 柔和的天蓝色
         secondary: secondaryColor,
-        onSecondary: const Color(0xFF006064),
-        secondaryContainer: const Color(0xFF1A3D40),
-        onSecondaryContainer: const Color(0xFFB2EBF2),
+        onSecondary: const Color(0xFF01579B),
+        secondaryContainer: const Color(0xFF1E4D7A),
+        onSecondaryContainer: const Color(0xFFB3E5FC),
 
         // 第三色系
         tertiary: const Color(0xFF9575CD),
@@ -213,17 +213,17 @@ class AppTheme {
         ),
       ),
 
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Color(0xFF1E1E1E),
-        foregroundColor: Color(0xFFE0E0E0),
-        surfaceTintColor: Color(0xFF64B5F6),
+        backgroundColor: const Color(0xFF1E1E1E),
+        foregroundColor: const Color(0xFFE0E0E0),
+        surfaceTintColor: primaryColor,
       ),
 
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryColor,
-        foregroundColor: const Color(0xFF0D47A1),
+        foregroundColor: const Color(0xFF1A237E),
         elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -233,7 +233,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: const Color(0xFF0D47A1),
+          foregroundColor: const Color(0xFF1A237E),
           elevation: 2,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
@@ -245,7 +245,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: const Color(0xFF0D47A1),
+          foregroundColor: const Color(0xFF1A237E),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
