@@ -71,6 +71,7 @@ dependencies:
 
   # Permissions
   permission_handler: ^11.4.0
+  app_settings: ^5.1.1
 
   # Audio Player
   audioplayers: ^5.2.1
