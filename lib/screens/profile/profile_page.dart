@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../media_test_page.dart';
 import '../lab/lab_page.dart';
 import '../banner_crop_page.dart';
+import '../theme/theme_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -141,6 +142,21 @@ class _ProfilePageState extends State<ProfilePage> {
                           context,
                           MaterialPageRoute(
                               builder: (context) => const MediaTestPage()),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // 主题设置
+                    _buildMenuCard(
+                      context,
+                      icon: Icons.palette,
+                      title: '主题设置',
+                      subtitle: '切换应用主题，支持夜间模式和粉红主题',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const ThemePage()),
                         );
                       },
                     ),

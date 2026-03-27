@@ -29,6 +29,7 @@ import 'lab/demos/notification_demo.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
+import 'core/theme/app_theme.dart';
 
 void main() {
   // 注册 Demo 页面
@@ -71,6 +72,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     // 设置 MethodChannel 监听器
     _channel.setMethodCallHandler(_handleMethodCall);
+    // 初始化主题
+    _initTheme();
+  }
+
+  /// 初始化主题设置
+  Future<void> _initTheme() async {
+    final themeProvider = context.read<ThemeProvider>();
+    await themeProvider.init();
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
@@ -110,33 +119,36 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => MessageProvider()),
         ChangeNotifierProvider(create: (_) => LabNoteProvider()),
         ChangeNotifierProvider(create: (_) => LabClockProvider()),
         ChangeNotifierProvider(create: (_) => AIChatProvider()),
         ChangeNotifierProvider(create: (_) => AgentChatProvider()),
       ],
-      child: MaterialApp(
-        navigatorKey: navigatorKey,
-        title: 'Flutter 聊天应用',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-          useMaterial3: true,
-        ),
-        initialRoute: '/',
-        onGenerateRoute: (settings) {
-          // 处理深层链接 fr://lab -> /lab
-          if (settings.name == '/lab') {
-            return MaterialPageRoute(
-              builder: (_) => const LabPage(),
-              settings: settings,
-            );
-          }
-          // 默认路由
-          return MaterialPageRoute(
-            builder: (_) => const MainScreen(),
-            settings: settings,
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            navigatorKey: navigatorKey,
+            title: 'Flutter 聊天应用',
+            debugShowCheckedModeBanner: false,
+            theme: themeProvider.themeData,
+            themeMode: themeProvider.themeModeValue,
+            initialRoute: '/',
+            onGenerateRoute: (settings) {
+              // 处理深层链接 fr://lab -> /lab
+              if (settings.name == '/lab') {
+                return MaterialPageRoute(
+                  builder: (_) => const LabPage(),
+                  settings: settings,
+                );
+              }
+              // 默认路由
+              return MaterialPageRoute(
+                builder: (_) => const MainScreen(),
+                settings: settings,
+              );
+            },
           );
         },
       ),
