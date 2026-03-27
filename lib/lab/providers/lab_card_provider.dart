@@ -19,9 +19,17 @@ class LabCardProvider with ChangeNotifier {
   // 存储 demo 标题 -> 背景图片 URL 的映射
   final Map<String, String> _backgrounds = {};
 
-  /// 获取指定卡片的背景图片 URL
+  /// 获取指定卡片的背景图片 URL 或本地路径
   String? getBackground(String demoTitle) {
     return _backgrounds[demoTitle];
+  }
+
+  /// 判断背景是否为本地文件
+  bool isLocalFile(String demoTitle) {
+    final path = _backgrounds[demoTitle];
+    if (path == null) return false;
+    // 本地文件路径通常以 / 开头或包含应用目录
+    return path.startsWith('/') || path.contains('applicationDocuments');
   }
 
   /// 设置指定卡片的背景图片 URL

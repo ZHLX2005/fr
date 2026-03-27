@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';
 import '../../lab/providers/lab_card_provider.dart';
+import '../../services/image_picker_service.dart';
 
 /// 实验室页面 - 开发者验证 Demo 入口
 class LabPage extends StatelessWidget {
@@ -156,6 +158,7 @@ class _DemoCardState extends State<_DemoCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final backgroundUrl = _provider.getBackground(widget.title);
+    final isLocalFile = backgroundUrl != null && _provider.isLocalFile(widget.title);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -168,17 +171,9 @@ class _DemoCardState extends State<_DemoCard> {
             // 背景图片
             if (backgroundUrl != null && backgroundUrl.isNotEmpty)
               Positioned.fill(
-                child: Image.network(
-                  backgroundUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      color: theme.colorScheme.surfaceVariant,
-                    );
-                  },
-                ),
+                child: isLocalFile
+                    ? _buildLocalImage(backgroundUrl, theme)
+                    : _buildNetworkImage(backgroundUrl, theme),
               ),
             // 渐变遮罩（确保文字可读）
             if (backgroundUrl != null && backgroundUrl.isNotEmpty)
@@ -240,7 +235,7 @@ class _DemoCardState extends State<_DemoCard> {
               top: 8,
               right: 8,
               child: Icon(
-                Icons.image,
+                isLocalFile ? Icons.photo_library : Icons.image,
                 size: 16,
                 color: (backgroundUrl != null
                         ? Colors.white
@@ -254,6 +249,31 @@ class _DemoCardState extends State<_DemoCard> {
     );
   }
 
+  Widget _buildNetworkImage(String url, ThemeData theme) {
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: theme.colorScheme.surfaceVariant,
+        );
+      },
+    );
+  }
+
+  Widget _buildLocalImage(String path, ThemeData theme) {
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: theme.colorScheme.surfaceVariant,
+        child: const Icon(Icons.broken_image),
+      ),
+    );
+  }
+
   /// 显示背景设置对话框
   void _showBackgroundDialog(BuildContext context) {
     showModalBottomSheet(
@@ -261,6 +281,7 @@ class _DemoCardState extends State<_DemoCard> {
       isScrollControlled: true,
       builder: (context) => _BackgroundSettingSheet(
         currentUrl: _provider.getBackground(widget.title),
+        isLocalFile: _provider.isLocalFile(widget.title),
         onImageSelected: (url) async {
           await _provider.setBackground(widget.title, url);
           if (context.mounted) Navigator.pop(context);
@@ -277,11 +298,13 @@ class _DemoCardState extends State<_DemoCard> {
 /// 背景图片设置底部面板
 class _BackgroundSettingSheet extends StatefulWidget {
   final String? currentUrl;
+  final bool isLocalFile;
   final Future<void> Function(String) onImageSelected;
   final VoidCallback onRemove;
 
   const _BackgroundSettingSheet({
     required this.currentUrl,
+    this.isLocalFile = false,
     required this.onImageSelected,
     required this.onRemove,
   });
@@ -300,7 +323,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
     final size = MediaQuery.of(context).size;
 
     return Container(
-      height: size.height * 0.7,
+      height: size.height * 0.75,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,6 +351,26 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
             ],
           ),
           const Divider(),
+          const SizedBox(height: 12),
+
+          // 本地图片选择按钮
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _isLoading ? null : _pickLocalImage,
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.photo_library),
+              label: const Text('从相册选择图片'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
 
           // 自定义 URL 输入
@@ -366,7 +409,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // 预设图片
           Text(
@@ -424,6 +467,19 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
         ],
       ),
     );
+  }
+
+  /// 选择本地图片
+  Future<void> _pickLocalImage() async {
+    setState(() => _isLoading = true);
+    try {
+      final imagePath = await ImagePickerService().pickImage();
+      if (imagePath != null) {
+        await widget.onImageSelected(imagePath);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _selectImage(String url) async {
