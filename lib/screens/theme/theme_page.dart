@@ -104,9 +104,20 @@ class ThemePage extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 根据屏幕宽度决定列数
-        final crossAxisCount = constraints.maxWidth > 600 ? 3 : 1;
-        final childAspectRatio = constraints.maxWidth > 600 ? 1.0 : 2.5;
+        // 根据屏幕宽度和主题数量决定列数，实现自动平衡
+        final themeCount = themes.length;
+        int crossAxisCount;
+        double childAspectRatio;
+
+        if (constraints.maxWidth > 600) {
+          // 大屏幕：4个主题显示为2x2布局
+          crossAxisCount = 2;
+          childAspectRatio = 1.2;
+        } else {
+          // 小屏幕：单列布局
+          crossAxisCount = 1;
+          childAspectRatio = 2.5;
+        }
 
         return GridView.builder(
           shrinkWrap: true,
@@ -117,7 +128,7 @@ class ThemePage extends StatelessWidget {
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
-          itemCount: themes.length,
+          itemCount: themeCount,
           itemBuilder: (context, index) {
             final mode = themes[index];
             final isSelected = provider.themeMode == mode;
