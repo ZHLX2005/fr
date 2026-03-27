@@ -117,6 +117,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   String? _selectedPath;
   String? _croppedPath;
   bool _isLoading = false;
+  bool _hasUnsavedChanges = false;
 
   @override
   void initState() {
@@ -178,8 +179,9 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
           _croppedPath = finalPath;
           _selectedPath = finalPath;
           _isLoading = false;
+          _hasUnsavedChanges = true;
         });
-        widget.onImageSelected(finalPath);
+        // 不立即触发回调，让用户预览后手动确认
       } else if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -231,8 +233,9 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
             _croppedPath = savedPath;
             _selectedPath = savedPath;
             _isLoading = false;
+            _hasUnsavedChanges = true;
           });
-          widget.onImageSelected(savedPath);
+          // 不立即触发回调，让用户预览后手动确认
         } else if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -273,6 +276,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final displayPath = _croppedPath ?? _selectedPath;
+    final hasChanges = _hasUnsavedChanges || (widget.initialImagePath != null && widget.initialImagePath != displayPath);
 
     return Column(
       children: [
@@ -287,6 +291,43 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
+              // 确认按钮（有未保存更改时显示）
+              if (hasChanges && displayPath != null) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _isLoading ? null : () => _confirmSelection(displayPath),
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.check),
+                        label: const Text('确认使用'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.green,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoading ? null : _cancelChanges,
+                        icon: const Icon(Icons.close),
+                        label: const Text('取消'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+              // 选择图片按钮
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
@@ -321,6 +362,23 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
         ),
       ],
     );
+  }
+
+  /// 确认选择
+  void _confirmSelection(String path) {
+    setState(() {
+      _hasUnsavedChanges = false;
+    });
+    widget.onImageSelected(path);
+  }
+
+  /// 取消更改
+  void _cancelChanges() {
+    setState(() {
+      _selectedPath = widget.initialImagePath;
+      _croppedPath = null;
+      _hasUnsavedChanges = false;
+    });
   }
 
   Widget _buildPreview(String path, ThemeData theme) {
