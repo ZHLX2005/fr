@@ -1,44 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// 小豆子主题配色
-class XiaoDouZiTheme {
-  XiaoDouZiTheme._();
-
-  // 主色调 - 蓝粉渐变
-  static const Color primaryBlue = Color(0xFF6C63FF);
-  static const Color primaryPink = Color(0xFFFF6B9D);
-  static const Color nearlyDarkBlue = Color(0xFF2633C5);
-
-  // 背景色
-  static const Color nearlyWhite = Color(0xFFFAFAFA);
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color background = Color(0xFFF2F3F8);
-
-  // 文字颜色
-  static const Color darkText = Color(0xFF253840);
-  static const Color darkerText = Color(0xFF17262A);
-  static const Color lightText = Color(0xFF4A6572);
-  static const Color deactivatedText = Color(0xFF767676);
-
-  // 其他颜色
-  static const Color grey = Color(0xFF3A5160);
-  static const Color darkGrey = Color(0xFF313A44);
-
-  // 渐变
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primaryBlue, primaryPink],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const LinearGradient buttonGradient = LinearGradient(
-    colors: [nearlyDarkBlue, Color(0xFF6A88E5)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-}
-
 /// 底部导航数据模型
 class BottomBarItem {
   final String label;
@@ -102,6 +64,9 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Stack(
       alignment: AlignmentDirectional.bottomCenter,
       children: [
@@ -110,7 +75,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
           animation: _animationController,
           builder: (context, child) {
             return PhysicalShape(
-              color: XiaoDouZiTheme.white,
+              color: colorScheme.surface,
               elevation: 16.0,
               clipper: _BottomBarClipper(
                 radius: Tween<double>(begin: 0.0, end: 1.0)
@@ -135,11 +100,11 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                     children: [
                       // 主页
                       Expanded(
-                        child: _buildTabItem(0),
+                        child: _buildTabItem(0, theme),
                       ),
                       // 聊天
                       Expanded(
-                        child: _buildTabItem(1),
+                        child: _buildTabItem(1, theme),
                       ),
                       // 中间占位
                       SizedBox(
@@ -153,11 +118,11 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                       ),
                       // 通讯录
                       Expanded(
-                        child: _buildTabItem(3),
+                        child: _buildTabItem(3, theme),
                       ),
                       // 待开发
                       Expanded(
-                        child: _buildTabItem(4),
+                        child: _buildTabItem(4, theme),
                       ),
                     ],
                   ),
@@ -196,11 +161,18 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                     ),
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: XiaoDouZiTheme.buttonGradient,
+                        gradient: LinearGradient(
+                          colors: [
+                            colorScheme.primary,
+                            colorScheme.secondary,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: XiaoDouZiTheme.nearlyDarkBlue.withAlpha(102),
+                            color: colorScheme.primary.withOpacity(0.4),
                             offset: const Offset(4.0, 8.0),
                             blurRadius: 16.0,
                           ),
@@ -209,14 +181,14 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          splashColor: Colors.white.withAlpha(25),
+                          splashColor: colorScheme.onPrimary.withOpacity(0.1),
                           highlightColor: Colors.transparent,
                           focusColor: Colors.transparent,
                           hoverColor: Colors.transparent,
                           onTap: widget.onAddPressed,
-                          child: const Icon(
+                          child: Icon(
                             Icons.add,
-                            color: XiaoDouZiTheme.white,
+                            color: colorScheme.onPrimary,
                             size: 32,
                           ),
                         ),
@@ -232,9 +204,10 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     );
   }
 
-  Widget _buildTabItem(int index) {
+  Widget _buildTabItem(int index, ThemeData theme) {
     final item = _items[index];
     final isSelected = widget.currentIndex == index;
+    final colorScheme = theme.colorScheme;
 
     if (!item.isEnabled) {
       // 待开发 - 禁用状态
@@ -246,14 +219,14 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
             Icon(
               item.icon,
               size: 24,
-              color: XiaoDouZiTheme.deactivatedText,
+              color: colorScheme.outline,
             ),
             const SizedBox(height: 2),
             Text(
               item.label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
-                color: XiaoDouZiTheme.deactivatedText,
+                color: colorScheme.outline,
               ),
             ),
           ],
@@ -275,7 +248,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: isSelected
-                  ? XiaoDouZiTheme.primaryBlue.withAlpha(25)
+                  ? colorScheme.primaryContainer
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
             ),
@@ -283,8 +256,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
               size: 24,
               color: isSelected
-                  ? XiaoDouZiTheme.primaryBlue
-                  : XiaoDouZiTheme.grey,
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 2),
@@ -294,8 +267,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               fontSize: 10,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               color: isSelected
-                  ? XiaoDouZiTheme.primaryBlue
-                  : XiaoDouZiTheme.grey,
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
             ),
           ),
         ],
