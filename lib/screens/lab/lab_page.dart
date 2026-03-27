@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';
 import '../../lab/providers/lab_card_provider.dart';
-import '../../services/image_picker_service.dart';
+import '../../widgets/image_picker_widget.dart';
 
 /// 实验室页面 - 开发者验证 Demo 入口
 class LabPage extends StatelessWidget {
@@ -353,23 +353,37 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           const Divider(),
           const SizedBox(height: 12),
 
-          // 本地图片选择按钮
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _isLoading ? null : _pickLocalImage,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.photo_library),
-              label: const Text('从相册选择图片'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+          // 本地图片选择和裁剪按钮
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _isLoading ? null : _pickAndCropImage,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.crop),
+                  label: const Text('选择并裁剪'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _pickLocalImage,
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('仅选择'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
 
@@ -469,11 +483,42 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
     );
   }
 
-  /// 选择本地图片
+  /// 选择并裁剪图片
+  Future<void> _pickAndCropImage() async {
+    setState(() => _isLoading = true);
+    try {
+      final imagePath = await ImagePickerPage.navigate(
+        context,
+        config: const ImagePickerConfig(
+          aspectRatioX: 1,
+          aspectRatioY: 1,
+          lockAspectRatio: false,
+        ),
+        initialImagePath: widget.isLocalFile ? widget.currentUrl : null,
+        title: '设置卡片背景',
+        emptyStateHint: '选择背景图片',
+        emptyStateSubHint: '可自由调整裁剪区域',
+      );
+      if (imagePath != null) {
+        await widget.onImageSelected(imagePath);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// 仅选择图片（不裁剪）
   Future<void> _pickLocalImage() async {
     setState(() => _isLoading = true);
     try {
-      final imagePath = await ImagePickerService().pickImage();
+      final imagePath = await ImagePickerPage.navigate(
+        context,
+        config: const ImagePickerConfig(enableCrop: false),
+        initialImagePath: widget.isLocalFile ? widget.currentUrl : null,
+        title: '选择背景图片',
+        emptyStateHint: '选择背景图片',
+        emptyStateSubHint: '',
+      );
       if (imagePath != null) {
         await widget.onImageSelected(imagePath);
       }
