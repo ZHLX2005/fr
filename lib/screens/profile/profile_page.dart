@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../media_test_page.dart';
+import '../native_controller/native_controller_page.dart';
 import '../lab/lab_page.dart';
 import '../banner_crop_page.dart';
 import '../theme/theme_page.dart';
@@ -131,17 +131,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   children: [
                     const SizedBox(height: 16),
-                    // 媒体功能测试
+                    // 原生功能测试
                     _buildMenuCard(
                       context,
-                      icon: Icons.camera_alt,
-                      title: '媒体功能测试',
-                      subtitle: '测试相机、相册、音视频播放等功能',
+                      icon: Icons.phone_android,
+                      title: '原生功能测试',
+                      subtitle: '测试通知、相机、麦克风等原生功能',
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const MediaTestPage()),
+                              builder: (context) => const NativeControllerPage()),
                         );
                       },
                     ),
