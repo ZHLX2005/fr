@@ -230,19 +230,6 @@ class _DemoCardState extends State<_DemoCard> {
                 ],
               ),
             ),
-            // 长按提示角标
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Icon(
-                isLocalFile ? Icons.photo_library : Icons.image,
-                size: 16,
-                color: (backgroundUrl != null
-                        ? Colors.white
-                        : theme.colorScheme.outline)
-                    .withOpacity(0.5),
-              ),
-            ),
           ],
         ),
       ),
