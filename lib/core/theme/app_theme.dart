@@ -38,69 +38,349 @@ class AppTheme {
     }
   }
 
-  /// 创建浅色主题数据
+  /// 创建浅色主题数据（清新蓝色）
   static ThemeData createLightTheme() {
+    // 使用清新明亮的蓝色系
+    const primaryColor = Color(0xFF2196F3); // 鲜艳的蓝色
+    const secondaryColor = Color(0xFF00BCD4); // 青色
+    const tertiaryColor = Color(0xFF7C4DFF); // 紫色
+
     return ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blue,
-        brightness: Brightness.light,
+      colorScheme: ColorScheme.light(
+        // 主色系 - 鲜艳明亮
+        primary: primaryColor,
+        onPrimary: Colors.white,
+        primaryContainer: const Color(0xFFE3F2FD),
+        onPrimaryContainer: const Color(0xFF0D47A1),
+
+        // 次要色系
+        secondary: secondaryColor,
+        onSecondary: Colors.white,
+        secondaryContainer: const Color(0xFFE0F7FA),
+        onSecondaryContainer: const Color(0xFF006064),
+
+        // 第三色系
+        tertiary: tertiaryColor,
+        onTertiary: Colors.white,
+        tertiaryContainer: const Color(0xFFEDE7F6),
+        onTertiaryContainer: const Color(0xFF311B92),
+
+        // 表面色 - 干净明亮的底色
+        surface: Colors.white,
+        onSurface: const Color(0xFF1A1A1A),
+        surfaceVariant: const Color(0xFFF5F5F5), // 非常浅的灰色
+        onSurfaceVariant: const Color(0xFF757575),
+
+        // 背景色 - 纯净的浅色
+        background: const Color(0xFFFAFAFA), // 接近白色但不刺眼
+        onBackground: const Color(0xFF1A1A1A),
+
+        // 错误色
+        error: const Color(0xFFE53935),
+        onError: Colors.white,
+        errorContainer: const Color(0xFFFFEBEE),
+        onErrorContainer: const Color(0xFFB71C1C),
+
+        // 轮廓和分割线
+        outline: const Color(0xFFE0E0E0),
+        outlineVariant: const Color(0xFFF0F0F0),
+
+        // 容器色调
+        surfaceTint: primaryColor,
       ),
       useMaterial3: true,
       brightness: Brightness.light,
-    );
-  }
 
-  /// 创建深色主题数据
-  static ThemeData createDarkTheme() {
-    return ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blue,
-        brightness: Brightness.dark,
-      ),
-      useMaterial3: true,
-      brightness: Brightness.dark,
-    );
-  }
-
-  /// 创建粉红色主题数据
-  static ThemeData createPinkTheme() {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFFFF69B4), // HotPink
-      brightness: Brightness.light,
-    );
-
-    return ThemeData(
-      colorScheme: colorScheme,
-      useMaterial3: true,
-      brightness: Brightness.light,
-      // 自定义粉红色主题的特殊样式
-      appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.primaryContainer,
-        foregroundColor: colorScheme.onPrimaryContainer,
-        centerTitle: true,
-        elevation: 0,
-      ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        elevation: 4,
-      ),
+      // 自定义组件样式
       cardTheme: CardThemeData(
         elevation: 2,
+        color: Colors.white,
+        shadowColor: Colors.black.withOpacity(0.08),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
       ),
+
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Color(0xFF1A1A1A),
+        surfaceTintColor: Color(0xFF2196F3),
+      ),
+
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
+
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: const Color(0xFF9E9E9E),
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+      ),
+    );
+  }
+
+  /// 创建深色主题数据（舒适的夜间模式）
+  static ThemeData createDarkTheme() {
+    // 使用舒适的深色调，不是纯黑
+    const primaryColor = Color(0xFF64B5F6); // 柔和的蓝色
+    const secondaryColor = Color(0xFF4DD0E1); // 柔和的青色
+
+    return ThemeData(
+      colorScheme: ColorScheme.dark(
+        // 主色系 - 柔和但清晰
+        primary: primaryColor,
+        onPrimary: const Color(0xFF0D47A1),
+        primaryContainer: const Color(0xFF1E3A5F),
+        onPrimaryContainer: const Color(0xFFBBDEFB),
+
+        // 次要色系
+        secondary: secondaryColor,
+        onSecondary: const Color(0xFF006064),
+        secondaryContainer: const Color(0xFF1A3D40),
+        onSecondaryContainer: const Color(0xFFB2EBF2),
+
+        // 第三色系
+        tertiary: const Color(0xFF9575CD),
+        onTertiary: const Color(0xFF311B92),
+        tertiaryContainer: const Color(0xFF3D2E5C),
+        onTertiaryContainer: const Color(0xFFD1C4E9),
+
+        // 表面色 - 舒适的深色背景
+        surface: const Color(0xFF121212), // 不是纯黑，更舒适
+        onSurface: const Color(0xFFE0E0E0),
+        surfaceVariant: const Color(0xFF1E1E1E),
+        onSurfaceVariant: const Color(0xFFB0B0B0),
+
+        // 背景色
+        background: const Color(0xFF0A0A0A),
+        onBackground: const Color(0xFFE0E0E0),
+
+        // 错误色
+        error: const Color(0xFFEF5350),
+        onError: const Color(0xFFB71C1C),
+        errorContainer: const Color(0xFF5C1B1B),
+        onErrorContainer: const Color(0xFFFFCDD2),
+
+        // 轮廓和分割线 - 在深色模式下更明显
+        outline: const Color(0xFF424242),
+        outlineVariant: const Color(0xFF2C2C2C),
+
+        // 容器色调
+        surfaceTint: primaryColor,
+      ),
+      useMaterial3: true,
+      brightness: Brightness.dark,
+
+      // 自定义组件样式
+      cardTheme: CardThemeData(
+        elevation: 2,
+        color: const Color(0xFF1E1E1E),
+        shadowColor: Colors.black.withOpacity(0.3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Color(0xFF1E1E1E),
+        foregroundColor: Color(0xFFE0E0E0),
+        surfaceTintColor: Color(0xFF64B5F6),
+      ),
+
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primaryColor,
+        foregroundColor: const Color(0xFF0D47A1),
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: const Color(0xFF0D47A1),
+          elevation: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: const Color(0xFF0D47A1),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: const Color(0xFF1E1E1E),
+        selectedItemColor: primaryColor,
+        unselectedItemColor: const Color(0xFF757575),
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+      ),
+    );
+  }
+
+  /// 创建粉红色主题数据（甜美少女心）
+  static ThemeData createPinkTheme() {
+    // 使用鲜艳的粉色系
+    const primaryColor = Color(0xFFFF6B95); // 鲜艳的樱花粉
+    const secondaryColor = Color(0xFFFF8FAB); // 蜜桃粉
+    const tertiaryColor = Color(0xFFFFB6C1); // 浅粉色
+
+    return ThemeData(
+      colorScheme: ColorScheme.light(
+        // 主色系 - 鲜艳的粉色
+        primary: primaryColor,
+        onPrimary: Colors.white,
+        primaryContainer: const Color(0xFFFFE4EC),
+        onPrimaryContainer: const Color(0xFF8A1244),
+
+        // 次要色系 - 温暖的粉色调
+        secondary: secondaryColor,
+        onSecondary: const Color(0xFF6B1A3A),
+        secondaryContainer: const Color(0xFFFFD6E3),
+        onSecondaryContainer: const Color(0xFF7A1A3A),
+
+        // 第三色系 - 浅粉色调
+        tertiary: tertiaryColor,
+        onTertiary: const Color(0xFF5C1838),
+        tertiaryContainer: const Color(0xFFFFE1EC),
+        onTertiaryContainer: const Color(0xFF4A1230),
+
+        // 表面色 - 干净明亮的底色
+        surface: const Color(0xFFFFF8FA), // 非常浅的粉白色
+        onSurface: const Color(0xFF2D1A20),
+        surfaceVariant: const Color(0xFFFFF0F5), // 淡紫粉色
+        onSurfaceVariant: const Color(0xFF8A6A70),
+
+        // 背景色
+        background: const Color(0xFFFAFAFA),
+        onBackground: const Color(0xFF2D1A20),
+
+        // 错误色
+        error: const Color(0xFFE53935),
+        onError: Colors.white,
+        errorContainer: const Color(0xFFFFEBEE),
+        onErrorContainer: const Color(0xFFB71C1C),
+
+        // 轮廓和分割线
+        outline: const Color(0xFFE8B8C4),
+        outlineVariant: const Color(0xFFFFD6E3),
+
+        // 容器色调
+        surfaceTint: primaryColor,
+      ),
+      useMaterial3: true,
+      brightness: Brightness.light,
+
+      // 自定义组件样式
+      cardTheme: CardThemeData(
+        elevation: 2,
+        color: Colors.white,
+        shadowColor: const Color(0xFFFF6B95).withOpacity(0.15),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Color(0xFFFFE4EC),
+        foregroundColor: Color(0xFF8A1244),
+        surfaceTintColor: Color(0xFFFF6B95),
+      ),
+
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: const Color(0xFFD4A0AD),
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+      ),
+
+      // 添加粉色主题的渐变效果
+      extensions: const [
+        _PinkThemeColors(
+          gradientStart: Color(0xFFFF6B95),
+          gradientEnd: Color(0xFFFF8FAB),
+        ),
+      ],
     );
   }
 
@@ -129,5 +409,39 @@ class AppTheme {
       'background': colorScheme.surface,
       'error': colorScheme.error,
     };
+  }
+}
+
+/// 粉色主题的自定义颜色扩展
+@immutable
+class _PinkThemeColors extends ThemeExtension<_PinkThemeColors> {
+  final Color gradientStart;
+  final Color gradientEnd;
+
+  const _PinkThemeColors({
+    required this.gradientStart,
+    required this.gradientEnd,
+  });
+
+  @override
+  _PinkThemeColors copyWith({
+    Color? gradientStart,
+    Color? gradientEnd,
+  }) {
+    return _PinkThemeColors(
+      gradientStart: gradientStart ?? this.gradientStart,
+      gradientEnd: gradientEnd ?? this.gradientEnd,
+    );
+  }
+
+  @override
+  _PinkThemeColors lerp(ThemeExtension<_PinkThemeColors>? other, double t) {
+    if (other is! _PinkThemeColors) {
+      return this;
+    }
+    return _PinkThemeColors(
+      gradientStart: Color.lerp(gradientStart, other.gradientStart, t)!,
+      gradientEnd: Color.lerp(gradientEnd, other.gradientEnd, t)!,
+    );
   }
 }
