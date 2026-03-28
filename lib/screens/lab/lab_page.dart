@@ -137,6 +137,7 @@ class _DemoCard extends StatefulWidget {
 
 class _DemoCardState extends State<_DemoCard> {
   final _provider = LabCardProvider();
+  bool _isPressed = false;
 
   @override
   void initState() {
@@ -163,9 +164,17 @@ class _DemoCardState extends State<_DemoCard> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
         onLongPress: () => _showBackgroundDialog(context),
-        child: Stack(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedScale(
+          scale: _isPressed ? 0.97 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeInOut,
+          child: Stack(
           fit: StackFit.expand,
           children: [
             // 背景图片
@@ -231,6 +240,7 @@ class _DemoCardState extends State<_DemoCard> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
