@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
-import 'screens/friends/photo_manager.dart';
+import 'screens/photo/photo_manager.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
 import 'lab/lab_container.dart';
@@ -60,8 +60,11 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  static const _channel = MethodChannel('com.example.flutter_application_1/widget');
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+  static const _channel = MethodChannel(
+    'com.example.flutter_application_1/widget',
+  );
   String? _pendingRoute;
 
   @override
@@ -166,11 +169,11 @@ class _MainScreenState extends State<MainScreen> {
   final PageController _pageController = PageController();
 
   final List<Widget> _pages = const [
-    ProfilePage(),  // 0: 主页（用户页面）
-    HomePage(),     // 1: 聊天
-    SizedBox(),     // 2: +号占位 (由底部栏单独处理)
-    PhotoManagerPage(),  // 3: 图库
-    _DevPage(),     // 4: 待开发
+    ProfilePage(), // 0: 主页（用户页面）
+    HomePage(), // 1: 聊天
+    SizedBox(), // 2: +号占位 (由底部栏单独处理)
+    PhotoManagerPage(), // 3: 图库
+    _DevPage(), // 4: 待开发
   ];
 
   @override
@@ -216,10 +219,7 @@ class _MainScreenState extends State<MainScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(height: 8),
-            Text(
-              '功能待实现',
-              style: TextStyle(fontSize: 18),
-            ),
+            Text('功能待实现', style: TextStyle(fontSize: 18)),
             SizedBox(height: 8),
             Text(
               '该功能正在开发中',
@@ -273,10 +273,7 @@ class _DevPage extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               '功能待开发',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
             ),
           ],
         ),
