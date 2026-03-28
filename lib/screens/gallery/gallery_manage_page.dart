@@ -461,12 +461,18 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('正在移动图片...'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('正在移动 ${_selectedImages.length} 张图片...'),
+            const SizedBox(height: 8),
+            Text(
+              '目标: ${targetAlbum.name}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
         ),
       ),
@@ -474,29 +480,60 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
 
     int successCount = 0;
     int failCount = 0;
+    final List<String> errorMessages = [];
 
     try {
-      // 分批复制图片到目标相册
+      // 逐个移动图片
       for (final image in _selectedImages) {
-        final success = await _galleryService.copyImageToAlbum(
-          sourceImage: image,
-          targetAlbum: targetAlbum,
-        );
-        if (success) {
+        try {
+          debugPrint('开始移动图片: ${image.title} 到 ${targetAlbum.name}');
+
+          // 获取原图数据并保存到目标相册
+          final bytes = await image.originBytes;
+          if (bytes == null) {
+            debugPrint('无法读取图片数据: ${image.title}');
+            failCount++;
+            errorMessages.add('${image.title}: 无法读取图片数据');
+            continue;
+          }
+
+          final title = image.title ?? 'image_${DateTime.now().millisecondsSinceEpoch}';
+
+          // 保存图片到系统图库（会进入"最近添加"）
+          final result = await PhotoManager.editor.saveImage(
+            bytes,
+            title: title,
+            filename: title,
+          );
+
+          if (result == null) {
+            debugPrint('保存图片失败: ${image.title}');
+            failCount++;
+            errorMessages.add('${image.title}: 保存失败');
+            continue;
+          }
+
+          debugPrint('图片已保存到图库: ${result.id}, 尝试添加到相册...');
+
+          // 将图片添加到目标相册
+          await PhotoManager.editor.copyAssetToPath(
+            asset: result,
+            pathEntity: targetAlbum,
+          );
+
+          // 删除原图
+          await PhotoManager.editor.deleteWithIds([image.id]);
+
           successCount++;
-        } else {
+          debugPrint('成功移动图片: ${image.title}');
+        } catch (e) {
+          debugPrint('移动单张图片失败: $e');
           failCount++;
+          errorMessages.add('${image.title}: ${e.toString()}');
         }
       }
-
-      // 删除原图（全部复制成功后再删除）
-      if (successCount == _selectedImages.length) {
-        final idsToDelete = _selectedImages.map((e) => e.id).toList();
-        await PhotoManager.editor.deleteWithIds(idsToDelete);
-      }
     } catch (e) {
-      debugPrint('移动图片失败: $e');
-      failCount = _selectedImages.length;
+      debugPrint('批量移动图片失败: $e');
     }
 
     if (mounted) {
@@ -505,17 +542,27 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       // 显示结果
       String message;
       if (failCount == 0) {
-        message = '成功移动 $successCount 张图片到 ${targetAlbum.name}';
+        message = '✅ 成功移动 $successCount 张图片到 ${targetAlbum.name}';
       } else if (successCount == 0) {
-        message = '移动失败，请重试';
+        message = '❌ 移动失败';
+        if (errorMessages.isNotEmpty) {
+          message += '\n${errorMessages.first}';
+        }
       } else {
-        message = '部分移动成功：$successCount 张成功，$failCount 张失败';
+        message = '⚠️ 部分成功：$successCount 张成功，$failCount 张失败';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
+          action: failCount > 0
+              ? SnackBarAction(
+                  label: '查看详情',
+                  textColor: Theme.of(context).colorScheme.inverseSurface,
+                  onPressed: () => _showMoveErrors(context, errorMessages),
+                )
+              : null,
         ),
       );
 
@@ -526,6 +573,34 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
     }
 
     _exitSelectMode();
+  }
+
+  void _showMoveErrors(BuildContext context, List<String> errors) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('移动错误详情'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: errors.length,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text('• ${errors[index]}'),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _previewImage(AssetEntity image) {

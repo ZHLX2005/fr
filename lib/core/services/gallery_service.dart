@@ -128,20 +128,67 @@ class GalleryService {
     }
   }
 
-  /// 复制图片到指定相册（模拟移动功能）
+  /// 复制图片到指定相册
+  /// 通过读取原图数据后保存到目标相册实现
   Future<bool> copyImageToAlbum({
     required AssetEntity sourceImage,
     required AssetPathEntity targetAlbum,
   }) async {
     try {
-      // 使用 photo_manager 的复制功能
-      await PhotoManager.editor.copyAssetToPath(
-        asset: sourceImage,
-        pathEntity: targetAlbum,
+      // 获取原图数据
+      final bytes = await sourceImage.originBytes;
+      if (bytes == null) {
+        debugPrint('无法读取图片数据');
+        return false;
+      }
+
+      // 获取原图标题
+      final title = sourceImage.title ?? 'image_${DateTime.now().millisecondsSinceEpoch}';
+
+      // 保存到目标相册
+      final result = await PhotoManager.editor.saveImage(
+        bytes,
+        title: title,
+        filename: title,
       );
-      return true;
+
+      // 将图片添加到目标相册
+      if (result != null) {
+        // 检查是否需要将图片添加到指定相册
+        // saveImage 默认保存到"最近添加"，需要额外处理
+        await PhotoManager.editor.copyAssetToPath(
+          asset: result,
+          pathEntity: targetAlbum,
+        );
+      }
+
+      return result != null;
     } catch (e) {
       debugPrint('复制图片失败: $e');
+      return false;
+    }
+  }
+
+  /// 移动图片到指定相册（复制后删除原图）
+  Future<bool> moveImageToAlbum({
+    required AssetEntity sourceImage,
+    required AssetPathEntity targetAlbum,
+  }) async {
+    try {
+      // 先复制到目标相册
+      final copied = await copyImageToAlbum(
+        sourceImage: sourceImage,
+        targetAlbum: targetAlbum,
+      );
+
+      if (copied) {
+        // 删除原图
+        await deleteAsset(sourceImage);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('移动图片失败: $e');
       return false;
     }
   }
