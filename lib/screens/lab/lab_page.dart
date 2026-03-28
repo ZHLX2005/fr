@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';
 import '../../lab/providers/lab_card_provider.dart';
 import '../../widgets/image_picker_widget.dart';
+import '../../core/services/lab_image_cache_service.dart';
 
 /// 实验室页面 - 开发者验证 Demo 入口
 class LabPage extends StatelessWidget {
@@ -17,6 +19,11 @@ class LabPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('实验室'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.cleaning_services_outlined),
+            onPressed: () => _showCacheInfo(context),
+            tooltip: '缓存管理',
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () => _showLabInfo(context),
@@ -117,6 +124,59 @@ class LabPage extends StatelessWidget {
       ),
     );
   }
+
+  void _showCacheInfo(BuildContext context) async {
+    final cacheService = LabImageCacheService();
+    await cacheService.init();
+    final cacheSize = await cacheService.getCacheSize();
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [Icon(Icons.cleaning_services), SizedBox(width: 8), Text('图片缓存')],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('缓存大小: ${_formatBytes(cacheSize)}'),
+            const SizedBox(height: 8),
+            const Text('缩略图可显著提升大图片加载性能'),
+            const SizedBox(height: 12),
+            const Text('清除缓存后，图片将重新生成缩略图'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await cacheService.clearCache();
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('缓存已清除')),
+                );
+              }
+            },
+            child: const Text('清除缓存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
 }
 
 /// Demo 卡片组件
@@ -137,12 +197,16 @@ class _DemoCard extends StatefulWidget {
 
 class _DemoCardState extends State<_DemoCard> {
   final _provider = LabCardProvider();
+  final _cacheService = LabImageCacheService();
   bool _isPressed = false;
+  Uint8List? _cachedImageBytes;
 
   @override
   void initState() {
     super.initState();
     _provider.addListener(_onProviderChanged);
+    _cacheService.init();
+    _preloadImage();
   }
 
   @override
@@ -152,7 +216,23 @@ class _DemoCardState extends State<_DemoCard> {
   }
 
   void _onProviderChanged() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      _preloadImage();
+      setState(() {});
+    }
+  }
+
+  /// 预加载背景图片
+  Future<void> _preloadImage() async {
+    final backgroundUrl = _provider.getBackground(widget.title);
+    if (backgroundUrl != null && _provider.isLocalFile(widget.title)) {
+      final bytes = await _cacheService.getThumbnailBytes(backgroundUrl);
+      if (bytes != null && mounted) {
+        setState(() {
+          _cachedImageBytes = bytes;
+        });
+      }
+    }
   }
 
   @override
@@ -261,13 +341,37 @@ class _DemoCardState extends State<_DemoCard> {
   }
 
   Widget _buildLocalImage(String path, ThemeData theme) {
+    // 如果有缓存的缩略图，使用缩略图
+    if (_cachedImageBytes != null) {
+      return Image.memory(
+        _cachedImageBytes!,
+        fit: BoxFit.cover,
+        gaplessPlayback: true, // 防止图片切换时闪烁
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: theme.colorScheme.surfaceContainerHighest,
+          child: const Icon(Icons.broken_image),
+        ),
+      );
+    }
+
+    // 降级到原图（首次加载）
     return Image.file(
       File(path),
       fit: BoxFit.cover,
+      gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) => Container(
-        color: theme.colorScheme.surfaceVariant,
+        color: theme.colorScheme.surfaceContainerHighest,
         child: const Icon(Icons.broken_image),
       ),
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded) return child;
+        return AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          child: child,
+        );
+      },
     );
   }
 
