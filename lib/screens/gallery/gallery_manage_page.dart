@@ -14,6 +14,7 @@ class GalleryManagePage extends StatefulWidget {
 
 class _GalleryManagePageState extends State<GalleryManagePage> {
   final GalleryService _galleryService = GalleryService();
+  final ScrollController _scrollController = ScrollController();
 
   // 相册列表
   List<AssetPathEntity> _albums = [];
@@ -23,9 +24,13 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   // 当前选中的相册
   AssetPathEntity? _selectedAlbum;
 
-  // 图片列表
+  // 图片列表（分页）
   List<AssetEntity> _images = [];
   Map<String, Uint8List> _thumbnails = {};
+  int _currentPage = 0;
+  final int _pageSize = 60;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
 
   // 选中的图片（用于移动）
   final Set<AssetEntity> _selectedImages = {};
@@ -35,6 +40,25 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   void initState() {
     super.initState();
     _initGallery();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isLoadingMore || !_hasMore) return;
+
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    final delta = 200; // 距离底部200px时开始加载
+
+    if (maxScroll - currentScroll < delta) {
+      _loadMoreImages();
+    }
   }
 
   Future<void> _initGallery() async {
@@ -70,10 +94,24 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
     });
   }
 
-  Future<void> _loadImages(AssetPathEntity album) async {
-    setState(() => _isLoading = true);
+  Future<void> _loadImages(AssetPathEntity album, {bool reset = true}) async {
+    if (reset) {
+      setState(() {
+        _currentPage = 0;
+        _hasMore = true;
+        _images.clear();
+        _thumbnails.clear();
+        _isLoading = true;
+      });
+    } else {
+      setState(() => _isLoadingMore = true);
+    }
 
-    final images = await _galleryService.getAssets(album: album, pageSize: 100);
+    final images = await _galleryService.getAssets(
+      album: album,
+      page: _currentPage,
+      pageSize: _pageSize,
+    );
 
     // 加载缩略图
     final thumbnails = <String, Uint8List>{};
@@ -85,10 +123,18 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
     }
 
     setState(() {
-      _images = images;
-      _thumbnails = thumbnails.cast();
+      _images.addAll(images);
+      _thumbnails.addAll(thumbnails);
+      _hasMore = images.length >= _pageSize;
+      _currentPage++;
       _isLoading = false;
+      _isLoadingMore = false;
     });
+  }
+
+  Future<void> _loadMoreImages() async {
+    if (_selectedAlbum == null || _isLoadingMore || !_hasMore) return;
+    await _loadImages(_selectedAlbum!, reset: false);
   }
 
   void _showPermissionDialog() {
@@ -265,14 +311,24 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
 
   Widget _buildImageGrid(ThemeData theme) {
     return GridView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.all(4),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         mainAxisSpacing: 4,
         crossAxisSpacing: 4,
       ),
-      itemCount: _images.length,
+      itemCount: _images.length + (_isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
+        // 显示加载更多指示器
+        if (index == _images.length) {
+          return Container(
+            color: theme.colorScheme.surfaceContainerHighest,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
         final image = _images[index];
         final isSelected = _selectedImages.contains(image);
         final thumbnail = _thumbnails[image.id];
@@ -416,26 +472,68 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       ),
     );
 
-    // TODO: 实现图片移动逻辑
-    // 注意：由于系统限制，实际上是在目标相册创建图片副本
-    // 然后删除原图
+    int successCount = 0;
+    int failCount = 0;
 
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      // 分批复制图片到目标相册
+      for (final image in _selectedImages) {
+        final success = await _galleryService.copyImageToAlbum(
+          sourceImage: image,
+          targetAlbum: targetAlbum,
+        );
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      // 删除原图（全部复制成功后再删除）
+      if (successCount == _selectedImages.length) {
+        final idsToDelete = _selectedImages.map((e) => e.id).toList();
+        await PhotoManager.editor.deleteWithIds(idsToDelete);
+      }
+    } catch (e) {
+      debugPrint('移动图片失败: $e');
+      failCount = _selectedImages.length;
+    }
 
     if (mounted) {
       Navigator.pop(context); // 关闭加载对话框
+
+      // 显示结果
+      String message;
+      if (failCount == 0) {
+        message = '成功移动 $successCount 张图片到 ${targetAlbum.name}';
+      } else if (successCount == 0) {
+        message = '移动失败，请重试';
+      } else {
+        message = '部分移动成功：$successCount 张成功，$failCount 张失败';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('图片移动功能开发中...')),
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 2),
+        ),
       );
+
+      // 重新加载当前相册
+      if (_selectedAlbum != null) {
+        await _loadImages(_selectedAlbum!, reset: true);
+      }
     }
 
     _exitSelectMode();
   }
 
   void _previewImage(AssetEntity image) {
-    // TODO: 实现图片预览
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('预览功能开发中: ${image.title}')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _ImagePreviewPage(image: image),
+      ),
     );
   }
 }
@@ -506,5 +604,251 @@ class _MoveImageDialogState extends State<_MoveImageDialog> {
         ),
       ],
     );
+  }
+}
+
+/// 图片预览页面（显示元信息）
+class _ImagePreviewPage extends StatefulWidget {
+  final AssetEntity image;
+
+  const _ImagePreviewPage({required this.image});
+
+  @override
+  State<_ImagePreviewPage> createState() => _ImagePreviewPageState();
+}
+
+class _ImagePreviewPageState extends State<_ImagePreviewPage> {
+  Uint8List? _imageData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImageData();
+  }
+
+  Future<void> _loadImageData() async {
+    final data = await widget.image.originBytes;
+    setState(() {
+      _imageData = data;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final image = widget.image;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('图片详情'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => _showMetadataSheet(context, theme, image),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: _imageData != null
+                  ? Image.memory(
+                      _imageData!,
+                      fit: BoxFit.contain,
+                    )
+                  : const CircularProgressIndicator(),
+            ),
+          ),
+          _buildBasicInfo(theme, image),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBasicInfo(ThemeData theme, AssetEntity image) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: theme.dividerColor),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            image.title ?? '未知',
+            style: theme.textTheme.titleMedium,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              _buildInfoChip(
+                theme,
+                Icons.photo_size_select_large,
+                '${image.width}×${image.height}',
+              ),
+              _buildInfoChip(
+                theme,
+                Icons.access_time,
+                _formatDate(image.createDateTime),
+              ),
+              if (image.latitude != null && image.longitude != null)
+                _buildInfoChip(
+                  theme,
+                  Icons.location_on,
+                  '${image.latitude!.toStringAsFixed(4)}, ${image.longitude!.toStringAsFixed(4)}',
+                ),
+              _buildInfoChip(
+                theme,
+                Icons.image,
+                image.mimeType ?? 'image',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(ThemeData theme, IconData icon, String label) {
+    return Chip(
+      avatar: Icon(icon, size: 16),
+      label: Text(label, style: theme.textTheme.bodySmall),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  void _showMetadataSheet(BuildContext context, ThemeData theme, AssetEntity image) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline),
+                    const SizedBox(width: 8),
+                    Text('图片元信息', style: theme.textTheme.titleMedium),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _buildMetadataSection('基本信息', [
+                      _buildMetadataItem('文件名', image.title ?? '未知'),
+                      _buildMetadataItem('ID', image.id),
+                      _buildMetadataItem('类型', image.type.toString()),
+                      _buildMetadataItem('MIME', image.mimeType ?? '未知'),
+                      _buildMetadataItem('宽度', '${image.width} px'),
+                      _buildMetadataItem('高度', '${image.height} px'),
+                      _buildMetadataItem('方向', '${image.orientation}°'),
+                    ]),
+                    const SizedBox(height: 16),
+                    _buildMetadataSection('时间信息', [
+                      _buildMetadataItem('创建时间', _formatDate(image.createDateTime)),
+                      _buildMetadataItem('修改时间', _formatDate(image.modifiedDateTime)),
+                    ]),
+                    const SizedBox(height: 16),
+                    _buildMetadataSection('地理信息', [
+                      _buildMetadataItem('纬度', image.latitude?.toStringAsFixed(8) ?? '无'),
+                      _buildMetadataItem('经度', image.longitude?.toStringAsFixed(8) ?? '无'),
+                    ]),
+                    const SizedBox(height: 16),
+                    _buildMetadataSection('相册信息', [
+                      _buildMetadataItem('相对路径', image.relativePath ?? '未知'),
+                      _buildMetadataItem('视频时长', image.type == AssetType.video ? '${image.duration} ms' : '不适用'),
+                    ]),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetadataSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...children,
+      ],
+    );
+  }
+
+  Widget _buildMetadataItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
