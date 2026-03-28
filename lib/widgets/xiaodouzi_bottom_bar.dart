@@ -42,7 +42,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     BottomBarItem(label: '主页', icon: Icons.home_outlined, selectedIcon: Icons.home),
     BottomBarItem(label: '聊天', icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble),
     BottomBarItem(label: '', icon: Icons.add, isEnabled: false), // 中间按钮
-    BottomBarItem(label: '通讯录', icon: Icons.people_outline, selectedIcon: Icons.people),
+    BottomBarItem(label: '图库', icon: Icons.photo_library_outlined, selectedIcon: Icons.photo_library),
     BottomBarItem(label: '待开发', icon: Icons.construction_outlined, isEnabled: false),
   ];
 
