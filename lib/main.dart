@@ -239,6 +239,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   // PageView 构建组合式的容器
+  // 使用子结构index +  bar的回调实现按钮的反转控制
   Widget build(BuildContext context) {
     return Scaffold(
       body: PageView(
