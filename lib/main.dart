@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
-import 'screens/friends/friends_page.dart';
+import 'screens/friends/photo_manager.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
 import 'lab/lab_container.dart';
@@ -169,7 +169,7 @@ class _MainScreenState extends State<MainScreen> {
     ProfilePage(),  // 0: 主页（用户页面）
     HomePage(),     // 1: 聊天
     SizedBox(),     // 2: +号占位 (由底部栏单独处理)
-    FriendsPage(),  // 3: 通讯录
+    PhotoManagerPage(),  // 3: 图库
     _DevPage(),     // 4: 待开发
   ];
 
