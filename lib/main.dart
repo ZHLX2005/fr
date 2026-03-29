@@ -6,6 +6,8 @@ import 'screens/home/home_page.dart';
 import 'screens/gallery/gallery_manage_page.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
+import 'focus/focus_home_page.dart';
+import 'focus/providers/focus_provider.dart';
 import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'lab/demos/grid_dashboard_demo.dart';
@@ -126,6 +128,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => LabClockProvider()),
         ChangeNotifierProvider(create: (_) => AIChatProvider()),
         ChangeNotifierProvider(create: (_) => AgentChatProvider()),
+        ChangeNotifierProvider(create: (_) => FocusProvider()..init()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -171,7 +174,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = const [
     ProfilePage(), // 0: 主页（用户页面）
     HomePage(), // 1: 聊天
-    SizedBox(), // 2: +号占位 (由底部栏单独处理)
+    FocusHomePage(), // 2: O - 专注计时器
     GalleryManagePage(), // 3: 图库
     _DevPage(), // 4: 待开发
   ];
@@ -194,8 +197,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onItemTapped(int index) {
-    // +号按钮不切换页面
-    if (index == 2) return;
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
@@ -204,42 +205,15 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onAddPressed() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.construction_outlined, color: Colors.grey),
-            SizedBox(width: 8),
-            Text('提示'),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(height: 8),
-            Text('功能待实现', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 8),
-            Text(
-              '该功能正在开发中',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
+    // O按钮 - 导航到专注计时器页面（索引2）
+    _pageController.animateToPage(
+      2,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
     );
   }
 
   @override
-  // PageView 构建组合式的容器
-  // 使用子结构index +  bar的回调实现按钮的反转控制
   Widget build(BuildContext context) {
     return Scaffold(
       body: PageView(
