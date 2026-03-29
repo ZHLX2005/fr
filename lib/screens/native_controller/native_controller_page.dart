@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:app_settings/app_settings.dart';
 import 'native_notifications_page.dart';
 import 'native_media_page.dart';
+import 'native_system_page.dart';
 
 /// 原生功能控制器主页
 /// 汇总所有原生功能测试入口
@@ -94,6 +95,24 @@ class NativeControllerPage extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const NativeMediaPage(),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 16),
+
+          _buildFunctionCard(
+            context,
+            icon: Icons.phone_android,
+            title: '系统功能',
+            description: '测试应用使用时长查询、震动等系统功能',
+            color: Colors.teal,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NativeSystemPage(),
                 ),
               );
             },
