@@ -6,7 +6,7 @@ import 'models/focus_subject.dart';
 import 'providers/focus_timer_provider.dart';
 import 'providers/focus_provider.dart' as data;
 
-/// 专注计时器页面 - 心流空间
+/// 专注计时器页面 - 心流空间（简化版 - 仅自由计时）
 class FocusTimerPage extends StatefulWidget {
   final FocusSubject? initialSubject;
 
@@ -56,7 +56,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
     return ChangeNotifierProvider.value(
       value: _timerProvider,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAF9F6), // 燕麦色背景
+        backgroundColor: const Color(0xFFFAF9F6),
         body: SafeArea(
           child: Column(
             children: [
@@ -92,41 +92,13 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
             onPressed: () => Navigator.pop(context),
           ),
           const Spacer(),
-          Consumer<FocusTimerProvider>(
-            builder: (context, timer, child) {
-              return SegmentedButton<FocusMode>(
-                segments: const [
-                  ButtonSegment(
-                    value: FocusMode.pomodoro,
-                    label: Text('番茄钟', style: TextStyle(fontSize: 12)),
-                    icon: Icon(Icons.timer_outlined, size: 16),
-                  ),
-                  ButtonSegment(
-                    value: FocusMode.freeTime,
-                    label: Text('自由', style: TextStyle(fontSize: 12)),
-                    icon: Icon(Icons.all_inclusive, size: 16),
-                  ),
-                ],
-                selected: {timer.mode},
-                onSelectionChanged: (Set<FocusMode> newSelection) {
-                  timer.setMode(newSelection.first);
-                },
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.resolveWith((states) {
-                    if (states.contains(MaterialState.selected)) {
-                      return const Color(0xFF9CAF88);
-                    }
-                    return null;
-                  }),
-                  foregroundColor: MaterialStateProperty.resolveWith((states) {
-                    if (states.contains(MaterialState.selected)) {
-                      return Colors.white;
-                    }
-                    return Colors.grey[700];
-                  }),
-                ),
-              );
-            },
+          const Text(
+            '心流空间',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF5C8B5E),
+            ),
           ),
           const Spacer(),
           Consumer<FocusTimerProvider>(
@@ -203,7 +175,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
     );
   }
 
-  /// 计时器显示
+  /// 计时器显示 - 可点击启动
   Widget _buildTimerDisplay(FocusTimerProvider timer) {
     return AnimatedBuilder(
       animation: _breathingController,
@@ -212,52 +184,62 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
             ? (0.95 + _breathingController.value * 0.1)
             : 1.0;
 
-        return Transform.scale(
-          scale: scale,
-          child: Container(
-            width: 280,
-            height: 280,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF9CAF88),
-                  const Color(0xFFB5C9A3),
+        return GestureDetector(
+          onTap: () {
+            if (timer.isIdle) {
+              timer.startTimer();
+              _pulseController.forward();
+            } else if (timer.isPaused) {
+              timer.resumeTimer();
+            }
+          },
+          child: Transform.scale(
+            scale: scale,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF9CAF88),
+                    const Color(0xFFB5C9A3),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF9CAF88).withValues(alpha: 0.3),
+                    offset: const Offset(0, 8),
+                    blurRadius: 32 + _breathingController.value * 16,
+                  ),
                 ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF9CAF88).withValues(alpha: 0.3),
-                  offset: const Offset(0, 8),
-                  blurRadius: 32 + _breathingController.value * 16,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      timer.formatTime(timer.totalSeconds),
+                      style: const TextStyle(
+                        fontSize: 56,
+                        fontWeight: FontWeight.w200,
+                        color: Colors.white,
+                        height: 1,
+                        letterSpacing: -2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _getTimerText(timer),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    timer.formatTime(timer.remainingSeconds),
-                    style: const TextStyle(
-                      fontSize: 56,
-                      fontWeight: FontWeight.w200,
-                      color: Colors.white,
-                      height: 1,
-                      letterSpacing: -2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _getTimerText(timer),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
@@ -268,11 +250,11 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
 
   String _getTimerText(FocusTimerProvider timer) {
     if (timer.isIdle) {
-      return '点击开始进入心流';
+      return '点击圆环开始专注';
     } else if (timer.isRunning) {
       return '专注中...';
     } else if (timer.isPaused) {
-      return '已暂停';
+      return '已暂停 - 点击继续';
     }
     return '';
   }
@@ -296,7 +278,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
                   const SizedBox(width: 16),
                   _buildControlButton(
                     icon: Icons.stop,
-                    label: '结束',
+                    label: '完成',
                     isDestructive: true,
                     onTap: () => _showEndConfirmDialog(context, timer),
                   ),
@@ -479,20 +461,29 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('结束专注'),
-        content: const Text('确定要结束当前的专注时段吗？'),
+        title: const Text('完成专注'),
+        content: Text('已专注 ${timer.totalSeconds ~/ 60} 分钟，确定完成吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              timer.completeSession();
-              _showCompletionDialog(context, timer);
+
+              // 完成会话并保存到 FocusProvider
+              final session = timer.completeSession();
+              if (session != null && context.mounted) {
+                final focusProvider = context.read<data.FocusProvider>();
+                await focusProvider.addSession(session);
+
+                if (mounted) {
+                  _showCompletionDialog(context, session);
+                }
+              }
             },
-            child: const Text('结束'),
+            child: const Text('完成'),
           ),
         ],
       ),
@@ -500,7 +491,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
   }
 
   /// 完成对话框
-  void _showCompletionDialog(BuildContext context, FocusTimerProvider timer) {
+  void _showCompletionDialog(BuildContext context, FocusSession session) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -514,22 +505,25 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
               size: 64,
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               '专注完成',
-              style: Theme.of(context).textTheme.titleLarge,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              '${timer.mode == FocusMode.pomodoro ? '25' : '${timer.totalSeconds ~/ 60}'} 分钟',
-              style: Theme.of(context).textTheme.titleMedium,
+              '${session.durationMinutes} 分钟',
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w200,
+                color: Color(0xFF9CAF88),
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('继续'),
-          ),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
