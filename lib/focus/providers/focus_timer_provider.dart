@@ -8,47 +8,22 @@ enum TimerState {
   idle, // 空闲
   running, // 运行中
   paused, // 已暂停
-  completed, // 已完成
 }
 
-/// 计时器Provider
+/// 专注计时器Provider - 仅支持自由计时模式
 class FocusTimerProvider extends ChangeNotifier {
   Timer? _timer;
   TimerState _state = TimerState.idle;
-  FocusMode _mode = FocusMode.pomodoro;
   FocusSubject? _selectedSubject;
-  int _remainingSeconds = 25 * 60; // 默认25分钟
-  int _totalSeconds = 25 * 60;
-  int _completedSessions = 0;
-  final List<FocusSession> _sessions = [];
+  int _totalSeconds = 0; // 累计秒数
 
   // Getters
   TimerState get state => _state;
-  FocusMode get mode => _mode;
   FocusSubject? get selectedSubject => _selectedSubject;
-  int get remainingSeconds => _remainingSeconds;
   int get totalSeconds => _totalSeconds;
-  double get progress => _totalSeconds > 0 ? (_totalSeconds - _remainingSeconds) / _totalSeconds : 0;
-  int get completedSessions => _completedSessions;
-  List<FocusSession> get sessions => List.unmodifiable(_sessions);
   bool get isRunning => _state == TimerState.running;
   bool get isPaused => _state == TimerState.paused;
   bool get isIdle => _state == TimerState.idle;
-
-  /// 设置专注模式
-  void setMode(FocusMode mode) {
-    _mode = mode;
-    if (_state == TimerState.idle) {
-      if (mode == FocusMode.pomodoro) {
-        _totalSeconds = 25 * 60;
-        _remainingSeconds = 25 * 60;
-      } else {
-        _totalSeconds = 0;
-        _remainingSeconds = 0;
-      }
-    }
-    notifyListeners();
-  }
 
   /// 选择科目
   void selectSubject(FocusSubject? subject) {
@@ -63,26 +38,11 @@ class FocusTimerProvider extends ChangeNotifier {
     _state = TimerState.running;
     notifyListeners();
 
-    if (_mode == FocusMode.freeTime) {
-      // 自由计时模式：累加计时
-      _totalSeconds = 0;
-      _remainingSeconds = 0;
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        _totalSeconds++;
-        _remainingSeconds = _totalSeconds;
-        notifyListeners();
-      });
-    } else {
-      // 番茄钟模式：倒计时
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (_remainingSeconds > 0) {
-          _remainingSeconds--;
-          notifyListeners();
-        } else {
-          completeSession();
-        }
-      });
-    }
+    // 累加计时
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _totalSeconds++;
+      notifyListeners();
+    });
   }
 
   /// 暂停计时
@@ -110,42 +70,36 @@ class FocusTimerProvider extends ChangeNotifier {
   /// 重置计时器
   void resetTimer() {
     stopTimer();
-    if (_mode == FocusMode.pomodoro) {
-      _totalSeconds = 25 * 60;
-      _remainingSeconds = 25 * 60;
-    } else {
-      _totalSeconds = 0;
-      _remainingSeconds = 0;
-    }
+    _totalSeconds = 0;
     notifyListeners();
   }
 
-  /// 完成一次专注
-  void completeSession() {
+  /// 完成一次专注 - 返回会话记录供调用者保存
+  FocusSession? completeSession() {
+    if (_totalSeconds == 0) return null;
+
     _timer?.cancel();
-    _state = TimerState.completed;
+    _state = TimerState.idle;
+
+    final durationMinutes = _totalSeconds ~/ 60;
+    if (durationMinutes == 0) {
+      resetTimer();
+      return null;
+    }
 
     // 创建专注记录
     final session = FocusSession(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       subjectId: _selectedSubject?.id ?? 'default',
-      durationMinutes: _mode == FocusMode.pomodoro ? 25 : (_totalSeconds ~/ 60),
-      startTime: DateTime.now().subtract(Duration(minutes: _mode == FocusMode.pomodoro ? 25 : (_totalSeconds ~/ 60))),
+      durationMinutes: durationMinutes,
+      startTime: DateTime.now().subtract(Duration(seconds: _totalSeconds)),
       endTime: DateTime.now(),
-      mode: _mode,
+      mode: FocusMode.freeTime,
     );
 
-    _sessions.add(session);
-    _completedSessions++;
-
-    notifyListeners();
-
-    // 延迟后重置
-    Future.delayed(const Duration(seconds: 2), () {
-      if (_state == TimerState.completed) {
-        resetTimer();
-      }
-    });
+    final savedSession = session;
+    resetTimer();
+    return savedSession;
   }
 
   /// 格式化时间显示
@@ -158,17 +112,6 @@ class FocusTimerProvider extends ChangeNotifier {
       return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
     }
     return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-  }
-
-  /// 获取今日总学时（分钟）
-  int getTodayMinutes() {
-    final today = DateTime.now();
-    return _sessions
-        .where((session) =>
-            session.startTime.year == today.year &&
-            session.startTime.month == today.month &&
-            session.startTime.day == today.day)
-        .fold<int>(0, (sum, session) => sum + session.durationMinutes);
   }
 
   @override
