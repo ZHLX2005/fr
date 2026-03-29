@@ -45,7 +45,8 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "vibrate" -> {
-                    val duration = call.argument<Long>("duration") ?: 3000L
+                    // Dart 的 int 对应 Java 的 Integer，需要先获取 Int 再转为 Long
+                    val duration = (call.argument<Int>("duration") ?: 300).toLong()
                     vibrate(duration)
                     result.success(null)
                 }
