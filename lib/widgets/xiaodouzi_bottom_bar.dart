@@ -41,7 +41,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   static const List<BottomBarItem> _items = [
     BottomBarItem(label: '主页', icon: Icons.home_outlined, selectedIcon: Icons.home),
     BottomBarItem(label: '聊天', icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble),
-    BottomBarItem(label: '', icon: Icons.add, isEnabled: false), // 中间按钮
+    BottomBarItem(label: '专注', icon: Icons.radio_button_unchecked, isEnabled: false), // 中间O按钮
     BottomBarItem(label: '图库', icon: Icons.photo_library_outlined, selectedIcon: Icons.photo_library),
     BottomBarItem(label: '待开发', icon: Icons.construction_outlined, isEnabled: false),
   ];
@@ -181,15 +181,19 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          splashColor: colorScheme.onPrimary.withOpacity(0.1),
+                          splashColor: colorScheme.onPrimary.withValues(alpha: 0.1),
                           highlightColor: Colors.transparent,
                           focusColor: Colors.transparent,
                           hoverColor: Colors.transparent,
                           onTap: widget.onAddPressed,
-                          child: Icon(
-                            Icons.add,
-                            color: colorScheme.onPrimary,
-                            size: 32,
+                          child: Text(
+                            'O',
+                            style: TextStyle(
+                              color: colorScheme.onPrimary,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w300,
+                              letterSpacing: -2,
+                            ),
                           ),
                         ),
                       ),
