@@ -125,7 +125,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           themeProvider.init();
           return MaterialApp(
             navigatorKey: navigatorKey,
-            title: 'Flutter 聊天应用',
+            title: '小豆子',
             debugShowCheckedModeBanner: false,
             theme: themeProvider.themeData,
             themeMode: themeProvider.themeModeValue,
