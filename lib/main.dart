@@ -166,8 +166,8 @@ class _MainScreenState extends State<MainScreen> {
     ProfilePage(), // 0: 主页（用户页面）
     HomePage(), // 1: 聊天
     FocusHomePage(), // 2: O - 专注计时器
-    _DevPage(), // 4: 待开发
         GalleryManagePage(), // 3: 图库
+    _DevPage(), // 4: 待开发
 
   ];
 
