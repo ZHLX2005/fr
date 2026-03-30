@@ -7,9 +7,6 @@ class HtmlRendererWidget extends StatelessWidget {
   /// HTML 内容
   final String data;
 
-  /// 是否可选中文字
-  final bool selectable;
-
   /// 最大宽度
   final double? maxWidth;
 
@@ -28,7 +25,6 @@ class HtmlRendererWidget extends StatelessWidget {
   const HtmlRendererWidget({
     super.key,
     required this.data,
-    this.selectable = true,
     this.maxWidth,
     this.padding,
     this.onLinkTap,
@@ -38,7 +34,6 @@ class HtmlRendererWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final defaultStyle = style ?? HtmlRendererStyle.of(context);
 
     return Container(
@@ -48,12 +43,14 @@ class HtmlRendererWidget extends StatelessWidget {
       padding: padding ?? EdgeInsets.zero,
       child: HtmlWidget(
         data,
-        selectable: selectable,
         onTapUrl: (url) {
           onLinkTap?.call(url);
           return true;
         },
-        onImageTap: (src) {
+        onTapImage: (imageMetadata) {
+          final src = imageMetadata.sources.isNotEmpty
+              ? imageMetadata.sources.first.url
+              : '';
           onImageTap?.call(src);
         },
         customStylesBuilder: (element) {
@@ -97,11 +94,11 @@ class HtmlRendererStyle {
     final styles = <String, String>{};
 
     if (linkColor != null) {
-      final hex = '#${linkColor!.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+      final hex = '#${linkColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
       styles['a'] = 'color: $hex;';
     }
     if (blockquoteColor != null) {
-      final hex = '#${blockquoteColor!.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+      final hex = '#${blockquoteColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
       styles['blockquote'] = 'border-left: 4px solid $hex; padding-left: 16px; font-style: italic;';
     }
     if (pStyle != null) {
