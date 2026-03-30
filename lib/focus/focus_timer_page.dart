@@ -105,14 +105,14 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF5C8B5E),
+              color: Color(0xFF7A9A6E),
             ),
           ),
           const Spacer(),
           Consumer<FocusTimerProvider>(
             builder: (context, timer, child) {
               return IconButton(
-                icon: const Icon(Icons.palette_outlined),
+                icon: const Icon(Icons.category_outlined),
                 onPressed: () => _showSubjectSelector(context, timer),
               );
             },
@@ -133,7 +133,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
               center: Alignment.center,
               radius: 1.2 + _breathingController.value * 0.3,
               colors: [
-                const Color(0xFF9CAF88).withValues(alpha: 0.1),
+                const Color(0xFFB5C9A3).withValues(alpha: 0.1),
                 const Color(0xFFFAF9F6),
               ],
             ),
@@ -163,13 +163,17 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: subject.color.withValues(alpha: 0.15),
+        color: subject.color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(subject.icon, style: const TextStyle(fontSize: 16)),
+          Icon(
+            subject.icon,
+            size: 16,
+            color: subject.color,
+          ),
           const SizedBox(width: 8),
           Text(
             subject.name,
@@ -208,17 +212,17 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF9CAF88),
-                    const Color(0xFFB5C9A3),
+                    Color(0xFFB5C9A3),
+                    Color(0xFFD4E4C4),
                   ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF9CAF88).withValues(alpha: 0.3),
+                    color: const Color(0xFFB5C9A3).withValues(alpha: 0.3),
                     offset: const Offset(0, 8),
                     blurRadius: 32 + _breathingController.value * 16,
                   ),
@@ -314,7 +318,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
         decoration: BoxDecoration(
           color: isDestructive
               ? Colors.grey[300]
-              : const Color(0xFF9CAF88),
+              : const Color(0xFFB5C9A3),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -356,14 +360,14 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF9CAF88),
                     Color(0xFFB5C9A3),
+                    Color(0xFFD4E4C4),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF9CAF88).withValues(alpha: 0.4),
+                    color: const Color(0xFFB5C9A3).withValues(alpha: 0.4),
                     offset: const Offset(0, 8),
                     blurRadius: 24,
                   ),
@@ -432,11 +436,10 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
                     itemBuilder: (context, index) {
                       if (index == focusProvider.subjects.length) {
                         return ListTile(
-                          leading: const Icon(Icons.add_circle_outline),
+                          leading: Icon(Icons.add_circle_outline, color: Colors.grey[600]),
                           title: const Text('添加新领域'),
                           onTap: () {
                             Navigator.pop(context);
-                            // TODO: 显示添加科目对话框
                           },
                         );
                       }
@@ -445,9 +448,22 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
                       final isSelected = timer.selectedSubject?.id == subject.id;
 
                       return ListTile(
-                        leading: Text(subject.icon, style: const TextStyle(fontSize: 24)),
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: subject.color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            subject.icon,
+                            color: subject.color,
+                          ),
+                        ),
                         title: Text(subject.name),
-                        trailing: isSelected ? const Icon(Icons.check_circle, color: Color(0xFF9CAF88)) : null,
+                        trailing: isSelected
+                            ? Icon(Icons.check_circle, color: subject.color)
+                            : null,
                         onTap: () {
                           timer.selectSubject(subject);
                           Navigator.pop(context);
@@ -509,7 +525,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
           children: [
             const Icon(
               Icons.check_circle,
-              color: Color(0xFF9CAF88),
+              color: Color(0xFFB5C9A3),
               size: 64,
             ),
             const SizedBox(height: 16),
@@ -526,7 +542,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
               style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w200,
-                color: Color(0xFF9CAF88),
+                color: Color(0xFFB5C9A3),
               ),
             ),
           ],
@@ -538,7 +554,7 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
               Navigator.pop(context);
             },
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF9CAF88),
+              backgroundColor: const Color(0xFFB5C9A3),
             ),
             child: const Text('返回'),
           ),

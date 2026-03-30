@@ -92,11 +92,18 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF5C9EAD),
-            Color(0xFF88B3C8),
+            Color(0xFF8B9DC3),
+            Color(0xFFB8C9DB),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8B9DC3).withValues(alpha: 0.25),
+            offset: const Offset(0, 8),
+            blurRadius: 24,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,10 +299,10 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
     final colors = [
       Colors.grey[100]!,
-      const Color(0xFFD4EAD4),
+      const Color(0xFFD4E4C4),
+      const Color(0xFFB5C9A3),
       const Color(0xFF9CAF88),
       const Color(0xFF7A9A6E),
-      const Color(0xFF5C8B5E),
     ];
 
     return GestureDetector(
@@ -321,9 +328,9 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           color: colors[level],
           borderRadius: BorderRadius.circular(8),
           border: isSelected
-              ? Border.all(color: const Color(0xFF5C8B5E), width: 2)
+              ? Border.all(color: const Color(0xFF7A9A6E), width: 2)
               : isToday
-                  ? Border.all(color: Colors.blue, width: 1)
+                  ? Border.all(color: Colors.blue[300]!, width: 1)
                   : null,
         ),
         child: Center(
@@ -345,10 +352,10 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final labels = ['无', '<30', '30-60', '60-120', '>120'];
     final colors = [
       Colors.grey[100]!,
-      const Color(0xFFD4EAD4),
+      const Color(0xFFD4E4C4),
+      const Color(0xFFB5C9A3),
       const Color(0xFF9CAF88),
       const Color(0xFF7A9A6E),
-      const Color(0xFF5C8B5E),
     ];
 
     return Row(
@@ -459,13 +466,25 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: subject.color.withValues(alpha: 0.1),
+                color: subject.color.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Text(subject.icon, style: const TextStyle(fontSize: 20)),
-                  const SizedBox(width: 8),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: subject.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      subject.icon,
+                      size: 18,
+                      color: subject.color,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,7 +561,19 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   children: [
                     Row(
                       children: [
-                        Text(subject.icon, style: const TextStyle(fontSize: 16)),
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: subject.color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            subject.icon,
+                            size: 16,
+                            color: subject.color,
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         Text(subject.name),
                         const Spacer(),
@@ -560,7 +591,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: subject.progress,
-                        backgroundColor: subject.color.withValues(alpha: 0.2),
+                        backgroundColor: subject.color.withValues(alpha: 0.12),
                         valueColor: AlwaysStoppedAnimation<Color>(subject.color),
                         minHeight: 6,
                       ),
@@ -589,7 +620,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         child: Column(
           children: [
             Icon(
-              Icons.spa_outlined,
+              Icons.hourglass_empty,
               size: 48,
               color: Colors.grey[400],
             ),
@@ -639,8 +670,10 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   color: subject.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(
-                  child: Text(subject.icon, style: const TextStyle(fontSize: 20)),
+                child: Icon(
+                  subject.icon,
+                  size: 20,
+                  color: subject.color,
                 ),
               ),
               title: Text(subject.name),

@@ -46,7 +46,7 @@ class FocusProvider extends ChangeNotifier {
             id: 'default',
             name: '默认',
             color: const Color(0xFF9CAF88),
-            icon: '📚',
+            iconIndex: 0,
           ),
         );
         timerProvider.restoreSubject(subject);
