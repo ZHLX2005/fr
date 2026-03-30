@@ -443,7 +443,6 @@ class _MessageBubble extends StatelessWidget {
             else
               MarkdownRendererWidget(
                 data: message.content,
-                selectable: true,
               ),
           ],
         ),
