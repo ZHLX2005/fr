@@ -41,7 +41,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   static const List<BottomBarItem> _items = [
     BottomBarItem(label: '主页', icon: Icons.home_outlined, selectedIcon: Icons.home),
     BottomBarItem(label: '聊天', icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble),
-    BottomBarItem(label: '专注', icon: Icons.radio_button_unchecked, isEnabled: false), // 中间O按钮
+    BottomBarItem(label: '专注', icon: Icons.radio_button_unchecked, selectedIcon: Icons.radio_button_checked, isEnabled: true), // 中间O按钮
     BottomBarItem(label: '图库', icon: Icons.photo_library_outlined, selectedIcon: Icons.photo_library),
     BottomBarItem(label: '待开发', icon: Icons.construction_outlined, isEnabled: false),
   ];
@@ -159,22 +159,31 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                         curve: Curves.fastOutSlowIn,
                       ),
                     ),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
-                            colorScheme.primary,
-                            colorScheme.secondary,
-                          ],
+                          colors: widget.currentIndex == 2
+                              ? [
+                                  colorScheme.primary,
+                                  colorScheme.tertiary,
+                                ]
+                              : [
+                                  colorScheme.primary,
+                                  colorScheme.secondary,
+                                ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: colorScheme.primary.withOpacity(0.4),
+                            color: widget.currentIndex == 2
+                                ? colorScheme.primary.withOpacity(0.6)
+                                : colorScheme.primary.withOpacity(0.4),
                             offset: const Offset(4.0, 8.0),
-                            blurRadius: 16.0,
+                            blurRadius: widget.currentIndex == 2 ? 24.0 : 16.0,
                           ),
                         ],
                       ),
@@ -186,13 +195,16 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                           focusColor: Colors.transparent,
                           hoverColor: Colors.transparent,
                           onTap: widget.onAddPressed,
-                          child: Text(
-                            'O',
-                            style: TextStyle(
-                              color: colorScheme.onPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.w300,
-                              letterSpacing: -2,
+                          child: Center(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              width: widget.currentIndex == 2 ? 40 : 0,
+                              height: widget.currentIndex == 2 ? 40 : 0,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colorScheme.surface.withValues(alpha: 0.3),
+                              ),
                             ),
                           ),
                         ),
@@ -212,6 +224,73 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     final item = _items[index];
     final isSelected = widget.currentIndex == index;
     final colorScheme = theme.colorScheme;
+
+    // 中间专注按钮 - 特殊气泡效果
+    if (index == 2) {
+      return GestureDetector(
+        onTap: () {
+          if (!isSelected) {
+            widget.onItemSelected(index);
+          }
+        },
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? colorScheme.primary.withValues(alpha: 0.15)
+                    : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                border: Border.all(
+                  color: isSelected
+                      ? colorScheme.primary.withValues(alpha: 0.3)
+                      : Colors.transparent,
+                  width: 1.5,
+                ),
+              ),
+              child: Center(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  width: isSelected ? 24 : 20,
+                  height: isSelected ? 24 : 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: isSelected
+                        ? LinearGradient(
+                            colors: [
+                              colorScheme.primary,
+                              colorScheme.tertiary,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: isSelected ? null : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              item.label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     if (!item.isEnabled) {
       // 待开发 - 禁用状态
