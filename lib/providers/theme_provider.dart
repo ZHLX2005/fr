@@ -93,6 +93,16 @@ class ThemeProvider extends ChangeNotifier {
     await setThemeMode(AppThemeMode.green);
   }
 
+  /// 切换到橙黄色主题
+  Future<void> setOrange() async {
+    await setThemeMode(AppThemeMode.orange);
+  }
+
+  /// 切换到玫瑰红主题
+  Future<void> setRose() async {
+    await setThemeMode(AppThemeMode.rose);
+  }
+
   /// 在浅色和深色之间切换
   Future<void> toggleTheme() async {
     final newMode = _themeMode == AppThemeMode.dark
@@ -111,6 +121,10 @@ class ThemeProvider extends ChangeNotifier {
       case AppThemeMode.pink:
         return AppThemeMode.green;
       case AppThemeMode.green:
+        return AppThemeMode.orange;
+      case AppThemeMode.orange:
+        return AppThemeMode.rose;
+      case AppThemeMode.rose:
         return AppThemeMode.light;
     }
   }
