@@ -4,7 +4,6 @@ import 'models/focus_subject.dart';
 import 'providers/focus_provider.dart';
 import 'focus_timer_page.dart';
 import 'focus_stats_page.dart';
-import 'fullscreen_timer_page.dart';
 import 'package:provider/provider.dart';
 
 /// 专注计时器首页 - Dashboard
@@ -251,16 +250,6 @@ class FocusHomePage extends StatelessWidget {
             Expanded(
               child: _buildActionButton(
                 context,
-                icon: Icons.av_timer,
-                label: '顺序计时',
-                color: const Color(0xFF9CAF88),
-                onTap: () => _navigateToFullscreenTimer(context),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildActionButton(
-                context,
                 icon: Icons.bar_chart_outlined,
                 label: '数据统计',
                 color: const Color(0xFF5C9EAD),
@@ -325,12 +314,4 @@ class FocusHomePage extends StatelessWidget {
     );
   }
 
-  void _navigateToFullscreenTimer(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const FullscreenTimerPage(),
-      ),
-    );
-  }
 }

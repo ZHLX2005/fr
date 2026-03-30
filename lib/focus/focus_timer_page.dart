@@ -41,6 +41,14 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
     if (widget.initialSubject != null) {
       _timerProvider.selectSubject(widget.initialSubject);
     }
+
+    // 恢复计时器状态（如果之前有正在计时的会话）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final focusProvider = Provider.of<data.FocusProvider>(context, listen: false);
+        focusProvider.restoreTimerState(_timerProvider);
+      }
+    });
   }
 
   @override

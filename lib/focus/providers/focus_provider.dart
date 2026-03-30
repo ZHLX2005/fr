@@ -1,14 +1,20 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../models/focus_subject.dart';
 import '../models/focus_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'focus_timer_provider.dart';
 
 /// 专注数据管理Provider
 class FocusProvider extends ChangeNotifier {
   List<FocusSubject> _subjects = [];
   List<FocusSession> _sessions = [];
   bool _isLoading = true;
+
+  // 计时器恢复相关
+  static const String _timerSecondsKey = 'focus_timer_seconds';
+  static const String _timerSubjectKey = 'focus_timer_subject';
 
   List<FocusSubject> get subjects => List.unmodifiable(_subjects);
   List<FocusSession> get sessions => List.unmodifiable(_sessions);
@@ -23,6 +29,31 @@ class FocusProvider extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  /// 恢复计时器状态（供外部调用）
+  Future<void> restoreTimerState(FocusTimerProvider timerProvider) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedSeconds = prefs.getInt(_timerSecondsKey) ?? 0;
+      final savedSubjectId = prefs.getString(_timerSubjectKey);
+
+      if (savedSeconds > 0 && savedSubjectId != null) {
+        // 找到对应的科目
+        final subject = _subjects.firstWhere(
+          (s) => s.id == savedSubjectId,
+          orElse: () => _subjects.isNotEmpty ? _subjects.first : FocusSubject(
+            id: 'default',
+            name: '默认',
+            color: const Color(0xFF9CAF88),
+            icon: '📚',
+          ),
+        );
+        timerProvider.restoreSubject(subject);
+      }
+    } catch (e) {
+      debugPrint('恢复计时器科目失败: $e');
+    }
   }
 
   /// 加载数据
