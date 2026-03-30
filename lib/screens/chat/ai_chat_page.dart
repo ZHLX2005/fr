@@ -33,11 +33,14 @@ class _AIChatPageState extends State<AIChatPage> {
   Future<void> _scrollToBottom() async {
     if (_scrollController.hasClients) {
       await Future.delayed(const Duration(milliseconds: 100));
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      final position = _scrollController.position;
+      if (position.maxScrollExtent.isFinite) {
+        _scrollController.animateTo(
+          position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     }
   }
 
@@ -427,7 +430,6 @@ class _MessageBubble extends StatelessWidget {
               MarkdownRendererWidget(
                 data: message.content,
                 selectable: true,
-                style: MarkdownRendererStyle.of(context),
               ),
           ],
         ),
