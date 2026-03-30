@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ai_chat_provider.dart';
 import '../../models/ai_chat_message.dart';
+import '../../widgets/markdown_renderer_widget.dart';
 import 'ai_chat_settings_page.dart';
 
 /// AI 聊天页面
@@ -413,7 +414,7 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ],
               )
-            else
+            else if (isMe)
               Text(
                 message.content,
                 style: TextStyle(
@@ -421,6 +422,12 @@ class _MessageBubble extends StatelessWidget {
                       ? Colors.white
                       : theme.colorScheme.onSurface,
                 ),
+              )
+            else
+              MarkdownRendererWidget(
+                data: message.content,
+                selectable: true,
+                style: MarkdownRendererStyle.of(context),
               ),
           ],
         ),
