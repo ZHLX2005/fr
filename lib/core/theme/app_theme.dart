@@ -537,34 +537,34 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: primaryColor,
         onPrimary: Colors.white,
-        primaryContainer: const Color(0xFFFFF3D6),
-        onPrimaryContainer: const Color(0xFF8A4500),
+        primaryContainer: const Color(0xFFFFD180),
+        onPrimaryContainer: const Color(0xFF5C2D00),
 
         secondary: secondaryColor,
-        onSecondary: const Color(0xFF5C4800),
-        secondaryContainer: const Color(0xFFFFEFC0),
-        onSecondaryContainer: const Color(0xFF5C4800),
+        onSecondary: const Color(0xFF3D2E00),
+        secondaryContainer: const Color(0xFFFFE082),
+        onSecondaryContainer: const Color(0xFF3D2E00),
 
         tertiary: tertiaryColor,
         onTertiary: Colors.white,
-        tertiaryContainer: const Color(0xFFFFE0D6),
-        onTertiaryContainer: const Color(0xFF8A3500),
+        tertiaryContainer: const Color(0xFFFFAB91),
+        onTertiaryContainer: const Color(0xFF5C1900),
 
-        surface: const Color(0xFFFFFBF5),
-        onSurface: const Color(0xFF2D1F10),
-        surfaceVariant: const Color(0xFFFFF5E6),
-        onSurfaceVariant: const Color(0xFF8A7060),
+        surface: const Color(0xFFFFF8F0),
+        onSurface: const Color(0xFF2D1A0A),
+        surfaceVariant: const Color(0xFFFFF0E0),
+        onSurfaceVariant: const Color(0xFF5C4030),
 
-        background: const Color(0xFFFFFBF5),
-        onBackground: const Color(0xFF2D1F10),
+        background: const Color(0xFFFFF8F0),
+        onBackground: const Color(0xFF2D1A0A),
 
         error: const Color(0xFFE53935),
         onError: Colors.white,
-        errorContainer: const Color(0xFFFFEBEE),
+        errorContainer: const Color(0xFFFFCDD2),
         onErrorContainer: const Color(0xFFB71C1C),
 
-        outline: const Color(0xFFE8D8C8),
-        outlineVariant: const Color(0xFFFFF0E0),
+        outline: const Color(0xFFFFCC80),
+        outlineVariant: const Color(0xFFFFE0B0),
         surfaceTint: primaryColor,
       ),
       useMaterial3: true,
@@ -572,8 +572,8 @@ class AppTheme {
 
       cardTheme: CardThemeData(
         elevation: 2,
-        color: Colors.white,
-        shadowColor: const Color(0xFFFF9500).withValues(alpha: 0.15),
+        color: const Color(0xFFFFFBF7),
+        shadowColor: const Color(0xFFFF9500).withValues(alpha: 0.2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -582,8 +582,8 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Color(0xFFFFF3D6),
-        foregroundColor: Color(0xFF8A4500),
+        backgroundColor: Color(0xFFFFD180),
+        foregroundColor: Color(0xFF5C2D00),
         surfaceTintColor: Color(0xFFFF9500),
       ),
 
@@ -647,34 +647,34 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: primaryColor,
         onPrimary: Colors.white,
-        primaryContainer: const Color(0xFFFFDAD6),
-        onPrimaryContainer: const Color(0xFF8A0A00),
+        primaryContainer: const Color(0xFFFF8A80),
+        onPrimaryContainer: const Color(0xFF5C0000),
 
         secondary: secondaryColor,
         onSecondary: Colors.white,
-        secondaryContainer: const Color(0xFFFFE0D6),
+        secondaryContainer: const Color(0xFFFFAB91),
         onSecondaryContainer: const Color(0xFF5C1900),
 
         tertiary: tertiaryColor,
         onTertiary: Colors.white,
-        tertiaryContainer: const Color(0xFFF3E5F5),
+        tertiaryContainer: const Color(0xFFCE93D8),
         onTertiaryContainer: const Color(0xFF4A148C),
 
-        surface: const Color(0xFFFFFBF9),
-        onSurface: const Color(0xFF2D1618),
-        surfaceVariant: const Color(0xFFFFF0ED),
-        onSurfaceVariant: const Color(0xFF8A6560),
+        surface: const Color(0xFFFFF5F5),
+        onSurface: const Color(0xFF2D1010),
+        surfaceVariant: const Color(0xFFFFE8E8),
+        onSurfaceVariant: const Color(0xFF5C3030),
 
-        background: const Color(0xFFFFFBF9),
-        onBackground: const Color(0xFF2D1618),
+        background: const Color(0xFFFFF5F5),
+        onBackground: const Color(0xFF2D1010),
 
         error: const Color(0xFFE53935),
         onError: Colors.white,
-        errorContainer: const Color(0xFFFFEBEE),
+        errorContainer: const Color(0xFFFFCDD2),
         onErrorContainer: const Color(0xFFB71C1C),
 
-        outline: const Color(0xFFE8D0CC),
-        outlineVariant: const Color(0xFFFFE8E4),
+        outline: const Color(0xFFFFB4B4),
+        outlineVariant: const Color(0xFFFFD0D0),
         surfaceTint: primaryColor,
       ),
       useMaterial3: true,
@@ -682,8 +682,8 @@ class AppTheme {
 
       cardTheme: CardThemeData(
         elevation: 2,
-        color: Colors.white,
-        shadowColor: const Color(0xFFE53935).withValues(alpha: 0.15),
+        color: const Color(0xFFFFFBFB),
+        shadowColor: const Color(0xFFE53935).withValues(alpha: 0.2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -692,8 +692,8 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Color(0xFFFFDAD6),
-        foregroundColor: Color(0xFF8A0A00),
+        backgroundColor: Color(0xFFFF8A80),
+        foregroundColor: Color(0xFF5C0000),
         surfaceTintColor: Color(0xFFE53935),
       ),
 
