@@ -30,6 +30,7 @@ import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/timetable/timetable.dart';
 
 void main() {
   // 注册 Demo 页面
@@ -165,9 +166,8 @@ class _MainScreenState extends State<MainScreen> {
     ProfilePage(), // 0: 主页（用户页面）
     HomePage(), // 1: 聊天
     FocusHomePage(), // 2: O - 专注计时器
-        GalleryManagePage(), // 3: 图库
-    _DevPage(), // 4: 待开发
-
+    GalleryManagePage(), // 3: 图库
+    TimetablePage(), // 4: 课表
   ];
 
   @override
