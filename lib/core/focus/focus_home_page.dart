@@ -4,6 +4,7 @@ import 'models/focus_subject.dart';
 import 'providers/focus_provider.dart';
 import 'focus_timer_page.dart';
 import 'focus_stats_page.dart';
+import '../timetable/timetable.dart';
 
 /// 专注计时器首页 - Dashboard
 class FocusHomePage extends StatelessWidget {
@@ -277,6 +278,16 @@ class FocusHomePage extends StatelessWidget {
                 onTap: () => _navigateToStats(context),
               ),
             ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildActionButton(
+                context,
+                icon: Icons.calendar_month_outlined,
+                label: '时间课表',
+                color: const Color(0xFF6B9DFC),
+                onTap: () => _navigateToTimetable(context),
+              ),
+            ),
           ],
         ),
       ],
@@ -331,6 +342,15 @@ class FocusHomePage extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (context) => const FocusStatsPage(),
+      ),
+    );
+  }
+
+  void _navigateToTimetable(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TimetablePage(),
       ),
     );
   }
