@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as classic_provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
 import 'screens/gallery/gallery_manage_page.dart';
@@ -8,6 +9,7 @@ import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
+import 'core/timetable/timetable.dart';
 import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'lab/demos/grid_dashboard_demo.dart';
@@ -31,7 +33,15 @@ import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
 import 'core/theme/app_theme.dart';
 
-void main() {
+void main() async {
+  // 确保 Flutter 绑定初始化
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化 Hive
+  final hiveRepo = HiveTimetableRepository();
+  await hiveRepo.init();
+
+  // 注册 Demo 页面
   // 注册 Demo 页面
   registerGridDashboardDemo();
   registerNotebookDemoAiProto();
@@ -49,17 +59,26 @@ void main() {
   registerCalendarDemo();
   registerMyDiaryHeaderDemo();
   registerWaterCapsuleDemo();
-  runApp(const MyApp());
+
+  // 使用 ProviderScope 包装应用，注入 Repository
+  runApp(
+    ProviderScope(
+      overrides: [
+        TimetableStore.repoProvider.overrideWithValue(hiveRepo),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
   static const _channel = MethodChannel(
@@ -74,6 +93,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _channel.setMethodCallHandler(_handleMethodCall);
     _themeProvider = ThemeProvider()..init();
+
+    // 加载课表数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(TimetableStore.provider.notifier).hydrate();
+    });
   }
 
   @override
@@ -110,17 +134,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
+    return classic_provider.MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: _themeProvider),
-        ChangeNotifierProvider(create: (_) => MessageProvider()),
-        ChangeNotifierProvider(create: (_) => LabNoteProvider()),
-        ChangeNotifierProvider(create: (_) => LabClockProvider()),
-        ChangeNotifierProvider(create: (_) => AIChatProvider()),
-        ChangeNotifierProvider(create: (_) => AgentChatProvider()),
-        ChangeNotifierProvider(create: (_) => FocusProvider()..init()),
+        classic_provider.ChangeNotifierProvider.value(value: _themeProvider),
+        classic_provider.ChangeNotifierProvider(create: (_) => MessageProvider()),
+        classic_provider.ChangeNotifierProvider(create: (_) => LabNoteProvider()),
+        classic_provider.ChangeNotifierProvider(create: (_) => LabClockProvider()),
+        classic_provider.ChangeNotifierProvider(create: (_) => AIChatProvider()),
+        classic_provider.ChangeNotifierProvider(create: (_) => AgentChatProvider()),
+        classic_provider.ChangeNotifierProvider(create: (_) => FocusProvider()..init()),
       ],
-      child: Consumer<ThemeProvider>(
+      child: classic_provider.Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return MaterialApp(
             navigatorKey: navigatorKey,

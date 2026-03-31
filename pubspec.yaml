@@ -37,9 +37,12 @@ dependencies:
 
   # State Management
   provider: ^6.1.2
+  flutter_riverpod: ^2.6.1
 
   # Local Storage
   shared_preferences: ^2.3.3
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
 
   # Data Models
   json_annotation: ^4.9.0

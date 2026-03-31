@@ -1,152 +1,154 @@
-/// 周期管理 - 基础数据模型
-/// 功能待开发，仅保留结构定义
-
-/// 周单双类型枚举
-enum WeekOddEven {
-  all(0, '全部'),
-  odd(1, '单周'),
-  even(2, '双周');
-
-  const WeekOddEven(this.value, this.label);
-  final int value;
-  final String label;
-
-  static WeekOddEven fromValue(int value) {
-    return WeekOddEven.values.firstWhere(
-      (e) => e.value == value,
-      orElse: () => WeekOddEven.all,
-    );
-  }
-}
+/// 课表系统 - Domain Models
+/// 配置驱动的多层级课表系统
 
 /// 周期配置模型
 class TimetableConfig {
   const TimetableConfig({
-    required this.rows,
-    required this.cols,
-    this.cycleCount = 4,
+    required this.startDateIso,
+    required this.cycleCount,
+    required this.daysPerCycle,
+    required this.slotsPerDay,
     this.id = 'default',
+    this.updatedAt,
   });
 
+  /// ISO 8601 日期字符串 (YYYY-MM-DD)
+  final String startDateIso;
+  /// 周期总数
+  final int cycleCount;
+  /// 每周期天数 (1-7)
+  final int daysPerCycle;
+  /// 每天节数 (1-6)
+  final int slotsPerDay;
   final String id;
-  final int rows;      // 节数（行）
-  final int cols;      // 天数（列）
-  final int cycleCount; // 周期数
+  final int? updatedAt;
 
-  TimetableConfig copyWith({int? rows, int? cols, int? cycleCount}) {
+  TimetableConfig copyWith({
+    String? startDateIso,
+    int? cycleCount,
+    int? daysPerCycle,
+    int? slotsPerDay,
+    String? id,
+    int? updatedAt,
+  }) {
     return TimetableConfig(
-      id: id,
-      rows: rows ?? this.rows,
-      cols: cols ?? this.cols,
+      startDateIso: startDateIso ?? this.startDateIso,
       cycleCount: cycleCount ?? this.cycleCount,
+      daysPerCycle: daysPerCycle ?? this.daysPerCycle,
+      slotsPerDay: slotsPerDay ?? this.slotsPerDay,
+      id: id ?? this.id,
+      updatedAt: updatedAt ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
 
+  /// 总天数
+  int get totalDays => cycleCount * daysPerCycle;
+
+  /// 默认配置
   static const TimetableConfig defaultConfig = TimetableConfig(
-    id: 'default',
-    rows: 5,
-    cols: 7,
+    startDateIso: '2025-01-01',
     cycleCount: 4,
+    daysPerCycle: 7,
+    slotsPerDay: 6,
   );
 
-  /// 最大限制
-  static const int maxCols = 10;
-  static const int maxRows = 5;
-  static const int maxCycles = 16;
+  /// 约束
+  static const int maxDaysPerCycle = 7;
+  static const int maxSlotsPerDay = 6;
+  static const int maxCycles = 32;
+  static const int minDaysPerCycle = 1;
+  static const int minSlotsPerDay = 1;
   static const int minCycles = 1;
 }
 
-/// 课程模型 - 待开发
-class Course {
-  const Course({
+/// 课程项目（排课最小单元）
+class CourseItem {
+  const CourseItem({
     required this.id,
-    required this.row,
-    required this.col,
+    required this.dayIndex,
+    required this.slotIndex,
     required this.title,
-    required this.weekStart,
-    required this.weekEnd,
-    required this.colorSeed,
     this.location,
     this.teacher,
-    this.oddEven = WeekOddEven.all,
+    this.colorSeed,
     this.version = 1,
     required this.createdAt,
     required this.updatedAt,
   });
 
   final String id;
-  final int row;
-  final int col;
+  /// 全局天数索引 (0 起)
+  final int dayIndex;
+  /// 节次索引 (0 起)
+  final int slotIndex;
   final String title;
-  final int weekStart;
-  final int weekEnd;
-  final int colorSeed;
   final String? location;
   final String? teacher;
-  final WeekOddEven oddEven;
+  final int? colorSeed;
   final int version;
   final int createdAt;
   final int updatedAt;
 
-  Course copyWith({
+  CourseItem copyWith({
     String? id,
-    int? row,
-    int? col,
+    int? dayIndex,
+    int? slotIndex,
     String? title,
-    int? weekStart,
-    int? weekEnd,
-    int? colorSeed,
     String? location,
     String? teacher,
-    WeekOddEven? oddEven,
+    int? colorSeed,
     int? version,
     int? createdAt,
     int? updatedAt,
   }) {
-    return Course(
+    return CourseItem(
       id: id ?? this.id,
-      row: row ?? this.row,
-      col: col ?? this.col,
+      dayIndex: dayIndex ?? this.dayIndex,
+      slotIndex: slotIndex ?? this.slotIndex,
       title: title ?? this.title,
-      weekStart: weekStart ?? this.weekStart,
-      weekEnd: weekEnd ?? this.weekEnd,
-      colorSeed: colorSeed ?? this.colorSeed,
       location: location ?? this.location,
       teacher: teacher ?? this.teacher,
-      oddEven: oddEven ?? this.oddEven,
+      colorSeed: colorSeed ?? this.colorSeed,
       version: version ?? this.version,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      updatedAt: updatedAt ?? DateTime.now().millisecondsSinceEpoch,
     );
   }
+
+  /// 生成 cellKey
+  String get cellKey => 'd${dayIndex}_s$slotIndex';
 }
 
-/// 课程草稿 - 待开发
-class CourseDraft {
-  CourseDraft({
-    required this.row,
-    required this.col,
-    this.title = '',
-    this.weekStart = 1,
-    this.weekEnd = 16,
-    this.location,
-    this.teacher,
-    this.colorSeed,
-    this.oddEven = WeekOddEven.all,
-  });
+/// 映射函数工具类
+class TimetableMappers {
+  /// 全局 dayIndex → (cycleIndex, dayOfCycle)
+  static (int cycle, int day) dayIndexToCycle(int dayIndex, int daysPerCycle) {
+    final cycle = dayIndex ~/ daysPerCycle;
+    final day = dayIndex % daysPerCycle;
+    return (cycle, day);
+  }
 
-  final int row;
-  final int col;
-  String title;
-  int weekStart;
-  int weekEnd;
-  String? location;
-  String? teacher;
-  int? colorSeed;
-  WeekOddEven oddEven;
+  /// (cycleIndex, dayOfCycle) → 全局 dayIndex
+  static int cycleToDayIndex(int cycleIndex, int dayOfCycle, int daysPerCycle) {
+    return cycleIndex * daysPerCycle + dayOfCycle;
+  }
 
-  bool get isValid =>
-      title.trim().isNotEmpty &&
-      weekStart >= 1 &&
-      weekEnd >= weekStart;
+  /// 全局 dayIndex → 周数 (第几周)
+  static int dayIndexToWeek(int dayIndex) => (dayIndex / 7).floor() + 1;
+
+  /// 全局 dayIndex → 星期 (0-6, 0=周一)
+  static int dayIndexToWeekday(int dayIndex) => dayIndex % 7;
+
+  /// 格式化日期显示
+  static String formatDate(String startDateIso, int dayIndex) {
+    final date = DateTime.parse(startDateIso).add(Duration(days: dayIndex));
+    return '${date.month}/${date.day}';
+  }
+
+  /// 获取周期显示标题
+  static String getCycleTitle(int cycleIndex, int daysPerCycle) {
+    final startWeek = cycleIndex * daysPerCycle ~/ 7 + 1;
+    final endWeek = ((cycleIndex + 1) * daysPerCycle - 1) ~/ 7 + 1;
+    return '第$startWeek-$endWeek周';
+  }
 }
