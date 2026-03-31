@@ -66,13 +66,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     'com.example.flutter_application_1/widget',
   );
   String? _pendingRoute;
+  late ThemeProvider _themeProvider;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // 设置 MethodChannel 监听器
     _channel.setMethodCallHandler(_handleMethodCall);
+    _themeProvider = ThemeProvider()..init();
   }
 
   @override
@@ -111,7 +112,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider.value(value: _themeProvider),
         ChangeNotifierProvider(create: (_) => MessageProvider()),
         ChangeNotifierProvider(create: (_) => LabNoteProvider()),
         ChangeNotifierProvider(create: (_) => LabClockProvider()),
@@ -121,8 +122,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
-          // 在 Consumer 内初始化主题
-          themeProvider.init();
           return MaterialApp(
             navigatorKey: navigatorKey,
             title: '小豆子',
