@@ -36,6 +36,7 @@ class XiaoDouZiBottomBar extends StatefulWidget {
 class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
+  bool _isLongPressed = false;
 
   // 底部导航项
   static const List<BottomBarItem> _items = [
@@ -135,7 +136,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
             ],
           ),
         ),
-        // 中间添加按钮
+        // 中间O按钮
         Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).padding.bottom,
@@ -159,53 +160,66 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                         curve: Curves.fastOutSlowIn,
                       ),
                     ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: widget.currentIndex == 2
-                              ? [
-                                  colorScheme.primary,
-                                  colorScheme.tertiary,
-                                ]
-                              : [
-                                  colorScheme.primary,
-                                  colorScheme.secondary,
-                                ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: widget.currentIndex == 2
-                                ? colorScheme.primary.withOpacity(0.6)
-                                : colorScheme.primary.withOpacity(0.4),
-                            offset: const Offset(4.0, 8.0),
-                            blurRadius: widget.currentIndex == 2 ? 24.0 : 16.0,
+                    child: GestureDetector(
+                      onTap: widget.onAddPressed,
+                      onLongPressStart: (_) {
+                        setState(() => _isLongPressed = true);
+                        _showEasterEgg(context);
+                      },
+                      onLongPressEnd: (_) {
+                        setState(() => _isLongPressed = false);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: widget.currentIndex == 2
+                                ? [
+                                    colorScheme.primary,
+                                    colorScheme.tertiary,
+                                  ]
+                                : [
+                                    colorScheme.primary,
+                                    colorScheme.secondary,
+                                  ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          splashColor: colorScheme.onPrimary.withValues(alpha: 0.1),
-                          highlightColor: Colors.transparent,
-                          focusColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                          onTap: widget.onAddPressed,
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                              width: widget.currentIndex == 2 ? 40 : 0,
-                              height: widget.currentIndex == 2 ? 40 : 0,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: colorScheme.surface.withValues(alpha: 0.3),
-                              ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: widget.currentIndex == 2
+                                  ? colorScheme.primary.withValues(alpha: 0.6)
+                                  : colorScheme.primary.withValues(alpha: 0.4),
+                              offset: const Offset(4.0, 8.0),
+                              blurRadius: widget.currentIndex == 2 ? 24.0 : 16.0,
                             ),
+                          ],
+                        ),
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            width: _isLongPressed
+                                ? 60
+                                : (widget.currentIndex == 2 ? 40 : 0),
+                            height: _isLongPressed
+                                ? 60
+                                : (widget.currentIndex == 2 ? 40 : 0),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isLongPressed
+                                  ? colorScheme.surface.withValues(alpha: 0.5)
+                                  : colorScheme.surface.withValues(alpha: 0.3),
+                            ),
+                            child: _isLongPressed
+                                ? Icon(
+                                    Icons.auto_awesome,
+                                    color: colorScheme.onPrimary,
+                                    size: 28,
+                                  )
+                                : null,
                           ),
                         ),
                       ),
@@ -218,6 +232,119 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
         ),
       ],
     );
+  }
+
+  /// 显示彩蛋对话框
+  void _showEasterEgg(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                colorScheme.primaryContainer,
+                colorScheme.secondaryContainer,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.primary.withValues(alpha: 0.3),
+                blurRadius: 32,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primary,
+                      colorScheme.tertiary,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.primary.withValues(alpha: 0.4),
+                      blurRadius: 20,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                '🎉 发现了彩蛋！',
+                style: Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '专注时光，让每一刻都有意义',
+                style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  Chip(
+                    avatar: const Icon(Icons.timer, size: 16),
+                    label: const Text('番茄钟'),
+                    backgroundColor: colorScheme.surface,
+                  ),
+                  Chip(
+                    avatar: const Icon(Icons.spa, size: 16),
+                    label: const Text('心流'),
+                    backgroundColor: colorScheme.surface,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '💡 翻转手机可自动进入专注模式',
+                style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('知道了'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) {
+      // 弹窗关闭后重置状态
+      if (mounted) {
+        setState(() => _isLongPressed = false);
+      }
+    });
   }
 
   Widget _buildTabItem(int index, ThemeData theme) {

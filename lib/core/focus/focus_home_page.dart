@@ -340,111 +340,117 @@ class FocusHomePage extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _SubjectManagementSheet(focusProvider: focusProvider),
+      builder: (context) => ChangeNotifierProvider.value(
+        value: focusProvider,
+        child: const _SubjectManagementSheet(),
+      ),
     );
   }
 }
 
 /// 科目管理底部弹窗
 class _SubjectManagementSheet extends StatelessWidget {
-  final FocusProvider focusProvider;
-
-  const _SubjectManagementSheet({required this.focusProvider});
+  const _SubjectManagementSheet();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
+    return Consumer<FocusProvider>(
+      builder: (context, fp, child) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '管理学习领域',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: () => _showEditDialog(context, null),
-                  color: const Color(0xFF8B9DC3),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '管理学习领域',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () => _showEditDialog(context, null),
+                      color: const Color(0xFF8B9DC3),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: focusProvider.subjects.length,
-              itemBuilder: (context, index) {
-                final subject = focusProvider.subjects[index];
-                return ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: subject.color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      subject.icon,
-                      color: subject.color,
-                    ),
-                  ),
-                  title: Text(subject.name),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        onPressed: () => _showEditDialog(context, subject),
-                        color: Colors.grey[600],
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: fp.subjects.length,
+                  itemBuilder: (context, index) {
+                    final subject = fp.subjects[index];
+                    return ListTile(
+                      leading: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: subject.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          subject.icon,
+                          color: subject.color,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20),
-                        onPressed: () => _confirmDelete(context, subject),
-                        color: Colors.red[300],
+                      title: Text(subject.name),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            onPressed: () => _showEditDialog(context, subject),
+                            color: Colors.grey[600],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            onPressed: () => _confirmDelete(context, subject),
+                            color: Colors.red[300],
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _showEditDialog(BuildContext context, FocusSubject? subject) {
+    final fp = Provider.of<FocusProvider>(context, listen: false);
     showDialog(
       context: context,
       builder: (context) => _SubjectEditDialog(
         subject: subject,
         onSave: (newSubject) async {
           if (subject == null) {
-            await focusProvider.addSubject(newSubject);
+            await fp.addSubject(newSubject);
           } else {
-            await focusProvider.updateSubject(newSubject);
+            await fp.updateSubject(newSubject);
           }
         },
       ),
@@ -452,20 +458,21 @@ class _SubjectManagementSheet extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, FocusSubject subject) {
+    final fp = Provider.of<FocusProvider>(context, listen: false);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('删除确认'),
         content: Text('确定要删除 "${subject.name}" 吗？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
-              await focusProvider.deleteSubject(subject.id);
+              Navigator.pop(dialogContext);
+              await fp.deleteSubject(subject.id);
             },
             child: Text('删除', style: TextStyle(color: Colors.red[300])),
           ),
