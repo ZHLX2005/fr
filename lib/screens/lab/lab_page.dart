@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';
 import '../../lab/providers/lab_card_provider.dart';
 import '../../widgets/image_picker_widget.dart';
-import '../../core/services/lab_image_cache_service.dart';
+import '../../services/lab_image_cache_service.dart';
 
 /// 实验室页面 - 开发者验证 Demo 入口
 class LabPage extends StatelessWidget {
