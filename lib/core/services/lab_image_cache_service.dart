@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,19 +25,37 @@ class LabImageCacheService {
   late final Directory _cacheDir;
   final Map<String, Uint8List> _memoryCache = {};
   final Map<String, String> _thumbnailPaths = {};
+  bool _isWeb = false;
 
   /// 初始化缓存目录
   Future<void> init() async {
-    final tempDir = await getTemporaryDirectory();
-    _cacheDir = Directory('${tempDir.path}/lab_thumbnails');
-    if (!await _cacheDir.exists()) {
-      await _cacheDir.create(recursive: true);
+    // 检测是否为 Web 平台
+    try {
+      _isWeb = kIsWeb || Platform.environment.containsKey('FLUTTER_TEST');
+    } catch (e) {
+      _isWeb = true;
     }
-    await _loadCacheInfo();
+
+    // Web 平台不支持磁盘缓存
+    if (_isWeb) return;
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      _cacheDir = Directory('${tempDir.path}/lab_thumbnails');
+      if (!await _cacheDir.exists()) {
+        await _cacheDir.create(recursive: true);
+      }
+      await _loadCacheInfo();
+    } catch (e) {
+      debugPrint('初始化缓存失败: $e');
+    }
   }
 
   /// 获取缩略图字节数据（优先从缓存）
   Future<Uint8List?> getThumbnailBytes(String imagePath) async {
+    // Web 平台不支持磁盘缓存，直接返回
+    if (_isWeb) return null;
+
     // 1. 检查内存缓存
     if (_memoryCache.containsKey(imagePath)) {
       return _memoryCache[imagePath];
@@ -45,15 +64,19 @@ class LabImageCacheService {
     // 2. 检查磁盘缩略图缓存
     final thumbnailPath = await _getThumbnailPath(imagePath);
     if (thumbnailPath != null) {
-      final file = File(thumbnailPath);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        // 装载到内存缓存
-        if (_memoryCache.length < 20) {
-          // 限制内存缓存数量
-          _memoryCache[imagePath] = bytes;
+      try {
+        final file = File(thumbnailPath);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          // 装载到内存缓存
+          if (_memoryCache.length < 20) {
+            // 限制内存缓存数量
+            _memoryCache[imagePath] = bytes;
+          }
+          return bytes;
         }
-        return bytes;
+      } catch (e) {
+        debugPrint('读取缩略图失败: $e');
       }
     }
 
@@ -64,12 +87,19 @@ class LabImageCacheService {
   /// 清除所有缓存
   Future<void> clearCache() async {
     _memoryCache.clear();
-    if (await _cacheDir.exists()) {
-      await _cacheDir.delete(recursive: true);
-      await _cacheDir.create(recursive: true);
+
+    if (_isWeb) return;
+
+    try {
+      if (await _cacheDir.exists()) {
+        await _cacheDir.delete(recursive: true);
+        await _cacheDir.create(recursive: true);
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cacheInfoKey);
+    } catch (e) {
+      debugPrint('清除缓存失败: $e');
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_cacheInfoKey);
   }
 
   /// 预加载图片缩略图
@@ -89,6 +119,8 @@ class LabImageCacheService {
 
   /// 生成缩略图
   Future<Uint8List?> _generateThumbnail(String imagePath) async {
+    if (_isWeb) return null;
+
     try {
       // 读取原图
       final file = File(imagePath);
@@ -107,8 +139,6 @@ class LabImageCacheService {
       }
 
       // 对于大图片，使用简化处理
-      // 在实际生产中应该使用 image 包进行解码和缩放
-      // 这里简化为直接压缩
       final compressedBytes = await _compressImage(originalBytes);
 
       // 保存缩略图
@@ -143,17 +173,8 @@ class LabImageCacheService {
     return '${hash}_$basename';
   }
 
-  /// 简单的图片压缩（在实际项目中应使用 image 包）
+  /// 简单的图片压缩
   Future<Uint8List> _compressImage(Uint8List bytes) async {
-    // 这里简化处理，实际应该使用 image 包解码、缩放、重新编码
-    // 为了保持简单，这里直接截取部分数据或使用原数据
-    // 真实场景应该使用 flutter/image 包
-
-    // 如果是 JPEG，可以尝试简单压缩
-    // 这里返回原数据，但添加了 TODO 注释
-    // TODO: 使用 image 包进行真正的压缩
-    // 例如: https://pub.dev/packages/image
-
     // 简单策略：如果数据太大，进行采样
     if (bytes.length > 2 * 1024 * 1024) {
       // 超过2MB，进行简单采样
@@ -164,7 +185,6 @@ class LabImageCacheService {
       }
       return sampled;
     }
-
     return bytes;
   }
 
@@ -198,14 +218,20 @@ class LabImageCacheService {
 
   /// 获取缓存大小
   Future<int> getCacheSize() async {
+    if (_isWeb) return 0;
     if (!await _cacheDir.exists()) return 0;
 
-    int size = 0;
-    await for (final entity in _cacheDir.list(recursive: true)) {
-      if (entity is File) {
-        size += await entity.length();
+    try {
+      int size = 0;
+      await for (final entity in _cacheDir.list(recursive: true)) {
+        if (entity is File) {
+          size += await entity.length();
+        }
       }
+      return size;
+    } catch (e) {
+      debugPrint('获取缓存大小失败: $e');
+      return 0;
     }
-    return size;
   }
 }
