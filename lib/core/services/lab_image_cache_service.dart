@@ -22,13 +22,18 @@ class LabImageCacheService {
 
   LabImageCacheService._internal();
 
-  late final Directory _cacheDir;
+  Directory? _cacheDir;
   final Map<String, Uint8List> _memoryCache = {};
   final Map<String, String> _thumbnailPaths = {};
   bool _isWeb = false;
+  bool _initialized = false;
 
   /// 初始化缓存目录
   Future<void> init() async {
+    // 防止重复初始化
+    if (_initialized) return;
+    _initialized = true;
+
     // 检测是否为 Web 平台
     try {
       _isWeb = kIsWeb || Platform.environment.containsKey('FLUTTER_TEST');
@@ -42,8 +47,8 @@ class LabImageCacheService {
     try {
       final tempDir = await getTemporaryDirectory();
       _cacheDir = Directory('${tempDir.path}/lab_thumbnails');
-      if (!await _cacheDir.exists()) {
-        await _cacheDir.create(recursive: true);
+      if (!await _cacheDir!.exists()) {
+        await _cacheDir!.create(recursive: true);
       }
       await _loadCacheInfo();
     } catch (e) {
@@ -91,9 +96,9 @@ class LabImageCacheService {
     if (_isWeb) return;
 
     try {
-      if (await _cacheDir.exists()) {
-        await _cacheDir.delete(recursive: true);
-        await _cacheDir.create(recursive: true);
+      if (_cacheDir != null && await _cacheDir!.exists()) {
+        await _cacheDir!.delete(recursive: true);
+        await _cacheDir!.create(recursive: true);
       }
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_cacheInfoKey);
@@ -161,7 +166,7 @@ class LabImageCacheService {
   /// 保存缩略图到磁盘
   Future<String> _saveThumbnail(String originalPath, Uint8List bytes) async {
     final filename = _getCacheFilename(originalPath);
-    final file = File('${_cacheDir.path}/$filename');
+    final file = File('${_cacheDir!.path}/$filename');
     await file.writeAsBytes(bytes);
     return file.path;
   }
@@ -219,11 +224,11 @@ class LabImageCacheService {
   /// 获取缓存大小
   Future<int> getCacheSize() async {
     if (_isWeb) return 0;
-    if (!await _cacheDir.exists()) return 0;
+    if (_cacheDir == null || !await _cacheDir!.exists()) return 0;
 
     try {
       int size = 0;
-      await for (final entity in _cacheDir.list(recursive: true)) {
+      await for (final entity in _cacheDir!.list(recursive: true)) {
         if (entity is File) {
           size += await entity.length();
         }
