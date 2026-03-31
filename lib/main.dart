@@ -11,7 +11,7 @@ import 'core/focus/providers/focus_provider.dart';
 import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'lab/demos/grid_dashboard_demo.dart';
-import 'lab/demos/notebook_demo.dart';
+import 'lab/demos/notebook_demo_ai_proto.dart';
 import 'lab/demos/clock_demo.dart';
 import 'lab/demos/network_demo.dart';
 import 'lab/demos/game_2048_demo.dart';
@@ -20,7 +20,6 @@ import 'lab/demos/drag_reorder_demo.dart';
 import 'lab/demos/web_bookmark_demo.dart';
 import 'lab/demos/storage_analyze_demo.dart';
 import 'lab/demos/hexagon_panel_demo.dart';
-import 'lab/demos/ripple_effect_demo.dart';
 import 'lab/demos/typewriter_demo.dart';
 import 'lab/demos/snake_game_demo.dart';
 import 'lab/demos/api_test_demo.dart';
@@ -31,11 +30,12 @@ import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/timetable/timetable.dart';
 
 void main() {
   // 注册 Demo 页面
   registerGridDashboardDemo();
-  registerNotebookDemo();
+  registerNotebookDemoAiProto();
   registerClockDemo();
   registerNetworkDemo();
   registerGame2048Demo();
@@ -44,7 +44,6 @@ void main() {
   registerWebBookmarkDemo();
   registerStorageAnalyzeDemo();
   registerHexagonPanelDemo();
-  registerRippleEffectDemo();
   registerTypewriterDemo();
   registerSnakeGameDemo();
   registerApiTestDemo();
@@ -68,21 +67,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     'com.example.flutter_application_1/widget',
   );
   String? _pendingRoute;
+  late ThemeProvider _themeProvider;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // 设置 MethodChannel 监听器
     _channel.setMethodCallHandler(_handleMethodCall);
-    // 初始化主题
-    _initTheme();
+    _themeProvider = ThemeProvider()..init();
   }
 
-  /// 初始化主题设置
-  Future<void> _initTheme() async {
-    final themeProvider = context.read<ThemeProvider>();
-    await themeProvider.init();
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
@@ -106,11 +102,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 可以在这里处理从后台恢复时的深层链接
-  }
-
   /// 导航到 Lab 页面
   static void navigateToLab() {
     navigatorKey.currentState?.push(
@@ -122,7 +113,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider.value(value: _themeProvider),
         ChangeNotifierProvider(create: (_) => MessageProvider()),
         ChangeNotifierProvider(create: (_) => LabNoteProvider()),
         ChangeNotifierProvider(create: (_) => LabClockProvider()),
@@ -134,7 +125,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         builder: (context, themeProvider, child) {
           return MaterialApp(
             navigatorKey: navigatorKey,
-            title: 'Flutter 聊天应用',
+            title: '小豆子',
             debugShowCheckedModeBanner: false,
             theme: themeProvider.themeData,
             themeMode: themeProvider.themeModeValue,
@@ -176,7 +167,7 @@ class _MainScreenState extends State<MainScreen> {
     HomePage(), // 1: 聊天
     FocusHomePage(), // 2: O - 专注计时器
     GalleryManagePage(), // 3: 图库
-    _DevPage(), // 4: 待开发
+    TimetablePage(), // 4: 课表
   ];
 
   @override

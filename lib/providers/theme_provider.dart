@@ -32,6 +32,7 @@ class ThemeProvider extends ChangeNotifier {
 
   /// 初始化主题Provider
   Future<void> init() async {
+    if (_prefs != null) return; // 防止重复初始化
     _prefs = await SharedPreferences.getInstance();
     await _loadThemeMode();
   }

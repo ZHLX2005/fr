@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
-import '../../core/services/gallery_service.dart';
+import '../../services/gallery_service.dart';
 
 /// 图库管理页面
 /// 展示所有图片和相册分组，支持图片移动
