@@ -1,3 +1,6 @@
+/// 周期管理 - 基础数据模型
+/// 功能待开发，仅保留结构定义
+
 /// 周单双类型枚举
 enum WeekOddEven {
   all(0, '全部'),
@@ -16,38 +19,49 @@ enum WeekOddEven {
   }
 }
 
-/// 课表配置模型
+/// 周期配置模型
 class TimetableConfig {
   const TimetableConfig({
     required this.rows,
     required this.cols,
+    this.cycleCount = 4,
     this.id = 'default',
   });
 
   final String id;
-  final int rows;
-  final int cols;
+  final int rows;      // 节数（行）
+  final int cols;      // 天数（列）
+  final int cycleCount; // 周期数
 
-  TimetableConfig copyWith({int? rows, int? cols}) {
+  TimetableConfig copyWith({int? rows, int? cols, int? cycleCount}) {
     return TimetableConfig(
       id: id,
       rows: rows ?? this.rows,
       cols: cols ?? this.cols,
+      cycleCount: cycleCount ?? this.cycleCount,
     );
   }
 
   static const TimetableConfig defaultConfig = TimetableConfig(
     id: 'default',
-    rows: 12,
+    rows: 5,
     cols: 7,
+    cycleCount: 4,
   );
+
+  /// 最大限制
+  static const int maxCols = 10;
+  static const int maxRows = 5;
+  static const int maxCycles = 16;
+  static const int minCycles = 1;
 }
 
-/// 课程模型
+/// 课程模型 - 待开发
 class Course {
   const Course({
     required this.id,
-    required this.cellKey,
+    required this.row,
+    required this.col,
     required this.title,
     required this.weekStart,
     required this.weekEnd,
@@ -61,7 +75,8 @@ class Course {
   });
 
   final String id;
-  final String cellKey; // 格式: "c{col}_r{row}" 例如 "c3_r5"
+  final int row;
+  final int col;
   final String title;
   final int weekStart;
   final int weekEnd;
@@ -75,7 +90,8 @@ class Course {
 
   Course copyWith({
     String? id,
-    String? cellKey,
+    int? row,
+    int? col,
     String? title,
     int? weekStart,
     int? weekEnd,
@@ -89,7 +105,8 @@ class Course {
   }) {
     return Course(
       id: id ?? this.id,
-      cellKey: cellKey ?? this.cellKey,
+      row: row ?? this.row,
+      col: col ?? this.col,
       title: title ?? this.title,
       weekStart: weekStart ?? this.weekStart,
       weekEnd: weekEnd ?? this.weekEnd,
@@ -102,24 +119,13 @@ class Course {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-
-  /// 从 cellKey 解析列索引
-  int get col {
-    final match = RegExp(r'c(\d+)').firstMatch(cellKey);
-    return match != null ? int.parse(match.group(1)!) : 0;
-  }
-
-  /// 从 cellKey 解析行索引
-  int get row {
-    final match = RegExp(r'r(\d+)').firstMatch(cellKey);
-    return match != null ? int.parse(match.group(1)!) : 0;
-  }
 }
 
-/// 课程草稿（用于编辑）
+/// 课程草稿 - 待开发
 class CourseDraft {
   CourseDraft({
-    required this.cellKey,
+    required this.row,
+    required this.col,
     this.title = '',
     this.weekStart = 1,
     this.weekEnd = 16,
@@ -129,7 +135,8 @@ class CourseDraft {
     this.oddEven = WeekOddEven.all,
   });
 
-  final String cellKey;
+  final int row;
+  final int col;
   String title;
   int weekStart;
   int weekEnd;
@@ -138,52 +145,8 @@ class CourseDraft {
   int? colorSeed;
   WeekOddEven oddEven;
 
-  /// 从现有课程创建草稿
-  factory CourseDraft.fromCourse(Course course) {
-    return CourseDraft(
-      cellKey: course.cellKey,
-      title: course.title,
-      weekStart: course.weekStart,
-      weekEnd: course.weekEnd,
-      location: course.location,
-      teacher: course.teacher,
-      colorSeed: course.colorSeed,
-      oddEven: course.oddEven,
-    );
-  }
-
-  /// 创建空草稿
-  factory CourseDraft.empty(String cellKey) {
-    return CourseDraft(cellKey: cellKey);
-  }
-
   bool get isValid =>
       title.trim().isNotEmpty &&
       weekStart >= 1 &&
       weekEnd >= weekStart;
-}
-
-/// 错误类型
-sealed class AppError {
-  const AppError();
-}
-
-class ValidationError extends AppError {
-  const ValidationError(this.message);
-  final String message;
-}
-
-class StorageError extends AppError {
-  const StorageError(this.message);
-  final String message;
-}
-
-/// 结果包装
-class Result<T> {
-  Result.ok(this.value) : error = null;
-  Result.err(this.error) : value = null;
-
-  final T? value;
-  final AppError? error;
-  bool get isOk => error == null;
 }

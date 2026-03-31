@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
-import '../data/local_timetable_repository.dart';
-import '../domain/models.dart';
-import 'timetable_cell.dart';
-import 'timetable_controller.dart';
-import 'course_editor_sheet.dart';
-import 'timetable_settings_sheet.dart';
 
-/// 课表页面
+/// 周期管理页面 - 多页切换框架
 class TimetablePage extends StatefulWidget {
   const TimetablePage({super.key});
 
@@ -15,145 +9,57 @@ class TimetablePage extends StatefulWidget {
 }
 
 class _TimetablePageState extends State<TimetablePage> {
-  late TimetableController _controller;
-  bool _isInitialized = false;
+  final PageController _pageController = PageController(viewportFraction: 1.0);
+  int _currentIndex = 0;
+
+  // 可配置的周期数（默认4个周期）
+  static const int _cycleCount = 4;
 
   @override
-  void initState() {
-    super.initState();
-    _controller = TimetableController(LocalTimetableRepository());
-    _init();
-  }
-
-  Future<void> _init() async {
-    await _controller.init();
-    if (mounted) {
-      setState(() => _isInitialized = true);
-    }
-  }
-
-  String _cellKey(int col, int row) => 'c${col}_r$row';
-
-  Future<void> _onCellTap(int col, int row) async {
-    final cellKey = _cellKey(col, row);
-    final existingCourse = _controller.getCourseAt(cellKey);
-
-    final draft = await CourseEditorBottomSheet.show(
-      context,
-      cellKey: cellKey,
-      existingCourse: existingCourse,
-    );
-
-    if (draft == null) return;
-
-    // 检查是否是删除操作
-    if (draft.title == '__DELETE__') {
-      final result = await _controller.deleteCourse(cellKey);
-      if (result.isOk && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('课程已删除')));
-      }
-      return;
-    }
-
-    // 保存课程
-    final result = await _controller.saveDraft(draft);
-    if (!result.isOk && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((result.error as ValidationError).message)),
-      );
-    }
-  }
-
-  Future<void> _openSettings() async {
-    final newConfig = await TimetableSettingsBottomSheet.show(
-      context,
-      currentConfig: _controller.state.config,
-    );
-
-    if (newConfig == null) return;
-
-    final result = await _controller.updateConfig(newConfig.rows, newConfig.cols);
-    if (mounted) {
-      if (result.isOk) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('设置已保存')));
-      } else if (result.error is ValidationError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text((result.error as ValidationError).message)),
-        );
-      }
-    }
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (!_isInitialized) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    final state = _controller.state;
-    final config = state.config;
-
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('课表'),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          '周期管理',
+          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _openSettings,
+            icon: const Icon(Icons.more_horiz),
+            onPressed: () {
+              // 设置按钮 - 待开发
+            },
             tooltip: '设置',
           ),
         ],
       ),
       body: Column(
         children: [
-          // 表头（天数）
-          Container(
-            height: 40,
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                const SizedBox(width: 40), // 角落留空
-                ...List.generate(config.cols, (col) {
-                  return Expanded(
-                    child: Center(
-                      child: Text(
-                        _getDayLabel(col),
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-          // 课表网格
+          // 周期指示器
+          _buildCycleIndicator(theme),
+          const Divider(height: 1),
+          // 多页切换
           Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(8),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: config.cols,
-                mainAxisSpacing: 4,
-                crossAxisSpacing: 4,
-                childAspectRatio: 1.2,
-              ),
-              itemCount: config.cols * config.rows,
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() => _currentIndex = index);
+              },
+              itemCount: _cycleCount,
               itemBuilder: (context, index) {
-                final col = index % config.cols;
-                final row = index ~/ config.cols;
-                final cellKey = _cellKey(col, row);
-                final course = state.coursesByCell[cellKey];
-
-                return TimetableCell(
-                  cellKey: cellKey,
-                  course: course,
-                  onTap: () => _onCellTap(col, row),
-                );
+                return _CyclePlaceholder(cycleIndex: index);
               },
             ),
           ),
@@ -162,8 +68,125 @@ class _TimetablePageState extends State<TimetablePage> {
     );
   }
 
-  String _getDayLabel(int col) {
-    const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日', '八', '九', '十', '十一', '十二', '十三', '十四'];
-    return col < days.length ? days[col] : '第${col + 1}天';
+  /// 周期指示器
+  Widget _buildCycleIndicator(ThemeData theme) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: _currentIndex > 0
+                ? () => _pageController.previousPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  )
+                : null,
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_cycleCount, (index) {
+                final isActive = index == _currentIndex;
+                return GestureDetector(
+                  onTap: () => _pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isActive
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: _currentIndex < _cycleCount - 1
+                ? () => _pageController.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  )
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 单个周期占位页面
+class _CyclePlaceholder extends StatelessWidget {
+  const _CyclePlaceholder({required this.cycleIndex});
+
+  final int cycleIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.calendar_today_outlined,
+            size: 64,
+            color: theme.colorScheme.outline.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '第 ${cycleIndex + 1} 周期',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '功能待开发',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.outline,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '周数范围: 待配置',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
