@@ -37,7 +37,7 @@ class TimetableConfig {
       daysPerCycle: daysPerCycle ?? this.daysPerCycle,
       slotsPerDay: slotsPerDay ?? this.slotsPerDay,
       id: id ?? this.id,
-      updatedAt: updatedAt ?? DateTime.now().millisecondsSinceEpoch,
+      updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
   }
 
@@ -62,10 +62,11 @@ class TimetableConfig {
 }
 
 /// 课程项目（排课最小单元）
+/// 存储 dayOfCycle 表示在周期中的第几天，会在所有周期重复显示
 class CourseItem {
   const CourseItem({
     required this.id,
-    required this.dayIndex,
+    required this.dayOfCycle,
     required this.slotIndex,
     required this.title,
     this.location,
@@ -77,8 +78,8 @@ class CourseItem {
   });
 
   final String id;
-  /// 全局天数索引 (0 起)
-  final int dayIndex;
+  /// 周期中的第几天 (0 起, 0=周期第一天)
+  final int dayOfCycle;
   /// 节次索引 (0 起)
   final int slotIndex;
   final String title;
@@ -91,7 +92,7 @@ class CourseItem {
 
   CourseItem copyWith({
     String? id,
-    int? dayIndex,
+    int? dayOfCycle,
     int? slotIndex,
     String? title,
     String? location,
@@ -103,7 +104,7 @@ class CourseItem {
   }) {
     return CourseItem(
       id: id ?? this.id,
-      dayIndex: dayIndex ?? this.dayIndex,
+      dayOfCycle: dayOfCycle ?? this.dayOfCycle,
       slotIndex: slotIndex ?? this.slotIndex,
       title: title ?? this.title,
       location: location ?? this.location,
@@ -115,8 +116,8 @@ class CourseItem {
     );
   }
 
-  /// 生成 cellKey
-  String get cellKey => 'd${dayIndex}_s$slotIndex';
+  /// 生成 cellKey - 使用 dayOfCycle 存储，这样所有周期共享同一门课程
+  String get cellKey => 'd${dayOfCycle}_s$slotIndex';
 }
 
 /// 映射函数工具类
@@ -150,5 +151,11 @@ class TimetableMappers {
     final startWeek = cycleIndex * daysPerCycle ~/ 7 + 1;
     final endWeek = ((cycleIndex + 1) * daysPerCycle - 1) ~/ 7 + 1;
     return '第$startWeek-$endWeek周';
+  }
+
+  /// 获取星期几的名称
+  static String getWeekdayName(int dayOfCycle) {
+    const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    return weekdays[dayOfCycle % 7];
   }
 }
