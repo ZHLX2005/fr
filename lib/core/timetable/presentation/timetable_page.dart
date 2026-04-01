@@ -32,9 +32,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     super.dispose();
   }
 
-  /// 生成单元格唯一键（包含周期索引）
+  /// 生成单元格唯一键
   String _cellKey(int cycleIndex, int dayOfCycle, int slotIndex) {
-    return 'c${cycleIndex}_d${dayOfCycle}_s$slotIndex';
+    return '$cycleIndex-$dayOfCycle-$slotIndex';
   }
 
   @override
@@ -160,70 +160,49 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     // 获取原始课程数据（用于编辑）
     final allSlots = ref.watch(TimetableStore.allDaySlotsProvider);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 计算每行的高度：最小80，最大自适应
-        final availableHeight = constraints.maxHeight;
-        final minHeightPerSlot = 72.0;
-        final calculatedHeight = (availableHeight / config.slotsPerDay)
-            .clamp(minHeightPerSlot, 120.0);
-
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          itemCount: config.slotsPerDay,
-          itemExtent: calculatedHeight, // 固定高度以提高性能
-          itemBuilder: (context, slotIndex) {
-            return Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.colorScheme.outline.withValues(alpha: 0.1),
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: config.slotsPerDay,
+      itemBuilder: (context, slotIndex) {
+        return SizedBox(
+          height: 80,
+          child: Row(
+            children: [
+              // 时间列
+              SizedBox(
+                width: 50,
+                child: Center(
+                  child: Text(
+                    '第${slotIndex + 1}节',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
                   ),
                 ),
               ),
-              child: Row(
-                children: [
-                  // 时间列
-                  Container(
-                    width: 50,
-                    alignment: Alignment.center,
-                    child: Text(
-                      '第${slotIndex + 1}节',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                  ),
-                  // 课程网格列 - 只显示 daysPerCycle 列
-                  Expanded(
-                    child: Row(
-                      children: List.generate(config.daysPerCycle, (dayOfCycle) {
-                        final course = cycleGrid[dayOfCycle][slotIndex];
-                        final cellKeyValue = _cellKey(cycleIndex, dayOfCycle, slotIndex);
-                        final isSelected = _selectedCellKey == cellKeyValue;
-                        // 获取原始课程数据（用于编辑）
-                        final originalCourse = allSlots[dayOfCycle]?[slotIndex];
+              // 课程网格列
+              ...List.generate(config.daysPerCycle, (dayOfCycle) {
+                final course = cycleGrid[dayOfCycle][slotIndex];
+                final cellKeyValue = '$cycleIndex-$dayOfCycle-$slotIndex';
+                final isSelected = _selectedCellKey == cellKeyValue;
+                final originalCourse = allSlots[dayOfCycle]?[slotIndex];
 
-                        return Expanded(
-                          child: TimetableCell(
-                            key: ValueKey(cellKeyValue),
-                            state: isSelected
-                                ? TimetableCellState.selected
-                                : (course != null
-                                    ? TimetableCellState.filled
-                                    : TimetableCellState.empty),
-                            course: course,
-                            onTap: () => _handleCellTap(cycleIndex, dayOfCycle, slotIndex, originalCourse),
-                            onLongPress: () => _handleCellLongPress(cycleIndex, dayOfCycle, slotIndex, originalCourse),
-                          ),
-                        );
-                      }),
-                    ),
+                return Expanded(
+                  child: TimetableCell(
+                    key: ValueKey(cellKeyValue),
+                    state: isSelected
+                        ? TimetableCellState.selected
+                        : (course != null
+                            ? TimetableCellState.filled
+                            : TimetableCellState.empty),
+                    course: course,
+                    onTap: () => _handleCellTap(cycleIndex, dayOfCycle, slotIndex, originalCourse),
+                    onLongPress: () => _handleCellLongPress(cycleIndex, dayOfCycle, slotIndex, originalCourse),
                   ),
-                ],
-              ),
-            );
-          },
+                );
+              }),
+            ],
+          ),
         );
       },
     );
