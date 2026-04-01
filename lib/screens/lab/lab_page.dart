@@ -206,7 +206,12 @@ class _DemoCardState extends State<_DemoCard> {
     super.initState();
     _provider.addListener(_onProviderChanged);
     _cacheService.init();
-    _preloadImage();
+    _initAndPreload();
+  }
+
+  Future<void> _initAndPreload() async {
+    await _provider.onLoaded;
+    if (mounted) _preloadImage();
   }
 
   @override
@@ -215,10 +220,13 @@ class _DemoCardState extends State<_DemoCard> {
     super.dispose();
   }
 
-  void _onProviderChanged() {
+  void _onProviderChanged() async {
     if (mounted) {
-      _preloadImage();
-      setState(() {});
+      await _provider.onLoaded;
+      if (mounted) {
+        _preloadImage();
+        setState(() {});
+      }
     }
   }
 

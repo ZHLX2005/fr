@@ -12,8 +12,19 @@ class LabCardProvider with ChangeNotifier {
     return _instance!;
   }
 
-  LabCardProvider._internal() {
+  LabCardProvider._internal() : _isLoaded = false {
     _loadBackgrounds();
+  }
+
+  /// 数据是否已从持久化加载完成
+  bool _isLoaded;
+  bool get isLoaded => _isLoaded;
+
+  /// 数据加载完成后触发（用于外部 await）
+  Future<void> get onLoaded async {
+    while (!_isLoaded) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
   }
 
   // 存储 demo 标题 -> 背景图片 URL 的映射
@@ -81,6 +92,7 @@ class LabCardProvider with ChangeNotifier {
         }
       }
     }
+    _isLoaded = true;
   }
 
   /// 保存背景配置到持久化存储
