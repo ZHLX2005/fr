@@ -24,9 +24,6 @@ class _CalendarDemoPage extends StatefulWidget {
 }
 
 class _CalendarDemoPageState extends State<_CalendarDemoPage> {
-  // 主题颜色 - 与原版一致
-  static const Color _primaryColor = Color(0xFF54D3C2);
-
   List<DateTime> dateList = <DateTime>[];
   DateTime currentMonthDate = DateTime.now();
   DateTime? startDate;
@@ -55,16 +52,19 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: const Text(
+        title: Text(
           '选择日期',
           style: TextStyle(
-            color: Color(0xFF000000),
+            color: colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -84,30 +84,30 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                     if (startDate != null)
                       Text(
                         DateFormat('yyyy-MM-dd').format(startDate!),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: _primaryColor,
+                          color: colorScheme.primary,
                         ),
                       ),
                     if (startDate != null && endDate != null)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('→', style: TextStyle(color: Colors.grey)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('→', style: TextStyle(color: colorScheme.onSurfaceVariant)),
                       ),
                     if (endDate != null)
                       Text(
                         DateFormat('yyyy-MM-dd').format(endDate!),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: _primaryColor,
+                          color: colorScheme.primary,
                         ),
                       ),
                     if (startDate != null && endDate != null)
                       Text(
                         ' (${endDate!.difference(startDate!).inDays + 1}天)',
-                        style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
                       ),
                   ],
                 ),
@@ -130,7 +130,7 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                               width: 38,
                               decoration: BoxDecoration(
                                 borderRadius: const BorderRadius.all(Radius.circular(24.0)),
-                                border: Border.all(color: const Color(0xFFE0E0E0)),
+                                border: Border.all(color: colorScheme.outline),
                               ),
                               child: Material(
                                 color: Colors.transparent,
@@ -142,7 +142,7 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                                       setListOfDate(currentMonthDate);
                                     });
                                   },
-                                  child: const Icon(Icons.keyboard_arrow_left, color: Colors.grey),
+                                  child: Icon(Icons.keyboard_arrow_left, color: colorScheme.onSurfaceVariant),
                                 ),
                               ),
                             ),
@@ -152,10 +152,10 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                             child: Center(
                               child: Text(
                                 DateFormat('MMMM, yyyy').format(currentMonthDate),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w500,
                                   fontSize: 20,
-                                  color: Colors.black,
+                                  color: colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -168,7 +168,7 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                               width: 38,
                               decoration: BoxDecoration(
                                 borderRadius: const BorderRadius.all(Radius.circular(24.0)),
-                                border: Border.all(color: const Color(0xFFE0E0E0)),
+                                border: Border.all(color: colorScheme.outline),
                               ),
                               child: Material(
                                 color: Colors.transparent,
@@ -180,7 +180,7 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                                       setListOfDate(currentMonthDate);
                                     });
                                   },
-                                  child: const Icon(Icons.keyboard_arrow_right, color: Colors.grey),
+                                  child: Icon(Icons.keyboard_arrow_right, color: colorScheme.onSurfaceVariant),
                                 ),
                               ),
                             ),
@@ -214,6 +214,8 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
   }
 
   List<Widget> getDaysNameUI() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final List<Widget> listUI = <Widget>[];
     for (int i = 0; i < 7; i++) {
       listUI.add(
@@ -221,10 +223,10 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
           child: Center(
             child: Text(
               DateFormat('EEE').format(dateList[i]),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: _primaryColor,
+                color: colorScheme.primary,
               ),
             ),
           ),
@@ -235,6 +237,8 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
   }
 
   List<Widget> getDaysNoUI() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final List<Widget> noList = <Widget>[];
     int count = 0;
     for (int i = 0; i < dateList.length / 7; i++) {
@@ -263,7 +267,7 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                           decoration: BoxDecoration(
                             color: startDate != null && endDate != null
                                 ? getIsItStartAndEndDate(date) || getIsInRange(date)
-                                    ? _primaryColor.withOpacity(0.4)
+                                    ? colorScheme.primary.withOpacity(0.3)
                                     : Colors.transparent
                                 : Colors.transparent,
                             borderRadius: BorderRadius.only(
@@ -287,16 +291,16 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                         padding: const EdgeInsets.all(2),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: getIsItStartAndEndDate(date) ? _primaryColor : Colors.transparent,
+                            color: getIsItStartAndEndDate(date) ? colorScheme.primary : Colors.transparent,
                             borderRadius: const BorderRadius.all(Radius.circular(32.0)),
                             border: Border.all(
-                              color: getIsItStartAndEndDate(date) ? Colors.white : Colors.transparent,
+                              color: getIsItStartAndEndDate(date) ? colorScheme.onPrimary : Colors.transparent,
                               width: 2,
                             ),
                             boxShadow: getIsItStartAndEndDate(date)
                                 ? <BoxShadow>[
                                     BoxShadow(
-                                      color: Colors.grey.withOpacity(0.6),
+                                      color: colorScheme.primary.withOpacity(0.4),
                                       blurRadius: 4,
                                       offset: const Offset(0, 0),
                                     ),
@@ -308,10 +312,10 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                               '${date.day}',
                               style: TextStyle(
                                 color: getIsItStartAndEndDate(date)
-                                    ? Colors.white
+                                    ? colorScheme.onPrimary
                                     : currentMonthDate.month == date.month
-                                        ? Colors.black
-                                        : Colors.grey.withOpacity(0.6),
+                                        ? colorScheme.onSurface
+                                        : colorScheme.onSurface.withOpacity(0.4),
                                 fontSize: MediaQuery.of(context).size.width > 360 ? 18 : 16,
                                 fontWeight: getIsItStartAndEndDate(date) ? FontWeight.bold : FontWeight.normal,
                               ),
@@ -334,8 +338,8 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                                 DateTime.now().month == date.month &&
                                 DateTime.now().year == date.year
                             ? getIsInRange(date)
-                                ? Colors.white
-                                : _primaryColor
+                                ? colorScheme.onPrimary
+                                : colorScheme.primary
                             : Colors.transparent,
                         shape: BoxShape.circle,
                       ),
