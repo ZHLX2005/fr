@@ -236,7 +236,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('摇一摇启动: ${firstStoppedClock.title}'),
-            backgroundColor: const Color(0xFF007AFF),
+            backgroundColor: Theme.of(context).primaryColor,
             duration: const Duration(seconds: 1),
           ),
         );
@@ -336,7 +336,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
           Switch(
             value: _shakeToStartEnabled,
             onChanged: (_) => _toggleShakeToStart(),
-            activeColor: const Color(0xFF007AFF),
+            activeColor: Theme.of(context).primaryColor,
           ),
           const SizedBox(width: 8),
         ],
@@ -516,7 +516,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                   children: [
                     Icon(
                       Icons.history_rounded,
-                      color: const Color(0xFF007AFF),
+                      color: Theme.of(context).primaryColor,
                       size: 22,
                     ),
                     const SizedBox(width: 10),
@@ -652,6 +652,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
           ],
         ),
         child: _RecordSwipeAction(
+          themeColor: Theme.of(context).primaryColor,
           onCreate: () async {
             // 优先使用自定义名称，否则使用原始名称
             final title = record.customTitle ?? record.clockTitle;
@@ -665,7 +666,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('已创建新时钟: $durationStr'),
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: Theme.of(context).primaryColor,
                   ),
                 );
               }
@@ -975,7 +976,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                     Navigator.pop(ctx);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007AFF),
+                    backgroundColor: Theme.of(ctx).primaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -1356,6 +1357,7 @@ class _RecordSwipeAction extends StatefulWidget {
   final VoidCallback onDelete;
   final int index;
   final VoidCallback onExpand; // 展开时回调，用于点击空白处收回
+  final Color themeColor;
 
   const _RecordSwipeAction({
     super.key,
@@ -1364,6 +1366,7 @@ class _RecordSwipeAction extends StatefulWidget {
     required this.onDelete,
     required this.index,
     required this.onExpand,
+    required this.themeColor,
   });
 
   @override
@@ -1473,9 +1476,9 @@ class _RecordSwipeActionState extends State<_RecordSwipeAction> {
                     },
                     child: Container(
                       width: _actionWidth,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF007AFF),
-                        borderRadius: BorderRadius.only(
+                      decoration: BoxDecoration(
+                        color: widget.themeColor,
+                        borderRadius: const BorderRadius.only(
                           topRight: Radius.circular(12),
                           bottomRight: Radius.circular(12),
                         ),
