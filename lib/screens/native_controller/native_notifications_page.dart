@@ -197,17 +197,19 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF2F3F8),
-        body: SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F3F8),
+      body: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 标题
+              // 标题 - 延伸到状态栏后
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [

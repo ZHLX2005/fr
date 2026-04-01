@@ -29,8 +29,8 @@ class _SnakeGamePage extends StatefulWidget {
 }
 
 class _SnakeGamePageState extends State<_SnakeGamePage> {
-  int _noOfRow = 20;
-  int _noOfColumn = 12;
+  static const int _noOfRow = 20;
+  static const int _noOfColumn = 12;
   List<int> _borderList = [];
   List<int> _snakePosition = [];
   int _snakeHead = 0;
@@ -271,31 +271,46 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
             Expanded(
               child: Column(
                 children: [
-                  // 游戏区域
+                  // 游戏区域 - 自适应尺寸
                   Expanded(
                     flex: 3,
-                    child: Container(
-                      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.blue, width: 2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _noOfRow * _noOfColumn,
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: _noOfColumn,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        // 计算每个格子的大小，确保正方形且适应容器
+                        final availableWidth = constraints.maxWidth - 32; // 减去左右margin
+                        final availableHeight = constraints.maxHeight - 32; // 减去上下margin
+                        final cellSize = (availableWidth / _noOfColumn < availableHeight / _noOfRow)
+                            ? availableWidth / _noOfColumn
+                            : availableHeight / _noOfRow;
+                        final actualCellSize = cellSize.clamp(8.0, 20.0); // 限制大小范围
+
+                        return Container(
+                          margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue, width: 2),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          itemBuilder: (context, index) {
-                            return Container(
-                              margin: const EdgeInsets.all(0.5),
-                              color: _boxFillColor(index),
-                            );
-                          },
-                        ),
-                      ),
+                          child: Center(
+                            child: SizedBox(
+                              width: actualCellSize * _noOfColumn,
+                              height: actualCellSize * _noOfRow,
+                              child: GridView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _noOfRow * _noOfColumn,
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: _noOfColumn,
+                                ),
+                                itemBuilder: (context, index) {
+                                  return Container(
+                                    margin: EdgeInsets.all(actualCellSize * 0.05),
+                                    color: _boxFillColor(index),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   // 方向控制按钮
@@ -392,24 +407,6 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
     for (int i = (_noOfRow * _noOfColumn) - _noOfColumn; i < _noOfRow * _noOfColumn; i++) {
       _borderList.add(i);
     }
-  }
-}
-
-class _ControlHint extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _ControlHint({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, size: 24, color: Colors.grey[600]),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-      ],
-    );
   }
 }
 
