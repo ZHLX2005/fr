@@ -76,7 +76,7 @@ class MiniDocEditorState extends State<MiniDocEditor> {
                         // 空字符（删除）会关闭
                       },
                       onCancel: _closeAiOverlay,
-                      onSubmit: _closeAiOverlay,
+                      onSubmit: _submitAiText,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -105,6 +105,30 @@ class MiniDocEditorState extends State<MiniDocEditor> {
 
   void _closeAiOverlay() {
     _removeAiOverlay(restoreFocus: true);
+  }
+
+  void _submitAiText(String text) {
+    if (text.isEmpty) {
+      _closeAiOverlay();
+      return;
+    }
+
+    final submittedText = '\n$text';
+    final insertOffset = _savedSelection?.baseOffset ?? _textController.text.length;
+    final currentText = _textController.text;
+
+    // 在光标位置插入AI生成的文字
+    final newText = currentText.substring(0, insertOffset) +
+        submittedText +
+        currentText.substring(insertOffset);
+
+    _textController.text = newText;
+    // 将光标移到插入文字之后
+    _textController.selection = TextSelection.collapsed(
+      offset: insertOffset + submittedText.length,
+    );
+
+    _closeAiOverlay();
   }
 
   void _removeAiOverlay({bool restoreFocus = false}) {
@@ -194,7 +218,7 @@ class _AiPromptField extends StatefulWidget {
   final FocusNode focusNode;
   final void Function(String ch) onFirstChar;
   final VoidCallback onCancel;
-  final VoidCallback onSubmit;
+  final void Function(String text) onSubmit;
 
   const _AiPromptField({
     required this.controller,
@@ -222,7 +246,7 @@ class _AiPromptFieldState extends State<_AiPromptField> {
         contentPadding: EdgeInsets.zero,
       ),
       textInputAction: TextInputAction.done,
-      onSubmitted: (_) => widget.onSubmit(),
+      onSubmitted: (text) => widget.onSubmit(text),
     );
   }
 }
