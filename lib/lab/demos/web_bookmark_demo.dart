@@ -151,7 +151,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
             : _buildReorderableGrid(controller),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddDialog(context),
+        onPressed: () => _showAddOptions(context),
         backgroundColor: const Color(0xFF007AFF),
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -159,57 +159,96 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
   }
 
   Widget _buildReorderableGrid(BookmarkProvider controller) {
-    final bookmarks = controller.items.whereType<SingleBookmark>().toList();
+    final allItems = controller.items;
 
-    return ReorderableBuilder<SingleBookmark>.builder(
-      key: Key(widget.gridViewKey.toString()),
-      scrollController: widget.scrollController,
-      longPressDelay: const Duration(milliseconds: 300),
-      onDragStarted: (index) {
-        HapticFeedback.lightImpact();
-        _startEditModeTimer(Duration(milliseconds: controller.editModeDelayMs), () {
-          final item = bookmarks[index];
-          _enterEditMode();
-          _showEditBookmarkDialog(context, controller, item);
-        });
-      },
-      onUpdatedDraggedChild: (index) {
-        _cancelEditModeTimer();
-      },
-      onDragEnd: (index) {
-        _cancelEditModeTimer();
-      },
-      onReorder: (reorderedListFunction) {
-        final reorderedItems = reorderedListFunction(bookmarks);
-        controller.reorderItems(reorderedItems);
-      },
-      itemCount: bookmarks.length,
-      childBuilder: (itemBuilder) {
-        return GridView.builder(
-          key: widget.gridViewKey,
-          controller: widget.scrollController,
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 0.85,
-          ),
-          itemCount: bookmarks.length,
-          itemBuilder: (context, index) {
-            final item = bookmarks[index];
-            return itemBuilder(
-              _BookmarkCard(
-                key: ValueKey(item.id),
-                bookmark: item,
-                isEditMode: _isEditMode,
-                onTap: () => _openBookmark(context, item),
+    return GridView.builder(
+      key: widget.gridViewKey,
+      controller: widget.scrollController,
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: allItems.length,
+      itemBuilder: (context, index) {
+        final item = allItems[index];
+        if (item is BookmarkFolder) {
+          return _FolderCard(
+            key: ValueKey(item.id),
+            folder: item,
+            onTap: () => _openFolder(context, item),
+          );
+        }
+        // SingleBookmark
+        final bookmark = item as SingleBookmark;
+        return LongPressDraggable<SingleBookmark>(
+          data: bookmark,
+          delay: Duration(milliseconds: controller.editModeDelayMs),
+          feedback: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              width: 80,
+              height: 80,
+              child: _BookmarkCard(
+                bookmark: bookmark,
+                isEditMode: false,
               ),
-              index,
-            );
+            ),
+          ),
+          childWhenDragging: Opacity(
+            opacity: 0.3,
+            child: _BookmarkCard(
+              bookmark: bookmark,
+              isEditMode: _isEditMode,
+            ),
+          ),
+          onDragStarted: () {
+            HapticFeedback.lightImpact();
+            controller.startDrag(bookmark);
           },
+          onDragEnd: (_) => controller.cancelDrag(),
+          child: DragTarget<SingleBookmark>(
+            onWillAcceptWithDetails: (details) => details.data.id != bookmark.id,
+            onAcceptWithDetails: (details) {
+              controller.commitMergeToFolder(bookmark.id);
+            },
+            builder: (context, candidateData, rejectedData) {
+              final isHovering = candidateData.isNotEmpty;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: isHovering
+                      ? Border.all(color: Colors.blue, width: 2)
+                      : null,
+                ),
+                child: _BookmarkCard(
+                  key: ValueKey(bookmark.id),
+                  bookmark: bookmark,
+                  isEditMode: _isEditMode,
+                  onTap: () => _openBookmark(context, bookmark),
+                  onLongPress: () {
+                    _enterEditMode();
+                    _showEditBookmarkDialog(context, controller, bookmark);
+                  },
+                ),
+              );
+            },
+          ),
         );
       },
+    );
+  }
+
+  void _openFolder(BuildContext context, BookmarkFolder folder) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _FolderDetailPage(folder: folder),
+      ),
     );
   }
 
@@ -291,6 +330,74 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showAddOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.bookmark_add),
+              title: const Text('添加书签'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAddDialog(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.create_new_folder),
+              title: const Text('创建文件夹'),
+              onTap: () {
+                Navigator.pop(context);
+                _showCreateFolderDialog(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCreateFolderDialog(BuildContext context) {
+    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+    final nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('创建文件夹'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: '文件夹名称',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isEmpty) return;
+              controller.addItem(BookmarkFolder(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                name: name,
+                children: [],
+              ));
+              Navigator.pop(context);
+            },
+            child: const Text('创建'),
+          ),
+        ],
       ),
     );
   }
@@ -1222,17 +1329,208 @@ class _IconTypeOption extends StatelessWidget {
   }
 }
 
+/// Folder Card Widget
+class _FolderCard extends StatelessWidget {
+  final BookmarkFolder folder;
+  final VoidCallback? onTap;
+
+  const _FolderCard({
+    super.key,
+    required this.folder,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<SingleBookmark>(
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) {
+        final controller = Provider.of<BookmarkProvider>(context, listen: false);
+        // 直接添加到文件夹
+        final updatedFolder = folder.copyWith(
+          children: [...folder.children, details.data],
+        );
+        controller.editItem(folder.id, updatedFolder);
+        // 从主列表移除
+        controller.deleteItem(details.data.id);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+        return GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: isHovering
+                  ? Border.all(color: Colors.amber, width: 2.5)
+                  : Border.all(color: Colors.amber.withAlpha(77), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: isHovering
+                      ? Colors.amber.withAlpha(51)
+                      : Colors.black.withAlpha(20),
+                  blurRadius: isHovering ? 12 : 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: isHovering ? Colors.amber : Colors.amber.shade100,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    isHovering ? Icons.folder_open : Icons.folder,
+                    color: isHovering ? Colors.white : Colors.amber.shade700,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    folder.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF333333),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${folder.children.length}项',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                if (isHovering)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.amber,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      '松开放入',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Folder Detail Page
+class _FolderDetailPage extends StatelessWidget {
+  final BookmarkFolder folder;
+
+  const _FolderDetailPage({required this.folder});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+    // 从provider获取最新的folder数据
+    final currentFolder = controller.items
+        .whereType<BookmarkFolder>()
+        .firstWhere((f) => f.id == folder.id, orElse: () => folder);
+    final children = currentFolder.children;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
+      appBar: AppBar(
+        title: Text(currentFolder.name),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: children.isEmpty
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.folder_open, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('文件夹为空', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                  SizedBox(height: 8),
+                  Text('拖拽书签到此处', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                ],
+              ),
+            )
+          : GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: children.length,
+              itemBuilder: (context, index) {
+                final item = children[index];
+                return _BookmarkCard(
+                  key: ValueKey(item.id),
+                  bookmark: item,
+                  isEditMode: false,
+                  onTap: () => _openBookmarkInFolder(context, item),
+                );
+              },
+            ),
+    );
+  }
+
+  void _openBookmarkInFolder(BuildContext context, SingleBookmark item) async {
+    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+    if (controller.useExternalBrowser) {
+      final uri = Uri.parse(item.url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => _WebViewPage(bookmark: item),
+        ),
+      );
+    }
+  }
+}
+
 /// Bookmark Card Widget
 class _BookmarkCard extends StatelessWidget {
   final SingleBookmark bookmark;
   final bool isEditMode;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const _BookmarkCard({
     super.key,
     required this.bookmark,
     required this.isEditMode,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -1241,6 +1539,7 @@ class _BookmarkCard extends StatelessWidget {
       isActive: isEditMode,
       child: GestureDetector(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
