@@ -30,19 +30,21 @@ class TimetableCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          color: _backgroundColor(theme),
-          borderRadius: BorderRadius.circular(10),
-          border: _border(theme),
-          boxShadow: _boxShadow(theme),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: _backgroundColor(theme),
+            borderRadius: BorderRadius.circular(10),
+            border: _border(theme),
+            boxShadow: _boxShadow(theme),
+          ),
+          child: _buildContent(theme),
         ),
-        child: _buildContent(theme),
       ),
     );
   }
@@ -146,7 +148,7 @@ class TimetableCell extends StatelessWidget {
         );
       case TimetableCellState.filled:
         if (course == null) return const SizedBox.shrink();
-        return _buildCourseContent(theme);
+        return Expanded(child: _buildCourseContent(theme));
     }
   }
 
@@ -163,25 +165,27 @@ class TimetableCell extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // 课程名称
-          Text(
-            course!.title,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
+          Flexible(
+            child: Text(
+              course!.title,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
           if (course!.location != null && course!.location!.isNotEmpty) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             // 地点
             Row(
               children: [
                 Icon(
                   Icons.location_on,
-                  size: 9,
+                  size: 10,
                   color: subTextColor,
                 ),
                 const SizedBox(width: 2),
@@ -190,7 +194,7 @@ class TimetableCell extends StatelessWidget {
                     course!.location!,
                     style: TextStyle(
                       color: subTextColor,
-                      fontSize: 9,
+                      fontSize: 10,
                       height: 1.1,
                     ),
                     maxLines: 1,
