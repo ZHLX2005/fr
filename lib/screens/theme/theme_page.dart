@@ -131,6 +131,7 @@ class _ThemeCard extends StatelessWidget {
                 AppTheme.getThemeDisplayName(mode),
                 style: themeData.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: isSelected ? colorScheme.primary : null,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -147,28 +148,6 @@ class _ThemeCard extends StatelessWidget {
                   _buildColorDot(colorScheme.tertiary),
                 ],
               ),
-
-              // 选中标记
-              if (isSelected) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '当前使用',
-                    style: themeData.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
