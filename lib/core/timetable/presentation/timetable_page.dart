@@ -4,7 +4,7 @@ import '../data/data.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';
 
-/// 周期管理主页面 - 多页切换框架
+/// 简洁日历风格课表页面
 class TimetablePage extends ConsumerStatefulWidget {
   const TimetablePage({super.key});
 
@@ -13,8 +13,14 @@ class TimetablePage extends ConsumerStatefulWidget {
 }
 
 class _TimetablePageState extends ConsumerState<TimetablePage> {
-  final PageController _pageController = PageController(viewportFraction: 1.0);
-  int _currentIndex = 0;
+  late PageController _pageController;
+  int _currentCycleIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 1.0);
+  }
 
   @override
   void dispose() {
@@ -33,8 +39,12 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
-          '周期管理',
+          '时间课表',
           style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
         actions: [
@@ -42,38 +52,28 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const TimetableSettingsPage(),
-              ),
+              MaterialPageRoute(builder: (_) => const TimetableSettingsPage()),
             ),
-            tooltip: '设置',
           ),
         ],
       ),
       body: Column(
         children: [
-          // 页面指示器
-          _buildPageIndicator(theme),
+          // 周期切换指示器
+          _buildCycleIndicator(theme, config),
           const Divider(height: 1),
-          // 多页内容
+          // 星期标题行
+          _buildWeekdayHeader(theme, config),
+          // 课表网格（可左右滑动）
           Expanded(
             child: PageView.builder(
               controller: _pageController,
               onPageChanged: (index) {
-                setState(() => _currentIndex = index);
+                setState(() => _currentCycleIndex = index);
               },
-              itemCount: 4, // Overview, Cycles, Days, Settings
-              itemBuilder: (context, index) {
-                switch (index) {
-                  case 0:
-                    return const _OverviewPage();
-                  case 1:
-                    return _CyclesPage();
-                  case 2:
-                    return const _DaysPage();
-                  default:
-                    return const SizedBox.shrink();
-                }
+              itemCount: config.cycleCount,
+              itemBuilder: (context, cycleIndex) {
+                return _buildTimetableGrid(theme, config, cycleIndex);
               },
             ),
           ),
@@ -82,427 +82,257 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     );
   }
 
-  Widget _buildPageIndicator(ThemeData theme) {
-    final titles = ['总览', '周期', '天', '设置'];
-
+  /// 周期切换指示器
+  Widget _buildCycleIndicator(ThemeData theme, TimetableConfig config) {
     return Container(
-      height: 48,
+      height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(4, (index) {
-          final isActive = index == _currentIndex;
-          return GestureDetector(
-            onTap: () => _pageController.animateToPage(
-              index,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            ),
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: _currentCycleIndex > 0
+                ? () => _pageController.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    )
+                : null,
+          ),
+          GestureDetector(
+            onTap: () => _showCyclePicker(context, config),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                color: isActive
-                    ? theme.colorScheme.primaryContainer
-                    : null,
+                color: theme.colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                titles[index],
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: isActive
-                      ? theme.colorScheme.onPrimaryContainer
-                      : theme.colorScheme.onSurfaceVariant,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
-/// 总览页面
-class _OverviewPage extends ConsumerWidget {
-  const _OverviewPage();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final summaries = ref.watch(TimetableStore.overviewProvider(0));
-    final config = ref.watch(TimetableStore.configProvider);
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ListView.separated(
-        itemCount: summaries.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final summary = summaries[index];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              leading: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    '${summary.cycleIndex + 1}',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              title: Text(summary.title),
-              trailing: Text(
-                '${summary.courseCount} 门',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// 周期列表页
-class _CyclesPage extends ConsumerWidget {
-  const _CyclesPage();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(TimetableStore.configProvider);
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.2,
-      ),
-      itemCount: config.cycleCount,
-      itemBuilder: (context, index) {
-        return _CycleCard(cycleIndex: index);
-      },
-    );
-  }
-}
-
-/// 周期卡片
-class _CycleCard extends ConsumerWidget {
-  const _CycleCard({required this.cycleIndex});
-
-  final int cycleIndex;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final config = ref.watch(TimetableStore.configProvider);
-
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CycleDetailPage(cycleIndex: cycleIndex),
-        ),
-      ),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '第 ${cycleIndex + 1} 周期',
+                TimetableMappers.getCycleTitle(_currentCycleIndex, config.daysPerCycle),
                 style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                TimetableMappers.getCycleTitle(cycleIndex, config.daysPerCycle),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: _currentCycleIndex < config.cycleCount - 1
+                ? () => _pageController.nextPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    )
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 星期标题行
+  Widget _buildWeekdayHeader(ThemeData theme, TimetableConfig config) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          // 时间列占位
+          Container(
+            width: 50,
+            alignment: Alignment.center,
+            child: Text(
+              '时间',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ),
+          // 天数列
+          Expanded(
+            child: Row(
+              children: List.generate(config.daysPerCycle, (dayOfCycle) {
+                final dayIndex = TimetableMappers.cycleToDayIndex(
+                  _currentCycleIndex,
+                  dayOfCycle,
+                  config.daysPerCycle,
+                );
+                return Expanded(
+                  child: Container(
+                    alignment: Alignment.center,
+                    child: Text(
+                      TimetableMappers.formatDate(config.startDateIso, dayIndex),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 课表网格
+  Widget _buildTimetableGrid(ThemeData theme, TimetableConfig config, int cycleIndex) {
+    final grid = ref.watch(TimetableStore.cycleGridProvider(cycleIndex));
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: config.slotsPerDay,
+      itemBuilder: (context, slotIndex) {
+        return Container(
+          height: 72,
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outline.withValues(alpha: 0.1),
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              // 时间列
+              Container(
+                width: 50,
+                alignment: Alignment.center,
+                child: Text(
+                  '第${slotIndex + 1}节',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
                 ),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '${config.daysPerCycle}天 × ${config.slotsPerDay}节',
-                  style: theme.textTheme.labelSmall,
+              // 课程网格列
+              Expanded(
+                child: Row(
+                  children: List.generate(config.daysPerCycle, (dayOfCycle) {
+                    final course = grid[dayOfCycle][slotIndex];
+                    final dayIndex = TimetableMappers.cycleToDayIndex(
+                      cycleIndex,
+                      dayOfCycle,
+                      config.daysPerCycle,
+                    );
+
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => _showEditor(context, dayIndex, slotIndex, course),
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: course != null
+                                ? const Color(0xFF6366F1)
+                                : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
+                            border: course == null
+                                ? Border.all(
+                                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                                  )
+                                : null,
+                          ),
+                          child: course != null
+                              ? Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        course.title,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (course.location != null && course.location!.isNotEmpty)
+                                        Text(
+                                          course.location!,
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 10,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                    ],
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.add,
+                                  size: 16,
+                                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                                ),
+                        ),
+                      ),
+                    );
+                  }),
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 周期详情页
-class CycleDetailPage extends ConsumerWidget {
-  const CycleDetailPage({required this.cycleIndex});
-
-  final int cycleIndex;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final grid = ref.watch(TimetableStore.cycleGridProvider(cycleIndex));
-    final config = ref.watch(TimetableStore.configProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('第 ${cycleIndex + 1} 周期'),
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(8),
-        child: GridView.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: config.daysPerCycle,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-            childAspectRatio: 0.9,
-          ),
-          itemCount: config.daysPerCycle * config.slotsPerDay,
-          itemBuilder: (context, index) {
-            final dayOfCycle = index ~/ config.slotsPerDay;
-            final slot = index % config.slotsPerDay;
-            final course = grid[dayOfCycle][slot];
-            final dayIndex = TimetableMappers.cycleToDayIndex(cycleIndex, dayOfCycle, config.daysPerCycle);
-
-            return _CourseCell(
-              dayIndex: dayIndex,
-              slotIndex: slot,
-              course: course,
-              onTap: () => _showEditor(context, ref, dayIndex, slot, course),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showEditor(BuildContext context, WidgetRef ref, int dayIndex, int slot, CourseItem? course) async {
-    await TimetableEditorSheet.show(
-      context,
-      ref,
-      dayIndex: dayIndex,
-      slotIndex: slot,
-      existingCourse: course,
-    );
-  }
-}
-
-/// 天页面
-class _DaysPage extends ConsumerWidget {
-  const _DaysPage();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(TimetableStore.configProvider);
-    final totalDays = config.totalDays;
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.2,
-      ),
-      itemCount: totalDays,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DayDetailPage(dayIndex: index),
-            ),
-          ),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '第 ${index + 1} 天',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    TimetableMappers.formatDate(config.startDateIso, index),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '周 ${TimetableMappers.dayIndexToWeek(index)}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         );
       },
     );
   }
-}
 
-/// 天详情页
-class DayDetailPage extends ConsumerWidget {
-  const DayDetailPage({required this.dayIndex});
-
-  final int dayIndex;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final config = ref.watch(TimetableStore.configProvider);
-    final slots = ref.watch(TimetableStore.daySlotsProvider(dayIndex));
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('第 ${dayIndex + 1} 天'),
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
-      ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(8),
-        itemCount: config.slotsPerDay,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          return SizedBox(
-            height: 80,
-            child: _CourseCell(
-              dayIndex: dayIndex,
-              slotIndex: index,
-              course: slots[index],
-              onTap: () => _showEditor(context, ref, dayIndex, index, slots[index]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Future<void> _showEditor(BuildContext context, WidgetRef ref, int dayIndex, int slot, CourseItem? course) async {
-    await TimetableEditorSheet.show(
+  /// 显示课程编辑器
+  Future<void> _showEditor(
+    BuildContext context,
+    int dayIndex,
+    int slotIndex,
+    CourseItem? existingCourse,
+  ) async {
+    final result = await TimetableEditorSheet.show(
       context,
       ref,
       dayIndex: dayIndex,
-      slotIndex: slot,
-      existingCourse: course,
+      slotIndex: slotIndex,
+      existingCourse: existingCourse,
     );
   }
-}
 
-/// 课程单元格
-class _CourseCell extends StatelessWidget {
-  const _CourseCell({
-    required this.dayIndex,
-    required this.slotIndex,
-    required this.course,
-    required this.onTap,
-  });
-
-  final int dayIndex;
-  final int slotIndex;
-  final CourseItem? course;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final courseItem = course; // Local copy for null promotion
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: courseItem != null
-              ? Color(0xFF6366F1)
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: courseItem != null
-                ? Colors.transparent
-                : theme.colorScheme.outline.withValues(alpha: 0.2),
-          ),
-        ),
-        child: courseItem != null
-            ? Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      courseItem.title,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (courseItem.location != null && courseItem.location!.isNotEmpty)
-                    const SizedBox(height: 2),
-                  if (courseItem.location != null && courseItem.location!.isNotEmpty)
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, size: 10, color: Colors.white70),
-                        const SizedBox(width: 2),
-                        Expanded(
-                          child: Text(
-                            courseItem.location!,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: Colors.white70,
-                              fontSize: 9,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            )
-            : Center(
-              child: Icon(
-                Icons.add,
-                size: 20,
-                color: theme.colorScheme.outline.withValues(alpha: 0.3),
-              ),
+  /// 显示周期选择器
+  void _showCyclePicker(BuildContext context, TimetableConfig config) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '选择周期',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(config.cycleCount, (index) {
+                return ActionChip(
+                  label: Text(TimetableMappers.getCycleTitle(index, config.daysPerCycle)),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                );
+              }),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
@@ -615,9 +445,11 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final dayIndex = widget.dayIndex;
+    final slotIndex = widget.slotIndex;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: MediaQuery.of(context).size.height * 0.6,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -635,7 +467,7 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // Title
+          // Header
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -643,6 +475,13 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
                 Text(
                   widget.existingCourse == null ? '添加课程' : '编辑课程',
                   style: theme.textTheme.titleLarge,
+                ),
+                const Spacer(),
+                Text(
+                  '${TimetableMappers.formatDate(widget.config.startDateIso, dayIndex)} 第${slotIndex + 1}节',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
                 ),
                 const Spacer(),
                 if (widget.existingCourse != null)
@@ -666,12 +505,13 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
                     border: OutlineInputBorder(),
                   ),
                   textCapitalization: TextCapitalization.words,
+                  autofocus: true,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _locationController,
                   decoration: const InputDecoration(
-                    labelText: '地点',
+                    labelText: '上课地点',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.location_on_outlined),
                   ),
@@ -680,20 +520,17 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
                 TextField(
                   controller: _teacherController,
                   decoration: const InputDecoration(
-                    labelText: '教师',
+                    labelText: '授课教师',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                 ),
-                ],
-            ),
-          ),
-          // Submit button
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: FilledButton(
-              onPressed: _submit,
-              child: Text(widget.existingCourse == null ? '添加' : '保存'),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _submit,
+                  child: Text(widget.existingCourse == null ? '添加' : '保存'),
+                ),
+              ],
             ),
           ),
         ],
@@ -742,13 +579,10 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     );
 
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('设置已保存')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('设置已保存')));
+      Navigator.pop(context);
     }
   }
 
@@ -758,22 +592,24 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设置'),
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
+        title: const Text('课表设置'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // 起始日期
-          ListTile(
-            title: const Text('起始日期'),
-            subtitle: Text(_startDateController.text),
-            trailing: const Icon(Icons.calendar_today),
+          TextField(
+            controller: _startDateController,
+            decoration: const InputDecoration(
+              labelText: '起始日期',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.calendar_today),
+            ),
+            readOnly: true,
             onTap: () async {
               final date = await showDatePicker(
                 context: context,
-                initialDate: DateTime.parse(_startDateController.text),
+                initialDate: DateTime.tryParse(_startDateController.text) ?? DateTime.now(),
                 firstDate: DateTime(2024),
                 lastDate: DateTime(2030),
               );
@@ -784,7 +620,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
               }
             },
           ),
-          const Divider(),
+          const SizedBox(height: 24),
           // 周期数
           _ConfigSlider(
             label: '周期数',
@@ -796,7 +632,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           ),
           // 每周期天数
           _ConfigSlider(
-            label: '每周期天数',
+            label: '每周期天数 (1-7)',
             value: _daysPerCycle.toDouble(),
             min: TimetableConfig.minDaysPerCycle.toDouble(),
             max: TimetableConfig.maxDaysPerCycle.toDouble(),
@@ -805,7 +641,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           ),
           // 每天节数
           _ConfigSlider(
-            label: '每天节数',
+            label: '每天节数 (1-6)',
             value: _slotsPerDay.toDouble(),
             min: TimetableConfig.minSlotsPerDay.toDouble(),
             max: TimetableConfig.maxSlotsPerDay.toDouble(),
@@ -850,19 +686,12 @@ class _ConfigSlider extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                value.round().toString(),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            Text(
+              value.round().toString(),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ],
         ),
