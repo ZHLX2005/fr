@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // 忽略 depend_on_referenced_packages 警告，path 是正确的依赖
 // ignore: depend_on_referenced_packages
@@ -12,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Lab 卡片图片缓存服务
 /// 优化大图片加载性能，自动生成和缓存缩略图
 class LabImageCacheService {
-  static const String _cacheInfoKey = 'lab_image_cache_info';
   static LabImageCacheService? _instance;
 
   factory LabImageCacheService() {
@@ -24,7 +22,6 @@ class LabImageCacheService {
 
   Directory? _cacheDir;
   final Map<String, Uint8List> _memoryCache = {};
-  final Map<String, String> _thumbnailPaths = {};
   bool _isWeb = false;
   bool _initialized = false;
 
@@ -50,7 +47,6 @@ class LabImageCacheService {
       if (!await _cacheDir!.exists()) {
         await _cacheDir!.create(recursive: true);
       }
-      await _loadCacheInfo();
     } catch (e) {
       debugPrint('初始化缓存失败: $e');
     }
@@ -66,23 +62,20 @@ class LabImageCacheService {
       return _memoryCache[imagePath];
     }
 
-    // 2. 检查磁盘缩略图缓存
-    final thumbnailPath = await _getThumbnailPath(imagePath);
-    if (thumbnailPath != null) {
-      try {
-        final file = File(thumbnailPath);
-        if (await file.exists()) {
-          final bytes = await file.readAsBytes();
-          // 装载到内存缓存
-          if (_memoryCache.length < 20) {
-            // 限制内存缓存数量
-            _memoryCache[imagePath] = bytes;
-          }
-          return bytes;
+    // 2. 直接从磁盘查找缩略图文件（不依赖内存 map）
+    final thumbnailPath = _getCacheFilename(imagePath);
+    try {
+      final file = File('${_cacheDir!.path}/$thumbnailPath');
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        // 装载到内存缓存
+        if (_memoryCache.length < 20) {
+          _memoryCache[imagePath] = bytes;
         }
-      } catch (e) {
-        debugPrint('读取缩略图失败: $e');
+        return bytes;
       }
+    } catch (e) {
+      debugPrint('读取缩略图失败: $e');
     }
 
     // 3. 生成缩略图并缓存
@@ -100,8 +93,6 @@ class LabImageCacheService {
         await _cacheDir!.delete(recursive: true);
         await _cacheDir!.create(recursive: true);
       }
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_cacheInfoKey);
     } catch (e) {
       debugPrint('清除缓存失败: $e');
     }
@@ -112,14 +103,6 @@ class LabImageCacheService {
     for (final imagePath in imagePaths) {
       await getThumbnailBytes(imagePath);
     }
-  }
-
-  /// 获取缩略图缓存路径
-  Future<String?> _getThumbnailPath(String imagePath) async {
-    if (_thumbnailPaths.containsKey(imagePath)) {
-      return _thumbnailPaths[imagePath];
-    }
-    return null;
   }
 
   /// 生成缩略图
@@ -136,10 +119,10 @@ class LabImageCacheService {
       // 如果图片已经很小，直接使用
       if (originalBytes.length < 500 * 1024) {
         // 小于500KB直接缓存
-        final thumbnailPath = await _saveThumbnail(imagePath, originalBytes);
-        _thumbnailPaths[imagePath] = thumbnailPath;
-        _memoryCache[imagePath] = originalBytes;
-        await _saveCacheInfo();
+        await _saveThumbnail(imagePath, originalBytes);
+        if (_memoryCache.length < 20) {
+          _memoryCache[imagePath] = originalBytes;
+        }
         return originalBytes;
       }
 
@@ -147,15 +130,13 @@ class LabImageCacheService {
       final compressedBytes = await _compressImage(originalBytes);
 
       // 保存缩略图
-      final thumbnailPath = await _saveThumbnail(imagePath, compressedBytes);
-      _thumbnailPaths[imagePath] = thumbnailPath;
+      await _saveThumbnail(imagePath, compressedBytes);
 
       // 装载到内存
       if (_memoryCache.length < 20) {
         _memoryCache[imagePath] = compressedBytes;
       }
 
-      await _saveCacheInfo();
       return compressedBytes;
     } catch (e) {
       debugPrint('生成缩略图失败: $e');
@@ -191,34 +172,6 @@ class LabImageCacheService {
       return sampled;
     }
     return bytes;
-  }
-
-  /// 加载缓存信息
-  Future<void> _loadCacheInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    final info = prefs.getString(_cacheInfoKey);
-    if (info != null && info.isNotEmpty) {
-      try {
-        final pairs = info.split(',');
-        for (final pair in pairs) {
-          final parts = pair.split('|');
-          if (parts.length == 2) {
-            _thumbnailPaths[parts[0]] = parts[1];
-          }
-        }
-      } catch (e) {
-        debugPrint('加载缓存信息失败: $e');
-      }
-    }
-  }
-
-  /// 保存缓存信息
-  Future<void> _saveCacheInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    final info = _thumbnailPaths.entries
-        .map((e) => '${e.key}|${e.value}')
-        .join(',');
-    await prefs.setString(_cacheInfoKey, info);
   }
 
   /// 获取缓存大小
