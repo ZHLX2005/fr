@@ -30,21 +30,19 @@ class TimetableCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          margin: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            color: _backgroundColor(theme),
-            borderRadius: BorderRadius.circular(10),
-            border: _border(theme),
-            boxShadow: _boxShadow(theme),
-          ),
-          child: _buildContent(theme),
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: _backgroundColor(theme),
+          borderRadius: BorderRadius.circular(10),
+          border: _border(theme),
+          boxShadow: _boxShadow(theme),
         ),
+        child: _buildContent(theme),
       ),
     );
   }
@@ -56,25 +54,23 @@ class TimetableCell extends StatelessWidget {
       case TimetableCellState.selected:
         return theme.colorScheme.primaryContainer;
       case TimetableCellState.filled:
-        // 根据 colorSeed 生成不同色调
         final seed = course?.colorSeed ?? 0;
         return _getCourseColor(seed);
     }
   }
 
   Color _getCourseColor(int seed) {
-    // 预定义的颜色方案，避免全紫色
     final colors = [
-      const Color(0xFF6366F1), // 靛蓝-indigo
-      const Color(0xFF8B5CF6), // 紫罗兰-violet
-      const Color(0xFFEC4899), // 粉色-pink
-      const Color(0xFFEF4444), // 红色-red
-      const Color(0xFFF97316), // 橙色-orange
-      const Color(0xFFEAB308), // 黄色-yellow
-      const Color(0xFF22C55E), // 绿色-green
-      const Color(0xFF14B8A6), // 青色-teal
-      const Color(0xFF0EA5E9), // 蓝色-sky blue
-      const Color(0xFF64748B), // 灰蓝色-slate
+      const Color(0xFF6366F1),
+      const Color(0xFF8B5CF6),
+      const Color(0xFFEC4899),
+      const Color(0xFFEF4444),
+      const Color(0xFFF97316),
+      const Color(0xFFEAB308),
+      const Color(0xFF22C55E),
+      const Color(0xFF14B8A6),
+      const Color(0xFF0EA5E9),
+      const Color(0xFF64748B),
     ];
     return colors[seed % colors.length];
   }
@@ -97,19 +93,14 @@ class TimetableCell extends StatelessWidget {
   }
 
   List<BoxShadow>? _boxShadow(ThemeData theme) {
-    switch (state) {
-      case TimetableCellState.empty:
-      case TimetableCellState.selected:
-        return null;
-      case TimetableCellState.filled:
-        return [
-          BoxShadow(
-            color: _getCourseColor(course?.colorSeed ?? 0).withValues(alpha: 0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ];
-    }
+    if (state != TimetableCellState.filled) return null;
+    return [
+      BoxShadow(
+        color: _getCourseColor(course?.colorSeed ?? 0).withValues(alpha: 0.3),
+        blurRadius: 4,
+        offset: const Offset(0, 2),
+      ),
+    ];
   }
 
   Widget _buildContent(ThemeData theme) {
@@ -148,7 +139,7 @@ class TimetableCell extends StatelessWidget {
         );
       case TimetableCellState.filled:
         if (course == null) return const SizedBox.shrink();
-        return Expanded(child: _buildCourseContent(theme));
+        return _buildCourseContent(theme);
     }
   }
 
@@ -164,7 +155,6 @@ class TimetableCell extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 课程名称
           Flexible(
             child: Text(
               course!.title,
@@ -180,7 +170,6 @@ class TimetableCell extends StatelessWidget {
           ),
           if (course!.location != null && course!.location!.isNotEmpty) ...[
             const SizedBox(height: 4),
-            // 地点
             Row(
               children: [
                 Icon(
