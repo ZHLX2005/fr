@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
@@ -33,29 +34,49 @@ class ImagePickerService {
 
     try {
       // 2. 裁剪图片
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: image.path,
-        aspectRatio: CropAspectRatio(
-          ratioX: aspectRatio,
-          ratioY: 1,
+      // 先设置状态栏为亮色（适配深色工具栏）
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
         ),
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: cropTitle,
-            toolbarColor: Colors.blue,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: aspectRatioPreset,
-            lockAspectRatio: false,
-            hideBottomControls: false,
-          ),
-          IOSUiSettings(
-            title: cropTitle,
-            cancelButtonTitle: '取消',
-            doneButtonTitle: '完成',
-            aspectRatioLockEnabled: false,
-          ),
-        ],
       );
+
+      late CroppedFile? croppedFile;
+      try {
+        croppedFile = await ImageCropper().cropImage(
+          sourcePath: image.path,
+          aspectRatio: CropAspectRatio(
+            ratioX: aspectRatio,
+            ratioY: 1,
+          ),
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: cropTitle,
+              toolbarColor: Colors.blue,
+              toolbarWidgetColor: Colors.white,
+              initAspectRatio: aspectRatioPreset,
+              lockAspectRatio: false,
+              hideBottomControls: false,
+              statusBarColor: Colors.transparent,
+            ),
+            IOSUiSettings(
+              title: cropTitle,
+              cancelButtonTitle: '取消',
+              doneButtonTitle: '完成',
+              aspectRatioLockEnabled: false,
+            ),
+          ],
+        );
+      } finally {
+        // 恢复状态栏样式
+        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ));
+      }
 
       if (croppedFile == null) {
         // 用户取消裁剪，使用原图
