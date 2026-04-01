@@ -37,7 +37,7 @@ class _ThemeGrid extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 1.1,
+        childAspectRatio: 1.15,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -90,136 +90,100 @@ class _ThemeCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: isSelected
-              ? Border.all(color: colorScheme.primary, width: 2.5)
-              : Border.all(color: colorScheme.outlineVariant, width: 1),
-          boxShadow: [
-            if (isSelected)
-              BoxShadow(
-                color: colorScheme.primary.withAlpha(51),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-          ],
+      borderRadius: BorderRadius.circular(16),
+      child: Card(
+        elevation: isSelected ? 4 : 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: isSelected
+              ? BorderSide(color: colorScheme.primary, width: 2)
+              : BorderSide.none,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(isSelected ? 18 : 19),
-          child: Stack(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 渐变背景
-              Positioned.fill(
-                child: Container(
+              // 主题图标
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.primary,
+                      colorScheme.secondary,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  AppTheme.getThemeIcon(mode),
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // 主题名称
+              Text(
+                AppTheme.getThemeDisplayName(mode),
+                style: themeData.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+
+              // 颜色预览点
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildColorDot(colorScheme.primary),
+                  const SizedBox(width: 4),
+                  _buildColorDot(colorScheme.secondary),
+                  const SizedBox(width: 4),
+                  _buildColorDot(colorScheme.tertiary),
+                ],
+              ),
+
+              // 选中标记
+              if (isSelected) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        colorScheme.primaryContainer,
-                        colorScheme.surface,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '当前使用',
+                    style: themeData.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              ),
-              // 内容
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 图标 + 选中标记行
-                    Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                colorScheme.primary,
-                                colorScheme.secondary,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            AppTheme.getThemeIcon(mode),
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (isSelected)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.check,
-                                  color: colorScheme.onPrimary,
-                                  size: 12,
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '使用中',
-                                  style: TextStyle(
-                                    color: colorScheme.onPrimary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const Spacer(),
-                    // 主题名称
-                    Text(
-                      AppTheme.getThemeDisplayName(mode),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // 颜色条预览
-                    Container(
-                      height: 6,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(3),
-                        gradient: LinearGradient(
-                          colors: [
-                            colorScheme.primary,
-                            colorScheme.secondary,
-                            colorScheme.tertiary,
-                          ],
-                          stops: const [0.0, 0.5, 1.0],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildColorDot(Color color) {
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black12, width: 1),
       ),
     );
   }
