@@ -79,7 +79,7 @@ class HiveTimetableRepository extends TimetableRepository {
   Map<String, dynamic> _courseItemToJson(CourseItem item) {
     return {
       'id': item.id,
-      'dayIndex': item.dayIndex,
+      'dayOfCycle': item.dayOfCycle,
       'slotIndex': item.slotIndex,
       'title': item.title,
       'location': item.location,
@@ -92,9 +92,11 @@ class HiveTimetableRepository extends TimetableRepository {
   }
 
   CourseItem _courseItemFromJson(Map<String, dynamic> json) {
+    // 兼容旧数据：如果有 dayIndex 但没有 dayOfCycle，迁移时使用 dayIndex
+    final dayOfCycle = json['dayOfCycle'] as int? ?? json['dayIndex'] as int? ?? 0;
     return CourseItem(
       id: json['id'] as String,
-      dayIndex: json['dayIndex'] as int,
+      dayOfCycle: dayOfCycle,
       slotIndex: json['slotIndex'] as int,
       title: json['title'] as String,
       location: json['location'] as String?,

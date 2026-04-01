@@ -130,10 +130,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     );
   }
 
-  /// 星期标题行
+  /// 星期标题行 - 显示周期内的第几天和周几
   Widget _buildWeekdayHeader(ThemeData theme, TimetableConfig config) {
     return Container(
-      height: 40,
+      height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
@@ -152,7 +152,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
           Expanded(
             child: Row(
               children: List.generate(config.daysPerCycle, (dayOfCycle) {
-                final dayIndex = TimetableMappers.cycleToDayIndex(
+                final globalDayIndex = TimetableMappers.cycleToDayIndex(
                   _currentCycleIndex,
                   dayOfCycle,
                   config.daysPerCycle,
@@ -160,12 +160,24 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                 return Expanded(
                   child: Container(
                     alignment: Alignment.center,
-                    child: Text(
-                      TimetableMappers.formatDate(config.startDateIso, dayIndex),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          TimetableMappers.getWeekdayName(dayOfCycle),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          TimetableMappers.formatDate(config.startDateIso, globalDayIndex),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -177,9 +189,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     );
   }
 
-  /// 课表网格
+  /// 课表网格 - 使用 dayOfCycle 获取课程，所有周期显示相同课程
   Widget _buildTimetableGrid(ThemeData theme, TimetableConfig config, int cycleIndex) {
-    final grid = ref.watch(TimetableStore.cycleGridProvider(cycleIndex));
+    // 使用 daySlotsProvider 获取课程（按 dayOfCycle 存储）
+    final allSlots = ref.watch(TimetableStore.allDaySlotsProvider);
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -211,8 +224,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               Expanded(
                 child: Row(
                   children: List.generate(config.daysPerCycle, (dayOfCycle) {
-                    final course = grid[dayOfCycle][slotIndex];
-                    final dayIndex = TimetableMappers.cycleToDayIndex(
+                    // 通过 dayOfCycle 和 slotIndex 获取课程
+                    final course = allSlots[dayOfCycle]?[slotIndex];
+                    final globalDayIndex = TimetableMappers.cycleToDayIndex(
                       cycleIndex,
                       dayOfCycle,
                       config.daysPerCycle,
@@ -220,7 +234,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
 
                     return Expanded(
                       child: GestureDetector(
-                        onTap: () => _showEditor(context, dayIndex, slotIndex, course),
+                        onTap: () => _showEditor(context, dayOfCycle, slotIndex, course),
                         child: Container(
                           margin: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
@@ -285,14 +299,14 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   /// 显示课程编辑器
   Future<void> _showEditor(
     BuildContext context,
-    int dayIndex,
+    int dayOfCycle,
     int slotIndex,
     CourseItem? existingCourse,
   ) async {
-    final result = await TimetableEditorSheet.show(
+    await TimetableEditorSheet.show(
       context,
       ref,
-      dayIndex: dayIndex,
+      dayOfCycle: dayOfCycle,
       slotIndex: slotIndex,
       existingCourse: existingCourse,
     );
@@ -343,7 +357,7 @@ class TimetableEditorSheet {
   static Future<CourseItem?> show(
     BuildContext context,
     WidgetRef ref, {
-    required int dayIndex,
+    required int dayOfCycle,
     required int slotIndex,
     CourseItem? existingCourse,
   }) {
@@ -354,7 +368,7 @@ class TimetableEditorSheet {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _EditorContent(
-        dayIndex: dayIndex,
+        dayOfCycle: dayOfCycle,
         slotIndex: slotIndex,
         existingCourse: existingCourse,
         config: config,
@@ -365,13 +379,13 @@ class TimetableEditorSheet {
 
 class _EditorContent extends ConsumerStatefulWidget {
   const _EditorContent({
-    required this.dayIndex,
+    required this.dayOfCycle,
     required this.slotIndex,
     this.existingCourse,
     required this.config,
   });
 
-  final int dayIndex;
+  final int dayOfCycle;
   final int slotIndex;
   final CourseItem? existingCourse;
   final TimetableConfig config;
@@ -413,8 +427,8 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
     final store = ref.read(TimetableStore.provider.notifier);
 
     final item = CourseItem(
-      id: widget.existingCourse?.id ?? '${now}_${widget.dayIndex}_${widget.slotIndex}',
-      dayIndex: widget.dayIndex,
+      id: widget.existingCourse?.id ?? '${now}_${widget.dayOfCycle}_${widget.slotIndex}',
+      dayOfCycle: widget.dayOfCycle,
       slotIndex: widget.slotIndex,
       title: _titleController.text.trim(),
       location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
@@ -445,7 +459,7 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dayIndex = widget.dayIndex;
+    final dayOfCycle = widget.dayOfCycle;
     final slotIndex = widget.slotIndex;
 
     return Container(
@@ -478,7 +492,7 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
                 ),
                 const Spacer(),
                 Text(
-                  '${TimetableMappers.formatDate(widget.config.startDateIso, dayIndex)} 第${slotIndex + 1}节',
+                  '${TimetableMappers.getWeekdayName(dayOfCycle)} 第${slotIndex + 1}节',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.outline,
                   ),
@@ -588,8 +602,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('课表设置'),
