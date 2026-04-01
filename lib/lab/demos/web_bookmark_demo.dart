@@ -244,10 +244,14 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
   }
 
   void _openFolder(BuildContext context, BookmarkFolder folder) {
+    final controller = context.read<BookmarkProvider>();
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _FolderDetailPage(folder: folder),
+        builder: (context) => _FolderDetailPage(
+          folder: folder,
+          controller: controller,
+        ),
       ),
     );
   }
@@ -1445,12 +1449,15 @@ class _FolderCard extends StatelessWidget {
 /// Folder Detail Page
 class _FolderDetailPage extends StatelessWidget {
   final BookmarkFolder folder;
+  final BookmarkProvider controller;
 
-  const _FolderDetailPage({required this.folder});
+  const _FolderDetailPage({
+    required this.folder,
+    required this.controller,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final controller = Provider.of<BookmarkProvider>(context, listen: false);
     // 从provider获取最新的folder数据
     final currentFolder = controller.items
         .whereType<BookmarkFolder>()
@@ -1493,15 +1500,14 @@ class _FolderDetailPage extends StatelessWidget {
                   key: ValueKey(item.id),
                   bookmark: item,
                   isEditMode: false,
-                  onTap: () => _openBookmarkInFolder(context, item),
+                  onTap: () => _openBookmarkInFolder(context, item, controller),
                 );
               },
             ),
     );
   }
 
-  void _openBookmarkInFolder(BuildContext context, SingleBookmark item) async {
-    final controller = Provider.of<BookmarkProvider>(context, listen: false);
+  void _openBookmarkInFolder(BuildContext context, SingleBookmark item, BookmarkProvider controller) async {
     if (controller.useExternalBrowser) {
       final uri = Uri.parse(item.url);
       if (await canLaunchUrl(uri)) {
