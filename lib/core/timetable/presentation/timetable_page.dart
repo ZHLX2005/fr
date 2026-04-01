@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/data.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';
+import 'timetable_cell.dart';
+import 'timetable_editor_dialog.dart';
 
 /// 简洁日历风格课表页面
 class TimetablePage extends ConsumerStatefulWidget {
@@ -15,6 +17,8 @@ class TimetablePage extends ConsumerStatefulWidget {
 class _TimetablePageState extends ConsumerState<TimetablePage> {
   late PageController _pageController;
   int _currentCycleIndex = 0;
+  // 选中的单元格 key: 'c${cycleIndex}_d${dayOfCycle}_s${slotIndex}'
+  String? _selectedCellKey;
 
   @override
   void initState() {
@@ -26,6 +30,11 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// 生成单元格唯一键（包含周期索引）
+  String _cellKey(int cycleIndex, int dayOfCycle, int slotIndex) {
+    return 'c${cycleIndex}_d${dayOfCycle}_s$slotIndex';
   }
 
   @override
@@ -67,7 +76,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
             child: PageView.builder(
               controller: _pageController,
               onPageChanged: (index) {
-                setState(() => _currentCycleIndex = index);
+                setState(() {
+                  _currentCycleIndex = index;
+                  _selectedCellKey = null; // 切换周期时清除选中
+                });
               },
               itemCount: config.cycleCount,
               itemBuilder: (context, cycleIndex) {
@@ -141,9 +153,11 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     );
   }
 
-  /// 课表网格 - 使用 dayOfCycle 获取课程，所有周期显示相同课程
+  /// 课表网格 - 使用 cycleGridProvider 获取课程（按周期过滤）
   Widget _buildTimetableGrid(ThemeData theme, TimetableConfig config, int cycleIndex) {
-    // 使用 allDaySlotsProvider 获取课程（按 dayOfCycle 存储）
+    // 使用 cycleGridProvider 获取课程（会根据 visibleInCycles 过滤）
+    final cycleGrid = ref.watch(TimetableStore.cycleGridProvider(cycleIndex));
+    // 获取原始课程数据（用于编辑）
     final allSlots = ref.watch(TimetableStore.allDaySlotsProvider);
 
     return ListView.builder(
@@ -176,61 +190,23 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               Expanded(
                 child: Row(
                   children: List.generate(config.daysPerCycle, (dayOfCycle) {
-                    // 通过 dayOfCycle 和 slotIndex 获取课程
-                    final course = allSlots[dayOfCycle]?[slotIndex];
+                    final course = cycleGrid[dayOfCycle][slotIndex];
+                    final cellKeyValue = _cellKey(cycleIndex, dayOfCycle, slotIndex);
+                    final isSelected = _selectedCellKey == cellKeyValue;
+                    // 获取原始课程数据（用于编辑）
+                    final originalCourse = allSlots[dayOfCycle]?[slotIndex];
 
                     return Expanded(
-                      child: GestureDetector(
-                        onTap: () => _showEditor(context, dayOfCycle, slotIndex, course),
-                        child: Container(
-                          margin: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: course != null
-                                ? const Color(0xFF6366F1)
-                                : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(8),
-                            border: course == null
-                                ? Border.all(
-                                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                                  )
-                                : null,
-                          ),
-                          child: course != null
-                              ? Padding(
-                                  padding: const EdgeInsets.all(6),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        course.title,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      if (course.location != null && course.location!.isNotEmpty)
-                                        Text(
-                                          course.location!,
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 10,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                    ],
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.add,
-                                  size: 16,
-                                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                                ),
-                        ),
+                      child: TimetableCell(
+                        key: ValueKey(cellKeyValue),
+                        state: isSelected
+                            ? TimetableCellState.selected
+                            : (course != null
+                                ? TimetableCellState.filled
+                                : TimetableCellState.empty),
+                        course: course,
+                        onTap: () => _handleCellTap(cycleIndex, dayOfCycle, slotIndex, originalCourse),
+                        onLongPress: () => _handleCellLongPress(cycleIndex, dayOfCycle, slotIndex, originalCourse),
                       ),
                     );
                   }),
@@ -243,219 +219,54 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     );
   }
 
-  /// 显示课程编辑器
-  Future<void> _showEditor(
-    BuildContext context,
-    int dayOfCycle,
-    int slotIndex,
-    CourseItem? existingCourse,
-  ) async {
-    await TimetableEditorSheet.show(
-      context,
-      ref,
-      dayOfCycle: dayOfCycle,
-      slotIndex: slotIndex,
-      existingCourse: existingCourse,
-    );
+  /// 处理单元格点击
+  void _handleCellTap(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem? originalCourse) {
+    final cellKeyValue = _cellKey(cycleIndex, dayOfCycle, slotIndex);
+
+    if (_selectedCellKey == cellKeyValue) {
+      // 再次点击已选中的单元格 → 打开编辑器
+      _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+    } else if (_selectedCellKey == null) {
+      // 检查是否有课程且在当前周期可见
+      if (originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex)) {
+        // 有课程 → 直接打开编辑器
+        _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+      } else {
+        // 空单元格 → 选中当前单元格
+        setState(() => _selectedCellKey = cellKeyValue);
+      }
+    } else {
+      // 有其他单元格选中 → 切换选中
+      setState(() => _selectedCellKey = cellKeyValue);
+    }
   }
-}
 
-/// 课程编辑器底部弹窗
-class TimetableEditorSheet {
-  static Future<CourseItem?> show(
-    BuildContext context,
-    WidgetRef ref, {
-    required int dayOfCycle,
-    required int slotIndex,
-    CourseItem? existingCourse,
-  }) {
-    final config = ref.read(TimetableStore.provider).config;
+  /// 处理单元格长按
+  void _handleCellLongPress(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem? originalCourse) {
+    // 长按直接打开编辑器
+    _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+  }
 
-    return showModalBottomSheet<CourseItem?>(
+  /// 打开编辑器（居中对话框）
+  void _openEditor(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem? originalCourse) {
+    // 检查课程是否在指定周期可见
+    final visibleCourse = originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex)
+        ? originalCourse
+        : null;
+
+    // 清除选中状态
+    setState(() => _selectedCellKey = null);
+
+    // 显示居中的对话框
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _EditorContent(
+      barrierColor: Colors.black26,
+      builder: (context) => TimetableEditorDialog(
         dayOfCycle: dayOfCycle,
         slotIndex: slotIndex,
-        existingCourse: existingCourse,
-        config: config,
-      ),
-    );
-  }
-}
-
-class _EditorContent extends ConsumerStatefulWidget {
-  const _EditorContent({
-    required this.dayOfCycle,
-    required this.slotIndex,
-    this.existingCourse,
-    required this.config,
-  });
-
-  final int dayOfCycle;
-  final int slotIndex;
-  final CourseItem? existingCourse;
-  final TimetableConfig config;
-
-  @override
-  ConsumerState<_EditorContent> createState() => _EditorContentState();
-}
-
-class _EditorContentState extends ConsumerState<_EditorContent> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _locationController;
-  late final TextEditingController _teacherController;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleController = TextEditingController(text: widget.existingCourse?.title ?? '');
-    _locationController = TextEditingController(text: widget.existingCourse?.location ?? '');
-    _teacherController = TextEditingController(text: widget.existingCourse?.teacher ?? '');
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _locationController.dispose();
-    _teacherController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入课程名称')),
-      );
-      return;
-    }
-
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final store = ref.read(TimetableStore.provider.notifier);
-
-    final item = CourseItem(
-      id: widget.existingCourse?.id ?? '${now}_${widget.dayOfCycle}_${widget.slotIndex}',
-      dayOfCycle: widget.dayOfCycle,
-      slotIndex: widget.slotIndex,
-      title: _titleController.text.trim(),
-      location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
-      teacher: _teacherController.text.trim().isEmpty ? null : _teacherController.text.trim(),
-      colorSeed: widget.existingCourse?.colorSeed ?? now,
-      version: (widget.existingCourse?.version ?? 0) + 1,
-      createdAt: widget.existingCourse?.createdAt ?? now,
-      updatedAt: now,
-    );
-
-    await store.upsertItem(item);
-    if (context.mounted) {
-      Navigator.pop(context, item);
-    }
-  }
-
-  Future<void> _delete() async {
-    if (widget.existingCourse == null) return;
-
-    final store = ref.read(TimetableStore.provider.notifier);
-    await store.deleteItem(widget.existingCourse!.cellKey);
-
-    if (context.mounted) {
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final dayOfCycle = widget.dayOfCycle;
-    final slotIndex = widget.slotIndex;
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.outline.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Text(
-                  widget.existingCourse == null ? '添加课程' : '编辑课程',
-                  style: theme.textTheme.titleLarge,
-                ),
-                const Spacer(),
-                Text(
-                  '第${dayOfCycle + 1}天 第${slotIndex + 1}节',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.outline,
-                  ),
-                ),
-                const Spacer(),
-                if (widget.existingCourse != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: _delete,
-                  ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          // Form
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                TextField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                    labelText: '课程名称 *',
-                    border: OutlineInputBorder(),
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                  autofocus: true,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _locationController,
-                  decoration: const InputDecoration(
-                    labelText: '上课地点',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.location_on_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _teacherController,
-                  decoration: const InputDecoration(
-                    labelText: '授课教师',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _submit,
-                  child: Text(widget.existingCourse == null ? '添加' : '保存'),
-                ),
-              ],
-            ),
-          ),
-        ],
+        cycleIndex: cycleIndex,
+        existingCourse: visibleCourse,
+        onClose: () => Navigator.pop(context),
       ),
     );
   }

@@ -73,6 +73,7 @@ class CourseItem {
     this.teacher,
     this.colorSeed,
     this.version = 1,
+    this.visibleInCycles,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -87,8 +88,15 @@ class CourseItem {
   final String? teacher;
   final int? colorSeed;
   final int version;
+  /// null 表示所有周期都显示
+  final List<int>? visibleInCycles;
   final int createdAt;
   final int updatedAt;
+
+  bool isVisibleInCycle(int cycleIndex) {
+    if (visibleInCycles == null || visibleInCycles!.isEmpty) return true;
+    return visibleInCycles!.contains(cycleIndex);
+  }
 
   CourseItem copyWith({
     String? id,
@@ -99,6 +107,8 @@ class CourseItem {
     String? teacher,
     int? colorSeed,
     int? version,
+    List<int>? visibleInCycles,
+    bool clearVisibleInCycles = false,
     int? createdAt,
     int? updatedAt,
   }) {
@@ -111,6 +121,7 @@ class CourseItem {
       teacher: teacher ?? this.teacher,
       colorSeed: colorSeed ?? this.colorSeed,
       version: version ?? this.version,
+      visibleInCycles: clearVisibleInCycles ? null : (visibleInCycles ?? this.visibleInCycles),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now().millisecondsSinceEpoch,
     );

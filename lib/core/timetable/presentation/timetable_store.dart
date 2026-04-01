@@ -220,7 +220,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
   });
 
   /// 某周期网格 Provider (family) - 返回 2D 数组 [dayOfCycle][slot]
-  /// 由于课程按 dayOfCycle 存储，所有周期显示相同的课程
+  /// 根据课程的 visibleInCycles 决定是否在特定周期显示
   static final cycleGridProvider = Provider.family<List<List<CourseItem?>>, int>((ref, cycleIndex) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
@@ -230,7 +230,12 @@ class TimetableStore extends StateNotifier<TimetableState> {
       config.daysPerCycle,
       (dayOfCycle) {
         return List.generate(config.slotsPerDay, (slot) {
-          return state.items['d${dayOfCycle}_s$slot'];
+          final item = state.items['d${dayOfCycle}_s$slot'];
+          // 检查课程是否在该周期可见
+          if (item != null && !item.isVisibleInCycle(cycleIndex)) {
+            return null;
+          }
+          return item;
         });
       },
     );
