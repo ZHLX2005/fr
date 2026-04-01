@@ -59,11 +59,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
       ),
       body: Column(
         children: [
-          // 周期切换指示器
-          _buildCycleIndicator(theme, config),
-          const Divider(height: 1),
-          // 星期标题行
+          // 天数标题行
           _buildWeekdayHeader(theme, config),
+          const Divider(height: 1),
           // 课表网格（可左右滑动）
           Expanded(
             child: PageView.builder(
@@ -82,73 +80,27 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     );
   }
 
-  /// 周期切换指示器
-  Widget _buildCycleIndicator(ThemeData theme, TimetableConfig config) {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: _currentCycleIndex > 0
-                ? () => _pageController.previousPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    )
-                : null,
-          ),
-          GestureDetector(
-            onTap: () => _showCyclePicker(context, config),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                TimetableMappers.getCycleTitle(_currentCycleIndex, config.daysPerCycle),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: _currentCycleIndex < config.cycleCount - 1
-                ? () => _pageController.nextPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    )
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 星期标题行 - 显示周期内的第几天和周几
+  /// 天数标题行 - 显示"第1天、第2天..."
   Widget _buildWeekdayHeader(ThemeData theme, TimetableConfig config) {
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
-          // 时间列占位
+          // 左上角 - 显示当前周期
           Container(
             width: 50,
             alignment: Alignment.center,
             child: Text(
-              '时间',
+              '第${_currentCycleIndex + 1}周期',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.outline,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
               ),
             ),
           ),
-          // 天数列
+          // 天数列 - 只显示 daysPerCycle 列
           Expanded(
             child: Row(
               children: List.generate(config.daysPerCycle, (dayOfCycle) {
@@ -164,7 +116,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          TimetableMappers.getWeekdayName(dayOfCycle),
+                          '第${dayOfCycle + 1}天',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w600,
@@ -191,7 +143,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
 
   /// 课表网格 - 使用 dayOfCycle 获取课程，所有周期显示相同课程
   Widget _buildTimetableGrid(ThemeData theme, TimetableConfig config, int cycleIndex) {
-    // 使用 daySlotsProvider 获取课程（按 dayOfCycle 存储）
+    // 使用 allDaySlotsProvider 获取课程（按 dayOfCycle 存储）
     final allSlots = ref.watch(TimetableStore.allDaySlotsProvider);
 
     return ListView.builder(
@@ -220,17 +172,12 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                   ),
                 ),
               ),
-              // 课程网格列
+              // 课程网格列 - 只显示 daysPerCycle 列
               Expanded(
                 child: Row(
                   children: List.generate(config.daysPerCycle, (dayOfCycle) {
                     // 通过 dayOfCycle 和 slotIndex 获取课程
                     final course = allSlots[dayOfCycle]?[slotIndex];
-                    final globalDayIndex = TimetableMappers.cycleToDayIndex(
-                      cycleIndex,
-                      dayOfCycle,
-                      config.daysPerCycle,
-                    );
 
                     return Expanded(
                       child: GestureDetector(
@@ -309,45 +256,6 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
       dayOfCycle: dayOfCycle,
       slotIndex: slotIndex,
       existingCourse: existingCourse,
-    );
-  }
-
-  /// 显示周期选择器
-  void _showCyclePicker(BuildContext context, TimetableConfig config) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '选择周期',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: List.generate(config.cycleCount, (index) {
-                return ActionChip(
-                  label: Text(TimetableMappers.getCycleTitle(index, config.daysPerCycle)),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  },
-                );
-              }),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -492,7 +400,7 @@ class _EditorContentState extends ConsumerState<_EditorContent> {
                 ),
                 const Spacer(),
                 Text(
-                  '${TimetableMappers.getWeekdayName(dayOfCycle)} 第${slotIndex + 1}节',
+                  '第${dayOfCycle + 1}天 第${slotIndex + 1}节',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.outline,
                   ),
