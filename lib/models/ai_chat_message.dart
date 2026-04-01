@@ -140,7 +140,7 @@ class AISettings {
       model: json['model'] as String? ?? '',
       baseURL: json['baseURL'] as String? ?? '',
       type: json['type'] as String? ?? 'claude',
-      dbHost: json['dbHost'] as String? ?? '47.110.80.473',
+      dbHost: json['dbHost'] as String? ?? '47.110.80.47',
       dbPort: json['dbPort'] as String? ?? '5432',
       dbName: json['dbName'] as String? ?? 'postgres',
       dbUser: json['dbUser'] as String? ?? 'postgres',

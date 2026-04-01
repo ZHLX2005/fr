@@ -11,7 +11,7 @@
 part of openapi.api;
 
 class ApiClient {
-  ApiClient({this.basePath = 'http://47.110.80.473:8988', this.authentication,});
+  ApiClient({this.basePath = 'http://47.110.80.47:8988', this.authentication,});
 
   final String basePath;
   final Authentication? authentication;

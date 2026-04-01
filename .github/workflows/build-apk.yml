@@ -79,13 +79,13 @@ jobs:
           APK_FILE=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
           if [ -n "$APK_FILE" ]; then
             echo "Uploading $APK_FILE to file server..."
-            RESPONSE=$(curl -s -X POST "http://47.110.80.473:8988/api/v1/upload/fr_latest_apk" \
+            RESPONSE=$(curl -s -X POST "http://47.110.80.47:8988/api/v1/upload/fr_latest_apk" \
               -F "file=@$APK_FILE" \
               -F "ttl=0")
             echo "Upload response: $RESPONSE"
             if echo "$RESPONSE" | grep -q '"code":0'; then
               echo "APK uploaded successfully"
-              echo "download_url=http://47.110.80.473:8988/api/v1/file/fr_latest_apk" >> $GITHUB_ENV
+              echo "download_url=http://47.110.80.47:8988/api/v1/file/fr_latest_apk" >> $GITHUB_ENV
             else
               echo "APK upload failed, but continuing..."
             fi

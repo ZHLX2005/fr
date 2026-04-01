@@ -13,7 +13,7 @@ npm install -g @openapitools/openapi-generator-cli
 ### 1.2 获取 API 文档
 
 ```bash
-curl -s "http://47.110.80.473:8988/api.json" -o api_spec.json
+curl -s "http://47.110.80.47:8988/api.json" -o api_spec.json
 ```
 
 > 注：每次 API 文档更新后，重新执行此步骤获取最新文档。
@@ -43,7 +43,7 @@ cp -r generated_temp/lib/* lib/generated/
 
 ```dart
 // 修改 api_client.dart 中的默认 basePath
-ApiClient({this.basePath = 'http://47.110.80.473:8988', ...});
+ApiClient({this.basePath = 'http://47.110.80.47:8988', ...});
 
 // 修复 MultipartFile.fromJson 问题 (dev_ctr_hello_api_file_v1_file_upload_req.dart)
 file: null, // MultipartFile cannot be created from JSON
@@ -56,7 +56,7 @@ file: null, // MultipartFile cannot be created from JSON
 ```dart
 // lib/services/api_client.dart
 class ApiService {
-  static const String baseUrl = 'http://47.110.80.473:8988';
+  static const String baseUrl = 'http://47.110.80.47:8988';
 
   static final gen.ApiClient _client = gen.ApiClient(basePath: baseUrl);
 
@@ -74,7 +74,7 @@ class ApiService {
 ### 4.1 更新 API 文档
 
 ```bash
-curl -s "http://47.110.80.473:8988/api.json" -o api_spec.json
+curl -s "http://47.110.80.47:8988/api.json" -o api_spec.json
 ```
 
 ### 4.2 重新生成代码
@@ -160,7 +160,7 @@ lib/
 
 | 操作 | 命令 |
 |------|------|
-| 更新 API 文档 | `curl -s "http://47.110.80.473:8988/api.json" -o api_spec.json` |
+| 更新 API 文档 | `curl -s "http://47.110.80.47:8988/api.json" -o api_spec.json` |
 | 生成代码 | `openapi-generator-cli generate -i api_spec.json -g dart -o generated_temp` |
 | 复制代码 | `cp -r generated_temp/lib/* lib/generated/` |
 | 编译测试 | `flutter build web --release` |

@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 /// KV 键值存储服务
 class KvService {
-  static const String _baseUrl = 'http://47.110.80.473:8988/api/v1';
+  static const String _baseUrl = 'http://47.110.80.47:8988/api/v1';
 
   /// 获取KV值
   Future<KvGetResult?> get(String key) async {

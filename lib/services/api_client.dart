@@ -25,7 +25,7 @@ class ApiResponse<T> {
 
 // 创建配置好basePath的API客户端
 class ApiService {
-  static const String baseUrl = 'http://47.110.80.473:8988';
+  static const String baseUrl = 'http://47.110.80.47:8988';
 
   static final gen.ApiClient _client = gen.ApiClient(
     basePath: baseUrl,
