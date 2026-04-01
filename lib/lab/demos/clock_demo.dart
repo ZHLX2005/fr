@@ -593,9 +593,10 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   }
 
   Widget _buildFloatingActionButton(BuildContext context) {
+    final themeColor = Theme.of(context).primaryColor;
     return FloatingActionButton(
       onPressed: () => _addClock(context),
-      backgroundColor: const Color(0xFF007AFF),
+      backgroundColor: themeColor,
       child: const Icon(Icons.add, color: Colors.white),
     );
   }
@@ -616,7 +617,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
               icon: const Icon(Icons.add),
               label: const Text('添加时钟'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
+                backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.white,
               ),
             ),
