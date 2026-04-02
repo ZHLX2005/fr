@@ -44,6 +44,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
