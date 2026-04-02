@@ -52,7 +52,7 @@ class TimetableCell extends StatelessWidget {
       case TimetableCellState.empty:
         return Colors.transparent;
       case TimetableCellState.selected:
-        return theme.colorScheme.primaryContainer;
+        return theme.colorScheme.primaryContainer.withValues(alpha: 0.5);
       case TimetableCellState.filled:
         final seed = course?.colorSeed ?? 0;
         return _getCourseColor(seed);
@@ -78,10 +78,7 @@ class TimetableCell extends StatelessWidget {
   Border? _border(ThemeData theme) {
     switch (state) {
       case TimetableCellState.empty:
-        return Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.08),
-          width: 1,
-        );
+        return null; // 完全透明
       case TimetableCellState.selected:
         return Border.all(
           color: theme.colorScheme.primary,
