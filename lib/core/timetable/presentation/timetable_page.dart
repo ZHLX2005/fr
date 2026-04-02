@@ -444,11 +444,21 @@ class _SlotLabel extends StatelessWidget {
     return SizedBox(
       width: 52,
       child: Center(
-        child: Text(
-          '${slotIndex + 1}',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.outline,
-            fontWeight: FontWeight.w500,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text(
+              '${slotIndex + 1}',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
       ),
