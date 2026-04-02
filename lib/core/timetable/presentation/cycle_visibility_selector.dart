@@ -92,15 +92,15 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 1.5,
+                  color: theme.colorScheme.outline,
+                  width: 1,
                 ),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 _isAllMode ? '全部周期' : '已选${widget.selectedCycles.length}个',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -199,7 +199,7 @@ class _QuickActionChip extends StatelessWidget {
 
     return Material(
       color: isSelected
-          ? theme.colorScheme.primary.withValues(alpha: 0.1)
+          ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.3)
           : theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
@@ -212,9 +212,9 @@ class _QuickActionChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected
-                  ? theme.colorScheme.primary
+                  ? theme.colorScheme.secondary
                   : theme.colorScheme.outline.withValues(alpha: 0.3),
-              width: isSelected ? 1.5 : 1,
+              width: 1,
             ),
           ),
           child: Text(
@@ -223,7 +223,7 @@ class _QuickActionChip extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: isSelected
-                  ? theme.colorScheme.primary
+                  ? theme.colorScheme.secondary
                   : theme.colorScheme.onSurface,
             ),
           ),
@@ -250,7 +250,7 @@ class _CycleChip extends StatelessWidget {
 
     return Material(
       color: isSelected
-          ? theme.colorScheme.primary.withValues(alpha: 0.1)
+          ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.3)
           : theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
@@ -264,9 +264,9 @@ class _CycleChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected
-                  ? theme.colorScheme.primary
+                  ? theme.colorScheme.secondary
                   : theme.colorScheme.outline.withValues(alpha: 0.3),
-              width: isSelected ? 1.5 : 1,
+              width: 1,
             ),
           ),
           child: Text(
@@ -275,7 +275,7 @@ class _CycleChip extends StatelessWidget {
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               color: isSelected
-                  ? theme.colorScheme.primary
+                  ? theme.colorScheme.secondary
                   : theme.colorScheme.onSurface,
             ),
           ),
