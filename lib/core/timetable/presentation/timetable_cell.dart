@@ -39,11 +39,14 @@ class TimetableCell extends StatelessWidget {
         margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           color: _backgroundColor(theme),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: _border(theme),
           boxShadow: _boxShadow(theme),
         ),
-        child: _buildContent(theme),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: _buildContent(theme),
+        ),
       ),
     );
   }
@@ -53,10 +56,10 @@ class TimetableCell extends StatelessWidget {
       case TimetableCellState.empty:
         return Colors.transparent;
       case TimetableCellState.selected:
-        return theme.colorScheme.primaryContainer.withValues(alpha: 0.5);
+        return theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
       case TimetableCellState.filled:
         final seed = course?.colorSeed ?? 0;
-        return _getCourseColor(seed);
+        return _getCourseColor(seed).withValues(alpha: 0.85);
     }
   }
 
@@ -91,12 +94,17 @@ class TimetableCell extends StatelessWidget {
   }
 
   List<BoxShadow>? _boxShadow(ThemeData theme) {
-    if (state != TimetableCellState.filled) return null;
+    if (state == TimetableCellState.empty) return null;
     return [
       BoxShadow(
-        color: _getCourseColor(course?.colorSeed ?? 0).withValues(alpha: 0.3),
-        blurRadius: 4,
+        color: theme.colorScheme.shadow.withValues(alpha: 0.08),
+        blurRadius: 8,
         offset: const Offset(0, 2),
+      ),
+      BoxShadow(
+        color: theme.colorScheme.shadow.withValues(alpha: 0.04),
+        blurRadius: 16,
+        offset: const Offset(0, 4),
       ),
     ];
   }
@@ -107,18 +115,37 @@ class TimetableCell extends StatelessWidget {
         // 空白：透明但有点击区域
         return Container(color: Colors.transparent);
       case TimetableCellState.selected:
-        return Center(
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(8),
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                theme.colorScheme.primary.withValues(alpha: 0.3),
+                theme.colorScheme.primary.withValues(alpha: 0.1),
+              ],
             ),
-            child: Icon(
-              Icons.add,
-              size: 20,
-              color: theme.colorScheme.onPrimary,
+          ),
+          child: Center(
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.add,
+                size: 20,
+                color: theme.colorScheme.onPrimary,
+              ),
             ),
           ),
         );
@@ -134,52 +161,72 @@ class TimetableCell extends StatelessWidget {
     final textColor = isLight ? Colors.black87 : Colors.white;
     final subTextColor = isLight ? Colors.black54 : Colors.white70;
 
-    return Padding(
-      padding: const EdgeInsets.all(6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Flexible(
-            child: Text(
-              course!.title,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+    return Stack(
+      children: [
+        // 玻璃渐变背景
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withValues(alpha: 0.25),
+                  Colors.white.withValues(alpha: 0.1),
+                ],
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (course!.location != null && course!.location!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on,
-                  size: 10,
-                  color: subTextColor,
-                ),
-                const SizedBox(width: 2),
-                Expanded(
-                  child: Text(
-                    course!.location!,
-                    style: TextStyle(
-                      color: subTextColor,
-                      fontSize: 10,
-                      height: 1.1,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+        ),
+        // 内容
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  course!.title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (course!.location != null && course!.location!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      size: 10,
+                      color: subTextColor,
+                    ),
+                    const SizedBox(width: 2),
+                    Expanded(
+                      child: Text(
+                        course!.location!,
+                        style: TextStyle(
+                          color: subTextColor,
+                          fontSize: 10,
+                          height: 1.1,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
-        ],
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
