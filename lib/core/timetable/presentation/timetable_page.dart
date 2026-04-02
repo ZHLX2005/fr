@@ -4,6 +4,7 @@ import '../domain/models.dart';
 import 'timetable_store.dart';
 import 'timetable_cell.dart';
 import 'timetable_editor_dialog.dart';
+import 'timetable_colors.dart';
 
 /// 简洁日历风格课表页面
 class TimetablePage extends ConsumerStatefulWidget {
@@ -399,19 +400,19 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             onPressed: _save,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              side: BorderSide(
-                color: Theme.of(context).colorScheme.secondary,
+              side: const BorderSide(
+                color: TimetableColors.accent,
                 width: 1.5,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            icon: Icon(Icons.save, color: Theme.of(context).colorScheme.secondary),
-            label: Text(
+            icon: const Icon(Icons.save, color: TimetableColors.accent),
+            label: const Text(
               '保存设置',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.secondary,
+                color: TimetableColors.accent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -452,18 +453,18 @@ class _ConfigSlider extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                border: Border(
+                border: const Border(
                   left: BorderSide(
-                    color: theme.colorScheme.secondary,
+                    color: TimetableColors.accent,
                     width: 3,
                   ),
                 ),
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                color: TimetableColors.selectedBg,
               ),
               child: Text(
                 value.round().toString(),
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.onSurface,
+                  color: TimetableColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -562,17 +563,7 @@ class _CoursePreviewSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = [
-      const Color(0xFF8B9DC3),
-      const Color(0xFF9E8FA8),
-      const Color(0xFFB58AA5),
-      const Color(0xFFC49A8B),
-      const Color(0xFFA8C4A2),
-      const Color(0xFF7FAAAA),
-      const Color(0xFFA5B5C4),
-      const Color(0xFFC4B5A0),
-    ];
-    final color = colors[(course.colorSeed ?? 0) % colors.length];
+    final color = TimetableColors.getCourseColor(course.colorSeed ?? 0);
 
     return Container(
       decoration: BoxDecoration(
@@ -659,18 +650,18 @@ class _CoursePreviewSheet extends StatelessWidget {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          border: Border(
+                          border: const Border(
                             left: BorderSide(
-                              color: theme.colorScheme.primary,
+                              color: TimetableColors.accent,
                               width: 2,
                             ),
                           ),
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          color: TimetableColors.selectedBg,
                         ),
                         child: Text(
                           '周期${cycle + 1}',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurface,
+                            color: TimetableColors.textSecondary,
                           ),
                         ),
                       );
@@ -684,13 +675,13 @@ class _CoursePreviewSheet extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onEdit,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+                      side: const BorderSide(color: TimetableColors.accent, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
-                    label: Text('编辑课程', style: TextStyle(color: theme.colorScheme.primary)),
+                    icon: const Icon(Icons.edit_outlined, color: TimetableColors.accent),
+                    label: const Text('编辑课程', style: TextStyle(color: TimetableColors.accent)),
                   ),
                 ),
               ],
