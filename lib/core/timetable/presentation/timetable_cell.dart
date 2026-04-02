@@ -35,7 +35,8 @@ class TimetableCell extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
         margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           color: _backgroundColor(theme),
@@ -56,7 +57,7 @@ class TimetableCell extends StatelessWidget {
       case TimetableCellState.empty:
         return Colors.transparent;
       case TimetableCellState.selected:
-        return const Color(0xFFE8EDF5); // 淡灰蓝
+        return theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3);
       case TimetableCellState.filled:
         final seed = course?.colorSeed ?? 0;
         return _getCourseColor(seed).withValues(alpha: 0.65);
@@ -81,11 +82,11 @@ class TimetableCell extends StatelessWidget {
   Border? _border(ThemeData theme) {
     switch (state) {
       case TimetableCellState.empty:
-        return null; // 完全透明
+        return null;
       case TimetableCellState.selected:
         return Border.all(
-          color: theme.colorScheme.primary,
-          width: 2,
+          color: theme.colorScheme.outline.withValues(alpha: 0.15),
+          width: 1,
         );
       case TimetableCellState.filled:
         return null;
@@ -94,12 +95,20 @@ class TimetableCell extends StatelessWidget {
 
   List<BoxShadow>? _boxShadow(ThemeData theme) {
     if (state == TimetableCellState.empty) return null;
+    if (state == TimetableCellState.selected) {
+      return [
+        BoxShadow(
+          color: theme.colorScheme.primary.withValues(alpha: 0.05),
+          blurRadius: 4,
+          offset: const Offset(0, 1),
+        ),
+      ];
+    }
     return [
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.08),
-        blurRadius: 6,
-        offset: const Offset(0, 2),
-        spreadRadius: -1,
+        color: Colors.black.withValues(alpha: 0.05),
+        blurRadius: 4,
+        offset: const Offset(0, 1),
       ),
     ];
   }
@@ -111,18 +120,10 @@ class TimetableCell extends StatelessWidget {
         return Container(color: Colors.transparent);
       case TimetableCellState.selected:
         return Center(
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.add,
-              size: 20,
-              color: theme.colorScheme.onPrimary,
-            ),
+          child: Icon(
+            Icons.add,
+            size: 22,
+            color: theme.colorScheme.outline.withValues(alpha: 0.5),
           ),
         );
       case TimetableCellState.filled:
