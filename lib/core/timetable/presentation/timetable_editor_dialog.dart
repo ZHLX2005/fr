@@ -94,6 +94,8 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
     final config = ref.watch(TimetableStore.configProvider);
     final isEditing = widget.existingCourse != null;
 
+    final screenSize = MediaQuery.of(context).size;
+
     return Stack(
       children: [
         // 半透明遮罩
@@ -101,10 +103,8 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
           onTap: widget.onClose,
           child: Container(color: Colors.black26),
         ),
-        // 固定位置的对话框
-        Positioned(
-          left: (MediaQuery.of(context).size.width - 340) / 2,
-          top: (MediaQuery.of(context).size.height - 200) / 2,
+        // 居中的对话框
+        Center(
           child: Material(
             elevation: 8,
             borderRadius: BorderRadius.circular(20),
@@ -189,12 +189,11 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _SectionLabel(label: '课程名称', required: true),
-                        const SizedBox(height: 6),
                         TextField(
                           controller: _titleController,
                           style: const TextStyle(fontSize: 14),
                           decoration: InputDecoration(
+                            labelText: '课程名称 *',
                             hintText: '例如：高等数学',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -203,13 +202,12 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           textCapitalization: TextCapitalization.words,
                           autofocus: false,
                         ),
-                        const SizedBox(height: 12),
-                        _SectionLabel(label: '上课地点'),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 16),
                         TextField(
                           controller: _locationController,
                           style: const TextStyle(fontSize: 14),
                           decoration: InputDecoration(
+                            labelText: '上课地点',
                             hintText: '例如：教学楼A101',
                             prefixIcon: const Icon(Icons.location_on_outlined, size: 18),
                             border: OutlineInputBorder(
@@ -217,13 +215,12 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        _SectionLabel(label: '授课教师'),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 16),
                         TextField(
                           controller: _teacherController,
                           style: const TextStyle(fontSize: 14),
                           decoration: InputDecoration(
+                            labelText: '授课教师',
                             hintText: '例如：张老师',
                             prefixIcon: const Icon(Icons.person_outline, size: 18),
                             border: OutlineInputBorder(
