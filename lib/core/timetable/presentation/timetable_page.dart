@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/data.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';
 import 'timetable_cell.dart';
@@ -162,73 +161,46 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 计算每行高度：总高度减去padding和分隔线
+        // 计算每行高度：总高度平均分配
         final totalHeight = constraints.maxHeight;
-        final horizontalPadding = 16.0; // 左右各8
-        final dividerHeight = 1.0 * (config.slotsPerDay - 1); // 分隔线
-        final availableHeight = totalHeight - dividerHeight;
-        final rowHeight = availableHeight / config.slotsPerDay;
+        final rowHeight = totalHeight / config.slotsPerDay;
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           itemCount: config.slotsPerDay,
           itemBuilder: (context, slotIndex) {
-            // 判断是否是分段点（用于左侧显示分组标识）
-            final isMorningBreak = config.slotsPerDay >= 4 && slotIndex == 2; // 上午3节后休息
-            final isLunchBreak = config.slotsPerDay >= 6 && slotIndex == 3; // 午休
-            final isAfternoonBreak = config.slotsPerDay >= 8 && slotIndex == 5; // 下午第3节后休息
-            final showDivider = isMorningBreak || isLunchBreak || isAfternoonBreak;
-
-            return Column(
-              children: [
-                SizedBox(
-                  height: rowHeight,
-                  child: Row(
-                    children: [
-                      // 时间列 - 带分组样式
-                      _SlotLabel(
-                        slotIndex: slotIndex,
-                        totalSlots: config.slotsPerDay,
-                        height: rowHeight,
-                      ),
-                      // 课程网格列
-                      ...List.generate(config.daysPerCycle, (dayOfCycle) {
-                        final course = cycleGrid[dayOfCycle][slotIndex];
-                        final cellKeyValue = '$cycleIndex-$dayOfCycle-$slotIndex';
-                        final isSelected = _selectedCellKey == cellKeyValue;
-                        final originalCourse = allSlots[dayOfCycle]?[slotIndex];
-
-                        return Expanded(
-                          child: TimetableCell(
-                            key: ValueKey(cellKeyValue),
-                            state: isSelected
-                                ? TimetableCellState.selected
-                                : (course != null
-                                    ? TimetableCellState.filled
-                                    : TimetableCellState.empty),
-                            course: course,
-                            onTap: () => _handleCellTap(cycleIndex, dayOfCycle, slotIndex, originalCourse),
-                            onLongPress: () => _handleCellLongPress(cycleIndex, dayOfCycle, slotIndex, originalCourse),
-                          ),
-                        );
-                      }),
-                    ],
+            return SizedBox(
+              height: rowHeight,
+              child: Row(
+                children: [
+                  // 时间列
+                  _SlotLabel(
+                    slotIndex: slotIndex,
+                    height: rowHeight,
                   ),
-                ),
-                if (showDivider)
-                  Container(
-                    height: dividerHeight,
-                    alignment: Alignment.center,
-                    child: Container(
-                      width: 40,
-                      height: 2,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.outline.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(1),
+                  // 课程网格列
+                  ...List.generate(config.daysPerCycle, (dayOfCycle) {
+                    final course = cycleGrid[dayOfCycle][slotIndex];
+                    final cellKeyValue = '$cycleIndex-$dayOfCycle-$slotIndex';
+                    final isSelected = _selectedCellKey == cellKeyValue;
+                    final originalCourse = allSlots[dayOfCycle]?[slotIndex];
+
+                    return Expanded(
+                      child: TimetableCell(
+                        key: ValueKey(cellKeyValue),
+                        state: isSelected
+                            ? TimetableCellState.selected
+                            : (course != null
+                                ? TimetableCellState.filled
+                                : TimetableCellState.empty),
+                        course: course,
+                        onTap: () => _handleCellTap(cycleIndex, dayOfCycle, slotIndex, originalCourse),
+                        onLongPress: () => _handleCellLongPress(cycleIndex, dayOfCycle, slotIndex, originalCourse),
                       ),
-                    ),
-                  ),
-              ],
+                    );
+                  }),
+                ],
+              ),
             );
           },
         );
@@ -455,74 +427,30 @@ class _ConfigSlider extends StatelessWidget {
   }
 }
 
-/// 左侧节数标签组件 - 带分组样式
+/// 左侧节数标签组件
 class _SlotLabel extends StatelessWidget {
   const _SlotLabel({
     required this.slotIndex,
-    required this.totalSlots,
     required this.height,
   });
 
   final int slotIndex;
-  final int totalSlots;
   final double height;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // 根据时间段确定样式
-    String periodLabel = '';
-    Color bgColor = Colors.transparent;
-    Color textColor = theme.colorScheme.outline;
-
-    if (totalSlots >= 4) {
-      if (slotIndex < 3) {
-        periodLabel = '上午';
-        bgColor = const Color(0xFFFFF7ED); // 温暖的橙色调
-        textColor = const Color(0xFFEA580C);
-      } else if (slotIndex < 6 || (totalSlots < 6 && slotIndex < totalSlots)) {
-        periodLabel = '下午';
-        bgColor = const Color(0xFFF0FDF4); // 清新绿色调
-        textColor = const Color(0xFF16A34A);
-      } else {
-        periodLabel = '晚上';
-        bgColor = const Color(0xFFFEF0F5); // 柔和紫红色调
-        textColor = const Color(0xFFDB2777);
-      }
-    }
-
     return SizedBox(
       width: 52,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 时段标签
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              periodLabel,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
-                color: textColor,
-              ),
-            ),
+      child: Center(
+        child: Text(
+          '${slotIndex + 1}',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.outline,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(height: 2),
-          // 节数
-          Text(
-            '第${slotIndex + 1}节',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: textColor.withValues(alpha: 0.8),
-              fontSize: 10,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
