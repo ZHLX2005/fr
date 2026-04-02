@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'timetable_colors.dart';
 
 /// 周期可见性选择器
 class CycleVisibilitySelector extends StatefulWidget {
@@ -92,7 +93,7 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: theme.colorScheme.outline,
+                  color: TimetableColors.border,
                   width: 1,
                 ),
                 borderRadius: BorderRadius.circular(6),
@@ -100,7 +101,7 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
               child: Text(
                 _isAllMode ? '全部周期' : '已选${widget.selectedCycles.length}个',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: TimetableColors.textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -142,7 +143,7 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              color: TimetableColors.border,
               width: 1,
             ),
             borderRadius: BorderRadius.circular(12),
@@ -195,12 +196,8 @@ class _QuickActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Material(
-      color: isSelected
-          ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.3)
-          : theme.colorScheme.surface,
+      color: isSelected ? TimetableColors.selectedBg : TimetableColors.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -211,9 +208,7 @@ class _QuickActionChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.outline.withValues(alpha: 0.3),
+              color: isSelected ? TimetableColors.accent : TimetableColors.border,
               width: 1,
             ),
           ),
@@ -222,9 +217,7 @@ class _QuickActionChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isSelected
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.onSurface,
+              color: isSelected ? TimetableColors.accent : TimetableColors.textPrimary,
             ),
           ),
         ),
@@ -246,12 +239,8 @@ class _CycleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Material(
-      color: isSelected
-          ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.3)
-          : theme.colorScheme.surface,
+      color: isSelected ? TimetableColors.selectedBg : TimetableColors.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -263,9 +252,7 @@ class _CycleChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.outline.withValues(alpha: 0.3),
+              color: isSelected ? TimetableColors.accent : TimetableColors.border,
               width: 1,
             ),
           ),
@@ -274,9 +261,7 @@ class _CycleChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.onSurface,
+              color: isSelected ? TimetableColors.accent : TimetableColors.textPrimary,
             ),
           ),
         ),

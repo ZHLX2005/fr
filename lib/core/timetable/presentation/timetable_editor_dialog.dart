@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';
 import 'cycle_visibility_selector.dart';
+import 'timetable_colors.dart';
 
 /// 居中课程编辑对话框
 class TimetableEditorDialog extends ConsumerStatefulWidget {
@@ -130,19 +131,19 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          border: Border(
+                          border: const Border(
                             left: BorderSide(
-                              color: theme.colorScheme.primary,
+                              color: TimetableColors.accent,
                               width: 3,
                             ),
                           ),
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          color: TimetableColors.selectedBg,
                         ),
                         child: Text(
                           isEditing ? '编辑课程' : '添加课程',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onSurface,
+                            color: TimetableColors.textPrimary,
                           ),
                         ),
                       ),
@@ -154,18 +155,18 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          border: Border(
+                          border: const Border(
                             left: BorderSide(
-                              color: theme.colorScheme.outline,
+                              color: TimetableColors.border,
                               width: 2,
                             ),
                           ),
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          color: TimetableColors.selectedBg,
                         ),
                         child: Text(
                           '第${widget.dayOfCycle + 1}天 · 第${widget.slotIndex + 1}节',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                            color: TimetableColors.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -260,8 +261,8 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                         onPressed: _submit,
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide(
-                            color: theme.colorScheme.primary,
+                          side: const BorderSide(
+                            color: TimetableColors.accent,
                             width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
@@ -270,10 +271,10 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                         ),
                         child: Text(
                           isEditing ? '保存修改' : '添加课程',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.primary,
+                            color: TimetableColors.accent,
                           ),
                         ),
                       ),
