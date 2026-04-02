@@ -169,7 +169,8 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
   bool _isOddCyclesOnly() {
     if (widget.selectedCycles.isEmpty) return false;
     for (final cycle in widget.selectedCycles) {
-      if (cycle % 2 == 0) return false;
+      // cycle 0,2,4... are 第1周,第3周... (单周) - cycle % 2 != 0
+      if (cycle % 2 != 0) return false;
     }
     return true;
   }
@@ -177,7 +178,8 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
   bool _isEvenCyclesOnly() {
     if (widget.selectedCycles.isEmpty) return false;
     for (final cycle in widget.selectedCycles) {
-      if (cycle % 2 == 1) return false;
+      // cycle 1,3,5... are 第2周,第4周... (双周) - cycle % 2 == 0
+      if (cycle % 2 == 0) return false;
     }
     return true;
   }
@@ -198,7 +200,7 @@ class _QuickActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: isSelected ? Colors.transparent : TimetableColors.surface,
+      color: isSelected ? Colors.transparent : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -242,7 +244,7 @@ class _CycleChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: isSelected ? Colors.transparent : TimetableColors.surface,
+      color: isSelected ? Colors.transparent : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
