@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:just_audio/just_audio.dart' as ja;
 import '../lab_container.dart';
 
 /// 语音合成 Demo
@@ -37,25 +35,13 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
   String? _selectedVoiceName;
   String? _statusMessage;
   bool _isPlaying = false;
-  bool _isConnected = false;
   bool _showAdvanced = false;
-  bool _streamingMode = false;
 
-  // 流式播放相关
-  HttpServer? _streamingServer;
-  final List<IOSink> _streamSinks = [];
+  // 音频数据
   final List<int> _audioChunks = [];
-  bool _streamingStarted = false;
-  int _receivedChunks = 0;
 
-  // 收集模式播放器
-  final AudioPlayer _collectPlayer = AudioPlayer();
-  // 流式模式播放器
-  ja.AudioPlayer? _streamingPlayer;
-
-  // WebSocket 连接
-  WebSocket? _ws;
-  StreamSubscription? _wsSubscription;
+  // 播放器
+  final AudioPlayer _player = AudioPlayer();
 
   // 高级设置
   String _selectedModel = 'speech-2.8-hd';
@@ -110,12 +96,11 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
   void initState() {
     super.initState();
     _customModelController.text = _selectedModel;
-    _setupCollectPlayer();
-    _streamingPlayer = ja.AudioPlayer();
+    _setupPlayer();
   }
 
-  void _setupCollectPlayer() {
-    _collectPlayer.onPlayerComplete.listen((_) {
+  void _setupPlayer() {
+    _player.onPlayerComplete.listen((_) {
       if (mounted) {
         setState(() {
           _isPlaying = false;
@@ -130,21 +115,8 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
     _apiKeyController.dispose();
     _textController.dispose();
     _customModelController.dispose();
-    _wsSubscription?.cancel();
-    _ws?.close();
-    _stopStreamingServer();
-    _collectPlayer.dispose();
-    _streamingPlayer?.dispose();
+    _player.dispose();
     super.dispose();
-  }
-
-  Future<void> _stopStreamingServer() async {
-    for (final sink in _streamSinks) {
-      await sink.close();
-    }
-    _streamSinks.clear();
-    await _streamingServer?.close(force: true);
-    _streamingServer = null;
   }
 
   Future<void> _synthesize() async {
@@ -169,45 +141,28 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
         : _customModelController.text.trim();
 
     setState(() {
-      _statusMessage = '正在连接...';
+      _statusMessage = '正在合成...';
       _audioChunks.clear();
-      _receivedChunks = 0;
-      _streamingStarted = false;
     });
 
-    if (_streamingMode) {
-      await _synthesizeStreaming(model, text);
-    } else {
-      await _synthesizeCollect(model, text);
-    }
+    // 使用 HTTP API 方式
+    await _synthesizeHttp(model, text);
   }
 
-  /// 收集模式
-  Future<void> _synthesizeCollect(String model, String text) async {
+  /// HTTP API 合成
+  Future<void> _synthesizeHttp(String model, String text) async {
     try {
-      final ws = await WebSocket.connect(
-        'wss://api.minimaxi.com/ws/v1/t2a_v2',
-        headers: {'Authorization': 'Bearer ${_apiKeyController.text}'},
-      );
-      _ws = ws;
+      final uri = Uri.parse('https://api.minimaxi.com/v1/t2a_v2');
+      final httpClient = HttpClient();
+      final request = await httpClient.postUrl(uri);
 
-      setState(() {
-        _isConnected = true;
-        _statusMessage = '已连接，正在合成...';
-      });
+      request.headers.set('Authorization', 'Bearer ${_apiKeyController.text}');
+      request.headers.set('Content-Type', 'application/json');
 
-      // 读取连接确认
-      final welcomeData = await ws.first;
-      final welcome = json.decode(welcomeData as String);
-      if (welcome['event'] != 'connected_success') {
-        ws.close();
-        throw Exception('连接失败: $welcomeData');
-      }
-
-      // 发送 task_start
-      ws.add(json.encode({
-        'event': 'task_start',
+      final requestBody = json.encode({
         'model': model,
+        'text': text,
+        'stream': false,
         'voice_setting': {
           'voice_id': _selectedVoiceId,
           'speed': _speed,
@@ -221,219 +176,51 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
           'format': _format,
           'channel': _channel,
         },
-      }));
+      });
 
-      // 读取 task_started
-      final startData = await ws.first;
-      final startResp = json.decode(startData as String);
-      if (startResp['event'] != 'task_started') {
-        ws.close();
-        throw Exception('任务启动失败: $startData');
-      }
+      request.write(requestBody);
 
-      // 发送文本
-      ws.add(json.encode({
-        'event': 'task_continue',
-        'text': text,
-      }));
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
 
-      // 读取音频数据
-      ws.listen((data) {
-        final response = json.decode(data as String);
-        if (response['data'] != null && response['data']['audio'] != null) {
-          final audioHex = response['data']['audio'] as String;
-          if (audioHex.isNotEmpty) {
-            final audioBytes = _hexToBytes(audioHex);
-            _audioChunks.addAll(audioBytes);
-          }
-        }
-        if (response['is_final'] == true) {
-          ws.add(json.encode({'event': 'task_finish'}));
-          ws.close();
-          _playCollectAudio();
-        }
-      }, onError: (error) {
-        setState(() {
-          _statusMessage = '错误: $error';
-          _isConnected = false;
-        });
-      }, onDone: () {
-        if (_audioChunks.isEmpty && !_isPlaying) {
+      if (response.statusCode == 200) {
+        final responseData = json.decode(responseBody);
+        if (responseData['data'] != null && responseData['data']['audio'] != null) {
+          final audioHex = responseData['data']['audio'] as String;
+          final audioBytes = _hexToBytes(audioHex);
+          _audioChunks.addAll(audioBytes);
+
           setState(() {
-            _statusMessage = '未收到音频数据';
-            _isConnected = false;
+            _statusMessage = '合成完成，音频大小: ${audioBytes.length} bytes';
           });
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _statusMessage = '连接失败: $e';
-        _isConnected = false;
-      });
-    }
-  }
 
-  /// 流式模式
-  Future<void> _synthesizeStreaming(String model, String text) async {
-    try {
-      await _stopStreamingServer();
-
-      // 启动本地 HTTP 服务器
-      _streamingServer = await HttpServer.bind('127.0.0.1', 0);
-      final port = _streamingServer!.port;
-
-      _streamingServer!.listen((request) async {
-        if (request.uri.path == '/audio') {
-          final response = request.response;
-          response.headers.set('Content-Type', 'audio/mpeg');
-          response.headers.set('Accept-Ranges', 'none');
-          response.headers.set('Cache-Control', 'no-cache');
-
-          final sink = IOSink(response);
-          _streamSinks.add(sink);
-
-          if (_audioChunks.isNotEmpty) {
-            sink.add(Uint8List.fromList(_audioChunks));
-          }
+          await _playAudio();
         } else {
-          request.response.statusCode = 404;
-          request.response.close();
-        }
-      });
-
-      // 连接 WebSocket
-      _ws = await WebSocket.connect(
-        'wss://api.minimaxi.com/ws/v1/t2a_v2',
-        headers: {'Authorization': 'Bearer ${_apiKeyController.text}'},
-      );
-
-      setState(() {
-        _isConnected = true;
-        _statusMessage = '已连接，正在合成...';
-      });
-
-      // 读取连接确认
-      final welcomeData = await _ws!.first;
-      final welcome = json.decode(welcomeData as String);
-      if (welcome['event'] != 'connected_success') {
-        _ws!.close();
-        throw Exception('连接失败: $welcomeData');
-      }
-
-      // 发送 task_start
-      _ws!.add(json.encode({
-        'event': 'task_start',
-        'model': model,
-        'voice_setting': {
-          'voice_id': _selectedVoiceId,
-          'speed': _speed,
-          'vol': _vol,
-          'pitch': _pitch,
-          'english_normalization': _englishNormalization,
-        },
-        'audio_setting': {
-          'sample_rate': _sampleRate,
-          'bitrate': _bitrate,
-          'format': _format,
-          'channel': _channel,
-        },
-      }));
-
-      // 读取 task_started
-      final startData = await _ws!.first;
-      final startResp = json.decode(startData as String);
-      if (startResp['event'] != 'task_started') {
-        _ws!.close();
-        throw Exception('任务启动失败: $startData');
-      }
-
-      // 发送文本
-      _ws!.add(json.encode({
-        'event': 'task_continue',
-        'text': text,
-      }));
-
-      _wsSubscription = _ws!.listen(
-        (data) {
-          final response = json.decode(data as String);
-          if (response['data'] != null && response['data']['audio'] != null) {
-            final audioHex = response['data']['audio'] as String;
-            if (audioHex.isNotEmpty) {
-              final audioBytes = _hexToBytes(audioHex);
-              _audioChunks.addAll(audioBytes);
-              _receivedChunks++;
-
-              for (final sink in _streamSinks) {
-                sink.add(audioBytes);
-              }
-
-              if (!_streamingStarted && _audioChunks.length >= 5000) {
-                _startStreamingPlayback('http://127.0.0.1:$port/audio');
-              }
-
-              setState(() {
-                _statusMessage = '流式接收中... ($_receivedChunks chunks)';
-              });
-            }
-          }
-          if (response['is_final'] == true) {
-            _ws!.add(json.encode({'event': 'task_finish'}));
-            _ws!.close();
-            setState(() {
-              _statusMessage = '流式接收完成，共 ${_receivedChunks} chunks';
-            });
-          }
-        },
-        onError: (error) {
           setState(() {
-            _statusMessage = '错误: $error';
-            _isConnected = false;
+            _statusMessage = '响应格式错误: $responseData';
           });
-        },
-        onDone: () {
-          _wsSubscription?.cancel();
-          _ws = null;
-          if (_audioChunks.isEmpty && !_isPlaying) {
-            setState(() {
-              _statusMessage = '未收到音频数据';
-              _isConnected = false;
-            });
-          }
-        },
-      );
+        }
+      } else {
+        setState(() {
+          _statusMessage = '请求失败: ${response.statusCode} - $responseBody';
+        });
+      }
     } catch (e) {
-      await _stopStreamingServer();
       setState(() {
-        _statusMessage = '连接失败: $e';
-        _isConnected = false;
+        _statusMessage = '请求异常: $e';
       });
     }
   }
 
-  /// 开始流式播放
-  Future<void> _startStreamingPlayback(String url) async {
-    if (_streamingStarted || _streamingPlayer == null) return;
-    _streamingStarted = true;
-
-    try {
-      await _streamingPlayer!.setUrl(url);
-      await _streamingPlayer!.play();
-      setState(() => _isPlaying = true);
-    } catch (e) {
-      _streamingStarted = false;
-      setState(() => _statusMessage = '流式播放失败: $e');
-    }
-  }
-
-  /// 收集模式播放
-  Future<void> _playCollectAudio() async {
+  /// 播放音频
+  Future<void> _playAudio() async {
     if (_audioChunks.isEmpty) return;
 
     setState(() => _isPlaying = true);
 
     try {
       final audioData = Uint8List.fromList(_audioChunks);
-      await _collectPlayer.play(UrlSource('data:audio/mp3;base64,${base64Encode(audioData)}'));
+      await _player.play(UrlSource('data:audio/mp3;base64,${base64Encode(audioData)}'));
       setState(() => _statusMessage = '正在播放...');
     } catch (e) {
       setState(() {
@@ -452,8 +239,7 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
   }
 
   void _stopAudio() {
-    _collectPlayer.stop();
-    _streamingPlayer?.stop();
+    _player.stop();
     setState(() {
       _isPlaying = false;
       _statusMessage = '已停止';
@@ -819,31 +605,6 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
             ),
             const SizedBox(height: 16),
 
-            // 流式模式开关
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SwitchListTile(
-                      title: const Text('流式播放模式 (just_audio)'),
-                      subtitle: Text(
-                        _streamingMode
-                            ? '本地HTTP服务器流式边收边播'
-                            : '收完后统一播放（稳定推荐）',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      value: _streamingMode,
-                      onChanged: (v) => setState(() => _streamingMode = v),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
             // 状态显示
             if (_statusMessage != null)
               Container(
@@ -858,7 +619,7 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                 ),
                 child: Row(
                   children: [
-                    if (_isConnected || _isPlaying)
+                    if (_isPlaying)
                       const SizedBox(
                         width: 16,
                         height: 16,
@@ -894,9 +655,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: (_isPlaying || _isConnected) ? null : _synthesize,
-                    icon: Icon(_streamingMode ? Icons.stream : Icons.play_arrow),
-                    label: Text(_streamingMode ? '流式合成播放' : '合成并播放'),
+                    onPressed: _isPlaying ? null : _synthesize,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('合成并播放'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
