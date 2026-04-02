@@ -106,7 +106,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
             child: Text(
               '第${_currentCycleIndex + 1}周期',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: TimetableColors.accent,
+                color: TimetableColors.textPrimary,
                 fontWeight: FontWeight.w600,
                 fontSize: 10,
               ),
@@ -130,7 +130,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                         Text(
                           '第${dayOfCycle + 1}天',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: TimetableColors.accent,
+                            color: TimetableColors.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -455,7 +455,7 @@ class _ConfigSlider extends StatelessWidget {
               decoration: BoxDecoration(
                 border: const Border(
                   left: BorderSide(
-                    color: TimetableColors.accent,
+                    color: TimetableColors.textPrimary,
                     width: 3,
                   ),
                 ),
@@ -518,7 +518,7 @@ class _SlotLabel extends StatelessWidget {
               child: Text(
                 '${slotIndex + 1}',
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: TimetableColors.accent,
+                  color: TimetableColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -656,7 +656,7 @@ class _CoursePreviewSheet extends StatelessWidget {
                         decoration: BoxDecoration(
                           border: const Border(
                             left: BorderSide(
-                              color: TimetableColors.accent,
+                              color: TimetableColors.textPrimary,
                               width: 2,
                             ),
                           ),
