@@ -31,6 +31,7 @@ class HiveTimetableRepository extends TimetableRepository {
       slotsPerDay: map['slotsPerDay'] as int? ?? TimetableConfig.defaultConfig.slotsPerDay,
       id: map['id'] as String? ?? 'default',
       updatedAt: map['updatedAt'] as int?,
+      backgroundImagePath: map['backgroundImagePath'] as String?,
     );
   }
 
@@ -43,6 +44,7 @@ class HiveTimetableRepository extends TimetableRepository {
       'slotsPerDay': config.slotsPerDay,
       'id': config.id,
       'updatedAt': config.updatedAt,
+      'backgroundImagePath': config.backgroundImagePath,
     });
   }
 
