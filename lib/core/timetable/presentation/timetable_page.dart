@@ -211,27 +211,34 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   /// 处理单元格点击
   void _handleCellTap(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem? originalCourse) {
     final cellKeyValue = _cellKey(cycleIndex, dayOfCycle, slotIndex);
+    final hasVisibleCourse = originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex);
 
     if (_selectedCellKey == cellKeyValue) {
-      // 再次点击已选中的单元格 → 打开编辑器（空白添加课程）
-      _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
-    } else if (_selectedCellKey == null) {
-      // 检查是否有课程且在当前周期可见
-      if (originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex)) {
+      // 点击已选中的单元格
+      if (hasVisibleCourse) {
         // 有课程 → 显示预览抽屉
         _showCoursePreview(cycleIndex, dayOfCycle, slotIndex, originalCourse);
       } else {
-        // 空单元格 → 选中当前单元格
-        setState(() => _selectedCellKey = cellKeyValue);
+        // 空白 → 打开编辑器
+        _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
       }
     } else {
-      // 有其他单元格选中 → 切换选中
-      setState(() => _selectedCellKey = cellKeyValue);
+      // 点击不同的单元格
+      if (hasVisibleCourse) {
+        // 有课程 → 显示预览抽屉
+        _showCoursePreview(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+      } else {
+        // 空白 → 选中当前单元格（进入+状态）
+        setState(() => _selectedCellKey = cellKeyValue);
+      }
     }
   }
 
   /// 显示课程预览抽屉
   void _showCoursePreview(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem course) {
+    // 清除选中状态
+    setState(() => _selectedCellKey = null);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
