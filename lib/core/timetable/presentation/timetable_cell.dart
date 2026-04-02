@@ -31,6 +31,7 @@ class TimetableCell extends StatelessWidget {
     final theme = Theme.of(context);
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       onLongPress: onLongPress,
       child: AnimatedContainer(
@@ -103,8 +104,8 @@ class TimetableCell extends StatelessWidget {
   Widget _buildContent(ThemeData theme) {
     switch (state) {
       case TimetableCellState.empty:
-        // 常态空白：仅显示淡色边框，不显示+按钮
-        return const SizedBox.shrink();
+        // 空白：透明但有点击区域
+        return Container(color: Colors.transparent);
       case TimetableCellState.selected:
         return Center(
           child: Container(
