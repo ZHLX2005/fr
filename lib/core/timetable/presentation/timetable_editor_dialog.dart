@@ -93,18 +93,12 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
     final theme = Theme.of(context);
     final config = ref.watch(TimetableStore.configProvider);
     final isEditing = widget.existingCourse != null;
-    final viewInsets = MediaQuery.of(context).viewInsets;
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: viewInsets.top > 0 ? 20 : 60,
-          bottom: viewInsets.bottom > 0 ? 20 : 60,
-        ),
-        child: Material(
-          elevation: 8,
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+      child: Material(
+        elevation: 8,
           borderRadius: BorderRadius.circular(20),
           color: theme.colorScheme.surface,
           child: Container(
@@ -278,8 +272,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
