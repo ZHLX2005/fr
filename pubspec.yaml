@@ -80,6 +80,9 @@ dependencies:
   # Audio Player
   audioplayers: ^5.2.1
 
+  # WebSocket
+  web_socket_channel: ^3.0.1
+
   # Video Player
   video_player: ^2.8.7
   chewie: ^1.8.1
