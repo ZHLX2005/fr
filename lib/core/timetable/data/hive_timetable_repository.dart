@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../domain/models.dart';
@@ -11,17 +12,37 @@ class HiveTimetableRepository extends TimetableRepository {
   late Box _configBox;
   late Box _itemsBox;
 
+  bool _isInitialized = false;
+
   /// 初始化 Hive
   Future<void> init() async {
-    await Hive.initFlutter();
-    _configBox = await Hive.openBox(_configBoxName);
-    _itemsBox = await Hive.openBox(_itemsBoxName);
+    try {
+      await Hive.initFlutter();
+      _configBox = await Hive.openBox(_configBoxName);
+      _itemsBox = await Hive.openBox(_itemsBoxName);
+      _isInitialized = true;
+      debugPrint('HiveTimetableRepository: 初始化成功');
+      debugPrint('HiveTimetableRepository: _itemsBox.length = ${_itemsBox.length}');
+    } catch (e, st) {
+      debugPrint('HiveTimetableRepository: 初始化失败 $e\n$st');
+      rethrow;
+    }
   }
+
+  /// 检查是否已初始化
+  bool get isInitialized => _isInitialized;
 
   @override
   Future<TimetableConfig> loadConfig() async {
+    if (!_isInitialized) {
+      debugPrint('HiveTimetableRepository.loadConfig: 未初始化');
+      return TimetableConfig.defaultConfig;
+    }
     final json = _configBox.get('config');
-    if (json == null) return TimetableConfig.defaultConfig;
+    if (json == null) {
+      debugPrint('HiveTimetableRepository.loadConfig: 没有保存的配置');
+      return TimetableConfig.defaultConfig;
+    }
 
     final map = json as Map<String, dynamic>;
     return TimetableConfig(
@@ -37,6 +58,10 @@ class HiveTimetableRepository extends TimetableRepository {
 
   @override
   Future<void> saveConfig(TimetableConfig config) async {
+    if (!_isInitialized) {
+      debugPrint('HiveTimetableRepository.saveConfig: 未初始化');
+      return;
+    }
     await _configBox.put('config', {
       'startDateIso': config.startDateIso,
       'cycleCount': config.cycleCount,
@@ -46,36 +71,58 @@ class HiveTimetableRepository extends TimetableRepository {
       'updatedAt': config.updatedAt,
       'backgroundImagePath': config.backgroundImagePath,
     });
+    debugPrint('HiveTimetableRepository.saveConfig: 配置已保存');
   }
 
   @override
   Future<List<CourseItem>> loadItems() async {
+    if (!_isInitialized) {
+      debugPrint('HiveTimetableRepository.loadItems: 未初始化');
+      return [];
+    }
     final items = <CourseItem>[];
+    debugPrint('HiveTimetableRepository.loadItems: keys = ${_itemsBox.keys.toList()}');
     for (final key in _itemsBox.keys) {
       final json = _itemsBox.get(key);
       if (json != null && json is Map) {
         items.add(_courseItemFromJson(json as Map<String, dynamic>));
       }
     }
+    debugPrint('HiveTimetableRepository.loadItems: 返回 ${items.length} 个课程');
     return items;
   }
 
   @override
   Future<void> saveItems(List<CourseItem> items) async {
+    if (!_isInitialized) {
+      debugPrint('HiveTimetableRepository.saveItems: 未初始化');
+      return;
+    }
     await _itemsBox.clear();
     for (final item in items) {
       await _itemsBox.put(item.cellKey, _courseItemToJson(item));
     }
+    debugPrint('HiveTimetableRepository.saveItems: 保存了 ${items.length} 个课程');
   }
 
   @override
   Future<void> upsertItem(CourseItem item) async {
+    if (!_isInitialized) {
+      debugPrint('HiveTimetableRepository.upsertItem: 未初始化');
+      return;
+    }
     await _itemsBox.put(item.cellKey, _courseItemToJson(item));
+    debugPrint('HiveTimetableRepository.upsertItem: 保存课程 ${item.cellKey} 成功，Box长度=${_itemsBox.length}');
   }
 
   @override
   Future<void> deleteItem(String cellKey) async {
+    if (!_isInitialized) {
+      debugPrint('HiveTimetableRepository.deleteItem: 未初始化');
+      return;
+    }
     await _itemsBox.delete(cellKey);
+    debugPrint('HiveTimetableRepository.deleteItem: 删除课程 $cellKey 成功，Box长度=${_itemsBox.length}');
   }
 
   Map<String, dynamic> _courseItemToJson(CourseItem item) {
