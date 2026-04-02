@@ -161,6 +161,16 @@ class TimetableStore extends StateNotifier<TimetableState> {
     return null;
   }
 
+  /// 更新背景图
+  Future<void> updateBackgroundImage(String? path) async {
+    final newConfig = state.config.copyWith(
+      backgroundImagePath: path,
+      clearBackgroundImage: path == null,
+    );
+    await _repo.saveConfig(newConfig);
+    state = state.copyWith(config: newConfig);
+  }
+
   /// Repository Provider
   static final repoProvider = Provider<TimetableRepository>((ref) {
     throw UnimplementedError('TimetableRepository must be provided in main()');

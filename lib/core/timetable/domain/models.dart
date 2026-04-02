@@ -10,6 +10,7 @@ class TimetableConfig {
     required this.slotsPerDay,
     this.id = 'default',
     this.updatedAt,
+    this.backgroundImagePath,
   });
 
   /// ISO 8601 日期字符串 (YYYY-MM-DD)
@@ -22,6 +23,8 @@ class TimetableConfig {
   final int slotsPerDay;
   final String id;
   final int? updatedAt;
+  /// 背景图路径
+  final String? backgroundImagePath;
 
   TimetableConfig copyWith({
     String? startDateIso,
@@ -30,6 +33,8 @@ class TimetableConfig {
     int? slotsPerDay,
     String? id,
     int? updatedAt,
+    String? backgroundImagePath,
+    bool clearBackgroundImage = false,
   }) {
     return TimetableConfig(
       startDateIso: startDateIso ?? this.startDateIso,
@@ -38,6 +43,7 @@ class TimetableConfig {
       slotsPerDay: slotsPerDay ?? this.slotsPerDay,
       id: id ?? this.id,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
+      backgroundImagePath: clearBackgroundImage ? null : (backgroundImagePath ?? this.backgroundImagePath),
     );
   }
 

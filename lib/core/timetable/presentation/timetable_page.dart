@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models.dart';
@@ -5,6 +6,7 @@ import 'timetable_store.dart';
 import 'timetable_cell.dart';
 import 'timetable_editor_dialog.dart';
 import 'timetable_colors.dart';
+import '../../../widgets/image_picker_widget.dart';
 
 /// 简洁日历风格课表页面
 class TimetablePage extends ConsumerStatefulWidget {
@@ -37,6 +39,63 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     return '$cycleIndex-$dayOfCycle-$slotIndex';
   }
 
+  /// 选择背景图
+  Future<void> _pickBackgroundImage() async {
+    final config = ref.read(TimetableStore.provider).config;
+    if (config.backgroundImagePath != null) {
+      // 已有背景图，显示菜单
+      _showBackgroundImageMenu();
+    } else {
+      // 无背景图，直接选择
+      final path = await ImagePickerPage.navigate(
+        context,
+        config: const ImagePickerConfig(),
+        title: '选择背景图',
+      );
+      if (path != null) {
+        await ref.read(TimetableStore.provider.notifier).updateBackgroundImage(path);
+      }
+    }
+  }
+
+  /// 显示背景图菜单
+  void _showBackgroundImageMenu() {
+    final pageContext = context;
+    showModalBottomSheet(
+      context: pageContext,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('更换背景图'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final path = await ImagePickerPage.navigate(
+                  pageContext,
+                  config: const ImagePickerConfig(),
+                  title: '选择背景图',
+                );
+                if (path != null) {
+                  await ref.read(TimetableStore.provider.notifier).updateBackgroundImage(path);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('移除背景图', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                ref.read(TimetableStore.provider.notifier).updateBackgroundImage(null);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -59,6 +118,11 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.image_outlined),
+            onPressed: _pickBackgroundImage,
+            tooltip: '设置背景图',
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => Navigator.push(
               context,
@@ -67,26 +131,39 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // 天数标题行
-          _buildWeekdayHeader(theme, config),
-          const Divider(height: 1),
-          // 课表网格（可左右滑动）
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentCycleIndex = index;
-                  _selectedCellKey = null; // 切换周期时清除选中
-                });
-              },
-              itemCount: config.cycleCount,
-              itemBuilder: (context, cycleIndex) {
-                return _buildTimetableGrid(theme, config, cycleIndex);
-              },
+          // 背景图（固定不动）
+          if (config.backgroundImagePath != null)
+            Positioned.fill(
+              child: Image.file(
+                File(config.backgroundImagePath!),
+                fit: BoxFit.cover,
+              ),
             ),
+          // 课表内容层
+          Column(
+            children: [
+              // 天数标题行
+              _buildWeekdayHeader(theme, config),
+              const Divider(height: 1),
+              // 课表网格（可左右滑动）
+              Expanded(
+                child: PageView.builder(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentCycleIndex = index;
+                      _selectedCellKey = null; // 切换周期时清除选中
+                    });
+                  },
+                  itemCount: config.cycleCount,
+                  itemBuilder: (context, cycleIndex) {
+                    return _buildTimetableGrid(theme, config, cycleIndex);
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -102,14 +179,25 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         children: [
           // 左上角 - 显示当前周期
           Container(
-            width: 50,
+            width: 64,
             alignment: Alignment.center,
-            child: Text(
-              '第${_currentCycleIndex + 1}周期',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: TimetableColors.textPrimary,
-                fontWeight: FontWeight.w600,
-                fontSize: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                '第${_currentCycleIndex + 1}周期',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: TimetableColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                ),
               ),
             ),
           ),
@@ -498,50 +586,27 @@ class _SlotLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SizedBox(
-      width: 52,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 数字
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: TimetableColors.selectedBg,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: TimetableColors.border,
-                width: 1,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                '${slotIndex + 1}',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: TimetableColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+    return Container(
+      width: 64,
+      height: height - 8,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          '${slotIndex + 1}',
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: TimetableColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
           ),
-          const SizedBox(height: 4),
-          // 小圆点指示
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(3, (i) => Container(
-              width: 3,
-              height: 3,
-              margin: const EdgeInsets.symmetric(horizontal: 1),
-              decoration: BoxDecoration(
-                color: i == slotIndex % 3
-                    ? TimetableColors.accentLight
-                    : TimetableColors.border,
-                shape: BoxShape.circle,
-              ),
-            )),
-          ),
-        ],
+        ),
       ),
     );
   }
