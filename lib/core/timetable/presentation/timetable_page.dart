@@ -395,10 +395,26 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             onChanged: (v) => setState(() => _slotsPerDay = v.round()),
           ),
           const SizedBox(height: 24),
-          FilledButton.icon(
+          OutlinedButton.icon(
             onPressed: _save,
-            icon: const Icon(Icons.save),
-            label: const Text('保存设置'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.secondary,
+                width: 1.5,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: Icon(Icons.save, color: Theme.of(context).colorScheme.secondary),
+            label: Text(
+              '保存设置',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.secondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -425,6 +441,7 @@ class _ConfigSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -432,12 +449,24 @@ class _ConfigSlider extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label),
-            Text(
-              value.round().toString(),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w600,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: theme.colorScheme.secondary,
+                    width: 3,
                   ),
+                ),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              ),
+              child: Text(
+                value.round().toString(),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),
