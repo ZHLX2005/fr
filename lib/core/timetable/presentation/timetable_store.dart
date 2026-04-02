@@ -11,7 +11,7 @@ class TimetableState {
   });
 
   final TimetableConfig config;
-  final Map<String, CourseItem> items; // 按 cellKey 索引
+  final Map<String, CourseItem> items; // 按 cellKey 索引 (cellKey = 'd${dayOfCycle}_s$slotIndex')
   final bool isLoading;
 
   TimetableState copyWith({
@@ -108,31 +108,43 @@ class TimetableStore extends StateNotifier<TimetableState> {
     int? slotsPerDay,
   }) async {
     final oldConfig = state.config;
-    final oldTotalDays = oldConfig.totalDays;
+
+    // 计算新的 daysPerCycle 和 slotsPerDay
+    final newDaysPerCycle = daysPerCycle?.clamp(TimetableConfig.minDaysPerCycle, TimetableConfig.maxDaysPerCycle) ?? oldConfig.daysPerCycle;
+    final newSlotsPerDay = slotsPerDay?.clamp(TimetableConfig.minSlotsPerDay, TimetableConfig.maxSlotsPerDay) ?? oldConfig.slotsPerDay;
+
+    // 检查是否有课程超出新的边界
+    final newItems = Map<String, CourseItem>.from(state.items);
+    final deletedKeys = <String>[];
+
+    // 检查 dayOfCycle 是否超出范围
+    if (daysPerCycle != null) {
+      newItems.removeWhere((key, item) {
+        if (item.dayOfCycle >= newDaysPerCycle) {
+          deletedKeys.add(key);
+          return true;
+        }
+        return false;
+      });
+    }
+
+    // 检查 slotIndex 是否超出范围
+    if (slotsPerDay != null) {
+      newItems.removeWhere((key, item) {
+        if (item.slotIndex >= newSlotsPerDay) {
+          deletedKeys.add(key);
+          return true;
+        }
+        return false;
+      });
+    }
 
     final newConfig = oldConfig.copyWith(
       startDateIso: startDateIso,
       cycleCount: cycleCount?.clamp(TimetableConfig.minCycles, TimetableConfig.maxCycles),
-      daysPerCycle: daysPerCycle?.clamp(TimetableConfig.minDaysPerCycle, TimetableConfig.maxDaysPerCycle),
-      slotsPerDay: slotsPerDay?.clamp(TimetableConfig.minSlotsPerDay, TimetableConfig.maxSlotsPerDay),
+      daysPerCycle: newDaysPerCycle,
+      slotsPerDay: newSlotsPerDay,
     );
-
-    final newTotalDays = newConfig.totalDays;
-    final hasDaysReduced = newTotalDays < oldTotalDays;
-
-    // 处理越界数据
-    final newItems = Map<String, CourseItem>.from(state.items);
-    final deletedKeys = <String>[];
-
-    if (hasDaysReduced) {
-      newItems.removeWhere((key, item) {
-        final shouldDelete = item.dayIndex >= newTotalDays;
-        if (shouldDelete) {
-          deletedKeys.add(key);
-        }
-        return shouldDelete;
-      });
-    }
 
     // 保存配置
     await _repo.saveConfig(newConfig);
@@ -165,26 +177,50 @@ class TimetableStore extends StateNotifier<TimetableState> {
     return ref.watch(timetableProvider).config;
   });
 
-  /// 单格 Provider (family)
+  /// 单格 Provider (family) - 通过 cellKey 获取
   static final cellProvider = Provider.family<CourseItem?, String>((ref, cellKey) {
     final state = ref.watch(timetableProvider);
     return state.items[cellKey];
   });
 
-  /// 某天所有节次 Provider (family)
-  static final daySlotsProvider = Provider.family<List<CourseItem?>, int>((ref, dayIndex) {
+  /// 所有天的课程 Provider - 返回 Map<dayOfCycle, List<CourseItem?>>
+  /// 这个 provider 按 dayOfCycle 存储课程，所以所有周期显示相同的课程
+  static final allDaySlotsProvider = Provider<Map<int, List<CourseItem?>>>((ref) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
-    final items = <CourseItem?>[];
 
-    for (int slot = 0; slot < config.slotsPerDay; slot++) {
-      items.add(state.items['d${dayIndex}_s$slot']);
+    final result = <int, List<CourseItem?>>{};
+
+    for (int dayOfCycle = 0; dayOfCycle < config.daysPerCycle; dayOfCycle++) {
+      final slots = <CourseItem?>[];
+      for (int slot = 0; slot < config.slotsPerDay; slot++) {
+        slots.add(state.items['d${dayOfCycle}_s$slot']);
+      }
+      result[dayOfCycle] = slots;
     }
 
-    return items;
+    return result;
   });
 
-  /// 某周期网格 Provider (family) - 返回 2D 数组
+  /// 某天所有节次 Provider (family) - 通过 dayOfCycle 获取
+  static final daySlotsProvider = Provider.family<List<CourseItem?>, int>((ref, dayOfCycle) {
+    final config = ref.watch(configProvider);
+    final state = ref.watch(timetableProvider);
+    final slots = <CourseItem?>[];
+
+    if (dayOfCycle >= config.daysPerCycle) {
+      return slots;
+    }
+
+    for (int slot = 0; slot < config.slotsPerDay; slot++) {
+      slots.add(state.items['d${dayOfCycle}_s$slot']);
+    }
+
+    return slots;
+  });
+
+  /// 某周期网格 Provider (family) - 返回 2D 数组 [dayOfCycle][slot]
+  /// 根据课程的 visibleInCycles 决定是否在特定周期显示
   static final cycleGridProvider = Provider.family<List<List<CourseItem?>>, int>((ref, cycleIndex) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
@@ -193,9 +229,13 @@ class TimetableStore extends StateNotifier<TimetableState> {
     final grid = List.generate(
       config.daysPerCycle,
       (dayOfCycle) {
-        final dayIndex = TimetableMappers.cycleToDayIndex(cycleIndex, dayOfCycle, config.daysPerCycle);
         return List.generate(config.slotsPerDay, (slot) {
-          return state.items['d$dayIndex\_s$slot'];
+          final item = state.items['d${dayOfCycle}_s$slot'];
+          // 检查课程是否在该周期可见
+          if (item != null && !item.isVisibleInCycle(cycleIndex)) {
+            return null;
+          }
+          return item;
         });
       },
     );
@@ -204,29 +244,28 @@ class TimetableStore extends StateNotifier<TimetableState> {
   });
 
   /// 总览数据 Provider - 返回每个周期的摘要
+  /// 由于课程按 dayOfCycle 存储，所有周期的课程数相同
   static final overviewProvider = Provider.family<List<CycleSummary>, int>((ref, _) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
 
-    final summaries = <CycleSummary>[];
-
-    for (int cycle = 0; cycle < config.cycleCount; cycle++) {
-      int courseCount = 0;
-      final startDay = cycle * config.daysPerCycle;
-      final endDay = startDay + config.daysPerCycle - 1;
-
-      for (int day = startDay; day <= endDay; day++) {
-        for (int slot = 0; slot < config.slotsPerDay; slot++) {
-          if (state.items['d${day}_s$slot'] != null) {
-            courseCount++;
-          }
+    // 计算一天的课程数
+    int dayCourseCount = 0;
+    for (int slot = 0; slot < config.slotsPerDay; slot++) {
+      for (int dayOfCycle = 0; dayOfCycle < config.daysPerCycle; dayOfCycle++) {
+        if (state.items['d${dayOfCycle}_s$slot'] != null) {
+          dayCourseCount++;
         }
       }
+    }
 
+    // 所有周期课程数相同
+    final summaries = <CycleSummary>[];
+    for (int cycle = 0; cycle < config.cycleCount; cycle++) {
       summaries.add(CycleSummary(
         cycleIndex: cycle,
         title: TimetableMappers.getCycleTitle(cycle, config.daysPerCycle),
-        courseCount: courseCount,
+        courseCount: dayCourseCount,
       ));
     }
 

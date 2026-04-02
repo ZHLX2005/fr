@@ -79,28 +79,38 @@ class HiveTimetableRepository extends TimetableRepository {
   Map<String, dynamic> _courseItemToJson(CourseItem item) {
     return {
       'id': item.id,
-      'dayIndex': item.dayIndex,
+      'dayOfCycle': item.dayOfCycle,
       'slotIndex': item.slotIndex,
       'title': item.title,
       'location': item.location,
       'teacher': item.teacher,
       'colorSeed': item.colorSeed,
       'version': item.version,
+      'visibleInCycles': item.visibleInCycles,
       'createdAt': item.createdAt,
       'updatedAt': item.updatedAt,
     };
   }
 
   CourseItem _courseItemFromJson(Map<String, dynamic> json) {
+    // 兼容旧数据：如果有 dayIndex 但没有 dayOfCycle，迁移时使用 dayIndex
+    final dayOfCycle = json['dayOfCycle'] as int? ?? json['dayIndex'] as int? ?? 0;
+    // visibleInCycles: 兼容旧数据（没有该字段时为 null）
+    final visibleInCyclesRaw = json['visibleInCycles'];
+    List<int>? visibleInCycles;
+    if (visibleInCyclesRaw != null && visibleInCyclesRaw is List) {
+      visibleInCycles = visibleInCyclesRaw.cast<int>();
+    }
     return CourseItem(
       id: json['id'] as String,
-      dayIndex: json['dayIndex'] as int,
+      dayOfCycle: dayOfCycle,
       slotIndex: json['slotIndex'] as int,
       title: json['title'] as String,
       location: json['location'] as String?,
       teacher: json['teacher'] as String?,
       colorSeed: json['colorSeed'] as int?,
       version: json['version'] as int? ?? 1,
+      visibleInCycles: visibleInCycles,
       createdAt: json['createdAt'] as int,
       updatedAt: json['updatedAt'] as int,
     );
