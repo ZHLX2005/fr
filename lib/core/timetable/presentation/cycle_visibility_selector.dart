@@ -90,17 +90,18 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _isAllMode
-                    ? theme.colorScheme.primaryContainer
-                    : theme.colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(12),
+                border: Border(
+                  left: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               ),
               child: Text(
                 _isAllMode ? '全部周期' : '${widget.selectedCycles.length}个周期',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: _isAllMode
-                      ? theme.colorScheme.onPrimaryContainer
-                      : theme.colorScheme.onSecondaryContainer,
+                  color: theme.colorScheme.onSurface,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -198,9 +199,7 @@ class _QuickActionChip extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Material(
-      color: isSelected
-          ? theme.colorScheme.primary
-          : theme.colorScheme.surfaceContainerHighest,
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -210,10 +209,13 @@ class _QuickActionChip extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outline.withValues(alpha: 0.2),
+            border: Border(
+              left: BorderSide(
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : Colors.transparent,
+                width: 3,
+              ),
             ),
           ),
           child: Text(
@@ -221,9 +223,7 @@ class _QuickActionChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isSelected
-                  ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurface,
+              color: theme.colorScheme.onSurface,
             ),
           ),
         ),
@@ -248,9 +248,7 @@ class _CycleChip extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Material(
-      color: isSelected
-          ? theme.colorScheme.primaryContainer
-          : theme.colorScheme.surface,
+      color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -261,11 +259,13 @@ class _CycleChip extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outline.withValues(alpha: 0.3),
-              width: isSelected ? 2 : 1,
+            border: Border(
+              left: BorderSide(
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline.withValues(alpha: 0.3),
+                width: isSelected ? 3 : 1,
+              ),
             ),
           ),
           child: Text(
@@ -273,9 +273,7 @@ class _CycleChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurface,
+              color: theme.colorScheme.onSurface,
             ),
           ),
         ),

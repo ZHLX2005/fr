@@ -627,12 +627,23 @@ class _CoursePreviewSheet extends StatelessWidget {
                   Wrap(
                     spacing: 8,
                     children: course.visibleInCycles!.map((cycle) {
-                      return Chip(
-                        label: Text('周期${cycle + 1}'),
-                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                        labelStyle: theme.textTheme.labelSmall,
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 2,
+                            ),
+                          ),
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        ),
+                        child: Text(
+                          '周期${cycle + 1}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),
@@ -641,10 +652,16 @@ class _CoursePreviewSheet extends StatelessWidget {
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton.icon(
+                  child: OutlinedButton.icon(
                     onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('编辑课程'),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
+                    label: Text('编辑课程', style: TextStyle(color: theme.colorScheme.primary)),
                   ),
                 ),
               ],
