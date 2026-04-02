@@ -198,7 +198,7 @@ class _QuickActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: isSelected ? TimetableColors.selectedBg : TimetableColors.surface,
+      color: isSelected ? Colors.transparent : TimetableColors.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -242,7 +242,7 @@ class _CycleChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: isSelected ? TimetableColors.selectedBg : TimetableColors.surface,
+      color: isSelected ? Colors.transparent : TimetableColors.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
