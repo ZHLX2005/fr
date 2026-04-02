@@ -43,9 +43,55 @@ class TimetableCell extends StatelessWidget {
           border: _border(theme),
           boxShadow: _boxShadow(theme),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: _buildContent(theme),
+        child: Stack(
+          children: [
+            // 顶部高光 - 立体边缘
+            if (state != TimetableCellState.empty)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.4),
+                        Colors.white.withValues(alpha: 0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            // 底部阴影 - 立体边缘
+            if (state != TimetableCellState.empty)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.08),
+                        Colors.black.withValues(alpha: 0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: _buildContent(theme),
+            ),
+          ],
         ),
       ),
     );
