@@ -118,18 +118,6 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 顶部色条
-                Container(
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: isEditing
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.secondary,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
-                  ),
-                ),
                 // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
