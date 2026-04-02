@@ -50,7 +50,7 @@ class TimetableCell extends StatelessWidget {
   Color _backgroundColor(ThemeData theme) {
     switch (state) {
       case TimetableCellState.empty:
-        return theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4);
+        return Colors.transparent;
       case TimetableCellState.selected:
         return theme.colorScheme.primaryContainer;
       case TimetableCellState.filled:
@@ -79,7 +79,7 @@ class TimetableCell extends StatelessWidget {
     switch (state) {
       case TimetableCellState.empty:
         return Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.15),
+          color: theme.colorScheme.outline.withValues(alpha: 0.08),
           width: 1,
         );
       case TimetableCellState.selected:
@@ -106,21 +106,8 @@ class TimetableCell extends StatelessWidget {
   Widget _buildContent(ThemeData theme) {
     switch (state) {
       case TimetableCellState.empty:
-        return Center(
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.outline.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(
-              Icons.add,
-              size: 14,
-              color: theme.colorScheme.outline.withValues(alpha: 0.4),
-            ),
-          ),
-        );
+        // 常态空白：仅显示淡色边框，不显示+按钮
+        return const SizedBox.shrink();
       case TimetableCellState.selected:
         return Center(
           child: Container(
