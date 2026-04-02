@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../domain/models.dart';
+import 'timetable_colors.dart';
 
 /// 单元格状态
 enum TimetableCellState {
@@ -53,7 +54,7 @@ class TimetableCell extends StatelessWidget {
       case TimetableCellState.empty:
         return Colors.transparent;
       case TimetableCellState.selected:
-        return theme.colorScheme.primaryContainer.withValues(alpha: 0.4);
+        return TimetableColors.selectedBg;
       case TimetableCellState.filled:
         final seed = course?.colorSeed ?? 0;
         return _getCourseColor(seed).withValues(alpha: 0.65);
@@ -110,7 +111,7 @@ class TimetableCell extends StatelessWidget {
           child: Icon(
             Icons.add,
             size: 22,
-            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+            color: TimetableColors.accentLight,
           ),
         );
       case TimetableCellState.filled:
