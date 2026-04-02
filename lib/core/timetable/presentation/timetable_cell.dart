@@ -75,7 +75,19 @@ class TimetableCell extends StatelessWidget {
     return colors[seed % colors.length];
   }
 
-  Border? _border(ThemeData theme) => null;
+  Border? _border(ThemeData theme) {
+    switch (state) {
+      case TimetableCellState.empty:
+        return null;
+      case TimetableCellState.selected:
+        return null;
+      case TimetableCellState.filled:
+        return Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        );
+    }
+  }
 
   List<BoxShadow>? _boxShadow(ThemeData theme) {
     if (state != TimetableCellState.filled) return null;
@@ -113,52 +125,77 @@ class TimetableCell extends StatelessWidget {
     final textColor = isLight ? const Color(0xFF3D3D3D) : Colors.white;
     final subTextColor = isLight ? const Color(0xFF5D5D5D) : Colors.white70;
 
-    return Container(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Flexible(
-            child: Text(
-              course!.title,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+    return Stack(
+      children: [
+        // 顶部微光
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 20,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withValues(alpha: 0.15),
+                  Colors.white.withValues(alpha: 0.0),
+                ],
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (course!.location != null && course!.location!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on,
-                  size: 10,
-                  color: subTextColor,
-                ),
-                const SizedBox(width: 2),
-                Expanded(
-                  child: Text(
-                    course!.location!,
-                    style: TextStyle(
-                      color: subTextColor,
-                      fontSize: 10,
-                      height: 1.1,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+        ),
+        // 内容
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  course!.title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (course!.location != null && course!.location!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      size: 10,
+                      color: subTextColor,
+                    ),
+                    const SizedBox(width: 2),
+                    Expanded(
+                      child: Text(
+                        course!.location!,
+                        style: TextStyle(
+                          color: subTextColor,
+                          fontSize: 10,
+                          height: 1.1,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
-        ],
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
