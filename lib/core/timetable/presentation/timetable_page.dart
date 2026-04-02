@@ -106,7 +106,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
             child: Text(
               '第${_currentCycleIndex + 1}周期',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.primary,
+                color: TimetableColors.accent,
                 fontWeight: FontWeight.w600,
                 fontSize: 10,
               ),
@@ -130,14 +130,14 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                         Text(
                           '第${dayOfCycle + 1}天',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.primary,
+                            color: TimetableColors.accent,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           TimetableMappers.formatDate(config.startDateIso, globalDayIndex),
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.outline,
+                            color: TimetableColors.textTertiary,
                             fontSize: 10,
                           ),
                         ),
@@ -400,19 +400,19 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             onPressed: _save,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              side: const BorderSide(
-                color: TimetableColors.accent,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outline,
                 width: 1.5,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            icon: const Icon(Icons.save, color: TimetableColors.accent),
-            label: const Text(
+            icon: Icon(Icons.save, color: Theme.of(context).colorScheme.outline),
+            label: Text(
               '保存设置',
               style: TextStyle(
-                color: TimetableColors.accent,
+                color: Theme.of(context).colorScheme.outline,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -507,14 +507,18 @@ class _SlotLabel extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
+              color: TimetableColors.selectedBg,
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: TimetableColors.border,
+                width: 1,
+              ),
             ),
             child: Center(
               child: Text(
                 '${slotIndex + 1}',
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
+                  color: TimetableColors.accent,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -530,8 +534,8 @@ class _SlotLabel extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 1),
               decoration: BoxDecoration(
                 color: i == slotIndex % 3
-                    ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                    : theme.colorScheme.outline.withValues(alpha: 0.2),
+                    ? TimetableColors.accentLight
+                    : TimetableColors.border,
                 shape: BoxShape.circle,
               ),
             )),
@@ -579,7 +583,7 @@ class _CoursePreviewSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              color: TimetableColors.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -615,7 +619,7 @@ class _CoursePreviewSheet extends StatelessWidget {
                           Text(
                             '第${dayOfCycle + 1}天 · 第${slotIndex + 1}节',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.outline,
+                              color: TimetableColors.textTertiary,
                             ),
                           ),
                         ],
@@ -631,7 +635,7 @@ class _CoursePreviewSheet extends StatelessWidget {
                       Icon(
                         Icons.location_on_outlined,
                         size: 20,
-                        color: theme.colorScheme.outline,
+                        color: TimetableColors.textTertiary,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -675,13 +679,13 @@ class _CoursePreviewSheet extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onEdit,
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: TimetableColors.accent, width: 1.5),
+                      side: BorderSide(color: theme.colorScheme.outline, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    icon: const Icon(Icons.edit_outlined, color: TimetableColors.accent),
-                    label: const Text('编辑课程', style: TextStyle(color: TimetableColors.accent)),
+                    icon: Icon(Icons.edit_outlined, color: theme.colorScheme.outline),
+                    label: Text('编辑课程', style: TextStyle(color: theme.colorScheme.outline)),
                   ),
                 ),
               ],

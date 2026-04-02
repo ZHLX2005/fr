@@ -112,7 +112,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: theme.colorScheme.outline.withValues(alpha: 0.15),
+                color: TimetableColors.border,
                 width: 1,
               ),
             ),
@@ -131,13 +131,11 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          border: const Border(
-                            left: BorderSide(
-                              color: TimetableColors.accent,
-                              width: 3,
-                            ),
+                          border: Border.all(
+                            color: theme.colorScheme.outline,
+                            width: 1,
                           ),
-                          color: TimetableColors.selectedBg,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           isEditing ? '编辑课程' : '添加课程',
@@ -155,13 +153,11 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          border: const Border(
-                            left: BorderSide(
-                              color: TimetableColors.border,
-                              width: 2,
-                            ),
+                          border: Border.all(
+                            color: theme.colorScheme.outline,
+                            width: 1,
                           ),
-                          color: TimetableColors.selectedBg,
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '第${widget.dayOfCycle + 1}天 · 第${widget.slotIndex + 1}节',
@@ -201,8 +197,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.5),
+                          fillColor: theme.colorScheme.surfaceContainerHighest,
                         ),
                         textCapitalization: TextCapitalization.words,
                         autofocus: false,
@@ -216,15 +211,14 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           hintText: '例如：教学楼A101',
                           prefixIcon: Icon(
                             Icons.location_on_outlined,
-                            color: theme.colorScheme.primary,
+                            color: TimetableColors.accent,
                             size: 20,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.5),
+                          fillColor: theme.colorScheme.surfaceContainerHighest,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -236,15 +230,14 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           hintText: '例如：张老师',
                           prefixIcon: Icon(
                             Icons.person_outline,
-                            color: theme.colorScheme.primary,
+                            color: TimetableColors.accent,
                             size: 20,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           filled: true,
-                          fillColor: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.5),
+                          fillColor: theme.colorScheme.surfaceContainerHighest,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -261,8 +254,8 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                         onPressed: _submit,
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: const BorderSide(
-                            color: TimetableColors.accent,
+                          side: BorderSide(
+                            color: theme.colorScheme.outline,
                             width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
@@ -271,10 +264,10 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                         ),
                         child: Text(
                           isEditing ? '保存修改' : '添加课程',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: TimetableColors.accent,
+                            color: theme.colorScheme.outline,
                           ),
                         ),
                       ),

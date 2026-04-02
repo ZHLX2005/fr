@@ -93,7 +93,7 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: TimetableColors.border,
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
                   width: 1,
                 ),
                 borderRadius: BorderRadius.circular(6),
@@ -143,7 +143,7 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             border: Border.all(
-              color: TimetableColors.border,
+              color: theme.colorScheme.outline.withValues(alpha: 0.3),
               width: 1,
             ),
             borderRadius: BorderRadius.circular(12),
@@ -196,6 +196,7 @@ class _QuickActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Material(
       color: isSelected ? TimetableColors.selectedBg : TimetableColors.surface,
       borderRadius: BorderRadius.circular(8),
@@ -208,7 +209,7 @@ class _QuickActionChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? TimetableColors.accent : TimetableColors.border,
+              color: isSelected ? theme.colorScheme.outline : theme.colorScheme.outline.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -217,7 +218,7 @@ class _QuickActionChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isSelected ? TimetableColors.accent : TimetableColors.textPrimary,
+              color: isSelected ? theme.colorScheme.outline : TimetableColors.textPrimary,
             ),
           ),
         ),
@@ -239,6 +240,7 @@ class _CycleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Material(
       color: isSelected ? TimetableColors.selectedBg : TimetableColors.surface,
       borderRadius: BorderRadius.circular(8),
@@ -252,7 +254,7 @@ class _CycleChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? TimetableColors.accent : TimetableColors.border,
+              color: isSelected ? theme.colorScheme.outline : theme.colorScheme.outline.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -261,7 +263,7 @@ class _CycleChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? TimetableColors.accent : TimetableColors.textPrimary,
+              color: isSelected ? theme.colorScheme.outline : TimetableColors.textPrimary,
             ),
           ),
         ),

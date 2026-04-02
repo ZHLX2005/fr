@@ -42,38 +42,3 @@ class TimetableColors {
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceVariant = Color(0xFFF9FAFB);
 }
-
-/// 课表主题配色构建器
-class TimetableTheme {
-  TimetableTheme._();
-
-  /// 构建课表专属ThemeData
-  static ThemeData buildTheme() {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: TimetableColors.accent,
-        brightness: Brightness.light,
-      ).copyWith(
-        primary: TimetableColors.accent,
-        secondary: TimetableColors.accentLight,
-        surface: TimetableColors.surface,
-        surfaceContainerHighest: TimetableColors.surfaceVariant,
-        outline: TimetableColors.border,
-      ),
-    );
-  }
-
-  /// 从外部ThemeData提取低饱和度配色
-  static ColorScheme getColorScheme(ThemeData theme) {
-    // 使用外部的primary但降低饱和度
-    final hsl = HSLColor.fromColor(theme.colorScheme.primary);
-    final desaturated = hsl.withSaturation((hsl.saturation * 0.4).clamp(0.0, 1.0));
-    final lowSatPrimary = desaturated.toColor();
-
-    return theme.colorScheme.copyWith(
-      primary: lowSatPrimary,
-      secondary: lowSatPrimary.withValues(alpha: 0.7),
-    );
-  }
-}
