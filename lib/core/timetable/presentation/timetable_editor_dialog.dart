@@ -123,36 +123,44 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                   padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
                   child: Row(
                     children: [
+                      // 边框强调标签
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: isEditing
-                              ? theme.colorScheme.primaryContainer
-                              : theme.colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(8),
+                          border: Border(
+                            left: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 3,
+                            ),
+                          ),
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                         ),
                         child: Text(
                           isEditing ? '编辑课程' : '添加课程',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: isEditing
-                                ? theme.colorScheme.onPrimaryContainer
-                                : theme.colorScheme.onSecondaryContainer,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ),
                       const Spacer(),
+                      // 边框强调 - 时间标签
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(6),
+                          border: Border(
+                            left: BorderSide(
+                              color: theme.colorScheme.outline,
+                              width: 2,
+                            ),
+                          ),
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                         ),
                         child: Text(
                           '第${widget.dayOfCycle + 1}天 · 第${widget.slotIndex + 1}节',
@@ -247,19 +255,25 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                         },
                       ),
                       const SizedBox(height: 24),
-                      FilledButton(
+                      // 边框强调按钮
+                      OutlinedButton(
                         onPressed: _submit,
-                        style: FilledButton.styleFrom(
+                        style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(
+                            color: theme.colorScheme.primary,
+                            width: 1.5,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         child: Text(
                           isEditing ? '保存修改' : '添加课程',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.primary,
                           ),
                         ),
                       ),
