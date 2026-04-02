@@ -426,20 +426,30 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('课表设置'),
+        backgroundColor: TimetableColors.surface,
+        foregroundColor: TimetableColors.textPrimary,
       ),
+      backgroundColor: TimetableColors.surfaceVariant,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // 起始日期
           TextField(
             controller: _startDateController,
-            decoration: const InputDecoration(
+            style: const TextStyle(color: TimetableColors.textPrimary),
+            decoration: InputDecoration(
               labelText: '起始日期',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.calendar_today),
+              labelStyle: const TextStyle(color: TimetableColors.textSecondary),
+              prefixIcon: const Icon(Icons.calendar_today, color: TimetableColors.accent),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: theme.colorScheme.surfaceContainerHighest,
             ),
             readOnly: true,
             onTap: () async {
@@ -489,19 +499,19 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             onPressed: _save,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              side: BorderSide(
-                color: Theme.of(context).colorScheme.outline,
+              side: const BorderSide(
+                color: TimetableColors.accent,
                 width: 1.5,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            icon: Icon(Icons.save, color: Theme.of(context).colorScheme.outline),
-            label: Text(
+            icon: const Icon(Icons.save, color: TimetableColors.accent),
+            label: const Text(
               '保存设置',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.outline,
+                color: TimetableColors.accent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -531,14 +541,19 @@ class _ConfigSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label),
+            Text(
+              label,
+              style: const TextStyle(
+                color: TimetableColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -552,7 +567,7 @@ class _ConfigSlider extends StatelessWidget {
               ),
               child: Text(
                 value.round().toString(),
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: const TextStyle(
                   color: TimetableColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
@@ -560,12 +575,20 @@ class _ConfigSlider extends StatelessWidget {
             ),
           ],
         ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: divisions,
-          onChanged: onChanged,
+        SliderTheme(
+          data: SliderThemeData(
+            activeTrackColor: TimetableColors.accent,
+            inactiveTrackColor: TimetableColors.border,
+            thumbColor: TimetableColors.accent,
+            overlayColor: TimetableColors.accent.withValues(alpha: 0.2),
+          ),
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
         ),
       ],
     );
