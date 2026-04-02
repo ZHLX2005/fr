@@ -213,13 +213,13 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     final cellKeyValue = _cellKey(cycleIndex, dayOfCycle, slotIndex);
 
     if (_selectedCellKey == cellKeyValue) {
-      // 再次点击已选中的单元格 → 打开编辑器
+      // 再次点击已选中的单元格 → 打开编辑器（空白添加课程）
       _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
     } else if (_selectedCellKey == null) {
       // 检查是否有课程且在当前周期可见
       if (originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex)) {
-        // 有课程 → 直接打开编辑器
-        _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+        // 有课程 → 显示预览抽屉
+        _showCoursePreview(cycleIndex, dayOfCycle, slotIndex, originalCourse);
       } else {
         // 空单元格 → 选中当前单元格
         setState(() => _selectedCellKey = cellKeyValue);
@@ -228,6 +228,25 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
       // 有其他单元格选中 → 切换选中
       setState(() => _selectedCellKey = cellKeyValue);
     }
+  }
+
+  /// 显示课程预览抽屉
+  void _showCoursePreview(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem course) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CoursePreviewSheet(
+        course: course,
+        cycleIndex: cycleIndex,
+        dayOfCycle: dayOfCycle,
+        slotIndex: slotIndex,
+        onEdit: () {
+          Navigator.pop(context); // 关闭抽屉
+          _openEditor(cycleIndex, dayOfCycle, slotIndex, course);
+        },
+        onClose: () => Navigator.pop(context),
+      ),
+    );
   }
 
   /// 处理单元格长按
@@ -480,6 +499,152 @@ class _SlotLabel extends StatelessWidget {
               ),
             )),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 课程预览底部抽屉
+class _CoursePreviewSheet extends StatelessWidget {
+  const _CoursePreviewSheet({
+    required this.course,
+    required this.cycleIndex,
+    required this.dayOfCycle,
+    required this.slotIndex,
+    required this.onEdit,
+    required this.onClose,
+  });
+
+  final CourseItem course;
+  final int cycleIndex;
+  final int dayOfCycle;
+  final int slotIndex;
+  final VoidCallback onEdit;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = [
+      const Color(0xFF8B9DC3),
+      const Color(0xFF9E8FA8),
+      const Color(0xFFB58AA5),
+      const Color(0xFFC49A8B),
+      const Color(0xFFA8C4A2),
+      const Color(0xFF7FAAAA),
+      const Color(0xFFA5B5C4),
+      const Color(0xFFC4B5A0),
+    ];
+    final color = colors[(course.colorSeed ?? 0) % colors.length];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 顶部拖动条
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.outline.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // 内容区
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 标题和颜色标签
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            course.title,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '第${dayOfCycle + 1}天 · 第${slotIndex + 1}节',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // 地点
+                if (course.location != null && course.location!.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 20,
+                        color: theme.colorScheme.outline,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        course.location!,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ],
+                // 可见周期
+                if (course.visibleInCycles != null && course.visibleInCycles!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    children: course.visibleInCycles!.map((cycle) {
+                      return Chip(
+                        label: Text('周期${cycle + 1}'),
+                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                        labelStyle: theme.textTheme.labelSmall,
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      );
+                    }).toList(),
+                  ),
+                ],
+                // 编辑按钮
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('编辑课程'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 底部安全区
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
     );
