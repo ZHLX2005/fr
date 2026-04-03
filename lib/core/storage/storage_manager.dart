@@ -119,17 +119,32 @@ class StorageManager {
   /// 获取单个值的详细信息
   Future<KeyDetail?> getKeyDetail(StorageType type, String key, {String? boxName}) async {
     dynamic value;
-    switch (type) {
-      case StorageType.hive:
-        if (boxName == null) return null;
-        final box = Hive.box(boxName);
-        value = box.get(key);
-        break;
+    try {
+      switch (type) {
+        case StorageType.hive:
+          String actualBoxName = boxName ?? '';
+          String actualKey = key;
 
-      case StorageType.prefs:
-        final prefs = await SharedPreferences.getInstance();
-        value = prefs.get(key);
-        break;
+          if (boxName == null && key.contains('/')) {
+            final parts = key.split('/');
+            actualBoxName = parts[0];
+            actualKey = parts.sublist(1).join('/');
+          }
+
+          if (actualBoxName.isEmpty) return null;
+          if (!Hive.isBoxOpen(actualBoxName)) return null;
+
+          final box = Hive.box(actualBoxName);
+          value = box.get(actualKey);
+          break;
+
+        case StorageType.prefs:
+          final prefs = await SharedPreferences.getInstance();
+          value = prefs.get(key);
+          break;
+      }
+    } catch (e) {
+      return null;
     }
 
     if (value == null) return null;
