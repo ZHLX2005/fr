@@ -1,17 +1,29 @@
-# flutter_application_1
+# fr
 
-A new Flutter project.
+Flutter 应用，专注时间管理与数据追踪。
 
-## Getting Started
+## 技术栈
 
-This project is a starting point for a Flutter application.
+- **框架**: Flutter 3.x
+- **状态管理**: Provider / Riverpod
+- **本地存储**: Hive + SharedPreferences
+- **HTTP**: http + web_socket_channel
 
-A few resources to get you started if this is your first Flutter project:
+## 依赖项
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+| 分类 | 依赖 |
+|------|------|
+| UI | cupertino_icons, cached_network_image, flutter_markdown, flutter_widget_from_html, emoji_picker_flutter |
+| 存储 | hive, hive_flutter, shared_preferences, path_provider |
+| 媒体 | just_audio, audioplayers, video_player, chewie, record, image_picker, photo_manager |
+| 网络 | http, web_socket_channel |
+| 设备 | flutter_blue_plus, sensors_plus, permission_handler |
+| 功能 | url_launcher, webview_flutter, app_settings, image_cropper, flutter_reorderable_grid_view, home_widget, flutter_local_notifications |
+| 构建 | json_serializable, build_runner, flutter_launcher_icons |
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 开发
+
+```bash
+flutter pub get
+flutter build web --release
+```
