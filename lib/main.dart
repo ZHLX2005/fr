@@ -29,6 +29,7 @@ import 'lab/demos/calendar_demo.dart';
 import 'lab/demos/my_diary_header_demo.dart';
 import 'lab/demos/water_capsule_demo.dart';
 import 'lab/demos/speech_synthesis_demo.dart';
+import 'lab/demos/line_demo.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
@@ -61,6 +62,7 @@ void main() async {
   registerMyDiaryHeaderDemo();
   registerWaterCapsuleDemo();
   registerSpeechSynthesisDemo();
+  registerLineDemo();
 
   // 使用 ProviderScope 包装应用，注入 Repository
   runApp(

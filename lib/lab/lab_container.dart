@@ -8,6 +8,9 @@ abstract class DemoPage {
   String get title;
   String get description;
   Widget buildPage(BuildContext context);
+
+  /// 为 true 时，_DemoDetailPage 不显示 AppBar，demo 自行管理全屏布局
+  bool get preferFullScreen => false;
 }
 
 /// Demo 注册表
