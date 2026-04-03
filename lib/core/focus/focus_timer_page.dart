@@ -28,24 +28,20 @@ class _FocusTimerPageState extends State<FocusTimerPage>
   void initState() {
     super.initState();
 
-    // 呼吸动画（4秒一个周期）
     _breathingController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat(reverse: true);
 
-    // 脉冲动画
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
 
-    // 设置初始科目
     if (widget.initialSubject != null) {
       _timerProvider.selectSubject(widget.initialSubject);
     }
 
-    // 恢复计时器状态（如果之前有正在计时的会话）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final focusProvider =
@@ -108,27 +104,11 @@ class _FocusTimerPageState extends State<FocusTimerPage>
   String _formatDate() {
     final now = DateTime.now();
     final months = [
-      '一月',
-      '二月',
-      '三月',
-      '四月',
-      '五月',
-      '六月',
-      '七月',
-      '八月',
-      '九月',
-      '十月',
-      '十一月',
-      '十二月'
+      '一月', '二月', '三月', '四月', '五月', '六月',
+      '七月', '八月', '九月', '十月', '十一月', '十二月'
     ];
     final weekdays = [
-      '星期一',
-      '星期二',
-      '星期三',
-      '星期四',
-      '星期五',
-      '星期六',
-      '星期日'
+      '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'
     ];
     return '${months[now.month - 1]}${now.day}日 ${weekdays[now.weekday - 1]}';
   }
@@ -143,75 +123,76 @@ class _FocusTimerPageState extends State<FocusTimerPage>
       child: Scaffold(
         backgroundColor: const Color(0xFFFAF9F6),
         body: SafeArea(
-          child: GestureDetector(
-            onTap: _toggleControls,
-            behavior: HitTestBehavior.opaque,
-            child: Stack(
-              children: [
-                // 中央内容
-                Center(
-                  child: Consumer<FocusTimerProvider>(
-                    builder: (context, timer, child) {
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // 日期
-                          AnimatedOpacity(
-                            opacity: _showControls ? 0.5 : 1.0,
-                            duration: const Duration(milliseconds: 300),
-                            child: Text(
-                              _formatDate(),
-                              style: TextStyle(
-                                fontSize: screenWidth * 0.035,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w300,
-                              ),
+          child: Stack(
+            children: [
+              // 空白区域点击
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _toggleControls,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+              // 中央内容
+              Center(
+                child: Consumer<FocusTimerProvider>(
+                  builder: (context, timer, child) {
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedOpacity(
+                          opacity: _showControls ? 0.5 : 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            _formatDate(),
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.035,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w300,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          // 当前时间
-                          AnimatedOpacity(
-                            opacity: _showControls ? 0.3 : 1.0,
-                            duration: const Duration(milliseconds: 300),
-                            child: Text(
-                              _formatCurrentTime(),
-                              style: TextStyle(
-                                fontSize: timeFontSize,
-                                fontWeight: FontWeight.w100,
-                                color: Colors.grey[700],
-                                letterSpacing: -2,
-                                height: 1,
-                              ),
+                        ),
+                        const SizedBox(height: 12),
+                        AnimatedOpacity(
+                          opacity: _showControls ? 0.3 : 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            _formatCurrentTime(),
+                            style: TextStyle(
+                              fontSize: timeFontSize,
+                              fontWeight: FontWeight.w100,
+                              color: Colors.grey[700],
+                              letterSpacing: -2,
+                              height: 1,
                             ),
                           ),
-                          const SizedBox(height: 24),
-                          // 专注时长
-                          _buildTimerDisplay(timer, timeFontSize),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                        const SizedBox(height: 24),
+                        _buildTimerDisplay(timer, timeFontSize),
+                      ],
+                    );
+                  },
                 ),
-                // 顶部栏 - 点击显示
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  top: _showControls ? 0 : -80,
-                  left: 0,
-                  right: 0,
-                  child: _buildTopBar(screenWidth),
-                ),
-                // 底部控制面板 - 点击显示
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  left: 0,
-                  right: 0,
-                  bottom: _showControls ? 0 : -200,
-                  child: _buildBottomControls(screenWidth),
-                ),
-              ],
-            ),
+              ),
+              // 顶部栏
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                top: _showControls ? 0 : -80,
+                left: 0,
+                right: 0,
+                child: _buildTopBar(screenWidth),
+              ),
+              // 底部控制面板
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                left: 0,
+                right: 0,
+                bottom: _showControls ? 0 : -200,
+                child: _buildBottomControls(screenWidth),
+              ),
+            ],
           ),
         ),
       ),
@@ -228,6 +209,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
         return Transform.scale(
           scale: scale,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 _formatElapsed(),
@@ -320,8 +302,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
       ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.95),
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -335,7 +316,6 @@ class _FocusTimerPageState extends State<FocusTimerPage>
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 拖动条提示
               Container(
                 width: 40,
                 height: 4,
@@ -345,7 +325,6 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // 操作按钮行
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -423,7 +402,6 @@ class _FocusTimerPageState extends State<FocusTimerPage>
     );
   }
 
-  /// 科目选择器
   void _showSubjectSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -450,10 +428,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
               padding: EdgeInsets.all(16),
               child: Text(
                 '选择学习领域',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
               ),
             ),
             Expanded(
@@ -468,16 +443,12 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                           leading: Icon(Icons.add_circle_outline,
                               color: Colors.grey[600]),
                           title: const Text('添加新领域'),
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
+                          onTap: () => Navigator.pop(context),
                         );
                       }
-
                       final subject = focusProvider.subjects[index];
                       final isSelected =
                           _timerProvider.selectedSubject?.id == subject.id;
-
                       return ListTile(
                         leading: Container(
                           width: 40,
@@ -486,10 +457,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                             color: subject.color.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(
-                            subject.icon,
-                            color: subject.color,
-                          ),
+                          child: Icon(subject.icon, color: subject.color),
                         ),
                         title: Text(subject.name),
                         trailing: isSelected
@@ -511,7 +479,6 @@ class _FocusTimerPageState extends State<FocusTimerPage>
     );
   }
 
-  /// 结束确认对话框
   void _showEndConfirmDialog(
       BuildContext context, FocusTimerProvider timer) {
     showDialog(
@@ -527,13 +494,10 @@ class _FocusTimerPageState extends State<FocusTimerPage>
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-
-              // 完成会话并保存到 FocusProvider
               final session = timer.completeSession();
               if (session != null && context.mounted) {
                 final focusProvider = context.read<data.FocusProvider>();
                 await focusProvider.addSession(session);
-
                 if (mounted) {
                   _showCompletionDialog(context, session);
                 }
@@ -546,7 +510,6 @@ class _FocusTimerPageState extends State<FocusTimerPage>
     );
   }
 
-  /// 完成对话框
   void _showCompletionDialog(BuildContext context, FocusSession session) {
     showDialog(
       context: context,
@@ -555,19 +518,10 @@ class _FocusTimerPageState extends State<FocusTimerPage>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.check_circle,
-              color: Color(0xFFB5C9A3),
-              size: 64,
-            ),
+            const Icon(Icons.check_circle, color: Color(0xFFB5C9A3), size: 64),
             const SizedBox(height: 16),
-            const Text(
-              '专注完成',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            const Text('专注完成',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
             Text(
               '${session.durationMinutes} 分钟',
