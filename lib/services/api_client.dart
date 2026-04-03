@@ -237,7 +237,7 @@ class ApiService {
       final tempFile = File('${dir.path}/download_$fileKey.tmp');
       final outputFile = File('${dir.path}/$fileKey.apk');
 
-      // 检查已下载的部分
+      // 检查已下载的部分（用于断点续传）
       int existingLength = 0;
       if (await tempFile.exists()) {
         existingLength = await tempFile.length();
@@ -262,7 +262,6 @@ class ApiService {
             final receivedLength = int.parse(contentLength);
             totalSize = existingLength + receivedLength;
           } else {
-            // 没有 Content-Length，尝试从 Content-Range 解析
             final contentRange = response.headers['content-range'];
             if (contentRange != null) {
               final match = RegExp(r'/(\d+)$').firstMatch(contentRange);
@@ -272,15 +271,21 @@ class ApiService {
             }
           }
 
-          // 写入文件
+          // 流式写入文件，实时更新进度
           final raf = await tempFile.open(mode: existingLength > 0 ? FileMode.append : FileMode.write);
-          // 直接写入整个字节数组
-          await raf.writeFrom(response.bodyBytes);
-          await raf.close();
-
-          if (onProgress != null && totalSize > 0) {
-            onProgress(await tempFile.length(), totalSize);
+          final chunks = response.bodyBytes;
+          int received = existingLength;
+          const chunkSize = 8192; // 每 8KB 报告一次进度
+          for (int i = 0; i < chunks.length; i += chunkSize) {
+            final end = (i + chunkSize < chunks.length) ? i + chunkSize : chunks.length;
+            final chunk = chunks.sublist(i, end);
+            await raf.writeFrom(chunk);
+            received += chunk.length;
+            if (onProgress != null && totalSize > 0) {
+              onProgress(received, totalSize);
+            }
           }
+          await raf.close();
 
           // 重命名为正式文件
           if (await tempFile.exists()) {
