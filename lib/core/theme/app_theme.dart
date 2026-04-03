@@ -19,6 +19,9 @@ enum AppThemeMode {
 
   /// 玫瑰红主题（优雅暖色调）
   rose,
+
+  /// 黑紫色主题（低饱和度）
+  purple,
 }
 
 /// 应用主题配置类
@@ -38,6 +41,8 @@ class AppTheme {
         return '橙黄主题';
       case AppThemeMode.rose:
         return '玫瑰红';
+      case AppThemeMode.purple:
+        return '黑紫主题';
     }
   }
 
@@ -56,6 +61,8 @@ class AppTheme {
         return Icons.wb_sunny;
       case AppThemeMode.rose:
         return Icons.local_florist;
+      case AppThemeMode.purple:
+        return Icons.nights_stay;
     }
   }
 
@@ -746,6 +753,116 @@ class AppTheme {
     );
   }
 
+  /// 创建黑紫色主题数据（低饱和度）
+  static ThemeData createPurpleTheme() {
+    // 使用低饱和度的黑紫色系
+    const primaryColor = Color(0xFF7B7B8E); // 低饱和度灰紫色
+    const secondaryColor = Color(0xFF9B9BAD); // 柔和的紫灰色
+    const tertiaryColor = Color(0xFF6B6B7D); // 深紫灰色
+
+    return ThemeData(
+      colorScheme: ColorScheme.light(
+        primary: primaryColor,
+        onPrimary: Colors.white,
+        primaryContainer: Color(0xFFE8E8F0), // 浅紫灰
+        onPrimaryContainer: Color(0xFF3D3D4A),
+
+        secondary: secondaryColor,
+        onSecondary: Colors.white,
+        secondaryContainer: Color(0xFFF0F0F5),
+        onSecondaryContainer: Color(0xFF4A4A5A),
+
+        tertiary: tertiaryColor,
+        onTertiary: Colors.white,
+        tertiaryContainer: Color(0xFFE0E0E8),
+        onTertiaryContainer: Color(0xFF3A3A4A),
+
+        surface: Color(0xFFF8F8FA), // 浅紫灰白
+        onSurface: Color(0xFF2A2A35),
+        surfaceVariant: Color(0xFFEEEEF2),
+        onSurfaceVariant: Color(0xFF6B6B7A),
+
+        background: Color(0xFFFAFAFC),
+        onBackground: Color(0xFF2A2A35),
+
+        error: Color(0xFFB0B0B8),
+        onError: Colors.white,
+        errorContainer: Color(0xFFF5F5F8),
+        onErrorContainer: Color(0xFF5A5A65),
+
+        outline: Color(0xFFD0D0D8),
+        outlineVariant: Color(0xFFE8E8F0),
+        surfaceTint: primaryColor,
+      ),
+      useMaterial3: true,
+      brightness: Brightness.light,
+
+      cardTheme: CardThemeData(
+        elevation: 2,
+        color: Colors.white,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Color(0xFFF0F0F5),
+        foregroundColor: Color(0xFF3D3D4A),
+        surfaceTintColor: Color(0xFF7B7B8E),
+      ),
+
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: Color(0xFF7B7B8E),
+        unselectedItemColor: Color(0xFFA0A0AD),
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+      ),
+
+      extensions: const [
+        _PurpleThemeColors(
+          gradientStart: Color(0xFF7B7B8E),
+          gradientEnd: Color(0xFF9B9BAD),
+        ),
+      ],
+    );
+  }
+
   /// 根据模式获取主题数据
   static ThemeData getThemeData(AppThemeMode mode) {
     switch (mode) {
@@ -761,6 +878,8 @@ class AppTheme {
         return createOrangeTheme();
       case AppThemeMode.rose:
         return createRoseTheme();
+      case AppThemeMode.purple:
+        return createPurpleTheme();
     }
   }
 
@@ -910,6 +1029,40 @@ class _RoseThemeColors extends ThemeExtension<_RoseThemeColors> {
       return this;
     }
     return _RoseThemeColors(
+      gradientStart: Color.lerp(gradientStart, other.gradientStart, t)!,
+      gradientEnd: Color.lerp(gradientEnd, other.gradientEnd, t)!,
+    );
+  }
+}
+
+/// 黑紫色主题的自定义颜色扩展
+@immutable
+class _PurpleThemeColors extends ThemeExtension<_PurpleThemeColors> {
+  final Color gradientStart;
+  final Color gradientEnd;
+
+  const _PurpleThemeColors({
+    required this.gradientStart,
+    required this.gradientEnd,
+  });
+
+  @override
+  _PurpleThemeColors copyWith({
+    Color? gradientStart,
+    Color? gradientEnd,
+  }) {
+    return _PurpleThemeColors(
+      gradientStart: gradientStart ?? this.gradientStart,
+      gradientEnd: gradientEnd ?? this.gradientEnd,
+    );
+  }
+
+  @override
+  _PurpleThemeColors lerp(ThemeExtension<_PurpleThemeColors>? other, double t) {
+    if (other is! _PurpleThemeColors) {
+      return this;
+    }
+    return _PurpleThemeColors(
       gradientStart: Color.lerp(gradientStart, other.gradientStart, t)!,
       gradientEnd: Color.lerp(gradientEnd, other.gradientEnd, t)!,
     );
