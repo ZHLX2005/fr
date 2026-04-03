@@ -136,7 +136,8 @@
             tools:node="replace">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/openfile_filepaths" />
+                android:resource="@xml/openfile_filepaths"
+                tools:replace="android:resource" />
         </provider>
     </application>
 

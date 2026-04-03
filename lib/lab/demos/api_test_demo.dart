@@ -343,7 +343,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 用系统方式打开文件（弹出"用其他应用打开"）
+  // 用系统方式打开文件（分享兜底）
   Future<void> _openApk() async {
     if (_downloadedApkPath == null) return;
     try {
@@ -356,6 +356,44 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('打开失败: $e')),
+        );
+      }
+    }
+  }
+
+  // 尝试用 open_filex 直接唤起安装器（方案四：原生 Intent + FileProvider）
+  Future<void> _openApkInstall() async {
+    if (_downloadedApkPath == null) return;
+
+    // 验证文件存在
+    final file = File(_downloadedApkPath!);
+    if (!await file.exists()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('APK 文件不存在')),
+      );
+      return;
+    }
+
+    try {
+      // 不指定 type，让 open_filex 根据扩展名自动识别为 APK
+      final result = await OpenFilex.open(_downloadedApkPath!);
+      if (mounted) {
+        if (result.type == ResultType.done) {
+          // 成功唤起
+        } else if (result.type == ResultType.noAppToOpen) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('没有找到可安装的应用，请先安装 APK 安装器')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('唤起失败: ${result.message}（代码: ${result.type}）')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('唤起异常: $e')),
         );
       }
     }
@@ -795,10 +833,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '1. 点击"浏览器下载"唤起系统浏览器\n'
-                    '2. 在浏览器下载面板查看下载进度\n'
-                    '3. 下载完成后点击APK进行安装\n'
-                    '4. 如遇安装问题，请先卸载旧版本',
+                    '1. 点击"内部下载"下载 APK\n'
+                    '2. 下载完成后点击绿色卡片的"安装"按钮\n'
+                    '3. 系统弹出应用选择面板，选择 APK 安装器\n'
+                    '4. 如遇问题，点击"分享"按钮用其他方式打开',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
@@ -843,13 +881,26 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: FilledButton(
-          onPressed: _openApk,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('打开'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FilledButton(
+              onPressed: _openApkInstall,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('安装'),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _openApk,
+              icon: const Icon(Icons.share),
+              tooltip: '分享',
+              color: Colors.blue,
+            ),
+          ],
         ),
       ),
     );
