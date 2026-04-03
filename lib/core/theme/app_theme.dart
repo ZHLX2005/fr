@@ -753,54 +753,54 @@ class AppTheme {
     );
   }
 
-  /// 创建黑紫色主题数据（低饱和度）
+  /// 创建黑紫色主题数据（暗夜模式风格）
   static ThemeData createPurpleTheme() {
-    // 使用低饱和度的黑紫色系
-    const primaryColor = Color(0xFF7B7B8E); // 低饱和度灰紫色
-    const secondaryColor = Color(0xFF9B9BAD); // 柔和的紫灰色
-    const tertiaryColor = Color(0xFF6B6B7D); // 深紫灰色
+    // 使用深色黑紫色系，像深色模式一样
+    const primaryColor = Color(0xFF9B8FBF); // 柔和紫色
+    const secondaryColor = Color(0xFF7A7A9A); // 紫灰色
+    const tertiaryColor = Color(0xFFB8A8D0); // 淡紫色
 
     return ThemeData(
-      colorScheme: ColorScheme.light(
+      colorScheme: ColorScheme.dark(
         primary: primaryColor,
-        onPrimary: Colors.white,
-        primaryContainer: Color(0xFFE8E8F0), // 浅紫灰
-        onPrimaryContainer: Color(0xFF3D3D4A),
+        onPrimary: const Color(0xFF1A1525),
+        primaryContainer: const Color(0xFF3D3560),
+        onPrimaryContainer: const Color(0xFFE8E0F5),
 
         secondary: secondaryColor,
         onSecondary: Colors.white,
-        secondaryContainer: Color(0xFFF0F0F5),
-        onSecondaryContainer: Color(0xFF4A4A5A),
+        secondaryContainer: const Color(0xFF2D2D45),
+        onSecondaryContainer: const Color(0xFFE0E0EC),
 
         tertiary: tertiaryColor,
-        onTertiary: Colors.white,
-        tertiaryContainer: Color(0xFFE0E0E8),
-        onTertiaryContainer: Color(0xFF3A3A4A),
+        onTertiary: const Color(0xFF1A1525),
+        tertiaryContainer: const Color(0xFF4A3D60),
+        onTertiaryContainer: const Color(0xFFF0E8FF),
 
-        surface: Color(0xFFF8F8FA), // 浅紫灰白
-        onSurface: Color(0xFF2A2A35),
-        surfaceVariant: Color(0xFFEEEEF2),
-        onSurfaceVariant: Color(0xFF6B6B7A),
+        surface: const Color(0xFF1A1520), // 深紫黑色背景
+        onSurface: const Color(0xFFE0DDE8),
+        surfaceVariant: const Color(0xFF252535),
+        onSurfaceVariant: const Color(0xFFA0A0B0),
 
-        background: Color(0xFFFAFAFC),
-        onBackground: Color(0xFF2A2A35),
+        background: const Color(0xFF12101A), // 更深的背景
+        onBackground: const Color(0xFFE0DDE8),
 
-        error: Color(0xFFB0B0B8),
-        onError: Colors.white,
-        errorContainer: Color(0xFFF5F5F8),
-        onErrorContainer: Color(0xFF5A5A65),
+        error: const Color(0xFFCF6679),
+        onError: const Color(0xFF1A1520),
+        errorContainer: const Color(0xFF5C1A25),
+        onErrorContainer: const Color(0xFFFFD0D8),
 
-        outline: Color(0xFFD0D0D8),
-        outlineVariant: Color(0xFFE8E8F0),
+        outline: const Color(0xFF4A4A5A),
+        outlineVariant: const Color(0xFF353545),
         surfaceTint: primaryColor,
       ),
       useMaterial3: true,
-      brightness: Brightness.light,
+      brightness: Brightness.dark,
 
       cardTheme: CardThemeData(
         elevation: 2,
-        color: Colors.white,
-        shadowColor: Colors.black.withValues(alpha: 0.08),
+        color: const Color(0xFF252535),
+        shadowColor: Colors.black.withValues(alpha: 0.4),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -809,14 +809,14 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Color(0xFFF0F0F5),
-        foregroundColor: Color(0xFF3D3D4A),
-        surfaceTintColor: Color(0xFF7B7B8E),
+        backgroundColor: Color(0xFF1A1520),
+        foregroundColor: Color(0xFFE0DDE8),
+        surfaceTintColor: Color(0xFF9B8FBF),
       ),
 
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1A1525),
         elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -826,7 +826,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A1525),
           elevation: 2,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
@@ -838,7 +838,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1A1525),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -847,17 +847,17 @@ class AppTheme {
       ),
 
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: Color(0xFF7B7B8E),
-        unselectedItemColor: Color(0xFFA0A0AD),
+        backgroundColor: Color(0xFF1A1520),
+        selectedItemColor: Color(0xFF9B8FBF),
+        unselectedItemColor: Color(0xFF707080),
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
 
       extensions: const [
         _PurpleThemeColors(
-          gradientStart: Color(0xFF7B7B8E),
-          gradientEnd: Color(0xFF9B9BAD),
+          gradientStart: Color(0xFF9B8FBF),
+          gradientEnd: Color(0xFF7A7A9A),
         ),
       ],
     );

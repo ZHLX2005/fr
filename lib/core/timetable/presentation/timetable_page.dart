@@ -614,11 +614,11 @@ class _SlotLabel extends StatelessWidget {
       height: height - 8,
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.75),
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.5),
-          width: 1,
+          color: theme.colorScheme.outline,
+          width: 1.5,
         ),
       ),
       child: Center(

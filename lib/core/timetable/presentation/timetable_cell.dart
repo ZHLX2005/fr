@@ -57,21 +57,21 @@ class TimetableCell extends StatelessWidget {
         return TimetableColors.selectedBg;
       case TimetableCellState.filled:
         final seed = course?.colorSeed ?? 0;
-        return _getCourseColor(seed).withValues(alpha: 0.65);
+        return _getCourseColor(seed).withValues(alpha: 0.88);
     }
   }
 
   Color _getCourseColor(int seed) {
-    // 莫兰迪色系 - 低饱和度
+    // 柔和色系 - 中等饱和度
     final colors = [
-      const Color(0xFF8B9DC3), // 灰蓝
-      const Color(0xFF9E8FA8), // 灰紫
-      const Color(0xFFB58AA5), // 灰粉
-      const Color(0xFFC49A8B), // 灰橘
-      const Color(0xFFA8C4A2), // 灰绿
-      const Color(0xFF7FAAAA), // 灰青
-      const Color(0xFFA5B5C4), // 雾蓝
-      const Color(0xFFC4B5A0), // 灰棕
+      const Color(0xFF7B9FCC), // 柔蓝
+      const Color(0xFF9B8FC4), // 柔紫
+      const Color(0xFFC49AB0), // 柔粉
+      const Color(0xFFD4AA96), // 柔橘
+      const Color(0xFF98C49A), // 柔绿
+      const Color(0xFF7EAAAA), // 柔青
+      const Color(0xFF96B5C4), // 雾蓝
+      const Color(0xFFD4B59A), // 柔棕
     ];
     return colors[seed % colors.length];
   }
