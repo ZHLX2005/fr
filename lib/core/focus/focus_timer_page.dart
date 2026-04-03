@@ -125,51 +125,61 @@ class _FocusTimerPageState extends State<FocusTimerPage>
         body: SafeArea(
           child: Stack(
             children: [
-              // 空白区域点击
+              // 空白区域点击 - 切换控制面板
               Positioned.fill(
                 child: GestureDetector(
                   onTap: _toggleControls,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(color: Colors.transparent),
+                  behavior: HitTestBehavior.translucent,
+                  child: const SizedBox.expand(),
                 ),
               ),
-              // 中央内容
+              // 中央内容 - 可点击开始专注
               Center(
                 child: Consumer<FocusTimerProvider>(
                   builder: (context, timer, child) {
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        AnimatedOpacity(
-                          opacity: _showControls ? 0.5 : 1.0,
-                          duration: const Duration(milliseconds: 300),
-                          child: Text(
-                            _formatDate(),
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.035,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w300,
+                    return GestureDetector(
+                      onTap: () {
+                        if (timer.isIdle) {
+                          timer.startTimer();
+                          _pulseController.forward();
+                        } else if (timer.isPaused) {
+                          timer.resumeTimer();
+                        }
+                      },
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AnimatedOpacity(
+                            opacity: _showControls ? 0.5 : 1.0,
+                            duration: const Duration(milliseconds: 300),
+                            child: Text(
+                              _formatDate(),
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.035,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w300,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        AnimatedOpacity(
-                          opacity: _showControls ? 0.3 : 1.0,
-                          duration: const Duration(milliseconds: 300),
-                          child: Text(
-                            _formatCurrentTime(),
-                            style: TextStyle(
-                              fontSize: timeFontSize,
-                              fontWeight: FontWeight.w100,
-                              color: Colors.grey[700],
-                              letterSpacing: -2,
-                              height: 1,
+                          const SizedBox(height: 12),
+                          AnimatedOpacity(
+                            opacity: _showControls ? 0.3 : 1.0,
+                            duration: const Duration(milliseconds: 300),
+                            child: Text(
+                              _formatCurrentTime(),
+                              style: TextStyle(
+                                fontSize: timeFontSize,
+                                fontWeight: FontWeight.w100,
+                                color: Colors.grey[700],
+                                letterSpacing: -2,
+                                height: 1,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        _buildTimerDisplay(timer, timeFontSize),
-                      ],
+                          const SizedBox(height: 24),
+                          _buildTimerDisplay(timer, timeFontSize),
+                        ],
+                      ),
                     );
                   },
                 ),
