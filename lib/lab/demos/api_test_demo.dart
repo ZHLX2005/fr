@@ -363,39 +363,39 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
   // 尝试用 open_filex 直接唤起安装器（方案四：原生 Intent + FileProvider）
   Future<void> _openApkInstall() async {
-    if (_downloadedApkPath == null) return;
+    debugPrint('[安装] _openApkInstall 被调用');
+    debugPrint('[安装] 文件路径: $_downloadedApkPath');
+    if (_downloadedApkPath == null) {
+      debugPrint('[安装] 路径为 null，直接返回');
+      return;
+    }
 
     // 验证文件存在
     final file = File(_downloadedApkPath!);
-    if (!await file.exists()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('APK 文件不存在')),
-      );
+    final exists = await file.exists();
+    debugPrint('[安装] 文件存在: $exists');
+    if (!exists) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('APK 文件不存在')));
       return;
     }
 
     try {
-      // 不指定 type，让 open_filex 根据扩展名自动识别为 APK
+      debugPrint('[安装] 调用 OpenFilex.open');
       final result = await OpenFilex.open(_downloadedApkPath!);
+      debugPrint('[安装] OpenFilex返回: type=${result.type}, message=${result.message}');
       if (mounted) {
         if (result.type == ResultType.done) {
-          // 成功唤起
+          debugPrint('[安装] 成功唤起');
         } else if (result.type == ResultType.noAppToOpen) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('没有找到可安装的应用，请先安装 APK 安装器')),
-          );
+          debugPrint('[安装] 没有应用');
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('没有找到可安装的应用')));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('唤起失败: ${result.message}（代码: ${result.type}）')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('唤起失败: ${result.message}')));
         }
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('唤起异常: $e')),
-        );
-      }
+    } catch (e, s) {
+      debugPrint('[安装] 异常: $e\n$s');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('唤起异常: $e')));
     }
   }
 
