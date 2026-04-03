@@ -235,16 +235,15 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           _downloadStatus = '下载完成: $filePath';
           _isDownloading = false;
         });
-        // 提示用户安装
+        // 下载完成后直接唤起安装
         if (mounted) {
-          _showInstallDialog(filePath);
+          _installApk(filePath);
         }
       } else if (mounted) {
         setState(() {
           _downloadStatus = '下载失败，回退到浏览器下载';
           _isDownloading = false;
         });
-        // 回退到浏览器下载
         await _downloadApkWithBrowser();
       }
     } catch (e) {
@@ -328,7 +327,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
     return SafeArea(
       child: DefaultTabController(
-        length: 2,
+        length: 3,
         child: Column(
           children: [
             // 标题栏
