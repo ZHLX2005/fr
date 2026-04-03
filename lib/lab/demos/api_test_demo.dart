@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../lab_container.dart';
 import '../../services/api_client.dart';
@@ -48,10 +49,37 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   double _downloadProgress = 0.0; // 下载进度 0.0-1.0
   bool _isDownloading = false;
 
+  // 已下载的 APK 文件信息
+  String? _downloadedApkPath;
+  int? _downloadedApkSize;
+
+  static const _kDownloadedApkPathKey = 'downloaded_apk_path';
+  static const _kDownloadedApkSizeKey = 'downloaded_apk_size';
+
   @override
   void initState() {
     super.initState();
     _loadKvList();
+    _loadDownloadedApk();
+  }
+
+  Future<void> _loadDownloadedApk() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString(_kDownloadedApkPathKey);
+    if (path != null) {
+      final file = File(path);
+      final exists = await file.exists();
+      setState(() {
+        _downloadedApkPath = exists ? path : null;
+        _downloadedApkSize = exists ? prefs.getInt(_kDownloadedApkSizeKey) : null;
+      });
+    }
+  }
+
+  Future<void> _saveDownloadedApk(String path, int size) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kDownloadedApkPathKey, path);
+    await prefs.setInt(_kDownloadedApkSizeKey, size);
   }
 
   @override
@@ -231,14 +259,15 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       );
 
       if (filePath != null && mounted) {
+        final file = File(filePath);
+        final size = await file.length();
+        await _saveDownloadedApk(filePath, size);
         setState(() {
-          _downloadStatus = '下载完成: $filePath';
+          _downloadStatus = '下载完成';
           _isDownloading = false;
+          _downloadedApkPath = filePath;
+          _downloadedApkSize = size;
         });
-        // 下载完成后直接唤起安装
-        if (mounted) {
-          _installApk(filePath);
-        }
       } else if (mounted) {
         setState(() {
           _downloadStatus = '下载失败，回退到浏览器下载';
@@ -308,6 +337,33 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('无法打开安装器: $e')),
+        );
+      }
+    }
+  }
+
+  // 用系统方式打开文件（弹出"用其他应用打开"）
+  Future<void> _openApk() async {
+    if (_downloadedApkPath == null) return;
+    try {
+      final result = await OpenFilex.open(_downloadedApkPath!);
+      if (mounted) {
+        if (result.type == ResultType.done) {
+          // 成功唤起，不做提示
+        } else if (result.type == ResultType.noAppToOpen) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('没有可处理此文件的应用')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('打开失败: ${result.message}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('打开失败: $e')),
         );
       }
     }
@@ -684,6 +740,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                     LinearProgressIndicator(value: _downloadProgress),
                   ],
                   const SizedBox(height: 12),
+                  // 已下载的 APK 文件卡片
+                  if (_downloadedApkPath != null) ...[
+                    _buildApkFileCard(),
+                    const SizedBox(height: 12),
+                  ],
                   // 下载地址信息
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -753,6 +814,51 @@ class _ApiTestPageState extends State<_ApiTestPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+  // 已下载 APK 文件卡片
+  Widget _buildApkFileCard() {
+    final name = _downloadedApkPath!.split('/').last.split('\\').last;
+    final sizeStr = _downloadedApkSize != null ? _formatFileSize(_downloadedApkSize!) : '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green[200]!),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.green.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.android, color: Colors.green),
+        ),
+        title: Text(
+          name,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '$sizeStr\n$_downloadedApkPath',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: FilledButton(
+          onPressed: _openApk,
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('打开'),
+        ),
       ),
     );
   }
