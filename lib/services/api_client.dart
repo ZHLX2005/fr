@@ -217,7 +217,7 @@ class ApiService {
     }
   }
 
-  // 下载APK到本地（支持断点续传）
+  // 下载APK到本地（真正的流式下载，边收边写）
   // 返回下载后的文件路径，失败返回null
   // 注意：仅在 Android/iOS 平台可用，Web 平台返回 null
   static Future<String?> downloadApkToLocal({
@@ -232,12 +232,11 @@ class ApiService {
     final url = '$baseUrl/api/v1/file/$fileKey';
 
     try {
-      // 获取应用文档目录
       final dir = await getApplicationDocumentsDirectory();
       final tempFile = File('${dir.path}/download_$fileKey.tmp');
       final outputFile = File('${dir.path}/$fileKey.apk');
 
-      // 检查已下载的部分（用于断点续传）
+      // 断点续传：检查已下载部分
       int existingLength = 0;
       if (await tempFile.exists()) {
         existingLength = await tempFile.length();
@@ -246,68 +245,57 @@ class ApiService {
       final client = http.Client();
 
       try {
-        // 发送 Range 请求（如果支持断点续传）
-        Map<String, String> headers = {};
+        // 使用 StreamedResponse 实现真正的流式下载
+        final request = http.Request('GET', Uri.parse(url));
         if (existingLength > 0) {
-          headers['Range'] = 'bytes=$existingLength-';
+          request.headers['Range'] = 'bytes=$existingLength-';
         }
 
-        final response = await client.get(Uri.parse(url), headers: headers);
+        final streamedResponse = await client.send(request);
 
-        if (response.statusCode == 200 || response.statusCode == 206) {
-          // 获取总大小
-          int totalSize = existingLength;
-          final contentLength = response.headers['content-length'];
-          if (contentLength != null) {
-            final receivedLength = int.parse(contentLength);
-            totalSize = existingLength + receivedLength;
-          } else {
-            final contentRange = response.headers['content-range'];
-            if (contentRange != null) {
-              final match = RegExp(r'/(\d+)$').firstMatch(contentRange);
-              if (match != null) {
-                totalSize = int.parse(match.group(1)!);
-              }
-            }
-          }
-
-          // 流式写入文件，实时更新进度
-          final raf = await tempFile.open(mode: existingLength > 0 ? FileMode.append : FileMode.write);
-          final chunks = response.bodyBytes;
-          int received = existingLength;
-          const chunkSize = 8192; // 每 8KB 报告一次进度
-          for (int i = 0; i < chunks.length; i += chunkSize) {
-            final end = (i + chunkSize < chunks.length) ? i + chunkSize : chunks.length;
-            final chunk = chunks.sublist(i, end);
-            await raf.writeFrom(chunk);
-            received += chunk.length;
-            if (onProgress != null && totalSize > 0) {
-              onProgress(received, totalSize);
-            }
-          }
-          await raf.close();
-
-          // 重命名为正式文件
-          if (await tempFile.exists()) {
-            if (await outputFile.exists()) {
-              await outputFile.delete();
-            }
-            await tempFile.rename(outputFile.path);
-          }
-
-          return outputFile.path;
-        } else {
-          // 服务器不支持断点续传，清空重新下载
-          if (await tempFile.exists()) {
-            await tempFile.delete();
-          }
-          final newResponse = await client.get(Uri.parse(url));
-          if (newResponse.statusCode == 200) {
-            await outputFile.writeAsBytes(newResponse.bodyBytes);
-            return outputFile.path;
-          }
+        if (streamedResponse.statusCode != 200 && streamedResponse.statusCode != 206) {
           return null;
         }
+
+        // 从 Content-Length 或 Content-Range 获取总大小
+        int totalSize = existingLength;
+        final contentLength = streamedResponse.headers['content-length'];
+        if (contentLength != null && contentLength.isNotEmpty) {
+          totalSize = existingLength + int.parse(contentLength);
+        } else {
+          final contentRange = streamedResponse.headers['content-range'];
+          if (contentRange != null) {
+            final match = RegExp(r'/(\d+)$').firstMatch(contentRange);
+            if (match != null) {
+              totalSize = int.parse(match.group(1)!);
+            }
+          }
+        }
+
+        // 边收边写磁盘，实时回调进度
+        final raf = await tempFile.open(
+          mode: existingLength > 0 ? FileMode.append : FileMode.write,
+        );
+        int received = existingLength;
+
+        await for (final chunk in streamedResponse.stream) {
+          await raf.writeFrom(chunk);
+          received += chunk.length;
+          if (onProgress != null && totalSize > 0) {
+            onProgress(received, totalSize);
+          }
+        }
+        await raf.close();
+
+        // 重命名为正式文件
+        if (await outputFile.exists()) {
+          await outputFile.delete();
+        }
+        if (await tempFile.exists()) {
+          await tempFile.rename(outputFile.path);
+        }
+
+        return outputFile.path;
       } finally {
         client.close();
       }
