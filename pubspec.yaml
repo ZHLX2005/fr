@@ -92,6 +92,9 @@ dependencies:
   record: ^6.0.0
   path_provider: ^2.1.4
 
+  # File Opener (打开APK安装)
+  open_filex: ^4.5.0
+
   # Emoji Picker
   emoji_picker_flutter: ^3.1.0
 

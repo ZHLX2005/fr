@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../lab_container.dart';
 import '../../services/api_client.dart';
@@ -285,25 +286,29 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   // 安装APK
   Future<void> _installApk(String filePath) async {
     try {
-      // 使用系统安装器安装
-      final result = await Process.run('adb', ['install', '-r', filePath]);
-      if (result.exitCode == 0) {
-        if (mounted) {
+      final result = await OpenFilex.open(
+        filePath,
+        type: 'application/vnd.android.package-archive',
+      );
+      if (mounted) {
+        if (result.type == ResultType.done) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('安装成功！')),
+            const SnackBar(content: Text('安装器已启动')),
           );
-        }
-      } else {
-        if (mounted) {
+        } else if (result.type == ResultType.noAppToOpen) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('安装失败: ${result.stderr}')),
+            const SnackBar(content: Text('未找到可打开的应用')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('打开失败: ${result.message}')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法自动安装，请手动在手机上安装 APK 文件')),
+          SnackBar(content: Text('无法打开安装器: $e')),
         );
       }
     }
