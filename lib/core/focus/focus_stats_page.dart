@@ -40,18 +40,6 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('数据统计'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.today),
-            onPressed: () {
-              setState(() {
-                _currentMonth = DateTime.now();
-                _selectedDayIndex = -1;
-              });
-            },
-            tooltip: '回到今天',
-          ),
-        ],
       ),
       body: Consumer<FocusProvider>(
         builder: (context, focusProvider, child) {
