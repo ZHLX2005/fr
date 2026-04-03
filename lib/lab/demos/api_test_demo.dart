@@ -372,6 +372,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
 
     try {
+      // 不指定 type，让 open_filex 根据 .apk 扩展名自动识别 MIME
       final result = await OpenFilex.open(_downloadedApkPath!);
       if (mounted) {
         if (result.type == ResultType.done) {

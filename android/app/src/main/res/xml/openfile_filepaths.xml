@@ -5,5 +5,7 @@
     <external-files-path name="external-files-path" path="."/>
     <files-path name="files_path" path="."/>
     <cache-path name="cache-path" path="."/>
+    <!-- 关键：app_flutter 是 Flutter 下载 APK 的默认目录，必须声明 -->
+    <cache-path name="app_flutter" path="app_flutter/"/>
     <root-path name="root" path="."/>
 </paths>
