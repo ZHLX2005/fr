@@ -24,10 +24,10 @@ class StorageManager {
   Future<List<StorageInfo>> getAllStorageInfo() async {
     final List<StorageInfo> result = [];
 
-    // Hive boxes
-    result.addAll(_getHiveBoxesInfo());
+    // Hive 作为一个整体
+    result.add(await _getHiveInfo());
 
-    // SharedPreferences
+    // SharedPreferences 作为一个整体
     result.add(await _getPrefsInfo());
 
     return result;
@@ -53,16 +53,47 @@ class StorageManager {
 
     switch (type) {
       case StorageType.hive:
-        if (boxName == null) return result;
-        final box = Hive.box(boxName);
-        for (final key in box.keys) {
-          final value = box.get(key);
-          result.add(KeyDetail(
-            key: key.toString(),
-            value: _formatValue(value),
-            rawValue: value,
-            size: _estimateSize(value),
-          ));
+        if (boxName != null) {
+          // 获取指定 Box 的键
+          final box = Hive.box(boxName);
+          for (final key in box.keys) {
+            final value = box.get(key);
+            result.add(KeyDetail(
+              key: '$boxName/$key',
+              value: _formatValue(value),
+              rawValue: value,
+              size: _estimateSize(value),
+            ));
+          }
+        } else {
+          // 获取所有 Hive Box 的所有键
+          final boxNames = [
+            'timetable_config',
+            'timetable_items',
+            'focus_sessions',
+            'focus_subjects',
+            'clock_records',
+            'notes',
+          ];
+
+          for (final name in boxNames) {
+            try {
+              if (Hive.isBoxOpen(name)) {
+                final box = Hive.box(name);
+                for (final key in box.keys) {
+                  final value = box.get(key);
+                  result.add(KeyDetail(
+                    key: '$name/$key',
+                    value: _formatValue(value),
+                    rawValue: value,
+                    size: _estimateSize(value),
+                  ));
+                }
+              }
+            } catch (e) {
+              // Box 可能不存在
+            }
+          }
         }
         break;
 
@@ -182,9 +213,19 @@ class StorageManager {
     try {
       switch (type) {
         case StorageType.hive:
-          if (boxName == null) return false;
-          final box = Hive.box(boxName);
-          await box.delete(key);
+          // Hive 的 key 格式是 "boxName/key"
+          String actualBoxName = boxName ?? '';
+          String actualKey = key;
+
+          if (boxName == null && key.contains('/')) {
+            final parts = key.split('/');
+            actualBoxName = parts[0];
+            actualKey = parts.sublist(1).join('/');
+          }
+
+          if (actualBoxName.isEmpty) return false;
+          final box = Hive.box(actualBoxName);
+          await box.delete(actualKey);
           return true;
 
         case StorageType.prefs:
@@ -212,9 +253,29 @@ class StorageManager {
     try {
       switch (type) {
         case StorageType.hive:
-          if (boxName == null) return false;
-          final box = Hive.box(boxName);
-          await box.clear();
+          if (boxName != null) {
+            final box = Hive.box(boxName);
+            await box.clear();
+            return true;
+          }
+          // 清空所有 Hive Box
+          final boxNames = [
+            'timetable_config',
+            'timetable_items',
+            'focus_sessions',
+            'focus_subjects',
+            'clock_records',
+            'notes',
+          ];
+          for (final name in boxNames) {
+            try {
+              if (Hive.isBoxOpen(name)) {
+                await Hive.box(name).clear();
+              }
+            } catch (e) {
+              // 忽略
+            }
+          }
           return true;
 
         case StorageType.prefs:
@@ -237,9 +298,29 @@ class StorageManager {
     }
   }
 
-  /// 获取 Hive Box 信息
-  List<StorageInfo> _getHiveBoxesInfo() {
-    final List<StorageInfo> result = [];
+  /// 删除所有 Hive 数据
+  Future<void> deleteAllHive() async {
+    final boxNames = [
+      'timetable_config',
+      'timetable_items',
+      'focus_sessions',
+      'focus_subjects',
+      'clock_records',
+      'notes',
+    ];
+    for (final name in boxNames) {
+      try {
+        await Hive.deleteBoxFromDisk(name);
+      } catch (e) {
+        // 忽略
+      }
+    }
+  }
+
+  /// 获取 Hive 整体信息
+  Future<StorageInfo> _getHiveInfo() async {
+    int totalSize = 0;
+    int totalKeys = 0;
     final boxNames = [
       'timetable_config',
       'timetable_items',
@@ -253,19 +334,20 @@ class StorageManager {
       try {
         if (Hive.isBoxOpen(name)) {
           final box = Hive.box(name);
-          result.add(StorageInfo(
-            type: StorageType.hive,
-            name: name,
-            keyCount: box.length,
-            size: _estimateBoxSize(box),
-          ));
+          totalKeys += box.length;
+          totalSize += _estimateBoxSize(box);
         }
       } catch (e) {
         // Box 可能不存在
       }
     }
 
-    return result;
+    return StorageInfo(
+      type: StorageType.hive,
+      name: 'Hive',
+      keyCount: totalKeys,
+      size: totalSize,
+    );
   }
 
   /// 获取 SharedPreferences 信息
