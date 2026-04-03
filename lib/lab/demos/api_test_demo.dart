@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../lab_container.dart';
@@ -346,20 +347,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   Future<void> _openApk() async {
     if (_downloadedApkPath == null) return;
     try {
-      final result = await OpenFilex.open(_downloadedApkPath!);
-      if (mounted) {
-        if (result.type == ResultType.done) {
-          // 成功唤起，不做提示
-        } else if (result.type == ResultType.noAppToOpen) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('没有可处理此文件的应用')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('打开失败: ${result.message}')),
-          );
-        }
-      }
+      final file = XFile(_downloadedApkPath!);
+      await Share.shareXFiles(
+        [file],
+        text: 'FR APK 安装包',
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
