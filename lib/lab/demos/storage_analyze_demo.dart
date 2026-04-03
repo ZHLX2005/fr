@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../core/storage/storage_manager.dart';
 import '../lab_container.dart';
 
@@ -23,16 +25,33 @@ class _StorageAnalyzePage extends StatefulWidget {
   State<_StorageAnalyzePage> createState() => _StorageAnalyzePageState();
 }
 
-class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
+class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
+    with SingleTickerProviderStateMixin {
   final StorageManager _storage = StorageManager.instance;
   List<StorageInfo> _storageList = [];
   Map<String, List<KeyDetail>> _keyDetails = {};
+  List<FileItem> _mediaFiles = [];
   bool _isLoading = true;
+  late TabController _tabController;
+
+  // 多媒体文件扩展名
+  static const _mediaExtensions = {
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
+    'mp4', 'mov', 'avi', 'mkv', 'webm',
+    'mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac',
+  };
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadStorageData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadStorageData() async {
@@ -45,16 +64,17 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
       // 加载每个存储的键详情
       final keyDetails = <String, List<KeyDetail>>{};
       for (final info in list) {
-        final details = await _storage.getKeyDetails(
-          info.type,
-          boxName: info.type == StorageType.hive ? info.name : null,
-        );
+        final details = await _storage.getKeyDetails(info.type);
         keyDetails[info.name] = details;
       }
+
+      // 扫描多媒体文件
+      final mediaFiles = await _scanMediaFiles();
 
       setState(() {
         _storageList = list;
         _keyDetails = keyDetails;
+        _mediaFiles = mediaFiles;
         _isLoading = false;
       });
     } catch (e) {
@@ -65,6 +85,61 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
         );
       }
     }
+  }
+
+  Future<List<FileItem>> _scanMediaFiles() async {
+    final List<FileItem> files = [];
+
+    try {
+      final tempDir = await getTemporaryDirectory();
+      await _scanDirectory(tempDir, files);
+
+      final docDir = await getApplicationDocumentsDirectory();
+      await _scanDirectory(docDir, files);
+    } catch (e) {
+      debugPrint('扫描文件目录失败: $e');
+    }
+
+    files.sort((a, b) => b.size.compareTo(a.size));
+    return files;
+  }
+
+  Future<void> _scanDirectory(Directory dir, List<FileItem> files) async {
+    try {
+      if (!await dir.exists()) return;
+
+      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          final ext = entity.path.split('.').last.toLowerCase();
+          if (_mediaExtensions.contains(ext)) {
+            try {
+              final size = await entity.length();
+              files.add(FileItem(
+                path: entity.path,
+                name: entity.path.split(Platform.pathSeparator).last,
+                size: size,
+                type: _getMediaType(ext),
+              ));
+            } catch (e) {
+              // 忽略
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('扫描目录失败: $dir, $e');
+    }
+  }
+
+  String _getMediaType(String ext) {
+    const images = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'};
+    const videos = {'mp4', 'mov', 'avi', 'mkv', 'webm'};
+    const audios = {'mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac'};
+
+    if (images.contains(ext)) return '图片';
+    if (videos.contains(ext)) return '视频';
+    if (audios.contains(ext)) return '音频';
+    return '文件';
   }
 
   String _formatSize(int bytes) {
@@ -105,60 +180,138 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
                   value: _formatSize(_storageList.fold(0, (sum, info) => sum + info.size)),
                   icon: Icons.data_usage,
                 ),
-              ],
-            ),
-          ),
-          // 操作按钮
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _loadStorageData,
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('刷新'),
-                  ),
+                _StatItem(
+                  label: '媒体文件',
+                  value: '${_mediaFiles.length}',
+                  icon: Icons.folder,
                 ),
               ],
             ),
           ),
-          // 存储列表
+          // Tab 栏
+          TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: '存储数据'),
+              Tab(text: '多媒体文件'),
+            ],
+          ),
+          // Tab 内容
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _storageList.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
-                            const SizedBox(height: 16),
-                            Text('暂无存储数据', style: TextStyle(color: Colors.grey[600])),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _storageList.length,
-                        itemBuilder: (context, index) {
-                          final info = _storageList[index];
-                          final keys = _keyDetails[info.name] ?? [];
-                          return _StorageCard(
-                            info: info,
-                            keys: keys,
-                            formatSize: _formatSize,
-                            getSizeColor: _getSizeColor,
-                            onKeyTap: (detail) => _showKeyDetail(context, info, detail),
-                            onDeleteKey: (key) => _deleteKey(info, key),
-                            onClear: () => _clearStorage(info),
-                            onDeleteBox: () => _deleteBox(info),
-                          );
-                        },
-                      ),
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // 存储数据
+                      _buildStorageTab(),
+                      // 多媒体文件
+                      _buildMediaTab(),
+                    ],
+                  ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStorageTab() {
+    return Column(
+      children: [
+        // 操作按钮
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _loadStorageData,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('刷新'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // 存储列表
+        Expanded(
+          child: _storageList.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text('暂无存储数据', style: TextStyle(color: Colors.grey[600])),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _storageList.length,
+                  itemBuilder: (context, index) {
+                    final info = _storageList[index];
+                    final keys = _keyDetails[info.name] ?? [];
+                    return _StorageCard(
+                      info: info,
+                      keys: keys,
+                      formatSize: _formatSize,
+                      getSizeColor: _getSizeColor,
+                      onKeyTap: (detail) => _showKeyDetail(context, info, detail),
+                      onDeleteKey: (key) => _deleteKey(info, key),
+                      onClear: () => _clearStorage(info),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMediaTab() {
+    if (_mediaFiles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder_open, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('暂无多媒体文件', style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      );
+    }
+
+    final totalSize = _mediaFiles.fold(0, (sum, f) => sum + f.size);
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('文件数: ${_mediaFiles.length}'),
+              Text('总大小: ${_formatSize(totalSize)}'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: _mediaFiles.length,
+            itemBuilder: (context, index) {
+              final file = _mediaFiles[index];
+              return _MediaFileCard(
+                file: file,
+                formatSize: _formatSize,
+                getSizeColor: _getSizeColor,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -199,11 +352,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
     );
 
     if (confirmed == true && mounted) {
-      final success = await _storage.delete(
-        info.type,
-        key,
-        boxName: info.type == StorageType.hive ? info.name : null,
-      );
+      final success = await _storage.delete(info.type, key);
 
       if (success) {
         await _loadStorageData();
@@ -236,53 +385,17 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
     );
 
     if (confirmed == true && mounted) {
-      final success = await _storage.clear(
-        info.type,
-        boxName: info.type == StorageType.hive ? info.name : null,
-      );
-
-      if (success) {
-        await _loadStorageData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已清空: ${info.displayName}')),
-          );
-        }
+      if (info.type == StorageType.hive) {
+        await _storage.deleteAllHive();
+      } else {
+        await _storage.clear(info.type);
       }
-    }
-  }
 
-  Future<void> _deleteBox(StorageInfo info) async {
-    if (info.type != StorageType.hive) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除整个 "${info.displayName}" 数据箱吗？此操作不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      final success = await _storage.deleteBox(info.name);
-
-      if (success) {
-        await _loadStorageData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已删除: ${info.displayName}')),
-          );
-        }
+      await _loadStorageData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已清空: ${info.displayName}')),
+        );
       }
     }
   }
@@ -320,7 +433,6 @@ class _StorageCard extends StatelessWidget {
   final void Function(KeyDetail) onKeyTap;
   final void Function(String) onDeleteKey;
   final VoidCallback onClear;
-  final VoidCallback onDeleteBox;
 
   const _StorageCard({
     required this.info,
@@ -330,7 +442,6 @@ class _StorageCard extends StatelessWidget {
     required this.onKeyTap,
     required this.onDeleteKey,
     required this.onClear,
-    required this.onDeleteBox,
   });
 
   @override
@@ -342,98 +453,83 @@ class _StorageCard extends StatelessWidget {
       child: Column(
         children: [
           // 头部
-          InkWell(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      info.type == StorageType.hive ? Icons.table_chart : Icons.settings,
-                      color: theme.colorScheme.primary,
-                    ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          info.displayName,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                info.typeLabel,
-                                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${info.keyCount} 个键',
-                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  child: Icon(
+                    info.type == StorageType.hive ? Icons.table_chart : Icons.settings,
+                    color: theme.colorScheme.primary,
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        formatSize(info.size),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: getSizeColor(info.size),
-                        ),
+                        info.displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.cleaning_services, size: 20),
-                            onPressed: onClear,
-                            tooltip: '清空',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          ),
-                          if (info.type == StorageType.hive)
-                            IconButton(
-                              icon: const Icon(Icons.delete_forever, size: 20, color: Colors.red),
-                              onPressed: onDeleteBox,
-                              tooltip: '删除整个数据箱',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(4),
                             ),
+                            child: Text(
+                              info.typeLabel,
+                              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${info.keyCount} 个键',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                          ),
                         ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatSize(info.size),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: getSizeColor(info.size),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    IconButton(
+                      icon: const Icon(Icons.cleaning_services, size: 20),
+                      onPressed: onClear,
+                      tooltip: '清空',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           // 键列表
           if (keys.isNotEmpty) ...[
             const Divider(height: 1),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 250),
+              constraints: const BoxConstraints(maxHeight: 200),
               child: ListView.builder(
                 shrinkWrap: true,
                 physics: const ClampingScrollPhysics(),
@@ -643,7 +739,6 @@ class _KeyDetailSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              // 删除按钮
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -672,6 +767,118 @@ class _KeyDetailSheet extends StatelessWidget {
       },
     );
   }
+}
+
+class _MediaFileCard extends StatelessWidget {
+  final FileItem file;
+  final String Function(int) formatSize;
+  final Color Function(int) getSizeColor;
+
+  const _MediaFileCard({
+    required this.file,
+    required this.formatSize,
+    required this.getSizeColor,
+  });
+
+  IconData _getIcon() {
+    switch (file.type) {
+      case '图片':
+        return Icons.image;
+      case '视频':
+        return Icons.videocam;
+      case '音频':
+        return Icons.audiotrack;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  Color _getColor() {
+    switch (file.type) {
+      case '图片':
+        return Colors.green;
+      case '视频':
+        return Colors.red;
+      case '音频':
+        return Colors.orange;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _getColor().withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(_getIcon(), color: _getColor()),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    file.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    file.path,
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  formatSize(file.size),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: getSizeColor(file.size),
+                  ),
+                ),
+                Text(
+                  file.type,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FileItem {
+  final String path;
+  final String name;
+  final int size;
+  final String type;
+
+  const FileItem({
+    required this.path,
+    required this.name,
+    required this.size,
+    required this.type,
+  });
 }
 
 void registerStorageAnalyzeDemo() {
