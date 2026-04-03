@@ -111,9 +111,18 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
           const Spacer(),
           Consumer<FocusTimerProvider>(
             builder: (context, timer, child) {
-              return IconButton(
-                icon: const Icon(Icons.category_outlined),
-                onPressed: () => _showSubjectSelector(context, timer),
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.category_outlined),
+                    onPressed: () => _showSubjectSelector(context, timer),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.fullscreen),
+                    onPressed: () => _enterFullscreen(context, timer),
+                  ),
+                ],
               );
             },
           ),
@@ -394,6 +403,20 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
     );
   }
 
+  /// 进入全屏模式
+  void _enterFullscreen(BuildContext context, FocusTimerProvider timer) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            _FocusFullscreenPage(elapsedSeconds: timer.totalSeconds),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   /// 科目选择器
   void _showSubjectSelector(BuildContext context, FocusTimerProvider timer) {
     showModalBottomSheet(
@@ -559,6 +582,119 @@ class _FocusTimerPageState extends State<FocusTimerPage> with TickerProviderStat
             child: const Text('返回'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 全屏专注页面 - 显示已专注时长
+class _FocusFullscreenPage extends StatefulWidget {
+  const _FocusFullscreenPage({required this.elapsedSeconds});
+
+  final int elapsedSeconds;
+
+  @override
+  State<_FocusFullscreenPage> createState() => _FocusFullscreenPageState();
+}
+
+class _FocusFullscreenPageState extends State<_FocusFullscreenPage> {
+  late int _elapsedSeconds;
+  late Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _elapsedSeconds = widget.elapsedSeconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _elapsedSeconds++;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  String _formatElapsed() {
+    final hour = _elapsedSeconds ~/ 3600;
+    final minute = (_elapsedSeconds % 3600) ~/ 60;
+    final second = _elapsedSeconds % 60;
+    if (hour > 0) {
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:${second.toString().padLeft(2, '0')}';
+    }
+    return '${minute.toString().padLeft(2, '0')}:${second.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDate() {
+    final now = DateTime.now();
+    final months = ['一月', '二月', '三月', '四月', '五月', '六月',
+                    '七月', '八月', '九月', '十月', '十一月', '十二月'];
+    final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+    return '${months[now.month - 1]}${now.day}日 ${weekdays[now.weekday - 1]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final timeFontSize = screenWidth * 0.22;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAF9F6),
+      body: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _formatDate(),
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.04,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+                SizedBox(height: screenWidth * 0.03),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _formatElapsed(),
+                    style: TextStyle(
+                      fontSize: timeFontSize,
+                      fontWeight: FontWeight.w100,
+                      color: const Color(0xFF7A9A6E),
+                      letterSpacing: -4,
+                      height: 1,
+                    ),
+                  ),
+                ),
+                SizedBox(height: screenWidth * 0.05),
+                Text(
+                  '专注中',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+                SizedBox(height: screenWidth * 0.1),
+                Text(
+                  '点击任意处退出',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.03,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
