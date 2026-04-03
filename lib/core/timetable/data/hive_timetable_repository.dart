@@ -77,18 +77,17 @@ class HiveTimetableRepository extends TimetableRepository {
   @override
   Future<List<CourseItem>> loadItems() async {
     if (!_isInitialized) {
-      debugPrint('HiveTimetableRepository.loadItems: 未初始化');
       return [];
     }
     final items = <CourseItem>[];
-    debugPrint('HiveTimetableRepository.loadItems: keys = ${_itemsBox.keys.toList()}');
     for (final key in _itemsBox.keys) {
       final json = _itemsBox.get(key);
       if (json != null && json is Map) {
-        items.add(_courseItemFromJson(json as Map<String, dynamic>));
+        // Hive returns _Map<dynamic, dynamic>, convert to Map<String, dynamic>
+        final typedJson = json.map((k, v) => MapEntry(k.toString(), v));
+        items.add(_courseItemFromJson(typedJson));
       }
     }
-    debugPrint('HiveTimetableRepository.loadItems: 返回 ${items.length} 个课程');
     return items;
   }
 
