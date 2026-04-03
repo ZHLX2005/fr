@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/storage/storage_manager.dart';
 import '../lab_container.dart';
 
-// Re-export for external use
-export '../../core/storage/storage_manager.dart' show StorageInfo;
-
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {
   @override
@@ -29,9 +26,8 @@ class _StorageAnalyzePage extends StatefulWidget {
 class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
   final StorageManager _storage = StorageManager.instance;
   List<StorageInfo> _storageList = [];
-  Map<String, List<KeyInfo>> _keyDetails = {};
+  Map<String, List<KeyDetail>> _keyDetails = {};
   bool _isLoading = true;
-  bool _showKeys = false;
 
   @override
   void initState() {
@@ -47,20 +43,13 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
       final list = await _storage.getAllStorageInfo();
 
       // 加载每个存储的键详情
-      final keyDetails = <String, List<KeyInfo>>{};
+      final keyDetails = <String, List<KeyDetail>>{};
       for (final info in list) {
-        final keys = await _storage.getKeys(info.type, boxName: info.type == StorageType.hive ? info.name : null);
-        final keyInfos = <KeyInfo>[];
-        for (final key in keys) {
-          final value = await _storage.getValue(info.type, key, boxName: info.type == StorageType.hive ? info.name : null);
-          keyInfos.add(KeyInfo(
-            key: key,
-            value: value?.toString() ?? 'null',
-            size: (value?.toString().length ?? 0),
-          ));
-        }
-        keyInfos.sort((a, b) => b.size.compareTo(a.size));
-        keyDetails[info.name] = keyInfos;
+        final details = await _storage.getKeyDetails(
+          info.type,
+          boxName: info.type == StorageType.hive ? info.name : null,
+        );
+        keyDetails[info.name] = details;
       }
 
       setState(() {
@@ -131,14 +120,6 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
                     label: const Text('刷新'),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => setState(() => _showKeys = !_showKeys),
-                    icon: Icon(_showKeys ? Icons.list : Icons.vpn_key, size: 18),
-                    label: Text(_showKeys ? '隐藏详情' : '显示详情'),
-                  ),
-                ),
               ],
             ),
           ),
@@ -162,12 +143,13 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
                         itemCount: _storageList.length,
                         itemBuilder: (context, index) {
                           final info = _storageList[index];
+                          final keys = _keyDetails[info.name] ?? [];
                           return _StorageCard(
                             info: info,
-                            showKeys: _showKeys,
-                            keys: _keyDetails[info.name] ?? [],
+                            keys: keys,
                             formatSize: _formatSize,
                             getSizeColor: _getSizeColor,
+                            onKeyTap: (detail) => _showKeyDetail(context, info, detail),
                             onDeleteKey: (key) => _deleteKey(info, key),
                             onClear: () => _clearStorage(info),
                             onDeleteBox: () => _deleteBox(info),
@@ -176,6 +158,23 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showKeyDetail(BuildContext context, StorageInfo info, KeyDetail detail) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _KeyDetailSheet(
+        info: info,
+        detail: detail,
+        formatSize: _formatSize,
+        onDelete: () {
+          Navigator.pop(context);
+          _deleteKey(info, detail.key);
+        },
       ),
     );
   }
@@ -289,19 +288,6 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage> {
   }
 }
 
-// KeyInfo is internal to this demo
-class KeyInfo {
-  final String key;
-  final String value;
-  final int size;
-
-  const KeyInfo({
-    required this.key,
-    required this.value,
-    required this.size,
-  });
-}
-
 class _StatItem extends StatelessWidget {
   final String label;
   final String value;
@@ -328,20 +314,20 @@ class _StatItem extends StatelessWidget {
 
 class _StorageCard extends StatelessWidget {
   final StorageInfo info;
-  final bool showKeys;
-  final List<KeyInfo> keys;
+  final List<KeyDetail> keys;
   final String Function(int) formatSize;
   final Color Function(int) getSizeColor;
+  final void Function(KeyDetail) onKeyTap;
   final void Function(String) onDeleteKey;
   final VoidCallback onClear;
   final VoidCallback onDeleteBox;
 
   const _StorageCard({
     required this.info,
-    required this.showKeys,
     required this.keys,
     required this.formatSize,
     required this.getSizeColor,
+    required this.onKeyTap,
     required this.onDeleteKey,
     required this.onClear,
     required this.onDeleteBox,
@@ -357,9 +343,6 @@ class _StorageCard extends StatelessWidget {
         children: [
           // 头部
           InkWell(
-            onTap: () {
-              // 展开/折叠
-            },
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -446,45 +429,23 @@ class _StorageCard extends StatelessWidget {
               ),
             ),
           ),
-          // 键详情
-          if (showKeys && keys.isNotEmpty) ...[
+          // 键列表
+          if (keys.isNotEmpty) ...[
             const Divider(height: 1),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 200),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 250),
               child: ListView.builder(
                 shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
                 itemCount: keys.length,
                 itemBuilder: (context, index) {
-                  final keyInfo = keys[index];
-                  return ListTile(
-                    dense: true,
-                    title: Text(
-                      keyInfo.key,
-                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                    ),
-                    subtitle: Text(
-                      keyInfo.value.length > 50
-                          ? '${keyInfo.value.substring(0, 50)}...'
-                          : keyInfo.value,
-                      style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          formatSize(keyInfo.size),
-                          style: TextStyle(fontSize: 10, color: getSizeColor(keyInfo.size)),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, size: 16),
-                          onPressed: () => onDeleteKey(keyInfo.key),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                        ),
-                      ],
-                    ),
+                  final detail = keys[index];
+                  return _KeyListTile(
+                    detail: detail,
+                    formatSize: formatSize,
+                    getSizeColor: getSizeColor,
+                    onTap: () => onKeyTap(detail),
+                    onDelete: () => onDeleteKey(detail.key),
                   );
                 },
               ),
@@ -492,6 +453,223 @@ class _StorageCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _KeyListTile extends StatelessWidget {
+  final KeyDetail detail;
+  final String Function(int) formatSize;
+  final Color Function(int) getSizeColor;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  const _KeyListTile({
+    required this.detail,
+    required this.formatSize,
+    required this.getSizeColor,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            if (detail.isJson)
+              Container(
+                width: 24,
+                height: 24,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(Icons.data_object, size: 14, color: Colors.purple),
+              ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    detail.key,
+                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    detail.value.length > 40
+                        ? '${detail.value.substring(0, 40)}...'
+                        : detail.value,
+                    style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              formatSize(detail.size),
+              style: TextStyle(fontSize: 10, color: getSizeColor(detail.size)),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right, size: 18),
+              onPressed: onTap,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _KeyDetailSheet extends StatelessWidget {
+  final StorageInfo info;
+  final KeyDetail detail;
+  final String Function(int) formatSize;
+  final VoidCallback onDelete;
+
+  const _KeyDetailSheet({
+    required this.info,
+    required this.detail,
+    required this.formatSize,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            detail.key,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                info.displayName,
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                formatSize(detail.size),
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                              if (detail.isJson) ...[
+                                const SizedBox(width: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.purple.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'JSON',
+                                    style: TextStyle(fontSize: 10, color: Colors.purple),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SelectableText(
+                      detail.value,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // 删除按钮
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(color: Colors.grey[300]!),
+                  ),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete),
+                    label: const Text('删除此项'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
