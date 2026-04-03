@@ -38,8 +38,13 @@ class StorageManager {
     switch (type) {
       case StorageType.hive:
         if (boxName == null) return [];
-        final box = Hive.box(boxName);
-        return box.keys.map((k) => k.toString()).toList();
+        try {
+          if (!Hive.isBoxOpen(boxName)) return [];
+          final box = Hive.box(boxName);
+          return box.keys.map((k) => k.toString()).toList();
+        } catch (e) {
+          return [];
+        }
 
       case StorageType.prefs:
         final prefs = await SharedPreferences.getInstance();
@@ -55,15 +60,22 @@ class StorageManager {
       case StorageType.hive:
         if (boxName != null) {
           // 获取指定 Box 的键
-          final box = Hive.box(boxName);
-          for (final key in box.keys) {
-            final value = box.get(key);
-            result.add(KeyDetail(
-              key: '$boxName/$key',
-              value: _formatValue(value),
-              rawValue: value,
-              size: _estimateSize(value),
-            ));
+          try {
+            if (!Hive.isBoxOpen(boxName)) {
+              return result;
+            }
+            final box = Hive.box(boxName);
+            for (final key in box.keys) {
+              final value = box.get(key);
+              result.add(KeyDetail(
+                key: '$boxName/$key',
+                value: _formatValue(value),
+                rawValue: value,
+                size: _estimateSize(value),
+              ));
+            }
+          } catch (e) {
+            // Box 不存在或已删除
           }
         } else {
           // 获取所有 Hive Box 的所有键
@@ -91,7 +103,7 @@ class StorageManager {
                 }
               }
             } catch (e) {
-              // Box 可能不存在
+              // Box 不存在或已删除
             }
           }
         }
