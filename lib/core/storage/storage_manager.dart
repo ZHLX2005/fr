@@ -47,18 +47,134 @@ class StorageManager {
     }
   }
 
-  /// 获取值
-  Future<dynamic> getValue(StorageType type, String key, {String? boxName}) async {
+  /// 获取键值对详情列表
+  Future<List<KeyDetail>> getKeyDetails(StorageType type, {String? boxName}) async {
+    final List<KeyDetail> result = [];
+
+    switch (type) {
+      case StorageType.hive:
+        if (boxName == null) return result;
+        final box = Hive.box(boxName);
+        for (final key in box.keys) {
+          final value = box.get(key);
+          result.add(KeyDetail(
+            key: key.toString(),
+            value: _formatValue(value),
+            rawValue: value,
+            size: _estimateSize(value),
+          ));
+        }
+        break;
+
+      case StorageType.prefs:
+        final prefs = await SharedPreferences.getInstance();
+        for (final key in prefs.getKeys()) {
+          final value = prefs.get(key);
+          result.add(KeyDetail(
+            key: key,
+            value: _formatValue(value),
+            rawValue: value,
+            size: _estimateSize(value),
+          ));
+        }
+        break;
+    }
+
+    // 按大小排序
+    result.sort((a, b) => b.size.compareTo(a.size));
+    return result;
+  }
+
+  /// 获取单个值的详细信息
+  Future<KeyDetail?> getKeyDetail(StorageType type, String key, {String? boxName}) async {
+    dynamic value;
     switch (type) {
       case StorageType.hive:
         if (boxName == null) return null;
         final box = Hive.box(boxName);
-        return box.get(key);
+        value = box.get(key);
+        break;
 
       case StorageType.prefs:
         final prefs = await SharedPreferences.getInstance();
-        return prefs.get(key);
+        value = prefs.get(key);
+        break;
     }
+
+    if (value == null) return null;
+
+    return KeyDetail(
+      key: key,
+      value: _formatValue(value),
+      rawValue: value,
+      size: _estimateSize(value),
+    );
+  }
+
+  String _formatValue(dynamic value) {
+    if (value == null) return 'null';
+
+    // 如果是 Map 或 List，尝试格式化
+    if (value is Map || value is List) {
+      try {
+        return _prettyJson(value);
+      } catch (e) {
+        return value.toString();
+      }
+    }
+
+    return value.toString();
+  }
+
+  String _prettyJson(dynamic data) {
+    // 简单的 JSON 格式化
+    final str = data.toString();
+    // 尝试解析并重新格式化
+    try {
+      // 简单缩进处理
+      final buffer = StringBuffer();
+      int indent = 0;
+      bool inString = false;
+
+      for (int i = 0; i < str.length; i++) {
+        final char = str[i];
+        if (char == '"' && (i == 0 || str[i-1] != '\\')) {
+          inString = !inString;
+          buffer.write(char);
+        } else if (!inString) {
+          if (char == '{' || char == '[') {
+            buffer.write(char);
+            buffer.write('\n');
+            indent++;
+            buffer.write('  ' * indent);
+          } else if (char == '}' || char == ']') {
+            buffer.write('\n');
+            indent--;
+            buffer.write('  ' * indent);
+            buffer.write(char);
+          } else if (char == ',') {
+            buffer.write(char);
+            buffer.write('\n');
+            buffer.write('  ' * indent);
+          } else if (char == ':') {
+            buffer.write(': ');
+          } else if (char == ' ' && str[i-1] == ':') {
+            // 跳过
+          } else {
+            buffer.write(char);
+          }
+        } else {
+          buffer.write(char);
+        }
+      }
+      return buffer.toString();
+    } catch (e) {
+      return str;
+    }
+  }
+
+  int _estimateSize(dynamic value) {
+    return value.toString().length;
   }
 
   /// 删除单个值
@@ -235,4 +351,29 @@ class StorageInfo {
     };
     return nameMap[name] ?? name;
   }
+}
+
+/// 键值详情
+class KeyDetail {
+  const KeyDetail({
+    required this.key,
+    required this.value,
+    required this.rawValue,
+    required this.size,
+  });
+
+  final String key;
+  final String value; // 格式化后的值
+  final dynamic rawValue; // 原始值
+  final int size;
+
+  String get formattedSize {
+    if (size < 1024) return '$size B';
+    if (size < 1024 * 1024) {
+      return '${(size / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(size / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+
+  bool get isJson => rawValue is Map || rawValue is List;
 }
