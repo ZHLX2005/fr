@@ -33,8 +33,8 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   List<FileItem> _mediaFiles = [];
   bool _isLoading = true;
   late TabController _tabController;
+  final Set<String> _expandedKeys = {};
 
-  // 多媒体文件扩展名
   static const _mediaExtensions = {
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
     'mp4', 'mov', 'avi', 'mkv', 'webm',
@@ -61,14 +61,12 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       await _storage.init();
       final list = await _storage.getAllStorageInfo();
 
-      // 加载每个存储的键详情
       final keyDetails = <String, List<KeyDetail>>{};
       for (final info in list) {
         final details = await _storage.getKeyDetails(info.type);
         keyDetails[info.name] = details;
       }
 
-      // 扫描多媒体文件
       final mediaFiles = await _scanMediaFiles();
 
       setState(() {
@@ -142,6 +140,10 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     return '文件';
   }
 
+  bool get isImage {
+    return false;
+  }
+
   String _formatSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
@@ -161,7 +163,6 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     return SafeArea(
       child: Column(
         children: [
-          // 顶部统计
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -188,7 +189,6 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
               ],
             ),
           ),
-          // Tab 栏
           TabBar(
             controller: _tabController,
             tabs: const [
@@ -196,16 +196,13 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
               Tab(text: '多媒体文件'),
             ],
           ),
-          // Tab 内容
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : TabBarView(
                     controller: _tabController,
                     children: [
-                      // 存储数据
                       _buildStorageTab(),
-                      // 多媒体文件
                       _buildMediaTab(),
                     ],
                   ),
@@ -218,7 +215,6 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   Widget _buildStorageTab() {
     return Column(
       children: [
-        // 操作按钮
         Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -233,7 +229,6 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
             ],
           ),
         ),
-        // 存储列表
         Expanded(
           child: _storageList.isEmpty
               ? Center(
@@ -255,11 +250,21 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                     return _StorageCard(
                       info: info,
                       keys: keys,
+                      expandedKeys: _expandedKeys,
                       formatSize: _formatSize,
                       getSizeColor: _getSizeColor,
                       onKeyTap: (detail) => _showKeyDetail(context, info, detail),
                       onDeleteKey: (key) => _deleteKey(info, key),
                       onClear: () => _clearStorage(info),
+                      onToggleExpand: (key) {
+                        setState(() {
+                          if (_expandedKeys.contains(key)) {
+                            _expandedKeys.remove(key);
+                          } else {
+                            _expandedKeys.add(key);
+                          }
+                        });
+                      },
                     );
                   },
                 ),
@@ -307,11 +312,94 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                 file: file,
                 formatSize: _formatSize,
                 getSizeColor: _getSizeColor,
+                onTap: () => _previewFile(context, file),
+                onDelete: () => _deleteFile(file),
               );
             },
           ),
         ),
       ],
+    );
+  }
+
+  void _previewFile(BuildContext context, FileItem file) {
+    final ext = file.name.split('.').last.toLowerCase();
+    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(ext);
+
+    if (!isImage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('不支持预览: ${file.type}')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        color: Colors.black,
+        child: Column(
+          children: [
+            SafeArea(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  Text(
+                    file.name,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: Image.file(
+                  File(file.path),
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stack) {
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                        const SizedBox(height: 16),
+                        Text('图片加载失败', style: TextStyle(color: Colors.white54)),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Text(
+                      '${file.type} · ${_formatSize(file.size)}',
+                      style: const TextStyle(color: Colors.white54),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _deleteFile(file);
+                      },
+                      icon: const Icon(Icons.delete, color: Colors.redAccent, size: 18),
+                      label: const Text('删除', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -359,6 +447,45 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('已删除: $key')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteFile(FileItem file) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除 "${file.name}" 吗？\n\n路径: ${file.path}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        final f = File(file.path);
+        await f.delete();
+        await _loadStorageData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已删除: ${file.name}')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e')),
           );
         }
       }
@@ -428,123 +555,138 @@ class _StatItem extends StatelessWidget {
 class _StorageCard extends StatelessWidget {
   final StorageInfo info;
   final List<KeyDetail> keys;
+  final Set<String> expandedKeys;
   final String Function(int) formatSize;
   final Color Function(int) getSizeColor;
   final void Function(KeyDetail) onKeyTap;
   final void Function(String) onDeleteKey;
   final VoidCallback onClear;
+  final void Function(String) onToggleExpand;
 
   const _StorageCard({
     required this.info,
     required this.keys,
+    required this.expandedKeys,
     required this.formatSize,
     required this.getSizeColor,
     required this.onKeyTap,
     required this.onDeleteKey,
     required this.onClear,
+    required this.onToggleExpand,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isExpanded = expandedKeys.contains(info.name);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Column(
         children: [
           // 头部
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
+          InkWell(
+            onTap: () => onToggleExpand(info.name),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      info.type == StorageType.hive ? Icons.table_chart : Icons.settings,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
-                  child: Icon(
-                    info.type == StorageType.hive ? Icons.table_chart : Icons.settings,
-                    color: theme.colorScheme.primary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          info.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                info.typeLabel,
+                                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${info.keyCount} 个键',
+                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        info.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        formatSize(info.size),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: getSizeColor(info.size),
+                        ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              info.typeLabel,
-                              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                            ),
+                          Icon(
+                            isExpanded ? Icons.expand_less : Icons.expand_more,
+                            size: 20,
+                            color: Colors.grey[600],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${info.keyCount} 个键',
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                          IconButton(
+                            icon: const Icon(Icons.cleaning_services, size: 20),
+                            onPressed: onClear,
+                            tooltip: '清空',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      formatSize(info.size),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: getSizeColor(info.size),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    IconButton(
-                      icon: const Icon(Icons.cleaning_services, size: 20),
-                      onPressed: onClear,
-                      tooltip: '清空',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           // 键列表
-          if (keys.isNotEmpty) ...[
+          if (isExpanded && keys.isNotEmpty) ...[
             const Divider(height: 1),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: ListView.builder(
-                shrinkWrap: true,
-                physics: const ClampingScrollPhysics(),
-                itemCount: keys.length,
-                itemBuilder: (context, index) {
-                  final detail = keys[index];
-                  return _KeyListTile(
-                    detail: detail,
-                    formatSize: formatSize,
-                    getSizeColor: getSizeColor,
-                    onTap: () => onKeyTap(detail),
-                    onDelete: () => onDeleteKey(detail.key),
-                  );
-                },
-              ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const ClampingScrollPhysics(),
+              itemCount: keys.length,
+              itemBuilder: (context, index) {
+                final detail = keys[index];
+                return _KeyListTile(
+                  detail: detail,
+                  formatSize: formatSize,
+                  getSizeColor: getSizeColor,
+                  onTap: () => onKeyTap(detail),
+                  onDelete: () => onDeleteKey(detail.key),
+                );
+              },
             ),
           ],
         ],
@@ -773,11 +915,15 @@ class _MediaFileCard extends StatelessWidget {
   final FileItem file;
   final String Function(int) formatSize;
   final Color Function(int) getSizeColor;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   const _MediaFileCard({
     required this.file,
     required this.formatSize,
     required this.getSizeColor,
+    required this.onTap,
+    required this.onDelete,
   });
 
   IconData _getIcon() {
@@ -810,57 +956,66 @@ class _MediaFileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _getColor().withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _getColor().withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(_getIcon(), color: _getColor()),
               ),
-              child: Icon(_getIcon(), color: _getColor()),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      file.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      file.path,
+                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    file.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    formatSize(file.size),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: getSizeColor(file.size),
+                    ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
-                    file.path,
-                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    file.type,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   ),
                 ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  formatSize(file.size),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: getSizeColor(file.size),
-                  ),
-                ),
-                Text(
-                  file.type,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ],
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: Colors.red[400], size: 20),
+                onPressed: onDelete,
+                tooltip: '删除',
+              ),
+            ],
+          ),
         ),
       ),
     );
