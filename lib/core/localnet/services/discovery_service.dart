@@ -123,6 +123,7 @@ class DiscoveryService {
         'fingerprint': deviceId,
         'port': devicePort,
         'announce': true,
+        'announcement': true, // v1 compatibility
       };
 
       final data = utf8.encode(jsonEncode(dto));
@@ -154,8 +155,8 @@ class DiscoveryService {
       _logger('[Localnet] Found device: ${device.alias} ($ip)');
       _notifyDevices();
 
-      // Send register response via HTTP
-      if (json['announce'] == true) {
+      // Send register response via HTTP if this is an announcement
+      if (json['announce'] == true || json['announcement'] == true) {
         _sendRegisterResponse(ip, device.port);
       }
     } catch (e) {
