@@ -9,6 +9,7 @@ import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
+import 'core/localnet/localnet_page.dart';
 import 'core/timetable/timetable.dart';
 import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
@@ -67,9 +68,7 @@ void main() async {
   // 使用 ProviderScope 包装应用，注入 Repository
   runApp(
     ProviderScope(
-      overrides: [
-        TimetableStore.repoProvider.overrideWithValue(hiveRepo),
-      ],
+      overrides: [TimetableStore.repoProvider.overrideWithValue(hiveRepo)],
       child: const MyApp(),
     ),
   );
@@ -105,8 +104,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) {}
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == 'navigateToLab') {
@@ -141,12 +139,24 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     return classic_provider.MultiProvider(
       providers: [
         classic_provider.ChangeNotifierProvider.value(value: _themeProvider),
-        classic_provider.ChangeNotifierProvider(create: (_) => MessageProvider()),
-        classic_provider.ChangeNotifierProvider(create: (_) => LabNoteProvider()),
-        classic_provider.ChangeNotifierProvider(create: (_) => LabClockProvider()),
-        classic_provider.ChangeNotifierProvider(create: (_) => AIChatProvider()),
-        classic_provider.ChangeNotifierProvider(create: (_) => AgentChatProvider()),
-        classic_provider.ChangeNotifierProvider(create: (_) => FocusProvider()..init()),
+        classic_provider.ChangeNotifierProvider(
+          create: (_) => MessageProvider(),
+        ),
+        classic_provider.ChangeNotifierProvider(
+          create: (_) => LabNoteProvider(),
+        ),
+        classic_provider.ChangeNotifierProvider(
+          create: (_) => LabClockProvider(),
+        ),
+        classic_provider.ChangeNotifierProvider(
+          create: (_) => AIChatProvider(),
+        ),
+        classic_provider.ChangeNotifierProvider(
+          create: (_) => AgentChatProvider(),
+        ),
+        classic_provider.ChangeNotifierProvider(
+          create: (_) => FocusProvider()..init(),
+        ),
       ],
       child: classic_provider.Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -193,8 +203,8 @@ class _MainScreenState extends State<MainScreen> {
     ProfilePage(), // 0: 主页（用户页面）
     HomePage(), // 1: 聊天
     FocusHomePage(), // 2: O - 专注计时器
-    _DevPage(), // 3: 图库
-    GalleryManagePage()
+    _DevPage(), //
+    GalleryManagePage(),
   ];
 
   @override
@@ -248,30 +258,12 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-/// 待开发页面占位符
+/// LocalNet 页面占位符
 class _DevPage extends StatelessWidget {
   const _DevPage();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.construction_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '功能待开发',
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const LocalnetPage();
   }
 }
