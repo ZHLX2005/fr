@@ -43,7 +43,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     BottomBarItem(label: '主页', icon: Icons.home_outlined, selectedIcon: Icons.home),
     BottomBarItem(label: '聊天', icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble),
     BottomBarItem(label: '专注', icon: Icons.radio_button_unchecked, selectedIcon: Icons.radio_button_checked, isEnabled: true), // 中间O按钮
-    BottomBarItem(label: '待开发', icon: Icons.construction_outlined, isEnabled: false),
+    BottomBarItem(label: 'LocalNet', icon: Icons.wifi, selectedIcon: Icons.wifi),
 
     BottomBarItem(label: '图库', icon: Icons.photo_library_outlined, selectedIcon: Icons.photo_library),
   ];
