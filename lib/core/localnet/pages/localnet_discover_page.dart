@@ -4,6 +4,7 @@ import '../localnet_service.dart';
 import '../models/localnet_device.dart';
 import 'localnet_chat_page.dart';
 import 'localnet_debug_page.dart';
+import 'localnet_settings_page.dart';
 
 class LocalnetDiscoverPage extends StatefulWidget {
   const LocalnetDiscoverPage({super.key});
@@ -49,6 +50,16 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
       appBar: AppBar(
         title: const Text('LocalNet'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LocalnetSettingsPage()),
+              );
+            },
+            tooltip: '设置',
+          ),
           IconButton(
             icon: const Icon(Icons.bug_report),
             onPressed: () {
