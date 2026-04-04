@@ -3,5 +3,7 @@ export 'models/localnet_device.dart';
 export 'models/localnet_message.dart';
 export 'pages/localnet_discover_page.dart';
 export 'pages/localnet_chat_page.dart';
+export 'pages/localnet_debug_page.dart';
+export 'services/debug_log_service.dart';
 export 'services/discovery_service.dart';
 export 'services/message_service.dart';
