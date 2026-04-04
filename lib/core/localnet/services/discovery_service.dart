@@ -17,12 +17,10 @@ class DiscoveryService {
   final String deviceModel = 'Flutter';
   final DeviceType deviceType = DeviceType.desktop;
 
-  RawDatagramSocket? _socket;
-  StreamSubscription<RawSocketEvent>? _subscription;
+  final List<_SocketEntry> _sockets = [];
   final _devicesController = StreamController<List<LocalnetDevice>>.broadcast();
   final Map<String, LocalnetDevice> _devices = {};
   Timer? _cleanupTimer;
-  Timer? _announceTimer;
   bool _isListening = false;
   final _logger = debugPrint;
 
@@ -37,25 +35,64 @@ class DiscoveryService {
     _isListening = true;
 
     try {
-      _socket = await RawDatagramSocket.bind(
-        InternetAddress.anyIPv4,
-        0,
-        reuseAddress: true,
-      );
+      // Get all network interfaces
+      final interfaces = await NetworkInterface.list();
 
-      _socket!.joinMulticast(InternetAddress(multicastGroup));
+      for (final interface in interfaces) {
+        // Skip loopback
+        if (interface.name == 'lo' || interface.name == 'loopback') continue;
 
-      _subscription = _socket!.listen((event) {
-        final datagram = _socket!.receive();
-        if (datagram != null) {
-          _handleDatagram(datagram);
+        for (final addr in interface.addresses) {
+          // Only use IPv4
+          if (addr.type != InternetAddressType.IPv4) continue;
+
+          try {
+            final socket = await RawDatagramSocket.bind(addr, 0, reuseAddress: true, reusePort: true);
+            socket.joinMulticast(InternetAddress(multicastGroup));
+
+            _sockets.add(_SocketEntry(socket, addr));
+
+            // Listen on this socket
+            socket.listen((event) {
+              if (event == RawSocketEvent.read) {
+                final datagram = socket.receive();
+                if (datagram != null) {
+                  _handleDatagram(datagram);
+                }
+              }
+            });
+
+            _logger('[Localnet] Bound socket on ${addr.address} for multicast');
+          } catch (e) {
+            _logger('[Localnet] Failed to bind on ${addr.address}: $e');
+          }
         }
-      });
+      }
+
+      if (_sockets.isEmpty) {
+        _logger('[Localnet] No sockets bound, trying fallback');
+        // Fallback: bind to any
+        try {
+          final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0, reuseAddress: true);
+          socket.joinMulticast(InternetAddress(multicastGroup));
+          _sockets.add(_SocketEntry(socket, InternetAddress.anyIPv4));
+          socket.listen((event) {
+            if (event == RawSocketEvent.read) {
+              final datagram = socket.receive();
+              if (datagram != null) {
+                _handleDatagram(datagram);
+              }
+            }
+          });
+        } catch (e) {
+          _logger('[Localnet] Fallback also failed: $e');
+        }
+      }
 
       _startAnnouncing();
       _startCleanup();
 
-      _logger('[Localnet] Discovery started');
+      _logger('[Localnet] Discovery started with ${_sockets.length} sockets');
     } catch (e) {
       _logger('[Localnet] Discovery failed: $e');
       _isListening = false;
@@ -64,7 +101,7 @@ class DiscoveryService {
 
   void _startAnnouncing() {
     _sendAnnouncement();
-    _announceTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    Timer.periodic(const Duration(seconds: 3), (_) {
       _sendAnnouncement();
     });
   }
@@ -76,7 +113,7 @@ class DiscoveryService {
   }
 
   Future<void> _sendAnnouncement() async {
-    if (_socket == null) return;
+    if (_sockets.isEmpty) return;
 
     try {
       final dto = {
@@ -89,9 +126,16 @@ class DiscoveryService {
       };
 
       final data = utf8.encode(jsonEncode(dto));
-      _socket!.send(data, InternetAddress(multicastGroup), multicastPort);
+
+      for (final entry in _sockets) {
+        try {
+          entry.socket.send(data, InternetAddress(multicastGroup), multicastPort);
+        } catch (e) {
+          _logger('[Localnet] Send failed on ${entry.address}: $e');
+        }
+      }
     } catch (e) {
-      _logger('[Localnet] Announce failed: $e');
+      _logger('[Localnet] Announce error: $e');
     }
   }
 
@@ -175,11 +219,11 @@ class DiscoveryService {
   }
 
   void stop() {
-    _subscription?.cancel();
-    _announceTimer?.cancel();
-    _socket?.close();
-    _socket = null;
     _cleanupTimer?.cancel();
+    for (final entry in _sockets) {
+      entry.socket.close();
+    }
+    _sockets.clear();
     _isListening = false;
     _devices.clear();
     _logger('[Localnet] Discovery stopped');
@@ -189,4 +233,11 @@ class DiscoveryService {
     stop();
     _devicesController.close();
   }
+}
+
+class _SocketEntry {
+  final RawDatagramSocket socket;
+  final InternetAddress address;
+
+  _SocketEntry(this.socket, this.address);
 }
