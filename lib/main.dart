@@ -9,7 +9,7 @@ import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
-import 'core/localnet/localnet_page.dart';
+import 'core/localnet/localnet.dart';
 import 'core/timetable/timetable.dart';
 import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
@@ -258,12 +258,12 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-/// LocalNet 页面占位符
+/// LocalNet 页面
 class _DevPage extends StatelessWidget {
   const _DevPage();
 
   @override
   Widget build(BuildContext context) {
-    return const LocalnetPage();
+    return const LocalnetDiscoverPage();
   }
 }
