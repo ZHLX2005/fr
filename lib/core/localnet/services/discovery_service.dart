@@ -11,6 +11,7 @@ import 'debug_log_service.dart';
 class DiscoveryService {
   static const String multicastGroup = '224.0.0.167';
   static const int multicastPort = 53317;
+  static const String protocolVersion = '2.1';
 
   final String deviceId = const Uuid().v4();
   String deviceAlias = 'Flutter Device';
@@ -22,6 +23,7 @@ class DiscoveryService {
   final _devicesController = StreamController<List<LocalnetDevice>>.broadcast();
   final Map<String, LocalnetDevice> _devices = {};
   Timer? _cleanupTimer;
+  Timer? _httpScanTimer;
   bool _isListening = false;
 
   final NetworkInfo _networkInfo = NetworkInfo();
@@ -44,6 +46,7 @@ class DiscoveryService {
       final interfaces = await NetworkInterface.list();
       debugLog.i('Discovery', '发现 ${interfaces.length} 个网络接口');
 
+      bool bound = false;
       for (final interface in interfaces) {
         // Skip loopback
         if (interface.name == 'lo' || interface.name == 'loopback') continue;
@@ -58,8 +61,9 @@ class DiscoveryService {
           if (addr.type != InternetAddressType.IPv4) continue;
 
           try {
+            // Bind to anyIPv4 with port 0 (let system assign)
             final socket = await RawDatagramSocket.bind(
-              addr,
+              InternetAddress.anyIPv4,
               0,
               reuseAddress: true,
               reusePort: true,
@@ -73,21 +77,21 @@ class DiscoveryService {
               if (event == RawSocketEvent.read) {
                 final datagram = socket.receive();
                 if (datagram != null) {
-                  _handleDatagram(datagram);
+                  _handleDatagram(datagram, addr.address);
                 }
               }
             });
 
             debugLog.i('Discovery', '✓ 绑定 socket 到 ${addr.address} 用于多播');
+            bound = true;
           } catch (e) {
             debugLog.w('Discovery', '✗ 在 ${addr.address} 绑定失败: $e');
           }
         }
       }
 
-      if (_sockets.isEmpty) {
+      if (!bound) {
         debugLog.w('Discovery', '没有绑定到任何 socket，尝试备用方案');
-        // Fallback: bind to any
         try {
           final socket = await RawDatagramSocket.bind(
             InternetAddress.anyIPv4,
@@ -100,7 +104,7 @@ class DiscoveryService {
             if (event == RawSocketEvent.read) {
               final datagram = socket.receive();
               if (datagram != null) {
-                _handleDatagram(datagram);
+                _handleDatagram(datagram, 'any');
               }
             }
           });
@@ -111,6 +115,7 @@ class DiscoveryService {
       }
 
       _startAnnouncing();
+      _startHttpScanner();
       _startCleanup();
 
       debugLog.i('Discovery', '=== 发现服务启动完成 ===');
@@ -129,10 +134,118 @@ class DiscoveryService {
     });
   }
 
+  void _startHttpScanner() {
+    debugLog.i('Discovery', '启动 HTTP 子网扫描...');
+    // Initial scan after 2 seconds
+    Future.delayed(const Duration(seconds: 2), _scanSubnet);
+    // Then scan every 10 seconds
+    _httpScanTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _scanSubnet();
+    });
+  }
+
   void _startCleanup() {
     _cleanupTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _cleanupStaleDevices();
     });
+  }
+
+  Future<void> _scanSubnet() async {
+    // Get local IP to determine subnet
+    final localIp = await getLocalIp();
+    if (localIp == null) {
+      debugLog.w('Discovery', '无法获取本机 IP');
+      return;
+    }
+
+    // Extract subnet prefix
+    final parts = localIp.split('.');
+    if (parts.length != 4) return;
+    final subnetPrefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+
+    debugLog.i('Discovery', 'HTTP 扫描子网 $subnetPrefix.0/24');
+
+    int found = 0;
+
+    // Scan subnet with limited concurrency
+    final futures = <Future>[];
+    for (int i = 1; i < 256; i++) {
+      if (i.toString() == parts[3]) continue; // Skip self
+
+      final targetIp = '$subnetPrefix.$i';
+      futures.add(_httpScan(targetIp).then((device) {
+        if (device != null) {
+          found++;
+        }
+      }));
+
+      // Limit concurrency
+      if (futures.length >= 50) {
+        await Future.wait(futures);
+        futures.clear();
+      }
+    }
+
+    await Future.wait(futures);
+
+    if (found > 0) {
+      debugLog.i('Discovery', 'HTTP 扫描发现 $found 个设备');
+    }
+  }
+
+  Future<LocalnetDevice?> _httpScan(String ip) async {
+    try {
+      // Try v2 first, then v1
+      for (final version in ['v2', 'v1']) {
+        final url = 'http://$ip:$devicePort/api/localsend/$version/info?fingerprint=$deviceId';
+        final client = HttpClient();
+        final request = await client.getUrl(Uri.parse(url));
+        request.headers.set('Content-Type', 'application/json');
+
+        final response = await request.close();
+        await response.drain<void>();
+        client.close();
+
+        if (response.statusCode == 200) {
+          final body = await response.transform(utf8.decoder).join();
+          final json = jsonDecode(body) as Map<String, dynamic>;
+
+          final fingerprint = json['fingerprint'] as String?;
+          if (fingerprint == null || fingerprint == deviceId) {
+            continue;
+          }
+
+          final device = LocalnetDevice(
+            id: fingerprint,
+            alias: json['alias'] as String? ?? 'Unknown',
+            ip: ip,
+            port: json['port'] as int? ?? devicePort,
+            deviceType: _parseDeviceType(json['deviceType'] as String?),
+            version: json['version'] as String? ?? protocolVersion,
+            lastSeen: DateTime.now(),
+          );
+
+          _devices[fingerprint] = device;
+          debugLog.i('Discovery', '✓ HTTP 发现设备: ${device.alias} ($ip)');
+          _notifyDevices();
+          return device;
+        }
+      }
+    } catch (e) {
+      // Silently ignore - many IPs won't have a LocalSend server
+    }
+    return null;
+  }
+
+  DeviceType _parseDeviceType(String? type) {
+    switch (type) {
+      case 'mobile':
+        return DeviceType.mobile;
+      case 'web':
+        return DeviceType.web;
+      default:
+        return DeviceType.desktop;
+    }
   }
 
   Future<void> _sendAnnouncement() async {
@@ -144,12 +257,15 @@ class DiscoveryService {
     try {
       final dto = {
         'alias': deviceAlias,
-        'version': '1.0',
+        'version': protocolVersion,
+        'deviceModel': deviceModel,
         'deviceType': deviceType.name,
         'fingerprint': deviceId,
         'port': devicePort,
+        'protocol': 'http',
+        'download': false,
         'announce': true,
-        'announcement': true, // v1 compatibility
+        'announcement': true,
       };
 
       final data = utf8.encode(jsonEncode(dto));
@@ -165,15 +281,15 @@ class DiscoveryService {
           );
           if (sent > 0) {
             successCount++;
-            debugLog.d('Discovery', '→ UDP 广播已发送 (${entry.address.address})');
+            debugLog.d('Discovery', '→ UDP 广播已发送 (via ${entry.address.address})');
           }
         } catch (e) {
-          debugLog.w('Discovery', '→ UDP 广播发送失败 (${entry.address.address}): $e');
+          debugLog.w('Discovery', '→ UDP 广播发送失败 (via ${entry.address.address}): $e');
         }
       }
 
       if (successCount > 0) {
-        debugLog.i('Discovery', '✓ UDP 广播成功 (发送 ${successCount}/${_sockets.length} 个 socket)');
+        debugLog.i('Discovery', '✓ UDP 广播成功 (发送 $successCount/${_sockets.length} 个 socket)');
       } else {
         debugLog.e('Discovery', '✗ UDP 广播全部失败');
       }
@@ -182,7 +298,7 @@ class DiscoveryService {
     }
   }
 
-  void _handleDatagram(Datagram datagram) {
+  void _handleDatagram(Datagram datagram, String localAddr) {
     try {
       final json = jsonDecode(utf8.decode(datagram.data));
       if (json is! Map<String, dynamic>) return;
@@ -196,7 +312,15 @@ class DiscoveryService {
       }
 
       final ip = datagram.address.address;
-      final device = LocalnetDevice.fromMulticast(json, ip);
+      final device = LocalnetDevice(
+        id: fingerprint,
+        alias: json['alias'] as String? ?? 'Unknown',
+        ip: ip,
+        port: json['port'] as int? ?? devicePort,
+        deviceType: _parseDeviceType(json['deviceType'] as String?),
+        version: json['version'] as String? ?? protocolVersion,
+        lastSeen: DateTime.now(),
+      );
 
       _devices[fingerprint] = device;
       debugLog.i('Discovery', '发现设备: ${device.alias} ($ip)');
@@ -216,15 +340,37 @@ class DiscoveryService {
     try {
       final dto = {
         'alias': deviceAlias,
-        'version': '1.0',
+        'version': protocolVersion,
+        'deviceModel': deviceModel,
         'deviceType': deviceType.name,
         'fingerprint': deviceId,
         'port': devicePort,
+        'protocol': 'http',
+        'download': false,
       };
 
       debugLog.d('Discovery', 'Register 请求: $dto');
 
       final client = HttpClient();
+
+      // Try v2 first
+      try {
+        final request = await client.postUrl(
+          Uri.parse('http://$ip:$port/api/localsend/v2/register'),
+        );
+        request.headers.set('Content-Type', 'application/json');
+        request.write(jsonEncode(dto));
+
+        final response = await request.close();
+        await response.drain<void>();
+
+        debugLog.i('Discovery', '✓ Register 响应已发送 v2 (状态码: ${response.statusCode})');
+        client.close();
+        return;
+      } catch (e) {
+        // Fallback to v1
+      }
+
       final request = await client.postUrl(
         Uri.parse('http://$ip:$port/api/localsend/v1/register'),
       );
@@ -235,7 +381,7 @@ class DiscoveryService {
       await response.drain<void>();
       client.close();
 
-      debugLog.i('Discovery', '✓ Register 响应已发送 (状态码: ${response.statusCode})');
+      debugLog.i('Discovery', '✓ Register 响应已发送 v1 (状态码: ${response.statusCode})');
     } catch (e) {
       debugLog.w('Discovery', '✗ Register 响应发送失败: $e');
     }
@@ -246,7 +392,7 @@ class DiscoveryService {
     bool changed = false;
 
     _devices.removeWhere((key, device) {
-      final isStale = now.difference(device.lastSeen) > const Duration(seconds: 10);
+      final isStale = now.difference(device.lastSeen) > const Duration(seconds: 15);
       if (isStale) {
         debugLog.i('Discovery', '设备离线: ${device.alias}');
         changed = true;
@@ -272,6 +418,7 @@ class DiscoveryService {
   void stop() {
     debugLog.i('Discovery', '停止发现服务...');
     _cleanupTimer?.cancel();
+    _httpScanTimer?.cancel();
     for (final entry in _sockets) {
       entry.socket.close();
     }
