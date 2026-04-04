@@ -17,6 +17,7 @@ import 'lab/demos/grid_dashboard_demo.dart';
 import 'lab/demos/notebook_demo_ai_proto.dart';
 import 'lab/demos/clock_demo.dart';
 import 'lab/demos/network_demo.dart';
+import 'lab/demos/network_env_demo.dart';
 import 'lab/demos/game_2048_demo.dart';
 import 'lab/demos/free_canvas_demo.dart';
 import 'lab/demos/drag_reorder_demo.dart';
@@ -50,6 +51,7 @@ void main() async {
   registerNotebookDemoAiProto();
   registerClockDemo();
   registerNetworkDemo();
+  registerNetworkEnvDemo();
   registerGame2048Demo();
   registerFreeCanvasDemo();
   registerDragReorderDemo();
