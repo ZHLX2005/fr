@@ -13,9 +13,15 @@ class DiscoveryService {
   static const int multicastPort = 53317;
   static const String protocolVersion = '2.1';
 
+  /// 状态机状态
+  static const String stateInit = 'INIT';
+  static const String stateStarting = 'STARTING';
+  static const String stateRunning = 'RUNNING';
+  static const String stateError = 'ERROR';
+
   final String deviceId = const Uuid().v4();
   String deviceAlias = 'Flutter Device';
-  final int devicePort = 53317;
+  int devicePort = 53317;
   final String deviceModel = 'Flutter';
   final DeviceType deviceType = DeviceType.desktop;
 
@@ -25,15 +31,24 @@ class DiscoveryService {
   Timer? _cleanupTimer;
   Timer? _httpScanTimer;
   bool _isListening = false;
+  String _serviceState = stateInit;
 
   final NetworkInfo _networkInfo = NetworkInfo();
 
   Stream<List<LocalnetDevice>> get devicesStream => _devicesController.stream;
   List<LocalnetDevice> get devices => _devices.values.toList();
   bool get isListening => _isListening;
+  String get serviceState => _serviceState;
+
+  void _logState(String from, String to, {String? note}) {
+    debugLog.logState('Discovery', from, to, note: note);
+  }
 
   Future<void> startListening() async {
     if (_isListening) return;
+
+    _logState(_serviceState, stateStarting, note: '启动多播发现');
+    _serviceState = stateStarting;
     _isListening = true;
 
     debugLog.i('Discovery', '=== 开始启动发现服务 ===');
@@ -120,9 +135,13 @@ class DiscoveryService {
 
       debugLog.i('Discovery', '=== 发现服务启动完成 ===');
       debugLog.i('Discovery', '当前绑定 ${_sockets.length} 个 socket');
+      _logState(_serviceState, stateRunning, note: '绑定 ${_sockets.length} 个 socket');
+      _serviceState = stateRunning;
     } catch (e) {
       debugLog.e('Discovery', '发现服务启动失败: $e');
+      _logState(_serviceState, stateError, note: '启动失败: $e');
       _isListening = false;
+      _serviceState = stateError;
     }
   }
 
@@ -328,8 +347,10 @@ class DiscoveryService {
 
       // Send register response via HTTP if this is an announcement
       if (json['announce'] == true || json['announcement'] == true) {
-        debugLog.d('Discovery', '收到 announcement，发送 register 响应到 $ip:${device.port}');
+        debugLog.i('Discovery', '★ 收到 announcement from ${device.alias}，发送 register 响应到 $ip:${device.port}');
         _sendRegisterResponse(ip, device.port);
+      } else {
+        debugLog.i('Discovery', '★ 收到非 announcement 广播，来自 ${device.alias}');
       }
     } catch (e) {
       debugLog.w('Discovery', '解析数据错误: $e');
@@ -416,6 +437,9 @@ class DiscoveryService {
   }
 
   void stop() {
+    if (!_isListening) return;
+
+    _logState(_serviceState, 'STOPPING', note: '停止发现服务');
     debugLog.i('Discovery', '停止发现服务...');
     _cleanupTimer?.cancel();
     _httpScanTimer?.cancel();
@@ -426,11 +450,22 @@ class DiscoveryService {
     _isListening = false;
     _devices.clear();
     debugLog.i('Discovery', '发现服务已停止');
+    _logState(_serviceState, stateInit, note: '服务已停止');
+    _serviceState = stateInit;
   }
 
   void dispose() {
     stop();
     _devicesController.close();
+  }
+
+  void updatePort(int newPort) {
+    debugLog.i('Discovery', '端口更新: $devicePort → $newPort');
+  }
+
+  void updateAlias(String newAlias) {
+    debugLog.i('Discovery', '设备别名更新: $deviceAlias → $newAlias');
+    deviceAlias = newAlias;
   }
 }
 
