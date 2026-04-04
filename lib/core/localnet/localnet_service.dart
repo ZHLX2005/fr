@@ -6,6 +6,7 @@ import 'services/debug_log_service.dart';
 import 'services/discovery_service.dart';
 import 'services/message_service.dart';
 
+/// LocalNet 服务 - 第一阶段：仅设备发现
 class LocalnetService {
   static final LocalnetService _instance = LocalnetService._internal();
   factory LocalnetService() => _instance;
@@ -16,14 +17,9 @@ class LocalnetService {
   late MessageService message;
 
   bool _initialized = false;
-
   bool get isInitialized => _initialized;
 
-  String get deviceAlias => config.config.deviceAlias;
-
-  String get deviceId => discovery.deviceId;
-
-  /// 日志状态机状态
+  /// 状态
   static const String stateInit = 'INIT';
   static const String stateIdle = 'IDLE';
   static const String stateStarting = 'STARTING';
@@ -34,49 +30,49 @@ class LocalnetService {
   String _serviceState = stateInit;
   String get serviceState => _serviceState;
 
+  String get deviceAlias => config.config.deviceAlias;
+
+  String get deviceId => discovery.deviceId;
+
   void _logState(String from, String to, {String? note}) {
     debugLog.logState('Localnet', from, to, note: note);
   }
 
+  /// 初始化
   Future<void> init() async {
     if (_initialized) return;
 
-    _logState(_serviceState, stateStarting, note: '初始化配置');
+    _logState(_serviceState, stateStarting, note: '初始化');
     _serviceState = stateStarting;
 
     // 加载配置
     await config.init();
 
-    // 使用配置初始化服务
-    final cfg = config.config;
+    // 创建设备发现服务
     discovery = DiscoveryService();
+
+    // 创建消息服务（暂时不启用 HTTP 服务器）
     message = MessageService(
       deviceId: discovery.deviceId,
-      deviceAlias: cfg.deviceAlias,
+      deviceAlias: config.config.deviceAlias,
     );
-
-    // 应用配置
-    await applyConfig();
 
     _initialized = true;
     _logState(_serviceState, stateIdle, note: '初始化完成');
     _serviceState = stateIdle;
   }
 
+  /// 应用配置
   Future<void> applyConfig() async {
     final cfg = config.config;
-
-    // 更新设备别名
     discovery.deviceAlias = cfg.deviceAlias;
+    discovery.devicePort = cfg.port;
     message.updateAlias(cfg.deviceAlias);
-
-    // 更新端口
-    discovery.updatePort(cfg.port);
     message.updatePort(cfg.port);
-
-    debugLog.i('Localnet', '配置已应用到服务: ${cfg.toString()}');
+    debugLog.i('Localnet', '配置已应用: ${cfg.deviceAlias} :${cfg.port}');
   }
 
+  /// 启动服务
   Future<void> start() async {
     if (!_initialized) {
       await init();
@@ -85,23 +81,12 @@ class LocalnetService {
     _logState(_serviceState, stateStarting, note: '启动服务');
     _serviceState = stateStarting;
 
-    final cfg = config.config;
-
     try {
-      // 根据配置决定启动哪些服务
-      if (cfg.httpEnabled) {
-        debugLog.i('Localnet', '启动 HTTP 服务器...');
-        await message.startServer();
-      } else {
-        debugLog.i('Localnet', 'HTTP 服务器已禁用，跳过');
-      }
+      // 应用配置
+      await applyConfig();
 
-      if (cfg.multicastEnabled) {
-        debugLog.i('Localnet', '启动 UDP 多播发现...');
-        await discovery.startListening();
-      } else {
-        debugLog.i('Localnet', 'UDP 多播已禁用，跳过');
-      }
+      // 启动发现服务
+      await discovery.startListening();
 
       _logState(_serviceState, stateRunning, note: '服务已启动');
       _serviceState = stateRunning;
@@ -112,9 +97,10 @@ class LocalnetService {
     }
   }
 
+  /// 停止服务
   void stop() {
     if (_serviceState != stateRunning && _serviceState != stateStarting) {
-      debugLog.w('Localnet', '服务未运行，无法停止');
+      debugLog.w('Localnet', '服务未运行');
       return;
     }
 
@@ -144,13 +130,13 @@ class LocalnetService {
     return message.sendMessage(target, content);
   }
 
+  /// 更新配置
   Future<void> updateConfig(LocalnetConfig newConfig) async {
     await config.updateConfig(newConfig);
     await applyConfig();
 
-    // 如果服务正在运行，需要重启以应用新配置
     if (_serviceState == stateRunning) {
-      debugLog.i('Localnet', '配置已更改，重启服务以应用...');
+      debugLog.i('Localnet', '配置已更改，重启服务...');
       stop();
       await start();
     }
