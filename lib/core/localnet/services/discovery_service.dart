@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:uuid/uuid.dart';
 
 import '../models/localnet_device.dart';
+import '../models/localnet_message.dart';
 import 'debug_log_service.dart';
 
 /// 设备发现服务 - 基于 any_share 简化版协议
@@ -44,6 +45,9 @@ class DiscoveryService {
   String _serviceState = stateInit;
 
   final _devicesController = StreamController<List<LocalnetDevice>>.broadcast();
+
+  // 消息回调
+  void Function(LocalnetMessage)? onMessageReceived;
 
   Stream<List<LocalnetDevice>> get devicesStream => _devicesController.stream;
   List<LocalnetDevice> get devices => _devices.values.toList();
@@ -142,6 +146,32 @@ class DiscoveryService {
           };
           request.response.write(Uri(queryParameters: info).query);
           request.response.close();
+        } else if (path == '/message') {
+          // 处理收到的消息
+          try {
+            final bodyBytes = await request.fold<List<int>>(
+              [],
+              (prev, element) => prev..addAll(element),
+            );
+            final body = utf8.decode(bodyBytes);
+            debugLog.d('Discovery', '  消息体: $body');
+
+            final json = jsonDecode(body) as Map<String, dynamic>;
+            final message = LocalnetMessage.fromJson(json);
+
+            // 忽略自己发送的消息
+            if (message.senderId != deviceId) {
+              onMessageReceived?.call(message);
+              debugLog.i('Discovery', '✓ 收到消息 from ${message.senderAlias}: ${message.content}');
+            }
+
+            request.response.write('OK');
+            request.response.close();
+          } catch (e) {
+            debugLog.w('Discovery', '  消息解析失败: $e');
+            request.response.statusCode = 400;
+            request.response.close();
+          }
         } else {
           request.response.statusCode = 404;
           request.response.close();

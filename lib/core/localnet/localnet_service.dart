@@ -88,6 +88,11 @@ class LocalnetService {
       // 启动发现服务
       await discovery.startListening();
 
+      // 注册消息回调（消息通过 discovery 的 HTTP 服务器接收）
+      discovery.onMessageReceived = (msg) {
+        message.addReceivedMessage(msg);
+      };
+
       _logState(_serviceState, stateRunning, note: '服务已启动');
       _serviceState = stateRunning;
     } catch (e) {

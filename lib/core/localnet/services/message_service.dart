@@ -1,11 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'package:uuid/uuid.dart';
 
 import '../models/localnet_device.dart';
 import '../models/localnet_message.dart';
 import 'debug_log_service.dart';
 
-/// 消息服务 - 第一阶段暂时不需要，保留基础结构
+/// 消息服务 - 基于 HTTP POST 的简单消息传输
+///
+/// 协议:
+/// - POST /message 发送消息 (HTTP client)
+/// - 接收消息由 DiscoveryService 的 HTTP 服务器代理
 class MessageService {
   static const int defaultPort = 53317;
 
@@ -18,7 +24,6 @@ class MessageService {
 
   final _messagesController = StreamController<List<LocalnetMessage>>.broadcast();
   final List<LocalnetMessage> _messages = [];
-  HttpServer? _server;
   String _serviceState = stateInit;
 
   MessageService({
@@ -30,32 +35,58 @@ class MessageService {
   List<LocalnetMessage> get messages => List.unmodifiable(_messages);
   String get serviceState => _serviceState;
 
-  /// 启动服务器 - 发现阶段暂时不需要
-  Future<void> startServer() async {
-    if (_server != null) return;
+  /// 添加收到的消息（由 DiscoveryService 调用）
+  void addReceivedMessage(LocalnetMessage message) {
+    _messages.add(message);
+    _messagesController.add(List.unmodifiable(_messages));
+  }
+
+  /// 发送消息到目标设备
+  Future<bool> sendMessage(LocalnetDevice target, String content) async {
+    final message = LocalnetMessage(
+      id: const Uuid().v4(),
+      senderId: deviceId,
+      senderAlias: deviceAlias,
+      content: content,
+      timestamp: DateTime.now(),
+      type: MessageType.text,
+    );
 
     try {
-      _server = await HttpServer.bind(InternetAddress.anyIPv4, apiPort);
-      _serviceState = stateRunning;
-      debugLog.i('Message', 'HTTP 服务器已启动 :$apiPort');
+      debugLog.d('Message', '→ POST /message to ${target.ip}:${target.port}');
 
-      await for (final request in _server!) {
-        _handleRequest(request);
+      final client = HttpClient();
+      final request = await client.postUrl(
+        Uri.parse('http://${target.ip}:${target.port}/message'),
+      );
+      request.headers.set('Content-Type', 'application/json');
+      request.write(jsonEncode(message.toJson()));
+
+      final response = await request.close();
+      await response.drain<void>();
+      client.close();
+
+      debugLog.d('Message', '← HTTP 响应: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        // 也添加到本地消息列表（显示已发送）
+        addReceivedMessage(message);
+        return true;
       }
+      return false;
     } catch (e) {
-      debugLog.e('Message', 'HTTP 服务器启动失败: $e');
+      debugLog.w('Message', '✗ 发送失败: $e');
+      return false;
     }
   }
 
-  void _handleRequest(HttpRequest request) {
-    // 发现阶段暂时不处理任何请求
-    request.response.statusCode = 404;
-    request.response.close();
+  /// 清空消息
+  void clearMessages() {
+    _messages.clear();
+    _messagesController.add(List.unmodifiable(_messages));
   }
 
   void stop() {
-    _server?.close();
-    _server = null;
     _serviceState = stateInit;
   }
 
@@ -70,10 +101,5 @@ class MessageService {
 
   void updatePort(int newPort) {
     apiPort = newPort;
-  }
-
-  Future<bool> sendMessage(LocalnetDevice target, String content) async {
-    // 发现阶段暂不实现
-    return false;
   }
 }
