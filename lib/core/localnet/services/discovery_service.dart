@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/localnet_device.dart';
+import 'debug_log_service.dart';
 
 class DiscoveryService {
   static const String multicastGroup = '224.0.0.167';
@@ -22,7 +23,6 @@ class DiscoveryService {
   final Map<String, LocalnetDevice> _devices = {};
   Timer? _cleanupTimer;
   bool _isListening = false;
-  final _logger = debugPrint;
 
   final NetworkInfo _networkInfo = NetworkInfo();
 
@@ -34,20 +34,36 @@ class DiscoveryService {
     if (_isListening) return;
     _isListening = true;
 
+    debugLog.i('Discovery', '=== 开始启动发现服务 ===');
+    debugLog.i('Discovery', '设备ID: $deviceId');
+    debugLog.i('Discovery', '设备别名: $deviceAlias');
+    debugLog.i('Discovery', '多播地址: $multicastGroup:$multicastPort');
+
     try {
       // Get all network interfaces
       final interfaces = await NetworkInterface.list();
+      debugLog.i('Discovery', '发现 ${interfaces.length} 个网络接口');
 
       for (final interface in interfaces) {
         // Skip loopback
         if (interface.name == 'lo' || interface.name == 'loopback') continue;
+
+        debugLog.d('Discovery', '接口: ${interface.name}');
+        for (final addr in interface.addresses) {
+          debugLog.d('Discovery', '  地址: ${addr.address} (${addr.type})');
+        }
 
         for (final addr in interface.addresses) {
           // Only use IPv4
           if (addr.type != InternetAddressType.IPv4) continue;
 
           try {
-            final socket = await RawDatagramSocket.bind(addr, 0, reuseAddress: true, reusePort: true);
+            final socket = await RawDatagramSocket.bind(
+              addr,
+              0,
+              reuseAddress: true,
+              reusePort: true,
+            );
             socket.joinMulticast(InternetAddress(multicastGroup));
 
             _sockets.add(_SocketEntry(socket, addr));
@@ -62,18 +78,22 @@ class DiscoveryService {
               }
             });
 
-            _logger('[Localnet] Bound socket on ${addr.address} for multicast');
+            debugLog.i('Discovery', '✓ 绑定 socket 到 ${addr.address} 用于多播');
           } catch (e) {
-            _logger('[Localnet] Failed to bind on ${addr.address}: $e');
+            debugLog.w('Discovery', '✗ 在 ${addr.address} 绑定失败: $e');
           }
         }
       }
 
       if (_sockets.isEmpty) {
-        _logger('[Localnet] No sockets bound, trying fallback');
+        debugLog.w('Discovery', '没有绑定到任何 socket，尝试备用方案');
         // Fallback: bind to any
         try {
-          final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0, reuseAddress: true);
+          final socket = await RawDatagramSocket.bind(
+            InternetAddress.anyIPv4,
+            0,
+            reuseAddress: true,
+          );
           socket.joinMulticast(InternetAddress(multicastGroup));
           _sockets.add(_SocketEntry(socket, InternetAddress.anyIPv4));
           socket.listen((event) {
@@ -84,22 +104,25 @@ class DiscoveryService {
               }
             }
           });
+          debugLog.i('Discovery', '✓ 备用方案绑定成功');
         } catch (e) {
-          _logger('[Localnet] Fallback also failed: $e');
+          debugLog.e('Discovery', '✗ 备用方案也失败了: $e');
         }
       }
 
       _startAnnouncing();
       _startCleanup();
 
-      _logger('[Localnet] Discovery started with ${_sockets.length} sockets');
+      debugLog.i('Discovery', '=== 发现服务启动完成 ===');
+      debugLog.i('Discovery', '当前绑定 ${_sockets.length} 个 socket');
     } catch (e) {
-      _logger('[Localnet] Discovery failed: $e');
+      debugLog.e('Discovery', '发现服务启动失败: $e');
       _isListening = false;
     }
   }
 
   void _startAnnouncing() {
+    debugLog.i('Discovery', '开始广播 announcement...');
     _sendAnnouncement();
     Timer.periodic(const Duration(seconds: 3), (_) {
       _sendAnnouncement();
@@ -113,7 +136,10 @@ class DiscoveryService {
   }
 
   Future<void> _sendAnnouncement() async {
-    if (_sockets.isEmpty) return;
+    if (_sockets.isEmpty) {
+      debugLog.w('Discovery', '没有可用的 socket 发送广播');
+      return;
+    }
 
     try {
       final dto = {
@@ -127,16 +153,32 @@ class DiscoveryService {
       };
 
       final data = utf8.encode(jsonEncode(dto));
+      debugLog.d('Discovery', '广播数据: ${utf8.decode(data)}');
 
+      int successCount = 0;
       for (final entry in _sockets) {
         try {
-          entry.socket.send(data, InternetAddress(multicastGroup), multicastPort);
+          final sent = entry.socket.send(
+            data,
+            InternetAddress(multicastGroup),
+            multicastPort,
+          );
+          if (sent > 0) {
+            successCount++;
+            debugLog.d('Discovery', '→ UDP 广播已发送 (${entry.address.address})');
+          }
         } catch (e) {
-          _logger('[Localnet] Send failed on ${entry.address}: $e');
+          debugLog.w('Discovery', '→ UDP 广播发送失败 (${entry.address.address}): $e');
         }
       }
+
+      if (successCount > 0) {
+        debugLog.i('Discovery', '✓ UDP 广播成功 (发送 ${successCount}/${_sockets.length} 个 socket)');
+      } else {
+        debugLog.e('Discovery', '✗ UDP 广播全部失败');
+      }
     } catch (e) {
-      _logger('[Localnet] Announce error: $e');
+      debugLog.e('Discovery', '广播错误: $e');
     }
   }
 
@@ -145,22 +187,28 @@ class DiscoveryService {
       final json = jsonDecode(utf8.decode(datagram.data));
       if (json is! Map<String, dynamic>) return;
 
+      debugLog.d('Discovery', '收到 UDP 数据: $json');
+
       final fingerprint = json['fingerprint'] as String?;
-      if (fingerprint == null || fingerprint == deviceId) return;
+      if (fingerprint == null || fingerprint == deviceId) {
+        debugLog.d('Discovery', '忽略自己或无效的广播');
+        return;
+      }
 
       final ip = datagram.address.address;
       final device = LocalnetDevice.fromMulticast(json, ip);
 
       _devices[fingerprint] = device;
-      _logger('[Localnet] Found device: ${device.alias} ($ip)');
+      debugLog.i('Discovery', '发现设备: ${device.alias} ($ip)');
       _notifyDevices();
 
       // Send register response via HTTP if this is an announcement
       if (json['announce'] == true || json['announcement'] == true) {
+        debugLog.d('Discovery', '收到 announcement，发送 register 响应到 $ip:${device.port}');
         _sendRegisterResponse(ip, device.port);
       }
     } catch (e) {
-      _logger('[Localnet] Parse error: $e');
+      debugLog.w('Discovery', '解析数据错误: $e');
     }
   }
 
@@ -174,6 +222,8 @@ class DiscoveryService {
         'port': devicePort,
       };
 
+      debugLog.d('Discovery', 'Register 请求: $dto');
+
       final client = HttpClient();
       final request = await client.postUrl(
         Uri.parse('http://$ip:$port/api/localsend/v1/register'),
@@ -185,9 +235,9 @@ class DiscoveryService {
       await response.drain<void>();
       client.close();
 
-      _logger('[Localnet] Sent register to $ip:$port');
+      debugLog.i('Discovery', '✓ Register 响应已发送 (状态码: ${response.statusCode})');
     } catch (e) {
-      _logger('[Localnet] Register failed: $e');
+      debugLog.w('Discovery', '✗ Register 响应发送失败: $e');
     }
   }
 
@@ -198,7 +248,7 @@ class DiscoveryService {
     _devices.removeWhere((key, device) {
       final isStale = now.difference(device.lastSeen) > const Duration(seconds: 10);
       if (isStale) {
-        _logger('[Localnet] Device offline: ${device.alias}');
+        debugLog.i('Discovery', '设备离线: ${device.alias}');
         changed = true;
       }
       return isStale;
@@ -220,6 +270,7 @@ class DiscoveryService {
   }
 
   void stop() {
+    debugLog.i('Discovery', '停止发现服务...');
     _cleanupTimer?.cancel();
     for (final entry in _sockets) {
       entry.socket.close();
@@ -227,7 +278,7 @@ class DiscoveryService {
     _sockets.clear();
     _isListening = false;
     _devices.clear();
-    _logger('[Localnet] Discovery stopped');
+    debugLog.i('Discovery', '发现服务已停止');
   }
 
   void dispose() {
