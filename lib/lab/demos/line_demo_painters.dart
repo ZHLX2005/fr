@@ -120,43 +120,38 @@ class GamePainter extends CustomPainter {
   }
 
   void _paintHealthBar(Canvas canvas, double w) {
-    final barWidth = 8.0;
-    final barX = w - 12 - barWidth;
-    final barTop = 60.0;
-    final barBottom = judgeY;
+    final barWidth = 1.0;
+    final barX = w - 12 - barWidth / 2;
+    final dotTop = 60.0;
+    final lineBottom = judgeY;
     final maxBarHeight = 200.0;
-    final barHeight = (barBottom - barTop).clamp(0.0, maxBarHeight);
-    final barRadius = 4.0;
+    final barHeight = (lineBottom - dotTop).clamp(0.0, maxBarHeight);
 
-    // Background
-    final bgPaint = Paint()
-      ..color = color.withValues(alpha: 0.15)
+    // 顶部圆点
+    final dotPaint = Paint()
+      ..color = color
       ..style = PaintingStyle.fill;
-    final bgRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(barX, barTop, barWidth, barHeight),
-      Radius.circular(barRadius),
-    );
-    canvas.drawRRect(bgRect, bgPaint);
+    canvas.drawCircle(Offset(barX, dotTop), 3.0, dotPaint);
 
-    // Fill (from bottom up)
+    // 细线背景
+    final lineBgPaint = Paint()
+      ..color = color.withValues(alpha: 0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = barWidth;
+    canvas.drawLine(Offset(barX, dotTop + 4), Offset(barX, lineBottom), lineBgPaint);
+
+    // 细线填充（从底部向上）
     final fillHeight = barHeight * health.clamp(0.0, 1.0);
     if (fillHeight > 0) {
-      Color fillColor;
-      if (health > 0.5) {
-        fillColor = const Color(0xFF66BB6A); // green
-      } else if (health > 0.3) {
-        fillColor = const Color(0xFFFFA726); // orange
-      } else {
-        fillColor = const Color(0xFFEF5350); // red
-      }
-      final fillPaint = Paint()
-        ..color = fillColor
-        ..style = PaintingStyle.fill;
-      final fillRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(barX, barBottom - fillHeight, barWidth, fillHeight),
-        Radius.circular(barRadius),
+      final lineFillPaint = Paint()
+        ..color = color.withValues(alpha: 0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = barWidth;
+      canvas.drawLine(
+        Offset(barX, lineBottom),
+        Offset(barX, lineBottom - fillHeight),
+        lineFillPaint,
       );
-      canvas.drawRRect(fillRect, fillPaint);
     }
   }
 
