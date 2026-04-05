@@ -16,7 +16,7 @@ class DraggableWordCard extends StatefulWidget {
   final VoidCallback? onSwipeUpComplete; // 上滑完成（停留超过阈值）
   final Function(double progress)? onHorizontalDragProgress; // 横向拖动进度 (0-1)
   final Function(bool isInZone)? onDeleteZoneHover; // 是否进入删除区
-  final Function(Offset cardCenter)? onCardPositionChanged; // 卡片中心位置变化
+  final Function(Offset cardCenter, Offset dragOffset)? onCardPositionChanged; // 卡片中心位置+拖动偏移
   final Function(DraggableCardState)? onCardStateChanged;
 
   // 弹性参数
@@ -106,7 +106,7 @@ class DraggableCardState extends State<DraggableWordCard>
 
     // 通知卡片位置变化（用于检测是否进入删除区）
     final cardCenter = _getCardCenter();
-    widget.onCardPositionChanged?.call(cardCenter);
+    widget.onCardPositionChanged?.call(cardCenter, _dragOffset);
   }
 
   Offset _getCardCenter() {
