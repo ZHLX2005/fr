@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
 import 'line_demo_models.dart';
@@ -31,7 +33,6 @@ class _LineDemoPage extends StatefulWidget {
   State<_LineDemoPage> createState() => _LineDemoPageState();
 }
 
-
 class _LineDemoPageState extends State<_LineDemoPage>
     with TickerProviderStateMixin {
   // ── 水动画 ──
@@ -43,43 +44,49 @@ class _LineDemoPageState extends State<_LineDemoPage>
   late AnimationController _exitController;
   late AnimationController _enterController;
 
+  // ── 谱面 ──
+  ChartData? _chart;
+  int _nextNoteIndex = 0;
+  final Stopwatch _gameStopwatch = Stopwatch();
+
   // ── 游戏状态 ──
   static const int _columnCount = 3;
-  List<List<FallingCircle>> _columns = [];
-  List<Timer?> _spawnTimers = [];
+  List<List<FallingNote>> _notes = [];
   final List<ExplodeAnimation> _explodes = [];
   final List<JudgeFeedback> _judgeFeedbacks = [];
 
-  // 分数
+  // 分数 & 血条
   int _score = 0;
-  int _missCount = 0;
+  double _health = 1.0;
   int _highScore = 0;
   bool _isGameOver = false;
 
-  // 下落速度（毫秒）—— 从顶到屏幕底的总时间
+  // 下落速度
   double _dropDurationMs = 2500.0;
-  static const double _minDropMs = 800.0;
-  static const double _maxDropMs = 4000.0;
 
   BackgroundStyle _backgroundStyle = BackgroundStyle.none;
-
   static const String _speedKey = 'line_demo_speed';
   static const String _backgroundKey = 'line_demo_background';
+  static const String _highScoreKey = 'line_demo_high_score';
 
-  // 圆圈半径（rpx 基准值）
   static const double _circleRadiusRpx = 20.0;
-  // 判定线位置：距底部 25%
-  static const double _judgeLineRatio = 0.75; // 从顶部算 75%，即底部 25%
-  // 判定线范围上下 100rpx（换算后）
-  static const double _judgeRangeRpx = 100.0;
+  static const double _judgeLineRatio = 0.75;
+
+  // 判定窗口（ms）
+  static const int _perfectWindow = 50;
+  static const int _greatWindow = 100;
+  static const int _goodWindow = 150;
+  static const int _missWindow = 200;
+
+  // 手势追踪
+  final Set<int> _heldColumns = {};
+  Offset? _panStart;
+  int? _panColumn;
 
   double _rpx(double value) => value * MediaQuery.of(context).size.width / 750;
 
-  // 暂停快照
-  List<List<double>> _pausedSnapshots = [];
+  // 暂停
   bool _wasGameRunning = false;
-
-  static const String _highScoreKey = 'line_demo_high_score';
 
   @override
   void initState() {
@@ -94,12 +101,10 @@ class _LineDemoPageState extends State<_LineDemoPage>
       vsync: this,
     );
 
-    _columns = List.generate(_columnCount, (_) => []);
-    _spawnTimers = List.generate(_columnCount, (_) => null);
+    _notes = List.generate(_columnCount, (_) => []);
 
     _loadSettings();
 
-    // 入场水动画
     _enterController.value = 1.0;
     _enterController.reverse().then((_) {
       if (!mounted) return;
@@ -110,13 +115,26 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _highScore = prefs.getInt('line_demo_high_score') ?? 0;
-        _dropDurationMs = prefs.getDouble(_speedKey) ?? 2500.0;
-        final bgIndex = prefs.getInt(_backgroundKey) ?? 0;
-        _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
-      });
+    try {
+      final chartJson = await rootBundle.loadString('assets/charts/test_chart.json');
+      final chartData = ChartData.fromJson(jsonDecode(chartJson));
+      if (mounted) {
+        setState(() {
+          _chart = chartData;
+          _dropDurationMs = prefs.getDouble(_speedKey) ?? chartData.dropDuration.toDouble();
+          _highScore = prefs.getInt(_highScoreKey) ?? 0;
+          final bgIndex = prefs.getInt(_backgroundKey) ?? 0;
+          _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
+        });
+      }
+    } catch (e) {
+      // Chart loading failed — use defaults
+      if (mounted) {
+        setState(() {
+          _highScore = prefs.getInt(_highScoreKey) ?? 0;
+          _dropDurationMs = prefs.getDouble(_speedKey) ?? 2500.0;
+        });
+      }
     }
   }
 
@@ -132,12 +150,10 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void dispose() {
     _exitController.dispose();
     _enterController.dispose();
-    for (final timer in _spawnTimers) {
-      timer?.cancel();
-    }
-    for (final col in _columns) {
-      for (final c in col) {
-        c.controller.dispose();
+    _gameStopwatch.stop();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.dispose();
       }
     }
     for (final e in _explodes) {
@@ -149,33 +165,49 @@ class _LineDemoPageState extends State<_LineDemoPage>
     super.dispose();
   }
 
-  // ── 游戏控制 ──
+  // ── 游戏开始 ──
 
-  void _startSpawnTimers() {
-    _scheduleSpawn(0);
-    _scheduleSpawn(1);
-    _scheduleSpawn(2);
+  void _startGame() {
+    _nextNoteIndex = 0;
+    _gameStopwatch.reset();
+    _gameStopwatch.start();
+    _spawnPendingNotes();
   }
 
-  void _stopSpawnTimers() {
-    for (int i = 0; i < _columnCount; i++) {
-      _spawnTimers[i]?.cancel();
-      _spawnTimers[i] = null;
+  void _stopGame() {
+    _gameStopwatch.stop();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
+      }
     }
   }
 
-  void _scheduleSpawn(int colIndex) {
-    _spawnTimers[colIndex]?.cancel();
-    final rng = math.Random();
-    final delayMs = 300 + rng.nextInt(2700); // 0.3s ~ 3s
-    _spawnTimers[colIndex] = Timer(Duration(milliseconds: delayMs), () {
-      if (!mounted || _isExiting || _isGameOver) return;
-      _spawnCircle(colIndex);
-      _scheduleSpawn(colIndex);
-    });
+  void _spawnPendingNotes() {
+    if (_chart == null || _isGameOver) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    final dropMs = _dropDurationMs.round();
+
+    while (_nextNoteIndex < _chart!.notes.length) {
+      final event = _chart!.notes[_nextNoteIndex];
+      if (elapsed >= event.time - dropMs) {
+        _spawnNote(event);
+        _nextNoteIndex++;
+      } else {
+        break;
+      }
+    }
+
+    if (_nextNoteIndex < _chart!.notes.length && !_isGameOver) {
+      final nextEvent = _chart!.notes[_nextNoteIndex];
+      final delayMs = (nextEvent.time - dropMs - elapsed).clamp(1, 100);
+      Future.delayed(Duration(milliseconds: delayMs), () {
+        if (mounted && !_isGameOver) _spawnPendingNotes();
+      });
+    }
   }
 
-  void _spawnCircle(int colIndex) {
+  void _spawnNote(NoteEvent event) {
     final screenSize = MediaQuery.of(context).size;
     final radius = _rpx(_circleRadiusRpx);
 
@@ -184,144 +216,210 @@ class _LineDemoPageState extends State<_LineDemoPage>
       vsync: this,
     );
 
-    final circle = FallingCircle(controller: controller, currentY: -radius);
+    final note = FallingNote(
+      event: event,
+      controller: controller,
+      currentY: -radius,
+    );
 
-    // 监听 Y 坐标 + 判定 miss
     controller.addListener(() {
       final easedT = Curves.easeIn.transform(controller.value);
       final targetY = screenSize.height + radius;
-      circle.currentY = -radius + (targetY + radius) * easedT;
+      note.currentY = -radius + (targetY + radius) * easedT;
 
-      // 检查是否穿过判定线
-      final judgeY = screenSize.height * _judgeLineRatio;
-      if (!circle.missed && !circle.exploded && circle.currentY > judgeY) {
-        circle.missed = true;
-        _onMiss(colIndex, circle);
+      // Auto-miss: tap/slide past judge line beyond miss window
+      if (!note.judged && event.type != NoteType.hold) {
+        final judgeY = screenSize.height * _judgeLineRatio;
+        if (note.currentY > judgeY) {
+          final elapsed = _gameStopwatch.elapsedMilliseconds;
+          if (elapsed > event.time + _missWindow) {
+            _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
+          }
+        }
+      }
+
+      // Update hold progress
+      if (event.type == NoteType.hold && note.holding && !note.judged) {
+        final elapsed = _gameStopwatch.elapsedMilliseconds;
+        final heldTime = elapsed - event.time;
+        note.holdProgress = (heldTime / event.holdDuration!).clamp(0.0, 1.0);
+        if (note.holdProgress >= 1.0) {
+          _judgeNote(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note, 0);
+          note.holding = false;
+        }
       }
     });
 
     setState(() {
-      _columns[colIndex].add(circle);
+      _notes[event.column].add(note);
     });
 
     controller.forward().then((_) {
-      circle.controller.dispose();
+      note.controller.dispose();
       if (!mounted) return;
-      // 动画结束，移除
-      setState(() {
-        _columns[colIndex].remove(circle);
-      });
+      setState(() => _notes[event.column].remove(note));
     });
   }
 
-  void _onMiss(int colIndex, FallingCircle circle) {
-    if (_isGameOver) return;
-    setState(() {
-      _missCount++;
-    });
-    if (_missCount >= 3) {
-      _gameOver();
-    }
-  }
+  // ── 手势处理 ──
 
-  void _gameOver() {
-    _stopSpawnTimers();
-    // 停止所有圆圈
-    for (final col in _columns) {
-      for (final c in col) {
-        c.controller.stop();
-      }
-    }
-    setState(() => _isGameOver = true);
-    _saveHighScore();
-  }
-
-  // ── 点击处理 ──
-
-  void _handleTap(TapUpDetails details) {
-    if (_isExiting || _isGameOver || _isCountingDown) return;
-
-    final screenSize = MediaQuery.of(context).size;
-    final w = screenSize.width;
+  int? _getColumnFromX(double x) {
+    final w = MediaQuery.of(context).size.width;
     final colWidth = w / _columnCount;
-    final tapX = details.localPosition.dx;
-
-    // 判定哪一列
-    int? colIndex;
     for (int i = 0; i < _columnCount; i++) {
-      if (tapX >= colWidth * i && tapX < colWidth * (i + 1)) {
-        colIndex = i;
-        break;
-      }
+      if (x >= colWidth * i && x < colWidth * (i + 1)) return i;
     }
-    if (colIndex == null) return;
-
-    // 找该列中未被消除、已接近判定线的最底部圆圈
-    // 筛选已到达判定范围内的圆圈，取 currentY 最大的（最接近判定线的）
-    final judgeY = screenSize.height * _judgeLineRatio;
-    final judgeRange = _rpx(_judgeRangeRpx);
-
-    FallingCircle? target;
-    double targetY = -double.infinity;
-
-    for (final circle in _columns[colIndex]) {
-      if (circle.exploded || circle.missed) continue;
-      final dist = (circle.currentY - judgeY).abs();
-      if (dist <= judgeRange && circle.currentY > targetY) {
-        target = circle;
-        targetY = circle.currentY;
-      }
-    }
-
-    // 如果判定范围内没有，取该列最底部的活圆圈
-    if (target == null) {
-      for (final circle in _columns[colIndex]) {
-        if (circle.exploded || circle.missed) continue;
-        if (circle.currentY > targetY) {
-          target = circle;
-          targetY = circle.currentY;
-        }
-      }
-    }
-
-    if (target == null) return;
-
-    _hitCircle(colIndex, target);
+    return null;
   }
 
-  void _hitCircle(int colIndex, FallingCircle circle) {
-    circle.controller.stop();
-    circle.exploded = true;
+  SlideDirection? _getSwipeDirection(Offset velocity) {
+    const threshold = 100.0;
+    final dx = velocity.dx.abs();
+    final dy = velocity.dy.abs();
+    if (dx < threshold && dy < threshold) return null;
+    if (dx > dy) {
+      return velocity.dx > 0 ? SlideDirection.right : SlideDirection.left;
+    } else {
+      return velocity.dy > 0 ? SlideDirection.down : SlideDirection.up;
+    }
+  }
 
-    final screenSize = MediaQuery.of(context).size;
-    final w = screenSize.width;
-    final colWidth = w / _columnCount;
-    final centerX = colWidth * colIndex + colWidth / 2;
-    final radius = _rpx(_circleRadiusRpx);
+  void _handleTapUp(TapUpDetails details) {
+    if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
+    final col = _getColumnFromX(details.localPosition.dx);
+    if (col == null) return;
+    _handleColumnTap(col);
+  }
 
-    // 计算得分：距离判定线越近越高分
-    final judgeY = screenSize.height * _judgeLineRatio;
-    final dist = (circle.currentY - judgeY).abs();
-    final judgeRange = _rpx(_judgeRangeRpx);
+  void _handlePanStart(DragStartDetails details) {
+    if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
+    final col = _getColumnFromX(details.localPosition.dx);
+    if (col != null) {
+      _panStart = details.globalPosition;
+      _panColumn = col;
+      _handleColumnPress(col);
+    }
+  }
 
-    int points;
+  void _handlePanEnd(DragEndDetails details) {
+    if (_panColumn == null) return;
+    _handleColumnRelease(_panColumn!);
+
+    // Swipe detection
+    if (_panStart != null && details.velocity.pixelsPerSecond.distance > 50) {
+      final dir = _getSwipeDirection(details.velocity.pixelsPerSecond);
+      if (dir != null) {
+        _handleSwipe(_panColumn!, dir);
+      }
+    }
+    _panStart = null;
+    _panColumn = null;
+  }
+
+  // ── 判定 ──
+
+  void _handleColumnTap(int col) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    FallingNote? best;
+    int bestDiff = _missWindow + 1;
+
+    for (final note in _notes[col]) {
+      if (note.judged) continue;
+      if (note.event.type != NoteType.tap) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = note;
+      }
+    }
+
+    if (best != null && bestDiff <= _goodWindow) {
+      _judgeNote(col, best, bestDiff);
+    }
+  }
+
+  void _handleColumnPress(int col) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (note.judged || note.event.type != NoteType.hold) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff <= _goodWindow) {
+        note.holding = true;
+        _heldColumns.add(col);
+        return;
+      }
+    }
+  }
+
+  void _handleColumnRelease(int col) {
+    if (!_heldColumns.contains(col)) return;
+    _heldColumns.remove(col);
+
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (!note.holding || note.judged) continue;
+      if (note.event.type != NoteType.hold) continue;
+
+      final heldTime = elapsed - note.event.time;
+      if (heldTime >= note.event.holdDuration! * 0.8) {
+        _judgeNote(col, note, 0);
+      } else {
+        _onNoteMissed(col, note);
+      }
+      note.holding = false;
+      return;
+    }
+  }
+
+  void _handleSwipe(int col, SlideDirection direction) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (note.judged || note.event.type != NoteType.slide) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff <= _goodWindow && note.event.direction == direction) {
+        _judgeNote(col, note, diff);
+        return;
+      }
+    }
+  }
+
+  void _judgeNote(int col, FallingNote note, int timeDiffMs) {
+    note.judged = true;
+
     String judgeText;
     double judgeAlpha;
-    if (dist <= judgeRange * 0.2) {
-      points = 3;
+    int points;
+    double healthChange;
+
+    if (timeDiffMs <= _perfectWindow) {
       judgeText = 'Perfect';
       judgeAlpha = 0.6;
-    } else if (dist <= judgeRange * 0.5) {
-      points = 2;
+      points = 3;
+      healthChange = 0.05;
+    } else if (timeDiffMs <= _greatWindow) {
       judgeText = 'Great';
       judgeAlpha = 0.4;
+      points = 2;
+      healthChange = 0.02;
     } else {
-      points = 1;
       judgeText = 'Good';
       judgeAlpha = 0.25;
+      points = 1;
+      healthChange = 0.0;
     }
 
-    // Create judge text feedback
+    final screenSize = MediaQuery.of(context).size;
+    final w = screenSize.width;
+    final colWidth = w / _columnCount;
+    final centerX = colWidth * col + colWidth / 2;
+    final radius = _rpx(_circleRadiusRpx);
+
     final feedbackController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -329,7 +427,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final feedback = JudgeFeedback(
       text: judgeText,
       x: centerX,
-      y: circle.currentY - radius - 20,
+      y: note.currentY - radius - 20,
       color: Theme.of(context).colorScheme.primary,
       baseAlpha: judgeAlpha,
       controller: feedbackController,
@@ -337,43 +435,56 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
     setState(() {
       _score += points;
+      _health = (_health + healthChange).clamp(0.0, 1.0);
       _judgeFeedbacks.add(feedback);
     });
 
     feedbackController.forward().then((_) {
       feedbackController.dispose();
       if (!mounted) return;
-      setState(() {
-        _judgeFeedbacks.remove(feedback);
-      });
+      setState(() => _judgeFeedbacks.remove(feedback));
     });
 
-    // 创建炸开动画
+    _createExplode(col, centerX, note.currentY, radius);
+
+    if (note.event.type != NoteType.hold) {
+      note.controller.stop();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        setState(() => _notes[col].remove(note));
+        note.controller.dispose();
+      });
+    }
+  }
+
+  void _onNoteMissed(int col, FallingNote note) {
+    if (note.judged) return;
+    note.judged = true;
+    setState(() {
+      _health = (_health - 0.15).clamp(0.0, 1.0);
+    });
+    if (_health <= 0.0) {
+      _gameOver();
+    }
+  }
+
+  void _createExplode(int col, double x, double y, double radius) {
     final explodeController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-
     final explode = ExplodeAnimation(
       controller: explodeController,
-      x: centerX,
-      y: circle.currentY,
+      x: x,
+      y: y,
       particles: _generateParticles(),
       radius: radius,
     );
-
-    setState(() {
-      _explodes.add(explode);
-    });
-
+    setState(() => _explodes.add(explode));
     explodeController.forward().then((_) {
       explodeController.dispose();
-      circle.controller.dispose();
       if (!mounted) return;
-      setState(() {
-        _explodes.remove(explode);
-        _columns[colIndex].remove(circle);
-      });
+      setState(() => _explodes.remove(explode));
     });
   }
 
@@ -396,14 +507,47 @@ class _LineDemoPageState extends State<_LineDemoPage>
     return particles;
   }
 
-  // ── 退出 ──
+  // ── 游戏控制 ──
+
+  void _gameOver() {
+    _stopGame();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
+      }
+    }
+    setState(() => _isGameOver = true);
+    _saveHighScore();
+  }
+
+  void _restartGame() {
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.dispose();
+      }
+      noteList.clear();
+    }
+    for (final e in _explodes) {
+      e.controller.dispose();
+    }
+    _explodes.clear();
+
+    setState(() {
+      _isGameOver = false;
+      _score = 0;
+      _health = 1.0;
+      _nextNoteIndex = 0;
+    });
+
+    _startCountdown();
+  }
 
   Future<void> _handleExit() async {
     if (_isExiting) return;
-    _stopSpawnTimers();
-    for (final col in _columns) {
-      for (final c in col) {
-        c.controller.stop();
+    _stopGame();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
       }
     }
     setState(() => _isExiting = true);
@@ -413,25 +557,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
   }
 
-  // ── 暂停/恢复 ──
-
   void _showSpeedSettings() {
     final wasCountingDown = _isCountingDown;
     _wasGameRunning = !_isGameOver && !wasCountingDown;
-
-    // 取消当前倒计时，防止返回后双重倒计时
     _isCountingDown = false;
 
-    _pausedSnapshots = [];
-    for (final col in _columns) {
-      final snapshots = <double>[];
-      for (final c in col) {
-        snapshots.add(c.controller.value);
-        c.controller.stop();
+    _stopGame();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
       }
-      _pausedSnapshots.add(snapshots);
     }
-    _stopSpawnTimers();
     for (final e in _explodes) {
       e.controller.stop();
     }
@@ -447,7 +583,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
         .then((_) {
       if (!mounted || _isExiting) return;
       _loadSettings().then((_) {
-        // 如果之前已经在倒计时中，直接恢复游戏而不重新倒计时
         if (wasCountingDown) {
           _resumeFromSnapshot();
         } else {
@@ -479,57 +614,22 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _resumeFromSnapshot() {
     if (!_wasGameRunning) {
-      // 首次启动：开始生成圆圈
-      _startSpawnTimers();
+      _startGame();
       return;
     }
 
-    // 恢复所有圆圈动画
-    for (int i = 0; i < _columns.length; i++) {
-      final col = _columns[i];
-      final snapshots = i < _pausedSnapshots.length ? _pausedSnapshots[i] : [];
-      for (int j = 0; j < col.length; j++) {
-        final circle = col[j];
-        if (!circle.exploded && !circle.missed) {
-          final from = j < snapshots.length ? snapshots[j] : 0.0;
-          circle.controller.duration =
-              Duration(milliseconds: _dropDurationMs.round());
-          circle.controller.forward(from: from);
+    _gameStopwatch.start();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        if (!note.judged) {
+          note.controller.forward();
         }
       }
     }
-
-    // 恢复炸开动画
     for (final e in _explodes) {
       e.controller.forward();
     }
-
-    _startSpawnTimers();
-    _pausedSnapshots = [];
-  }
-
-  // ── 重新开始 ──
-
-  void _restartGame() {
-    // 清理所有圆圈
-    for (final col in _columns) {
-      for (final c in col) {
-        c.controller.dispose();
-      }
-      col.clear();
-    }
-    for (final e in _explodes) {
-      e.controller.dispose();
-    }
-    _explodes.clear();
-
-    setState(() {
-      _isGameOver = false;
-      _score = 0;
-      _missCount = 0;
-    });
-
-    _startCountdown();
+    _spawnPendingNotes();
   }
 
   // ── Build ──
@@ -543,11 +643,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final radius = _rpx(_circleRadiusRpx);
     final judgeY = h * _judgeLineRatio;
 
-    // 收集所有活跃的动画 controller 用于 AnimatedBuilder
+    // 收集所有活跃的 animation controller
     final allControllers = <AnimationController>[];
-    for (final col in _columns) {
-      for (final c in col) {
-        allControllers.add(c.controller);
+    for (final col in _notes) {
+      for (final note in col) {
+        allControllers.add(note.controller);
       }
     }
     for (final e in _explodes) {
@@ -561,17 +661,19 @@ class _LineDemoPageState extends State<_LineDemoPage>
       backgroundColor: theme.colorScheme.surface,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapUp: _handleTap,
+        onTapUp: _handleTapUp,
+        onPanStart: _handlePanStart,
+        onPanEnd: _handlePanEnd,
         child: Stack(
           children: [
-            // ── 三列竖线 + 圆圈 + 判定线 ──
+            // ── 游戏绘制层 ──
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: Listenable.merge(allControllers),
                 builder: (context, _) {
                   return CustomPaint(
                     painter: GamePainter(
-                      columns: _columns,
+                      columns: _notes,
                       explodes: _explodes,
                       color: theme.colorScheme.primary,
                       radius: radius,
@@ -581,13 +683,15 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       judgeY: judgeY,
                       judgeFeedbacks: _judgeFeedbacks,
                       backgroundStyle: _backgroundStyle,
+                      health: _health,
+                      dropDuration: _dropDurationMs,
                     ),
                   );
                 },
               ),
             ),
 
-            // ── 导航栏 ──
+            // ── 返回按钮 ──
             Positioned(
               top: MediaQuery.of(context).padding.top + 16,
               left: 16,
@@ -601,7 +705,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
               ),
             ),
 
-            // 分数显示：当前分/最高分
+            // 分数
             Positioned(
               top: MediaQuery.of(context).padding.top + 18,
               left: 0,
@@ -632,24 +736,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
                 onPressed: _isExiting ? null : _showSpeedSettings,
               ),
-            ),            if (_missCount > 0)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 44,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Text(
-                    'miss: $_missCount/3',
-                    style: TextStyle(
-                      fontSize: 10 * w / 750,
-                      fontWeight: FontWeight.w300,
-                      color: theme.colorScheme.error.withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-              ),
+            ),
 
-            // ── 倒计时层 ──
+            // ── 倒计时 ──
             if (_isCountingDown)
               Positioned.fill(
                 child: Center(
@@ -666,12 +755,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
-            // ── 游戏结束层（背景穿透点击，仅中心内容可交互） ──
+            // ── 游戏结束 ──
             if (_isGameOver)
               Positioned.fill(
                 child: Stack(
                   children: [
-                    // 半透明背景（穿透点击到导航栏）
                     Positioned.fill(
                       child: IgnorePointer(
                         child: Container(
@@ -679,7 +767,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
                         ),
                       ),
                     ),
-                    // 中心内容（可交互）
                     Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -725,7 +812,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
-            // ── 入场水动画层 ──
+            // ── 入场水动画 ──
             if (_isWaterEntering)
               Positioned.fill(
                 child: AnimatedBuilder(
@@ -741,7 +828,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
-            // ── 退出水动画层 ──
+            // ── 退出水动画 ──
             if (_isExiting)
               Positioned.fill(
                 child: AnimatedBuilder(
