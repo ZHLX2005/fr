@@ -4,6 +4,8 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
+    <uses-permission android:name="android.permission.FLASHLIGHT" />
 
     <!-- 存储权限 - 最大权限配置，覆盖插件声明 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
