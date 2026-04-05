@@ -103,8 +103,11 @@ class LocalnetService {
         discovery.startUdpBroadcast();
       }
 
-      // 启动清理定时器
-      discovery.startCleanupTimer();
+      // 只有开启了至少一个网络功能，才启动清理定时器
+      final hasNetworkFeature = cfg.httpServerEnabled || cfg.udpListenerEnabled || cfg.udpBroadcastEnabled;
+      if (hasNetworkFeature) {
+        discovery.startCleanupTimer();
+      }
 
       // 注册消息回调（消息通过 discovery 的 HTTP 服务器接收）
       discovery.onMessageReceived = (msg) {
