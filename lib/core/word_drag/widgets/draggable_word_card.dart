@@ -151,8 +151,8 @@ class DraggableCardState extends State<DraggableWordCard>
   }
 
   void _springBack() {
-    // 重置控制器值，确保新动画能从0.0开始
-    _controller.reset();
+    // 先停止任何正在进行的动画
+    _controller.stop();
 
     _animation = Tween<Offset>(
       begin: _dragOffset,
@@ -162,11 +162,9 @@ class DraggableCardState extends State<DraggableWordCard>
       curve: Curves.elasticOut,
     ));
 
-    _controller.animateTo(
-      1.0,
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.elasticOut,
-    );
+    _controller
+      ..value = 0.0
+      ..animateTo(1.0, duration: const Duration(milliseconds: 600));
 
     widget.onCardStateChanged?.call(this);
   }
@@ -175,8 +173,8 @@ class DraggableCardState extends State<DraggableWordCard>
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // 重置控制器值，确保新动画能从0.0开始
-    _controller.reset();
+    // 先停止任何正在进行的动画
+    _controller.stop();
 
     late Offset targetOffset;
     switch (direction) {
@@ -205,11 +203,9 @@ class DraggableCardState extends State<DraggableWordCard>
       curve: Curves.easeOut,
     ));
 
-    _controller.animateTo(
-      1.0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    _controller
+      ..value = 0.0
+      ..animateTo(1.0, duration: const Duration(milliseconds: 300));
   }
 
   /// 外部调用：完成删除动画
