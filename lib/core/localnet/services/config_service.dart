@@ -43,8 +43,9 @@ class ConfigService {
     _config = newConfig;
     await _config.save();
     debugLog.i('Config', '配置已更新: ${oldConfig.deviceAlias} → ${_config.deviceAlias}');
-    debugLog.i('Config', '  HTTP: ${oldConfig.httpEnabled} → ${_config.httpEnabled}');
-    debugLog.i('Config', '  Multicast: ${oldConfig.multicastEnabled} → ${_config.multicastEnabled}');
+    debugLog.i('Config', '  UDP广播: ${oldConfig.udpBroadcastEnabled} → ${_config.udpBroadcastEnabled}');
+    debugLog.i('Config', '  UDP监听: ${oldConfig.udpListenerEnabled} → ${_config.udpListenerEnabled}');
+    debugLog.i('Config', '  HTTP服务: ${oldConfig.httpServerEnabled} → ${_config.httpServerEnabled}');
     debugLog.i('Config', '  Port: ${oldConfig.port} → ${_config.port}');
   }
 

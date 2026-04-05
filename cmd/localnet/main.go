@@ -48,10 +48,19 @@ var (
 	devices     = make(map[string]*Device)
 	deviceMu    sync.RWMutex
 	shouldStop  = false
-	packetConn  *ipv4.PacketConn
-	udpConn     *net.UDPConn
-	logs        []LogEntry
-	logsMu      sync.Mutex
+
+	// 服务状态
+	udpRunning    = false
+	httpRunning   = false
+	udpConn       *net.UDPConn
+	packetConn    *ipv4.PacketConn
+	httpServer    *http.Server
+	udpStopChan   chan struct{}
+	httpStopChan  chan struct{}
+	broadcastStop chan struct{}
+
+	logs       []LogEntry
+	logsMu     sync.Mutex
 )
 
 func generateFingerprint() string {
@@ -98,18 +107,12 @@ func main() {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Printf("\n%s list        - Show discovered devices\n", levelInfo)
-	fmt.Printf("%s logs        - Show logs\n", levelInfo)
-	fmt.Printf("%s clear       - Clear logs\n", levelInfo)
-	fmt.Printf("%s quit        - Exit\n", levelInfo)
-	fmt.Println()
-
 	logInfo("Init", "Device ID: %s", deviceID[:16]+"...")
 	logInfo("Init", "Device Alias: %s", deviceAlias)
 	logInfo("Init", "Multicast: %s:%d", multicastGroup, multicastPort)
 	logInfo("Init", "HTTP Port: %d", apiPort)
 
-	// 创建 UDP socket
+	// 预创建 UDP socket（但不启动监听）
 	logInfo("Init", "Creating UDP socket...")
 	addr := &net.UDPAddr{IP: net.IPv4zero, Port: 0}
 	conn, err := net.ListenUDP("udp", addr)
@@ -137,23 +140,21 @@ func main() {
 		}
 	}
 
-	// 启动 HTTP 服务器
-	go startHTTPServer()
-
-	// 启动 UDP 监听
-	go listenMulticast()
-
-	// 启动广播
-	go startBroadcasting()
-
-	// 清理离线设备
+	// 清理离线设备（持续运行）
 	go cleanupLoop()
 
-	fmt.Println("\nCommands:")
-	fmt.Println("  list              - List discovered devices")
-	fmt.Println("  logs              - Show logs")
-	fmt.Println("  clear             - Clear logs")
-	fmt.Println("  quit              - Exit")
+	fmt.Println("\n📡 LocalNet Commands:")
+	fmt.Println("  status           - Show service status")
+	fmt.Println("  start all       - Start all services (UDP listen + broadcast + HTTP)")
+	fmt.Println("  stop all        - Stop all services")
+	fmt.Println("  start udp       - Start UDP (listen + broadcast)")
+	fmt.Println("  stop udp        - Stop UDP")
+	fmt.Println("  start http      - Start HTTP server")
+	fmt.Println("  stop http       - Stop HTTP server")
+	fmt.Println("  list            - List discovered devices")
+	fmt.Println("  logs            - Show logs")
+	fmt.Println("  clear           - Clear logs")
+	fmt.Println("  quit            - Exit")
 	fmt.Println()
 
 	for !shouldStop {
@@ -164,7 +165,42 @@ func main() {
 			continue
 		}
 
-		switch line {
+		parts := strings.Fields(line)
+		cmd := parts[0]
+
+		switch cmd {
+		case "status":
+			printStatus()
+		case "start":
+			if len(parts) < 2 {
+				fmt.Println("Usage: start <all|udp|http>")
+				continue
+			}
+			switch parts[1] {
+			case "all":
+				startAll()
+			case "udp":
+				startUDP()
+			case "http":
+				startHTTP()
+			default:
+				fmt.Println("Unknown service:", parts[1])
+			}
+		case "stop":
+			if len(parts) < 2 {
+				fmt.Println("Usage: stop <all|udp|http>")
+				continue
+			}
+			switch parts[1] {
+			case "all":
+				stopAll()
+			case "udp":
+				stopUDP()
+			case "http":
+				stopHTTP()
+			default:
+				fmt.Println("Unknown service:", parts[1])
+			}
 		case "list":
 			listDevices()
 		case "logs":
@@ -172,14 +208,131 @@ func main() {
 		case "clear":
 			clearLogs()
 		case "quit", "exit":
+			stopAll()
 			shouldStop = true
 		default:
-			fmt.Println("Unknown command")
+			fmt.Println("Unknown command. Type 'status' to see available commands.")
 		}
 	}
 }
 
-func startHTTPServer() {
+// ==================== 服务控制 ====================
+
+func startAll() {
+	startUDP()
+	startHTTP()
+}
+
+func stopAll() {
+	stopUDP()
+	stopHTTP()
+}
+
+func startUDP() {
+	if udpRunning {
+		logWarn("Ctrl", "UDP is already running")
+		return
+	}
+
+	udpStopChan = make(chan struct{})
+	broadcastStop = make(chan struct{})
+
+	go listenMulticast()
+	go startBroadcasting()
+	udpRunning = true
+
+	logInfo("Ctrl", "✓ UDP started (listen + broadcast)")
+}
+
+func stopUDP() {
+	if !udpRunning {
+		logWarn("Ctrl", "UDP is not running")
+		return
+	}
+
+	// 发送停止信号
+	if udpStopChan != nil {
+		close(udpStopChan)
+	}
+	if broadcastStop != nil {
+		close(broadcastStop)
+	}
+
+	udpRunning = false
+	logInfo("Ctrl", "✓ UDP stopped")
+}
+
+func startHTTP() {
+	if httpRunning {
+		logWarn("Ctrl", "HTTP server is already running")
+		return
+	}
+
+	httpStopChan = make(chan struct{})
+
+	go httpServerLoop()
+	httpRunning = true
+
+	logInfo("Ctrl", "✓ HTTP server started on :%d", port)
+}
+
+func stopHTTP() {
+	if !httpRunning {
+		logWarn("Ctrl", "HTTP server is not running")
+		return
+	}
+
+	if httpServer != nil {
+		httpServer.Close()
+	}
+	if httpStopChan != nil {
+		close(httpStopChan)
+	}
+
+	httpRunning = false
+	logInfo("Ctrl", "✓ HTTP server stopped")
+}
+
+func httpServerLoop() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/join", handleJoin)
+	mux.HandleFunc("/info", handleInfo)
+
+	httpServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if !shouldStop {
+				logError("HTTP", "Server error: %v", err)
+			}
+		}
+	}()
+
+	<-httpStopChan
+	httpServer.Shutdown(nil)
+}
+
+func printStatus() {
+	fmt.Println("\n📊 Service Status:")
+	fmt.Printf("  UDP Listen & Broadcast:  %s\n", boolStatus(udpRunning))
+	fmt.Printf("  HTTP Server:            %s\n", boolStatus(httpRunning))
+	fmt.Printf("  Discovered Devices:     %d\n", len(devices))
+	fmt.Println()
+}
+
+func boolStatus(b bool) string {
+	if b {
+		return "🟢 Running"
+	}
+	return "🔴 Stopped"
+}
+
+// ==================== HTTP 服务器 ====================
+
+func startHTTPServer_old() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/join", handleJoin)
 	mux.HandleFunc("/info", handleInfo)

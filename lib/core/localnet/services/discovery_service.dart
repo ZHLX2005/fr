@@ -52,7 +52,11 @@ class DiscoveryService {
   Stream<List<LocalnetDevice>> get devicesStream => _devicesController.stream;
   List<LocalnetDevice> get devices => _devices.values.toList();
   String get serviceState => _serviceState;
-  bool get isListening => _udpSocket != null;
+
+  /// 各组件运行状态
+  bool get isUdpBroadcastRunning => _broadcastTimer != null && _broadcastTimer!.isActive;
+  bool get isUdpListenerRunning => _udpSocket != null;
+  bool get isHttpServerRunning => _httpServer != null;
 
   DiscoveryService() : deviceId = const Uuid().v4();
 
@@ -60,7 +64,7 @@ class DiscoveryService {
     debugLog.logState('Discovery', from, to, note: note);
   }
 
-  /// 启动发现服务
+  /// 启动完整发现服务（向后兼容）
   Future<void> startListening() async {
     if (_serviceState == stateRunning) return;
 
@@ -68,16 +72,9 @@ class DiscoveryService {
     _serviceState = stateStarting;
 
     try {
-      // 启动 HTTP 服务器（响应其他设备的发现请求）
-      await _startHttpServer();
-
-      // 启动 UDP 监听
-      await _startUdpListener();
-
-      // 开始定时广播
+      await startHttpServer();
+      await startUdpListener();
       _startBroadcasting();
-
-      // 启动清理定时器
       _startCleanup();
 
       _logState(_serviceState, stateRunning, note: '服务已启动');
@@ -95,8 +92,53 @@ class DiscoveryService {
     }
   }
 
+  /// 启动 HTTP 服务器
+  Future<void> startHttpServer() async {
+    if (_httpServer != null) return;
+    await _startHttpServerInternal();
+  }
+
+  /// 停止 HTTP 服务器
+  void stopHttpServer() {
+    _httpServer?.close();
+    _httpServer = null;
+    debugLog.i('Discovery', 'HTTP 服务器已停止');
+  }
+
+  /// 启动 UDP 监听
+  Future<void> startUdpListener() async {
+    if (_udpSocket != null) return;
+    await _startUdpListenerInternal();
+  }
+
+  /// 停止 UDP 监听
+  void stopUdpListener() {
+    _udpSocket?.close();
+    _udpSocket = null;
+    debugLog.i('Discovery', 'UDP 监听已停止');
+  }
+
+  /// 启动 UDP 广播
+  void startUdpBroadcast() {
+    if (_broadcastTimer != null && _broadcastTimer!.isActive) return;
+    _startBroadcasting();
+  }
+
+  /// 停止 UDP 广播
+  void stopUdpBroadcast() {
+    _broadcastTimer?.cancel();
+    _broadcastTimer = null;
+    debugLog.i('Discovery', 'UDP 广播已停止');
+  }
+
+  /// 启动清理定时器
+  void startCleanupTimer() {
+    if (_cleanupTimer != null) return;
+    _startCleanup();
+  }
+
   /// 启动 HTTP 服务器，响应 /join 请求
-  Future<void> _startHttpServer() async {
+  Future<void> _startHttpServerInternal() async {
     try {
       _httpServer = await HttpServer.bind(InternetAddress.anyIPv4, httpPort);
       debugLog.i('Discovery', '✓ HTTP 服务器绑定成功 :$httpPort');
@@ -184,7 +226,7 @@ class DiscoveryService {
   }
 
   /// 启动 UDP 监听
-  Future<void> _startUdpListener() async {
+  Future<void> _startUdpListenerInternal() async {
     try {
       _udpSocket = await RawDatagramSocket.bind(
         InternetAddress.anyIPv4,
@@ -352,12 +394,10 @@ class DiscoveryService {
 
     debugLog.i('Discovery', '停止发现服务...');
 
-    _broadcastTimer?.cancel();
+    stopUdpBroadcast();
     _cleanupTimer?.cancel();
-    _udpSocket?.close();
-    _udpSocket = null;
-    _httpServer?.close();
-    _httpServer = null;
+    stopUdpListener();
+    stopHttpServer();
 
     _devices.clear();
     _logState(_serviceState, stateInit, note: '服务已停止');

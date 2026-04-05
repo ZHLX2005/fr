@@ -14,8 +14,9 @@ class LocalnetSettingsPage extends StatefulWidget {
 class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
   late TextEditingController _aliasController;
   late TextEditingController _portController;
-  late bool _httpEnabled;
-  late bool _multicastEnabled;
+  late bool _udpBroadcastEnabled;
+  late bool _udpListenerEnabled;
+  late bool _httpServerEnabled;
   bool _hasChanges = false;
 
   @override
@@ -24,8 +25,9 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
     final config = configService.config;
     _aliasController = TextEditingController(text: config.deviceAlias);
     _portController = TextEditingController(text: config.port.toString());
-    _httpEnabled = config.httpEnabled;
-    _multicastEnabled = config.multicastEnabled;
+    _udpBroadcastEnabled = config.udpBroadcastEnabled;
+    _udpListenerEnabled = config.udpListenerEnabled;
+    _httpServerEnabled = config.httpServerEnabled;
 
     _aliasController.addListener(_onChanged);
     _portController.addListener(_onChanged);
@@ -35,14 +37,13 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
     final config = configService.config;
     final newAlias = _aliasController.text;
     final newPort = int.tryParse(_portController.text) ?? config.port;
-    final newHttp = _httpEnabled;
-    final newMulticast = _multicastEnabled;
 
     setState(() {
       _hasChanges = newAlias != config.deviceAlias ||
           newPort != config.port ||
-          newHttp != config.httpEnabled ||
-          newMulticast != config.multicastEnabled;
+          _udpBroadcastEnabled != config.udpBroadcastEnabled ||
+          _udpListenerEnabled != config.udpListenerEnabled ||
+          _httpServerEnabled != config.httpServerEnabled;
     });
   }
 
@@ -58,8 +59,9 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
       deviceAlias: _aliasController.text.trim().isEmpty
           ? 'Flutter Device'
           : _aliasController.text.trim(),
-      httpEnabled: _httpEnabled,
-      multicastEnabled: _multicastEnabled,
+      udpBroadcastEnabled: _udpBroadcastEnabled,
+      udpListenerEnabled: _udpListenerEnabled,
+      httpServerEnabled: _httpServerEnabled,
       port: int.tryParse(_portController.text) ?? 53317,
     );
 
@@ -83,8 +85,9 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
     setState(() {
       _aliasController.text = config.deviceAlias;
       _portController.text = config.port.toString();
-      _httpEnabled = config.httpEnabled;
-      _multicastEnabled = config.multicastEnabled;
+      _udpBroadcastEnabled = config.udpBroadcastEnabled;
+      _udpListenerEnabled = config.udpListenerEnabled;
+      _httpServerEnabled = config.httpServerEnabled;
       _hasChanges = false;
     });
   }
@@ -155,42 +158,55 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                SwitchListTile(
-                  title: const Text('HTTP 服务器'),
-                  subtitle: Text(
-                    _httpEnabled
-                        ? '启用 HTTP 服务器，接收 Register 请求'
-                        : '禁用后将无法被其他设备发现',
-                  ),
-                  value: _httpEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _httpEnabled = value;
-                      _onChanged();
-                    });
-                  },
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  title: const Text('UDP 多播发现'),
-                  subtitle: Text(
-                    _multicastEnabled
-                        ? '启用 UDP 多播广播和监听'
-                        : '禁用后将仅依赖 HTTP 扫描发现',
-                  ),
-                  value: _multicastEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _multicastEnabled = value;
-                      _onChanged();
-                    });
-                  },
-                ),
-              ],
-            ),
+
+          // UDP 广播开关
+          _buildComponentSwitchCard(
+            title: 'UDP 广播',
+            icon: Icons.upload,
+            enabled: _udpBroadcastEnabled,
+            port: '53317',
+            detail: '多播: 224.0.0.167',
+            warning: '每3秒广播一次（电池消耗较高）',
+            onChanged: (value) {
+              setState(() {
+                _udpBroadcastEnabled = value;
+                _onChanged();
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+
+          // UDP 监听开关
+          _buildComponentSwitchCard(
+            title: 'UDP 监听',
+            icon: Icons.download,
+            enabled: _udpListenerEnabled,
+            port: '53317',
+            detail: null,
+            warning: null,
+            onChanged: (value) {
+              setState(() {
+                _udpListenerEnabled = value;
+                _onChanged();
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+
+          // HTTP 服务开关
+          _buildComponentSwitchCard(
+            title: 'HTTP 服务',
+            icon: Icons.http,
+            enabled: _httpServerEnabled,
+            port: '53317',
+            detail: null,
+            warning: null,
+            onChanged: (value) {
+              setState(() {
+                _httpServerEnabled = value;
+                _onChanged();
+              });
+            },
           ),
 
           const SizedBox(height: 24),
@@ -218,11 +234,15 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '• HTTP 服务器：必须启用才能响应其他设备的发现请求',
+                    '• UDP 广播：主动发送 UDP 多播包，每3秒一次（电池消耗较高）',
                   ),
                   SizedBox(height: 4),
                   Text(
-                    '• UDP 多播：广播自己的存在，禁用后只能被发现而不能主动发现别人',
+                    '• UDP 监听：接收其他设备的 UDP 多播包',
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '• HTTP 服务：响应 /join 等 HTTP 请求，必开',
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -233,6 +253,57 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildComponentSwitchCard({
+    required String title,
+    required IconData icon,
+    required bool enabled,
+    required String port,
+    String? detail,
+    String? warning,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(icon, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '端口: $port${detail != null ? '  |  $detail' : ''}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (warning != null)
+                    Text(
+                      warning,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.orange,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Switch(
+              value: enabled,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
       ),
     );
   }
