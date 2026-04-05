@@ -6,9 +6,9 @@ import 'line_demo_models.dart';
 // 绘制器
 // ═══════════════════════════════════════════════════════════════
 
-/// 游戏主绘制器：竖线 + 圆圈 + 判定线 + 炸开动画
+/// 游戏主绘制器：背景 + 血条 + 三种音符 + 炸开动画 + 判定文字
 class GamePainter extends CustomPainter {
-  final List<List<FallingCircle>> columns;
+  final List<List<FallingNote>> columns;
   final List<ExplodeAnimation> explodes;
   final Color color;
   final double radius;
@@ -18,6 +18,8 @@ class GamePainter extends CustomPainter {
   final double judgeY;
   final List<JudgeFeedback> judgeFeedbacks;
   final BackgroundStyle backgroundStyle;
+  final double health; // 0.0 - 1.0
+  final double dropDuration;
 
   GamePainter({
     required this.columns,
@@ -30,6 +32,8 @@ class GamePainter extends CustomPainter {
     required this.judgeY,
     required this.judgeFeedbacks,
     required this.backgroundStyle,
+    required this.health,
+    required this.dropDuration,
   });
 
   @override
@@ -37,7 +41,7 @@ class GamePainter extends CustomPainter {
     final w = size.width;
     final colWidth = w / columnCount;
 
-    // ── 背景 ──
+    // 1. 背景
     if (backgroundStyle == BackgroundStyle.grid) {
       final gridPaint = Paint()
         ..color = color.withValues(alpha: 0.1)
@@ -61,48 +65,36 @@ class GamePainter extends CustomPainter {
       }
     }
 
-    // ── 判定线 ──
+    // 2. 血条
+    _paintHealthBar(canvas, w);
+
+    // 3. 判定线
     final judgePaint = Paint()
       ..color = color.withValues(alpha: 0.25)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawLine(Offset(0, judgeY), Offset(w, judgeY), judgePaint);
 
-    // ── 圆圈 ──
-    final circlePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-
+    // 4. 音符
     for (int i = 0; i < columns.length; i++) {
       final cx = colWidth * i + colWidth / 2;
-      for (final circle in columns[i]) {
-        if (circle.exploded) continue;
-
-        double alpha = 0.3;
-        // 穿过判定线后渐退
-        if (circle.missed) {
-          final dist = circle.currentY - judgeY;
-          final fadeRange = screenHeight * 0.25;
-          alpha = 0.3 * (1.0 - (dist / fadeRange).clamp(0.0, 1.0));
-          if (alpha <= 0.01) continue;
-        }
-
-        circlePaint.color = color.withValues(alpha: alpha);
-
-        if (circle.currentY >= -radius &&
-            circle.currentY <= screenHeight + radius) {
-          canvas.drawCircle(
-              Offset(cx, circle.currentY), radius, circlePaint);
+      for (final note in columns[i]) {
+        if (note.event.type == NoteType.tap) {
+          _paintTapNote(canvas, cx, note);
+        } else if (note.event.type == NoteType.hold) {
+          _paintHoldNote(canvas, cx, note);
+        } else if (note.event.type == NoteType.slide) {
+          _paintSlideNote(canvas, cx, note);
         }
       }
     }
 
-    // ── 炸开动画 ──
+    // 5. 炸开动画
     for (final explode in explodes) {
       _paintExplode(canvas, explode, w);
     }
 
-    // ── 判定文字反馈 ──
+    // 6. 判定文字反馈
     for (final fb in judgeFeedbacks) {
       final progress = fb.controller.value;
       final alpha = fb.baseAlpha * (1.0 - progress);
@@ -127,11 +119,160 @@ class GamePainter extends CustomPainter {
     }
   }
 
+  void _paintHealthBar(Canvas canvas, double w) {
+    final barWidth = 8.0;
+    final barX = w - 12 - barWidth;
+    final barTop = 60.0;
+    final barBottom = judgeY;
+    final barHeight = barBottom - barTop;
+    final barRadius = 4.0;
+
+    // Background
+    final bgPaint = Paint()
+      ..color = color.withValues(alpha: 0.15)
+      ..style = PaintingStyle.fill;
+    final bgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(barX, barTop, barWidth, barHeight),
+      Radius.circular(barRadius),
+    );
+    canvas.drawRRect(bgRect, bgPaint);
+
+    // Fill (from bottom up)
+    final fillHeight = barHeight * health.clamp(0.0, 1.0);
+    if (fillHeight > 0) {
+      Color fillColor;
+      if (health > 0.5) {
+        fillColor = const Color(0xFF66BB6A); // green
+      } else if (health > 0.3) {
+        fillColor = const Color(0xFFFFA726); // orange
+      } else {
+        fillColor = const Color(0xFFEF5350); // red
+      }
+      final fillPaint = Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill;
+      final fillRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(barX, barBottom - fillHeight, barWidth, fillHeight),
+        Radius.circular(barRadius),
+      );
+      canvas.drawRRect(fillRect, fillPaint);
+    }
+  }
+
+  void _paintTapNote(Canvas canvas, double cx, FallingNote note) {
+    if (note.judged) return;
+    if (note.currentY < -radius || note.currentY > screenHeight + radius) return;
+
+    // Missed fade
+    double alpha = 0.3;
+    if (note.currentY > judgeY) {
+      final dist = note.currentY - judgeY;
+      final fadeRange = screenHeight * 0.25;
+      alpha = 0.3 * (1.0 - (dist / fadeRange).clamp(0.0, 1.0));
+      if (alpha <= 0.01) return;
+    }
+
+    final circlePaint = Paint()
+      ..color = color.withValues(alpha: alpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(Offset(cx, note.currentY), radius, circlePaint);
+  }
+
+  void _paintHoldNote(Canvas canvas, double cx, FallingNote note) {
+    if (note.currentY < -radius * 2) return;
+
+    final headY = note.currentY;
+    // How far the note travels in holdDuration ms
+    final travelPerMs = screenHeight / dropDuration;
+    final holdLength = travelPerMs * note.event.holdDuration!;
+    final tailY = headY - holdLength;
+
+    final barWidth = radius * 0.6;
+    const baseAlpha = 0.3;
+
+    // Connecting bar
+    final barPaint = Paint()
+      ..color = color.withValues(alpha: baseAlpha * 0.5)
+      ..style = PaintingStyle.fill;
+    final clampedTail = tailY.clamp(-radius, screenHeight + radius);
+    canvas.drawRect(
+      Rect.fromLTWH(cx - barWidth / 2, clampedTail, barWidth, (headY - clampedTail).abs()),
+      barPaint,
+    );
+
+    // Progress fill (when being held)
+    if (note.holding && note.holdProgress > 0) {
+      final fillHeight = holdLength * note.holdProgress;
+      final fillPaint = Paint()
+        ..color = color.withValues(alpha: 0.5)
+        ..style = PaintingStyle.fill;
+      canvas.drawRect(
+        Rect.fromLTWH(cx - barWidth / 2, headY - fillHeight, barWidth, fillHeight),
+        fillPaint,
+      );
+    }
+
+    // Head circle
+    final circlePaint = Paint()
+      ..color = color.withValues(alpha: baseAlpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
+
+    // Tail circle
+    if (tailY > -radius && tailY < screenHeight + radius) {
+      canvas.drawCircle(Offset(cx, tailY), radius * 0.6, circlePaint);
+    }
+  }
+
+  void _paintSlideNote(Canvas canvas, double cx, FallingNote note) {
+    if (note.judged) return;
+    if (note.currentY < -radius || note.currentY > screenHeight + radius) return;
+
+    // Circle
+    final circlePaint = Paint()
+      ..color = color.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(Offset(cx, note.currentY), radius, circlePaint);
+
+    // Arrow inside
+    final arrowSize = radius * 0.55;
+    final arrowPaint = Paint()
+      ..color = color.withValues(alpha: 0.5)
+      ..style = PaintingStyle.fill;
+    _drawArrow(canvas, cx, note.currentY, arrowSize, note.event.direction!, arrowPaint);
+  }
+
+  void _drawArrow(Canvas canvas, double cx, double cy, double size, SlideDirection dir, Paint paint) {
+    final path = Path();
+    switch (dir) {
+      case SlideDirection.up:
+        path.moveTo(cx, cy - size);
+        path.lineTo(cx - size * 0.7, cy + size * 0.3);
+        path.lineTo(cx + size * 0.7, cy + size * 0.3);
+      case SlideDirection.down:
+        path.moveTo(cx, cy + size);
+        path.lineTo(cx - size * 0.7, cy - size * 0.3);
+        path.lineTo(cx + size * 0.7, cy - size * 0.3);
+      case SlideDirection.left:
+        path.moveTo(cx - size, cy);
+        path.lineTo(cx + size * 0.3, cy - size * 0.7);
+        path.lineTo(cx + size * 0.3, cy + size * 0.7);
+      case SlideDirection.right:
+        path.moveTo(cx + size, cy);
+        path.lineTo(cx - size * 0.3, cy - size * 0.7);
+        path.lineTo(cx - size * 0.3, cy + size * 0.7);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
   void _paintExplode(Canvas canvas, ExplodeAnimation explode, double w) {
     final progress = explode.controller.value;
     final paint = Paint()..style = PaintingStyle.stroke;
 
-    // Phase 1: 内爆缩小 (0.0 - 0.08)
     if (progress <= 0.08) {
       final t = progress / 0.08;
       final easedT = Curves.easeIn.transform(t);
@@ -140,12 +281,10 @@ class GamePainter extends CustomPainter {
       if (currentRadius > 0.1) {
         paint.color = color.withValues(alpha: 0.3);
         paint.strokeWidth = 1.5;
-        canvas.drawCircle(
-            Offset(explode.x, explode.y), currentRadius, paint);
+        canvas.drawCircle(Offset(explode.x, explode.y), currentRadius, paint);
       }
     }
 
-    // Phase 2: 粒子飞溅 (0.08 - 1.0)
     if (progress > 0.08) {
       final t = (progress - 0.08) / 0.92;
       final splashProgress = Curves.easeOut.transform(t);
