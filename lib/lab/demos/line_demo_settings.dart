@@ -309,10 +309,10 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
             // 主内容
             Padding(
               padding: EdgeInsets.only(
-                top: 56,
+                top: 80,
                 left: 32,
                 right: 32,
-                bottom: MediaQuery.of(context).padding.bottom + 32,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
               ),
               child: Column(
                 children: [
