@@ -109,6 +109,10 @@ dependencies:
   # Torch / Flashlight
   torch_light: ^1.0.0
 
+  # Screen Brightness & Wakelock
+  screen_brightness: ^1.0.1
+  wakelock_plus: ^1.2.8
+
   # Markdown
   flutter_markdown: ^0.7.4
   markdown: ^7.2.2
