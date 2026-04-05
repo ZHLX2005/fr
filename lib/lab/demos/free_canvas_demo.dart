@@ -12,6 +12,9 @@ class FreeCanvasDemo extends DemoPage {
   String get description => '自由拖拽图片和节点';
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const _FreeCanvasPage();
   }

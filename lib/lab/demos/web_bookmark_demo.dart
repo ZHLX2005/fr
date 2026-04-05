@@ -21,6 +21,9 @@ class WebBookmarkDemo extends DemoPage {
   String get description => 'Bookmark folders with drag-drop';
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const _WebBookmarkPage();
   }
