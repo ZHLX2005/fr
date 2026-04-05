@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
+import 'line_demo_models.dart';
 
 /// 线 Demo
 class LineDemo extends DemoPage {
@@ -28,36 +29,6 @@ class _LineDemoPage extends StatefulWidget {
   State<_LineDemoPage> createState() => _LineDemoPageState();
 }
 
-/// 下落中的圆圈
-class _FallingCircle {
-  final AnimationController controller;
-  double currentY;
-  bool exploded; // 已被点击消除（播放炸开动画中）
-  bool missed; // 已穿过判定线
-
-  _FallingCircle({
-    required this.controller,
-    required this.currentY,
-  })  : exploded = false,
-        missed = false;
-}
-
-/// 炸开动画状态
-class _ExplodeAnimation {
-  final AnimationController controller;
-  final double x;
-  final double y;
-  final List<_Particle> particles;
-  final double radius;
-
-  _ExplodeAnimation({
-    required this.controller,
-    required this.x,
-    required this.y,
-    required this.particles,
-    required this.radius,
-  });
-}
 
 class _LineDemoPageState extends State<_LineDemoPage>
     with TickerProviderStateMixin {
@@ -72,9 +43,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   // ── 游戏状态 ──
   static const int _columnCount = 3;
-  List<List<_FallingCircle>> _columns = [];
+  List<List<FallingCircle>> _columns = [];
   List<Timer?> _spawnTimers = [];
-  final List<_ExplodeAnimation> _explodes = [];
+  final List<ExplodeAnimation> _explodes = [];
 
   // 分数
   int _score = 0;
@@ -197,7 +168,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
       vsync: this,
     );
 
-    final circle = _FallingCircle(controller: controller, currentY: -radius);
+    final circle = FallingCircle(controller: controller, currentY: -radius);
 
     // 监听 Y 坐标 + 判定 miss
     controller.addListener(() {
@@ -227,7 +198,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
   }
 
-  void _onMiss(int colIndex, _FallingCircle circle) {
+  void _onMiss(int colIndex, FallingCircle circle) {
     if (_isGameOver) return;
     setState(() {
       _missCount++;
@@ -274,7 +245,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final judgeY = screenSize.height * _judgeLineRatio;
     final judgeRange = _rpx(_judgeRangeRpx);
 
-    _FallingCircle? target;
+    FallingCircle? target;
     double targetY = -double.infinity;
 
     for (final circle in _columns[colIndex]) {
@@ -302,7 +273,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _hitCircle(colIndex, target);
   }
 
-  void _hitCircle(int colIndex, _FallingCircle circle) {
+  void _hitCircle(int colIndex, FallingCircle circle) {
     circle.controller.stop();
     circle.exploded = true;
 
@@ -336,7 +307,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
       vsync: this,
     );
 
-    final explode = _ExplodeAnimation(
+    final explode = ExplodeAnimation(
       controller: explodeController,
       x: centerX,
       y: circle.currentY,
@@ -359,17 +330,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
   }
 
-  List<_Particle> _generateParticles() {
+  List<Particle> _generateParticles() {
     final rng = math.Random();
     final count = 4 + rng.nextInt(2);
-    final particles = <_Particle>[];
+    final particles = <Particle>[];
     final baseAngles = List.generate(count, (i) => (2 * math.pi * i / count));
     final distances = List.generate(count, (i) => 15.0 + i * 5.0);
     final alphas = List.generate(count, (i) => 0.5 - i * 0.1);
 
     for (int i = 0; i < count; i++) {
       final angle = baseAngles[i] + (rng.nextDouble() - 0.5) * 0.6;
-      particles.add(_Particle(
+      particles.add(Particle(
         angle: angle,
         distance: distances[i] + rng.nextDouble() * 5,
         initialAlpha: alphas[i],
@@ -735,30 +706,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 数据类
-// ═══════════════════════════════════════════════════════════════
-
-/// 粒子数据
-class _Particle {
-  final double angle;
-  final double distance;
-  final double initialAlpha;
-
-  const _Particle({
-    required this.angle,
-    required this.distance,
-    required this.initialAlpha,
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════
 // 绘制器
 // ═══════════════════════════════════════════════════════════════
 
 /// 游戏主绘制器：竖线 + 圆圈 + 判定线 + 炸开动画
 class _GamePainter extends CustomPainter {
-  final List<List<_FallingCircle>> columns;
-  final List<_ExplodeAnimation> explodes;
+  final List<List<FallingCircle>> columns;
+  final List<ExplodeAnimation> explodes;
   final Color color;
   final double radius;
   final double screenWidth;
@@ -824,7 +778,7 @@ class _GamePainter extends CustomPainter {
     }
   }
 
-  void _paintExplode(Canvas canvas, _ExplodeAnimation explode, double w) {
+  void _paintExplode(Canvas canvas, ExplodeAnimation explode, double w) {
     final progress = explode.controller.value;
     final paint = Paint()..style = PaintingStyle.stroke;
 
@@ -885,7 +839,7 @@ class _DemoPainter extends CustomPainter {
   final double circleYRatio; // 当前圆圈 Y 坐标比例（相对画布高度）
   final bool showExplode; // 是否显示炸开
   final double explodeProgress; // 炸开进度 0~1
-  final List<_Particle> explodeParticles;
+  final List<Particle> explodeParticles;
 
   _DemoPainter({
     required this.color,
@@ -1003,7 +957,7 @@ class _SpeedSettingsPageState extends State<_SpeedSettingsPage>
   late double _dropDurationMs;
   double _circleYRatio = -0.05;
   bool _showExplode = false;
-  List<_Particle> _explodeParticles = [];
+  List<Particle> _explodeParticles = [];
 
   late AnimationController _fallController;
   late AnimationController _explodeController;
@@ -1066,17 +1020,17 @@ class _SpeedSettingsPageState extends State<_SpeedSettingsPage>
     }
   }
 
-  List<_Particle> _generateDemoParticles() {
+  List<Particle> _generateDemoParticles() {
     final rng = math.Random();
     final count = 4 + rng.nextInt(2);
-    final particles = <_Particle>[];
+    final particles = <Particle>[];
     final baseAngles = List.generate(count, (i) => (2 * math.pi * i / count));
     final distances = List.generate(count, (i) => 15.0 + i * 5.0);
     final alphas = List.generate(count, (i) => 0.5 - i * 0.1);
 
     for (int i = 0; i < count; i++) {
       final angle = baseAngles[i] + (rng.nextDouble() - 0.5) * 0.6;
-      particles.add(_Particle(
+      particles.add(Particle(
         angle: angle,
         distance: distances[i] + rng.nextDouble() * 5,
         initialAlpha: alphas[i],
