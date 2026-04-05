@@ -151,6 +151,9 @@ class DraggableCardState extends State<DraggableWordCard>
   }
 
   void _springBack() {
+    // 重置控制器值，确保新动画能从0.0开始
+    _controller.reset();
+
     _animation = Tween<Offset>(
       begin: _dragOffset,
       end: Offset.zero,
@@ -171,6 +174,9 @@ class DraggableCardState extends State<DraggableWordCard>
   void _animateOffScreen(SwipeDirection direction) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+
+    // 重置控制器值，确保新动画能从0.0开始
+    _controller.reset();
 
     late Offset targetOffset;
     switch (direction) {
