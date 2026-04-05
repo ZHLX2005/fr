@@ -83,6 +83,7 @@ class FallingNote {
   final AnimationController controller;
   double currentY;
   bool judged;
+  bool removeMe; // 被判定后从绘制层立即移除，只留炸开动画
   bool holding; // 仅 hold：正在被按住
   double holdProgress; // 仅 hold：按住进度 0~1
 
@@ -91,6 +92,7 @@ class FallingNote {
     required this.controller,
     required this.currentY,
   })  : judged = false,
+        removeMe = false,
         holding = false,
         holdProgress = 0.0;
 }
