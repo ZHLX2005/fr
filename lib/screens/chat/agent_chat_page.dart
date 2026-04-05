@@ -81,11 +81,15 @@ class _AgentChatPageState extends State<AgentChatPage> {
     }
   }
 
-  void _openSettings() {
-    Navigator.push(
+  void _openSettings() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AIChatSettingsPage()),
     );
+    // 返回后刷新设置状态
+    if (mounted) {
+      context.read<AgentChatProvider>().refreshSettings();
+    }
   }
 
   @override
