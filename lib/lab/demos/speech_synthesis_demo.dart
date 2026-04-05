@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 import '../lab_container.dart';
 
 /// 由 WebSocket 音频数据驱动的流式 AudioSource
@@ -117,6 +118,21 @@ class SpeechSynthesisDemo extends DemoPage {
   }
 }
 
+/// 已保存的音频文件数据模型
+class _SavedAudioFile {
+  final String path;
+  final String fileName;
+  final int size;
+  final DateTime savedAt;
+
+  _SavedAudioFile({
+    required this.path,
+    required this.fileName,
+    required this.size,
+    required this.savedAt,
+  });
+}
+
 class _SpeechSynthesisPage extends StatefulWidget {
   const _SpeechSynthesisPage();
 
@@ -138,6 +154,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
 
   // HTTP 方式音频数据
   final List<int> _audioChunks = [];
+
+  // 已保存的音频文件列表
+  final List<_SavedAudioFile> _savedFiles = [];
 
   // WebSocket 流式播放
   WebSocket? _ws;
@@ -382,9 +401,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
           }
         }
 
-        // 推入流式数据源
+        // 推入流式数据源并保存到 _audioChunks（用于后续保存文件）
         if (audioBytes != null) {
           _chunkCount++;
+          _audioChunks.addAll(audioBytes);
           _streamSource?.addChunk(audioBytes);
           setState(() {
             _statusMessage = '流式接收中... 已接收 $_chunkCount 个片段 (${_streamSource!.totalBytes ~/ 1024}KB)';
@@ -430,9 +450,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       final request = await httpClient.postUrl(uri);
 
       request.headers.set('Authorization', 'Bearer ${_apiKeyController.text}');
-      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Content-Type', 'application/json; charset=utf-8');
 
-      final requestBody = json.encode({
+      final requestBody = <String, dynamic>{
         'model': model,
         'text': text,
         'stream': false,
@@ -449,9 +469,12 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
           'format': _format,
           'channel': _channel,
         },
-      });
+      };
 
-      request.write(requestBody);
+      // 使用 utf8 编码写入，防止中文乱码
+      final bodyBytes = utf8.encode(json.encode(requestBody));
+      request.add(bodyBytes);
+
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
 
@@ -463,6 +486,7 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
           _audioChunks.addAll(audioBytes);
           setState(() => _statusMessage = '合成完成，音频大小: ${audioBytes.length} bytes');
           await _playAudio();
+          await _saveAudioToFile(audioBytes);
         } else {
           setState(() => _statusMessage = '响应格式错误: $responseData');
         }
@@ -471,6 +495,70 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       }
     } catch (e) {
       setState(() => _statusMessage = '请求异常: $e');
+    }
+  }
+
+  /// 保存音频到文件
+  Future<void> _saveAudioToFile(List<int> audioBytes) async {
+    try {
+      final directory = await _getSaveDirectory();
+      if (directory == null) return;
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = _format == 'wav' ? 'wav' : (_format == 'pcm' ? 'pcm' : 'mp3');
+      final filePath = '${directory.path}/tts_$timestamp.$extension';
+      final file = File(filePath);
+      await file.writeAsBytes(audioBytes);
+
+      // 添加到已保存列表
+      final savedFile = _SavedAudioFile(
+        path: filePath,
+        fileName: 'tts_$timestamp.$extension',
+        size: audioBytes.length,
+        savedAt: DateTime.now(),
+      );
+      _savedFiles.insert(0, savedFile);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已保存: $filePath'),
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: '好的',
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('保存音频文件失败: $e');
+    }
+  }
+
+  Future<Directory?> _getSaveDirectory() async {
+    try {
+      if (Platform.isAndroid) {
+        final pathProvider = await _getPathProvider();
+        if (pathProvider != null) {
+          // Android 10+ 使用应用专属目录
+          return Directory(pathProvider);
+        }
+      }
+      // 降级到临时目录
+      return await getTemporaryDirectory();
+    } catch (e) {
+      return await getTemporaryDirectory();
+    }
+  }
+
+  Future<String?> _getPathProvider() async {
+    try {
+      // 使用 dart:io 的 getTemporaryDirectory，不需要额外依赖
+      final dir = await getTemporaryDirectory();
+      return dir.path;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -514,6 +602,51 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       _isPlaying = false;
       _statusMessage = '已停止';
     });
+  }
+
+  /// 手动保存音频文件
+  Future<void> _manualSaveAudio() async {
+    if (_audioChunks.isEmpty) {
+      setState(() => _statusMessage = '没有可保存的音频');
+      return;
+    }
+    await _saveAudioToFile(_audioChunks);
+  }
+
+  /// 删除保存的音频文件
+  Future<void> _deleteSavedFile(int index) async {
+    if (index < 0 || index >= _savedFiles.length) return;
+    final file = _savedFiles[index];
+    try {
+      final f = File(file.path);
+      if (await f.exists()) {
+        await f.delete();
+      }
+      setState(() {
+        _savedFiles.removeAt(index);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已删除: ${file.fileName}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('删除文件失败: $e');
+      // 即使删除失败，也从列表移除
+      setState(() {
+        _savedFiles.removeAt(index);
+      });
+    }
+  }
+
+  /// 格式化文件大小
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   void _selectVoice(String id, String name) {
@@ -959,12 +1092,100 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _audioChunks.isEmpty ? null : _manualSaveAudio,
+                    icon: const Icon(Icons.save_alt),
+                    label: const Text('保存'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // 已保存文件列表
+            if (_savedFiles.isNotEmpty) ...[
+              const Text(
+                '已保存音频',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _savedFiles.length,
+                  itemBuilder: (context, index) {
+                    final file = _savedFiles[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: const Icon(Icons.audio_file),
+                        title: Text(
+                          file.fileName,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        subtitle: Text(
+                          '${_formatFileSize(file.size)} • ${_formatTime(file.savedAt)}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () => _deleteSavedFile(index),
+                          tooltip: '删除',
+                        ),
+                        onTap: () => _playSavedFile(file),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  String _formatTime(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _playSavedFile(_SavedAudioFile file) async {
+    try {
+      final f = File(file.path);
+      if (!await f.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('文件不存在或已被删除')),
+          );
+        }
+        return;
+      }
+      final bytes = await f.readAsBytes();
+      final audioData = Uint8List.fromList(bytes);
+      final source = AudioSource.uri(
+        Uri.dataFromBytes(audioData, mimeType: 'audio/mpeg'),
+      );
+      await _player.stop();
+      await _player.setAudioSource(source);
+      await _player.play();
+      setState(() {
+        _isPlaying = true;
+        _statusMessage = '正在播放: ${file.fileName}';
+      });
+    } catch (e) {
+      debugPrint('播放保存的文件失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('播放失败: $e')),
+        );
+      }
+    }
   }
 }
 
