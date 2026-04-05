@@ -43,6 +43,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   late AnimationController _exitController;
   late AnimationController _enterController;
+  late AnimationController _healthController;
 
   // ── 谱面 ──
   ChartData? _chart;
@@ -100,6 +101,10 @@ class _LineDemoPageState extends State<_LineDemoPage>
       duration: const Duration(milliseconds: 1400),
       vsync: this,
     );
+    _healthController = AnimationController(
+      duration: const Duration(days: 365),
+      vsync: this,
+    )..repeat();
 
     _notes = List.generate(_columnCount, (_) => []);
 
@@ -150,6 +155,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void dispose() {
     _exitController.dispose();
     _enterController.dispose();
+    _healthController.dispose();
     _gameStopwatch.stop();
     for (final noteList in _notes) {
       for (final note in noteList) {
@@ -227,14 +233,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
       final targetY = screenSize.height + radius;
       note.currentY = -radius + (targetY + radius) * easedT;
 
-      // Auto-miss: tap/slide past judge line beyond miss window
+      // Auto-miss: 音符已过判定线，立即触发
       if (!note.judged && event.type != NoteType.hold) {
         final judgeY = screenSize.height * _judgeLineRatio;
         if (note.currentY > judgeY) {
-          final elapsed = _gameStopwatch.elapsedMilliseconds;
-          if (elapsed > event.time + _missWindow) {
-            _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
-          }
+          _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
         }
       }
 
@@ -546,6 +549,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   Future<void> _handleExit() async {
     if (_isExiting) return;
     _stopGame();
+    await _saveHighScore();
     for (final noteList in _notes) {
       for (final note in noteList) {
         note.controller.stop();
@@ -657,6 +661,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     for (final fb in _judgeFeedbacks) {
       allControllers.add(fb.controller);
     }
+    allControllers.add(_healthController);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
