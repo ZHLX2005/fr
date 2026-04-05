@@ -48,6 +48,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   List<List<FallingCircle>> _columns = [];
   List<Timer?> _spawnTimers = [];
   final List<ExplodeAnimation> _explodes = [];
+  final List<JudgeFeedback> _judgeFeedbacks = [];
 
   // 分数
   int _score = 0;
@@ -131,6 +132,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
     for (final e in _explodes) {
       e.controller.dispose();
+    }
+    for (final fb in _judgeFeedbacks) {
+      fb.controller.dispose();
     }
     super.dispose();
   }
@@ -291,16 +295,47 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final judgeRange = _rpx(_judgeRangeRpx);
 
     int points;
+    String judgeText;
+    double judgeAlpha;
     if (dist <= judgeRange * 0.2) {
-      points = 3; // Perfect
+      points = 3;
+      judgeText = 'Perfect';
+      judgeAlpha = 0.6;
     } else if (dist <= judgeRange * 0.5) {
-      points = 2; // Great
+      points = 2;
+      judgeText = 'Great';
+      judgeAlpha = 0.4;
     } else {
-      points = 1; // Good
+      points = 1;
+      judgeText = 'Good';
+      judgeAlpha = 0.25;
     }
+
+    // Create judge text feedback
+    final feedbackController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    final feedback = JudgeFeedback(
+      text: judgeText,
+      x: centerX,
+      y: circle.currentY - radius - 20,
+      color: Theme.of(context).colorScheme.primary,
+      baseAlpha: judgeAlpha,
+      controller: feedbackController,
+    );
 
     setState(() {
       _score += points;
+      _judgeFeedbacks.add(feedback);
+    });
+
+    feedbackController.forward().then((_) {
+      feedbackController.dispose();
+      if (!mounted) return;
+      setState(() {
+        _judgeFeedbacks.remove(feedback);
+      });
     });
 
     // 创建炸开动画
