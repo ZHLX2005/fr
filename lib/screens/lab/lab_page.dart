@@ -654,6 +654,8 @@ class _DemoDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     // 全屏模式的 Demo 直接使用 body
     if (demo.preferFullScreen) {
       return Scaffold(
@@ -661,28 +663,28 @@ class _DemoDetailPage extends StatelessWidget {
       );
     }
 
-    // 非全屏模式使用 iOS 26 风格极简头部
+    // 非全屏模式使用极简头部
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // iOS 26 风格极简导航栏
+          // 极简导航栏
           SliverAppBar(
-            expandedHeight: 56,
+            expandedHeight: 64,
             floating: false,
             pinned: true,
             stretch: false,
             elevation: 0,
             centerTitle: true,
-            backgroundColor: Colors.white.withValues(alpha: 0.9),
+            backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.95),
             surfaceTintColor: Colors.transparent,
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: EdgeInsets.zero,
               title: Text(
                 demo.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1C1C1E),
+                  color: theme.colorScheme.onSurface,
                   letterSpacing: -0.4,
                 ),
               ),
@@ -694,16 +696,16 @@ class _DemoDetailPage extends StatelessWidget {
                 onTap: () => Navigator.maybePop(context),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F5F7),
-                    borderRadius: BorderRadius.circular(8),
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
-                    Icons.chevron_left_rounded,
-                    size: 22,
-                    color: Color(0xFF007AFF),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
               ),
