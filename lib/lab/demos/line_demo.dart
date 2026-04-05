@@ -416,7 +416,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
   // ── 暂停/恢复 ──
 
   void _showSpeedSettings() {
-    _wasGameRunning = !_isGameOver && !_isCountingDown;
+    final wasCountingDown = _isCountingDown;
+    _wasGameRunning = !_isGameOver && !wasCountingDown;
+
+    // 取消当前倒计时，防止返回后双重倒计时
+    _isCountingDown = false;
 
     _pausedSnapshots = [];
     for (final col in _columns) {
@@ -443,7 +447,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
         .then((_) {
       if (!mounted || _isExiting) return;
       _loadSettings().then((_) {
-        _startCountdown();
+        // 如果之前已经在倒计时中，直接恢复游戏而不重新倒计时
+        if (wasCountingDown) {
+          _resumeFromSnapshot();
+        } else {
+          _startCountdown();
+        }
       });
     });
   }
