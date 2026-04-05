@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:torch_light/torch_light.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:screen_brightness/screen_brightness.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../lab_container.dart';
 
 /// 手电筒 Demo
@@ -11,7 +13,7 @@ class TorchDemo extends DemoPage {
   String get title => '手电筒';
 
   @override
-  String get description => '手电筒和全白屏幕照亮功能';
+  String get description => '手电筒和屏幕亮度调节';
 
   @override
   bool get preferFullScreen => true;
@@ -34,15 +36,17 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
   bool _isTorchOn = false;
   bool _torchAvailable = false;
 
-  // 打光灯状态
-  bool _isFloodLightOn = false;
-  double _floodLightBrightness = 1.0;
+  // 屏幕光状态
+  bool _isScreenLightOn = false;
+  double _screenBrightness = 1.0;
+  double _savedBrightness = 0.5;
+  bool _keepScreenOn = false;
 
-  // 模式：torch-手电筒 / floodlight-打光灯
-  int _currentMode = 0; // 0: 手电筒, 1: 打光灯
+  // 模式
+  int _currentMode = 0; // 0: 手电筒, 1: 屏幕光
 
-  // 全屏打光灯覆盖层
-  bool _showFloodLightOverlay = false;
+  // 全屏屏幕光覆盖层
+  bool _showScreenLightOverlay = false;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -50,6 +54,7 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
   @override
   void initState() {
     super.initState();
+    _initScreenBrightness();
     _checkTorchAvailability();
 
     _pulseController = AnimationController(
@@ -64,8 +69,21 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
   @override
   void dispose() {
     _turnOffTorch();
+    _turnOffScreenLight();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initScreenBrightness() async {
+    try {
+      final brightness = await ScreenBrightness().current;
+      setState(() {
+        _screenBrightness = brightness ?? 0.5;
+        _savedBrightness = _screenBrightness;
+      });
+    } catch (e) {
+      debugPrint('Failed to get screen brightness: $e');
+    }
   }
 
   Future<void> _checkTorchAvailability() async {
@@ -92,7 +110,6 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
         await TorchLight.disableTorch();
         _pulseController.stop();
       } else {
-        // 请求相机权限
         final status = await Permission.camera.request();
         if (status.isGranted) {
           await TorchLight.enableTorch();
@@ -125,25 +142,69 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
     }
   }
 
-  void _toggleFloodLight() {
-    setState(() {
-      _isFloodLightOn = !_isFloodLightOn;
-      _showFloodLightOverlay = _isFloodLightOn;
-    });
-    HapticFeedback.mediumImpact();
+  Future<void> _turnOnScreenLight() async {
+    try {
+      // 保存当前亮度
+      _savedBrightness = await ScreenBrightness().current ?? 0.5;
+      // 设置为最大亮度
+      await ScreenBrightness().setScreenBrightness(1.0);
+      if (_keepScreenOn) {
+        await WakelockPlus.enable();
+      }
+      setState(() {
+        _isScreenLightOn = true;
+        _screenBrightness = 1.0;
+        _showScreenLightOverlay = true;
+      });
+    } catch (e) {
+      debugPrint('Screen light error: $e');
+    }
   }
 
-  void _setFloodLightBrightness(double value) {
-    setState(() {
-      _floodLightBrightness = value;
-    });
+  Future<void> _turnOffScreenLight() async {
+    if (_isScreenLightOn) {
+      try {
+        // 恢复之前亮度
+        await ScreenBrightness().setScreenBrightness(_savedBrightness);
+        await WakelockPlus.disable();
+        setState(() {
+          _isScreenLightOn = false;
+          _showScreenLightOverlay = false;
+          _screenBrightness = _savedBrightness;
+        });
+      } catch (e) {
+        debugPrint('Turn off screen light error: $e');
+      }
+    }
   }
 
-  void _closeFloodLight() {
+  Future<void> _setScreenBrightness(double value) async {
     setState(() {
-      _isFloodLightOn = false;
-      _showFloodLightOverlay = false;
+      _screenBrightness = value;
     });
+    if (_isScreenLightOn) {
+      try {
+        await ScreenBrightness().setScreenBrightness(value);
+      } catch (e) {
+        debugPrint('Set brightness error: $e');
+      }
+    }
+  }
+
+  Future<void> _toggleKeepScreenOn() async {
+    setState(() {
+      _keepScreenOn = !_keepScreenOn;
+    });
+    if (_keepScreenOn) {
+      await WakelockPlus.enable();
+    } else {
+      await WakelockPlus.disable();
+    }
+    HapticFeedback.lightImpact();
+  }
+
+  void _closeScreenLight() {
+    _turnOffScreenLight();
   }
 
   void _showPermissionDialog() {
@@ -175,24 +236,20 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
       backgroundColor: const Color(0xFF1C1C1E),
       body: Stack(
         children: [
-          // 主内容
           SafeArea(
             child: Column(
               children: [
-                // 顶部模式切换
                 _buildModeSelector(),
-                // 主功能区域
                 Expanded(
                   child: _currentMode == 0
                       ? _buildTorchMode()
-                      : _buildFloodLightMode(),
+                      : _buildScreenLightMode(),
                 ),
               ],
             ),
           ),
-          // 全屏打光灯覆盖层
-          if (_showFloodLightOverlay)
-            _buildFloodLightOverlay(),
+          if (_showScreenLightOverlay)
+            _buildScreenLightOverlay(),
         ],
       ),
     );
@@ -212,7 +269,7 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
             child: _buildModeButton(0, '🔦', '手电筒'),
           ),
           Expanded(
-            child: _buildModeButton(1, '💡', '打光灯'),
+            child: _buildModeButton(1, '☀️', '屏幕光'),
           ),
         ],
       ),
@@ -257,7 +314,6 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // 手电筒图标/状态
         AnimatedBuilder(
           animation: _pulseAnimation,
           builder: (context, child) {
@@ -299,7 +355,6 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
           },
         ),
         const SizedBox(height: 40),
-        // 状态文字
         Text(
           _isTorchOn ? '手电筒已开启' : '点击开启手电筒',
           style: TextStyle(
@@ -320,7 +375,6 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
             ),
           ),
         const SizedBox(height: 60),
-        // 开关按钮
         _buildLargeButton(
           onTap: _torchAvailable ? _toggleTorch : _showPermissionDialog,
           icon: _isTorchOn ? Icons.power_settings_new : Icons.power,
@@ -332,83 +386,60 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
     );
   }
 
-  Widget _buildFloodLightMode() {
+  Widget _buildScreenLightMode() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // 打光灯图标
+        // 屏幕光图标
         GestureDetector(
           onVerticalDragUpdate: (details) {
-            // 上下滑动调整亮度
-            setState(() {
-              _floodLightBrightness = (_floodLightBrightness - details.delta.dy / 200)
-                  .clamp(0.1, 1.0);
-            });
+            if (_isScreenLightOn) {
+              _setScreenBrightness(
+                (_screenBrightness - details.delta.dy / 200).clamp(0.1, 1.0),
+              );
+            }
           },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
+          child: Container(
             width: 160,
             height: 160,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _isFloodLightOn
+              color: _isScreenLightOn
                   ? Color.lerp(
-                      const Color(0xFFFF9F0A),
+                      const Color(0xFF1C1C1E),
                       Colors.white,
-                      1 - _floodLightBrightness,
-                    )!.withValues(alpha: 0.3)
+                      _screenBrightness,
+                    )
                   : const Color(0xFF2C2C2E),
               border: Border.all(
-                color: _isFloodLightOn
-                    ? Color.lerp(
-                        const Color(0xFFFF9F0A),
-                        Colors.white,
-                        1 - _floodLightBrightness,
-                      )!
+                color: _isScreenLightOn
+                    ? Colors.white.withValues(alpha: 0.5)
                     : const Color(0xFF48484A),
                 width: 3,
               ),
-              boxShadow: _isFloodLightOn
-                  ? [
-                      BoxShadow(
-                        color: Color.lerp(
-                          const Color(0xFFFF9F0A),
-                          Colors.white,
-                          1 - _floodLightBrightness,
-                        )!.withValues(alpha: 0.5),
-                        blurRadius: 30 * _floodLightBrightness,
-                        spreadRadius: 5 * _floodLightBrightness,
-                      ),
-                    ]
-                  : null,
             ),
             child: Icon(
-              _isFloodLightOn ? Icons.light_mode : Icons.lightbulb_outline,
+              _isScreenLightOn ? Icons.light_mode : Icons.lightbulb_outline,
               size: 70,
-              color: _isFloodLightOn
-                  ? Color.lerp(
-                      const Color(0xFFFF9F0A),
-                      Colors.white,
-                      1 - _floodLightBrightness,
-                    )
+              color: _isScreenLightOn
+                  ? Colors.white
                   : const Color(0xFF8E8E93),
             ),
           ),
         ),
         const SizedBox(height: 40),
         Text(
-          _isFloodLightOn ? '打光灯已开启' : '点击开启打光灯',
+          _isScreenLightOn ? '屏幕光已开启' : '点击开启屏幕光',
           style: TextStyle(
-            color: _isFloodLightOn
-                ? const Color(0xFFFF9F0A)
+            color: _isScreenLightOn
+                ? Colors.white
                 : const Color(0xFF8E8E93),
             fontSize: 18,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 16),
-        // 上下滑动提示
-        if (_isFloodLightOn)
+        if (_isScreenLightOn) ...[
+          const SizedBox(height: 16),
           Text(
             '上下滑动图标调整亮度',
             style: TextStyle(
@@ -416,40 +447,99 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
               fontSize: 13,
             ),
           ),
-        const SizedBox(height: 8),
-        // 亮度显示
-        if (_isFloodLightOn)
+          const SizedBox(height: 8),
           Text(
-            '${(_floodLightBrightness * 100).toInt()}%',
+            '${(_screenBrightness * 100).toInt()}%',
             style: const TextStyle(
-              color: Color(0xFFFF9F0A),
+              color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.w600,
             ),
           ),
+        ],
         const SizedBox(height: 40),
-        // 全屏按钮
+        // 保持常亮开关
+        if (_isScreenLightOn) ...[
+          _buildKeepScreenOnSwitch(),
+          const SizedBox(height: 20),
+        ],
         _buildLargeButton(
-          onTap: _toggleFloodLight,
-          icon: _isFloodLightOn ? Icons.fullscreen_exit : Icons.fullscreen,
-          label: _isFloodLightOn ? '全屏照亮' : '开启照亮',
-          color: const Color(0xFFFF9F0A),
+          onTap: _isScreenLightOn ? _closeScreenLight : _turnOnScreenLight,
+          icon: _isScreenLightOn ? Icons.fullscreen_exit : Icons.fullscreen,
+          label: _isScreenLightOn ? '退出全屏' : '开启全屏',
+          color: Colors.white,
           isEnabled: true,
         ),
-        if (_isFloodLightOn) ...[
-          const SizedBox(height: 16),
-          TextButton(
-            onPressed: _closeFloodLight,
-            child: const Text(
-              '关闭',
+      ],
+    );
+  }
+
+  Widget _buildKeepScreenOnSwitch() {
+    return GestureDetector(
+      onTap: _toggleKeepScreenOn,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: _keepScreenOn
+              ? const Color(0xFF30D158).withValues(alpha: 0.2)
+              : const Color(0xFF2C2C2E),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _keepScreenOn
+                ? const Color(0xFF30D158)
+                : const Color(0xFF48484A),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _keepScreenOn ? Icons.lock_outline : Icons.lock_open_outlined,
+              size: 20,
+              color: _keepScreenOn
+                  ? const Color(0xFF30D158)
+                  : const Color(0xFF8E8E93),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '保持常亮',
               style: TextStyle(
-                color: Color(0xFFFF453A),
-                fontSize: 14,
+                color: _keepScreenOn
+                    ? const Color(0xFF30D158)
+                    : const Color(0xFF8E8E93),
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ),
-        ],
-      ],
+            const SizedBox(width: 12),
+            Container(
+              width: 44,
+              height: 26,
+              decoration: BoxDecoration(
+                color: _keepScreenOn
+                    ? const Color(0xFF30D158)
+                    : const Color(0xFF48484A),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 200),
+                alignment: _keepScreenOn
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -465,10 +555,10 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         decoration: BoxDecoration(
-          color: isEnabled ? color.withValues(alpha: 0.15) : const Color(0xFF2C2C2E),
+          color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isEnabled ? color : const Color(0xFF48484A),
+            color: color.withValues(alpha: 0.5),
             width: 2,
           ),
         ),
@@ -477,14 +567,14 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
           children: [
             Icon(
               icon,
-              color: isEnabled ? color : const Color(0xFF8E8E93),
+              color: color,
               size: 24,
             ),
             const SizedBox(width: 12),
             Text(
               label,
               style: TextStyle(
-                color: isEnabled ? color : const Color(0xFF8E8E93),
+                color: color,
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
               ),
@@ -495,24 +585,21 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
     );
   }
 
-  // 全屏打光灯覆盖层 - 支持上下滑动调整亮度
-  Widget _buildFloodLightOverlay() {
+  // 全屏屏幕光覆盖层
+  Widget _buildScreenLightOverlay() {
     return Positioned.fill(
       child: GestureDetector(
         onVerticalDragUpdate: (details) {
-          // 上下滑动调整亮度
-          setState(() {
-            _floodLightBrightness = (_floodLightBrightness - details.delta.dy / 200)
-                .clamp(0.1, 1.0);
-          });
+          _setScreenBrightness(
+            (_screenBrightness - details.delta.dy / 200).clamp(0.1, 1.0),
+          );
         },
-        onTap: _closeFloodLight,
         child: Container(
           color: Color.lerp(
-            const Color(0xFFFF9F0A),
+            const Color(0xFF1C1C1E),
             Colors.white,
-            1 - _floodLightBrightness,
-          )!.withValues(alpha: 0.95),
+            _screenBrightness,
+          ),
           child: Stack(
             children: [
               // 顶部提示
@@ -530,7 +617,7 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
                     child: const Text(
                       '上下滑动调整亮度',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Colors.black87,
                         fontSize: 14,
                       ),
                     ),
@@ -545,18 +632,59 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
                     Icon(
                       Icons.light_mode,
                       size: 80,
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.black.withValues(alpha: 0.7),
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      '${(_floodLightBrightness * 100).toInt()}%',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      '${(_screenBrightness * 100).toInt()}%',
+                      style: TextStyle(
+                        color: Colors.black.withValues(alpha: 0.8),
                         fontSize: 48,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
+                ),
+              ),
+              // 保持常亮开关
+              Positioned(
+                bottom: MediaQuery.of(context).padding.bottom + 100,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: _toggleKeepScreenOn,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _keepScreenOn ? Icons.lock_outline : Icons.lock_open_outlined,
+                            size: 18,
+                            color: _keepScreenOn
+                                ? const Color(0xFF30D158)
+                                : Colors.black54,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '常亮 ${_keepScreenOn ? "开" : "关"}',
+                            style: TextStyle(
+                              color: _keepScreenOn
+                                  ? const Color(0xFF30D158)
+                                  : Colors.black54,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
               // 底部关闭按钮
@@ -566,7 +694,7 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
                 right: 0,
                 child: Center(
                   child: GestureDetector(
-                    onTap: _closeFloodLight,
+                    onTap: _closeScreenLight,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                       decoration: BoxDecoration(
@@ -576,12 +704,12 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.close, color: Colors.white, size: 24),
+                          Icon(Icons.close, color: Colors.black87, size: 24),
                           SizedBox(width: 8),
                           Text(
                             '关闭',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: Colors.black87,
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
