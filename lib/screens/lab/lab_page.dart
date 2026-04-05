@@ -658,12 +658,45 @@ class _DemoDetailPage extends StatelessWidget {
       appBar: demo.preferFullScreen
           ? null
           : AppBar(
-              title: Text(demo.title),
+              title: GestureDetector(
+                onTap: () => _showDemoDesc(context),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(child: Text(demo.title)),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 20),
+                  ],
+                ),
+              ),
               centerTitle: true,
               elevation: 0,
               scrolledUnderElevation: 0,
             ),
       body: demo.buildPage(context),
+    );
+  }
+
+  void _showDemoDesc(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.widgets),
+            const SizedBox(width: 8),
+            Flexible(child: Text(demo.title)),
+          ],
+        ),
+        content: Text(demo.description),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
     );
   }
 }
