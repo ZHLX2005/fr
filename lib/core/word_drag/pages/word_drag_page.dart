@@ -8,7 +8,7 @@ import '../widgets/word_card_content.dart';
 ///
 /// 交互说明：
 /// - 上滑中心卡片 → 进入详细阅读模式
-/// - 右滑卡片 → 拖动到删除区，释放删除
+/// - 右滑卡片 → 显示右侧删除区，拖入区域释放才删除
 /// - 左滑卡片 → 稍后重学
 class WordDragPage extends StatefulWidget {
   const WordDragPage({super.key});
@@ -17,22 +17,48 @@ class WordDragPage extends StatefulWidget {
   State<WordDragPage> createState() => _WordDragPageState();
 }
 
-class _WordDragPageState extends State<WordDragPage> {
+class _WordDragPageState extends State<WordDragPage>
+    with SingleTickerProviderStateMixin {
   List<Word> _words = List.from(Word.sampleWords);
   int _currentIndex = 0;
 
   bool _showDetails = false;
   bool _isInDeleteZone = false;
+  double _dragProgress = 0.0;
+  bool _isDraggingRight = false;
 
+  // 删除区位置
   final GlobalKey _deleteZoneKey = GlobalKey();
   Rect _deleteZoneRect = Rect.zero;
+
+  // 详情展示动画
+  late AnimationController _detailsController;
+  late Animation<double> _detailsAnimation;
+
+  // 卡片状态引用
+  DraggableCardState? _cardState;
 
   @override
   void initState() {
     super.initState();
+    _detailsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _detailsAnimation = CurvedAnimation(
+      parent: _detailsController,
+      curve: Curves.easeOutCubic,
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateDeleteZoneRect();
     });
+  }
+
+  @override
+  void dispose() {
+    _detailsController.dispose();
+    super.dispose();
   }
 
   void _updateDeleteZoneRect() {
@@ -45,12 +71,49 @@ class _WordDragPageState extends State<WordDragPage> {
     }
   }
 
-  void _onDragUpdate(DragUpdateDetails details, Offset cardCenter) {
-    if (_deleteZoneRect != Rect.zero) {
+  void _onHorizontalDragProgress(double progress) {
+    setState(() {
+      _dragProgress = progress;
+      _isDraggingRight = progress > 0.05;
+    });
+  }
+
+  void _onCardPositionChanged(Offset cardCenter) {
+    if (_deleteZoneRect == Rect.zero) return;
+
+    // 检测是否进入删除区
+    final expandedRect = _deleteZoneRect.inflate(30);
+    final isInZone = expandedRect.contains(cardCenter);
+
+    if (isInZone != _isInDeleteZone) {
       setState(() {
-        _isInDeleteZone = _deleteZoneRect.contains(cardCenter);
+        _isInDeleteZone = isInZone;
       });
     }
+  }
+
+  void _onSwipeUp() {
+    setState(() {
+      _showDetails = true;
+    });
+    _detailsController.forward();
+  }
+
+  void _onSwipeUpComplete() {
+    // 上滑停留超过阈值，进入详情模式
+    setState(() {
+      _showDetails = true;
+    });
+    _detailsController.forward();
+  }
+
+  void _onSwipeRight() {
+    // 右滑 - 这里实际上不会自动删除
+    // 删除需要拖入删除区
+  }
+
+  void _onSwipeLeft() {
+    _markAsReviewed();
   }
 
   void _deleteCurrentWord() {
@@ -61,68 +124,45 @@ class _WordDragPageState extends State<WordDragPage> {
       if (_currentIndex >= _words.length && _currentIndex > 0) {
         _currentIndex--;
       }
-      _showDetails = false;
-      _isInDeleteZone = false;
+      _resetState();
     });
   }
 
-  void _markAsMastered() {
+  void _markAsReviewed() {
     if (_words.isEmpty) return;
 
     setState(() {
-      _words[_currentIndex].mastered = true;
-      _words.removeAt(_currentIndex);
-      if (_currentIndex >= _words.length && _currentIndex > 0) {
-        _currentIndex--;
-      }
-      _showDetails = false;
+      // 将单词移到最后
+      final word = _words.removeAt(_currentIndex);
+      _words.add(word);
+      _resetState();
     });
   }
 
-  void _onSwipeUp() {
+  void _resetState() {
     setState(() {
-      _showDetails = true;
+      _showDetails = false;
+      _isInDeleteZone = false;
+      _dragProgress = 0.0;
+      _isDraggingRight = false;
     });
-    // 显示详情后自动返回
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted && _showDetails) {
-        setState(() {
-          _showDetails = false;
-        });
-      }
-    });
+    _detailsController.reset();
+    _cardState?.reset();
   }
 
-  void _onSwipeRight() {
-    // 右滑删除
-    _deleteCurrentWord();
-  }
-
-  void _onSwipeLeft() {
-    // 左滑标记为稍后重学
-    _markAsMastered();
+  void _confirmDelete() {
+    if (_isInDeleteZone) {
+      _cardState?.completeSwipeRight();
+      Future.delayed(const Duration(milliseconds: 350), () {
+        _deleteCurrentWord();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1a1a2e),
-      appBar: AppBar(
-        title: const Text('背单词'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _words = List.from(Word.sampleWords);
-                _currentIndex = 0;
-              });
-            },
-            child: const Text('重置'),
-          ),
-        ],
-      ),
       body: SafeArea(
         child: Stack(
           children: [
@@ -134,66 +174,101 @@ class _WordDragPageState extends State<WordDragPage> {
               child: _buildProgressIndicator(),
             ),
 
-            // 中心卡片区域
+            // 中心卡片
             Center(
               child: _words.isEmpty
                   ? _buildEmptyState()
                   : _buildCardStack(),
             ),
 
-            // 底部删除区
+            // 右侧删除区
             if (_words.isNotEmpty)
               Positioned(
-                bottom: 60,
-                left: 0,
-                right: 0,
+                right: 20,
+                top: 0,
+                bottom: 0,
                 child: Center(
-                  child: DeleteZone(
-                    key: _deleteZoneKey,
-                    isActive: _isInDeleteZone,
-                    onDeleteConfirmed: _deleteCurrentWord,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: _isDraggingRight ? 1.0 : 0.0,
+                    child: DeleteZone(
+                      key: _deleteZoneKey,
+                      isActive: _isInDeleteZone,
+                      progress: _dragProgress,
+                      onDeleteTriggered: _confirmDelete,
+                    ),
                   ),
                 ),
               ),
 
-            // 删除区提示
+            // 底部提示
             if (_words.isNotEmpty)
               Positioned(
                 bottom: 20,
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.arrow_back,
-                        color: Colors.grey.withOpacity(0.5),
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '左滑: 稍后重学',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.withOpacity(0.5),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: _isDraggingRight ? 0.0 : 0.5,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.arrow_back,
+                          color: Colors.grey.shade400,
+                          size: 14,
                         ),
-                      ),
-                      const SizedBox(width: 24),
-                      Text(
-                        '右滑: 删除',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.withOpacity(0.5),
+                        const SizedBox(width: 4),
+                        Text(
+                          '左滑: 稍后重学',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade400,
+                          ),
                         ),
+                        const SizedBox(width: 24),
+                        Text(
+                          '右滑: 删除',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward,
+                          color: Colors.grey.shade400,
+                          size: 14,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // 删除确认提示
+            if (_isInDeleteZone)
+              Positioned(
+                bottom: 100,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      '松开手指删除',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward,
-                        color: Colors.grey.withOpacity(0.5),
-                        size: 14,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -219,7 +294,7 @@ class _WordDragPageState extends State<WordDragPage> {
                 ),
               ),
               Text(
-                '已掌握 ${Word.sampleWords.length - _words.length}',
+                '已复习 ${Word.sampleWords.length - _words.length}',
                 style: TextStyle(
                   color: Colors.green.shade400,
                   fontSize: 14,
@@ -243,21 +318,28 @@ class _WordDragPageState extends State<WordDragPage> {
   }
 
   Widget _buildCardStack() {
-    return DraggableWordCard(
-      onSwipeUp: _onSwipeUp,
-      onSwipeRight: _onSwipeRight,
-      onSwipeLeft: _onSwipeLeft,
-      onDragUpdate: (details) {
-        // 计算卡片中心位置
-        final screenCenter = MediaQuery.of(context).size.center(Offset.zero);
-        _onDragUpdate(details, screenCenter);
+    return DeleteZoneDetector(
+      zoneRect: _deleteZoneRect,
+      onZoneStatusChanged: (isInZone) {
+        setState(() {
+          _isInDeleteZone = isInZone;
+        });
       },
-      onCardStateChanged: (state) {
-        setState(() {});
-      },
-      child: WordCardContent(
-        word: _words[_currentIndex],
-        showDetails: _showDetails,
+      onDeleteTriggered: _confirmDelete,
+      child: DraggableWordCard(
+        onSwipeUp: _onSwipeUp,
+        onSwipeRight: _onSwipeRight,
+        onSwipeLeft: _onSwipeLeft,
+        onHorizontalDragProgress: _onHorizontalDragProgress,
+        onCardPositionChanged: _onCardPositionChanged,
+        onCardStateChanged: (state) {
+          _cardState = state;
+        },
+        child: WordCardContent(
+          word: _words[_currentIndex],
+          showDetails: _showDetails,
+          isDragging: _isDraggingRight,
+        ),
       ),
     );
   }
@@ -287,6 +369,16 @@ class _WordDragPageState extends State<WordDragPage> {
             fontSize: 16,
             color: Colors.grey.shade400,
           ),
+        ),
+        const SizedBox(height: 32),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _words = List.from(Word.sampleWords);
+              _currentIndex = 0;
+            });
+          },
+          child: const Text('再学一遍'),
         ),
       ],
     );
