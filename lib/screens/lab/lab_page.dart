@@ -654,9 +654,6 @@ class _DemoDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     // 全屏模式的 Demo 直接使用 body
     if (demo.preferFullScreen) {
       return Scaffold(
@@ -664,68 +661,54 @@ class _DemoDetailPage extends StatelessWidget {
       );
     }
 
-    // 非全屏模式使用现代化头部
+    // 非全屏模式使用 iOS 26 风格极简头部
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // 现代化头部 - 毛玻璃效果
+          // iOS 26 风格极简导航栏
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 56,
             floating: false,
             pinned: true,
-            stretch: true,
-            backgroundColor: colorScheme.surface.withOpacity(0.95),
+            stretch: false,
+            elevation: 0,
+            centerTitle: true,
+            backgroundColor: Colors.white.withValues(alpha: 0.9),
             surfaceTintColor: Colors.transparent,
             flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 16),
-              title: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    demo.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    demo.description,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.black.withOpacity(0.5),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+              titlePadding: EdgeInsets.zero,
+              title: Text(
+                demo.title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1C1C1E),
+                  letterSpacing: -0.4,
+                ),
               ),
-              centerTitle: false,
+              centerTitle: true,
               collapseMode: CollapseMode.parallax,
             ),
-            leading: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: IconButton(
-                onPressed: () => Navigator.maybePop(context),
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
+            leading: Center(
+              child: GestureDetector(
+                onTap: () => Navigator.maybePop(context),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 32,
+                  height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFFF5F5F7),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 18,
-                    color: Colors.black87,
+                    Icons.chevron_left_rounded,
+                    size: 22,
+                    color: Color(0xFF007AFF),
                   ),
                 ),
               ),
             ),
-            leadingWidth: 48,
+            leadingWidth: 56,
           ),
           // 内容区域
           SliverFillRemaining(
