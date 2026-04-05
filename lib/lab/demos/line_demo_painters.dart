@@ -124,7 +124,8 @@ class GamePainter extends CustomPainter {
     final barX = w - 12 - barWidth;
     final barTop = 60.0;
     final barBottom = judgeY;
-    final barHeight = barBottom - barTop;
+    final maxBarHeight = 200.0;
+    final barHeight = (barBottom - barTop).clamp(0.0, maxBarHeight);
     final barRadius = 4.0;
 
     // Background
@@ -160,7 +161,8 @@ class GamePainter extends CustomPainter {
   }
 
   void _paintTapNote(Canvas canvas, double cx, FallingNote note) {
-    if (note.judged) return;
+    // 被判定后立即隐藏（只留炸开动画），missed 音符不显示
+    if (note.judged || note.removeMe) return;
     if (note.currentY < -radius || note.currentY > screenHeight + radius) return;
 
     // Missed fade
@@ -227,7 +229,7 @@ class GamePainter extends CustomPainter {
   }
 
   void _paintSlideNote(Canvas canvas, double cx, FallingNote note) {
-    if (note.judged) return;
+    if (note.judged || note.removeMe) return;
     if (note.currentY < -radius || note.currentY > screenHeight + radius) return;
 
     // Circle

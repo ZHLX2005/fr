@@ -391,6 +391,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _judgeNote(int col, FallingNote note, int timeDiffMs) {
     note.judged = true;
+    note.removeMe = true;
 
     String judgeText;
     double judgeAlpha;
