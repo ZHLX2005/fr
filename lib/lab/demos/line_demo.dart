@@ -87,10 +87,14 @@ class _LineDemoPageState extends State<_LineDemoPage>
   static const double _minDropMs = 800.0;
   static const double _maxDropMs = 4000.0;
 
+  // 圆圈半径（rpx 基准值）
+  static const double _circleRadiusRpx = 20.0;
   // 判定线位置：距底部 25%
   static const double _judgeLineRatio = 0.75; // 从顶部算 75%，即底部 25%
   // 判定线范围上下 100rpx（换算后）
   static const double _judgeRangeRpx = 100.0;
+
+  double _rpx(double value) => value * MediaQuery.of(context).size.width / 750;
 
   // 暂停快照
   List<List<double>> _pausedSnapshots = [];
@@ -128,7 +132,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   Future<void> _loadHighScore() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
-      setState(() => _highScore = prefs.getInt(_highScoreKey) ?? 0);
+      setState(() => _highScore  = prefs.getInt(_highScoreKey) ?? 0);
     }
   }
 
@@ -186,7 +190,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _spawnCircle(int colIndex) {
     final screenSize = MediaQuery.of(context).size;
-    final radius = 15.0 * screenSize.width / 750;
+    final radius = _rpx(_circleRadiusRpx);
 
     final controller = AnimationController(
       duration: Duration(milliseconds: _dropDurationMs.round()),
@@ -214,12 +218,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
 
     controller.forward().then((_) {
+      circle.controller.dispose();
       if (!mounted) return;
       // 动画结束，移除
       setState(() {
         _columns[colIndex].remove(circle);
       });
-      circle.controller.dispose();
     });
   }
 
@@ -268,7 +272,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     // 找该列中未被消除、已接近判定线的最底部圆圈
     // 筛选已到达判定范围内的圆圈，取 currentY 最大的（最接近判定线的）
     final judgeY = screenSize.height * _judgeLineRatio;
-    final judgeRange = _judgeRangeRpx * w / 750;
+    final judgeRange = _rpx(_judgeRangeRpx);
 
     _FallingCircle? target;
     double targetY = -double.infinity;
@@ -306,12 +310,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final w = screenSize.width;
     final colWidth = w / _columnCount;
     final centerX = colWidth * colIndex + colWidth / 2;
-    final radius = 15.0 * w / 750;
+    final radius = _rpx(_circleRadiusRpx);
 
     // 计算得分：距离判定线越近越高分
     final judgeY = screenSize.height * _judgeLineRatio;
     final dist = (circle.currentY - judgeY).abs();
-    final judgeRange = _judgeRangeRpx * w / 750;
+    final judgeRange = _rpx(_judgeRangeRpx);
 
     int points;
     if (dist <= judgeRange * 0.2) {
@@ -345,13 +349,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
 
     explodeController.forward().then((_) {
+      explodeController.dispose();
+      circle.controller.dispose();
       if (!mounted) return;
       setState(() {
         _explodes.remove(explode);
         _columns[colIndex].remove(circle);
       });
-      explodeController.dispose();
-      circle.controller.dispose();
     });
   }
 
@@ -360,8 +364,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final count = 4 + rng.nextInt(2);
     final particles = <_Particle>[];
     final baseAngles = List.generate(count, (i) => (2 * math.pi * i / count));
-    final distances = [15.0, 20.0, 25.0, 30.0, 35.0];
-    final alphas = [0.5, 0.4, 0.35, 0.25, 0.15];
+    final distances = List.generate(count, (i) => 15.0 + i * 5.0);
+    final alphas = List.generate(count, (i) => 0.5 - i * 0.1);
 
     for (int i = 0; i < count; i++) {
       final angle = baseAngles[i] + (rng.nextDouble() - 0.5) * 0.6;
@@ -473,13 +477,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '慢',
+                        '快',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                       Text(
-                        '快',
+                        '慢',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -581,7 +585,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final screenSize = MediaQuery.of(context).size;
     final w = screenSize.width;
     final h = screenSize.height;
-    final radius = 15.0 * w / 750;
+    final radius = _rpx(_circleRadiusRpx);
     final judgeY = h * _judgeLineRatio;
 
     // 收集所有活跃的动画 controller 用于 AnimatedBuilder
@@ -631,7 +635,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 icon: Icon(
                   Icons.arrow_back_ios_new,
                   color: theme.colorScheme.primary,
-                  size: 20,
+                  size: 24,
                 ),
                 onPressed: _handleExit,
               ),
@@ -646,11 +650,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 child: Text(
                   '$_score/$_highScore',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 24,
                     fontWeight: FontWeight.w200,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.6),
                     fontFeatures: [const FontFeature.tabularFigures()],
-                    letterSpacing: 2,
+                    letterSpacing: 3,
                   ),
                 ),
               ),
@@ -664,7 +668,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 icon: Icon(
                   Icons.settings_outlined,
                   color: theme.colorScheme.primary,
-                  size: 20,
+                  size: 24,
                 ),
                 onPressed: _isExiting ? null : _showSpeedSettings,
               ),
@@ -851,13 +855,13 @@ class _GamePainter extends CustomPainter {
     final judgePaint = Paint()
       ..color = color.withValues(alpha: 0.25)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..strokeWidth = 2;
     canvas.drawLine(Offset(0, judgeY), Offset(w, judgeY), judgePaint);
 
     // ── 圆圈 ──
     final circlePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
+      ..strokeWidth = 2.5;
 
     for (int i = 0; i < columns.length; i++) {
       final cx = colWidth * i + colWidth / 2;
@@ -940,6 +944,102 @@ class _GamePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GamePainter oldDelegate) => true;
+}
+
+/// 演示动画绘制器：只绘制中间列单个圆圈 + 判定线 + 炸开粒子
+class _DemoPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+  final double judgeYRatio; // ratio from top (e.g. 0.75)
+  final double circleY; // 当前圆圈 Y 坐标
+  final bool showExplode; // 是否显示炸开
+  final double explodeProgress; // 炸开进度 0~1
+  final List<_Particle> explodeParticles;
+
+  _DemoPainter({
+    required this.color,
+    required this.radius,
+    required this.judgeYRatio,
+    required this.circleY,
+    this.showExplode = false,
+    this.explodeProgress = 0.0,
+    this.explodeParticles = const [],
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final actualJudgeY = h * judgeYRatio;
+
+    // 判定线
+    final judgePaint = Paint()
+      ..color = color.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(0, actualJudgeY), Offset(w, actualJudgeY), judgePaint);
+
+    // 圆圈
+    if (!showExplode) {
+      final circlePaint = Paint()
+        ..color = color.withValues(alpha: 0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawCircle(Offset(cx, circleY), radius, circlePaint);
+    }
+
+    // 炸开动画
+    if (showExplode) {
+      final explodeY = actualJudgeY * 0.7;
+      // Phase 1: 内爆缩小 (0.0 - 0.08)
+      if (explodeProgress <= 0.08) {
+        final t = explodeProgress / 0.08;
+        final easedT = Curves.easeIn.transform(t);
+        final currentRadius = radius * (1.0 - easedT);
+        if (currentRadius > 0.1) {
+          final paint = Paint()
+            ..color = color.withValues(alpha: 0.3)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5;
+          canvas.drawCircle(Offset(cx, explodeY), currentRadius, paint);
+        }
+      }
+
+      // Phase 2: 粒子飞溅 (0.08 - 1.0)
+      if (explodeProgress > 0.08) {
+        final t = (explodeProgress - 0.08) / 0.92;
+        final splashProgress = Curves.easeOut.transform(t);
+        final fadeProgress = Curves.easeIn.transform(t);
+        final particleSize = 8.0 * w / 200;
+
+        for (final p in explodeParticles) {
+          final startX = cx + radius * math.cos(p.angle);
+          final startY = explodeY + radius * math.sin(p.angle);
+          final dx = math.cos(p.angle) * p.distance * splashProgress;
+          final dy = math.sin(p.angle) * p.distance * splashProgress;
+          final currentAlpha = p.initialAlpha * (1.0 - fadeProgress);
+
+          if (currentAlpha > 0.01) {
+            final particlePaint = Paint()
+              ..color = color.withValues(alpha: currentAlpha)
+              ..style = PaintingStyle.fill;
+            canvas.drawRect(
+              Rect.fromCenter(
+                center: Offset(startX + dx, startY + dy),
+                width: particleSize,
+                height: particleSize,
+              ),
+              particlePaint,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DemoPainter oldDelegate) => true;
 }
 
 /// 水退出动画绘制器
