@@ -661,14 +661,7 @@ class _DemoDetailPage extends StatelessWidget {
               title: GestureDetector(
                 onTap: () => _showDemoDesc(context),
                 behavior: HitTestBehavior.opaque,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(child: Text(demo.title)),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down, size: 20),
-                  ],
-                ),
+                child: Text(demo.title),
               ),
               centerTitle: true,
               elevation: 0,
