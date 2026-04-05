@@ -61,6 +61,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
   static const double _minDropMs = 800.0;
   static const double _maxDropMs = 4000.0;
 
+  BackgroundStyle _backgroundStyle = BackgroundStyle.none;
+
+  static const String _speedKey = 'line_demo_speed';
+  static const String _backgroundKey = 'line_demo_background';
+
   // 圆圈半径（rpx 基准值）
   static const double _circleRadiusRpx = 20.0;
   // 判定线位置：距底部 25%
@@ -92,7 +97,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _columns = List.generate(_columnCount, (_) => []);
     _spawnTimers = List.generate(_columnCount, (_) => null);
 
-    _loadHighScore();
+    _loadSettings();
 
     // 入场水动画
     _enterController.value = 1.0;
@@ -103,10 +108,15 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
   }
 
-  Future<void> _loadHighScore() async {
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
-      setState(() => _highScore  = prefs.getInt(_highScoreKey) ?? 0);
+      setState(() {
+        _highScore = prefs.getInt('line_demo_high_score') ?? 0;
+        _dropDurationMs = prefs.getDouble(_speedKey) ?? 2500.0;
+        final bgIndex = prefs.getInt(_backgroundKey) ?? 0;
+        _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
+      });
     }
   }
 
@@ -408,7 +418,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void _showSpeedSettings() {
     _wasGameRunning = !_isGameOver && !_isCountingDown;
 
-    // 保存快照 + 暂停所有
     _pausedSnapshots = [];
     for (final col in _columns) {
       final snapshots = <double>[];
@@ -424,20 +433,18 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
 
     Navigator.of(context)
-        .push<double>(
+        .push<void>(
       MaterialPageRoute(
         builder: (context) => SpeedSettingsPage(
-          dropDurationMs: _dropDurationMs,
           primaryColor: Theme.of(context).colorScheme.primary,
         ),
       ),
     )
-        .then((newSpeed) {
+        .then((_) {
       if (!mounted || _isExiting) return;
-      if (newSpeed != null) {
-        setState(() => _dropDurationMs = newSpeed);
-      }
-      _startCountdown();
+      _loadSettings().then((_) {
+        _startCountdown();
+      });
     });
   }
 
@@ -564,6 +571,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       columnCount: _columnCount,
                       judgeY: judgeY,
                       judgeFeedbacks: _judgeFeedbacks,
+                      backgroundStyle: _backgroundStyle,
                     ),
                   );
                 },
