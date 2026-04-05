@@ -34,6 +34,11 @@ class LocalnetService {
 
   String get deviceId => discovery.deviceId;
 
+  /// 各组件运行状态
+  bool get isUdpBroadcastRunning => discovery.isUdpBroadcastRunning;
+  bool get isUdpListenerRunning => discovery.isUdpListenerRunning;
+  bool get isHttpServerRunning => discovery.isHttpServerRunning;
+
   void _logState(String from, String to, {String? note}) {
     debugLog.logState('Localnet', from, to, note: note);
   }
@@ -85,8 +90,21 @@ class LocalnetService {
       // 应用配置
       await applyConfig();
 
-      // 启动发现服务
-      await discovery.startListening();
+      final cfg = config.config;
+
+      // 根据配置启动各组件
+      if (cfg.httpServerEnabled) {
+        await discovery.startHttpServer();
+      }
+      if (cfg.udpListenerEnabled) {
+        await discovery.startUdpListener();
+      }
+      if (cfg.udpBroadcastEnabled) {
+        discovery.startUdpBroadcast();
+      }
+
+      // 启动清理定时器
+      discovery.startCleanupTimer();
 
       // 注册消息回调（消息通过 discovery 的 HTTP 服务器接收）
       discovery.onMessageReceived = (msg) {
@@ -117,6 +135,41 @@ class LocalnetService {
 
     _logState(_serviceState, stateIdle, note: '服务已停止');
     _serviceState = stateIdle;
+  }
+
+  // ========== 组件独立控制 ==========
+
+  /// 启动 UDP 广播
+  Future<void> startUdpBroadcast() async {
+    if (!discovery.isUdpListenerRunning) {
+      await discovery.startUdpListener();
+    }
+    discovery.startUdpBroadcast();
+  }
+
+  /// 停止 UDP 广播
+  void stopUdpBroadcast() {
+    discovery.stopUdpBroadcast();
+  }
+
+  /// 启动 UDP 监听
+  Future<void> startUdpListener() async {
+    await discovery.startUdpListener();
+  }
+
+  /// 停止 UDP 监听
+  void stopUdpListener() {
+    discovery.stopUdpListener();
+  }
+
+  /// 启动 HTTP 服务器
+  Future<void> startHttpServer() async {
+    await discovery.startHttpServer();
+  }
+
+  /// 停止 HTTP 服务器
+  void stopHttpServer() {
+    discovery.stopHttpServer();
   }
 
   void dispose() {
