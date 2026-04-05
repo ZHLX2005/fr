@@ -43,3 +43,22 @@ class Particle {
     required this.initialAlpha,
   });
 }
+
+/// 判定文字反馈
+class JudgeFeedback {
+  final String text;
+  final double x;
+  final double y;
+  final Color color;
+  final double baseAlpha;
+  final AnimationController controller;
+
+  JudgeFeedback({
+    required this.text,
+    required this.x,
+    required this.y,
+    required this.color,
+    required this.baseAlpha,
+    required this.controller,
+  });
+}
