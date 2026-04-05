@@ -654,9 +654,85 @@ class _DemoDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // 全屏模式的 Demo 直接使用 body
+    if (demo.preferFullScreen) {
+      return Scaffold(
+        body: demo.buildPage(context),
+      );
+    }
+
+    // 非全屏模式使用现代化头部
     return Scaffold(
-      appBar: demo.preferFullScreen ? null : AppBar(title: Text(demo.title)),
-      body: demo.buildPage(context),
+      body: CustomScrollView(
+        slivers: [
+          // 现代化头部 - 毛玻璃效果
+          SliverAppBar(
+            expandedHeight: 120,
+            floating: false,
+            pinned: true,
+            stretch: true,
+            backgroundColor: colorScheme.surface.withOpacity(0.95),
+            surfaceTintColor: Colors.transparent,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 16),
+              title: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    demo.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    demo.description,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black.withOpacity(0.5),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+              centerTitle: false,
+              collapseMode: CollapseMode.parallax,
+            ),
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: IconButton(
+                onPressed: () => Navigator.maybePop(context),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+            leadingWidth: 48,
+          ),
+          // 内容区域
+          SliverFillRemaining(
+            child: demo.buildPage(context),
+          ),
+        ],
+      ),
     );
   }
 }

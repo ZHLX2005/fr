@@ -15,6 +15,9 @@ class DragReorderDemo extends DemoPage {
   String get description => '手机桌面风格拖拽排序';
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const _DragReorderPage();
   }

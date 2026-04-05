@@ -14,6 +14,9 @@ class NetworkEnvDemo extends DemoPage {
   String get description => '查看当前设备的网络环境信息，包括 IP、DNS、网卡、TCP 连接等';
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const _NetworkEnvPage();
   }

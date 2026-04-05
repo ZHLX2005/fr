@@ -21,6 +21,9 @@ class ClockDemo extends DemoPage {
   String get description => '波浪分割时钟与记录';
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const _ClockDemoPage();
   }

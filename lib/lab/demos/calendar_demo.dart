@@ -11,6 +11,9 @@ class CalendarDemo extends DemoPage {
   String get description => '日期范围选择日历';
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const _CalendarDemoPage();
   }
