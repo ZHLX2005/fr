@@ -62,3 +62,10 @@ class JudgeFeedback {
     required this.controller,
   });
 }
+
+/// 背景样式
+enum BackgroundStyle {
+  none,
+  grid,
+  lines;
+}
