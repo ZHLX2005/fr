@@ -1228,7 +1228,11 @@ class _SpeedSettingsPageState extends State<_SpeedSettingsPage>
                             min: _LineDemoPageState._minDropMs,
                             max: _LineDemoPageState._maxDropMs,
                             onChanged: (v) {
-                              setState(() => _dropDurationMs = v);
+                              setState(() {
+                                _dropDurationMs = v;
+                                _fallController.duration =
+                                    Duration(milliseconds: v.round());
+                              });
                             },
                           ),
                         ),
