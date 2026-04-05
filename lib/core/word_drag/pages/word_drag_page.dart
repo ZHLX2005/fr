@@ -25,7 +25,7 @@ class _WordDragPageState extends State<WordDragPage>
   bool _showDetails = false;
   bool _isInDeleteZone = false;
   double _dragProgress = 0.0;
-  bool _isDraggingRight = false;
+  double _deleteZoneOpacity = 0.0; // 删除区透明度，随距离变化
 
   // 删除区位置
   final GlobalKey _deleteZoneKey = GlobalKey();
@@ -69,20 +69,31 @@ class _WordDragPageState extends State<WordDragPage>
   void _onHorizontalDragProgress(double progress) {
     setState(() {
       _dragProgress = progress;
-      _isDraggingRight = progress > 0.05;
     });
   }
 
   void _onCardPositionChanged(Offset cardCenter) {
     if (_deleteZoneRect == Rect.zero) return;
 
+    // 计算卡片中心到删除区的距离
+    final zoneCenter = _deleteZoneRect.center;
+    final distance = (cardCenter - zoneCenter).distance;
+
+    // 最大检测距离（屏幕宽度）
+    final maxDistance = MediaQuery.of(context).size.width * 0.6;
+
+    // 根据距离计算透明度（距离越近，透明度越高）
+    // 超过 maxDistance 时 opacity 为 0，进入删除区时 opacity 为 1
+    double opacity = 1.0 - (distance / maxDistance).clamp(0.0, 1.0);
+
     // 检测是否进入删除区
     final expandedRect = _deleteZoneRect.inflate(30);
     final isInZone = expandedRect.contains(cardCenter);
 
-    if (isInZone != _isInDeleteZone) {
+    if (isInZone != _isInDeleteZone || (opacity - _deleteZoneOpacity).abs() > 0.05) {
       setState(() {
         _isInDeleteZone = isInZone;
+        _deleteZoneOpacity = opacity.clamp(0.0, 1.0);
       });
     }
   }
@@ -131,7 +142,7 @@ class _WordDragPageState extends State<WordDragPage>
       _showDetails = false;
       _isInDeleteZone = false;
       _dragProgress = 0.0;
-      _isDraggingRight = false;
+      _deleteZoneOpacity = 0.0;
     });
     _detailsController.reset();
     _cardState?.reset();
@@ -168,36 +179,32 @@ class _WordDragPageState extends State<WordDragPage>
                   : _buildCardStack(),
             ),
 
-            // 右侧删除区
-            if (_words.isNotEmpty)
+            // 右侧删除区 - 随卡片靠近逐渐显现
+            if (_words.isNotEmpty && _deleteZoneOpacity > 0.01)
               Positioned(
                 right: 20,
                 top: 0,
                 bottom: 0,
                 child: Center(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: _isDraggingRight ? 1.0 : 0.0,
-                    child: DeleteZone(
-                      key: _deleteZoneKey,
-                      isActive: _isInDeleteZone,
-                      progress: _dragProgress,
-                      onDeleteTriggered: _confirmDelete,
-                    ),
+                  child: DeleteZone(
+                    key: _deleteZoneKey,
+                    isActive: _isInDeleteZone,
+                    opacity: _deleteZoneOpacity,
+                    progress: _dragProgress,
+                    onDeleteTriggered: _confirmDelete,
                   ),
                 ),
               ),
 
-            // 底部提示
-            if (_words.isNotEmpty)
+            // 底部提示 - 删除区显现时隐藏
+            if (_words.isNotEmpty && _deleteZoneOpacity < 0.1)
               Positioned(
                 bottom: 20,
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: _isDraggingRight ? 0.0 : 0.5,
+                  child: Opacity(
+                    opacity: 0.5,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -325,7 +332,7 @@ class _WordDragPageState extends State<WordDragPage>
         child: WordCardContent(
           word: _words[_currentIndex],
           showDetails: _showDetails,
-          isDragging: _isDraggingRight,
+          isDragging: _dragProgress > 0,
         ),
       ),
     );
