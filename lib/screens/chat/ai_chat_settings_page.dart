@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ai_chat_provider.dart';
+import '../../providers/agent_chat_provider.dart';
+import '../../models/ai_chat_message.dart';
 
 /// AI 聊天设置页面
 class AIChatSettingsPage extends StatefulWidget {
@@ -19,7 +21,12 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
   late TextEditingController _dbNameController;
   late TextEditingController _dbUserController;
   late TextEditingController _dbPasswordController;
+
   bool _isInit = false;
+  bool _isSaving = false;
+
+  // 本地状态，跟踪当前选择
+  String _selectedType = 'claude';
 
   @override
   void dispose() {
@@ -47,6 +54,47 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
     _dbNameController = TextEditingController(text: s.dbName);
     _dbUserController = TextEditingController(text: s.dbUser);
     _dbPasswordController = TextEditingController(text: s.dbPassword);
+    _selectedType = s.type.isNotEmpty ? s.type : 'claude';
+  }
+
+  Future<void> _saveSettings() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+
+    try {
+      final provider = context.read<AIChatProvider>();
+      final newSettings = AISettings(
+        apiKey: _apiKeyController.text,
+        model: _modelController.text,
+        baseURL: _baseURLController.text,
+        type: _selectedType,
+        dbHost: _dbHostController.text,
+        dbPort: _dbPortController.text,
+        dbName: _dbNameController.text,
+        dbUser: _dbUserController.text,
+        dbPassword: _dbPasswordController.text,
+      );
+
+      await provider.updateSettings(newSettings);
+
+      // 通知 AgentChatProvider 刷新设置
+      if (mounted) {
+        context.read<AgentChatProvider>().refreshSettings();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('设置已保存'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -55,6 +103,19 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
       appBar: AppBar(
         title: const Text('AI 聊天设置'),
         centerTitle: true,
+        actions: [
+          TextButton.icon(
+            onPressed: _isSaving ? null : _saveSettings,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check),
+            label: Text(_isSaving ? '保存中...' : '保存'),
+          ),
+        ],
       ),
       body: Consumer<AIChatProvider>(
         builder: (context, provider, _) {
@@ -77,13 +138,12 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   prefixIcon: Icon(Icons.key),
                 ),
                 obscureText: true,
-                onChanged: (value) => provider.updateApiKey(value),
               ),
               const SizedBox(height: 16),
 
               // 模型类型
               DropdownButtonFormField<String>(
-                value: provider.settings.type,
+                value: _selectedType,
                 decoration: const InputDecoration(
                   labelText: '模型类型',
                   border: OutlineInputBorder(),
@@ -96,7 +156,9 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   DropdownMenuItem(value: 'other', child: Text('Other')),
                 ],
                 onChanged: (value) {
-                  if (value != null) provider.updateType(value);
+                  if (value != null) {
+                    setState(() => _selectedType = value);
+                  }
                 },
               ),
               const SizedBox(height: 16),
@@ -110,7 +172,6 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.psychology),
                 ),
-                onChanged: (value) => provider.updateModel(value),
               ),
               const SizedBox(height: 16),
 
@@ -123,7 +184,6 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.link),
                 ),
-                onChanged: (value) => provider.updateBaseURL(value),
               ),
               const SizedBox(height: 24),
 
@@ -158,7 +218,6 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.dns),
                 ),
-                onChanged: (value) => provider.updateDbHost(value),
               ),
               const SizedBox(height: 12),
 
@@ -170,7 +229,6 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.numbers),
                 ),
-                onChanged: (value) => provider.updateDbPort(value),
               ),
               const SizedBox(height: 12),
 
@@ -182,7 +240,6 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.storage),
                 ),
-                onChanged: (value) => provider.updateDbName(value),
               ),
               const SizedBox(height: 12),
 
@@ -194,7 +251,6 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),
-                onChanged: (value) => provider.updateDbUser(value),
               ),
               const SizedBox(height: 12),
 
@@ -207,9 +263,28 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   prefixIcon: Icon(Icons.lock),
                 ),
                 obscureText: true,
-                onChanged: (value) => provider.updateDbPassword(value),
               ),
               const SizedBox(height: 32),
+
+              // 保存按钮
+              FilledButton.icon(
+                onPressed: _isSaving ? null : _saveSettings,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_isSaving ? '保存中...' : '保存设置'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // 说明
               Container(
@@ -235,9 +310,10 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                       ],
                     ),
                     SizedBox(height: 12),
-                    Text('1. 修改后会立即保存', style: TextStyle(fontSize: 13)),
+                    Text('1. 点击右上角保存或底部按钮保存设置', style: TextStyle(fontSize: 13)),
                     Text('2. 模型类型默认为 Claude', style: TextStyle(fontSize: 13)),
                     Text('3. 数据库配置用于 Agent 功能', style: TextStyle(fontSize: 13)),
+                    Text('4. 保存后返回 Agent 页面即可使用', style: TextStyle(fontSize: 13)),
                   ],
                 ),
               ),
