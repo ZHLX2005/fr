@@ -248,8 +248,6 @@ class DraggableCardState extends State<DraggableWordCard>
   /// 计算边界阻尼 - 核心弹性效果
   /// 越靠近边界，阻力越大，产生"推不动"的感觉
   double _calculateDamping(double offset, double maxExtent) {
-    const boundaryZone = 0.25; // 边界区域比例
-
     final absOffset = offset.abs();
 
     if (absOffset > maxExtent) {
