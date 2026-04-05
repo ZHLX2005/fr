@@ -951,7 +951,7 @@ class _DemoPainter extends CustomPainter {
   final Color color;
   final double radius;
   final double judgeYRatio; // ratio from top (e.g. 0.75)
-  final double circleY; // 当前圆圈 Y 坐标
+  final double circleYRatio; // 当前圆圈 Y 坐标比例（相对画布高度）
   final bool showExplode; // 是否显示炸开
   final double explodeProgress; // 炸开进度 0~1
   final List<_Particle> explodeParticles;
@@ -960,7 +960,7 @@ class _DemoPainter extends CustomPainter {
     required this.color,
     required this.radius,
     required this.judgeYRatio,
-    required this.circleY,
+    required this.circleYRatio,
     this.showExplode = false,
     this.explodeProgress = 0.0,
     this.explodeParticles = const [],
@@ -972,6 +972,7 @@ class _DemoPainter extends CustomPainter {
     final h = size.height;
     final cx = w / 2;
     final actualJudgeY = h * judgeYRatio;
+    final actualCircleY = h * circleYRatio;
 
     // 判定线
     final judgePaint = Paint()
@@ -986,7 +987,7 @@ class _DemoPainter extends CustomPainter {
         ..color = color.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
-      canvas.drawCircle(Offset(cx, circleY), radius, circlePaint);
+      canvas.drawCircle(Offset(cx, actualCircleY), radius, circlePaint);
     }
 
     // 炸开动画
@@ -1044,9 +1045,258 @@ class _DemoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DemoPainter oldDelegate) =>
-      oldDelegate.circleY != circleY ||
+      oldDelegate.circleYRatio != circleYRatio ||
       oldDelegate.showExplode != showExplode ||
       oldDelegate.explodeProgress != explodeProgress;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 速度设置页
+// ═══════════════════════════════════════════════════════════════
+
+class _SpeedSettingsPage extends StatefulWidget {
+  final double dropDurationMs;
+  final Color primaryColor;
+
+  const _SpeedSettingsPage({
+    required this.dropDurationMs,
+    required this.primaryColor,
+  });
+
+  @override
+  State<_SpeedSettingsPage> createState() => _SpeedSettingsPageState();
+}
+
+class _SpeedSettingsPageState extends State<_SpeedSettingsPage>
+    with TickerProviderStateMixin {
+  late double _dropDurationMs;
+  double _circleYRatio = -0.05;
+  bool _showExplode = false;
+  List<_Particle> _explodeParticles = [];
+
+  late AnimationController _fallController;
+  late AnimationController _explodeController;
+
+  static const double _targetYRatio = 0.525; // judgeYRatio * 0.7 = 0.75 * 0.7
+
+  @override
+  void initState() {
+    super.initState();
+    _dropDurationMs = widget.dropDurationMs;
+
+    _fallController = AnimationController(
+      duration: Duration(milliseconds: _dropDurationMs.round()),
+      vsync: this,
+    );
+
+    _explodeController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _fallController.addListener(_onFallTick);
+    _explodeController.addListener(_onExplodeTick);
+
+    _startFall();
+  }
+
+  void _startFall() {
+    _showExplode = false;
+    _explodeParticles = [];
+    _circleYRatio = -0.05;
+    _fallController.duration = Duration(milliseconds: _dropDurationMs.round());
+    _fallController.forward(from: 0.0);
+  }
+
+  void _onFallTick() {
+    if (_showExplode) return;
+    final easedT = Curves.easeIn.transform(_fallController.value);
+    setState(() {
+      _circleYRatio = -0.05 + (_targetYRatio + 0.05) * easedT;
+    });
+
+    if (_fallController.value >= 1.0) {
+      _triggerExplode();
+    }
+  }
+
+  void _triggerExplode() {
+    setState(() {
+      _showExplode = true;
+      _explodeParticles = _generateDemoParticles();
+    });
+    _explodeController.forward(from: 0.0);
+  }
+
+  void _onExplodeTick() {
+    setState(() {});
+    if (_explodeController.value >= 1.0) {
+      _startFall();
+    }
+  }
+
+  List<_Particle> _generateDemoParticles() {
+    final rng = math.Random();
+    final count = 4 + rng.nextInt(2);
+    final particles = <_Particle>[];
+    final baseAngles = List.generate(count, (i) => (2 * math.pi * i / count));
+    final distances = List.generate(count, (i) => 15.0 + i * 5.0);
+    final alphas = List.generate(count, (i) => 0.5 - i * 0.1);
+
+    for (int i = 0; i < count; i++) {
+      final angle = baseAngles[i] + (rng.nextDouble() - 0.5) * 0.6;
+      particles.add(_Particle(
+        angle: angle,
+        distance: distances[i] + rng.nextDouble() * 5,
+        initialAlpha: alphas[i],
+      ));
+    }
+    return particles;
+  }
+
+  @override
+  void dispose() {
+    _fallController.dispose();
+    _explodeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final w = MediaQuery.of(context).size.width;
+    double rpx(double v) => v * w / 750;
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // 返回按钮
+            Positioned(
+              top: 16,
+              left: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(_dropDurationMs),
+                child: Icon(
+                  Icons.arrow_back_ios_new,
+                  size: 20,
+                  color: widget.primaryColor,
+                ),
+              ),
+            ),
+
+            // 主内容：左右布局
+            Center(
+              child: Row(
+                children: [
+                  // 左侧：速度控制
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '下落速度',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '${_dropDurationMs.round()}ms',
+                          style: TextStyle(
+                            fontSize: rpx(32),
+                            fontWeight: FontWeight.w100,
+                            color: widget.primaryColor.withValues(alpha: 0.4),
+                            fontFeatures: [const FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 1.5,
+                            thumbShape: const _LineThumbShape(thumbRadius: 4),
+                            overlayShape: SliderComponentShape.noOverlay,
+                            activeTrackColor: widget.primaryColor,
+                            inactiveTrackColor: theme.colorScheme.outlineVariant,
+                            thumbColor: widget.primaryColor,
+                          ),
+                          child: Slider(
+                            value: _dropDurationMs,
+                            min: _LineDemoPageState._minDropMs,
+                            max: _LineDemoPageState._maxDropMs,
+                            onChanged: (v) {
+                              setState(() => _dropDurationMs = v);
+                            },
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '快',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Text(
+                              '慢',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 24),
+
+                  // 右侧：预览动画
+                  Expanded(
+                    flex: 6,
+                    child: AspectRatio(
+                      aspectRatio: 0.6,
+                      child: AnimatedBuilder(
+                        animation: Listenable.merge([_fallController, _explodeController]),
+                        builder: (context, _) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(rpx(16)),
+                              border: Border.all(
+                                color: widget.primaryColor.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(rpx(16)),
+                              child: CustomPaint(
+                                painter: _DemoPainter(
+                                  color: widget.primaryColor,
+                                  radius: rpx(20),
+                                  judgeYRatio: 0.75,
+                                  circleYRatio: _circleYRatio,
+                                  showExplode: _showExplode,
+                                  explodeProgress: _explodeController.value,
+                                  explodeParticles: _explodeParticles,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// 水退出动画绘制器
