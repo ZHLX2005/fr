@@ -56,12 +56,8 @@ class DraggableCardState extends State<DraggableWordCard>
   Animation<Offset>? _animation;
 
   Offset _dragOffset = Offset.zero;
-  Offset _dragVelocity = Offset.zero;
   bool _isDragging = false;
   SwipeDirection? _swipeDirection;
-
-  // 拖动进度（0-1）
-  double _horizontalProgress = 0.0;
 
   Offset get currentOffset => _dragOffset;
   bool get isDragging => _isDragging;
@@ -94,7 +90,6 @@ class DraggableCardState extends State<DraggableWordCard>
     setState(() {
       _isDragging = true;
       _swipeDirection = null;
-      _horizontalProgress = 0.0;
     });
     widget.onCardStateChanged?.call(this);
   }
@@ -107,7 +102,6 @@ class DraggableCardState extends State<DraggableWordCard>
     // 计算横向进度（用于显示删除区）
     final screenWidth = MediaQuery.of(context).size.width;
     final progress = (_dragOffset.dx / screenWidth).clamp(0.0, 1.0);
-    _horizontalProgress = progress;
     widget.onHorizontalDragProgress?.call(progress);
 
     // 通知卡片位置变化（用于检测是否进入删除区）
@@ -121,7 +115,6 @@ class DraggableCardState extends State<DraggableWordCard>
   }
 
   void _onPanEnd(DragEndDetails details) {
-    _dragVelocity = details.velocity.pixelsPerSecond;
     _isDragging = false;
 
     final screenWidth = MediaQuery.of(context).size.width;
