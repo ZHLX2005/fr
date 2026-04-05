@@ -33,6 +33,8 @@ import 'lab/demos/water_capsule_demo.dart';
 import 'lab/demos/speech_synthesis_demo.dart';
 import 'lab/demos/line_demo.dart';
 import 'lab/demos/torch_demo.dart';
+import 'lab/demos/sensor_demo.dart';
+import 'lab/demos/word_drag_demo.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
@@ -68,6 +70,8 @@ void main() async {
   registerSpeechSynthesisDemo();
   registerLineDemo();
   registerTorchDemo();
+  registerSensorDemo();
+  registerWordDragDemo();
 
   // 使用 ProviderScope 包装应用，注入 Repository
   runApp(

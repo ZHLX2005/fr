@@ -390,7 +390,12 @@ class DiscoveryService {
 
   /// 停止服务
   void stop() {
-    if (_serviceState == stateInit) return;
+    if (_serviceState == stateInit) {
+      // 即使未初始化也清理设备列表
+      _devices.clear();
+      _cleanupTimer?.cancel();
+      return;
+    }
 
     debugLog.i('Discovery', '停止发现服务...');
 

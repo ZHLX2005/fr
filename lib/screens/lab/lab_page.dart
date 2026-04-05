@@ -654,65 +654,39 @@ class _DemoDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 全屏模式的 Demo 直接使用 body
-    if (demo.preferFullScreen) {
-      return Scaffold(
-        body: demo.buildPage(context),
-      );
-    }
-
-    // 非全屏模式使用 iOS 26 风格极简头部
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // iOS 26 风格极简导航栏
-          SliverAppBar(
-            expandedHeight: 56,
-            floating: false,
-            pinned: true,
-            stretch: false,
-            elevation: 0,
-            centerTitle: true,
-            backgroundColor: Colors.white.withValues(alpha: 0.9),
-            surfaceTintColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: EdgeInsets.zero,
-              title: Text(
-                demo.title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1C1C1E),
-                  letterSpacing: -0.4,
-                ),
+      appBar: demo.preferFullScreen
+          ? null
+          : AppBar(
+              title: GestureDetector(
+                onTap: () => _showDemoDesc(context),
+                behavior: HitTestBehavior.opaque,
+                child: Text(demo.title),
               ),
               centerTitle: true,
-              collapseMode: CollapseMode.parallax,
+              elevation: 0,
+              scrolledUnderElevation: 0,
             ),
-            leading: Center(
-              child: GestureDetector(
-                onTap: () => Navigator.maybePop(context),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F5F7),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.chevron_left_rounded,
-                    size: 22,
-                    color: Color(0xFF007AFF),
-                  ),
-                ),
-              ),
-            ),
-            leadingWidth: 56,
-          ),
-          // 内容区域
-          SliverFillRemaining(
-            child: demo.buildPage(context),
+      body: demo.buildPage(context),
+    );
+  }
+
+  void _showDemoDesc(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.widgets),
+            const SizedBox(width: 8),
+            Flexible(child: Text(demo.title)),
+          ],
+        ),
+        content: Text(demo.description),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
           ),
         ],
       ),
