@@ -537,6 +537,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     for (final e in _explodes) {
       allControllers.add(e.controller);
     }
+    for (final fb in _judgeFeedbacks) {
+      allControllers.add(fb.controller);
+    }
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -560,6 +563,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       screenHeight: h,
                       columnCount: _columnCount,
                       judgeY: judgeY,
+                      judgeFeedbacks: _judgeFeedbacks,
                     ),
                   );
                 },

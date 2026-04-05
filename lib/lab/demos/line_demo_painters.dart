@@ -16,6 +16,7 @@ class GamePainter extends CustomPainter {
   final double screenHeight;
   final int columnCount;
   final double judgeY;
+  final List<JudgeFeedback> judgeFeedbacks;
 
   GamePainter({
     required this.columns,
@@ -26,6 +27,7 @@ class GamePainter extends CustomPainter {
     required this.screenHeight,
     required this.columnCount,
     required this.judgeY,
+    required this.judgeFeedbacks,
   });
 
   @override
@@ -72,6 +74,30 @@ class GamePainter extends CustomPainter {
     // ── 炸开动画 ──
     for (final explode in explodes) {
       _paintExplode(canvas, explode, w);
+    }
+
+    // ── 判定文字反馈 ──
+    for (final fb in judgeFeedbacks) {
+      final progress = fb.controller.value;
+      final alpha = fb.baseAlpha * (1.0 - progress);
+      if (alpha <= 0.01) continue;
+
+      final textSpan = TextSpan(
+        text: fb.text,
+        style: TextStyle(
+          fontSize: 10 * screenWidth / 750,
+          fontWeight: FontWeight.w300,
+          color: fb.color.withValues(alpha: alpha),
+          letterSpacing: 2,
+        ),
+      );
+      final tp = TextPainter(
+        text: TextSpan(children: [textSpan]),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.layout(maxWidth: screenWidth);
+      tp.paint(canvas, Offset(fb.x - tp.width / 2, fb.y - tp.height / 2));
+      tp.dispose();
     }
   }
 
