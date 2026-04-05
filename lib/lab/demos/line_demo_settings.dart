@@ -160,7 +160,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   int _currentTab = 0; // 0: 速度, 1: 背景样式
 
   // 速度
-  late double _dropDurationMs;
+  double _dropDurationMs = 2500.0;
   static const double _minDropMs = 800.0;
   static const double _maxDropMs = 4000.0;
 
@@ -465,7 +465,11 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
             min: _minDropMs,
             max: _maxDropMs,
             onChanged: (v) {
-              setState(() => _dropDurationMs = v);
+              setState(() {
+                _dropDurationMs = v;
+                _fallController.duration =
+                    Duration(milliseconds: v.round());
+              });
               _saveSpeed(v);
             },
           ),
