@@ -654,70 +654,9 @@ class _DemoDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // 全屏模式的 Demo 直接使用 body
-    if (demo.preferFullScreen) {
-      return Scaffold(
-        body: demo.buildPage(context),
-      );
-    }
-
-    // 非全屏模式使用极简头部
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // 极简导航栏
-          SliverAppBar(
-            expandedHeight: 64,
-            floating: false,
-            pinned: true,
-            stretch: false,
-            elevation: 0,
-            centerTitle: true,
-            backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.95),
-            surfaceTintColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: EdgeInsets.zero,
-              title: Text(
-                demo.title,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              centerTitle: true,
-              collapseMode: CollapseMode.parallax,
-            ),
-            leading: Center(
-              child: GestureDetector(
-                onTap: () => Navigator.maybePop(context),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ),
-            ),
-            leadingWidth: 56,
-          ),
-          // 内容区域
-          SliverFillRemaining(
-            child: demo.buildPage(context),
-          ),
-        ],
-      ),
+      appBar: demo.preferFullScreen ? null : AppBar(title: Text(demo.title)),
+      body: demo.buildPage(context),
     );
   }
 }
