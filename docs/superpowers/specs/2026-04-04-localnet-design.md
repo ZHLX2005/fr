@@ -16,6 +16,58 @@
 2. 收到广播后回复 HTTP register
 3. 消息通过 HTTP POST 发送
 
+## UDP 广播监听工作流程
+
+### 启动流程
+
+```
+startUdpListener()
+  └─> _startUdpListenerInternal()
+        ├─> RawDatagramSocket.bind(anyIPv4, 53317, reuseAddress: true, reusePort: true)
+        ├─> _udpSocket.joinMulticast(224.0.0.167)
+        └─> _udpSocket.listen((event) {
+              if (event == RawSocketEvent.read) {
+                _handleUdpDatagram(datagram)
+              }
+            })
+```
+
+### 数据处理流程
+
+```
+_handleUdpDatagram(datagram)
+  ├─> utf8.decode(datagram.data) → "deviceId,port"
+  ├─> 解析 deviceId 和 port
+  ├─> if (senderId == deviceId) 忽略自己
+  ├─> _addDevice(senderId, alias, senderIp, senderPort)
+  └─> _sendHttpJoin(senderIp, senderPort)
+        └─> HTTP POST /join to senderIp:senderPort
+```
+
+### 消息格式
+
+UDP 广播消息格式：`"deviceId,port"`（纯文本，逗号分隔）
+
+### 关键配置
+
+| 配置项 | 值 |
+|--------|-----|
+| 多播地址 | 224.0.0.167 |
+| 多播端口 | 53317 |
+| Socket 选项 | reuseAddress: true, reusePort: true |
+
+### 状态标志
+
+```dart
+bool get isUdpListenerRunning => _udpSocket != null;
+```
+
+### 注意事项
+
+- UDP 监听独立于 UDP 广播工作
+- 关闭 UDP 监听后不再接收多播包
+- 清理定时器仅在开启至少一个网络功能时运行
+
 ## 页面
 
 ### 发现页 (LocalnetDiscoverPage)
