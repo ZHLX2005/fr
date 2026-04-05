@@ -33,7 +33,6 @@ class _WordDragPageState extends State<WordDragPage>
 
   // 详情展示动画
   late AnimationController _detailsController;
-  late Animation<double> _detailsAnimation;
 
   // 卡片状态引用
   DraggableCardState? _cardState;
@@ -44,10 +43,6 @@ class _WordDragPageState extends State<WordDragPage>
     _detailsController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
-    );
-    _detailsAnimation = CurvedAnimation(
-      parent: _detailsController,
-      curve: Curves.easeOutCubic,
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -93,14 +88,6 @@ class _WordDragPageState extends State<WordDragPage>
   }
 
   void _onSwipeUp() {
-    setState(() {
-      _showDetails = true;
-    });
-    _detailsController.forward();
-  }
-
-  void _onSwipeUpComplete() {
-    // 上滑停留超过阈值，进入详情模式
     setState(() {
       _showDetails = true;
     });
