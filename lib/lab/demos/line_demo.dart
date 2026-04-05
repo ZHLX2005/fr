@@ -991,55 +991,62 @@ class _DemoPainter extends CustomPainter {
 
     // 炸开动画
     if (showExplode) {
-      final explodeY = actualJudgeY * 0.7;
-      // Phase 1: 内爆缩小 (0.0 - 0.08)
-      if (explodeProgress <= 0.08) {
-        final t = explodeProgress / 0.08;
-        final easedT = Curves.easeIn.transform(t);
-        final currentRadius = radius * (1.0 - easedT);
-        if (currentRadius > 0.1) {
-          final paint = Paint()
-            ..color = color.withValues(alpha: 0.3)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5;
-          canvas.drawCircle(Offset(cx, explodeY), currentRadius, paint);
-        }
+      // 炸开位置：判定线上方 70% 处（演示用固定位置）
+      _paintExplode(canvas, cx, actualJudgeY * 0.7, w);
+    }
+  }
+
+  void _paintExplode(Canvas canvas, double cx, double explodeY, double w) {
+    // Phase 1: 内爆缩小 (0.0 - 0.08)
+    if (explodeProgress <= 0.08) {
+      final t = explodeProgress / 0.08;
+      final easedT = Curves.easeIn.transform(t);
+      final currentRadius = radius * (1.0 - easedT);
+      if (currentRadius > 0.1) {
+        final paint = Paint()
+          ..color = color.withValues(alpha: 0.3)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawCircle(Offset(cx, explodeY), currentRadius, paint);
       }
+    }
 
-      // Phase 2: 粒子飞溅 (0.08 - 1.0)
-      if (explodeProgress > 0.08) {
-        final t = (explodeProgress - 0.08) / 0.92;
-        final splashProgress = Curves.easeOut.transform(t);
-        final fadeProgress = Curves.easeIn.transform(t);
-        final particleSize = 8.0 * w / 200;
+    // Phase 2: 粒子飞溅 (0.08 - 1.0)
+    if (explodeProgress > 0.08) {
+      final t = (explodeProgress - 0.08) / 0.92;
+      final splashProgress = Curves.easeOut.transform(t);
+      final fadeProgress = Curves.easeIn.transform(t);
+      final particleSize = 8.0 * w / 200;
 
-        for (final p in explodeParticles) {
-          final startX = cx + radius * math.cos(p.angle);
-          final startY = explodeY + radius * math.sin(p.angle);
-          final dx = math.cos(p.angle) * p.distance * splashProgress;
-          final dy = math.sin(p.angle) * p.distance * splashProgress;
-          final currentAlpha = p.initialAlpha * (1.0 - fadeProgress);
+      for (final p in explodeParticles) {
+        final startX = cx + radius * math.cos(p.angle);
+        final startY = explodeY + radius * math.sin(p.angle);
+        final dx = math.cos(p.angle) * p.distance * splashProgress;
+        final dy = math.sin(p.angle) * p.distance * splashProgress;
+        final currentAlpha = p.initialAlpha * (1.0 - fadeProgress);
 
-          if (currentAlpha > 0.01) {
-            final particlePaint = Paint()
-              ..color = color.withValues(alpha: currentAlpha)
-              ..style = PaintingStyle.fill;
-            canvas.drawRect(
-              Rect.fromCenter(
-                center: Offset(startX + dx, startY + dy),
-                width: particleSize,
-                height: particleSize,
-              ),
-              particlePaint,
-            );
-          }
+        if (currentAlpha > 0.01) {
+          final particlePaint = Paint()
+            ..color = color.withValues(alpha: currentAlpha)
+            ..style = PaintingStyle.fill;
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: Offset(startX + dx, startY + dy),
+              width: particleSize,
+              height: particleSize,
+            ),
+            particlePaint,
+          );
         }
       }
     }
   }
 
   @override
-  bool shouldRepaint(_DemoPainter oldDelegate) => true;
+  bool shouldRepaint(_DemoPainter oldDelegate) =>
+      oldDelegate.circleY != circleY ||
+      oldDelegate.showExplode != showExplode ||
+      oldDelegate.explodeProgress != explodeProgress;
 }
 
 /// 水退出动画绘制器
