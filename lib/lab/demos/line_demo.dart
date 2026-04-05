@@ -415,89 +415,20 @@ class _LineDemoPageState extends State<_LineDemoPage>
       e.controller.stop();
     }
 
-    final theme = Theme.of(context);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.8),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+    Navigator.of(context)
+        .push<double>(
+      MaterialPageRoute(
+        builder: (context) => _SpeedSettingsPage(
+          dropDurationMs: _dropDurationMs,
+          primaryColor: Theme.of(context).colorScheme.primary,
+        ),
       ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                20,
-                24,
-                MediaQuery.of(context).padding.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        '下落速度',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${_dropDurationMs.round()}ms',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontFeatures: [const FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  SliderTheme(
-                    data: SliderThemeData(
-                      trackHeight: 1.5,
-                      thumbShape: const _LineThumbShape(thumbRadius: 4),
-                      overlayShape: SliderComponentShape.noOverlay,
-                      activeTrackColor: theme.colorScheme.primary,
-                      inactiveTrackColor: theme.colorScheme.outlineVariant,
-                      thumbColor: theme.colorScheme.primary,
-                    ),
-                    child: Slider(
-                      value: _dropDurationMs,
-                      min: _minDropMs,
-                      max: _maxDropMs,
-                      onChanged: (v) {
-                        setState(() => _dropDurationMs = v);
-                        setSheetState(() {});
-                      },
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '快',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        '慢',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    ).then((_) {
+    )
+        .then((newSpeed) {
       if (!mounted || _isExiting) return;
+      if (newSpeed != null) {
+        setState(() => _dropDurationMs = newSpeed);
+      }
       _startCountdown();
     });
   }
