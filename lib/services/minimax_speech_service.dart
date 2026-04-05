@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:uuid/uuid.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// MiniMax 语音合成服务（纯数据控制层，无 UI）
 ///
@@ -167,25 +168,33 @@ class MiniMaxSpeechService {
   Future<void> _runSynthesis(_SpeechTask task) async {
     task._start();
 
-    WebSocket? ws;
+    WebSocketChannel? channel;
     StreamSubscription? subscription;
     StreamController<dynamic>? controller;
 
     try {
-      ws = await WebSocket.connect(
-        'wss://api.minimaxi.com/ws/v1/t2a_v2',
-        headers: {'Authorization': 'Bearer $_apiKey'},
+      final uri = Uri.parse('wss://api.minimaxi.com/ws/v1/t2a_v2');
+      channel = WebSocketChannel.connect(
+        uri,
+        protocols: ['Authorization', 'Bearer $_apiKey'],
       );
-      task._ws = ws;
+      task._channel = channel;
 
-      controller = StreamController<dynamic>.broadcast();
-      subscription = ws.listen(
-        (data) => controller.add(data),
-        onError: (e) => controller.addError(e),
-        onDone: () => controller.close(),
+      final broadcastController = StreamController<dynamic>.broadcast();
+      controller = broadcastController;
+      subscription = channel.stream.listen(
+        (data) {
+          if (!broadcastController.isClosed) broadcastController.add(data);
+        },
+        onError: (e) {
+          if (!broadcastController.isClosed) broadcastController.addError(e);
+        },
+        onDone: () {
+          if (!broadcastController.isClosed) broadcastController.close();
+        },
       );
 
-      final iterator = StreamIterator(controller.stream);
+      final iterator = StreamIterator(broadcastController.stream);
 
       // 等待连接确认
       if (!await iterator.moveNext()) {
@@ -211,7 +220,7 @@ class MiniMaxSpeechService {
         'format': task._params.format,
         'channel': task._params.channel,
       };
-      ws.add(json.encode({
+      channel.sink.add(json.encode({
         'event': 'task_start',
         'model': task._params.model,
         'language_boost': task._params.englishNormalization ? 'English' : 'Chinese',
@@ -231,8 +240,8 @@ class MiniMaxSpeechService {
       }
 
       // 发送文本
-      ws.add(json.encode({'event': 'task_continue', 'text': task._params.text}));
-      ws.add(json.encode({'event': 'task_finish'}));
+      channel.sink.add(json.encode({'event': 'task_continue', 'text': task._params.text}));
+      channel.sink.add(json.encode({'event': 'task_finish'}));
 
       task._updateState(TaskState.synthesizing);
 
@@ -277,14 +286,17 @@ class MiniMaxSpeechService {
       task._setError(e.toString());
     } finally {
       await subscription?.cancel();
-      await ws?.close();
+      await channel?.sink.close();
       await controller?.close();
-      task._ws = null;
+      task._channel = null;
     }
   }
 
   int _normalizeNumeric(double value) {
-    return value == value.roundToDouble() ? value.toInt() : double.parse(value.toStringAsFixed(2));
+    if (value == value.roundToDouble()) {
+      return value.toInt();
+    }
+    return double.parse(value.toStringAsFixed(2)).toInt();
   }
 
   List<int> _hexToBytes(String hex) {
@@ -374,7 +386,7 @@ class _SpeechTask {
   final SynthesisParams _params;
 
   TaskState _state = TaskState.idle;
-  WebSocket? _ws;
+  WebSocketChannel? _channel;
   int _chunkCount = 0;
   int _totalBytes = 0;
   final List<int> _collectedChunks = [];
@@ -411,7 +423,7 @@ class _SpeechTask {
   void _close() {
     if (_closed) return;
     _closed = true;
-    _ws?.close();
+    _channel?.sink.close();
     _updateState(TaskState.interrupted);
   }
 }
