@@ -655,7 +655,14 @@ class _DemoDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: demo.preferFullScreen ? null : AppBar(title: Text(demo.title)),
+      appBar: demo.preferFullScreen
+          ? null
+          : AppBar(
+              title: Text(demo.title),
+              centerTitle: true,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+            ),
       body: demo.buildPage(context),
     );
   }
