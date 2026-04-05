@@ -17,6 +17,7 @@ class GamePainter extends CustomPainter {
   final int columnCount;
   final double judgeY;
   final List<JudgeFeedback> judgeFeedbacks;
+  final BackgroundStyle backgroundStyle;
 
   GamePainter({
     required this.columns,
@@ -28,12 +29,37 @@ class GamePainter extends CustomPainter {
     required this.columnCount,
     required this.judgeY,
     required this.judgeFeedbacks,
+    required this.backgroundStyle,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final colWidth = w / columnCount;
+
+    // ── 背景 ──
+    if (backgroundStyle == BackgroundStyle.grid) {
+      final gridPaint = Paint()
+        ..color = color.withValues(alpha: 0.1)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5;
+      final spacing = 25.0 * screenWidth / 750;
+      for (double x = spacing; x < w; x += spacing) {
+        canvas.drawLine(Offset(x, 0), Offset(x, screenHeight), gridPaint);
+      }
+      for (double y = spacing; y < screenHeight; y += spacing) {
+        canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
+      }
+    } else if (backgroundStyle == BackgroundStyle.lines) {
+      final linePaint = Paint()
+        ..color = color.withValues(alpha: 0.08)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5;
+      for (int i = 0; i < columnCount; i++) {
+        final cx = colWidth * i + colWidth / 2;
+        canvas.drawLine(Offset(cx, 0), Offset(cx, screenHeight), linePaint);
+      }
+    }
 
     // ── 判定线 ──
     final judgePaint = Paint()
