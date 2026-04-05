@@ -1,17 +1,98 @@
 import 'package:flutter/material.dart';
 
-/// 下落中的圆圈
-class FallingCircle {
+/// 音符类型
+enum NoteType { tap, hold, slide }
+
+/// 滑动方向
+enum SlideDirection { up, down, left, right }
+
+/// 背景样式
+enum BackgroundStyle {
+  none,
+  grid,
+  lines;
+}
+
+/// 谱面音符事件
+class NoteEvent {
+  final int time; // ms，音符到达判定线的时间
+  final int column; // 0/1/2
+  final NoteType type;
+  final SlideDirection? direction; // 仅 slide
+  final int? holdDuration; // 仅 hold，ms
+
+  const NoteEvent({
+    required this.time,
+    required this.column,
+    required this.type,
+    this.direction,
+    this.holdDuration,
+  });
+
+  factory NoteEvent.fromJson(Map<String, dynamic> json) {
+    return NoteEvent(
+      time: json['time'] as int,
+      column: json['column'] as int,
+      type: NoteType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => NoteType.tap,
+      ),
+      direction: json['direction'] != null
+          ? SlideDirection.values.firstWhere(
+              (e) => e.name == json['direction'],
+              orElse: () => SlideDirection.up,
+            )
+          : null,
+      holdDuration: json['holdDuration'] as int?,
+    );
+  }
+}
+
+/// 谱面数据
+class ChartData {
+  final String name;
+  final int bpm;
+  final int dropDuration;
+  final List<NoteEvent> notes;
+
+  const ChartData({
+    required this.name,
+    required this.bpm,
+    required this.dropDuration,
+    required this.notes,
+  });
+
+  factory ChartData.fromJson(Map<String, dynamic> json) {
+    final rawNotes = json['notes'] as List;
+    final notes = rawNotes
+        .whereType<Map<String, dynamic>>()
+        .map((n) => NoteEvent.fromJson(n))
+        .toList();
+    return ChartData(
+      name: json['name'] as String? ?? 'Unnamed',
+      bpm: json['bpm'] as int? ?? 120,
+      dropDuration: json['dropDuration'] as int? ?? 2500,
+      notes: notes,
+    );
+  }
+}
+
+/// 下落中的音符（运行时）
+class FallingNote {
+  final NoteEvent event;
   final AnimationController controller;
   double currentY;
-  bool exploded;
-  bool missed;
+  bool judged;
+  bool holding; // 仅 hold：正在被按住
+  double holdProgress; // 仅 hold：按住进度 0~1
 
-  FallingCircle({
+  FallingNote({
+    required this.event,
     required this.controller,
     required this.currentY,
-  })  : exploded = false,
-        missed = false;
+  })  : judged = false,
+        holding = false,
+        holdProgress = 0.0;
 }
 
 /// 炸开动画状态
@@ -61,11 +142,4 @@ class JudgeFeedback {
     required this.baseAlpha,
     required this.controller,
   });
-}
-
-/// 背景样式
-enum BackgroundStyle {
-  none,
-  grid,
-  lines;
 }
