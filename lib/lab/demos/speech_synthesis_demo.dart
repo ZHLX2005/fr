@@ -118,6 +118,21 @@ class SpeechSynthesisDemo extends DemoPage {
   }
 }
 
+/// 已保存的音频文件数据模型
+class _SavedAudioFile {
+  final String path;
+  final String fileName;
+  final int size;
+  final DateTime savedAt;
+
+  _SavedAudioFile({
+    required this.path,
+    required this.fileName,
+    required this.size,
+    required this.savedAt,
+  });
+}
+
 class _SpeechSynthesisPage extends StatefulWidget {
   const _SpeechSynthesisPage();
 
@@ -139,6 +154,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
 
   // HTTP 方式音频数据
   final List<int> _audioChunks = [];
+
+  // 已保存的音频文件列表
+  final List<_SavedAudioFile> _savedFiles = [];
 
   // WebSocket 流式播放
   WebSocket? _ws;
@@ -492,6 +510,15 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       final file = File(filePath);
       await file.writeAsBytes(audioBytes);
 
+      // 添加到已保存列表
+      final savedFile = _SavedAudioFile(
+        path: filePath,
+        fileName: 'tts_$timestamp.$extension',
+        size: audioBytes.length,
+        savedAt: DateTime.now(),
+      );
+      _savedFiles.insert(0, savedFile);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -584,6 +611,42 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       return;
     }
     await _saveAudioToFile(_audioChunks);
+  }
+
+  /// 删除保存的音频文件
+  Future<void> _deleteSavedFile(int index) async {
+    if (index < 0 || index >= _savedFiles.length) return;
+    final file = _savedFiles[index];
+    try {
+      final f = File(file.path);
+      if (await f.exists()) {
+        await f.delete();
+      }
+      setState(() {
+        _savedFiles.removeAt(index);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已删除: ${file.fileName}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('删除文件失败: $e');
+      // 即使删除失败，也从列表移除
+      setState(() {
+        _savedFiles.removeAt(index);
+      });
+    }
+  }
+
+  /// 格式化文件大小
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   void _selectVoice(String id, String name) {
@@ -1042,10 +1105,87 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // 已保存文件列表
+            if (_savedFiles.isNotEmpty) ...[
+              const Text(
+                '已保存音频',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _savedFiles.length,
+                  itemBuilder: (context, index) {
+                    final file = _savedFiles[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: const Icon(Icons.audio_file),
+                        title: Text(
+                          file.fileName,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        subtitle: Text(
+                          '${_formatFileSize(file.size)} • ${_formatTime(file.savedAt)}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () => _deleteSavedFile(index),
+                          tooltip: '删除',
+                        ),
+                        onTap: () => _playSavedFile(file),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  String _formatTime(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _playSavedFile(_SavedAudioFile file) async {
+    try {
+      final f = File(file.path);
+      if (!await f.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('文件不存在或已被删除')),
+          );
+        }
+        return;
+      }
+      final bytes = await f.readAsBytes();
+      final audioData = Uint8List.fromList(bytes);
+      final source = AudioSource.uri(
+        Uri.dataFromBytes(audioData, mimeType: 'audio/mpeg'),
+      );
+      await _player.stop();
+      await _player.setAudioSource(source);
+      await _player.play();
+      setState(() {
+        _isPlaying = true;
+        _statusMessage = '正在播放: ${file.fileName}';
+      });
+    } catch (e) {
+      debugPrint('播放保存的文件失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('播放失败: $e')),
+        );
+      }
+    }
   }
 }
 
