@@ -129,8 +129,18 @@ class _WordDragPageState extends State<WordDragPage> {
   }
 
   void _onSwipeUp() {
+    if (_words.isEmpty) return;
     setState(() {
-      _showDetails = true;
+      // 上滑查看详情并切换到下一个单词
+      _currentIndex = (_currentIndex + 1) % _words.length;
+      _showDetails = false; // 重置详情状态，新卡片从头显示
+      _dragProgress = 0.0;
+      _verticalProgress = 0.0;
+      _currentDirection = DragDirection.none;
+      _isInMarkZone = false;
+      _isInDeleteZone = false;
+      _markZoneOpacity = 0.0;
+      _deleteZoneOpacity = 0.0;
     });
   }
 
@@ -161,6 +171,13 @@ class _WordDragPageState extends State<WordDragPage> {
   void _markAsNew() {
     if (_words.isEmpty) return;
     setState(() {
+      // 将当前单词移到列表末尾
+      final word = _words.removeAt(_currentIndex);
+      _words.add(word);
+      // 确保索引有效
+      if (_currentIndex >= _words.length && _currentIndex > 0) {
+        _currentIndex = _words.length - 1;
+      }
       _showDetails = false;
       _dragProgress = 0.0;
       _verticalProgress = 0.0;
@@ -385,9 +402,11 @@ class _WordDragPageState extends State<WordDragPage> {
       return _buildEmptyState();
     }
     return DraggableWordCard(
-      key: ValueKey(_words[_currentIndex].id),
+      // 组合 key: 单词 id + index，确保单词变化时强制重建
+      key: ValueKey('${_words[_currentIndex].id}-$_currentIndex'),
       onSwipeUp: _onSwipeUp,
       onSwipeLeft: _onSwipeLeft,
+      onSwipeRight: _markAsNew,
       onHorizontalDragProgress: _onHorizontalDragProgress,
       onCardPositionChanged: (cardCenter, dragOffset, isSpringBack) {
         _onCardPositionChanged(cardCenter, dragOffset, isSpringBack);
