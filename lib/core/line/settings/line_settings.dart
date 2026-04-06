@@ -363,7 +363,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                   Expanded(
                     flex: 4,
                     child: _currentTab == 0
-                        ? _buildSpeedControls(theme, rpx)
+                        ? _buildTimingControls(theme, rpx)
                         : _buildBackgroundControls(theme, rpx),
                   ),
                 ],
@@ -379,7 +379,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildTabItem('速度', 0, theme),
+        _buildTabItem('判定', 0, theme),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
@@ -426,69 +426,67 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     );
   }
 
-  Widget _buildSpeedControls(ThemeData theme, double Function(double) rpx) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          '下落速度',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+  Widget _buildTimingControls(ThemeData theme, double Function(double) rpx) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Text(
+        '判定缩放',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
-        const SizedBox(height: 12),
-        Text(
-          '${_timingScale.toStringAsFixed(2)}x',
-          style: TextStyle(
-            fontSize: rpx(32),
-            fontWeight: FontWeight.w100,
-            color: widget.primaryColor.withValues(alpha: 0.4),
-            fontFeatures: [const FontFeature.tabularFigures()],
-          ),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        '${_timingScale.toStringAsFixed(1)}x',
+        style: TextStyle(
+          fontSize: rpx(32),
+          fontWeight: FontWeight.w100,
+          color: widget.primaryColor.withValues(alpha: 0.4),
+          fontFeatures: [const FontFeature.tabularFigures()],
         ),
-        const SizedBox(height: 16),
-        SliderTheme(
-          data: SliderThemeData(
-            trackHeight: 1.5,
-            thumbShape: const LineThumbShape(thumbRadius: 4),
-            overlayShape: SliderComponentShape.noOverlay,
-            activeTrackColor: widget.primaryColor,
-            inactiveTrackColor: theme.colorScheme.outlineVariant,
-            thumbColor: widget.primaryColor,
-          ),
-          child: Slider(
-            value: _timingScale,
-            min: _minTimingScale,
-            max: _maxTimingScale,
-            onChanged: (v) {
-              setState(() {
-                _timingScale = v;
-              });
-              _saveTimingScale(v);
-            },
-          ),
+      ),
+      const SizedBox(height: 16),
+      SliderTheme(
+        data: SliderThemeData(
+          trackHeight: 1.5,
+          thumbShape: const LineThumbShape(thumbRadius: 4),
+          overlayShape: SliderComponentShape.noOverlay,
+          activeTrackColor: widget.primaryColor,
+          inactiveTrackColor: theme.colorScheme.outlineVariant,
+          thumbColor: widget.primaryColor,
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '快',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+        child: Slider(
+          value: _timingScale,
+          min: _minTimingScale,
+          max: _maxTimingScale,
+          onChanged: (v) {
+            setState(() => _timingScale = v);
+            _saveTimingScale(v);
+          },
+        ),
+      ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '精准',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            Text(
-              '慢',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          ),
+          Text(
+            '宽容',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-          ],
-        ),
-      ],
-    );
-  }
+          ),
+        ],
+      ),
+    ],
+  );
+}
 
   Widget _buildBackgroundControls(ThemeData theme, double Function(double) rpx) {
     return Column(
