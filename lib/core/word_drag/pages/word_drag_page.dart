@@ -40,10 +40,22 @@ class _WordDragPageState extends State<WordDragPage> {
     super.initState();
   }
 
-  void _onCardPositionChanged(Offset cardCenter, Offset dragOffset) {
+  void _onCardPositionChanged(Offset cardCenter, Offset dragOffset, bool isSpringBack) {
     final screenSize = MediaQuery.of(context).size;
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
+
+    // 弹簧动画期间使用捕获的状态，不更新区域状态
+    if (isSpringBack) {
+      // 弹簧动画期间：透明度设为0，但保持捕获的区域状态用于后续判断
+      if (_markZoneOpacity != 0.0 || _deleteZoneOpacity != 0.0) {
+        setState(() {
+          _markZoneOpacity = 0.0;
+          _deleteZoneOpacity = 0.0;
+        });
+      }
+      return;
+    }
 
     // 计算右侧两个区域的位置
     // 标新区：右侧上方
@@ -192,6 +204,16 @@ class _WordDragPageState extends State<WordDragPage> {
       _markZoneOpacity = 0.0;
       _deleteZoneOpacity = 0.0;
     });
+  }
+
+  /// 重置区域状态（弹簧动画完成时调用）
+  void _resetZoneState() {
+    if (_isInMarkZone || _isInDeleteZone) {
+      setState(() {
+        _isInMarkZone = false;
+        _isInDeleteZone = false;
+      });
+    }
   }
 
   void _confirmDelete() {
@@ -357,9 +379,10 @@ class _WordDragPageState extends State<WordDragPage> {
       onSwipeUp: _onSwipeUp,
       onSwipeLeft: _onSwipeLeft,
       onHorizontalDragProgress: _onHorizontalDragProgress,
-      onCardPositionChanged: (cardCenter, dragOffset) {
-        _onCardPositionChanged(cardCenter, dragOffset);
+      onCardPositionChanged: (cardCenter, dragOffset, isSpringBack) {
+        _onCardPositionChanged(cardCenter, dragOffset, isSpringBack);
       },
+      onSpringBackComplete: _resetZoneState,
       child: WordCardContent(
         word: _words[_currentIndex],
         showDetails: _showDetails,

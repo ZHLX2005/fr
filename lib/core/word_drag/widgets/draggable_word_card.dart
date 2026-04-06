@@ -16,8 +16,9 @@ class DraggableWordCard extends StatefulWidget {
   final VoidCallback? onSwipeUpComplete; // 上滑完成（停留超过阈值）
   final Function(double progress)? onHorizontalDragProgress; // 横向拖动进度 (0-1)
   final Function(bool isInZone)? onDeleteZoneHover; // 是否进入删除区
-  final Function(Offset cardCenter, Offset dragOffset)? onCardPositionChanged; // 卡片中心位置+拖动偏移
+  final Function(Offset cardCenter, Offset dragOffset, bool isSpringBack)? onCardPositionChanged; // 卡片中心位置+拖动偏移+是否弹簧动画
   final Function(DraggableCardState)? onCardStateChanged;
+  final VoidCallback? onSpringBackComplete; // 弹簧动画完成回调
 
   // 弹性参数
   final double swipeThreshold;   // 触发滑动的阈值比例
@@ -36,6 +37,7 @@ class DraggableWordCard extends StatefulWidget {
     this.onDeleteZoneHover,
     this.onCardPositionChanged,
     this.onCardStateChanged,
+    this.onSpringBackComplete,
     this.swipeThreshold = 0.25,
     this.rotationFactor = 0.0015,
     this.scaleFactor = 0.92,
@@ -58,6 +60,9 @@ class DraggableCardState extends State<DraggableWordCard>
   Offset _dragOffset = Offset.zero;
   bool _isDragging = false;
   SwipeDirection? _swipeDirection;
+
+  // 弹簧动画状态
+  bool _isInSpringBack = false;
 
   Offset get currentOffset => _dragOffset;
   bool get isDragging => _isDragging;
@@ -106,7 +111,7 @@ class DraggableCardState extends State<DraggableWordCard>
 
     // 通知卡片位置变化（用于检测是否进入删除区）
     final cardCenter = _getCardCenter();
-    widget.onCardPositionChanged?.call(cardCenter, _dragOffset);
+    widget.onCardPositionChanged?.call(cardCenter, _dragOffset, _isInSpringBack);
   }
 
   Offset _getCardCenter() {
@@ -144,13 +149,14 @@ class DraggableCardState extends State<DraggableWordCard>
       _swipeDirection = direction;
       _animateOffScreen(direction);
     } else {
+      _isInSpringBack = true;
       _springBack();
     }
 
     widget.onCardStateChanged?.call(this);
   }
 
-  void _springBack() {
+  void _springBack([VoidCallback? onComplete]) {
     // 先停止任何正在进行的动画
     _controller.stop();
 
@@ -164,7 +170,11 @@ class DraggableCardState extends State<DraggableWordCard>
 
     _controller
       ..value = 0.0
-      ..animateTo(1.0, duration: const Duration(milliseconds: 600));
+      ..animateTo(1.0, duration: const Duration(milliseconds: 600)).then((_) {
+        _isInSpringBack = false;
+        onComplete?.call();
+        widget.onSpringBackComplete?.call();
+      });
 
     widget.onCardStateChanged?.call(this);
   }
@@ -180,15 +190,12 @@ class DraggableCardState extends State<DraggableWordCard>
     switch (direction) {
       case SwipeDirection.right:
         targetOffset = Offset(screenWidth * 1.5, _dragOffset.dy);
-        widget.onSwipeRight?.call();
         break;
       case SwipeDirection.left:
         targetOffset = Offset(-screenWidth * 1.5, _dragOffset.dy);
-        widget.onSwipeLeft?.call();
         break;
       case SwipeDirection.up:
         targetOffset = Offset(_dragOffset.dx, -screenHeight);
-        widget.onSwipeUp?.call();
         break;
       case SwipeDirection.down:
         targetOffset = Offset(_dragOffset.dx, screenHeight * 1.5);
@@ -205,7 +212,22 @@ class DraggableCardState extends State<DraggableWordCard>
 
     _controller
       ..value = 0.0
-      ..animateTo(1.0, duration: const Duration(milliseconds: 300));
+      ..animateTo(1.0, duration: const Duration(milliseconds: 300)).then((_) {
+      // 动画完成后才调用回调
+      switch (direction) {
+        case SwipeDirection.right:
+          widget.onSwipeRight?.call();
+          break;
+        case SwipeDirection.left:
+          widget.onSwipeLeft?.call();
+          break;
+        case SwipeDirection.up:
+          widget.onSwipeUp?.call();
+          break;
+        case SwipeDirection.down:
+          break;
+      }
+    });
   }
 
   /// 外部调用：完成删除动画
