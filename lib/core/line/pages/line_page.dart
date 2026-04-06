@@ -1,10 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'line_demo_models.dart';
-
-// ═══════════════════════════════════════════════════════════════
-// 绘制器
-// ═══════════════════════════════════════════════════════════════
+import '../models/line_models.dart';
 
 /// 游戏主绘制器：背景 + 血条 + 三种音符 + 炸开动画 + 判定文字
 class GamePainter extends CustomPainter {
@@ -154,11 +150,9 @@ class GamePainter extends CustomPainter {
   }
 
   void _paintTapNote(Canvas canvas, double cx, FallingNote note) {
-    // 被判定后立即隐藏（只留炸开动画），missed 音符不显示
     if (note.judged || note.removeMe) return;
     if (note.currentY < -radius || note.currentY > screenHeight + radius) return;
 
-    // Missed fade
     double alpha = 0.3;
     if (note.currentY > judgeY) {
       final dist = note.currentY - judgeY;
@@ -178,7 +172,6 @@ class GamePainter extends CustomPainter {
     if (note.currentY < -radius * 2) return;
 
     final headY = note.currentY;
-    // How far the note travels in holdDuration ms
     final travelPerMs = screenHeight / dropDuration;
     final holdLength = travelPerMs * note.event.holdDuration!;
     final tailY = headY - holdLength;
@@ -186,7 +179,6 @@ class GamePainter extends CustomPainter {
     final barWidth = radius * 0.6;
     const baseAlpha = 0.3;
 
-    // Connecting bar
     final barPaint = Paint()
       ..color = color.withValues(alpha: baseAlpha * 0.5)
       ..style = PaintingStyle.fill;
@@ -196,7 +188,6 @@ class GamePainter extends CustomPainter {
       barPaint,
     );
 
-    // Progress fill (when being held)
     if (note.holding && note.holdProgress > 0) {
       final fillHeight = holdLength * note.holdProgress;
       final fillPaint = Paint()
@@ -208,14 +199,12 @@ class GamePainter extends CustomPainter {
       );
     }
 
-    // Head circle
     final circlePaint = Paint()
       ..color = color.withValues(alpha: baseAlpha)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
     canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
 
-    // Tail circle
     if (tailY > -radius && tailY < screenHeight + radius) {
       canvas.drawCircle(Offset(cx, tailY), radius * 0.6, circlePaint);
     }
@@ -225,14 +214,12 @@ class GamePainter extends CustomPainter {
     if (note.judged || note.removeMe) return;
     if (note.currentY < -radius || note.currentY > screenHeight + radius) return;
 
-    // Circle
     final circlePaint = Paint()
       ..color = color.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
     canvas.drawCircle(Offset(cx, note.currentY), radius, circlePaint);
 
-    // Arrow inside
     final arrowSize = radius * 0.55;
     final arrowPaint = Paint()
       ..color = color.withValues(alpha: 0.5)
@@ -423,37 +410,5 @@ class WaterExitPainter extends CustomPainter {
   @override
   bool shouldRepaint(WaterExitPainter oldDelegate) {
     return oldDelegate.progress != progress;
-  }
-}
-
-/// 线条风格 Slider 滑块 —— 极小实心圆点
-class LineThumbShape extends SliderComponentShape {
-  final double thumbRadius;
-
-  const LineThumbShape({required this.thumbRadius});
-
-  @override
-  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
-      Size.fromRadius(thumbRadius);
-
-  @override
-  void paint(
-    PaintingContext context,
-    Offset center, {
-    required Animation<double> activationAnimation,
-    required Animation<double> enableAnimation,
-    required bool isDiscrete,
-    required TextPainter labelPainter,
-    required RenderBox parentBox,
-    required SliderThemeData sliderTheme,
-    required TextDirection textDirection,
-    required double value,
-    required double textScaleFactor,
-    required Size sizeWithOverflow,
-  }) {
-    final paint = Paint()
-      ..color = sliderTheme.thumbColor!
-      ..style = PaintingStyle.fill;
-    context.canvas.drawCircle(center, thumbRadius, paint);
   }
 }

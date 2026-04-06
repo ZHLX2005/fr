@@ -1,0 +1,848 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../lab/lab_container.dart';
+import '../models/line_models.dart';
+import 'line_page.dart';
+import '../settings/line_settings.dart';
+
+/// 线 Demo
+class LineDemo extends DemoPage {
+  @override
+  String get title => '线';
+
+  @override
+  String get description => '线';
+
+  @override
+  bool get preferFullScreen => true;
+
+  @override
+  Widget buildPage(BuildContext context) {
+    return const _LineDemoPage();
+  }
+}
+
+class _LineDemoPage extends StatefulWidget {
+  const _LineDemoPage();
+
+  @override
+  State<_LineDemoPage> createState() => _LineDemoPageState();
+}
+
+class _LineDemoPageState extends State<_LineDemoPage>
+    with TickerProviderStateMixin {
+  // ── 水动画 ──
+  bool _isWaterEntering = true;
+  bool _isExiting = false;
+  bool _isCountingDown = false;
+  int _countdownValue = 3;
+
+  late AnimationController _exitController;
+  late AnimationController _enterController;
+  late AnimationController _healthController;
+
+  // ── 谱面 ──
+  ChartData? _chart;
+  int _nextNoteIndex = 0;
+  final Stopwatch _gameStopwatch = Stopwatch();
+
+  // ── 游戏状态 ──
+  static const int _columnCount = 3;
+  List<List<FallingNote>> _notes = [];
+  final List<ExplodeAnimation> _explodes = [];
+  final List<JudgeFeedback> _judgeFeedbacks = [];
+
+  // 分数 & 血条
+  int _score = 0;
+  double _health = 1.0;
+  int _highScore = 0;
+  bool _isGameOver = false;
+
+  // 下落速度
+  double _dropDurationMs = 2500.0;
+
+  BackgroundStyle _backgroundStyle = BackgroundStyle.none;
+  static const String _speedKey = lineSpeedKey;
+  static const String _backgroundKey = lineBackgroundKey;
+  static const String _highScoreKey = 'line_demo_high_score';
+
+  static const double _circleRadiusRpx = 20.0;
+  static const double _judgeLineRatio = 0.75;
+
+  // 判定窗口（ms）
+  static const int _perfectWindow = 50;
+  static const int _greatWindow = 100;
+  static const int _goodWindow = 150;
+  static const int _missWindow = 200;
+
+  // 手势追踪
+  final Set<int> _heldColumns = {};
+  Offset? _panStart;
+  int? _panColumn;
+
+  double _rpx(double value) => value * MediaQuery.of(context).size.width / 750;
+
+  // 暂停
+  bool _wasGameRunning = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _exitController = AnimationController(
+      duration: const Duration(milliseconds: 1400),
+      vsync: this,
+    );
+    _enterController = AnimationController(
+      duration: const Duration(milliseconds: 1400),
+      vsync: this,
+    );
+    _healthController = AnimationController(
+      duration: const Duration(days: 365),
+      vsync: this,
+    )..repeat();
+
+    _notes = List.generate(_columnCount, (_) => []);
+
+    _loadSettings();
+
+    _enterController.value = 1.0;
+    _enterController.reverse().then((_) {
+      if (!mounted) return;
+      setState(() => _isWaterEntering = false);
+      _startCountdown();
+    });
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final chartJson = await rootBundle.loadString('assets/charts/test_chart.json');
+      final chartData = ChartData.fromJson(jsonDecode(chartJson));
+      if (mounted) {
+        setState(() {
+          _chart = chartData;
+          _dropDurationMs = prefs.getDouble(_speedKey) ?? chartData.dropDuration.toDouble();
+          _highScore = prefs.getInt(_highScoreKey) ?? 0;
+          final bgIndex = prefs.getInt(_backgroundKey) ?? 0;
+          _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _highScore = prefs.getInt(_highScoreKey) ?? 0;
+          _dropDurationMs = prefs.getDouble(_speedKey) ?? 2500.0;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveHighScore() async {
+    if (_score > _highScore) {
+      _highScore = _score;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_highScoreKey, _highScore);
+    }
+  }
+
+  @override
+  void dispose() {
+    _exitController.dispose();
+    _enterController.dispose();
+    _healthController.dispose();
+    _gameStopwatch.stop();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.dispose();
+      }
+    }
+    for (final e in _explodes) {
+      e.controller.dispose();
+    }
+    for (final fb in _judgeFeedbacks) {
+      fb.controller.dispose();
+    }
+    super.dispose();
+  }
+
+  // ── 游戏开始 ──
+
+  void _startGame() {
+    _nextNoteIndex = 0;
+    _gameStopwatch.reset();
+    _gameStopwatch.start();
+    _spawnPendingNotes();
+  }
+
+  void _stopGame() {
+    _gameStopwatch.stop();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
+      }
+    }
+  }
+
+  void _spawnPendingNotes() {
+    if (_chart == null || _isGameOver) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    final dropMs = _dropDurationMs.round();
+
+    while (_nextNoteIndex < _chart!.notes.length) {
+      final event = _chart!.notes[_nextNoteIndex];
+      if (elapsed >= event.time - dropMs) {
+        _spawnNote(event);
+        _nextNoteIndex++;
+      } else {
+        break;
+      }
+    }
+
+    if (_nextNoteIndex < _chart!.notes.length && !_isGameOver) {
+      final nextEvent = _chart!.notes[_nextNoteIndex];
+      final delayMs = (nextEvent.time - dropMs - elapsed).clamp(1, 100);
+      Future.delayed(Duration(milliseconds: delayMs), () {
+        if (mounted && !_isGameOver) _spawnPendingNotes();
+      });
+    }
+  }
+
+  void _spawnNote(NoteEvent event) {
+    final screenSize = MediaQuery.of(context).size;
+    final radius = _rpx(_circleRadiusRpx);
+
+    final controller = AnimationController(
+      duration: Duration(milliseconds: _dropDurationMs.round()),
+      vsync: this,
+    );
+
+    final note = FallingNote(
+      event: event,
+      controller: controller,
+      currentY: -radius,
+    );
+
+    controller.addListener(() {
+      final easedT = Curves.easeIn.transform(controller.value);
+      final targetY = screenSize.height + radius;
+      note.currentY = -radius + (targetY + radius) * easedT;
+
+      if (!note.judged && event.type != NoteType.hold) {
+        final judgeY = screenSize.height * _judgeLineRatio;
+        if (note.currentY > judgeY) {
+          _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
+        }
+      }
+
+      if (event.type == NoteType.hold && note.holding && !note.judged) {
+        final elapsed = _gameStopwatch.elapsedMilliseconds;
+        final heldTime = elapsed - event.time;
+        note.holdProgress = (heldTime / event.holdDuration!).clamp(0.0, 1.0);
+        if (note.holdProgress >= 1.0) {
+          _judgeNote(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note, 0);
+          note.holding = false;
+        }
+      }
+    });
+
+    setState(() {
+      _notes[event.column].add(note);
+    });
+
+    controller.forward().then((_) {
+      note.controller.dispose();
+      if (!mounted) return;
+      setState(() => _notes[event.column].remove(note));
+    });
+  }
+
+  // ── 手势处理 ──
+
+  int? _getColumnFromX(double x) {
+    final w = MediaQuery.of(context).size.width;
+    final colWidth = w / _columnCount;
+    for (int i = 0; i < _columnCount; i++) {
+      if (x >= colWidth * i && x < colWidth * (i + 1)) return i;
+    }
+    return null;
+  }
+
+  SlideDirection? _getSwipeDirection(Offset velocity) {
+    const threshold = 100.0;
+    final dx = velocity.dx.abs();
+    final dy = velocity.dy.abs();
+    if (dx < threshold && dy < threshold) return null;
+    if (dx > dy) {
+      return velocity.dx > 0 ? SlideDirection.right : SlideDirection.left;
+    } else {
+      return velocity.dy > 0 ? SlideDirection.down : SlideDirection.up;
+    }
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
+    final col = _getColumnFromX(details.localPosition.dx);
+    if (col == null) return;
+    _handleColumnTap(col);
+  }
+
+  void _handlePanStart(DragStartDetails details) {
+    if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
+    final col = _getColumnFromX(details.localPosition.dx);
+    if (col != null) {
+      _panStart = details.globalPosition;
+      _panColumn = col;
+      _handleColumnPress(col);
+    }
+  }
+
+  void _handlePanEnd(DragEndDetails details) {
+    if (_panColumn == null) return;
+    _handleColumnRelease(_panColumn!);
+
+    if (_panStart != null && details.velocity.pixelsPerSecond.distance > 50) {
+      final dir = _getSwipeDirection(details.velocity.pixelsPerSecond);
+      if (dir != null) {
+        _handleSwipe(_panColumn!, dir);
+      }
+    }
+    _panStart = null;
+    _panColumn = null;
+  }
+
+  // ── 判定 ──
+
+  void _handleColumnTap(int col) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    FallingNote? best;
+    int bestDiff = _missWindow + 1;
+
+    for (final note in _notes[col]) {
+      if (note.judged) continue;
+      if (note.event.type != NoteType.tap) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = note;
+      }
+    }
+
+    if (best != null && bestDiff <= _goodWindow) {
+      _judgeNote(col, best, bestDiff);
+    }
+  }
+
+  void _handleColumnPress(int col) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (note.judged || note.event.type != NoteType.hold) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff <= _goodWindow) {
+        note.holding = true;
+        _heldColumns.add(col);
+        return;
+      }
+    }
+  }
+
+  void _handleColumnRelease(int col) {
+    if (!_heldColumns.contains(col)) return;
+    _heldColumns.remove(col);
+
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (!note.holding || note.judged) continue;
+      if (note.event.type != NoteType.hold) continue;
+
+      final heldTime = elapsed - note.event.time;
+      if (heldTime >= note.event.holdDuration! * 0.8) {
+        _judgeNote(col, note, 0);
+      } else {
+        _onNoteMissed(col, note);
+      }
+      note.holding = false;
+      return;
+    }
+  }
+
+  void _handleSwipe(int col, SlideDirection direction) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (note.judged || note.event.type != NoteType.slide) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff <= _goodWindow && note.event.direction == direction) {
+        _judgeNote(col, note, diff);
+        return;
+      }
+    }
+  }
+
+  void _judgeNote(int col, FallingNote note, int timeDiffMs) {
+    note.judged = true;
+    note.removeMe = true;
+
+    String judgeText;
+    double judgeAlpha;
+    int points;
+    double healthChange;
+
+    if (timeDiffMs <= _perfectWindow) {
+      judgeText = 'Perfect';
+      judgeAlpha = 0.6;
+      points = 3;
+      healthChange = 0.05;
+    } else if (timeDiffMs <= _greatWindow) {
+      judgeText = 'Great';
+      judgeAlpha = 0.4;
+      points = 2;
+      healthChange = 0.02;
+    } else {
+      judgeText = 'Good';
+      judgeAlpha = 0.25;
+      points = 1;
+      healthChange = 0.0;
+    }
+
+    final screenSize = MediaQuery.of(context).size;
+    final w = screenSize.width;
+    final colWidth = w / _columnCount;
+    final centerX = colWidth * col + colWidth / 2;
+    final radius = _rpx(_circleRadiusRpx);
+
+    final feedbackController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    final feedback = JudgeFeedback(
+      text: judgeText,
+      x: centerX,
+      y: note.currentY - radius - 20,
+      color: Theme.of(context).colorScheme.primary,
+      baseAlpha: judgeAlpha,
+      controller: feedbackController,
+    );
+
+    setState(() {
+      _score += points;
+      _health = (_health + healthChange).clamp(0.0, 1.0);
+      _judgeFeedbacks.add(feedback);
+    });
+
+    feedbackController.forward().then((_) {
+      feedbackController.dispose();
+      if (!mounted) return;
+      setState(() => _judgeFeedbacks.remove(feedback));
+    });
+
+    _createExplode(col, centerX, note.currentY, radius);
+
+    if (note.event.type != NoteType.hold) {
+      note.controller.stop();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        setState(() => _notes[col].remove(note));
+        note.controller.dispose();
+      });
+    }
+  }
+
+  void _onNoteMissed(int col, FallingNote note) {
+    if (note.judged) return;
+    note.judged = true;
+    setState(() {
+      _health = (_health - 0.15).clamp(0.0, 1.0);
+    });
+    if (_health <= 0.0) {
+      _gameOver();
+    }
+  }
+
+  void _createExplode(int col, double x, double y, double radius) {
+    final explodeController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    final explode = ExplodeAnimation(
+      controller: explodeController,
+      x: x,
+      y: y,
+      particles: _generateParticles(),
+      radius: radius,
+    );
+    setState(() => _explodes.add(explode));
+    explodeController.forward().then((_) {
+      explodeController.dispose();
+      if (!mounted) return;
+      setState(() => _explodes.remove(explode));
+    });
+  }
+
+  List<Particle> _generateParticles() {
+    final rng = math.Random();
+    final count = 4 + rng.nextInt(2);
+    final particles = <Particle>[];
+    final baseAngles = List.generate(count, (i) => (2 * math.pi * i / count));
+    final distances = List.generate(count, (i) => 15.0 + i * 5.0);
+    final alphas = List.generate(count, (i) => 0.5 - i * 0.1);
+
+    for (int i = 0; i < count; i++) {
+      final angle = baseAngles[i] + (rng.nextDouble() - 0.5) * 0.6;
+      particles.add(Particle(
+        angle: angle,
+        distance: distances[i] + rng.nextDouble() * 5,
+        initialAlpha: alphas[i],
+      ));
+    }
+    return particles;
+  }
+
+  // ── 游戏控制 ──
+
+  void _gameOver() {
+    _stopGame();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
+      }
+    }
+    setState(() => _isGameOver = true);
+    _saveHighScore();
+  }
+
+  void _restartGame() {
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.dispose();
+      }
+      noteList.clear();
+    }
+    for (final e in _explodes) {
+      e.controller.dispose();
+    }
+    _explodes.clear();
+
+    setState(() {
+      _isGameOver = false;
+      _score = 0;
+      _health = 1.0;
+      _nextNoteIndex = 0;
+    });
+
+    _startCountdown();
+  }
+
+  Future<void> _handleExit() async {
+    if (_isExiting) return;
+    _stopGame();
+    await _saveHighScore();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
+      }
+    }
+    setState(() => _isExiting = true);
+    await _exitController.forward();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _showSpeedSettings() {
+    final wasCountingDown = _isCountingDown;
+    _wasGameRunning = !_isGameOver && !wasCountingDown;
+    _isCountingDown = false;
+
+    _stopGame();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
+      }
+    }
+    for (final e in _explodes) {
+      e.controller.stop();
+    }
+
+    Navigator.of(context)
+        .push<void>(
+      MaterialPageRoute(
+        builder: (context) => SpeedSettingsPage(
+          primaryColor: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    )
+        .then((_) {
+      if (!mounted || _isExiting) return;
+      _loadSettings().then((_) {
+        if (wasCountingDown) {
+          _resumeFromSnapshot();
+        } else {
+          _startCountdown();
+        }
+      });
+    });
+  }
+
+  void _startCountdown() {
+    setState(() {
+      _isCountingDown = true;
+      _countdownValue = 3;
+    });
+
+    void tick(int remaining) {
+      if (!mounted) return;
+      setState(() => _countdownValue = remaining);
+      if (remaining <= 0) {
+        setState(() => _isCountingDown = false);
+        _resumeFromSnapshot();
+        return;
+      }
+      Future.delayed(const Duration(milliseconds: 800), () => tick(remaining - 1));
+    }
+
+    tick(3);
+  }
+
+  void _resumeFromSnapshot() {
+    if (!_wasGameRunning) {
+      _startGame();
+      return;
+    }
+
+    _gameStopwatch.start();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        if (!note.judged) {
+          note.controller.forward();
+        }
+      }
+    }
+    for (final e in _explodes) {
+      e.controller.forward();
+    }
+    _spawnPendingNotes();
+  }
+
+  // ── Build ──
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final screenSize = MediaQuery.of(context).size;
+    final w = screenSize.width;
+    final h = screenSize.height;
+    final radius = _rpx(_circleRadiusRpx);
+    final judgeY = h * _judgeLineRatio;
+
+    final allControllers = <AnimationController>[];
+    for (final col in _notes) {
+      for (final note in col) {
+        allControllers.add(note.controller);
+      }
+    }
+    for (final e in _explodes) {
+      allControllers.add(e.controller);
+    }
+    for (final fb in _judgeFeedbacks) {
+      allControllers.add(fb.controller);
+    }
+    allControllers.add(_healthController);
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapUp: _handleTapUp,
+        onPanStart: _handlePanStart,
+        onPanEnd: _handlePanEnd,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: Listenable.merge(allControllers),
+                builder: (context, _) {
+                  return CustomPaint(
+                    painter: GamePainter(
+                      columns: _notes,
+                      explodes: _explodes,
+                      color: theme.colorScheme.primary,
+                      radius: radius,
+                      screenWidth: w,
+                      screenHeight: h,
+                      columnCount: _columnCount,
+                      judgeY: judgeY,
+                      judgeFeedbacks: _judgeFeedbacks,
+                      backgroundStyle: _backgroundStyle,
+                      health: _health,
+                      dropDuration: _dropDurationMs,
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16,
+              left: 16,
+              child: IconButton(
+                icon: Icon(
+                  Icons.arrow_back_ios_new,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+                onPressed: _handleExit,
+              ),
+            ),
+
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 18,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text(
+                  '$_score/$_highScore',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w200,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                    fontFeatures: [const FontFeature.tabularFigures()],
+                    letterSpacing: 3,
+                  ),
+                ),
+              ),
+            ),
+
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 16,
+              right: 16,
+              child: IconButton(
+                icon: Icon(
+                  Icons.settings_outlined,
+                  color: theme.colorScheme.primary,
+                  size: 24,
+                ),
+                onPressed: _isExiting ? null : _showSpeedSettings,
+              ),
+            ),
+
+            if (_isCountingDown)
+              Positioned.fill(
+                child: Center(
+                  child: Text(
+                    '$_countdownValue',
+                    style: TextStyle(
+                      fontSize: 120 * w / 750,
+                      fontWeight: FontWeight.w100,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                      height: 1,
+                      letterSpacing: -2,
+                    ),
+                  ),
+                ),
+              ),
+
+            if (_isGameOver)
+              Positioned.fill(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(
+                          color: theme.colorScheme.surface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$_score',
+                            style: TextStyle(
+                              fontSize: 64 * w / 750,
+                              fontWeight: FontWeight.w100,
+                              color: theme.colorScheme.primary,
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _score >= _highScore ? '新纪录!' : '最高分: $_highScore',
+                            style: TextStyle(
+                              fontSize: 14 * w / 750,
+                              fontWeight: FontWeight.w300,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          GestureDetector(
+                            onTap: _restartGame,
+                            child: Text(
+                              '再来一次',
+                              style: TextStyle(
+                                fontSize: 16 * w / 750,
+                                fontWeight: FontWeight.w300,
+                                color: theme.colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                                decorationColor:
+                                    theme.colorScheme.primary.withValues(alpha: 0.3),
+                                decorationThickness: 1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (_isWaterEntering)
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _enterController,
+                  builder: (context, _) {
+                    return CustomPaint(
+                      painter: WaterExitPainter(
+                        progress: _enterController.value,
+                        color: theme.colorScheme.primary,
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+            if (_isExiting)
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _exitController,
+                  builder: (context, _) {
+                    return CustomPaint(
+                      painter: WaterExitPainter(
+                        progress: _exitController.value,
+                        color: theme.colorScheme.primary,
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void registerLineDemo() {
+  demoRegistry.register(LineDemo());
+}
