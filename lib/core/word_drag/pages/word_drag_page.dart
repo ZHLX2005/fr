@@ -31,6 +31,7 @@ class _WordDragPageContent extends StatefulWidget {
 
 class _WordDragPageContentState extends State<_WordDragPageContent> {
   final DraggableWordCardController _cardController = DraggableWordCardController();
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -56,6 +57,28 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
         ),
       ),
     );
+  }
+
+  void _handleOffsetChanged(Offset offset) {
+    final notifier = context.read<WordDragNotifier>();
+    final screenSize = MediaQuery.of(context).size;
+
+    if (!_isDragging) {
+      // 拖动开始
+      _isDragging = true;
+      notifier.onDragStart();
+    }
+
+    notifier.onDragUpdate(offset, screenSize);
+  }
+
+  void _handleDragEnd() {
+    if (_isDragging) {
+      _isDragging = false;
+      final notifier = context.read<WordDragNotifier>();
+      final screenSize = MediaQuery.of(context).size;
+      notifier.onDragEnd(screenSize);
+    }
   }
 
   @override
@@ -183,6 +206,8 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   Widget _buildCardStack(WordDragNotifier notifier, WordDragState state) {
     return DraggableWordCard(
       controller: _cardController,
+      onOffsetChanged: _handleOffsetChanged,
+      onDragEnd: _handleDragEnd,
       child: WordCardContent(
         word: state.currentWord!,
         isDragging: state.isDragging,
