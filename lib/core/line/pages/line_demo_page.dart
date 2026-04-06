@@ -744,11 +744,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
           // 游戏结束时，点击设置返回应该保持游戏结束状态
           return;
         } else if (wasCountingDown) {
-          // 倒计时时点击设置，返回后恢复倒计时状态
-          setState(() {
-            _isCountingDown = true;
-            _countdownValue = 3;
-          });
+          // 倒计时时点击设置，返回后重新启动倒计时
+          _startCountdown();
         } else {
           // 游戏进行中，返回后恢复游戏
           _resumeFromSnapshot();
