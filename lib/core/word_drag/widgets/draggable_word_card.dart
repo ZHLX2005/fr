@@ -7,11 +7,17 @@ import '../providers/draggable_word_card_controller.dart';
 class DraggableWordCard extends StatefulWidget {
   final Widget child;
   final DraggableWordCardController controller;
+  /// 偏移量变化回调，用于通知外部状态管理器
+  final void Function(Offset offset)? onOffsetChanged;
+  /// 拖动结束回调
+  final VoidCallback? onDragEnd;
 
   const DraggableWordCard({
     super.key,
     required this.child,
     required this.controller,
+    this.onOffsetChanged,
+    this.onDragEnd,
   });
 
   @override
@@ -58,17 +64,19 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     setState(() {
       _dragOffset = Offset.zero;
     });
+    widget.onOffsetChanged?.call(_dragOffset);
   }
 
   void _onPanUpdate(Offset delta) {
     setState(() {
       _dragOffset += delta;
     });
+    widget.onOffsetChanged?.call(_dragOffset);
   }
 
   void _onPanEnd() {
-    // 通知控制器处理拖动结束
-    widget.controller.onDragEnd?.call();
+    widget.onOffsetChanged?.call(_dragOffset);
+    widget.onDragEnd?.call();
   }
 
   @override
