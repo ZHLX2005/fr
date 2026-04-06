@@ -193,8 +193,10 @@ class GamePainter extends CustomPainter {
   // 透明度计算
   double alpha;
   if (note.holdFadeOut > 0) {
-    // 判定后：从 0.5 渐变到 0
-    alpha = 0.5 * (1.0 - note.holdFadeOut);
+    // 闪烁 alpha
+    final flickerFreq = 30.0;
+    final flicker = 0.5 + 0.5 * math.sin(note.holdFadeOut * math.pi * flickerFreq);
+    alpha = 0.5 * (1.0 - note.holdFadeOut) * flicker;
   } else if (note.holding) {
     // 按住中：从 0.5 线性减小到 0
     alpha = 0.5 * (1.0 - note.holdProgress * 0.8);
@@ -267,6 +269,42 @@ class GamePainter extends CustomPainter {
     ..style = PaintingStyle.stroke
     ..strokeWidth = 2;
   canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
+
+  // ── 粒子爆发（完成时）──
+  if (note.holdFadeOut > 0) {
+    _paintHoldNoteParticles(canvas, cx, headY, alpha, note.holdFadeOut);
+  }
+}
+
+void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alpha, double fadeOut) {
+  if (fadeOut <= 0) return;
+
+  // 闪烁效果：alpha 在基础值 ±20% 范围内震荡，频率随 fadeOut 加快
+  final flickerFreq = 30.0; // Hz
+  final flicker = 0.8 + 0.2 * math.sin(fadeOut * math.pi * flickerFreq);
+  final flickerAlpha = alpha * flicker * (1.0 - fadeOut);
+  if (flickerAlpha < 0.01) return;
+
+  // 粒子：8 个，从头部爆发
+  // 使用一个固定种子确保粒子方向稳定
+  final particleCount = 8;
+  for (int i = 0; i < particleCount; i++) {
+    final baseAngle = (2 * math.pi * i / particleCount);
+    final speed = 40.0 + (i % 3) * 10.0; // 40-60 px/s
+    final vx = math.cos(baseAngle) * speed * (1 - fadeOut * 0.5);
+    final vy = math.sin(baseAngle) * speed * (1 - fadeOut * 0.5) - 20 * fadeOut; // 向上偏移
+    final px = cx + vx * fadeOut * 0.3;
+    final py = headY + vy * fadeOut * 0.3;
+    final particleAlpha = (1 - fadeOut) * 0.8;
+    final particleSize = 2.0 + (i % 2) * 1.5;
+
+    if (particleAlpha > 0.01) {
+      final pPaint = Paint()
+        ..color = Color.lerp(color, Colors.white, 0.3)!.withValues(alpha: particleAlpha)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(px, py), particleSize * (1 - fadeOut * 0.3), pPaint);
+    }
+  }
 }
 
   void _paintSlideNote(Canvas canvas, double cx, FallingNote note) {
