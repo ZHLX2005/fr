@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
+import '../models/line_models.dart';
 import 'rotating_cover.dart';
 import 'song_list_tile.dart';
 
 /// 边框风格
-enum BorderStyle { none, solid, double_, dashed }
+enum GameBorderStyle { none, solid, double_, dashed }
 
 /// 线条密度
 enum LineDensity { sparse, normal, dense }
 
-class BorderStylePicker extends StatelessWidget {
-  final BorderStyle selected;
-  final ValueChanged<BorderStyle> onChanged;
+class GameBorderStylePicker extends StatelessWidget {
+  final GameBorderStyle selected;
+  final ValueChanged<GameBorderStyle> onChanged;
   final Color color;
 
-  const BorderStylePicker({
+  const GameBorderStylePicker({
     super.key,
     required this.selected,
     required this.onChanged,
@@ -24,7 +25,7 @@ class BorderStylePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: BorderStyle.values.map((style) {
+      children: GameBorderStyle.values.map((style) {
         final isSelected = style == selected;
         return GestureDetector(
           onTap: () => onChanged(style),
@@ -42,9 +43,9 @@ class BorderStylePicker extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                style == BorderStyle.none ? '无' :
-                style == BorderStyle.solid ? '单' :
-                style == BorderStyle.double_ ? '双' : '虚',
+                style == GameBorderStyle.none ? '无' :
+                style == GameBorderStyle.solid ? '单' :
+                style == GameBorderStyle.double_ ? '双' : '虚',
                 style: TextStyle(
                   fontSize: 12,
                   color: isSelected ? color : color.withValues(alpha: 0.6),
@@ -111,9 +112,9 @@ class LineDensityPicker extends StatelessWidget {
 /// 歌曲详情面板
 class SongDetailPanel extends StatelessWidget {
   final SongData song;
-  final BorderStyle borderStyle;
+  final GameBorderStyle borderStyle;
   final LineDensity lineDensity;
-  final ValueChanged<BorderStyle> onBorderStyleChanged;
+  final ValueChanged<GameBorderStyle> onBorderStyleChanged;
   final ValueChanged<LineDensity> onLineDensityChanged;
   final VoidCallback onStart;
 
@@ -208,7 +209,7 @@ class SongDetailPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            BorderStylePicker(
+            GameBorderStylePicker(
               selected: borderStyle,
               onChanged: onBorderStyleChanged,
               color: color,

@@ -26,10 +26,7 @@ class LineDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    if (chart != null) {
-      return _LineDemoPage(chart: chart!);
-    }
-    return const _LineDemoPage();
+    return _LineDemoPage(chart: chart!);
   }
 }
 
