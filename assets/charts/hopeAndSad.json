@@ -12,42 +12,44 @@
   "notes": [
     {
       "time": 1323,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 1741,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 2159,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 53
     },
     {
       "time": 2577,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 2995,
-      "column": 0,
-      "type": "tap"
-    },
-    {
-      "time": 3413,
       "column": 1,
       "type": "tap"
     },
     {
+      "time": 3413,
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 71
+    },
+    {
       "time": 3831,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 4249,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -58,11 +60,12 @@
     {
       "time": 5085,
       "column": 2,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 62
     },
     {
       "time": 5503,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -72,7 +75,7 @@
     },
     {
       "time": 6315,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -82,27 +85,28 @@
     },
     {
       "time": 7151,
-      "column": 1,
-      "type": "tap"
-    },
-    {
-      "time": 7569,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 7987,
       "column": 0,
       "type": "tap"
     },
     {
-      "time": 8405,
-      "column": 1,
+      "time": 7569,
+      "column": 0,
       "type": "tap"
     },
     {
-      "time": 8823,
+      "time": 7987,
       "column": 2,
+      "type": "tap"
+    },
+    {
+      "time": 8405,
+      "column": 2,
+      "type": "slide",
+      "direction": "left"
+    },
+    {
+      "time": 8823,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -117,23 +121,24 @@
     },
     {
       "time": 10077,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 10495,
       "column": 0,
       "type": "tap"
     },
     {
+      "time": 10495,
+      "column": 2,
+      "type": "tap"
+    },
+    {
       "time": 10913,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 11331,
       "column": 2,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 65
     },
     {
       "time": 11749,
@@ -147,7 +152,7 @@
     },
     {
       "time": 12678,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -167,12 +172,12 @@
     },
     {
       "time": 14442,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 14860,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -187,42 +192,44 @@
     },
     {
       "time": 16114,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 16532,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 16950,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 17368,
-      "column": 1,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 17786,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 18204,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "hold",
+      "holdDuration": 132
     },
     {
       "time": 18622,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 19040,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -232,12 +239,13 @@
     },
     {
       "time": 19899,
-      "column": 1,
-      "type": "tap"
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 121
     },
     {
       "time": 20271,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -248,7 +256,8 @@
     {
       "time": 21083,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 52
     },
     {
       "time": 21524,
@@ -257,8 +266,9 @@
     },
     {
       "time": 21942,
-      "column": 0,
-      "type": "tap"
+      "column": 2,
+      "type": "hold",
+      "holdDuration": 67
     },
     {
       "time": 22360,
@@ -283,7 +293,8 @@
     {
       "time": 24055,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 24450,
@@ -292,8 +303,9 @@
     },
     {
       "time": 24891,
-      "column": 1,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 25356,
@@ -307,17 +319,17 @@
     },
     {
       "time": 26261,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 26702,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 27144,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -327,12 +339,12 @@
     },
     {
       "time": 27956,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 28398,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -347,8 +359,9 @@
     },
     {
       "time": 29651,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 30093,
@@ -358,7 +371,8 @@
     {
       "time": 30511,
       "column": 2,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 94
     },
     {
       "time": 30928,
@@ -372,7 +386,7 @@
     },
     {
       "time": 31741,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -382,7 +396,7 @@
     },
     {
       "time": 32577,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -393,11 +407,12 @@
     {
       "time": 33436,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 210
     },
     {
       "time": 33831,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -413,7 +428,8 @@
     {
       "time": 35062,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 146
     },
     {
       "time": 35480,
@@ -423,7 +439,8 @@
     {
       "time": 35851,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 70
     },
     {
       "time": 36223,
@@ -437,7 +454,7 @@
     },
     {
       "time": 37151,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -447,7 +464,7 @@
     },
     {
       "time": 37987,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -457,13 +474,14 @@
     },
     {
       "time": 38823,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 39218,
       "column": 2,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 83
     },
     {
       "time": 39613,
@@ -477,12 +495,13 @@
     },
     {
       "time": 40472,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 213
     },
     {
       "time": 40913,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -497,13 +516,15 @@
     },
     {
       "time": 42167,
-      "column": 0,
-      "type": "tap"
+      "column": 2,
+      "type": "hold",
+      "holdDuration": 201
     },
     {
       "time": 42608,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 102
     },
     {
       "time": 43003,
@@ -513,7 +534,8 @@
     {
       "time": 43421,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 140
     },
     {
       "time": 43816,
@@ -522,7 +544,7 @@
     },
     {
       "time": 44210,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -532,17 +554,18 @@
     },
     {
       "time": 45000,
-      "column": 1,
-      "type": "tap"
-    },
-    {
-      "time": 45371,
       "column": 2,
       "type": "tap"
     },
     {
+      "time": 45371,
+      "column": 1,
+      "type": "hold",
+      "holdDuration": 27
+    },
+    {
       "time": 45743,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -552,7 +575,7 @@
     },
     {
       "time": 46509,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -562,12 +585,12 @@
     },
     {
       "time": 47345,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 47809,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -577,22 +600,23 @@
     },
     {
       "time": 48622,
-      "column": 1,
-      "type": "tap"
-    },
-    {
-      "time": 49040,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 49458,
       "column": 0,
       "type": "tap"
     },
     {
-      "time": 49876,
+      "time": 49040,
+      "column": 0,
+      "type": "tap"
+    },
+    {
+      "time": 49458,
       "column": 1,
+      "type": "hold",
+      "holdDuration": 204
+    },
+    {
+      "time": 49876,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -607,18 +631,19 @@
     },
     {
       "time": 51130,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 51548,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 51966,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 52360,
@@ -627,7 +652,7 @@
     },
     {
       "time": 52755,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -642,7 +667,7 @@
     },
     {
       "time": 53939,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -662,9 +687,8 @@
     },
     {
       "time": 55658,
-      "column": 0,
-      "type": "slide",
-      "direction": "right"
+      "column": 2,
+      "type": "tap"
     },
     {
       "time": 56099,
@@ -673,18 +697,19 @@
     },
     {
       "time": 56517,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 56935,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 57376,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 217
     },
     {
       "time": 57817,
@@ -693,13 +718,14 @@
     },
     {
       "time": 58258,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 58676,
-      "column": 1,
-      "type": "tap"
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 213
     },
     {
       "time": 59118,
@@ -713,19 +739,18 @@
     },
     {
       "time": 60046,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 60487,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 60905,
       "column": 0,
-      "type": "slide",
-      "direction": "down"
+      "type": "tap"
     },
     {
       "time": 61300,
@@ -734,22 +759,23 @@
     },
     {
       "time": 61741,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 62159,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 120
     },
     {
       "time": 62554,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 62972,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -759,27 +785,28 @@
     },
     {
       "time": 63808,
-      "column": 1,
-      "type": "tap"
-    },
-    {
-      "time": 64226,
       "column": 2,
       "type": "tap"
     },
     {
+      "time": 64226,
+      "column": 1,
+      "type": "tap"
+    },
+    {
       "time": 64644,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 65039,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 65457,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -789,12 +816,12 @@
     },
     {
       "time": 66292,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 66710,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -804,7 +831,7 @@
     },
     {
       "time": 67546,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -814,18 +841,20 @@
     },
     {
       "time": 68382,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 68823,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 69265,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 145
     },
     {
       "time": 69659,
@@ -844,49 +873,51 @@
     },
     {
       "time": 70890,
-      "column": 0,
-      "type": "slide",
-      "direction": "left"
+      "column": 2,
+      "type": "tap"
     },
     {
       "time": 71308,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 88
     },
     {
       "time": 71726,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 72144,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 72562,
-      "column": 1,
-      "type": "tap"
-    },
-    {
-      "time": 72980,
       "column": 2,
       "type": "tap"
     },
     {
+      "time": 72980,
+      "column": 1,
+      "type": "hold",
+      "holdDuration": 82
+    },
+    {
       "time": 73398,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 73816,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 74234,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 74652,
@@ -895,12 +926,12 @@
     },
     {
       "time": 75070,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 75488,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -915,48 +946,51 @@
     },
     {
       "time": 76741,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 77159,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 77577,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "hold",
+      "holdDuration": 84
     },
     {
       "time": 77995,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 78413,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 78831,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 79249,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 79667,
       "column": 0,
       "type": "tap"
     },
     {
-      "time": 80085,
-      "column": 1,
+      "time": 79667,
+      "column": 2,
       "type": "tap"
+    },
+    {
+      "time": 80085,
+      "column": 0,
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 80480,
@@ -975,8 +1009,9 @@
     },
     {
       "time": 81734,
-      "column": 2,
-      "type": "tap"
+      "column": 1,
+      "type": "hold",
+      "holdDuration": 48
     },
     {
       "time": 82152,
@@ -990,7 +1025,7 @@
     },
     {
       "time": 82988,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1000,38 +1035,39 @@
     },
     {
       "time": 83824,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 84241,
-      "column": 2,
-      "type": "slide",
-      "direction": "right"
+      "column": 1,
+      "type": "tap"
     },
     {
       "time": 84659,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 85054,
-      "column": 1,
-      "type": "tap"
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 87
     },
     {
       "time": 85472,
-      "column": 2,
-      "type": "tap"
+      "column": 1,
+      "type": "hold",
+      "holdDuration": 61
     },
     {
       "time": 85890,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 86331,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1041,7 +1077,7 @@
     },
     {
       "time": 87144,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1057,7 +1093,8 @@
     {
       "time": 88398,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 319
     },
     {
       "time": 88816,
@@ -1066,7 +1103,7 @@
     },
     {
       "time": 89211,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1076,18 +1113,19 @@
     },
     {
       "time": 90070,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 90488,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 90906,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 189
     },
     {
       "time": 91300,
@@ -1096,7 +1134,7 @@
     },
     {
       "time": 91718,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1106,7 +1144,7 @@
     },
     {
       "time": 92554,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -1127,26 +1165,28 @@
     {
       "time": 94226,
       "column": 2,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 237
     },
     {
       "time": 94644,
-      "column": 0,
-      "type": "tap"
-    },
-    {
-      "time": 95062,
       "column": 1,
       "type": "tap"
     },
     {
-      "time": 95457,
-      "column": 2,
+      "time": 95062,
+      "column": 0,
       "type": "tap"
     },
     {
-      "time": 95851,
+      "time": 95457,
       "column": 0,
+      "type": "hold",
+      "holdDuration": 258
+    },
+    {
+      "time": 95851,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -1166,8 +1206,9 @@
     },
     {
       "time": 97570,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "hold",
+      "holdDuration": 298
     },
     {
       "time": 97988,
@@ -1181,7 +1222,7 @@
     },
     {
       "time": 98800,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -1192,17 +1233,20 @@
     {
       "time": 99636,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 312
     },
     {
       "time": 100054,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 100472,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 100867,
@@ -1211,27 +1255,28 @@
     },
     {
       "time": 101285,
-      "column": 1,
-      "type": "tap"
-    },
-    {
-      "time": 101726,
       "column": 2,
       "type": "tap"
     },
     {
-      "time": 102144,
+      "time": 101726,
       "column": 0,
+      "type": "tap"
+    },
+    {
+      "time": 102144,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 102562,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 102980,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1246,7 +1291,7 @@
     },
     {
       "time": 104234,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1266,7 +1311,7 @@
     },
     {
       "time": 105882,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -1296,7 +1341,7 @@
     },
     {
       "time": 108413,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -1307,17 +1352,20 @@
     {
       "time": 109226,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 109644,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 237
     },
     {
       "time": 110039,
-      "column": 1,
-      "type": "tap"
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 415
     },
     {
       "time": 110457,
@@ -1326,8 +1374,9 @@
     },
     {
       "time": 110875,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "hold",
+      "holdDuration": 359
     },
     {
       "time": 111316,
@@ -1341,18 +1390,20 @@
     },
     {
       "time": 112152,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 112547,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 112941,
       "column": 2,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 279
     },
     {
       "time": 113359,
@@ -1362,17 +1413,20 @@
     {
       "time": 113824,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 114242,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 114660,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 115078,
@@ -1381,52 +1435,56 @@
     },
     {
       "time": 115496,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 115914,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 116331,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 116749,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 117167,
-      "column": 0,
-      "type": "tap"
+      "column": 2,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 117585,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 118003,
-      "column": 2,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 118421,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 118816,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 303
     },
     {
       "time": 119234,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1437,7 +1495,8 @@
     {
       "time": 120070,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 120488,
@@ -1447,11 +1506,12 @@
     {
       "time": 120883,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 355
     },
     {
       "time": 121324,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1462,21 +1522,24 @@
     {
       "time": 122160,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 122554,
-      "column": 1,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 122972,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 123390,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1486,22 +1549,24 @@
     },
     {
       "time": 124226,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 124644,
-      "column": 0,
-      "type": "tap"
-    },
-    {
-      "time": 125062,
       "column": 1,
       "type": "tap"
     },
     {
+      "time": 124644,
+      "column": 1,
+      "type": "slide",
+      "direction": "down"
+    },
+    {
+      "time": 125062,
+      "column": 1,
+      "type": "slide",
+      "direction": "up"
+    },
+    {
       "time": 125480,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1512,27 +1577,31 @@
     {
       "time": 126316,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 126711,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 127152,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 127570,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 127988,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 128406,
@@ -1542,17 +1611,19 @@
     {
       "time": 128824,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 129242,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 129660,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 130078,
@@ -1561,38 +1632,45 @@
     },
     {
       "time": 130496,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 130914,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 131308,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 131750,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 132144,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 132562,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 132980,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 133398,
@@ -1602,12 +1680,14 @@
     {
       "time": 133816,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 134234,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 134652,
@@ -1617,7 +1697,8 @@
     {
       "time": 135070,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 406
     },
     {
       "time": 135488,
@@ -1631,7 +1712,7 @@
     },
     {
       "time": 136324,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1646,18 +1727,19 @@
     },
     {
       "time": 137578,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 137996,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 138390,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 138808,
@@ -1666,7 +1748,7 @@
     },
     {
       "time": 139226,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1676,18 +1758,20 @@
     },
     {
       "time": 140085,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 140480,
-      "column": 2,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 140898,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 496
     },
     {
       "time": 141316,
@@ -1701,7 +1785,7 @@
     },
     {
       "time": 142152,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1711,12 +1795,13 @@
     },
     {
       "time": 142988,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 601
     },
     {
       "time": 143406,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1726,9 +1811,8 @@
     },
     {
       "time": 144242,
-      "column": 2,
-      "type": "slide",
-      "direction": "left"
+      "column": 0,
+      "type": "tap"
     },
     {
       "time": 144660,
@@ -1737,12 +1821,12 @@
     },
     {
       "time": 145055,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 145473,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1757,18 +1841,21 @@
     },
     {
       "time": 146750,
-      "column": 2,
-      "type": "tap"
+      "column": 1,
+      "type": "hold",
+      "holdDuration": 210
     },
     {
       "time": 147144,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 147562,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "hold",
+      "holdDuration": 48
     },
     {
       "time": 147957,
@@ -1787,7 +1874,7 @@
     },
     {
       "time": 149257,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1802,7 +1889,7 @@
     },
     {
       "time": 150511,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1813,7 +1900,8 @@
     {
       "time": 151324,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 112
     },
     {
       "time": 151742,
@@ -1822,8 +1910,9 @@
     },
     {
       "time": 152137,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 152555,
@@ -1832,17 +1921,17 @@
     },
     {
       "time": 152973,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 153414,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 153832,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -1862,22 +1951,23 @@
     },
     {
       "time": 155434,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 155852,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 55
     },
     {
       "time": 156316,
-      "column": 1,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 156757,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1887,28 +1977,29 @@
     },
     {
       "time": 157593,
-      "column": 1,
-      "type": "tap"
-    },
-    {
-      "time": 157988,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 158406,
       "column": 0,
       "type": "tap"
     },
     {
-      "time": 158824,
+      "time": 157988,
       "column": 1,
       "type": "tap"
     },
     {
-      "time": 159242,
+      "time": 158406,
       "column": 2,
       "type": "tap"
+    },
+    {
+      "time": 158824,
+      "column": 2,
+      "type": "tap"
+    },
+    {
+      "time": 159242,
+      "column": 0,
+      "type": "hold",
+      "holdDuration": 90
     },
     {
       "time": 159660,
@@ -1922,38 +2013,38 @@
     },
     {
       "time": 160496,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 160891,
-      "column": 0,
-      "type": "tap"
-    },
-    {
-      "time": 161309,
       "column": 1,
       "type": "tap"
     },
     {
-      "time": 161703,
+      "time": 160891,
       "column": 2,
+      "type": "tap"
+    },
+    {
+      "time": 161309,
+      "column": 2,
+      "type": "tap"
+    },
+    {
+      "time": 161703,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 162144,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 343
     },
     {
       "time": 162562,
-      "column": 1,
-      "type": "slide",
-      "direction": "down"
+      "column": 0,
+      "type": "tap"
     },
     {
       "time": 162980,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -1963,8 +2054,9 @@
     },
     {
       "time": 163793,
-      "column": 1,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 164188,
@@ -1974,37 +2066,41 @@
     {
       "time": 164652,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 165070,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 165488,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 165906,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 166324,
+      "column": 0,
+      "type": "slide",
+      "direction": "up"
+    },
+    {
+      "time": 166719,
       "column": 1,
       "type": "tap"
     },
     {
-      "time": 166719,
-      "column": 2,
-      "type": "tap"
-    },
-    {
       "time": 167160,
-      "column": 0,
-      "type": "tap"
+      "column": 2,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 167578,
@@ -2024,16 +2120,18 @@
     {
       "time": 168809,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 169227,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 169644,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -2044,7 +2142,8 @@
     {
       "time": 170480,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 170898,
@@ -2064,47 +2163,55 @@
     {
       "time": 172152,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 172570,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 172988,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 173383,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 173824,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 174242,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 174660,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 175078,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 175496,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 175914,
@@ -2115,27 +2222,32 @@
     {
       "time": 176309,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 176703,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 177145,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 177562,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 177980,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 178398,
@@ -2144,23 +2256,26 @@
     },
     {
       "time": 178816,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 179234,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 179652,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 180070,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "up"
     },
     {
       "time": 180488,
@@ -2184,14 +2299,14 @@
     },
     {
       "time": 182137,
-      "column": 0,
-      "type": "tap"
+      "column": 2,
+      "type": "hold",
+      "holdDuration": 335
     },
     {
       "time": 182555,
       "column": 1,
-      "type": "slide",
-      "direction": "right"
+      "type": "tap"
     },
     {
       "time": 182996,
@@ -2220,33 +2335,37 @@
     },
     {
       "time": 185063,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 185480,
-      "column": 2,
-      "type": "tap"
+      "column": 0,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 185922,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 186316,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 186711,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 187152,
-      "column": 0,
-      "type": "tap"
+      "column": 1,
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 187570,
@@ -2266,41 +2385,45 @@
     {
       "time": 188824,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 189265,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 189683,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 190078,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 190496,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 190937,
+      "column": 1,
+      "type": "slide",
+      "direction": "up"
+    },
+    {
+      "time": 191355,
       "column": 0,
       "type": "tap"
     },
     {
-      "time": 191355,
-      "column": 1,
-      "type": "tap"
-    },
-    {
       "time": 191773,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -2311,42 +2434,44 @@
     {
       "time": 192563,
       "column": 1,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 192981,
       "column": 2,
-      "type": "tap"
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 193422,
-      "column": 0,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 193816,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
       "time": 194234,
-      "column": 2,
-      "type": "slide",
-      "direction": "down"
-    },
-    {
-      "time": 194652,
-      "column": 0,
-      "type": "tap"
-    },
-    {
-      "time": 195094,
       "column": 1,
       "type": "tap"
     },
     {
-      "time": 195512,
+      "time": 194652,
       "column": 2,
+      "type": "tap"
+    },
+    {
+      "time": 195094,
+      "column": 2,
+      "type": "slide",
+      "direction": "left"
+    },
+    {
+      "time": 195512,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -2361,17 +2486,17 @@
     },
     {
       "time": 196742,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 197160,
       "column": 0,
       "type": "tap"
     },
     {
+      "time": 197160,
+      "column": 2,
+      "type": "tap"
+    },
+    {
       "time": 197578,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -2387,26 +2512,28 @@
     {
       "time": 198855,
       "column": 1,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 310
     },
     {
       "time": 199296,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 199738,
       "column": 0,
       "type": "tap"
     },
     {
-      "time": 200179,
+      "time": 199738,
       "column": 1,
       "type": "tap"
     },
     {
-      "time": 200597,
+      "time": 200179,
       "column": 2,
+      "type": "hold",
+      "holdDuration": 109
+    },
+    {
+      "time": 200597,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -2416,12 +2543,13 @@
     },
     {
       "time": 201340,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "slide",
+      "direction": "right"
     },
     {
       "time": 201734,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -2436,12 +2564,12 @@
     },
     {
       "time": 202988,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 203406,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -2451,7 +2579,7 @@
     },
     {
       "time": 204242,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -2461,7 +2589,7 @@
     },
     {
       "time": 205078,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -2471,13 +2599,14 @@
     },
     {
       "time": 205914,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 206332,
-      "column": 1,
-      "type": "tap"
+      "column": 2,
+      "type": "slide",
+      "direction": "down"
     },
     {
       "time": 206727,
@@ -2487,38 +2616,39 @@
     {
       "time": 207145,
       "column": 0,
-      "type": "tap"
+      "type": "slide",
+      "direction": "left"
     },
     {
       "time": 207563,
       "column": 1,
-      "type": "slide",
-      "direction": "up"
+      "type": "tap"
     },
     {
       "time": 207981,
-      "column": 2,
-      "type": "tap"
-    },
-    {
-      "time": 208399,
-      "column": 0,
-      "type": "tap"
-    },
-    {
-      "time": 208817,
       "column": 1,
       "type": "tap"
     },
     {
+      "time": 208399,
+      "column": 1,
+      "type": "tap"
+    },
+    {
+      "time": 208817,
+      "column": 0,
+      "type": "tap"
+    },
+    {
       "time": 209211,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
       "time": 209652,
-      "column": 0,
-      "type": "tap"
+      "column": 2,
+      "type": "hold",
+      "holdDuration": 92
     },
     {
       "time": 210070,
@@ -2528,11 +2658,12 @@
     {
       "time": 210488,
       "column": 2,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 172
     },
     {
       "time": 210906,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
@@ -2542,17 +2673,18 @@
     },
     {
       "time": 211742,
-      "column": 2,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 212160,
       "column": 0,
-      "type": "tap"
+      "type": "hold",
+      "holdDuration": 103
     },
     {
       "time": 212578,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -2562,17 +2694,17 @@
     },
     {
       "time": 213484,
-      "column": 0,
-      "type": "tap"
-    },
-    {
-      "time": 213948,
       "column": 1,
       "type": "tap"
     },
     {
-      "time": 214343,
+      "time": 213948,
       "column": 2,
+      "type": "tap"
+    },
+    {
+      "time": 214343,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -2587,7 +2719,7 @@
     },
     {
       "time": 215457,
-      "column": 2,
+      "column": 0,
       "type": "tap"
     },
     {
@@ -2597,22 +2729,23 @@
     },
     {
       "time": 216247,
-      "column": 1,
-      "type": "tap"
-    },
-    {
-      "time": 216665,
       "column": 2,
       "type": "tap"
     },
     {
+      "time": 216665,
+      "column": 1,
+      "type": "hold",
+      "holdDuration": 26
+    },
+    {
       "time": 217060,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     },
     {
       "time": 217454,
-      "column": 1,
+      "column": 2,
       "type": "tap"
     },
     {
@@ -2622,7 +2755,7 @@
     },
     {
       "time": 218290,
-      "column": 0,
+      "column": 1,
       "type": "tap"
     }
   ]
