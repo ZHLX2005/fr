@@ -98,7 +98,8 @@ class FallingNote {
         holding = false,
         holdProgress = 0.0,
         holdJudgeDiff = 0,
-        holdPressTime = 0;
+        holdPressTime = 0,
+        holdFadeOut = 0.0;
 }
 
 /// 炸开动画状态
