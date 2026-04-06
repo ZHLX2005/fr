@@ -321,7 +321,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
     if (_chart == null) return;
     final elapsed = _gameStopwatch.elapsedMilliseconds;
     FallingNote? best;
-    int bestDiff = _missWindow + 1;
+    final scaledMissWindow = (_missWindow * _timingScale).round();
+    int bestDiff = scaledMissWindow + 1;
 
     for (final note in _notes[col]) {
       if (note.judged) continue;
@@ -333,7 +334,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
       }
     }
 
-    if (best != null && bestDiff <= (_goodWindow * _timingScale).round()) {
+    if (best != null && bestDiff <= scaledMissWindow) {
       _judgeNote(col, best, bestDiff);
     }
   }
@@ -400,17 +401,19 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final scaledPerfect = (_perfectWindow * _timingScale).round();
     final scaledGreat = (_greatWindow * _timingScale).round();
     final scaledGood = (_goodWindow * _timingScale).round();
+    // 奖励/惩罚与 timingScale 成反比：越严格（scale 小），奖励越多/惩罚越重
+    final healthScale = 1.0 / _timingScale;
 
     if (timeDiffMs <= scaledPerfect) {
       judgeText = 'Perfect';
       judgeAlpha = 0.6;
       points = 3;
-      healthChange = 0.05;
+      healthChange = 0.05 * healthScale;
     } else if (timeDiffMs <= scaledGreat) {
       judgeText = 'Great';
       judgeAlpha = 0.4;
       points = 2;
-      healthChange = 0.02;
+      healthChange = 0.02 * healthScale;
     } else if (timeDiffMs <= scaledGood) {
       judgeText = 'Good';
       judgeAlpha = 0.25;
@@ -470,8 +473,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void _onNoteMissed(int col, FallingNote note) {
     if (note.judged) return;
     note.judged = true;
+    final healthScale = 1.0 / _timingScale;
     setState(() {
-      _health = (_health - 0.15).clamp(0.0, 1.0);
+      _health = (_health - 0.15 * healthScale).clamp(0.0, 1.0);
     });
     if (_health <= 0.0) {
       _gameOver();
