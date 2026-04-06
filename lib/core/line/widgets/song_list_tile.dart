@@ -53,22 +53,18 @@ class SongListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme.primary;
-    final isDark = theme.brightness == Brightness.dark;
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected
-              ? color.withValues(alpha: 0.15)
-              : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? color : Colors.transparent,
-            width: isSelected ? 2 : 1,
+            width: 1.5,
           ),
         ),
         child: Row(
@@ -76,7 +72,7 @@ class SongListTile extends StatelessWidget {
             // 旋转封面
             RotatingCover(
               imagePath: song.coverPath,
-              size: 50,
+              size: 44,
               borderWidth: 1,
             ),
             const SizedBox(width: 12),
@@ -84,12 +80,13 @@ class SongListTile extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     song.name,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isSelected ? color : null,
                     ),
                     maxLines: 1,
@@ -100,47 +97,22 @@ class SongListTile extends StatelessWidget {
                     song.artist,
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.textTheme.bodySmall?.color,
+                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        _formatDuration(song.duration),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      DifficultyStars(difficulty: song.difficulty, size: 10),
-                    ],
-                  ),
                 ],
               ),
             ),
-            // START 按钮（选中时显示）
-            if (isSelected)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: color, width: 1),
-                ),
-                child: Text(
-                  'START',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                    letterSpacing: 1,
-                  ),
-                ),
+            // 时长
+            Text(
+              _formatDuration(song.duration),
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
               ),
+            ),
           ],
         ),
       ),
