@@ -249,17 +249,10 @@ class _LineDemoPageState extends State<_LineDemoPage>
     debugPrint('[SPAWN] elapsed=$spawnElapsed event.time=${event.time} col=${event.column} type=${event.type}');
 
     controller.addListener(() {
-      final screenH = screenSize.height;
-      final judgeY = screenH * _judgeLineRatio;
-
-      // 按住时冻结在判定线，不继续下落
-      if (note.holding && !note.judged) {
-        note.currentY = judgeY;
-      } else {
-        final easedT = Curves.easeIn.transform(controller.value);
-        final targetY = screenH + radius;
-        note.currentY = -radius + (targetY + radius) * easedT;
-      }
+      // 音符持续下落，不冻结
+      final easedT = Curves.easeIn.transform(controller.value);
+      final targetY = screenSize.height + radius;
+      note.currentY = -radius + (targetY + radius) * easedT;
 
       if (!note.judged && event.type != NoteType.hold) {
         final elapsed = _gameStopwatch.elapsedMilliseconds;
@@ -767,6 +760,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       backgroundStyle: _backgroundStyle,
                       health: _health,
                       dropDuration: _chart!.dropDuration.toDouble(),
+                      scrollSpeed: _scrollSpeed,
                       gameElapsed: _gameStopwatch.elapsedMilliseconds,
                     ),
                   );
