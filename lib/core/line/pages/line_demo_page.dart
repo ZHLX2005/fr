@@ -44,6 +44,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   late AnimationController _exitController;
   late AnimationController _enterController;
   late AnimationController _healthController;
+  late AnimationController _renderTicker; // 强制每帧重绘
 
   // ── 谱面 ──
   ChartData? _chart;
@@ -110,6 +111,10 @@ class _LineDemoPageState extends State<_LineDemoPage>
       duration: const Duration(days: 365),
       vsync: this,
     )..repeat();
+    _renderTicker = AnimationController(
+      duration: const Duration(milliseconds: 16),
+      vsync: this,
+    )..repeat();
 
     _notes = List.generate(_columnCount, (_) => []);
 
@@ -162,6 +167,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _exitController.dispose();
     _enterController.dispose();
     _healthController.dispose();
+    _renderTicker.dispose();
     _gameStopwatch.stop();
     for (final noteList in _notes) {
       for (final note in noteList) {
@@ -714,6 +720,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
       allControllers.add(fb.controller);
     }
     allControllers.add(_healthController);
+    allControllers.add(_renderTicker);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
