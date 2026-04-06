@@ -371,9 +371,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
     for (final note in _notes[col]) {
       if (note.judged || note.event.type != NoteType.hold) continue;
       final diff = (elapsed - note.event.time).abs();
+      debugPrint('[HOLD_PRESS] elapsed=$elapsed event.time=${note.event.time} col=$col diff=$diff window=${(_goodWindow * _timingScale).round()}');
       if (diff <= (_goodWindow * _timingScale).round()) {
         note.holding = true;
         _heldColumns.add(col);
+        debugPrint('[HOLD_START] col=$col holding=true');
         return;
       }
     }
