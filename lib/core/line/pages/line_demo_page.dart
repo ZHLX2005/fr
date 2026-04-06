@@ -396,17 +396,27 @@ class _LineDemoPageState extends State<_LineDemoPage>
     int points;
     double healthChange;
 
-    if (timeDiffMs <= _perfectWindow) {
+    final scaledPerfect = (_perfectWindow * _timingScale).round();
+    final scaledGreat = (_greatWindow * _timingScale).round();
+    final scaledGood = (_goodWindow * _timingScale).round();
+
+    if (timeDiffMs <= scaledPerfect) {
       judgeText = 'Perfect';
       judgeAlpha = 0.6;
       points = 3;
       healthChange = 0.05;
-    } else if (timeDiffMs <= _greatWindow) {
+    } else if (timeDiffMs <= scaledGreat) {
       judgeText = 'Great';
       judgeAlpha = 0.4;
       points = 2;
       healthChange = 0.02;
+    } else if (timeDiffMs <= scaledGood) {
+      judgeText = 'Good';
+      judgeAlpha = 0.25;
+      points = 1;
+      healthChange = 0.0;
     } else {
+      // Fallback (shouldn't reach here since caller already checked Good window)
       judgeText = 'Good';
       judgeAlpha = 0.25;
       points = 1;
