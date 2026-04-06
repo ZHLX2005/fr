@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hold 视觉设计选择</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f1a; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+  h1 { font-size: 1.5em; margin-bottom: 8px; color: #e0e0ff; }
+  .subtitle { color: #888; margin-bottom: 32px; font-size: 0.9em; }
+  .section { margin-bottom: 40px; width: 100%; max-width: 600px; }
+  .section-title { font-size: 1em; color: #aaa; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+  .options { display: flex; flex-direction: column; gap: 12px; }
+  .option { background: #1a1a2e; border: 2px solid #2a2a4a; border-radius: 12px; padding: 16px 20px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 16px; }
+  .option:hover { border-color: #5a5a9a; background: #1e1e35; }
+  .option.selected { border-color: #7c7cff; background: #1e1e40; }
+  .option .circle { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2em; background: #2a2a4a; color: #888; }
+  .option.selected .circle { background: #7c7cff; color: #fff; }
+  .option-content h3 { font-size: 1em; margin-bottom: 4px; }
+  .option-content p { font-size: 0.8em; color: #888; }
+  .preview { margin-top: 12px; padding: 16px; background: #12121f; border-radius: 8px; }
+  .preview-label { font-size: 0.75em; color: #666; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .bar-demo { display: flex; align-items: center; gap: 12px; }
+  .bar { width: 8px; height: 80px; background: #5c5cff; border-radius: 4px; }
+  .bar.transparent { opacity: 0.2; }
+  .bar.mid { opacity: 0.4; }
+  .bar.opaque { opacity: 0.6; }
+  .bar-label { font-size: 0.75em; color: #666; }
+  .color-options { display: flex; gap: 10px; flex-wrap: wrap; }
+  .color-btn { width: 44px; height: 44px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; transition: all 0.2s; }
+  .color-btn:hover { transform: scale(1.1); }
+  .color-btn.selected { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.4); }
+  .btn { background: #5c5cff; color: #fff; border: none; border-radius: 8px; padding: 12px 32px; font-size: 1em; cursor: pointer; margin-top: 20px; }
+  .btn:hover { background: #6e6eff; }
+  .log-options { display: flex; flex-direction: column; gap: 8px; }
+  .log-btn { background: #1a1a2e; border: 2px solid #2a2a4a; border-radius: 8px; padding: 10px 16px; color: #aaa; cursor: pointer; text-align: left; font-size: 0.85em; transition: all 0.2s; }
+  .log-btn:hover { border-color: #5a5a9a; color: #fff; }
+  .log-btn.selected { border-color: #7c7cff; background: #1e1e40; color: #fff; }
+  .confirm-section { margin-top: 32px; }
+</style>
+</head>
+<body>
+<h1>Hold 视觉与日志设计</h1>
+<p class="subtitle">点击选择各项配置</p>
+
+<!-- 透明度 -->
+<div class="section">
+  <div class="section-title">1. Hold 条透明度</div>
+  <div class="options">
+    <div class="option" data-group="alpha" data-value="0.2-0.6" onclick="select(this)">
+      <div class="circle">C</div>
+      <div class="option-content">
+        <h3>渐进透明度 (0.2 → 0.6)</h3>
+        <p>按住时从半透明渐变到接近实心，按越久越清晰</p>
+      </div>
+    </div>
+  </div>
+  <div class="preview">
+    <div class="preview-label">效果预览</div>
+    <div class="bar-demo">
+      <div class="bar transparent"></div><span class="bar-label">0.2</span>
+      <div class="bar" style="opacity:0.4"></div><span class="bar-label">0.4</span>
+      <div class="bar opaque"></div><span class="bar-label">0.6</span>
+      <span class="bar-label">← 按住进度</span>
+    </div>
+  </div>
+</div>
+
+<!-- 颜色 -->
+<div class="section">
+  <div class="section-title">2. Hold 条颜色</div>
+  <div class="color-options">
+    <div class="color-btn selected" style="background:#5c5cff" data-color="#5c5cff" onclick="selectColor(this)"></div>
+    <div class="color-btn" style="background:#00d4aa" data-color="#00d4aa" onclick="selectColor(this)"></div>
+    <div class="color-btn" style="background:#ff6b6b" data-color="#ff6b6b" onclick="selectColor(this)"></div>
+    <div class="color-btn" style="background:#ffd93d" data-color="#ffd93d" onclick="selectColor(this)"></div>
+    <div class="color-btn" style="background:#c0c0c0" data-color="#c0c0c0" onclick="selectColor(this)"></div>
+    <div class="color-btn" style="background:#ff9ff3" data-color="#ff9ff3" onclick="selectColor(this)"></div>
+  </div>
+</div>
+
+<!-- 日志详细度 -->
+<div class="section">
+  <div class="section-title">3. 判定日志详细度</div>
+  <div class="log-options">
+    <div class="log-btn" data-log="basic" onclick="selectLog(this)">
+      <strong>基础日志</strong> — 按下/释放/判定结果 (当前已有)
+    </div>
+    <div class="log-btn selected" data-log="detailed" onclick="selectLog(this)">
+      <strong>详细日志</strong> — +每帧 holdProgress、音符列表状态、自动 miss 检测
+    </div>
+    <div class="log-btn" data-log="verbose" onclick="selectLog(this)">
+      <strong>完整日志</strong> — +spawn 时刻表、判定窗口计算、所有列的音符扫描
+    </div>
+  </div>
+</div>
+
+<div class="confirm-section">
+  <button class="btn" onclick="confirm()">确认选择</button>
+</div>
+
+<script>
+let selections = { alpha: '0.2-0.6', color: '#5c5cff', log: 'detailed' };
+function select(el) {
+  el.parentElement.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selections[el.dataset.group] = el.dataset.value;
+}
+function selectColor(el) {
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selections.color = el.dataset.color;
+}
+function selectLog(el) {
+  document.querySelectorAll('.log-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selections.log = el.dataset.log;
+}
+function confirm() {
+  const result = JSON.stringify(selections);
+  document.body.innerHTML = '<h1 style="color:#7c7cff">选择已确认</h1><pre style="background:#1a1a2e;padding:20px;border-radius:8px;margin:20px 0">' + result + '</pre><p style="color:#888">请在终端中继续</p>';
+}
+</script>
+</body>
+</html>

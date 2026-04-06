@@ -42,6 +42,22 @@ class _SongSelectPageState extends State<SongSelectPage> {
     setState(() => _selectedSong = song);
   }
 
+  void _onSwipeUp() {
+    if (_songs.isEmpty || _selectedSong == null) return;
+    final currentIndex = _songs.indexWhere((s) => s.id == _selectedSong!.id);
+    if (currentIndex > 0) {
+      setState(() => _selectedSong = _songs[currentIndex - 1]);
+    }
+  }
+
+  void _onSwipeDown() {
+    if (_songs.isEmpty || _selectedSong == null) return;
+    final currentIndex = _songs.indexWhere((s) => s.id == _selectedSong!.id);
+    if (currentIndex < _songs.length - 1) {
+      setState(() => _selectedSong = _songs[currentIndex + 1]);
+    }
+  }
+
   void _onStart() {
     if (_selectedSong == null) return;
 
@@ -55,7 +71,10 @@ class _SongSelectPageState extends State<SongSelectPage> {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (context) => LineDemoPage(chart: chart),
+        builder: (context) => LineDemo(
+          chart: chart,
+          audioPath: _selectedSong!.audioPath.isNotEmpty ? _selectedSong!.audioPath : null,
+        ).buildPage(context),
       ),
     );
   }
@@ -142,22 +161,33 @@ class _SongSelectPageState extends State<SongSelectPage> {
               ],
             ),
           ),
-          // 右侧详情面板 (70%)
+          // 右侧详情面板 (70%) - 支持上下滑动切换歌曲
           Expanded(
-            child: _selectedSong != null
-                ? SongDetailPanel(
-                    song: _selectedSong!,
-                    borderStyle: _borderStyle,
-                    lineDensity: _lineDensity,
-                    onBorderStyleChanged: (style) {
-                      setState(() => _borderStyle = style);
-                    },
-                    onLineDensityChanged: (density) {
-                      setState(() => _lineDensity = density);
-                    },
-                    onStart: _onStart,
-                  )
-                : const SizedBox(),
+            child: GestureDetector(
+              onVerticalDragEnd: (details) {
+                if (details.primaryVelocity != null) {
+                  if (details.primaryVelocity! < -100) {
+                    _onSwipeUp();
+                  } else if (details.primaryVelocity! > 100) {
+                    _onSwipeDown();
+                  }
+                }
+              },
+              child: _selectedSong != null
+                  ? SongDetailPanel(
+                      song: _selectedSong!,
+                      borderStyle: _borderStyle,
+                      lineDensity: _lineDensity,
+                      onBorderStyleChanged: (style) {
+                        setState(() => _borderStyle = style);
+                      },
+                      onLineDensityChanged: (density) {
+                        setState(() => _lineDensity = density);
+                      },
+                      onStart: _onStart,
+                    )
+                  : const SizedBox(),
+            ),
           ),
         ],
       ),

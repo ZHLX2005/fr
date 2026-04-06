@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../lab/lab_container.dart';
 import '../models/line_models.dart';
@@ -12,8 +13,9 @@ import '../settings/line_settings.dart';
 /// 线 Demo
 class LineDemo extends DemoPage {
   final ChartData? chart;
+  final String? audioPath;
 
-  LineDemo({this.chart});
+  LineDemo({this.chart, this.audioPath});
 
   @override
   String get title => '线';
@@ -26,14 +28,15 @@ class LineDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    return _LineDemoPage(chart: chart!);
+    return _LineDemoPage(chart: chart!, audioPath: audioPath);
   }
 }
 
 class _LineDemoPage extends StatefulWidget {
   final ChartData chart;
+  final String? audioPath;
 
-  const _LineDemoPage({required this.chart});
+  const _LineDemoPage({required this.chart, this.audioPath});
 
   @override
   State<_LineDemoPage> createState() => _LineDemoPageState();
@@ -62,6 +65,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
   List<List<FallingNote>> _notes = [];
   final List<ExplodeAnimation> _explodes = [];
   final List<JudgeFeedback> _judgeFeedbacks = [];
+
+  // ── 音频 ──
+  AudioPlayer? _audioPlayer;
 
   // 分数 & 血条
   int _score = 0;
@@ -125,6 +131,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _notes = List.generate(_columnCount, (_) => []);
 
     _loadSettings();
+
+    // 初始化音频播放
+    if (widget.audioPath != null) {
+      _audioPlayer = AudioPlayer();
+      _audioPlayer!.setAsset(widget.audioPath!);
+    }
 
     _enterController.value = 1.0;
     _enterController.reverse().then((_) {
@@ -191,6 +203,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     for (final fb in _judgeFeedbacks) {
       fb.controller.dispose();
     }
+    _audioPlayer?.dispose();
     super.dispose();
   }
 
@@ -201,6 +214,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _gameStopwatch.reset();
     _gameStopwatch.start();
     _spawnPendingNotes();
+    // 播放音乐
+    _audioPlayer?.play();
   }
 
   void _stopGame() {
@@ -683,6 +698,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   Future<void> _handleExit() async {
     if (_isExiting) return;
     _stopGame();
+    _audioPlayer?.stop();
     await _saveHighScore();
     for (final noteList in _notes) {
       for (final note in noteList) {
