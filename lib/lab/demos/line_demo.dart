@@ -1,8 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
+import 'line_demo_models.dart';
+import 'line_demo_painters.dart';
+import 'line_demo_settings.dart';
 
 /// 线 Demo
 class LineDemo extends DemoPage {
@@ -28,37 +33,6 @@ class _LineDemoPage extends StatefulWidget {
   State<_LineDemoPage> createState() => _LineDemoPageState();
 }
 
-/// 下落中的圆圈
-class _FallingCircle {
-  final AnimationController controller;
-  double currentY;
-  bool exploded; // 已被点击消除（播放炸开动画中）
-  bool missed; // 已穿过判定线
-
-  _FallingCircle({
-    required this.controller,
-    required this.currentY,
-  })  : exploded = false,
-        missed = false;
-}
-
-/// 炸开动画状态
-class _ExplodeAnimation {
-  final AnimationController controller;
-  final double x;
-  final double y;
-  final List<_Particle> particles;
-  final double radius;
-
-  _ExplodeAnimation({
-    required this.controller,
-    required this.x,
-    required this.y,
-    required this.particles,
-    required this.radius,
-  });
-}
-
 class _LineDemoPageState extends State<_LineDemoPage>
     with TickerProviderStateMixin {
   // ── 水动画 ──
@@ -69,34 +43,51 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   late AnimationController _exitController;
   late AnimationController _enterController;
+  late AnimationController _healthController;
+
+  // ── 谱面 ──
+  ChartData? _chart;
+  int _nextNoteIndex = 0;
+  final Stopwatch _gameStopwatch = Stopwatch();
 
   // ── 游戏状态 ──
   static const int _columnCount = 3;
-  List<List<_FallingCircle>> _columns = [];
-  List<Timer?> _spawnTimers = [];
-  final List<_ExplodeAnimation> _explodes = [];
+  List<List<FallingNote>> _notes = [];
+  final List<ExplodeAnimation> _explodes = [];
+  final List<JudgeFeedback> _judgeFeedbacks = [];
 
-  // 分数
+  // 分数 & 血条
   int _score = 0;
-  int _missCount = 0;
+  double _health = 1.0;
   int _highScore = 0;
   bool _isGameOver = false;
 
-  // 下落速度（毫秒）—— 从顶到屏幕底的总时间
+  // 下落速度
   double _dropDurationMs = 2500.0;
-  static const double _minDropMs = 800.0;
-  static const double _maxDropMs = 4000.0;
 
-  // 判定线位置：距底部 25%
-  static const double _judgeLineRatio = 0.75; // 从顶部算 75%，即底部 25%
-  // 判定线范围上下 100rpx（换算后）
-  static const double _judgeRangeRpx = 100.0;
-
-  // 暂停快照
-  List<List<double>> _pausedSnapshots = [];
-  bool _wasGameRunning = false;
-
+  BackgroundStyle _backgroundStyle = BackgroundStyle.none;
+  static const String _speedKey = 'line_demo_speed';
+  static const String _backgroundKey = 'line_demo_background';
   static const String _highScoreKey = 'line_demo_high_score';
+
+  static const double _circleRadiusRpx = 20.0;
+  static const double _judgeLineRatio = 0.75;
+
+  // 判定窗口（ms）
+  static const int _perfectWindow = 50;
+  static const int _greatWindow = 100;
+  static const int _goodWindow = 150;
+  static const int _missWindow = 200;
+
+  // 手势追踪
+  final Set<int> _heldColumns = {};
+  Offset? _panStart;
+  int? _panColumn;
+
+  double _rpx(double value) => value * MediaQuery.of(context).size.width / 750;
+
+  // 暂停
+  bool _wasGameRunning = false;
 
   @override
   void initState() {
@@ -110,13 +101,15 @@ class _LineDemoPageState extends State<_LineDemoPage>
       duration: const Duration(milliseconds: 1400),
       vsync: this,
     );
+    _healthController = AnimationController(
+      duration: const Duration(days: 365),
+      vsync: this,
+    )..repeat();
 
-    _columns = List.generate(_columnCount, (_) => []);
-    _spawnTimers = List.generate(_columnCount, (_) => null);
+    _notes = List.generate(_columnCount, (_) => []);
 
-    _loadHighScore();
+    _loadSettings();
 
-    // 入场水动画
     _enterController.value = 1.0;
     _enterController.reverse().then((_) {
       if (!mounted) return;
@@ -125,10 +118,28 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
   }
 
-  Future<void> _loadHighScore() async {
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() => _highScore = prefs.getInt(_highScoreKey) ?? 0);
+    try {
+      final chartJson = await rootBundle.loadString('assets/charts/test_chart.json');
+      final chartData = ChartData.fromJson(jsonDecode(chartJson));
+      if (mounted) {
+        setState(() {
+          _chart = chartData;
+          _dropDurationMs = prefs.getDouble(_speedKey) ?? chartData.dropDuration.toDouble();
+          _highScore = prefs.getInt(_highScoreKey) ?? 0;
+          final bgIndex = prefs.getInt(_backgroundKey) ?? 0;
+          _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
+        });
+      }
+    } catch (e) {
+      // Chart loading failed — use defaults
+      if (mounted) {
+        setState(() {
+          _highScore = prefs.getInt(_highScoreKey) ?? 0;
+          _dropDurationMs = prefs.getDouble(_speedKey) ?? 2500.0;
+        });
+      }
     }
   }
 
@@ -144,228 +155,354 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void dispose() {
     _exitController.dispose();
     _enterController.dispose();
-    for (final timer in _spawnTimers) {
-      timer?.cancel();
-    }
-    for (final col in _columns) {
-      for (final c in col) {
-        c.controller.dispose();
+    _healthController.dispose();
+    _gameStopwatch.stop();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.dispose();
       }
     }
     for (final e in _explodes) {
       e.controller.dispose();
     }
+    for (final fb in _judgeFeedbacks) {
+      fb.controller.dispose();
+    }
     super.dispose();
   }
 
-  // ── 游戏控制 ──
+  // ── 游戏开始 ──
 
-  void _startSpawnTimers() {
-    _scheduleSpawn(0);
-    _scheduleSpawn(1);
-    _scheduleSpawn(2);
+  void _startGame() {
+    _nextNoteIndex = 0;
+    _gameStopwatch.reset();
+    _gameStopwatch.start();
+    _spawnPendingNotes();
   }
 
-  void _stopSpawnTimers() {
-    for (int i = 0; i < _columnCount; i++) {
-      _spawnTimers[i]?.cancel();
-      _spawnTimers[i] = null;
+  void _stopGame() {
+    _gameStopwatch.stop();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
+      }
     }
   }
 
-  void _scheduleSpawn(int colIndex) {
-    _spawnTimers[colIndex]?.cancel();
-    final rng = math.Random();
-    final delayMs = 300 + rng.nextInt(2700); // 0.3s ~ 3s
-    _spawnTimers[colIndex] = Timer(Duration(milliseconds: delayMs), () {
-      if (!mounted || _isExiting || _isGameOver) return;
-      _spawnCircle(colIndex);
-      _scheduleSpawn(colIndex);
-    });
+  void _spawnPendingNotes() {
+    if (_chart == null || _isGameOver) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    final dropMs = _dropDurationMs.round();
+
+    while (_nextNoteIndex < _chart!.notes.length) {
+      final event = _chart!.notes[_nextNoteIndex];
+      if (elapsed >= event.time - dropMs) {
+        _spawnNote(event);
+        _nextNoteIndex++;
+      } else {
+        break;
+      }
+    }
+
+    if (_nextNoteIndex < _chart!.notes.length && !_isGameOver) {
+      final nextEvent = _chart!.notes[_nextNoteIndex];
+      final delayMs = (nextEvent.time - dropMs - elapsed).clamp(1, 100);
+      Future.delayed(Duration(milliseconds: delayMs), () {
+        if (mounted && !_isGameOver) _spawnPendingNotes();
+      });
+    }
   }
 
-  void _spawnCircle(int colIndex) {
+  void _spawnNote(NoteEvent event) {
     final screenSize = MediaQuery.of(context).size;
-    final radius = 15.0 * screenSize.width / 750;
+    final radius = _rpx(_circleRadiusRpx);
 
     final controller = AnimationController(
       duration: Duration(milliseconds: _dropDurationMs.round()),
       vsync: this,
     );
 
-    final circle = _FallingCircle(controller: controller, currentY: -radius);
+    final note = FallingNote(
+      event: event,
+      controller: controller,
+      currentY: -radius,
+    );
 
-    // 监听 Y 坐标 + 判定 miss
     controller.addListener(() {
       final easedT = Curves.easeIn.transform(controller.value);
       final targetY = screenSize.height + radius;
-      circle.currentY = -radius + (targetY + radius) * easedT;
+      note.currentY = -radius + (targetY + radius) * easedT;
 
-      // 检查是否穿过判定线
-      final judgeY = screenSize.height * _judgeLineRatio;
-      if (!circle.missed && !circle.exploded && circle.currentY > judgeY) {
-        circle.missed = true;
-        _onMiss(colIndex, circle);
+      // Auto-miss: 音符已过判定线，立即触发
+      if (!note.judged && event.type != NoteType.hold) {
+        final judgeY = screenSize.height * _judgeLineRatio;
+        if (note.currentY > judgeY) {
+          _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
+        }
+      }
+
+      // Update hold progress
+      if (event.type == NoteType.hold && note.holding && !note.judged) {
+        final elapsed = _gameStopwatch.elapsedMilliseconds;
+        final heldTime = elapsed - event.time;
+        note.holdProgress = (heldTime / event.holdDuration!).clamp(0.0, 1.0);
+        if (note.holdProgress >= 1.0) {
+          _judgeNote(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note, 0);
+          note.holding = false;
+        }
       }
     });
 
     setState(() {
-      _columns[colIndex].add(circle);
+      _notes[event.column].add(note);
     });
 
     controller.forward().then((_) {
+      note.controller.dispose();
       if (!mounted) return;
-      // 动画结束，移除
-      setState(() {
-        _columns[colIndex].remove(circle);
-      });
-      circle.controller.dispose();
+      setState(() => _notes[event.column].remove(note));
     });
   }
 
-  void _onMiss(int colIndex, _FallingCircle circle) {
-    if (_isGameOver) return;
+  // ── 手势处理 ──
+
+  int? _getColumnFromX(double x) {
+    final w = MediaQuery.of(context).size.width;
+    final colWidth = w / _columnCount;
+    for (int i = 0; i < _columnCount; i++) {
+      if (x >= colWidth * i && x < colWidth * (i + 1)) return i;
+    }
+    return null;
+  }
+
+  SlideDirection? _getSwipeDirection(Offset velocity) {
+    const threshold = 100.0;
+    final dx = velocity.dx.abs();
+    final dy = velocity.dy.abs();
+    if (dx < threshold && dy < threshold) return null;
+    if (dx > dy) {
+      return velocity.dx > 0 ? SlideDirection.right : SlideDirection.left;
+    } else {
+      return velocity.dy > 0 ? SlideDirection.down : SlideDirection.up;
+    }
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
+    final col = _getColumnFromX(details.localPosition.dx);
+    if (col == null) return;
+    _handleColumnTap(col);
+  }
+
+  void _handlePanStart(DragStartDetails details) {
+    if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
+    final col = _getColumnFromX(details.localPosition.dx);
+    if (col != null) {
+      _panStart = details.globalPosition;
+      _panColumn = col;
+      _handleColumnPress(col);
+    }
+  }
+
+  void _handlePanEnd(DragEndDetails details) {
+    if (_panColumn == null) return;
+    _handleColumnRelease(_panColumn!);
+
+    // Swipe detection
+    if (_panStart != null && details.velocity.pixelsPerSecond.distance > 50) {
+      final dir = _getSwipeDirection(details.velocity.pixelsPerSecond);
+      if (dir != null) {
+        _handleSwipe(_panColumn!, dir);
+      }
+    }
+    _panStart = null;
+    _panColumn = null;
+  }
+
+  // ── 判定 ──
+
+  void _handleColumnTap(int col) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    FallingNote? best;
+    int bestDiff = _missWindow + 1;
+
+    for (final note in _notes[col]) {
+      if (note.judged) continue;
+      if (note.event.type != NoteType.tap) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = note;
+      }
+    }
+
+    if (best != null && bestDiff <= _goodWindow) {
+      _judgeNote(col, best, bestDiff);
+    }
+  }
+
+  void _handleColumnPress(int col) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (note.judged || note.event.type != NoteType.hold) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff <= _goodWindow) {
+        note.holding = true;
+        _heldColumns.add(col);
+        return;
+      }
+    }
+  }
+
+  void _handleColumnRelease(int col) {
+    if (!_heldColumns.contains(col)) return;
+    _heldColumns.remove(col);
+
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (!note.holding || note.judged) continue;
+      if (note.event.type != NoteType.hold) continue;
+
+      final heldTime = elapsed - note.event.time;
+      if (heldTime >= note.event.holdDuration! * 0.8) {
+        _judgeNote(col, note, 0);
+      } else {
+        _onNoteMissed(col, note);
+      }
+      note.holding = false;
+      return;
+    }
+  }
+
+  void _handleSwipe(int col, SlideDirection direction) {
+    if (_chart == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+
+    for (final note in _notes[col]) {
+      if (note.judged || note.event.type != NoteType.slide) continue;
+      final diff = (elapsed - note.event.time).abs();
+      if (diff <= _goodWindow && note.event.direction == direction) {
+        _judgeNote(col, note, diff);
+        return;
+      }
+    }
+  }
+
+  void _judgeNote(int col, FallingNote note, int timeDiffMs) {
+    note.judged = true;
+    note.removeMe = true;
+
+    String judgeText;
+    double judgeAlpha;
+    int points;
+    double healthChange;
+
+    if (timeDiffMs <= _perfectWindow) {
+      judgeText = 'Perfect';
+      judgeAlpha = 0.6;
+      points = 3;
+      healthChange = 0.05;
+    } else if (timeDiffMs <= _greatWindow) {
+      judgeText = 'Great';
+      judgeAlpha = 0.4;
+      points = 2;
+      healthChange = 0.02;
+    } else {
+      judgeText = 'Good';
+      judgeAlpha = 0.25;
+      points = 1;
+      healthChange = 0.0;
+    }
+
+    final screenSize = MediaQuery.of(context).size;
+    final w = screenSize.width;
+    final colWidth = w / _columnCount;
+    final centerX = colWidth * col + colWidth / 2;
+    final radius = _rpx(_circleRadiusRpx);
+
+    final feedbackController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    final feedback = JudgeFeedback(
+      text: judgeText,
+      x: centerX,
+      y: note.currentY - radius - 20,
+      color: Theme.of(context).colorScheme.primary,
+      baseAlpha: judgeAlpha,
+      controller: feedbackController,
+    );
+
     setState(() {
-      _missCount++;
+      _score += points;
+      _health = (_health + healthChange).clamp(0.0, 1.0);
+      _judgeFeedbacks.add(feedback);
     });
-    if (_missCount >= 3) {
+
+    feedbackController.forward().then((_) {
+      feedbackController.dispose();
+      if (!mounted) return;
+      setState(() => _judgeFeedbacks.remove(feedback));
+    });
+
+    _createExplode(col, centerX, note.currentY, radius);
+
+    if (note.event.type != NoteType.hold) {
+      note.controller.stop();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        setState(() => _notes[col].remove(note));
+        note.controller.dispose();
+      });
+    }
+  }
+
+  void _onNoteMissed(int col, FallingNote note) {
+    if (note.judged) return;
+    note.judged = true;
+    setState(() {
+      _health = (_health - 0.15).clamp(0.0, 1.0);
+    });
+    if (_health <= 0.0) {
       _gameOver();
     }
   }
 
-  void _gameOver() {
-    _stopSpawnTimers();
-    // 停止所有圆圈
-    for (final col in _columns) {
-      for (final c in col) {
-        c.controller.stop();
-      }
-    }
-    setState(() => _isGameOver = true);
-    _saveHighScore();
-  }
-
-  // ── 点击处理 ──
-
-  void _handleTap(TapUpDetails details) {
-    if (_isExiting || _isGameOver || _isCountingDown) return;
-
-    final screenSize = MediaQuery.of(context).size;
-    final w = screenSize.width;
-    final colWidth = w / _columnCount;
-    final tapX = details.localPosition.dx;
-
-    // 判定哪一列
-    int? colIndex;
-    for (int i = 0; i < _columnCount; i++) {
-      if (tapX >= colWidth * i && tapX < colWidth * (i + 1)) {
-        colIndex = i;
-        break;
-      }
-    }
-    if (colIndex == null) return;
-
-    // 找该列中未被消除、已接近判定线的最底部圆圈
-    // 筛选已到达判定范围内的圆圈，取 currentY 最大的（最接近判定线的）
-    final judgeY = screenSize.height * _judgeLineRatio;
-    final judgeRange = _judgeRangeRpx * w / 750;
-
-    _FallingCircle? target;
-    double targetY = -double.infinity;
-
-    for (final circle in _columns[colIndex]) {
-      if (circle.exploded || circle.missed) continue;
-      final dist = (circle.currentY - judgeY).abs();
-      if (dist <= judgeRange && circle.currentY > targetY) {
-        target = circle;
-        targetY = circle.currentY;
-      }
-    }
-
-    // 如果判定范围内没有，取该列最底部的活圆圈
-    if (target == null) {
-      for (final circle in _columns[colIndex]) {
-        if (circle.exploded || circle.missed) continue;
-        if (circle.currentY > targetY) {
-          target = circle;
-          targetY = circle.currentY;
-        }
-      }
-    }
-
-    if (target == null) return;
-
-    _hitCircle(colIndex, target);
-  }
-
-  void _hitCircle(int colIndex, _FallingCircle circle) {
-    circle.controller.stop();
-    circle.exploded = true;
-
-    final screenSize = MediaQuery.of(context).size;
-    final w = screenSize.width;
-    final colWidth = w / _columnCount;
-    final centerX = colWidth * colIndex + colWidth / 2;
-    final radius = 15.0 * w / 750;
-
-    // 计算得分：距离判定线越近越高分
-    final judgeY = screenSize.height * _judgeLineRatio;
-    final dist = (circle.currentY - judgeY).abs();
-    final judgeRange = _judgeRangeRpx * w / 750;
-
-    int points;
-    if (dist <= judgeRange * 0.2) {
-      points = 3; // Perfect
-    } else if (dist <= judgeRange * 0.5) {
-      points = 2; // Great
-    } else {
-      points = 1; // Good
-    }
-
-    setState(() {
-      _score += points;
-    });
-
-    // 创建炸开动画
+  void _createExplode(int col, double x, double y, double radius) {
     final explodeController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-
-    final explode = _ExplodeAnimation(
+    final explode = ExplodeAnimation(
       controller: explodeController,
-      x: centerX,
-      y: circle.currentY,
+      x: x,
+      y: y,
       particles: _generateParticles(),
       radius: radius,
     );
-
-    setState(() {
-      _explodes.add(explode);
-    });
-
+    setState(() => _explodes.add(explode));
     explodeController.forward().then((_) {
-      if (!mounted) return;
-      setState(() {
-        _explodes.remove(explode);
-        _columns[colIndex].remove(circle);
-      });
       explodeController.dispose();
-      circle.controller.dispose();
+      if (!mounted) return;
+      setState(() => _explodes.remove(explode));
     });
   }
 
-  List<_Particle> _generateParticles() {
+  List<Particle> _generateParticles() {
     final rng = math.Random();
     final count = 4 + rng.nextInt(2);
-    final particles = <_Particle>[];
+    final particles = <Particle>[];
     final baseAngles = List.generate(count, (i) => (2 * math.pi * i / count));
-    final distances = [15.0, 20.0, 25.0, 30.0, 35.0];
-    final alphas = [0.5, 0.4, 0.35, 0.25, 0.15];
+    final distances = List.generate(count, (i) => 15.0 + i * 5.0);
+    final alphas = List.generate(count, (i) => 0.5 - i * 0.1);
 
     for (int i = 0; i < count; i++) {
       final angle = baseAngles[i] + (rng.nextDouble() - 0.5) * 0.6;
-      particles.add(_Particle(
+      particles.add(Particle(
         angle: angle,
         distance: distances[i] + rng.nextDouble() * 5,
         initialAlpha: alphas[i],
@@ -374,14 +511,48 @@ class _LineDemoPageState extends State<_LineDemoPage>
     return particles;
   }
 
-  // ── 退出 ──
+  // ── 游戏控制 ──
+
+  void _gameOver() {
+    _stopGame();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
+      }
+    }
+    setState(() => _isGameOver = true);
+    _saveHighScore();
+  }
+
+  void _restartGame() {
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.dispose();
+      }
+      noteList.clear();
+    }
+    for (final e in _explodes) {
+      e.controller.dispose();
+    }
+    _explodes.clear();
+
+    setState(() {
+      _isGameOver = false;
+      _score = 0;
+      _health = 1.0;
+      _nextNoteIndex = 0;
+    });
+
+    _startCountdown();
+  }
 
   Future<void> _handleExit() async {
     if (_isExiting) return;
-    _stopSpawnTimers();
-    for (final col in _columns) {
-      for (final c in col) {
-        c.controller.stop();
+    _stopGame();
+    await _saveHighScore();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
       }
     }
     setState(() => _isExiting = true);
@@ -391,110 +562,38 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
   }
 
-  // ── 暂停/恢复 ──
-
   void _showSpeedSettings() {
-    _wasGameRunning = !_isGameOver && !_isCountingDown;
+    final wasCountingDown = _isCountingDown;
+    _wasGameRunning = !_isGameOver && !wasCountingDown;
+    _isCountingDown = false;
 
-    // 保存快照 + 暂停所有
-    _pausedSnapshots = [];
-    for (final col in _columns) {
-      final snapshots = <double>[];
-      for (final c in col) {
-        snapshots.add(c.controller.value);
-        c.controller.stop();
+    _stopGame();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        note.controller.stop();
       }
-      _pausedSnapshots.add(snapshots);
     }
-    _stopSpawnTimers();
     for (final e in _explodes) {
       e.controller.stop();
     }
 
-    final theme = Theme.of(context);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.8),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+    Navigator.of(context)
+        .push<void>(
+      MaterialPageRoute(
+        builder: (context) => SpeedSettingsPage(
+          primaryColor: Theme.of(context).colorScheme.primary,
+        ),
       ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                20,
-                24,
-                MediaQuery.of(context).padding.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        '下落速度',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${_dropDurationMs.round()}ms',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontFeatures: [const FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  SliderTheme(
-                    data: SliderThemeData(
-                      trackHeight: 1.5,
-                      thumbShape: const _LineThumbShape(thumbRadius: 4),
-                      overlayShape: SliderComponentShape.noOverlay,
-                      activeTrackColor: theme.colorScheme.primary,
-                      inactiveTrackColor: theme.colorScheme.outlineVariant,
-                      thumbColor: theme.colorScheme.primary,
-                    ),
-                    child: Slider(
-                      value: _dropDurationMs,
-                      min: _minDropMs,
-                      max: _maxDropMs,
-                      onChanged: (v) {
-                        setState(() => _dropDurationMs = v);
-                        setSheetState(() {});
-                      },
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '慢',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        '快',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    ).then((_) {
+    )
+        .then((_) {
       if (!mounted || _isExiting) return;
-      _startCountdown();
+      _loadSettings().then((_) {
+        if (wasCountingDown) {
+          _resumeFromSnapshot();
+        } else {
+          _startCountdown();
+        }
+      });
     });
   }
 
@@ -520,57 +619,22 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _resumeFromSnapshot() {
     if (!_wasGameRunning) {
-      // 首次启动：开始生成圆圈
-      _startSpawnTimers();
+      _startGame();
       return;
     }
 
-    // 恢复所有圆圈动画
-    for (int i = 0; i < _columns.length; i++) {
-      final col = _columns[i];
-      final snapshots = i < _pausedSnapshots.length ? _pausedSnapshots[i] : [];
-      for (int j = 0; j < col.length; j++) {
-        final circle = col[j];
-        if (!circle.exploded && !circle.missed) {
-          final from = j < snapshots.length ? snapshots[j] : 0.0;
-          circle.controller.duration =
-              Duration(milliseconds: _dropDurationMs.round());
-          circle.controller.forward(from: from);
+    _gameStopwatch.start();
+    for (final noteList in _notes) {
+      for (final note in noteList) {
+        if (!note.judged) {
+          note.controller.forward();
         }
       }
     }
-
-    // 恢复炸开动画
     for (final e in _explodes) {
       e.controller.forward();
     }
-
-    _startSpawnTimers();
-    _pausedSnapshots = [];
-  }
-
-  // ── 重新开始 ──
-
-  void _restartGame() {
-    // 清理所有圆圈
-    for (final col in _columns) {
-      for (final c in col) {
-        c.controller.dispose();
-      }
-      col.clear();
-    }
-    for (final e in _explodes) {
-      e.controller.dispose();
-    }
-    _explodes.clear();
-
-    setState(() {
-      _isGameOver = false;
-      _score = 0;
-      _missCount = 0;
-    });
-
-    _startCountdown();
+    _spawnPendingNotes();
   }
 
   // ── Build ──
@@ -581,35 +645,41 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final screenSize = MediaQuery.of(context).size;
     final w = screenSize.width;
     final h = screenSize.height;
-    final radius = 15.0 * w / 750;
+    final radius = _rpx(_circleRadiusRpx);
     final judgeY = h * _judgeLineRatio;
 
-    // 收集所有活跃的动画 controller 用于 AnimatedBuilder
+    // 收集所有活跃的 animation controller
     final allControllers = <AnimationController>[];
-    for (final col in _columns) {
-      for (final c in col) {
-        allControllers.add(c.controller);
+    for (final col in _notes) {
+      for (final note in col) {
+        allControllers.add(note.controller);
       }
     }
     for (final e in _explodes) {
       allControllers.add(e.controller);
     }
+    for (final fb in _judgeFeedbacks) {
+      allControllers.add(fb.controller);
+    }
+    allControllers.add(_healthController);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapUp: _handleTap,
+        onTapUp: _handleTapUp,
+        onPanStart: _handlePanStart,
+        onPanEnd: _handlePanEnd,
         child: Stack(
           children: [
-            // ── 三列竖线 + 圆圈 + 判定线 ──
+            // ── 游戏绘制层 ──
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: Listenable.merge(allControllers),
                 builder: (context, _) {
                   return CustomPaint(
-                    painter: _GamePainter(
-                      columns: _columns,
+                    painter: GamePainter(
+                      columns: _notes,
                       explodes: _explodes,
                       color: theme.colorScheme.primary,
                       radius: radius,
@@ -617,13 +687,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       screenHeight: h,
                       columnCount: _columnCount,
                       judgeY: judgeY,
+                      judgeFeedbacks: _judgeFeedbacks,
+                      backgroundStyle: _backgroundStyle,
+                      health: _health,
+                      dropDuration: _dropDurationMs,
                     ),
                   );
                 },
               ),
             ),
 
-            // ── 导航栏 ──
+            // ── 返回按钮 ──
             Positioned(
               top: MediaQuery.of(context).padding.top + 16,
               left: 16,
@@ -631,13 +705,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 icon: Icon(
                   Icons.arrow_back_ios_new,
                   color: theme.colorScheme.primary,
-                  size: 20,
+                  size: 24,
                 ),
                 onPressed: _handleExit,
               ),
             ),
 
-            // 分数显示：当前分/最高分
+            // 分数
             Positioned(
               top: MediaQuery.of(context).padding.top + 18,
               left: 0,
@@ -646,11 +720,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 child: Text(
                   '$_score/$_highScore',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 24,
                     fontWeight: FontWeight.w200,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.6),
                     fontFeatures: [const FontFeature.tabularFigures()],
-                    letterSpacing: 2,
+                    letterSpacing: 3,
                   ),
                 ),
               ),
@@ -664,28 +738,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 icon: Icon(
                   Icons.settings_outlined,
                   color: theme.colorScheme.primary,
-                  size: 20,
+                  size: 24,
                 ),
                 onPressed: _isExiting ? null : _showSpeedSettings,
               ),
-            ),            if (_missCount > 0)
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 44,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Text(
-                    'miss: $_missCount/3',
-                    style: TextStyle(
-                      fontSize: 10 * w / 750,
-                      fontWeight: FontWeight.w300,
-                      color: theme.colorScheme.error.withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-              ),
+            ),
 
-            // ── 倒计时层 ──
+            // ── 倒计时 ──
             if (_isCountingDown)
               Positioned.fill(
                 child: Center(
@@ -702,12 +761,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
-            // ── 游戏结束层（背景穿透点击，仅中心内容可交互） ──
+            // ── 游戏结束 ──
             if (_isGameOver)
               Positioned.fill(
                 child: Stack(
                   children: [
-                    // 半透明背景（穿透点击到导航栏）
                     Positioned.fill(
                       child: IgnorePointer(
                         child: Container(
@@ -715,7 +773,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
                         ),
                       ),
                     ),
-                    // 中心内容（可交互）
                     Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -761,14 +818,14 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
-            // ── 入场水动画层 ──
+            // ── 入场水动画 ──
             if (_isWaterEntering)
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: _enterController,
                   builder: (context, _) {
                     return CustomPaint(
-                      painter: _WaterExitPainter(
+                      painter: WaterExitPainter(
                         progress: _enterController.value,
                         color: theme.colorScheme.primary,
                       ),
@@ -777,14 +834,14 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
-            // ── 退出水动画层 ──
+            // ── 退出水动画 ──
             if (_isExiting)
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: _exitController,
                   builder: (context, _) {
                     return CustomPaint(
-                      painter: _WaterExitPainter(
+                      painter: WaterExitPainter(
                         progress: _exitController.value,
                         color: theme.colorScheme.primary,
                       ),
@@ -796,293 +853,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
         ),
       ),
     );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 数据类
-// ═══════════════════════════════════════════════════════════════
-
-/// 粒子数据
-class _Particle {
-  final double angle;
-  final double distance;
-  final double initialAlpha;
-
-  const _Particle({
-    required this.angle,
-    required this.distance,
-    required this.initialAlpha,
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 绘制器
-// ═══════════════════════════════════════════════════════════════
-
-/// 游戏主绘制器：竖线 + 圆圈 + 判定线 + 炸开动画
-class _GamePainter extends CustomPainter {
-  final List<List<_FallingCircle>> columns;
-  final List<_ExplodeAnimation> explodes;
-  final Color color;
-  final double radius;
-  final double screenWidth;
-  final double screenHeight;
-  final int columnCount;
-  final double judgeY;
-
-  _GamePainter({
-    required this.columns,
-    required this.explodes,
-    required this.color,
-    required this.radius,
-    required this.screenWidth,
-    required this.screenHeight,
-    required this.columnCount,
-    required this.judgeY,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final colWidth = w / columnCount;
-
-    // ── 判定线 ──
-    final judgePaint = Paint()
-      ..color = color.withValues(alpha: 0.25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawLine(Offset(0, judgeY), Offset(w, judgeY), judgePaint);
-
-    // ── 圆圈 ──
-    final circlePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    for (int i = 0; i < columns.length; i++) {
-      final cx = colWidth * i + colWidth / 2;
-      for (final circle in columns[i]) {
-        if (circle.exploded) continue;
-
-        double alpha = 0.3;
-        // 穿过判定线后渐退
-        if (circle.missed) {
-          final dist = circle.currentY - judgeY;
-          final fadeRange = screenHeight * 0.25;
-          alpha = 0.3 * (1.0 - (dist / fadeRange).clamp(0.0, 1.0));
-          if (alpha <= 0.01) continue;
-        }
-
-        circlePaint.color = color.withValues(alpha: alpha);
-
-        if (circle.currentY >= -radius &&
-            circle.currentY <= screenHeight + radius) {
-          canvas.drawCircle(
-              Offset(cx, circle.currentY), radius, circlePaint);
-        }
-      }
-    }
-
-    // ── 炸开动画 ──
-    for (final explode in explodes) {
-      _paintExplode(canvas, explode, w);
-    }
-  }
-
-  void _paintExplode(Canvas canvas, _ExplodeAnimation explode, double w) {
-    final progress = explode.controller.value;
-    final paint = Paint()..style = PaintingStyle.stroke;
-
-    // Phase 1: 内爆缩小 (0.0 - 0.08)
-    if (progress <= 0.08) {
-      final t = progress / 0.08;
-      final easedT = Curves.easeIn.transform(t);
-      final currentRadius = explode.radius * (1.0 - easedT);
-
-      if (currentRadius > 0.1) {
-        paint.color = color.withValues(alpha: 0.3);
-        paint.strokeWidth = 1.5;
-        canvas.drawCircle(
-            Offset(explode.x, explode.y), currentRadius, paint);
-      }
-    }
-
-    // Phase 2: 粒子飞溅 (0.08 - 1.0)
-    if (progress > 0.08) {
-      final t = (progress - 0.08) / 0.92;
-      final splashProgress = Curves.easeOut.transform(t);
-      final fadeProgress = Curves.easeIn.transform(t);
-      final particleSize = 10.0 * w / 750;
-
-      for (final p in explode.particles) {
-        final startX = explode.x + explode.radius * math.cos(p.angle);
-        final startY = explode.y + explode.radius * math.sin(p.angle);
-        final dx = math.cos(p.angle) * p.distance * splashProgress;
-        final dy = math.sin(p.angle) * p.distance * splashProgress;
-        final currentAlpha = p.initialAlpha * (1.0 - fadeProgress);
-
-        if (currentAlpha > 0.01) {
-          final particlePaint = Paint()
-            ..color = color.withValues(alpha: currentAlpha)
-            ..style = PaintingStyle.fill;
-          canvas.drawRect(
-            Rect.fromCenter(
-              center: Offset(startX + dx, startY + dy),
-              width: particleSize,
-              height: particleSize,
-            ),
-            particlePaint,
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_GamePainter oldDelegate) => true;
-}
-
-/// 水退出动画绘制器
-class _WaterExitPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-
-  _WaterExitPainter({
-    required this.progress,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progress <= 0) return;
-
-    final w = size.width;
-    final h = size.height;
-    final midY = h / 2;
-    final midX = w / 2;
-    final paint = Paint()..style = PaintingStyle.fill;
-    const waveDepth = 8.0;
-
-    // Phase 1: 上下涌入 (0.0 - 0.40)
-    if (progress <= 0.40) {
-      final t = progress / 0.40;
-      final easedT = Curves.easeOutCubic.transform(t);
-
-      final topFrontY = midY * easedT;
-      final pathTop = Path();
-      pathTop.moveTo(0, topFrontY);
-      for (double x = 0; x <= w; x += 1) {
-        final y = topFrontY +
-            math.sin((x * 3 + progress * 1200) * math.pi / 180) * waveDepth;
-        pathTop.lineTo(x, y);
-      }
-      pathTop.lineTo(w, 0);
-      pathTop.lineTo(0, 0);
-      pathTop.close();
-      paint.color = color;
-      canvas.drawPath(pathTop, paint);
-
-      final bottomFrontY = h - midY * easedT;
-      final pathBottom = Path();
-      pathBottom.moveTo(0, bottomFrontY);
-      for (double x = 0; x <= w; x += 1) {
-        final y = bottomFrontY -
-            math.sin((x * 3 + progress * 1200 + 60) * math.pi / 180) *
-                waveDepth;
-        pathBottom.lineTo(x, y);
-      }
-      pathBottom.lineTo(w, h);
-      pathBottom.lineTo(0, h);
-      pathBottom.close();
-      paint.color = color;
-      canvas.drawPath(pathBottom, paint);
-    }
-
-    // Phase 2: 两侧合拢 (0.40 - 0.80)
-    if (progress > 0.40 && progress <= 0.80) {
-      final t = (progress - 0.40) / 0.40;
-      final easedT = Curves.easeInOutCubic.transform(t);
-
-      paint.color = color;
-      canvas.drawRect(Rect.fromLTWH(0, 0, w, h), paint);
-
-      final gapWidth = w * (1 - easedT);
-      final gapLeft = midX - gapWidth / 2;
-      const sideWaveDepth = 6.0;
-
-      final pathLeft = Path();
-      final leftEdge = gapLeft;
-      pathLeft.moveTo(leftEdge, 0);
-      for (double y = 0; y <= h; y += 1) {
-        final x = leftEdge +
-            math.sin((y * 3 + progress * 1500) * math.pi / 180) *
-                sideWaveDepth;
-        pathLeft.lineTo(x, y);
-      }
-      pathLeft.lineTo(0, h);
-      pathLeft.lineTo(0, 0);
-      pathLeft.close();
-      paint.color = color;
-      canvas.drawPath(pathLeft, paint);
-
-      final pathRight = Path();
-      final rightEdge = gapLeft + gapWidth;
-      pathRight.moveTo(rightEdge, 0);
-      for (double y = 0; y <= h; y += 1) {
-        final x = rightEdge +
-            math.sin((y * 3 + progress * 1500 + 60) * math.pi / 180) *
-                sideWaveDepth;
-        pathRight.lineTo(x, y);
-      }
-      pathRight.lineTo(w, h);
-      pathRight.lineTo(w, 0);
-      pathRight.close();
-      paint.color = color;
-      canvas.drawPath(pathRight, paint);
-    }
-
-    // Phase 3: 填满 (0.80 - 1.0)
-    if (progress > 0.80) {
-      paint.color = color;
-      canvas.drawRect(Rect.fromLTWH(0, 0, w, h), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_WaterExitPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}
-
-/// 线条风格 Slider 滑块 —— 极小实心圆点
-class _LineThumbShape extends SliderComponentShape {
-  final double thumbRadius;
-
-  const _LineThumbShape({required this.thumbRadius});
-
-  @override
-  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
-      Size.fromRadius(thumbRadius);
-
-  @override
-  void paint(
-    PaintingContext context,
-    Offset center, {
-    required Animation<double> activationAnimation,
-    required Animation<double> enableAnimation,
-    required bool isDiscrete,
-    required TextPainter labelPainter,
-    required RenderBox parentBox,
-    required SliderThemeData sliderTheme,
-    required TextDirection textDirection,
-    required double value,
-    required double textScaleFactor,
-    required Size sizeWithOverflow,
-  }) {
-    final paint = Paint()
-      ..color = sliderTheme.thumbColor!
-      ..style = PaintingStyle.fill;
-    context.canvas.drawCircle(center, thumbRadius, paint);
   }
 }
 
