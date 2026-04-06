@@ -10,7 +10,7 @@
     {"time": 4000, "column": 0, "type": "hold", "holdDuration": 800},
     {"time": 4500, "column": 2, "type": "tap"},
     {"time": 5000, "column": 1, "type": "hold", "holdDuration": 1000},
-    {"time": 5500, "column": 1, "type": "tap"},
+    {"time": 5500, "column": 0, "type": "tap"},
     {"time": 6000, "column": 2, "type": "hold", "holdDuration": 600},
     {"time": 6500, "column": 0, "type": "tap"},
     {"time": 7000, "column": 1, "type": "hold", "holdDuration": 800},
