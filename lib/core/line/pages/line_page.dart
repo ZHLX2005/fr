@@ -16,6 +16,7 @@ class GamePainter extends CustomPainter {
   final BackgroundStyle backgroundStyle;
   final double health; // 0.0 - 1.0
   final double dropDuration;
+  final double scrollSpeed;
   final int gameElapsed; // 用于脉冲动画
 
   GamePainter({
@@ -31,6 +32,7 @@ class GamePainter extends CustomPainter {
     required this.backgroundStyle,
     required this.health,
     required this.dropDuration,
+    required this.scrollSpeed,
     required this.gameElapsed,
   });
 
@@ -174,9 +176,14 @@ class GamePainter extends CustomPainter {
     if (note.currentY < -radius * 2) return;
 
     final headY = note.currentY;
-    final travelPerMs = screenHeight / dropDuration;
-    final holdLength = travelPerMs * note.event.holdDuration!;
-    final tailY = headY - holdLength;
+
+    // 实际下落速度（受 scrollSpeed 影响）
+    final travelPerMsActual = screenHeight * scrollSpeed / dropDuration;
+    // 音符尾部在头部下方固定距离：音符以 actual 速度下落，
+    // 头部从 spawn 到判定线用 actualDropMs × 0.866，
+    // 尾部在头部下方 holdDuration 距离处，需要 holdDuration / actualDropMs 的屏幕比例
+    final tailOffset = travelPerMsActual * note.event.holdDuration!;
+    final tailY = headY + tailOffset;
 
     final barWidth = radius * 0.6;
     const baseAlpha = 0.3;
@@ -187,42 +194,36 @@ class GamePainter extends CustomPainter {
         ? 0.5 + 0.3 * math.sin(gameElapsed * 0.008)
         : 0.0;
 
-    // 条颜色：按住时变为主题色填充（不再是半透明）
+    // 条颜色：按住时变为主题色（脉冲），否则半透明
     final barPaint = Paint()
       ..color = isHolding
-          ? color.withValues(alpha: 0.4 + glowIntensity * 0.3)
+          ? color.withValues(alpha: 0.5 + glowIntensity * 0.3)
           : color.withValues(alpha: baseAlpha * 0.5)
       ..style = PaintingStyle.fill;
-    final clampedTail = tailY.clamp(-radius, screenHeight + radius);
+
+    // 限制 tail 在屏幕内（顶部 -radius，底部 screenHeight - radius）
+    final clampedTailY = tailY.clamp(-radius, screenHeight - radius);
+    // 条顶部 = min(headY, clampedTailY)，条底部 = max(headY, clampedTailY)
+    final barTop = math.min(headY, clampedTailY);
+    final barBottom = math.max(headY, clampedTailY);
     canvas.drawRect(
-      Rect.fromLTWH(cx - barWidth / 2, clampedTail, barWidth, (headY - clampedTail).abs()),
+      Rect.fromLTWH(cx - barWidth / 2, barTop, barWidth, barBottom - barTop),
       barPaint,
     );
-
-    if (isHolding && note.holdProgress > 0) {
-      final fillHeight = holdLength * note.holdProgress;
-      final fillPaint = Paint()
-        ..color = color.withValues(alpha: 0.6 + glowIntensity * 0.3)
-        ..style = PaintingStyle.fill;
-      canvas.drawRect(
-        Rect.fromLTWH(cx - barWidth / 2, headY - fillHeight, barWidth, fillHeight),
-        fillPaint,
-      );
-    }
 
     // 头部圆圈：按住时发光
     if (isHolding) {
       // 外发光
       final glowPaint = Paint()
-        ..color = color.withValues(alpha: glowIntensity * 0.4)
+        ..color = color.withValues(alpha: glowIntensity * 0.5)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 8.0
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-      canvas.drawCircle(Offset(cx, headY), radius + 2, glowPaint);
+        ..strokeWidth = 10.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawCircle(Offset(cx, headY), radius + 3, glowPaint);
 
       // 实心填充
       final headFillPaint = Paint()
-        ..color = color.withValues(alpha: 0.4 + glowIntensity * 0.3)
+        ..color = color.withValues(alpha: 0.5 + glowIntensity * 0.3)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(cx, headY), radius, headFillPaint);
     }
@@ -233,12 +234,13 @@ class GamePainter extends CustomPainter {
       ..strokeWidth = isHolding ? 3.5 : 2.5;
     canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
 
-    if (tailY > -radius && tailY < screenHeight + radius) {
+    // 尾部圆圈（仅在屏幕内可见时）
+    if (clampedTailY > -radius && clampedTailY < screenHeight - radius) {
       final tailCirclePaint = Paint()
-        ..color = isHolding ? color.withValues(alpha: 0.7) : color.withValues(alpha: baseAlpha)
+        ..color = isHolding ? color.withValues(alpha: 0.8) : color.withValues(alpha: baseAlpha)
         ..style = PaintingStyle.stroke
         ..strokeWidth = isHolding ? 3.0 : 2.0;
-      canvas.drawCircle(Offset(cx, tailY), radius * 0.6, tailCirclePaint);
+      canvas.drawCircle(Offset(cx, clampedTailY), radius * 0.6, tailCirclePaint);
     }
   }
 
