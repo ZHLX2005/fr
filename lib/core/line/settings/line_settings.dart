@@ -159,9 +159,9 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   int _currentTab = 0; // 0: 速度, 1: 背景样式
 
   // 速度
-  double _dropDurationMs = 2500.0;
-  static const double _minDropMs = 800.0;
-  static const double _maxDropMs = 4000.0;
+  double _timingScale = 1.0;
+  static const double _minTimingScale = 0.5;
+  static const double _maxTimingScale = 2.0;
 
   // 背景
   BackgroundStyle _backgroundStyle = BackgroundStyle.none;
@@ -201,17 +201,16 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        _dropDurationMs = prefs.getDouble(lineSpeedKey) ?? 2500.0;
+        _timingScale = prefs.getDouble(lineTimingScaleKey) ?? 1.0;
         final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
         _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
-        _fallController.duration = Duration(milliseconds: _dropDurationMs.round());
       });
     }
   }
 
-  Future<void> _saveSpeed(double value) async {
+  Future<void> _saveTimingScale(double value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(lineSpeedKey, value);
+    await prefs.setDouble(lineTimingScaleKey, value);
   }
 
   Future<void> _saveBackground(BackgroundStyle style) async {
@@ -441,7 +440,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
         ),
         const SizedBox(height: 12),
         Text(
-          '${_dropDurationMs.round()}ms',
+          '${_timingScale.toStringAsFixed(2)}x',
           style: TextStyle(
             fontSize: rpx(32),
             fontWeight: FontWeight.w100,
@@ -460,16 +459,14 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
             thumbColor: widget.primaryColor,
           ),
           child: Slider(
-            value: _dropDurationMs,
-            min: _minDropMs,
-            max: _maxDropMs,
+            value: _timingScale,
+            min: _minTimingScale,
+            max: _maxTimingScale,
             onChanged: (v) {
               setState(() {
-                _dropDurationMs = v;
-                _fallController.duration =
-                    Duration(milliseconds: v.round());
+                _timingScale = v;
               });
-              _saveSpeed(v);
+              _saveTimingScale(v);
             },
           ),
         ),
