@@ -898,7 +898,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                   color: theme.colorScheme.primary,
                   size: 24,
                 ),
-                onPressed: _isExiting ? null : _showSpeedSettings,
+                onPressed: _isExiting || _isCountingDown ? null : _showSpeedSettings,
               ),
             ),
 
