@@ -113,6 +113,7 @@ class DraggableCardState extends State<DraggableWordCard>
       _swipeDirection = null;
       _hasRightThresholdCrossed = false;
       _wasInZoneWhenRightCrossed = false;
+      _actionTriggered = false; // 重置区域操作触发标志
     });
     widget.onCardStateChanged?.call(this);
   }
