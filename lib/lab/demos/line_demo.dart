@@ -2,6 +2,7 @@
 //
 // 此文件仅作为 Lab 页面入口，实际逻辑在 core/line 中
 
+import 'package:flutter/material.dart';
 import '../../core/line/line.dart';
 import '../../lab/lab_container.dart';
 
