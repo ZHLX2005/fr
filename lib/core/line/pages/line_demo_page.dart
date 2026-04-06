@@ -62,13 +62,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
   int _highScore = 0;
   bool _isGameOver = false;
 
-  // 下落速度
-  double _dropDurationMs = 2500.0;
-
   BackgroundStyle _backgroundStyle = BackgroundStyle.none;
-  static const String _speedKey = lineSpeedKey;
   static const String _backgroundKey = lineBackgroundKey;
   static const String _highScoreKey = 'line_demo_high_score';
+
+  double _timingScale = 1.0;
+  static const String _timingScaleKey = lineTimingScaleKey;
 
   static const double _circleRadiusRpx = 20.0;
   static const double _judgeLineRatio = 0.75;
@@ -126,7 +125,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
       if (mounted) {
         setState(() {
           _chart = chartData;
-          _dropDurationMs = prefs.getDouble(_speedKey) ?? chartData.dropDuration.toDouble();
+          _timingScale = prefs.getDouble(_timingScaleKey) ?? 1.0;
           _highScore = prefs.getInt(_highScoreKey) ?? 0;
           final bgIndex = prefs.getInt(_backgroundKey) ?? 0;
           _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
@@ -136,7 +135,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
       if (mounted) {
         setState(() {
           _highScore = prefs.getInt(_highScoreKey) ?? 0;
-          _dropDurationMs = prefs.getDouble(_speedKey) ?? 2500.0;
+          _timingScale = prefs.getDouble(_timingScaleKey) ?? 1.0;
         });
       }
     }
@@ -191,7 +190,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void _spawnPendingNotes() {
     if (_chart == null || _isGameOver) return;
     final elapsed = _gameStopwatch.elapsedMilliseconds;
-    final dropMs = _dropDurationMs.round();
+    final dropMs = _chart!.dropDuration;
 
     while (_nextNoteIndex < _chart!.notes.length) {
       final event = _chart!.notes[_nextNoteIndex];
@@ -217,7 +216,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final radius = _rpx(_circleRadiusRpx);
 
     final controller = AnimationController(
-      duration: Duration(milliseconds: _dropDurationMs.round()),
+      duration: Duration(milliseconds: _chart!.dropDuration),
       vsync: this,
     );
 
@@ -333,7 +332,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
       }
     }
 
-    if (best != null && bestDiff <= _goodWindow) {
+    if (best != null && bestDiff <= (_goodWindow * _timingScale).round()) {
       _judgeNote(col, best, bestDiff);
     }
   }
@@ -345,7 +344,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     for (final note in _notes[col]) {
       if (note.judged || note.event.type != NoteType.hold) continue;
       final diff = (elapsed - note.event.time).abs();
-      if (diff <= _goodWindow) {
+      if (diff <= (_goodWindow * _timingScale).round()) {
         note.holding = true;
         _heldColumns.add(col);
         return;
@@ -381,7 +380,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     for (final note in _notes[col]) {
       if (note.judged || note.event.type != NoteType.slide) continue;
       final diff = (elapsed - note.event.time).abs();
-      if (diff <= _goodWindow && note.event.direction == direction) {
+      if (diff <= (_goodWindow * _timingScale).round() && note.event.direction == direction) {
         _judgeNote(col, note, diff);
         return;
       }
@@ -684,7 +683,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       judgeFeedbacks: _judgeFeedbacks,
                       backgroundStyle: _backgroundStyle,
                       health: _health,
-                      dropDuration: _dropDurationMs,
+                      dropDuration: _chart!.dropDuration.toDouble(),
                     ),
                   );
                 },
