@@ -1,5 +1,6 @@
 # Miscellaneous
 .claude/
+.worktrees/
 *.class
 *.log
 *.pyc
@@ -48,3 +49,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Generated chart files (need manual adjustment) - but committed charts are in git
+# assets/charts/*.json
