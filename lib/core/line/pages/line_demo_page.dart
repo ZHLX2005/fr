@@ -249,9 +249,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
     debugPrint('[SPAWN] elapsed=$spawnElapsed event.time=${event.time} col=${event.column} type=${event.type}');
 
     controller.addListener(() {
-      final easedT = Curves.easeIn.transform(controller.value);
-      final targetY = screenSize.height + radius;
-      note.currentY = -radius + (targetY + radius) * easedT;
+      final screenH = screenSize.height;
+      final judgeY = screenH * _judgeLineRatio;
+
+      // 按住时冻结在判定线，不继续下落
+      if (note.holding && !note.judged) {
+        note.currentY = judgeY;
+      } else {
+        final easedT = Curves.easeIn.transform(controller.value);
+        final targetY = screenH + radius;
+        note.currentY = -radius + (targetY + radius) * easedT;
+      }
 
       if (!note.judged && event.type != NoteType.hold) {
         final elapsed = _gameStopwatch.elapsedMilliseconds;
@@ -264,12 +272,22 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
       if (event.type == NoteType.hold && note.holding && !note.judged) {
         final elapsed = _gameStopwatch.elapsedMilliseconds;
-        final heldTime = elapsed - event.time;
+        final heldTime = elapsed - note.holdPressTime;
         note.holdProgress = (heldTime / event.holdDuration!).clamp(0.0, 1.0);
         if (note.holdProgress >= 1.0) {
-          debugPrint('[HOLD_COMPLETE] elapsed=$elapsed event.time=${event.time} col=${event.column}');
-          _judgeNote(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note, 0);
+          debugPrint('[HOLD_COMPLETE] elapsed=$elapsed col=${event.column}');
+          _judgeNote(event.column, note, note.holdJudgeDiff);
           note.holding = false;
+        }
+        return;
+      }
+
+      // 未按时 hold 音符的自动 miss
+      if (!note.judged && event.type == NoteType.hold && !note.holding) {
+        final elapsed = _gameStopwatch.elapsedMilliseconds;
+        if (elapsed > event.time + note.event.holdDuration!) {
+          debugPrint('[HOLD_AUTO_MISS] elapsed=$elapsed col=${event.column} (never pressed)');
+          _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
         }
       }
     });
