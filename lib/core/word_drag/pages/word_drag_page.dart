@@ -184,6 +184,38 @@ class _WordDragPageState extends State<WordDragPage> {
     _markAsReviewed();
   }
 
+  void _onMarkZone() {
+    // 显示标新成功提示
+    setState(() {
+      _showMarkNewSuccessHint = true;
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showMarkNewSuccessHint = false;
+        });
+      }
+    });
+    // 执行标记新词
+    _markAsNew(true);
+  }
+
+  void _onDeleteZone() {
+    // 显示删除成功提示
+    setState(() {
+      _showDeleteSuccessHint = true;
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showDeleteSuccessHint = false;
+        });
+      }
+    });
+    // 执行删除
+    _deleteCurrentWord(wasFromZone: true);
+  }
+
   void _deleteCurrentWord({bool wasFromZone = false}) {
     if (_words.isEmpty) return;
 
@@ -231,6 +263,17 @@ class _WordDragPageState extends State<WordDragPage> {
       _isInDeleteZone = false;
       _markZoneOpacity = 0.0;
       _deleteZoneOpacity = 0.0;
+      // 显示标新成功提示
+      _showMarkNewSuccessHint = true;
+    });
+
+    // 2秒后自动隐藏提示
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showMarkNewSuccessHint = false;
+        });
+      }
     });
   }
 
@@ -585,7 +628,9 @@ class _WordDragPageState extends State<WordDragPage> {
       key: ValueKey('${_words[_currentIndex].id}-$_currentIndex'),
       onSwipeUp: _onSwipeUp,
       onSwipeLeft: _onSwipeLeft,
-      onSwipeRight: (wasInZone) => _markAsNew(wasInZone),
+      onSwipeRight: _navigateToDetail, // 非区域右滑 → 详情页
+      onMarkZoneAction: _onMarkZone,
+      onDeleteZoneAction: _onDeleteZone,
       onHorizontalDragProgress: _onHorizontalDragProgress,
       onCardPositionChanged: (cardCenter, dragOffset, isSpringBack) {
         return _onCardPositionChanged(cardCenter, dragOffset, isSpringBack);
