@@ -7,8 +7,9 @@ import '../models/line_models.dart';
 // 持久化 key
 // ═══════════════════════════════════════════════════════════════
 
-const String lineSpeedKey = 'line_demo_speed';
+const String lineTimingScaleKey = 'line_demo_timing_scale';
 const String lineBackgroundKey = 'line_demo_background';
+const String lineScrollSpeedKey = 'line_demo_scroll_speed';
 
 // ═══════════════════════════════════════════════════════════════
 // 演示动画绘制器：只绘制中间列单个圆圈 + 判定线 + 炸开粒子
@@ -23,6 +24,7 @@ class _DemoPainter extends CustomPainter {
   final double explodeProgress;
   final List<Particle> explodeParticles;
   final BackgroundStyle backgroundStyle;
+  final double timingScale;
 
   _DemoPainter({
     required this.color,
@@ -33,6 +35,7 @@ class _DemoPainter extends CustomPainter {
     this.explodeProgress = 0.0,
     this.explodeParticles = const [],
     this.backgroundStyle = BackgroundStyle.none,
+    this.timingScale = 1.0,
   });
 
   @override
@@ -70,6 +73,53 @@ class _DemoPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawLine(Offset(0, actualJudgeY), Offset(w, actualJudgeY), judgePaint);
+
+    // 判定区域可视化（设置页面演示用）
+    final perfectWindow = 50.0 * timingScale;
+    final greatWindow = 100.0 * timingScale;
+    final goodWindow = 150.0 * timingScale;
+    final missWindow = 200.0 * timingScale;
+
+    // 音符经过判定线的速度：pixels/ms
+    final pixelsPerMs = size.height * judgeYRatio / 2500;
+    final perfectHeight = perfectWindow * pixelsPerMs;
+    final greatHeight = greatWindow * pixelsPerMs;
+    final goodHeight = goodWindow * pixelsPerMs;
+    final missHeight = missWindow * pixelsPerMs;
+
+    final judgeY = actualJudgeY;
+
+    // Perfect 区域（最内层，绿色）
+    final perfectPaint = Paint()
+      ..color = const Color(0xFF4CAF50).withValues(alpha: 0.15);
+    canvas.drawRect(
+      Rect.fromLTWH(0, judgeY - perfectHeight, size.width, perfectHeight),
+      perfectPaint,
+    );
+
+    // Great 区域（黄色）
+    final greatPaint = Paint()
+      ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.12);
+    canvas.drawRect(
+      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight, size.width, greatHeight),
+      greatPaint,
+    );
+
+    // Good 区域（橙色）
+    final goodPaint = Paint()
+      ..color = const Color(0xFFFF9800).withValues(alpha: 0.10);
+    canvas.drawRect(
+      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight - goodHeight, size.width, goodHeight),
+      goodPaint,
+    );
+
+    // Miss 区域（最外层，红色）
+    final missPaint = Paint()
+      ..color = const Color(0xFFF44336).withValues(alpha: 0.08);
+    canvas.drawRect(
+      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight - goodHeight - missHeight, size.width, missHeight),
+      missPaint,
+    );
 
     // 圆圈
     if (!showExplode) {
@@ -135,7 +185,8 @@ class _DemoPainter extends CustomPainter {
       oldDelegate.circleYRatio != circleYRatio ||
       oldDelegate.showExplode != showExplode ||
       oldDelegate.explodeProgress != explodeProgress ||
-      oldDelegate.backgroundStyle != backgroundStyle;
+      oldDelegate.backgroundStyle != backgroundStyle ||
+      oldDelegate.timingScale != timingScale;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -146,6 +197,7 @@ class SpeedSettingsPage extends StatefulWidget {
   final Color primaryColor;
 
   const SpeedSettingsPage({
+    super.key,
     required this.primaryColor,
   });
 
@@ -159,9 +211,14 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   int _currentTab = 0; // 0: 速度, 1: 背景样式
 
   // 速度
-  double _dropDurationMs = 2500.0;
-  static const double _minDropMs = 800.0;
-  static const double _maxDropMs = 4000.0;
+  double _timingScale = 1.0;
+  static const double _minTimingScale = 0.5;
+  static const double _maxTimingScale = 2.0;
+
+  // 流速
+  double _scrollSpeed = 1.0;
+  static const double _minScrollSpeed = 0.5;
+  static const double _maxScrollSpeed = 2.0;
 
   // 背景
   BackgroundStyle _backgroundStyle = BackgroundStyle.none;
@@ -182,7 +239,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     _loadSettings();
 
     _fallController = AnimationController(
-      duration: Duration(milliseconds: _dropDurationMs.round()),
+      duration: const Duration(milliseconds: 2500),  // Fixed demo duration
       vsync: this,
     );
 
@@ -201,17 +258,22 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        _dropDurationMs = prefs.getDouble(lineSpeedKey) ?? 2500.0;
+        _timingScale = prefs.getDouble(lineTimingScaleKey) ?? 1.0;
+        _scrollSpeed = prefs.getDouble(lineScrollSpeedKey) ?? 1.0;
         final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
         _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
-        _fallController.duration = Duration(milliseconds: _dropDurationMs.round());
       });
     }
   }
 
-  Future<void> _saveSpeed(double value) async {
+  Future<void> _saveTimingScale(double value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(lineSpeedKey, value);
+    await prefs.setDouble(lineTimingScaleKey, value);
+  }
+
+  Future<void> _saveScrollSpeed(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(lineScrollSpeedKey, value);
   }
 
   Future<void> _saveBackground(BackgroundStyle style) async {
@@ -223,7 +285,6 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     _showExplode = false;
     _explodeParticles = [];
     _circleYRatio = -0.05;
-    _fallController.duration = Duration(milliseconds: _dropDurationMs.round());
     _fallController.forward(from: 0.0);
   }
 
@@ -349,6 +410,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                                     explodeProgress: _explodeController.value,
                                     explodeParticles: _explodeParticles,
                                     backgroundStyle: _backgroundStyle,
+                                    timingScale: _timingScale,
                                   ),
                                 ),
                               ),
@@ -365,8 +427,10 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                   Expanded(
                     flex: 4,
                     child: _currentTab == 0
-                        ? _buildSpeedControls(theme, rpx)
-                        : _buildBackgroundControls(theme, rpx),
+                        ? _buildTimingControls(theme, rpx)
+                        : _currentTab == 1
+                            ? _buildScrollSpeedControls(theme, rpx)
+                            : _buildBackgroundControls(theme, rpx),
                   ),
                 ],
               ),
@@ -381,20 +445,26 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildTabItem('速度', 0, theme),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            '|',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w200,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-            ),
-          ),
-        ),
-        _buildTabItem('背景样式', 1, theme),
+        _buildTabItem('判定', 0, theme),
+        _buildTabSeparator(theme),
+        _buildTabItem('流速', 1, theme),
+        _buildTabSeparator(theme),
+        _buildTabItem('背景样式', 2, theme),
       ],
+    );
+  }
+
+  Widget _buildTabSeparator(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Text(
+        '|',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w200,
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+        ),
+      ),
     );
   }
 
@@ -428,7 +498,69 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     );
   }
 
-  Widget _buildSpeedControls(ThemeData theme, double Function(double) rpx) {
+  Widget _buildTimingControls(ThemeData theme, double Function(double) rpx) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Text(
+        '判定缩放',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        '${_timingScale.toStringAsFixed(1)}x',
+        style: TextStyle(
+          fontSize: rpx(32),
+          fontWeight: FontWeight.w100,
+          color: widget.primaryColor.withValues(alpha: 0.4),
+          fontFeatures: [const FontFeature.tabularFigures()],
+        ),
+      ),
+      const SizedBox(height: 16),
+      SliderTheme(
+        data: SliderThemeData(
+          trackHeight: 1.5,
+          thumbShape: const LineThumbShape(thumbRadius: 4),
+          overlayShape: SliderComponentShape.noOverlay,
+          activeTrackColor: widget.primaryColor,
+          inactiveTrackColor: theme.colorScheme.outlineVariant,
+          thumbColor: widget.primaryColor,
+        ),
+        child: Slider(
+          value: _timingScale,
+          min: _minTimingScale,
+          max: _maxTimingScale,
+          onChanged: (v) {
+            setState(() => _timingScale = v);
+            _saveTimingScale(v);
+          },
+        ),
+      ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '精准',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            '宽容',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+  Widget _buildScrollSpeedControls(ThemeData theme, double Function(double) rpx) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -441,7 +573,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
         ),
         const SizedBox(height: 12),
         Text(
-          '${_dropDurationMs.round()}ms',
+          '${_scrollSpeed.toStringAsFixed(1)}x',
           style: TextStyle(
             fontSize: rpx(32),
             fontWeight: FontWeight.w100,
@@ -460,16 +592,17 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
             thumbColor: widget.primaryColor,
           ),
           child: Slider(
-            value: _dropDurationMs,
-            min: _minDropMs,
-            max: _maxDropMs,
+            value: _scrollSpeed,
+            min: _minScrollSpeed,
+            max: _maxScrollSpeed,
             onChanged: (v) {
-              setState(() {
-                _dropDurationMs = v;
-                _fallController.duration =
-                    Duration(milliseconds: v.round());
-              });
-              _saveSpeed(v);
+              setState(() => _scrollSpeed = v);
+              _saveScrollSpeed(v);
+              // Restart demo animation with new speed
+              _fallController.duration = Duration(milliseconds: (2500 / v).round());
+              if (!_showExplode) {
+                _fallController.forward(from: _fallController.value);
+              }
             },
           ),
         ),
@@ -477,13 +610,13 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              '快',
+              '慢',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             Text(
-              '慢',
+              '快',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

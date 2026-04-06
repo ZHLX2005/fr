@@ -6,3 +6,4 @@ export 'models/line_models.dart';
 export 'pages/line_page.dart';
 export 'settings/line_settings.dart';
 export 'pages/line_demo_page.dart';
+export 'pages/song_select_page.dart';

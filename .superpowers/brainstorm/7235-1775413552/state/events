@@ -1,0 +1,2 @@
+{"type":"click","text":"Hold 长按\n      长条头部到达判定线时按住不放，持续到尾部经过。中途松手则 Miss。","choice":"hold","id":null,"timestamp":1775414139800}
+{"type":"click","text":"Slide 滑动\n      带方向箭头的圆圈。到达判定线时按箭头方向滑动手指。方向随机（上下左右）。","choice":"slide","id":null,"timestamp":1775414142841}

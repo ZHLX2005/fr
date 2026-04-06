@@ -16,6 +16,8 @@ class GamePainter extends CustomPainter {
   final BackgroundStyle backgroundStyle;
   final double health; // 0.0 - 1.0
   final double dropDuration;
+  final double scrollSpeed;
+  final int gameElapsed; // 用于脉冲动画
 
   GamePainter({
     required this.columns,
@@ -30,6 +32,8 @@ class GamePainter extends CustomPainter {
     required this.backgroundStyle,
     required this.health,
     required this.dropDuration,
+    required this.scrollSpeed,
+    required this.gameElapsed,
   });
 
   @override
@@ -169,46 +173,139 @@ class GamePainter extends CustomPainter {
   }
 
   void _paintHoldNote(Canvas canvas, double cx, FallingNote note) {
-    if (note.currentY < -radius * 2) return;
+  if (note.currentY < -radius * 2) return;
 
-    final headY = note.currentY;
-    final travelPerMs = screenHeight / dropDuration;
-    final holdLength = travelPerMs * note.event.holdDuration!;
-    final tailY = headY - holdLength;
+  final headY = note.currentY;
 
-    final barWidth = radius * 0.6;
-    const baseAlpha = 0.3;
+  // tail 在 head 上方（Y 值更小）
+  final travelPerMsActual = screenHeight * scrollSpeed / dropDuration;
+  final tailOffset = travelPerMsActual * note.event.holdDuration!;
+  final tailY = headY - tailOffset;
 
-    final barPaint = Paint()
-      ..color = color.withValues(alpha: baseAlpha * 0.5)
-      ..style = PaintingStyle.fill;
-    final clampedTail = tailY.clamp(-radius, screenHeight + radius);
+  // 条宽度
+  final barWidth = radius * 1.6;
+
+  // 填充高度计算
+  final totalHeight = headY - tailY;
+  final fillBottom = headY;
+  final fillTop = tailY + totalHeight * (1 - note.holdProgress);
+
+  // 透明度计算
+  double alpha;
+  if (note.holdFadeOut > 0) {
+    // 闪烁 alpha
+    final flickerFreq = 30.0;
+    final flicker = 0.5 + 0.5 * math.sin(note.holdFadeOut * math.pi * flickerFreq);
+    alpha = 0.5 * (1.0 - note.holdFadeOut) * flicker;
+  } else if (note.holding) {
+    // 按住中：从 0.5 线性减小到 0
+    alpha = 0.5 * (1.0 - note.holdProgress * 0.8);
+  } else {
+    alpha = 0.5;
+  }
+  if (alpha < 0.01) return;
+
+  // ── 未填充区域（轮廓）──
+  final outlinePaint = Paint()
+    ..color = color.withValues(alpha: 0.35)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5;
+  canvas.drawRect(
+    Rect.fromLTWH(cx - barWidth / 2, tailY, barWidth, totalHeight),
+    outlinePaint,
+  );
+
+  // ── 填充区域（按住中才绘制）──
+  if (note.holding || note.holdProgress > 0) {
+    // 霓虹发光
+    final glowAlpha = alpha * 0.6;
+    final glowBlur = 15.0 * note.holdProgress;
+
+    // 发光层（shadow）
+    final glowPaint = Paint()
+      ..color = color.withValues(alpha: glowAlpha)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlur);
     canvas.drawRect(
-      Rect.fromLTWH(cx - barWidth / 2, clampedTail, barWidth, (headY - clampedTail).abs()),
-      barPaint,
+      Rect.fromLTWH(cx - barWidth / 2, fillTop, barWidth, fillBottom - fillTop),
+      glowPaint,
     );
 
-    if (note.holding && note.holdProgress > 0) {
-      final fillHeight = holdLength * note.holdProgress;
-      final fillPaint = Paint()
-        ..color = color.withValues(alpha: 0.5)
+    // 实心填充
+    final fillPaint = Paint()
+      ..color = color.withValues(alpha: alpha)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(
+      Rect.fromLTWH(cx - barWidth / 2, fillTop, barWidth, fillBottom - fillTop),
+      fillPaint,
+    );
+
+    // 左边缘高光线
+    final edgePaint = Paint()
+      ..color = Color.lerp(color, Colors.white, 0.4)!.withValues(alpha: (0.6 + 0.3 * note.holdProgress) * alpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawLine(
+      Offset(cx - barWidth / 2, fillTop),
+      Offset(cx - barWidth / 2, fillBottom),
+      edgePaint,
+    );
+
+    // 顶部前沿亮条
+    if (note.holdProgress > 0 && note.holdProgress < 1) {
+      final edgeAlpha = alpha * (0.7 + 0.3 * note.holdProgress);
+      final frontPaint = Paint()
+        ..color = Colors.white.withValues(alpha: edgeAlpha.clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
       canvas.drawRect(
-        Rect.fromLTWH(cx - barWidth / 2, headY - fillHeight, barWidth, fillHeight),
-        fillPaint,
+        Rect.fromLTWH(cx - barWidth / 2, fillTop - 1.5, barWidth, 3),
+        frontPaint,
       );
     }
+  }
 
-    final circlePaint = Paint()
-      ..color = color.withValues(alpha: baseAlpha)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-    canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
+  // ── 头部圆圈 ──
+  final circlePaint = Paint()
+    ..color = color.withValues(alpha: alpha.clamp(0.0, 1.0))
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+  canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
 
-    if (tailY > -radius && tailY < screenHeight + radius) {
-      canvas.drawCircle(Offset(cx, tailY), radius * 0.6, circlePaint);
+  // ── 粒子爆发（完成时）──
+  if (note.holdFadeOut > 0) {
+    _paintHoldNoteParticles(canvas, cx, headY, alpha, note.holdFadeOut);
+  }
+}
+
+void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alpha, double fadeOut) {
+  if (fadeOut <= 0) return;
+
+  // 闪烁效果：alpha 在基础值 ±20% 范围内震荡，频率随 fadeOut 加快
+  final flickerFreq = 30.0; // Hz
+  final flicker = 0.8 + 0.2 * math.sin(fadeOut * math.pi * flickerFreq);
+  final flickerAlpha = alpha * flicker * (1.0 - fadeOut);
+  if (flickerAlpha < 0.01) return;
+
+  // 粒子：8 个，从头部爆发
+  // 使用一个固定种子确保粒子方向稳定
+  final particleCount = 8;
+  for (int i = 0; i < particleCount; i++) {
+    final baseAngle = (2 * math.pi * i / particleCount);
+    final speed = 40.0 + (i % 3) * 10.0; // 40-60 px/s
+    final vx = math.cos(baseAngle) * speed * (1 - fadeOut * 0.5);
+    final vy = math.sin(baseAngle) * speed * (1 - fadeOut * 0.5) - 20 * fadeOut; // 向上偏移
+    final px = cx + vx * fadeOut * 0.3;
+    final py = headY + vy * fadeOut * 0.3;
+    final particleAlpha = (1 - fadeOut) * 0.8;
+    final particleSize = 2.0 + (i % 2) * 1.5;
+
+    if (particleAlpha > 0.01) {
+      final pPaint = Paint()
+        ..color = Color.lerp(color, Colors.white, 0.3)!.withValues(alpha: particleAlpha)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(px, py), particleSize * (1 - fadeOut * 0.3), pPaint);
     }
   }
+}
 
   void _paintSlideNote(Canvas canvas, double cx, FallingNote note) {
     if (note.judged || note.removeMe) return;
