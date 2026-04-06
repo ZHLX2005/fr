@@ -173,76 +173,101 @@ class GamePainter extends CustomPainter {
   }
 
   void _paintHoldNote(Canvas canvas, double cx, FallingNote note) {
-    if (note.currentY < -radius * 2) return;
+  if (note.currentY < -radius * 2) return;
 
-    final headY = note.currentY;
+  final headY = note.currentY;
 
-    // 实际下落速度（受 scrollSpeed 影响）
-    final travelPerMsActual = screenHeight * scrollSpeed / dropDuration;
-    // 音符尾部在头部下方固定距离：音符以 actual 速度下落，
-    // 头部从 spawn 到判定线用 actualDropMs × 0.866，
-    // 尾部在头部下方 holdDuration 距离处，需要 holdDuration / actualDropMs 的屏幕比例
-    final tailOffset = travelPerMsActual * note.event.holdDuration!;
-    final tailY = headY + tailOffset;
+  // tail 在 head 上方（Y 值更小）
+  final travelPerMsActual = screenHeight * scrollSpeed / dropDuration;
+  final tailOffset = travelPerMsActual * note.event.holdDuration!;
+  final tailY = headY - tailOffset;
 
-    final barWidth = radius * 0.6;
-    const baseAlpha = 0.3;
+  // 条宽度
+  final barWidth = radius * 1.6;
 
-    // 按住时：强烈发光效果
-    final bool isHolding = note.holding;
-    final double glowIntensity = isHolding
-        ? 0.5 + 0.3 * math.sin(gameElapsed * 0.008)
-        : 0.0;
+  // 填充高度计算
+  final totalHeight = headY - tailY;
+  final fillBottom = headY;
+  final fillTop = tailY + totalHeight * (1 - note.holdProgress);
 
-    // 条颜色：按住时变为主题色（脉冲），否则半透明
-    final barPaint = Paint()
-      ..color = isHolding
-          ? color.withValues(alpha: 0.5 + glowIntensity * 0.3)
-          : color.withValues(alpha: baseAlpha * 0.5)
-      ..style = PaintingStyle.fill;
+  // 透明度计算
+  double alpha;
+  if (note.holdFadeOut > 0) {
+    // 判定后：从 0.5 渐变到 0
+    alpha = 0.5 * (1.0 - note.holdFadeOut);
+  } else if (note.holding) {
+    // 按住中：从 0.5 线性减小到 0
+    alpha = 0.5 * (1.0 - note.holdProgress * 0.8);
+  } else {
+    alpha = 0.5;
+  }
+  if (alpha < 0.01) return;
 
-    // 限制 tail 在屏幕内（顶部 -radius，底部 screenHeight - radius）
-    final clampedTailY = tailY.clamp(-radius, screenHeight - radius);
-    // 条顶部 = min(headY, clampedTailY)，条底部 = max(headY, clampedTailY)
-    final barTop = math.min(headY, clampedTailY);
-    final barBottom = math.max(headY, clampedTailY);
+  // ── 未填充区域（轮廓）──
+  final outlinePaint = Paint()
+    ..color = color.withValues(alpha: 0.35)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5;
+  canvas.drawRect(
+    Rect.fromLTWH(cx - barWidth / 2, tailY, barWidth, totalHeight),
+    outlinePaint,
+  );
+
+  // ── 填充区域（按住中才绘制）──
+  if (note.holding || note.holdProgress > 0) {
+    // 霓虹发光
+    final glowAlpha = alpha * 0.6;
+    final glowBlur = 15.0 * note.holdProgress;
+
+    // 发光层（shadow）
+    final glowPaint = Paint()
+      ..color = color.withValues(alpha: glowAlpha)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlur);
     canvas.drawRect(
-      Rect.fromLTWH(cx - barWidth / 2, barTop, barWidth, barBottom - barTop),
-      barPaint,
+      Rect.fromLTWH(cx - barWidth / 2, fillTop, barWidth, fillBottom - fillTop),
+      glowPaint,
     );
 
-    // 头部圆圈：按住时发光
-    if (isHolding) {
-      // 外发光
-      final glowPaint = Paint()
-        ..color = color.withValues(alpha: glowIntensity * 0.5)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 10.0
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-      canvas.drawCircle(Offset(cx, headY), radius + 3, glowPaint);
+    // 实心填充
+    final fillPaint = Paint()
+      ..color = color.withValues(alpha: alpha)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(
+      Rect.fromLTWH(cx - barWidth / 2, fillTop, barWidth, fillBottom - fillTop),
+      fillPaint,
+    );
 
-      // 实心填充
-      final headFillPaint = Paint()
-        ..color = color.withValues(alpha: 0.5 + glowIntensity * 0.3)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(cx, headY), radius, headFillPaint);
-    }
-
-    final circlePaint = Paint()
-      ..color = isHolding ? color.withValues(alpha: 1.0) : color.withValues(alpha: baseAlpha)
+    // 左边缘高光线
+    final edgePaint = Paint()
+      ..color = Color.lerp(color, Colors.white, 0.4)!.withValues(alpha: (0.6 + 0.3 * note.holdProgress) * alpha)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = isHolding ? 3.5 : 2.5;
-    canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
+      ..strokeWidth = 1.5;
+    canvas.drawLine(
+      Offset(cx - barWidth / 2, fillTop),
+      Offset(cx - barWidth / 2, fillBottom),
+      edgePaint,
+    );
 
-    // 尾部圆圈（仅在屏幕内可见时）
-    if (clampedTailY > -radius && clampedTailY < screenHeight - radius) {
-      final tailCirclePaint = Paint()
-        ..color = isHolding ? color.withValues(alpha: 0.8) : color.withValues(alpha: baseAlpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = isHolding ? 3.0 : 2.0;
-      canvas.drawCircle(Offset(cx, clampedTailY), radius * 0.6, tailCirclePaint);
+    // 顶部前沿亮条
+    if (note.holdProgress > 0 && note.holdProgress < 1) {
+      final edgeAlpha = alpha * (0.7 + 0.3 * note.holdProgress);
+      final frontPaint = Paint()
+        ..color = Colors.white.withValues(alpha: edgeAlpha.clamp(0.0, 1.0))
+        ..style = PaintingStyle.fill;
+      canvas.drawRect(
+        Rect.fromLTWH(cx - barWidth / 2, fillTop - 1.5, barWidth, 3),
+        frontPaint,
+      );
     }
   }
+
+  // ── 头部圆圈 ──
+  final circlePaint = Paint()
+    ..color = color.withValues(alpha: alpha.clamp(0.0, 1.0))
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+  canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
+}
 
   void _paintSlideNote(Canvas canvas, double cx, FallingNote note) {
     if (note.judged || note.removeMe) return;
