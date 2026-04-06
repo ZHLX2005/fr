@@ -313,30 +313,32 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                       },
                     ),
                   ),
-                  // 方向控制按钮
+                  // 方向控制按钮 - 放大版本
                   Expanded(
                     flex: 2,
                     child: Container(
-                      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      margin: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           // 向上按钮
                           _DirectionButton(
                             icon: Icons.arrow_upward,
+                            size: 72,
                             onTap: () {
                               if (_direction != Direction.down) {
                                 _direction = Direction.up;
                               }
                             },
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           // 下一行：左、向下、右
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               _DirectionButton(
                                 icon: Icons.arrow_back,
+                                size: 72,
                                 onTap: () {
                                   if (_direction != Direction.right) {
                                     _direction = Direction.left;
@@ -345,6 +347,7 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                               ),
                               _DirectionButton(
                                 icon: Icons.arrow_downward,
+                                size: 72,
                                 onTap: () {
                                   if (_direction != Direction.up) {
                                     _direction = Direction.down;
@@ -353,6 +356,7 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                               ),
                               _DirectionButton(
                                 icon: Icons.arrow_forward,
+                                size: 72,
                                 onTap: () {
                                   if (_direction != Direction.left) {
                                     _direction = Direction.right;
@@ -410,29 +414,38 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
   }
 }
 
-/// 方向控制按钮
+/// 方向控制按钮 - 加大版
 class _DirectionButton extends StatelessWidget {
   final IconData icon;
+  final double size;
   final VoidCallback onTap;
 
-  const _DirectionButton({required this.icon, required this.onTap});
+  const _DirectionButton({
+    required this.icon,
+    required this.size,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.blue,
-      borderRadius: BorderRadius.circular(12),
+      color: Colors.blue.shade600,
+      borderRadius: BorderRadius.circular(size / 3),
+      elevation: 4,
+      shadowColor: Colors.blue.shade200,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(size / 3),
+        splashColor: Colors.blue.shade300,
+        highlightColor: Colors.blue.shade400,
         child: Container(
-          width: 56,
-          height: 56,
+          width: size,
+          height: size,
           alignment: Alignment.center,
           child: Icon(
             icon,
             color: Colors.white,
-            size: 32,
+            size: size * 0.5,
           ),
         ),
       ),

@@ -31,7 +31,8 @@ class _TorchPage extends StatefulWidget {
   State<_TorchPage> createState() => _TorchPageState();
 }
 
-class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMixin {
+class _TorchPageState extends State<_TorchPage>
+    with SingleTickerProviderStateMixin {
   // 手电筒状态
   bool _isTorchOn = false;
   bool _torchAvailable = false;
@@ -248,8 +249,7 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
               ],
             ),
           ),
-          if (_showScreenLightOverlay)
-            _buildScreenLightOverlay(),
+          if (_showScreenLightOverlay) _buildScreenLightOverlay(),
         ],
       ),
     );
@@ -265,12 +265,8 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
       ),
       child: Row(
         children: [
-          Expanded(
-            child: _buildModeButton(0, '🔦', '手电筒'),
-          ),
-          Expanded(
-            child: _buildModeButton(1, '☀️', '屏幕光'),
-          ),
+          Expanded(child: _buildModeButton(0, '🔦', '手电筒')),
+          Expanded(child: _buildModeButton(1, '☀️', '屏幕光')),
         ],
       ),
     );
@@ -314,51 +310,59 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        AnimatedBuilder(
-          animation: _pulseAnimation,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _isTorchOn ? _pulseAnimation.value : 1.0,
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _isTorchOn
-                      ? const Color(0xFFFFD60A).withValues(alpha: 0.2)
-                      : const Color(0xFF2C2C2E),
-                  border: Border.all(
+        // 大图标可点击切换
+        GestureDetector(
+          onTap: _torchAvailable ? _toggleTorch : _showPermissionDialog,
+          child: AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _isTorchOn ? _pulseAnimation.value : 1.0,
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _isTorchOn
+                        ? const Color(0xFFFFD60A).withValues(alpha: 0.2)
+                        : const Color(0xFF2C2C2E),
+                    border: Border.all(
+                      color: _isTorchOn
+                          ? const Color(0xFFFFD60A)
+                          : const Color(0xFF48484A),
+                      width: 3,
+                    ),
+                    boxShadow: _isTorchOn
+                        ? [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFFFD60A,
+                              ).withValues(alpha: 0.5),
+                              blurRadius: 40,
+                              spreadRadius: 10,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Icon(
+                    _isTorchOn ? Icons.flashlight_on : Icons.flashlight_off,
+                    size: 80,
                     color: _isTorchOn
                         ? const Color(0xFFFFD60A)
-                        : const Color(0xFF48484A),
-                    width: 3,
+                        : const Color(0xFF8E8E93),
                   ),
-                  boxShadow: _isTorchOn
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFFFFD60A).withValues(alpha: 0.5),
-                            blurRadius: 40,
-                            spreadRadius: 10,
-                          ),
-                        ]
-                      : null,
                 ),
-                child: Icon(
-                  _isTorchOn ? Icons.flashlight_on : Icons.flashlight_off,
-                  size: 80,
-                  color: _isTorchOn
-                      ? const Color(0xFFFFD60A)
-                      : const Color(0xFF8E8E93),
-                ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
         const SizedBox(height: 40),
         Text(
-          _isTorchOn ? '手电筒已开启' : '点击开启手电筒',
+          _isTorchOn ? '点击关闭手电筒' : '点击开启手电筒',
           style: TextStyle(
-            color: _isTorchOn ? const Color(0xFFFFD60A) : const Color(0xFF8E8E93),
+            color: _isTorchOn
+                ? const Color(0xFFFFD60A)
+                : const Color(0xFF8E8E93),
             fontSize: 18,
             fontWeight: FontWeight.w500,
           ),
@@ -421,9 +425,7 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
             child: Icon(
               _isScreenLightOn ? Icons.light_mode : Icons.lightbulb_outline,
               size: 70,
-              color: _isScreenLightOn
-                  ? Colors.white
-                  : const Color(0xFF8E8E93),
+              color: _isScreenLightOn ? Colors.white : const Color(0xFF8E8E93),
             ),
           ),
         ),
@@ -431,9 +433,7 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
         Text(
           _isScreenLightOn ? '屏幕光已开启' : '点击开启屏幕光',
           style: TextStyle(
-            color: _isScreenLightOn
-                ? Colors.white
-                : const Color(0xFF8E8E93),
+            color: _isScreenLightOn ? Colors.white : const Color(0xFF8E8E93),
             fontSize: 18,
             fontWeight: FontWeight.w500,
           ),
@@ -442,10 +442,7 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
           const SizedBox(height: 16),
           Text(
             '上下滑动图标调整亮度',
-            style: TextStyle(
-              color: const Color(0xFF8E8E93),
-              fontSize: 13,
-            ),
+            style: TextStyle(color: const Color(0xFF8E8E93), fontSize: 13),
           ),
           const SizedBox(height: 8),
           Text(
@@ -557,19 +554,12 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withValues(alpha: 0.5),
-            width: 2,
-          ),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
+            Icon(icon, color: color, size: 24),
             const SizedBox(width: 12),
             Text(
               label,
@@ -609,17 +599,17 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
                 right: 0,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Text(
                       '上下滑动调整亮度',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.black87, fontSize: 14),
                     ),
                   ),
                 ),
@@ -655,7 +645,10 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
                   child: GestureDetector(
                     onTap: _toggleKeepScreenOn,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(24),
@@ -664,7 +657,9 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _keepScreenOn ? Icons.lock_outline : Icons.lock_open_outlined,
+                            _keepScreenOn
+                                ? Icons.lock_outline
+                                : Icons.lock_open_outlined,
                             size: 18,
                             color: _keepScreenOn
                                 ? const Color(0xFF30D158)
@@ -696,7 +691,10 @@ class _TorchPageState extends State<_TorchPage> with SingleTickerProviderStateMi
                   child: GestureDetector(
                     onTap: _closeScreenLight,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(30),

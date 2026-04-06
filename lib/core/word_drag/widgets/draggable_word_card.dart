@@ -7,17 +7,23 @@ import 'package:flutter/physics.dart';
 /// 1. SpringSimulation 实现弹性回弹
 /// 2. 拖动时卡片跟随手指，带有旋转和缩放反馈
 /// 3. 拖动边界有弹性阻尼效果
-/// 4. 右滑时显示删除区，必须拖入区域才删除
+/// 4. 右滑时显示标新/删除区，必须拖入区域才执行操作
 class DraggableWordCard extends StatefulWidget {
   final Widget child;
-  final VoidCallback? onSwipeLeft;      // 左滑回调（稍后重学）
-  final VoidCallback? onSwipeRight;     // 右滑回调（进入删除区）
+  final VoidCallback? onSwipeLeft;      // 左滑回调（标记已复习）
+  final VoidCallback? onSwipeRight;     // 右滑回调（非区域右滑→详情页）
+  final VoidCallback? onMarkZoneAction; // 标新区触发
+  final VoidCallback? onDeleteZoneAction; // 删除区触发
   final VoidCallback? onSwipeUp;        // 上滑回调（查看详情）
   final VoidCallback? onSwipeUpComplete; // 上滑完成（停留超过阈值）
   final Function(double progress)? onHorizontalDragProgress; // 横向拖动进度 (0-1)
   final Function(bool isInZone)? onDeleteZoneHover; // 是否进入删除区
-  final Function(Offset cardCenter, Offset dragOffset)? onCardPositionChanged; // 卡片中心位置+拖动偏移
+  // 卡片位置变化回调，用于检测是否进入删除区，返回是否在任意区域内
+  final bool Function(Offset cardCenter, Offset dragOffset, bool isSpringBack)? onCardPositionChanged;
+  // 当右滑阈值首次交叉时，WordDragPage 调用此方法更新区域状态
+  final VoidCallback? onRightThresholdFirstCrossed;
   final Function(DraggableCardState)? onCardStateChanged;
+  final VoidCallback? onSpringBackComplete; // 弹簧动画完成回调
 
   // 弹性参数
   final double swipeThreshold;   // 触发滑动的阈值比例
@@ -30,12 +36,16 @@ class DraggableWordCard extends StatefulWidget {
     required this.child,
     this.onSwipeLeft,
     this.onSwipeRight,
+    this.onMarkZoneAction,
+    this.onDeleteZoneAction,
     this.onSwipeUp,
     this.onSwipeUpComplete,
     this.onHorizontalDragProgress,
     this.onDeleteZoneHover,
     this.onCardPositionChanged,
+    this.onRightThresholdFirstCrossed,
     this.onCardStateChanged,
+    this.onSpringBackComplete,
     this.swipeThreshold = 0.25,
     this.rotationFactor = 0.0015,
     this.scaleFactor = 0.92,
@@ -58,6 +68,14 @@ class DraggableCardState extends State<DraggableWordCard>
   Offset _dragOffset = Offset.zero;
   bool _isDragging = false;
   SwipeDirection? _swipeDirection;
+
+  // 弹簧动画状态
+  bool _isInSpringBack = false;
+
+  // 右滑阈值交叉状态（用于判断是否应跳转到详情页）
+  bool _hasRightThresholdCrossed = false;
+  bool _wasInZoneWhenRightCrossed = false;
+  bool _zoneActionInProgress = false; // 阻止重复触发 onSwipeRight
 
   Offset get currentOffset => _dragOffset;
   bool get isDragging => _isDragging;
@@ -90,6 +108,8 @@ class DraggableCardState extends State<DraggableWordCard>
     setState(() {
       _isDragging = true;
       _swipeDirection = null;
+      _hasRightThresholdCrossed = false;
+      _wasInZoneWhenRightCrossed = false;
     });
     widget.onCardStateChanged?.call(this);
   }
@@ -101,17 +121,54 @@ class DraggableCardState extends State<DraggableWordCard>
 
     // 计算横向进度（用于显示删除区）
     final screenWidth = MediaQuery.of(context).size.width;
+    final thresholdX = screenWidth * widget.swipeThreshold;
     final progress = (_dragOffset.dx / screenWidth).clamp(0.0, 1.0);
     widget.onHorizontalDragProgress?.call(progress);
 
     // 通知卡片位置变化（用于检测是否进入删除区）
     final cardCenter = _getCardCenter();
-    widget.onCardPositionChanged?.call(cardCenter, _dragOffset);
+    final isInZone = widget.onCardPositionChanged?.call(cardCenter, _dragOffset, _isInSpringBack) ?? false;
+
+    // 检测右滑阈值是否首次交叉（必须在 onCardPositionChanged 之后调用，确保区域状态已更新）
+    if (!_hasRightThresholdCrossed && _dragOffset.dx > thresholdX) {
+      _hasRightThresholdCrossed = true;
+      // 立即更新区域状态
+      _wasInZoneWhenRightCrossed = isInZone;
+    }
   }
 
   Offset _getCardCenter() {
     final screenCenter = MediaQuery.of(context).size.center(Offset.zero);
     return screenCenter + _dragOffset;
+  }
+
+  /// 直接在卡片内检测是否在标新/删除区域内
+  /// 返回 0 = 无区域, 1 = mark区, 2 = delete区
+  int _checkZoneAtRelease() {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    final cardCenter = _getCardCenter();
+
+    // 标新区：右侧上方
+    final markZoneRect = Rect.fromLTWH(
+      screenWidth - 100,
+      screenHeight * 0.15,
+      80,
+      screenHeight * 0.25,
+    ).inflate(30);
+
+    // 删除区：右侧下方
+    final deleteZoneRect = Rect.fromLTWH(
+      screenWidth - 100,
+      screenHeight * 0.6,
+      80,
+      screenHeight * 0.25,
+    ).inflate(30);
+
+    if (markZoneRect.contains(cardCenter)) return 1;
+    if (deleteZoneRect.contains(cardCenter)) return 2;
+    return 0;
   }
 
   void _onPanEnd(DragEndDetails details) {
@@ -125,6 +182,31 @@ class DraggableCardState extends State<DraggableWordCard>
     // 重置横向进度
     widget.onHorizontalDragProgress?.call(0.0);
 
+    // 关键修复：如果右滑阈值被交叉过（说明用户意图是右滑）
+    // 并且卡片在区域内，滑出卡片并执行对应操作
+    if (_hasRightThresholdCrossed && _wasInZoneWhenRightCrossed) {
+      final zone = _checkZoneAtRelease();
+      debugPrint('DraggableCard: _onPanEnd - zone=$zone, sliding out');
+
+      // 确定要调用的回调
+      VoidCallback? zoneCallback;
+      if (zone == 1) {
+        zoneCallback = widget.onMarkZoneAction;
+      } else if (zone == 2) {
+        zoneCallback = widget.onDeleteZoneAction;
+      }
+
+      _swipeDirection = SwipeDirection.right;
+      _zoneActionInProgress = true; // 阻止动画完成后触发 onSwipeRight
+      // 动画完成后才调用区域回调
+      _animateOffScreen(SwipeDirection.right, onComplete: () {
+        _zoneActionInProgress = false;
+        zoneCallback?.call();
+      });
+      widget.onCardStateChanged?.call(this);
+      return;
+    }
+
     // 判定滑动方向
     SwipeDirection? direction;
 
@@ -133,24 +215,27 @@ class DraggableCardState extends State<DraggableWordCard>
       // 上滑（主要看垂直方向）
       direction = SwipeDirection.up;
     } else if (_dragOffset.dx > thresholdX) {
-      // 右滑 - 暂不自动删除，等待进入删除区
+      // 右滑
       direction = SwipeDirection.right;
     } else if (_dragOffset.dx < -thresholdX) {
       // 左滑
       direction = SwipeDirection.left;
     }
 
+    debugPrint('DraggableCard: _onPanEnd - dx=${_dragOffset.dx}, dy=${_dragOffset.dy}, thresholdX=$thresholdX, thresholdY=$thresholdY, direction=$direction');
+
     if (direction != null) {
       _swipeDirection = direction;
       _animateOffScreen(direction);
     } else {
+      _isInSpringBack = true;
       _springBack();
     }
 
     widget.onCardStateChanged?.call(this);
   }
 
-  void _springBack() {
+  void _springBack([VoidCallback? onComplete]) {
     // 先停止任何正在进行的动画
     _controller.stop();
 
@@ -164,12 +249,16 @@ class DraggableCardState extends State<DraggableWordCard>
 
     _controller
       ..value = 0.0
-      ..animateTo(1.0, duration: const Duration(milliseconds: 600));
+      ..animateTo(1.0, duration: const Duration(milliseconds: 600)).then((_) {
+        _isInSpringBack = false;
+        onComplete?.call();
+        widget.onSpringBackComplete?.call();
+      });
 
     widget.onCardStateChanged?.call(this);
   }
 
-  void _animateOffScreen(SwipeDirection direction) {
+  void _animateOffScreen(SwipeDirection direction, {VoidCallback? onComplete}) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
@@ -180,15 +269,12 @@ class DraggableCardState extends State<DraggableWordCard>
     switch (direction) {
       case SwipeDirection.right:
         targetOffset = Offset(screenWidth * 1.5, _dragOffset.dy);
-        widget.onSwipeRight?.call();
         break;
       case SwipeDirection.left:
         targetOffset = Offset(-screenWidth * 1.5, _dragOffset.dy);
-        widget.onSwipeLeft?.call();
         break;
       case SwipeDirection.up:
         targetOffset = Offset(_dragOffset.dx, -screenHeight);
-        widget.onSwipeUp?.call();
         break;
       case SwipeDirection.down:
         targetOffset = Offset(_dragOffset.dx, screenHeight * 1.5);
@@ -205,7 +291,30 @@ class DraggableCardState extends State<DraggableWordCard>
 
     _controller
       ..value = 0.0
-      ..animateTo(1.0, duration: const Duration(milliseconds: 300));
+      ..animateTo(1.0, duration: const Duration(milliseconds: 300)).then((_) {
+        debugPrint('DraggableCard: animation complete for direction=$direction, calling callback');
+        // 动画完成后才调用回调
+        switch (direction) {
+          case SwipeDirection.right:
+            if (!_zoneActionInProgress) {
+              debugPrint('DraggableCard: calling onSwipeRight');
+              widget.onSwipeRight?.call();
+            }
+            break;
+          case SwipeDirection.left:
+            debugPrint('DraggableCard: calling onSwipeLeft');
+            widget.onSwipeLeft?.call();
+            break;
+          case SwipeDirection.up:
+            debugPrint('DraggableCard: calling onSwipeUp');
+            widget.onSwipeUp?.call();
+            break;
+          case SwipeDirection.down:
+            break;
+        }
+        // 额外的完成回调（用于区域操作的回调）
+        onComplete?.call();
+      });
   }
 
   /// 外部调用：完成删除动画
@@ -218,6 +327,11 @@ class DraggableCardState extends State<DraggableWordCard>
   /// 外部调用：重置卡片
   void reset() {
     _springBack();
+  }
+
+  /// 当右滑阈值首次交叉时，WordDragPage 调用此方法更新区域状态
+  void updateZoneStateAtRightCrossing(bool isInZone) {
+    _wasInZoneWhenRightCrossed = isInZone;
   }
 
   @override

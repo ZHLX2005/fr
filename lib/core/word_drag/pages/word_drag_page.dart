@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/word.dart';
 import '../widgets/draggable_word_card.dart';
 import '../widgets/word_card_content.dart';
+import 'word_detail_page.dart';
 
 /// 单词拖拽背词页面 - 单卡片交互
 ///
@@ -35,15 +36,32 @@ class _WordDragPageState extends State<WordDragPage> {
   double _markZoneOpacity = 0.0;
   double _deleteZoneOpacity = 0.0;
 
+  // 标记成功提示
+  bool _showMarkSuccessHint = false;    // 左滑标记"稍后复习"
+  bool _showMarkNewSuccessHint = false; // 标新成功
+  bool _showDeleteSuccessHint = false;  // 删除成功
+
   @override
   void initState() {
     super.initState();
   }
 
-  void _onCardPositionChanged(Offset cardCenter, Offset dragOffset) {
+  bool _onCardPositionChanged(Offset cardCenter, Offset dragOffset, bool isSpringBack) {
     final screenSize = MediaQuery.of(context).size;
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
+
+    // 弹簧动画期间使用捕获的状态，不更新区域状态
+    if (isSpringBack) {
+      // 弹簧动画期间：透明度设为0，但保持捕获的区域状态用于后续判断
+      if (_markZoneOpacity != 0.0 || _deleteZoneOpacity != 0.0) {
+        setState(() {
+          _markZoneOpacity = 0.0;
+          _deleteZoneOpacity = 0.0;
+        });
+      }
+      return _isInMarkZone || _isInDeleteZone;
+    }
 
     // 计算右侧两个区域的位置
     // 标新区：右侧上方
@@ -108,6 +126,7 @@ class _WordDragPageState extends State<WordDragPage> {
         _isInDeleteZone = inDelete;
       });
     }
+    return inMark || inDelete;
   }
 
   void _onHorizontalDragProgress(double progress) {
@@ -116,17 +135,88 @@ class _WordDragPageState extends State<WordDragPage> {
     });
   }
 
-  void _onSwipeUp() {
+  void _navigateToDetail() {
+    if (_words.isEmpty || _currentIndex >= _words.length) return;
+    final word = _words[_currentIndex];
+
+    // 进入详情页时就切换到下一个单词
     setState(() {
-      _showDetails = true;
+      _currentIndex = (_currentIndex + 1) % _words.length;
+      _showDetails = false;
+      _dragProgress = 0.0;
+      _verticalProgress = 0.0;
+      _currentDirection = DragDirection.none;
+      _isInMarkZone = false;
+      _isInDeleteZone = false;
+      _markZoneOpacity = 0.0;
+      _deleteZoneOpacity = 0.0;
     });
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => WordDetailPage(
+          word: word,
+          onComplete: () {
+            // 学完后重置状态（已经在 navigate 时切换了）
+            setState(() {
+              _showDetails = false;
+              _dragProgress = 0.0;
+              _verticalProgress = 0.0;
+              _currentDirection = DragDirection.none;
+              _isInMarkZone = false;
+              _isInDeleteZone = false;
+              _markZoneOpacity = 0.0;
+              _deleteZoneOpacity = 0.0;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  void _onSwipeUp() {
+    if (_words.isEmpty) return;
+    // 上滑 → 跳转到详情页
+    _navigateToDetail();
   }
 
   void _onSwipeLeft() {
     _markAsReviewed();
   }
 
-  void _deleteCurrentWord() {
+  void _onMarkZone() {
+    // 显示标新成功提示
+    setState(() {
+      _showMarkNewSuccessHint = true;
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showMarkNewSuccessHint = false;
+        });
+      }
+    });
+    // 执行标记新词
+    _markAsNew(true);
+  }
+
+  void _onDeleteZone() {
+    // 显示删除成功提示
+    setState(() {
+      _showDeleteSuccessHint = true;
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showDeleteSuccessHint = false;
+        });
+      }
+    });
+    // 执行删除
+    _deleteCurrentWord(wasFromZone: true);
+  }
+
+  void _deleteCurrentWord({bool wasFromZone = false}) {
     if (_words.isEmpty) return;
 
     setState(() {
@@ -146,24 +236,19 @@ class _WordDragPageState extends State<WordDragPage> {
     });
   }
 
-  void _markAsNew() {
-    if (_words.isEmpty) return;
-    setState(() {
-      _showDetails = false;
-      _dragProgress = 0.0;
-      _verticalProgress = 0.0;
-      _currentDirection = DragDirection.none;
-      _isInMarkZone = false;
-      _isInDeleteZone = false;
-      _markZoneOpacity = 0.0;
-      _deleteZoneOpacity = 0.0;
-    });
-  }
-
-  void _markAsReviewed() {
+  void _markAsNew([bool wasFromZone = false]) {
     if (_words.isEmpty) return;
 
+    // wasFromZone=true 表示从标新区域触发，直接执行标记新词逻辑
+    // wasFromZone=false 表示右滑未进区域，跳转到详情页
+    if (!wasFromZone) {
+      _navigateToDetail();
+      return;
+    }
+
+    // 执行标记新词逻辑
     setState(() {
+      // 将当前单词移到列表末尾
       final word = _words.removeAt(_currentIndex);
       _words.add(word);
       // 确保索引有效
@@ -178,6 +263,57 @@ class _WordDragPageState extends State<WordDragPage> {
       _isInDeleteZone = false;
       _markZoneOpacity = 0.0;
       _deleteZoneOpacity = 0.0;
+      // 显示标新成功提示
+      _showMarkNewSuccessHint = true;
+    });
+
+    // 2秒后自动隐藏提示
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showMarkNewSuccessHint = false;
+        });
+      }
+    });
+  }
+
+  void _markAsReviewed() {
+    if (_words.isEmpty) {
+      debugPrint('_markAsReviewed: words is empty, returning');
+      return;
+    }
+
+    debugPrint('_markAsReviewed: BEFORE - words.length=${_words.length}, currentIndex=$_currentIndex, showDetails=$_showDetails');
+
+    setState(() {
+      final word = _words.removeAt(_currentIndex);
+      _words.add(word);
+      debugPrint('_markAsReviewed: AFTER remove/add - words.length=${_words.length}, currentIndex=$_currentIndex');
+      // 确保索引有效
+      if (_currentIndex >= _words.length && _currentIndex > 0) {
+        _currentIndex = _words.length - 1;
+        debugPrint('_markAsReviewed: adjusted index to $_currentIndex');
+      }
+      _showDetails = false;
+      _dragProgress = 0.0;
+      _verticalProgress = 0.0;
+      _currentDirection = DragDirection.none;
+      _isInMarkZone = false;
+      _isInDeleteZone = false;
+      _markZoneOpacity = 0.0;
+      _deleteZoneOpacity = 0.0;
+      // 显示标记成功提示
+      _showMarkSuccessHint = true;
+      debugPrint('_markAsReviewed: state updated, showing word at index $_currentIndex');
+    });
+
+    // 2秒后自动隐藏提示
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showMarkSuccessHint = false;
+        });
+      }
     });
   }
 
@@ -194,24 +330,62 @@ class _WordDragPageState extends State<WordDragPage> {
     });
   }
 
-  void _confirmDelete() {
-    if (_isInDeleteZone) {
+  /// 重置区域状态（弹簧动画完成时调用）
+  void _resetZoneState() {
+    // 无条件调用 setState 确保 UI 重建，防止透明度为 0 但状态未更新导致区域"消失"后无法再触发
+    setState(() {
+      _isInMarkZone = false;
+      _isInDeleteZone = false;
+    });
+  }
+
+  void _confirmMark() {
+    // 立即捕获区域状态（避免 200ms 后状态被重置）
+    final wasInMarkZone = _isInMarkZone;
+    if (wasInMarkZone) {
+      // 显示标新成功提示
+      setState(() {
+        _showMarkNewSuccessHint = true;
+      });
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _showMarkNewSuccessHint = false;
+          });
+        }
+      });
+      // 延迟执行标记新词
       Future.delayed(const Duration(milliseconds: 200), () {
-        _deleteCurrentWord();
+        _markAsNew(true);
       });
     }
   }
 
-  void _confirmMark() {
-    if (_isInMarkZone) {
+  void _confirmDelete() {
+    // 立即捕获区域状态
+    final wasInDeleteZone = _isInDeleteZone;
+    if (wasInDeleteZone) {
+      // 显示成功提示
+      setState(() {
+        _showDeleteSuccessHint = true;
+      });
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _showDeleteSuccessHint = false;
+          });
+        }
+      });
+      // 延迟执行删除
       Future.delayed(const Duration(milliseconds: 200), () {
-        _markAsNew();
+        _deleteCurrentWord(wasFromZone: true);
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('WordDragPage: BUILD - words.length=${_words.length}, currentIndex=$_currentIndex, showDetails=$_showDetails');
     return Scaffold(
       backgroundColor: const Color(0xFF1a1a2e),
       body: SafeArea(
@@ -310,6 +484,102 @@ class _WordDragPageState extends State<WordDragPage> {
                   child: _ConfirmHint(label: '松开删除', color: Colors.red),
                 ),
               ),
+
+            // 左滑标记成功提示
+            if (_showMarkSuccessHint)
+              Positioned(
+                bottom: 100,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          '已标记稍后复习',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // 标新成功提示
+            if (_showMarkNewSuccessHint)
+              Positioned(
+                bottom: 160,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bookmark_add, color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          '已标记为新词',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // 删除成功提示
+            if (_showDeleteSuccessHint)
+              Positioned(
+                bottom: 160,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.delete, color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          '已删除单词',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -354,12 +624,20 @@ class _WordDragPageState extends State<WordDragPage> {
       return _buildEmptyState();
     }
     return DraggableWordCard(
+      key: ValueKey('${_words[_currentIndex].id}-$_currentIndex'),
       onSwipeUp: _onSwipeUp,
       onSwipeLeft: _onSwipeLeft,
+      onSwipeRight: _navigateToDetail, // 非区域右滑 → 详情页
+      onMarkZoneAction: _onMarkZone,
+      onDeleteZoneAction: _onDeleteZone,
       onHorizontalDragProgress: _onHorizontalDragProgress,
-      onCardPositionChanged: (cardCenter, dragOffset) {
-        _onCardPositionChanged(cardCenter, dragOffset);
+      onCardPositionChanged: (cardCenter, dragOffset, isSpringBack) {
+        return _onCardPositionChanged(cardCenter, dragOffset, isSpringBack);
       },
+      onRightThresholdFirstCrossed: () {
+        // WordDragPage 的区域状态已更新，这里不需要额外操作
+      },
+      onSpringBackComplete: _resetZoneState,
       child: WordCardContent(
         word: _words[_currentIndex],
         showDetails: _showDetails,
