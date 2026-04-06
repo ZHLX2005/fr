@@ -839,6 +839,25 @@ class _LineDemoPageState extends State<_LineDemoPage>
                               ),
                             ),
                           ),
+                          const SizedBox(height: 16),
+                          GestureDetector(
+                            onTap: () {
+                              _stopGame();
+                              Navigator.of(context).pop();
+                            },
+                            child: Text(
+                              '返回主页',
+                              style: TextStyle(
+                                fontSize: 14 * w / 750,
+                                fontWeight: FontWeight.w300,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                decoration: TextDecoration.underline,
+                                decorationColor:
+                                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                                decorationThickness: 1,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
