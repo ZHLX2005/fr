@@ -232,8 +232,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
       note.currentY = -radius + (targetY + radius) * easedT;
 
       if (!note.judged && event.type != NoteType.hold) {
-        final judgeY = screenSize.height * _judgeLineRatio;
-        if (note.currentY > judgeY) {
+        final elapsed = _gameStopwatch.elapsedMilliseconds;
+        final missThreshold = event.time + (_missWindow * _timingScale).round();
+        if (elapsed > missThreshold) {
           _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
         }
       }
