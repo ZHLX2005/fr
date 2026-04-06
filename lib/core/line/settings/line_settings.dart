@@ -197,6 +197,7 @@ class SpeedSettingsPage extends StatefulWidget {
   final Color primaryColor;
 
   const SpeedSettingsPage({
+    super.key,
     required this.primaryColor,
   });
 
