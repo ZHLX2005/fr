@@ -164,6 +164,8 @@ flutter:
 
   assets:
     - assets/charts/
+    - assets/audio/
+    - assets/covers/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
