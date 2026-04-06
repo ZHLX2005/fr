@@ -145,6 +145,8 @@ class DraggableCardState extends State<DraggableWordCard>
       direction = SwipeDirection.left;
     }
 
+    debugPrint('DraggableCard: _onPanEnd - dx=${_dragOffset.dx}, dy=${_dragOffset.dy}, thresholdX=$thresholdX, thresholdY=$thresholdY, direction=$direction');
+
     if (direction != null) {
       _swipeDirection = direction;
       _animateOffScreen(direction);
@@ -213,21 +215,22 @@ class DraggableCardState extends State<DraggableWordCard>
     _controller
       ..value = 0.0
       ..animateTo(1.0, duration: const Duration(milliseconds: 300)).then((_) {
-      // 动画完成后才调用回调
-      switch (direction) {
-        case SwipeDirection.right:
-          widget.onSwipeRight?.call();
-          break;
-        case SwipeDirection.left:
-          widget.onSwipeLeft?.call();
-          break;
-        case SwipeDirection.up:
-          widget.onSwipeUp?.call();
-          break;
-        case SwipeDirection.down:
-          break;
-      }
-    });
+        debugPrint('DraggableCard: animation complete for direction=$direction');
+        // 动画完成后才调用回调
+        switch (direction) {
+          case SwipeDirection.right:
+            widget.onSwipeRight?.call();
+            break;
+          case SwipeDirection.left:
+            widget.onSwipeLeft?.call();
+            break;
+          case SwipeDirection.up:
+            widget.onSwipeUp?.call();
+            break;
+          case SwipeDirection.down:
+            break;
+        }
+      });
   }
 
   /// 外部调用：完成删除动画

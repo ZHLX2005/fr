@@ -173,14 +173,21 @@ class _WordDragPageState extends State<WordDragPage> {
   }
 
   void _markAsReviewed() {
-    if (_words.isEmpty) return;
+    if (_words.isEmpty) {
+      debugPrint('_markAsReviewed: words is empty, returning');
+      return;
+    }
+
+    debugPrint('_markAsReviewed: BEFORE - words.length=${_words.length}, currentIndex=$_currentIndex, showDetails=$_showDetails');
 
     setState(() {
       final word = _words.removeAt(_currentIndex);
       _words.add(word);
+      debugPrint('_markAsReviewed: AFTER remove/add - words.length=${_words.length}, currentIndex=$_currentIndex');
       // 确保索引有效
       if (_currentIndex >= _words.length && _currentIndex > 0) {
         _currentIndex = _words.length - 1;
+        debugPrint('_markAsReviewed: adjusted index to $_currentIndex');
       }
       _showDetails = false;
       _dragProgress = 0.0;
@@ -190,6 +197,7 @@ class _WordDragPageState extends State<WordDragPage> {
       _isInDeleteZone = false;
       _markZoneOpacity = 0.0;
       _deleteZoneOpacity = 0.0;
+      debugPrint('_markAsReviewed: state updated, showing word at index $_currentIndex');
     });
   }
 
