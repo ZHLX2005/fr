@@ -70,7 +70,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   static const String _timingScaleKey = lineTimingScaleKey;
 
   double _scrollSpeed = 1.0;
-  static const String _scrollSpeedKey = 'line_demo_scroll_speed';
+  static const String _scrollSpeedKey = lineScrollSpeedKey;
 
   static const double _circleRadiusRpx = 20.0;
   static const double _judgeLineRatio = 0.75;
