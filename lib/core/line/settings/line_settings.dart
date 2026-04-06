@@ -214,6 +214,11 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   static const double _minTimingScale = 0.5;
   static const double _maxTimingScale = 2.0;
 
+  // 流速
+  double _scrollSpeed = 1.0;
+  static const double _minScrollSpeed = 0.5;
+  static const double _maxScrollSpeed = 2.0;
+
   // 背景
   BackgroundStyle _backgroundStyle = BackgroundStyle.none;
 
@@ -253,6 +258,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     if (mounted) {
       setState(() {
         _timingScale = prefs.getDouble(lineTimingScaleKey) ?? 1.0;
+        _scrollSpeed = prefs.getDouble(lineScrollSpeedKey) ?? 1.0;
         final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
         _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
       });
@@ -262,6 +268,11 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   Future<void> _saveTimingScale(double value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(lineTimingScaleKey, value);
+  }
+
+  Future<void> _saveScrollSpeed(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(lineScrollSpeedKey, value);
   }
 
   Future<void> _saveBackground(BackgroundStyle style) async {
@@ -416,7 +427,9 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                     flex: 4,
                     child: _currentTab == 0
                         ? _buildTimingControls(theme, rpx)
-                        : _buildBackgroundControls(theme, rpx),
+                        : _currentTab == 1
+                            ? _buildScrollSpeedControls(theme, rpx)
+                            : _buildBackgroundControls(theme, rpx),
                   ),
                 ],
               ),
@@ -432,19 +445,25 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _buildTabItem('判定', 0, theme),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            '|',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w200,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-            ),
-          ),
-        ),
-        _buildTabItem('背景样式', 1, theme),
+        _buildTabSeparator(theme),
+        _buildTabItem('流速', 1, theme),
+        _buildTabSeparator(theme),
+        _buildTabItem('背景样式', 2, theme),
       ],
+    );
+  }
+
+  Widget _buildTabSeparator(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Text(
+        '|',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w200,
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+        ),
+      ),
     );
   }
 
@@ -539,6 +558,73 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     ],
   );
 }
+
+  Widget _buildScrollSpeedControls(ThemeData theme, double Function(double) rpx) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          '下落速度',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '${_scrollSpeed.toStringAsFixed(1)}x',
+          style: TextStyle(
+            fontSize: rpx(32),
+            fontWeight: FontWeight.w100,
+            color: widget.primaryColor.withValues(alpha: 0.4),
+            fontFeatures: [const FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 1.5,
+            thumbShape: const LineThumbShape(thumbRadius: 4),
+            overlayShape: SliderComponentShape.noOverlay,
+            activeTrackColor: widget.primaryColor,
+            inactiveTrackColor: theme.colorScheme.outlineVariant,
+            thumbColor: widget.primaryColor,
+          ),
+          child: Slider(
+            value: _scrollSpeed,
+            min: _minScrollSpeed,
+            max: _maxScrollSpeed,
+            onChanged: (v) {
+              setState(() => _scrollSpeed = v);
+              _saveScrollSpeed(v);
+              // Restart demo animation with new speed
+              _fallController.duration = Duration(milliseconds: (2500 / v).round());
+              if (!_showExplode) {
+                _fallController.forward(from: _fallController.value);
+              }
+            },
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '慢',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              '快',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   Widget _buildBackgroundControls(ThemeData theme, double Function(double) rpx) {
     return Column(
