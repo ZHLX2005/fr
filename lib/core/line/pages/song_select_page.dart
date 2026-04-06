@@ -17,7 +17,7 @@ class SongSelectPage extends StatefulWidget {
 class _SongSelectPageState extends State<SongSelectPage> {
   List<SongData> _songs = [];
   SongData? _selectedSong;
-  BorderStyle _borderStyle = BorderStyle.solid;
+  GameBorderStyle _borderStyle = GameBorderStyle.solid;
   LineDensity _lineDensity = LineDensity.normal;
   bool _isLoading = true;
 
