@@ -220,6 +220,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _stopGame() {
     _gameStopwatch.stop();
+    _audioPlayer?.pause();
     for (final noteList in _notes) {
       for (final note in noteList) {
         note.controller.stop();
@@ -664,6 +665,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _gameOver() {
     _stopGame();
+    _audioPlayer?.stop();  // 游戏结束时完全停止音频
     for (final noteList in _notes) {
       for (final note in noteList) {
         note.controller.stop();
@@ -774,6 +776,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
 
     _gameStopwatch.start();
+    // 同步音频位置
+    _audioPlayer?.seek(Duration(milliseconds: _gameStopwatch.elapsedMilliseconds));
+    _audioPlayer?.play();
     for (final noteList in _notes) {
       for (final note in noteList) {
         if (!note.judged) {
