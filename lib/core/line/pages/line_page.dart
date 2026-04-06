@@ -181,15 +181,17 @@ class GamePainter extends CustomPainter {
     final barWidth = radius * 0.6;
     const baseAlpha = 0.3;
 
-    // 按住时脉冲因子：sin 波动态 0.6 ~ 1.0
-    final double holdPulse = note.holding
-        ? 0.7 + 0.3 * math.sin(gameElapsed * 0.006)
-        : 1.0;
+    // 按住时：强烈发光效果
+    final bool isHolding = note.holding;
+    final double glowIntensity = isHolding
+        ? 0.5 + 0.3 * math.sin(gameElapsed * 0.008)
+        : 0.0;
 
-    // 条颜色：按住时变亮且脉冲
-    final barAlpha = note.holding ? baseAlpha * holdPulse : baseAlpha * 0.5;
+    // 条颜色：按住时变为主题色填充（不再是半透明）
     final barPaint = Paint()
-      ..color = color.withValues(alpha: barAlpha)
+      ..color = isHolding
+          ? color.withValues(alpha: 0.4 + glowIntensity * 0.3)
+          : color.withValues(alpha: baseAlpha * 0.5)
       ..style = PaintingStyle.fill;
     final clampedTail = tailY.clamp(-radius, screenHeight + radius);
     canvas.drawRect(
@@ -197,11 +199,10 @@ class GamePainter extends CustomPainter {
       barPaint,
     );
 
-    if (note.holding && note.holdProgress > 0) {
+    if (isHolding && note.holdProgress > 0) {
       final fillHeight = holdLength * note.holdProgress;
-      final fillAlpha = 0.5 * holdPulse;
       final fillPaint = Paint()
-        ..color = color.withValues(alpha: fillAlpha)
+        ..color = color.withValues(alpha: 0.6 + glowIntensity * 0.3)
         ..style = PaintingStyle.fill;
       canvas.drawRect(
         Rect.fromLTWH(cx - barWidth / 2, headY - fillHeight, barWidth, fillHeight),
@@ -209,25 +210,34 @@ class GamePainter extends CustomPainter {
       );
     }
 
-    // 头部圆圈：按住时变实心并脉冲
-    if (note.holding) {
+    // 头部圆圈：按住时发光
+    if (isHolding) {
+      // 外发光
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: glowIntensity * 0.4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      canvas.drawCircle(Offset(cx, headY), radius + 2, glowPaint);
+
+      // 实心填充
       final headFillPaint = Paint()
-        ..color = color.withValues(alpha: 0.3 * holdPulse)
+        ..color = color.withValues(alpha: 0.4 + glowIntensity * 0.3)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(cx, headY), radius, headFillPaint);
     }
 
     final circlePaint = Paint()
-      ..color = color.withValues(alpha: note.holding ? baseAlpha * holdPulse : baseAlpha)
+      ..color = isHolding ? color.withValues(alpha: 1.0) : color.withValues(alpha: baseAlpha)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = note.holding ? 3.0 : 2.5;
+      ..strokeWidth = isHolding ? 3.5 : 2.5;
     canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
 
     if (tailY > -radius && tailY < screenHeight + radius) {
       final tailCirclePaint = Paint()
-        ..color = color.withValues(alpha: note.holding ? baseAlpha * holdPulse : baseAlpha)
+        ..color = isHolding ? color.withValues(alpha: 0.7) : color.withValues(alpha: baseAlpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = note.holding ? 2.5 : 2.0;
+        ..strokeWidth = isHolding ? 3.0 : 2.0;
       canvas.drawCircle(Offset(cx, tailY), radius * 0.6, tailCirclePaint);
     }
   }
