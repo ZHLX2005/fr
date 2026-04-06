@@ -13,7 +13,7 @@ import '../settings/line_settings.dart';
 class LineDemo extends DemoPage {
   final ChartData? chart;
 
-  const LineDemo({this.chart});
+  LineDemo({this.chart});
 
   @override
   String get title => '线';
@@ -1016,5 +1016,5 @@ class LineDemoPage extends StatelessWidget {
 }
 
 void registerLineDemo() {
-  demoRegistry.register(const LineDemo());
+  demoRegistry.register(LineDemo());
 }
