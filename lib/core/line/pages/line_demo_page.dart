@@ -227,8 +227,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final screenSize = MediaQuery.of(context).size;
     final radius = _rpx(_circleRadiusRpx);
 
+    final actualDropMs = (_chart!.dropDuration / _scrollSpeed).round();
     final controller = AnimationController(
-      duration: Duration(milliseconds: _chart!.dropDuration),
+      duration: Duration(milliseconds: actualDropMs),
       vsync: this,
     );
 
