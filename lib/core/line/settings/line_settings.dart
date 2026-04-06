@@ -23,6 +23,7 @@ class _DemoPainter extends CustomPainter {
   final double explodeProgress;
   final List<Particle> explodeParticles;
   final BackgroundStyle backgroundStyle;
+  final double timingScale;
 
   _DemoPainter({
     required this.color,
@@ -33,6 +34,7 @@ class _DemoPainter extends CustomPainter {
     this.explodeProgress = 0.0,
     this.explodeParticles = const [],
     this.backgroundStyle = BackgroundStyle.none,
+    this.timingScale = 1.0,
   });
 
   @override
@@ -70,6 +72,53 @@ class _DemoPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawLine(Offset(0, actualJudgeY), Offset(w, actualJudgeY), judgePaint);
+
+    // 判定区域可视化（设置页面演示用）
+    final perfectWindow = 50.0 * timingScale;
+    final greatWindow = 100.0 * timingScale;
+    final goodWindow = 150.0 * timingScale;
+    final missWindow = 200.0 * timingScale;
+
+    // 音符经过判定线的速度：pixels/ms
+    final pixelsPerMs = size.height * judgeYRatio / 2500;
+    final perfectHeight = perfectWindow * pixelsPerMs;
+    final greatHeight = greatWindow * pixelsPerMs;
+    final goodHeight = goodWindow * pixelsPerMs;
+    final missHeight = missWindow * pixelsPerMs;
+
+    final judgeY = actualJudgeY;
+
+    // Perfect 区域（最内层，绿色）
+    final perfectPaint = Paint()
+      ..color = const Color(0xFF4CAF50).withValues(alpha: 0.15);
+    canvas.drawRect(
+      Rect.fromLTWH(0, judgeY - perfectHeight, size.width, perfectHeight),
+      perfectPaint,
+    );
+
+    // Great 区域（黄色）
+    final greatPaint = Paint()
+      ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.12);
+    canvas.drawRect(
+      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight, size.width, greatHeight),
+      greatPaint,
+    );
+
+    // Good 区域（橙色）
+    final goodPaint = Paint()
+      ..color = const Color(0xFFFF9800).withValues(alpha: 0.10);
+    canvas.drawRect(
+      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight - goodHeight, size.width, goodHeight),
+      goodPaint,
+    );
+
+    // Miss 区域（最外层，红色）
+    final missPaint = Paint()
+      ..color = const Color(0xFFF44336).withValues(alpha: 0.08);
+    canvas.drawRect(
+      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight - goodHeight - missHeight, size.width, missHeight),
+      missPaint,
+    );
 
     // 圆圈
     if (!showExplode) {
@@ -135,7 +184,8 @@ class _DemoPainter extends CustomPainter {
       oldDelegate.circleYRatio != circleYRatio ||
       oldDelegate.showExplode != showExplode ||
       oldDelegate.explodeProgress != explodeProgress ||
-      oldDelegate.backgroundStyle != backgroundStyle;
+      oldDelegate.backgroundStyle != backgroundStyle ||
+      oldDelegate.timingScale != timingScale;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -347,6 +397,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                                     explodeProgress: _explodeController.value,
                                     explodeParticles: _explodeParticles,
                                     backgroundStyle: _backgroundStyle,
+                                    timingScale: _timingScale,
                                   ),
                                 ),
                               ),
