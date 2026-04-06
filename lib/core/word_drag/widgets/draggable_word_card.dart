@@ -215,16 +215,19 @@ class DraggableCardState extends State<DraggableWordCard>
     _controller
       ..value = 0.0
       ..animateTo(1.0, duration: const Duration(milliseconds: 300)).then((_) {
-        debugPrint('DraggableCard: animation complete for direction=$direction');
+        debugPrint('DraggableCard: animation complete for direction=$direction, calling callback');
         // 动画完成后才调用回调
         switch (direction) {
           case SwipeDirection.right:
+            debugPrint('DraggableCard: calling onSwipeRight');
             widget.onSwipeRight?.call();
             break;
           case SwipeDirection.left:
+            debugPrint('DraggableCard: calling onSwipeLeft');
             widget.onSwipeLeft?.call();
             break;
           case SwipeDirection.up:
+            debugPrint('DraggableCard: calling onSwipeUp');
             widget.onSwipeUp?.call();
             break;
           case SwipeDirection.down:

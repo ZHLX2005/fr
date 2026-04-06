@@ -242,6 +242,7 @@ class _WordDragPageState extends State<WordDragPage> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('WordDragPage: BUILD - words.length=${_words.length}, currentIndex=$_currentIndex, showDetails=$_showDetails');
     return Scaffold(
       backgroundColor: const Color(0xFF1a1a2e),
       body: SafeArea(
@@ -384,6 +385,7 @@ class _WordDragPageState extends State<WordDragPage> {
       return _buildEmptyState();
     }
     return DraggableWordCard(
+      key: ValueKey(_words[_currentIndex].id),
       onSwipeUp: _onSwipeUp,
       onSwipeLeft: _onSwipeLeft,
       onHorizontalDragProgress: _onHorizontalDragProgress,
