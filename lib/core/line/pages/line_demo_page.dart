@@ -724,6 +724,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       backgroundStyle: _backgroundStyle,
                       health: _health,
                       dropDuration: _chart!.dropDuration.toDouble(),
+                      gameElapsed: _gameStopwatch.elapsedMilliseconds,
                     ),
                   );
                 },
