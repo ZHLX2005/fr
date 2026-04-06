@@ -9,6 +9,7 @@ import '../models/line_models.dart';
 
 const String lineTimingScaleKey = 'line_demo_timing_scale';
 const String lineBackgroundKey = 'line_demo_background';
+const String lineScrollSpeedKey = 'line_demo_scroll_speed';
 
 // ═══════════════════════════════════════════════════════════════
 // 演示动画绘制器：只绘制中间列单个圆圈 + 判定线 + 炸开粒子
