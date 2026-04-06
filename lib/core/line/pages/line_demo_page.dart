@@ -715,8 +715,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   }
 
   void _showSpeedSettings() {
-    final wasCountingDown = _isCountingDown;
-    _wasGameRunning = !_isGameOver && !wasCountingDown;
+    _wasGameRunning = !_isGameOver && !_isCountingDown;
     _isCountingDown = false;
 
     _stopGame();
@@ -743,12 +742,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
         if (_isGameOver) {
           // 游戏结束时，点击设置返回应该保持游戏结束状态
           return;
-        } else if (wasCountingDown) {
-          // 倒计时时点击设置，返回后重新启动倒计时
-          _startCountdown();
         } else {
-          // 游戏进行中，返回后恢复游戏
-          _resumeFromSnapshot();
+          // 倒计时时或游戏进行中返回，都重新开始倒计时
+          _startCountdown();
         }
       });
     });
