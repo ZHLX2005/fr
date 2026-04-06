@@ -131,16 +131,33 @@ class _WordDragPageState extends State<WordDragPage> {
 
     setState(() {
       _words.removeAt(_currentIndex);
-      if (_currentIndex >= _words.length && _currentIndex > 0) {
-        _currentIndex--;
+      // 确保索引有效
+      if (_words.isNotEmpty && _currentIndex >= _words.length) {
+        _currentIndex = _words.length - 1;
       }
-      _resetState();
+      _showDetails = false;
+      _dragProgress = 0.0;
+      _verticalProgress = 0.0;
+      _currentDirection = DragDirection.none;
+      _isInMarkZone = false;
+      _isInDeleteZone = false;
+      _markZoneOpacity = 0.0;
+      _deleteZoneOpacity = 0.0;
     });
   }
 
   void _markAsNew() {
-    // 标新功能 - 可以扩展
-    _resetState();
+    if (_words.isEmpty) return;
+    setState(() {
+      _showDetails = false;
+      _dragProgress = 0.0;
+      _verticalProgress = 0.0;
+      _currentDirection = DragDirection.none;
+      _isInMarkZone = false;
+      _isInDeleteZone = false;
+      _markZoneOpacity = 0.0;
+      _deleteZoneOpacity = 0.0;
+    });
   }
 
   void _markAsReviewed() {
@@ -149,7 +166,18 @@ class _WordDragPageState extends State<WordDragPage> {
     setState(() {
       final word = _words.removeAt(_currentIndex);
       _words.add(word);
-      _resetState();
+      // 确保索引有效
+      if (_currentIndex >= _words.length && _currentIndex > 0) {
+        _currentIndex = _words.length - 1;
+      }
+      _showDetails = false;
+      _dragProgress = 0.0;
+      _verticalProgress = 0.0;
+      _currentDirection = DragDirection.none;
+      _isInMarkZone = false;
+      _isInDeleteZone = false;
+      _markZoneOpacity = 0.0;
+      _deleteZoneOpacity = 0.0;
     });
   }
 
@@ -321,6 +349,10 @@ class _WordDragPageState extends State<WordDragPage> {
   }
 
   Widget _buildCardStack() {
+    // 双重检查确保索引有效
+    if (_words.isEmpty || _currentIndex >= _words.length) {
+      return _buildEmptyState();
+    }
     return DraggableWordCard(
       onSwipeUp: _onSwipeUp,
       onSwipeLeft: _onSwipeLeft,
