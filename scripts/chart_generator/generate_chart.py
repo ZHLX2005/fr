@@ -6,8 +6,18 @@
 
 import argparse
 import json
+import random
 import sys
 from pathlib import Path
+
+# Magic number constants
+HOLD_THRESHOLD_MULTIPLIER = 1.5
+MAX_HOLD_DURATION_MS = 1500
+SLIDE_PROBABILITY = 0.1
+SLIDE_CHECK_INTERVAL = 4
+DEFAULT_DURATION = 180
+DEFAULT_DIFFICULTY = 3
+DEFAULT_DROP_DURATION = 2500
 
 try:
     import librosa
@@ -44,8 +54,7 @@ def generate_notes(beat_times, bpm, column_count=3):
     """根据节拍生成音符"""
     notes = []
     beat_interval_ms = 60000 / bpm
-    hold_threshold = beat_interval_ms * 1.5
-    consecutive_holds = 0
+    hold_threshold = beat_interval_ms * HOLD_THRESHOLD_MULTIPLIER
 
     for i, beat_time in enumerate(beat_times):
         if i < 2:
@@ -57,22 +66,18 @@ def generate_notes(beat_times, bpm, column_count=3):
             prev_beat = beat_times[i - 1]
             interval = beat_time - prev_beat
 
-            if interval > hold_threshold and consecutive_holds == 0:
-                hold_duration = min(int(interval), 1500)
+            if interval > hold_threshold:
+                hold_duration = min(int(interval), MAX_HOLD_DURATION_MS)
                 notes.append({
                     "time": beat_time,
                     "column": column,
                     "type": "hold",
                     "holdDuration": hold_duration,
                 })
-                consecutive_holds = 1
                 continue
 
-        consecutive_holds = 0
-
-        if i % 4 == 0 and i > 0:
-            import random
-            if random.random() < 0.1:
+        if i % SLIDE_CHECK_INTERVAL == 0 and i > 0:
+            if random.random() < SLIDE_PROBABILITY:
                 directions = ["up", "down", "left", "right"]
                 notes.append({
                     "time": beat_time,
@@ -112,9 +117,9 @@ def generate_chart(audio_path, output_path, song_name=None, artist=None, intro="
         "audioPath": f"assets/audio/{Path(audio_path).name}",
         "coverPath": f"assets/covers/{Path(audio_path).stem}.png",
         "bpm": int(bpm),
-        "duration": 180,
-        "difficulty": 3,
-        "dropDuration": 2500,
+        "duration": DEFAULT_DURATION,
+        "difficulty": DEFAULT_DIFFICULTY,
+        "dropDuration": DEFAULT_DROP_DURATION,
         "notes": notes,
     }
 
