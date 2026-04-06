@@ -202,7 +202,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
     while (_nextNoteIndex < _chart!.notes.length) {
       final event = _chart!.notes[_nextNoteIndex];
-      if (elapsed >= event.time - dropMs) {
+      final actualDropMs = dropMs / _scrollSpeed;
+      final spawnTime = event.time - (actualDropMs * _easeInToJudgeRatio).round();
+      if (elapsed >= spawnTime) {
         _spawnNote(event);
         _nextNoteIndex++;
       } else {
@@ -212,7 +214,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
     if (_nextNoteIndex < _chart!.notes.length && !_isGameOver) {
       final nextEvent = _chart!.notes[_nextNoteIndex];
-      final delayMs = (nextEvent.time - dropMs - elapsed).clamp(1, 100);
+      final nextActualDropMs = dropMs / _scrollSpeed;
+      final nextSpawnTime = nextEvent.time - (nextActualDropMs * _easeInToJudgeRatio).round();
+      final delayMs = (nextSpawnTime - elapsed).clamp(1, 100);
       Future.delayed(Duration(milliseconds: delayMs), () {
         if (mounted && !_isGameOver) _spawnPendingNotes();
       });
