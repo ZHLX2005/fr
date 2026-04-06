@@ -75,6 +75,7 @@ class DraggableCardState extends State<DraggableWordCard>
   // 右滑阈值交叉状态（用于判断是否应跳转到详情页）
   bool _hasRightThresholdCrossed = false;
   bool _wasInZoneWhenRightCrossed = false;
+  bool _zoneActionInProgress = false; // 阻止重复触发 onSwipeRight
 
   Offset get currentOffset => _dragOffset;
   bool get isDragging => _isDragging;
@@ -186,15 +187,22 @@ class DraggableCardState extends State<DraggableWordCard>
     if (_hasRightThresholdCrossed && _wasInZoneWhenRightCrossed) {
       final zone = _checkZoneAtRelease();
       debugPrint('DraggableCard: _onPanEnd - zone=$zone, sliding out');
-      _swipeDirection = SwipeDirection.right;
-      _animateOffScreen(SwipeDirection.right); // 滑出动画
 
-      // 动画完成后调用对应回调
+      // 确定要调用的回调
+      VoidCallback? zoneCallback;
       if (zone == 1) {
-        widget.onMarkZoneAction?.call();
+        zoneCallback = widget.onMarkZoneAction;
       } else if (zone == 2) {
-        widget.onDeleteZoneAction?.call();
+        zoneCallback = widget.onDeleteZoneAction;
       }
+
+      _swipeDirection = SwipeDirection.right;
+      _zoneActionInProgress = true; // 阻止动画完成后触发 onSwipeRight
+      // 动画完成后才调用区域回调
+      _animateOffScreen(SwipeDirection.right, onComplete: () {
+        _zoneActionInProgress = false;
+        zoneCallback?.call();
+      });
       widget.onCardStateChanged?.call(this);
       return;
     }
@@ -250,7 +258,7 @@ class DraggableCardState extends State<DraggableWordCard>
     widget.onCardStateChanged?.call(this);
   }
 
-  void _animateOffScreen(SwipeDirection direction) {
+  void _animateOffScreen(SwipeDirection direction, {VoidCallback? onComplete}) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
@@ -288,8 +296,10 @@ class DraggableCardState extends State<DraggableWordCard>
         // 动画完成后才调用回调
         switch (direction) {
           case SwipeDirection.right:
-            debugPrint('DraggableCard: calling onSwipeRight');
-            widget.onSwipeRight?.call();
+            if (!_zoneActionInProgress) {
+              debugPrint('DraggableCard: calling onSwipeRight');
+              widget.onSwipeRight?.call();
+            }
             break;
           case SwipeDirection.left:
             debugPrint('DraggableCard: calling onSwipeLeft');
@@ -302,6 +312,8 @@ class DraggableCardState extends State<DraggableWordCard>
           case SwipeDirection.down:
             break;
         }
+        // 额外的完成回调（用于区域操作的回调）
+        onComplete?.call();
       });
   }
 
