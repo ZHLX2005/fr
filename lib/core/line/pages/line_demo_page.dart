@@ -69,8 +69,14 @@ class _LineDemoPageState extends State<_LineDemoPage>
   double _timingScale = 1.0;
   static const String _timingScaleKey = lineTimingScaleKey;
 
+  double _scrollSpeed = 1.0;
+  static const String _scrollSpeedKey = 'line_demo_scroll_speed';
+
   static const double _circleRadiusRpx = 20.0;
   static const double _judgeLineRatio = 0.75;
+
+// easeIn 曲线下，到达 judgeLineRatio 位置的动画进度：sqrt(0.75) ≈ 0.866
+  static const double _easeInToJudgeRatio = 0.866;
 
   // 判定窗口（ms）
   static const int _perfectWindow = 50;
@@ -126,6 +132,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
         setState(() {
           _chart = chartData;
           _timingScale = prefs.getDouble(_timingScaleKey) ?? 1.0;
+          _scrollSpeed = prefs.getDouble(_scrollSpeedKey) ?? 1.0;
           _highScore = prefs.getInt(_highScoreKey) ?? 0;
           final bgIndex = prefs.getInt(_backgroundKey) ?? 0;
           _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
@@ -136,6 +143,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
         setState(() {
           _highScore = prefs.getInt(_highScoreKey) ?? 0;
           _timingScale = prefs.getDouble(_timingScaleKey) ?? 1.0;
+          _scrollSpeed = prefs.getDouble(_scrollSpeedKey) ?? 1.0;
         });
       }
     }
