@@ -24,6 +24,7 @@ class DraggableWordCard extends StatefulWidget {
   final VoidCallback? onRightThresholdFirstCrossed;
   final Function(DraggableCardState)? onCardStateChanged;
   final VoidCallback? onSpringBackComplete; // 弹簧动画完成回调
+  final VoidCallback? onForceZoneAction; // 强制触发区域操作（用于提示显示时强制滑出）
 
   // 弹性参数
   final double swipeThreshold;   // 触发滑动的阈值比例
@@ -46,6 +47,7 @@ class DraggableWordCard extends StatefulWidget {
     this.onRightThresholdFirstCrossed,
     this.onCardStateChanged,
     this.onSpringBackComplete,
+    this.onForceZoneAction,
     this.swipeThreshold = 0.25,
     this.rotationFactor = 0.0015,
     this.scaleFactor = 0.92,
@@ -76,6 +78,7 @@ class DraggableCardState extends State<DraggableWordCard>
   bool _hasRightThresholdCrossed = false;
   bool _wasInZoneWhenRightCrossed = false;
   bool _zoneActionInProgress = false; // 阻止重复触发 onSwipeRight
+  bool _actionTriggered = false; // 标记区域操作已被外部触发
 
   Offset get currentOffset => _dragOffset;
   bool get isDragging => _isDragging;
@@ -172,6 +175,14 @@ class DraggableCardState extends State<DraggableWordCard>
   }
 
   void _onPanEnd(DragEndDetails details) {
+    // 先通知外部，让 WordDragPage 有机会在 _actionTriggered 设置之前介入
+    widget.onForceZoneAction?.call();
+
+    // 如果区域操作已被 WordDragPage 触发，跳过处理
+    if (_actionTriggered) {
+      return;
+    }
+
     _isDragging = false;
 
     final screenWidth = MediaQuery.of(context).size.width;
@@ -332,6 +343,59 @@ class DraggableCardState extends State<DraggableWordCard>
   /// 当右滑阈值首次交叉时，WordDragPage 调用此方法更新区域状态
   void updateZoneStateAtRightCrossing(bool isInZone) {
     _wasInZoneWhenRightCrossed = isInZone;
+  }
+
+  /// 强制触发区域操作并滑出（提示显示时调用）
+  void forceZoneAction() {
+    if (_actionTriggered) return;
+    _actionTriggered = true;
+
+    _swipeDirection = SwipeDirection.right;
+    _zoneActionInProgress = true;
+
+    // 动画完成后调用区域操作
+    _animateOffScreen(SwipeDirection.right, onComplete: () {
+      _zoneActionInProgress = false;
+      _actionTriggered = false;
+      // 根据区域类型调用对应回调
+      if (_isInMarkZone()) {
+        widget.onMarkZoneAction?.call();
+      } else if (_isInDeleteZone()) {
+        widget.onDeleteZoneAction?.call();
+      }
+    });
+  }
+
+  bool _isInMarkZone() {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    final cardCenter = _getCardCenter();
+
+    final markZoneRect = Rect.fromLTWH(
+      screenWidth - 100,
+      screenHeight * 0.15,
+      80,
+      screenHeight * 0.25,
+    ).inflate(30);
+
+    return markZoneRect.contains(cardCenter);
+  }
+
+  bool _isInDeleteZone() {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    final cardCenter = _getCardCenter();
+
+    final deleteZoneRect = Rect.fromLTWH(
+      screenWidth - 100,
+      screenHeight * 0.6,
+      80,
+      screenHeight * 0.25,
+    ).inflate(30);
+
+    return deleteZoneRect.contains(cardCenter);
   }
 
   @override

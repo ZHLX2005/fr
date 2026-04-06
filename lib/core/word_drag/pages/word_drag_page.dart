@@ -18,6 +18,8 @@ class WordDragPage extends StatefulWidget {
 }
 
 class _WordDragPageState extends State<WordDragPage> {
+  final GlobalKey<DraggableCardState> _cardKey = GlobalKey<DraggableCardState>();
+
   List<Word> _words = List.from(Word.sampleWords);
   int _currentIndex = 0;
 
@@ -624,7 +626,7 @@ class _WordDragPageState extends State<WordDragPage> {
       return _buildEmptyState();
     }
     return DraggableWordCard(
-      key: ValueKey('${_words[_currentIndex].id}-$_currentIndex'),
+      key: _cardKey,
       onSwipeUp: _onSwipeUp,
       onSwipeLeft: _onSwipeLeft,
       onSwipeRight: _navigateToDetail, // 非区域右滑 → 详情页
@@ -638,6 +640,12 @@ class _WordDragPageState extends State<WordDragPage> {
         // WordDragPage 的区域状态已更新，这里不需要额外操作
       },
       onSpringBackComplete: _resetZoneState,
+      onForceZoneAction: () {
+        // 当提示显示时，如果用户松开，强制触发区域操作
+        if (_isInMarkZone || _isInDeleteZone) {
+          _cardKey.currentState?.forceZoneAction();
+        }
+      },
       child: WordCardContent(
         word: _words[_currentIndex],
         showDetails: _showDetails,
