@@ -368,16 +368,28 @@ class _LineDemoPageState extends State<_LineDemoPage>
     if (_chart == null) return;
     final elapsed = _gameStopwatch.elapsedMilliseconds;
 
+    // 找到这一列中第一个未判定的 hold 音符
     for (final note in _notes[col]) {
       if (note.judged || note.event.type != NoteType.hold) continue;
+
+      // hold 音符在 [spawn, auto-miss) 窗口内都可按
+      // spawn ≈ event.time - actualDropMs * 0.866
+      // auto-miss = event.time + missWindow * timingScale
+      final scaledMissWindow = (_missWindow * _timingScale).round();
+      final missThreshold = note.event.time + scaledMissWindow;
+
+      // 如果已过 auto-miss 阈值，跳过
+      if (elapsed > missThreshold) continue;
+
+      // 计算判定等级（diff 越小越好）
       final diff = (elapsed - note.event.time).abs();
-      debugPrint('[HOLD_PRESS] elapsed=$elapsed event.time=${note.event.time} col=$col diff=$diff window=${(_goodWindow * _timingScale).round()}');
-      if (diff <= (_goodWindow * _timingScale).round()) {
-        note.holding = true;
-        _heldColumns.add(col);
-        debugPrint('[HOLD_START] col=$col holding=true');
-        return;
-      }
+      debugPrint('[HOLD_PRESS] elapsed=$elapsed event.time=${note.event.time} col=$col diff=$diff missThreshold=$missThreshold');
+      note.holding = true;
+      note.holdJudgeDiff = diff; // 记录用于最终判定
+      note.holdPressTime = elapsed; // 记录按下时刻
+      _heldColumns.add(col);
+      debugPrint('[HOLD_START] col=$col holding=true diff=$diff');
+      return;
     }
   }
 
@@ -391,9 +403,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
       if (!note.holding || note.judged) continue;
       if (note.event.type != NoteType.hold) continue;
 
-      final heldTime = elapsed - note.event.time;
+      // 实际按住时长 = 释放时刻 - 按下时刻
+      final heldTime = elapsed - note.holdPressTime;
+      debugPrint('[HOLD_RELEASE] col=$col heldTime=${heldTime}ms need=${(note.event.holdDuration! * 0.8).round()}ms');
+
       if (heldTime >= note.event.holdDuration! * 0.8) {
-        _judgeNote(col, note, 0);
+        // 按住足够长，按 holdJudgeDiff 判定 Perfect/Great/Good
+        _judgeNote(col, note, note.holdJudgeDiff);
       } else {
         _onNoteMissed(col, note);
       }

@@ -86,6 +86,8 @@ class FallingNote {
   bool removeMe; // 被判定后从绘制层立即移除，只留炸开动画
   bool holding; // 仅 hold：正在被按住
   double holdProgress; // 仅 hold：按住进度 0~1
+  int holdJudgeDiff; // 仅 hold：按下时的判定差值（ms），越小越好
+  int holdPressTime; // 仅 hold：玩家按下时刻（elapsed）
 
   FallingNote({
     required this.event,
@@ -94,7 +96,9 @@ class FallingNote {
   })  : judged = false,
         removeMe = false,
         holding = false,
-        holdProgress = 0.0;
+        holdProgress = 0.0,
+        holdJudgeDiff = 0,
+        holdPressTime = 0;
 }
 
 /// 炸开动画状态
