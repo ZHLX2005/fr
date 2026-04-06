@@ -332,12 +332,11 @@ class _WordDragPageState extends State<WordDragPage> {
 
   /// 重置区域状态（弹簧动画完成时调用）
   void _resetZoneState() {
-    if (_isInMarkZone || _isInDeleteZone) {
-      setState(() {
-        _isInMarkZone = false;
-        _isInDeleteZone = false;
-      });
-    }
+    // 无条件调用 setState 确保 UI 重建，防止透明度为 0 但状态未更新导致区域"消失"后无法再触发
+    setState(() {
+      _isInMarkZone = false;
+      _isInDeleteZone = false;
+    });
   }
 
   void _confirmMark() {
