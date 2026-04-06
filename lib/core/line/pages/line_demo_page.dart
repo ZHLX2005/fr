@@ -226,6 +226,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
       currentY: -radius,
     );
 
+    final spawnElapsed = _gameStopwatch.elapsedMilliseconds;
+    debugPrint('[SPAWN] elapsed=$spawnElapsed event.time=${event.time} col=${event.column} type=${event.type}');
+
     controller.addListener(() {
       final easedT = Curves.easeIn.transform(controller.value);
       final targetY = screenSize.height + radius;
@@ -235,6 +238,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
         final elapsed = _gameStopwatch.elapsedMilliseconds;
         final missThreshold = event.time + (_missWindow * _timingScale).round();
         if (elapsed > missThreshold) {
+          debugPrint('[AUTO_MISS] elapsed=$elapsed event.time=${event.time} col=${event.column}');
           _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
         }
       }
@@ -244,6 +248,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
         final heldTime = elapsed - event.time;
         note.holdProgress = (heldTime / event.holdDuration!).clamp(0.0, 1.0);
         if (note.holdProgress >= 1.0) {
+          debugPrint('[HOLD_COMPLETE] elapsed=$elapsed event.time=${event.time} col=${event.column}');
           _judgeNote(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note, 0);
           note.holding = false;
         }
@@ -288,6 +293,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
     if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
     final col = _getColumnFromX(details.localPosition.dx);
     if (col == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    debugPrint('[TAP] elapsed=$elapsed col=$col');
     _handleColumnTap(col);
   }
 
@@ -297,17 +304,22 @@ class _LineDemoPageState extends State<_LineDemoPage>
     if (col != null) {
       _panStart = details.globalPosition;
       _panColumn = col;
+      final elapsed = _gameStopwatch.elapsedMilliseconds;
+      debugPrint('[PRESS] elapsed=$elapsed col=$col');
       _handleColumnPress(col);
     }
   }
 
   void _handlePanEnd(DragEndDetails details) {
     if (_panColumn == null) return;
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    debugPrint('[RELEASE] elapsed=$elapsed col=$_panColumn');
     _handleColumnRelease(_panColumn!);
 
     if (_panStart != null && details.velocity.pixelsPerSecond.distance > 50) {
       final dir = _getSwipeDirection(details.velocity.pixelsPerSecond);
       if (dir != null) {
+        debugPrint('[SWIPE] elapsed=$elapsed col=$_panColumn dir=$dir');
         _handleSwipe(_panColumn!, dir);
       }
     }
