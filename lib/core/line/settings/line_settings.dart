@@ -1,15 +1,14 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'line_demo_models.dart';
-import 'line_demo_painters.dart';
+import '../models/line_models.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // 持久化 key
 // ═══════════════════════════════════════════════════════════════
 
-const String _speedKey = 'line_demo_speed';
-const String _backgroundKey = 'line_demo_background';
+const String lineSpeedKey = 'line_demo_speed';
+const String lineBackgroundKey = 'line_demo_background';
 
 // ═══════════════════════════════════════════════════════════════
 // 演示动画绘制器：只绘制中间列单个圆圈 + 判定线 + 炸开粒子
@@ -202,8 +201,8 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        _dropDurationMs = prefs.getDouble(_speedKey) ?? 2500.0;
-        final bgIndex = prefs.getInt(_backgroundKey) ?? 0;
+        _dropDurationMs = prefs.getDouble(lineSpeedKey) ?? 2500.0;
+        final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
         _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
         _fallController.duration = Duration(milliseconds: _dropDurationMs.round());
       });
@@ -212,12 +211,12 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
 
   Future<void> _saveSpeed(double value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_speedKey, value);
+    await prefs.setDouble(lineSpeedKey, value);
   }
 
   Future<void> _saveBackground(BackgroundStyle style) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_backgroundKey, style.index);
+    await prefs.setInt(lineBackgroundKey, style.index);
   }
 
   void _startFall() {
@@ -658,4 +657,36 @@ class _NoneIconPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _NoneIconPainter old) => old.color != color;
+}
+
+/// 线条风格 Slider 滑块 —— 极小实心圆点
+class LineThumbShape extends SliderComponentShape {
+  final double thumbRadius;
+
+  const LineThumbShape({required this.thumbRadius});
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      Size.fromRadius(thumbRadius);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final paint = Paint()
+      ..color = sliderTheme.thumbColor!
+      ..style = PaintingStyle.fill;
+    context.canvas.drawCircle(center, thumbRadius, paint);
+  }
 }
