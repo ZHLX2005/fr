@@ -7,7 +7,7 @@ import '../models/line_models.dart';
 // 持久化 key
 // ═══════════════════════════════════════════════════════════════
 
-const String lineSpeedKey = 'line_demo_speed';
+const String lineTimingScaleKey = 'line_demo_timing_scale';
 const String lineBackgroundKey = 'line_demo_background';
 
 // ═══════════════════════════════════════════════════════════════
