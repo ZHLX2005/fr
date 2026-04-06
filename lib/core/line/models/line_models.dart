@@ -88,6 +88,7 @@ class FallingNote {
   double holdProgress; // 仅 hold：按住进度 0~1
   int holdJudgeDiff; // 仅 hold：按下时的判定差值（ms），越小越好
   int holdPressTime; // 仅 hold：玩家按下时刻（elapsed）
+  double holdFadeOut; // 仅 hold：完成后的淡出进度 0~1
 
   FallingNote({
     required this.event,
