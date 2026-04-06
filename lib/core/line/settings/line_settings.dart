@@ -182,7 +182,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     _loadSettings();
 
     _fallController = AnimationController(
-      duration: Duration(milliseconds: _dropDurationMs.round()),
+      duration: const Duration(milliseconds: 2500),  // Fixed demo duration
       vsync: this,
     );
 
@@ -222,7 +222,6 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     _showExplode = false;
     _explodeParticles = [];
     _circleYRatio = -0.05;
-    _fallController.duration = Duration(milliseconds: _dropDurationMs.round());
     _fallController.forward(from: 0.0);
   }
 
