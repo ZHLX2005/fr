@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Bash(flutter build:*)",
+      "Bash(flutter analyze:*)"
     ]
   }
 }
