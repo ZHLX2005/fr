@@ -1,0 +1,117 @@
+<h2>Rhythm Game - 三种音符 + 血条</h2>
+<p class="subtitle">Game screen with tap, hold, slide notes + health bar</p>
+
+<div class="mockup">
+  <div class="mockup-header">游戏画面总览</div>
+  <div class="mockup-body" style="background:#1a1a2e; color:#e0e0e0; font-family: system-ui; padding: 24px; min-height: 580px; position: relative;">
+
+    <!-- Score top center -->
+    <div style="text-align:center; padding-top:8px; margin-bottom:8px;">
+      <span style="font-size:20px; font-weight:200; color:#7c8cf899; letter-spacing:3px;">12/48</span>
+    </div>
+
+    <!-- Miss counter removed, health bar instead -->
+
+    <!-- Health Bar (right side) -->
+    <div style="position:absolute; right:12px; top:60px; bottom:80px; width:8px; background:#333; border-radius:4px; overflow:hidden;">
+      <div style="position:absolute; bottom:0; width:100%; height:72%; background: linear-gradient(to top, #4caf50, #81c784); border-radius:4px;"></div>
+    </div>
+    <div style="position:absolute; right:8px; top:50px; font-size:8px; color:#666;">HP</div>
+
+    <!-- Game columns -->
+    <div style="position:absolute; left:20px; right:30px; top:50px; bottom:40px;">
+
+      <!-- Column lines (subtle) -->
+      <div style="position:absolute; left:16.6%; top:0; bottom:0; width:1px; background:#ffffff0a;"></div>
+      <div style="position:absolute; left:50%; top:0; bottom:0; width:1px; background:#ffffff0a;"></div>
+      <div style="position:absolute; left:83.3%; top:0; bottom:0; width:1px; background:#ffffff0a;"></div>
+
+      <!-- Judge line -->
+      <div style="position:absolute; bottom:25%; left:0; right:0; height:2px; background:#7c8cf840;"></div>
+
+      <!-- ═══ NOTE 1: Tap (circle) - Column 0, near judge line ═══ -->
+      <div style="position:absolute; left:16.6%; bottom:27%; transform:translateX(-50%); width:36px; height:36px; border:2px solid #7c8cf84d; border-radius:50%;"></div>
+
+      <!-- ═══ NOTE 2: Hold (long bar) - Column 1, mid-fall ═══ -->
+      <div style="position:absolute; left:50%; bottom:40%; transform:translateX(-50%); width:24px; height:120px; border:1.5px solid #7c8cf84d; border-radius:6px; background:#7c8cf812;">
+        <!-- Head circle -->
+        <div style="width:24px; height:24px; border:1.5px solid #7c8cf84d; border-radius:50%; position:absolute; top:-12px; left:0;"></div>
+        <!-- Tail circle -->
+        <div style="width:24px; height:24px; border:1.5px solid #7c8cf84d; border-radius:50%; position:absolute; bottom:-12px; left:0;"></div>
+      </div>
+
+      <!-- ═══ NOTE 3: Slide (arrow circle) - Column 2, upper area ═══ -->
+      <div style="position:absolute; left:83.3%; bottom:55%; transform:translateX(-50%); width:36px; height:36px; border:2px solid #7c8cf84d; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+        <!-- Up arrow inside -->
+        <svg width="16" height="16" viewBox="0 0 16 16" style="opacity:0.5;">
+          <path d="M8 2 L14 10 L10 10 L10 14 L6 14 L6 10 L2 10 Z" fill="#7c8cf8" stroke="none"/>
+        </svg>
+      </div>
+
+      <!-- Another slide note with RIGHT arrow - Column 0, upper -->
+      <div style="position:absolute; left:16.6%; bottom:68%; transform:translateX(-50%); width:36px; height:36px; border:2px solid #7c8cf84d; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 16 16" style="opacity:0.5;">
+          <path d="M2 8 L10 2 L10 6 L14 6 L14 10 L10 10 L10 14 Z" fill="#7c8cf8" stroke="none"/>
+        </svg>
+      </div>
+
+      <!-- Tap note high up - Column 1 -->
+      <div style="position:absolute; left:50%; bottom:78%; transform:translateX(-50%); width:36px; height:36px; border:2px solid #7c8cf84d; border-radius:50%;"></div>
+
+    </div>
+
+    <!-- Labels -->
+    <div style="position:absolute; bottom:12px; left:20px; right:30px; display:flex; justify-content:space-around;">
+      <span style="font-size:9px; color:#555;">Tap: 圆圈</span>
+      <span style="font-size:9px; color:#555;">Hold: 长条</span>
+      <span style="font-size:9px; color:#555;">Slide: 箭头圈</span>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:24px;"></div>
+
+<h2>三种音符详细说明</h2>
+
+<div class="cards">
+  <div class="card" data-choice="tap" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e; display:flex; align-items:center; justify-content:center; height:120px;">
+      <div style="width:40px; height:40px; border:2px solid #7c8cf84d; border-radius:50%;"></div>
+    </div>
+    <div class="card-body">
+      <h3>Tap 点击</h3>
+      <p>圆圈到达判定线时点击该列。和现有玩法一致。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="hold" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e; display:flex; align-items:center; justify-content:center; height:120px;">
+      <div style="width:20px; height:80px; border:1.5px solid #7c8cf84d; border-radius:6px; background:#7c8cf812; position:relative;">
+        <div style="width:20px; height:20px; border:1.5px solid #7c8cf84d; border-radius:50%; position:absolute; top:-10px; left:0;"></div>
+        <div style="width:20px; height:20px; border:1.5px solid #7c8cf84d; border-radius:50%; position:absolute; bottom:-10px; left:0;"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Hold 长按</h3>
+      <p>长条头部到达判定线时按住不放，持续到尾部经过。中途松手则 Miss。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="slide" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e; display:flex; align-items:center; justify-content:center; height:120px; flex-direction:column; gap:8px;">
+      <div style="width:40px; height:40px; border:2px solid #7c8cf84d; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 2 L14 10 L10 10 L10 14 L6 14 L6 10 L2 10 Z" fill="#7c8cf880"/></svg>
+      </div>
+      <div style="display:flex; gap:12px;">
+        <svg width="20" height="20" viewBox="0 0 16 16"><path d="M8 2 L14 10 L10 10 L10 14 L6 14 L6 10 L2 10 Z" fill="#666" transform="rotate(0 8 8)"/></svg>
+        <svg width="20" height="20" viewBox="0 0 16 16"><path d="M8 2 L14 10 L10 10 L10 14 L6 14 L6 10 L2 10 Z" fill="#666" transform="rotate(90 8 8)"/></svg>
+        <svg width="20" height="20" viewBox="0 0 16 16"><path d="M8 2 L14 10 L10 10 L10 14 L6 14 L6 10 L2 10 Z" fill="#666" transform="rotate(180 8 8)"/></svg>
+        <svg width="20" height="20" viewBox="0 0 16 16"><path d="M8 2 L14 10 L10 10 L6 10 L6 14 L10 14 L10 10 L2 10 Z" fill="#666" transform="rotate(270 8 8)"/></svg>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Slide 滑动</h3>
+      <p>带方向箭头的圆圈。到达判定线时按箭头方向滑动手指。方向随机（上下左右）。</p>
+    </div>
+  </div>
+</div>
