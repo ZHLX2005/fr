@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/line_models.dart';
 import '../repository/chart_repository.dart';
-import '../widgets/rotating_cover.dart';
 import '../widgets/song_list_tile.dart';
 import '../widgets/song_detail_panel.dart';
 import 'line_demo_page.dart';

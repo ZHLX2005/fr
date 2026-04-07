@@ -94,16 +94,19 @@ class GamePainter extends CustomPainter {
       _paintExplode(canvas, explode, w);
     }
 
-    // 6. 判定文字反馈
+    // 6. 判定文字反馈（固定位置 + 上浮渐隐）
     for (final fb in judgeFeedbacks) {
       final progress = fb.controller.value;
       final alpha = fb.baseAlpha * (1.0 - progress);
       if (alpha <= 0.01) continue;
 
+      // 上浮效果：从原始位置向上移动 20px
+      final floatOffset = progress * 20.0 * screenWidth / 750;
+
       final textSpan = TextSpan(
         text: fb.text,
         style: TextStyle(
-          fontSize: 10 * screenWidth / 750,
+          fontSize: (10 + 2 * (1.0 - progress)) * screenWidth / 750, // 渐变缩小
           fontWeight: FontWeight.w300,
           color: fb.color.withValues(alpha: alpha),
           letterSpacing: 2,
@@ -113,8 +116,7 @@ class GamePainter extends CustomPainter {
         text: TextSpan(children: [textSpan]),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.layout(maxWidth: screenWidth);
-      tp.paint(canvas, Offset(fb.x - tp.width / 2, fb.y - tp.height / 2));
+      tp.paint(canvas, Offset(fb.x - tp.width / 2, fb.y - floatOffset - tp.height / 2));
       tp.dispose();
     }
   }
@@ -182,8 +184,10 @@ class GamePainter extends CustomPainter {
   final tailOffset = travelPerMsActual * note.event.holdDuration!;
   final tailY = headY - tailOffset;
 
-  // 条宽度
-  final barWidth = radius * 1.6;
+  // 胶囊尺寸：宽度 = 直径，形成胶囊造型
+  final capsuleWidth = radius * 2.0;
+  final capsuleHalf = capsuleWidth / 2;
+  final cornerRadius = capsuleHalf; // 半圆端
 
   // 填充高度计算
   final totalHeight = headY - tailY;
@@ -193,82 +197,103 @@ class GamePainter extends CustomPainter {
   // 透明度计算
   double alpha;
   if (note.holdFadeOut > 0) {
-    // 闪烁 alpha
     final flickerFreq = 30.0;
     final flicker = 0.5 + 0.5 * math.sin(note.holdFadeOut * math.pi * flickerFreq);
     alpha = 0.5 * (1.0 - note.holdFadeOut) * flicker;
   } else if (note.holding) {
-    // 按住中：从 0.5 线性减小到 0
     alpha = 0.5 * (1.0 - note.holdProgress * 0.8);
   } else {
     alpha = 0.5;
   }
   if (alpha < 0.01) return;
 
-  // ── 未填充区域（轮廓）──
+  // ── 胶囊外轮廓（整体） ──
+  final capsuleRect = RRect.fromRectAndCorners(
+    Rect.fromLTWH(cx - capsuleHalf, tailY, capsuleWidth, totalHeight),
+    topLeft: Radius.circular(cornerRadius),
+    topRight: Radius.circular(cornerRadius),
+    bottomLeft: Radius.circular(cornerRadius),
+    bottomRight: Radius.circular(cornerRadius),
+  );
   final outlinePaint = Paint()
     ..color = color.withValues(alpha: 0.35)
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.5;
-  canvas.drawRect(
-    Rect.fromLTWH(cx - barWidth / 2, tailY, barWidth, totalHeight),
-    outlinePaint,
-  );
+  canvas.drawRRect(capsuleRect, outlinePaint);
 
   // ── 填充区域（按住中才绘制）──
   if (note.holding || note.holdProgress > 0) {
-    // 霓虹发光
-    final glowAlpha = alpha * 0.6;
-    final glowBlur = 15.0 * note.holdProgress;
-
-    // 发光层（shadow）
-    final glowPaint = Paint()
-      ..color = color.withValues(alpha: glowAlpha)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlur);
-    canvas.drawRect(
-      Rect.fromLTWH(cx - barWidth / 2, fillTop, barWidth, fillBottom - fillTop),
-      glowPaint,
-    );
-
-    // 实心填充
-    final fillPaint = Paint()
-      ..color = color.withValues(alpha: alpha)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(
-      Rect.fromLTWH(cx - barWidth / 2, fillTop, barWidth, fillBottom - fillTop),
-      fillPaint,
-    );
-
-    // 左边缘高光线
-    final edgePaint = Paint()
-      ..color = Color.lerp(color, Colors.white, 0.4)!.withValues(alpha: (0.6 + 0.3 * note.holdProgress) * alpha)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawLine(
-      Offset(cx - barWidth / 2, fillTop),
-      Offset(cx - barWidth / 2, fillBottom),
-      edgePaint,
-    );
-
-    // 顶部前沿亮条
-    if (note.holdProgress > 0 && note.holdProgress < 1) {
-      final edgeAlpha = alpha * (0.7 + 0.3 * note.holdProgress);
-      final frontPaint = Paint()
-        ..color = Colors.white.withValues(alpha: edgeAlpha.clamp(0.0, 1.0))
-        ..style = PaintingStyle.fill;
-      canvas.drawRect(
-        Rect.fromLTWH(cx - barWidth / 2, fillTop - 1.5, barWidth, 3),
-        frontPaint,
+    // 计算填充区域的胶囊形状
+    final fillHeight = fillBottom - fillTop;
+    if (fillHeight > 0) {
+      // 填充区域用圆角矩形
+      final fillRect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(cx - capsuleHalf, fillTop, capsuleWidth, fillHeight),
+        topLeft: fillTop <= tailY + cornerRadius
+            ? Radius.circular(cornerRadius)
+            : Radius.zero,
+        topRight: fillTop <= tailY + cornerRadius
+            ? Radius.circular(cornerRadius)
+            : Radius.zero,
+        bottomLeft: Radius.circular(cornerRadius),
+        bottomRight: Radius.circular(cornerRadius),
       );
+
+      // 霓虹发光
+      final glowAlpha = alpha * 0.6;
+      final glowBlur = 15.0 * note.holdProgress;
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: glowAlpha)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlur);
+      canvas.drawRRect(fillRect, glowPaint);
+
+      // 实心填充
+      final fillPaint = Paint()
+        ..color = color.withValues(alpha: alpha)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(fillRect, fillPaint);
+
+      // 左侧高光边缘
+      final edgePaint = Paint()
+        ..color = Color.lerp(color, Colors.white, 0.4)!
+            .withValues(alpha: (0.6 + 0.3 * note.holdProgress) * alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawLine(
+        Offset(cx - capsuleHalf, fillTop.clamp(tailY, fillBottom)),
+        Offset(cx - capsuleHalf, fillBottom),
+        edgePaint,
+      );
+
+      // 顶部前沿亮条（胶囊填充前沿）
+      if (note.holdProgress > 0 && note.holdProgress < 1) {
+        final edgeAlpha = alpha * (0.7 + 0.3 * note.holdProgress);
+        final frontPaint = Paint()
+          ..color = Colors.white.withValues(alpha: edgeAlpha.clamp(0.0, 1.0))
+          ..style = PaintingStyle.fill;
+        // 圆角前沿
+        final frontRect = RRect.fromRectAndCorners(
+          Rect.fromLTWH(cx - capsuleHalf, fillTop - 1.5, capsuleWidth, 3),
+          topLeft: Radius.circular(1.5),
+          topRight: Radius.circular(1.5),
+        );
+        canvas.drawRRect(frontRect, frontPaint);
+      }
     }
   }
 
-  // ── 头部圆圈 ──
+  // ── 头部圆圈（胶囊底部圆头） ──
   final circlePaint = Paint()
     ..color = color.withValues(alpha: alpha.clamp(0.0, 1.0))
     ..style = PaintingStyle.stroke
     ..strokeWidth = 2;
   canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
+
+  // ── 尾部小圆点（胶囊顶部标记） ──
+  final tailDotPaint = Paint()
+    ..color = color.withValues(alpha: alpha * 0.4)
+    ..style = PaintingStyle.fill;
+  canvas.drawCircle(Offset(cx, tailY + cornerRadius), radius * 0.25, tailDotPaint);
 
   // ── 粒子爆发（完成时）──
   if (note.holdFadeOut > 0) {
@@ -311,15 +336,23 @@ void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alph
     if (note.judged || note.removeMe) return;
     if (note.currentY < -radius || note.currentY > screenHeight + radius) return;
 
+    // Slide 音符用虚线圆圈区分
     final circlePaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
+      ..color = color.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
     canvas.drawCircle(Offset(cx, note.currentY), radius, circlePaint);
 
-    final arrowSize = radius * 0.55;
+    // 内圈填充（微弱）
+    final innerPaint = Paint()
+      ..color = color.withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(cx, note.currentY), radius * 0.7, innerPaint);
+
+    // 方向箭头 — 放大到更清晰
+    final arrowSize = radius * 0.65;
     final arrowPaint = Paint()
-      ..color = color.withValues(alpha: 0.5)
+      ..color = color.withValues(alpha: 0.7)
       ..style = PaintingStyle.fill;
     _drawArrow(canvas, cx, note.currentY, arrowSize, note.event.direction!, arrowPaint);
   }
