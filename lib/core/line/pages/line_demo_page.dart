@@ -154,8 +154,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
   static const double _noteSizeRatio = 0.28; // 音符大小占列宽的比例
   static const double _judgeLineRatio = 0.75;
 
-// easeOut 曲线下，到达 judgeLineRatio 位置的动画进度：1-sqrt(0.25) ≈ 0.5
-  static const double _easeInToJudgeRatio = 0.5;
+  /// 线性下落时，音符到达判定线的动画进度比例
+  double get _judgeProgressRatio {
+    final h = MediaQuery.of(context).size.height;
+    final r = _radius;
+    return (h * _judgeLineRatio + r) / (h + 2 * r);
+  }
 
   // 判定窗口（ms）
   static const int _perfectWindow = 50;
@@ -339,7 +343,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     while (_nextNoteIndex < _chart!.notes.length) {
       final event = _chart!.notes[_nextNoteIndex];
       final actualDropMs = dropMs / _scrollSpeed;
-      final spawnTime = event.time - (actualDropMs * _easeInToJudgeRatio).round();
+      final spawnTime = event.time - (actualDropMs * _judgeProgressRatio).round();
       if (elapsed >= spawnTime) {
         _spawnNote(event);
         _nextNoteIndex++;
@@ -351,7 +355,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     if (_nextNoteIndex < _chart!.notes.length && !_isExiting) {
       final nextEvent = _chart!.notes[_nextNoteIndex];
       final nextActualDropMs = dropMs / _scrollSpeed;
-      final nextSpawnTime = nextEvent.time - (nextActualDropMs * _easeInToJudgeRatio).round();
+      final nextSpawnTime = nextEvent.time - (nextActualDropMs * _judgeProgressRatio).round();
       final delayMs = (nextSpawnTime - elapsed).clamp(1, 100);
       Future.delayed(Duration(milliseconds: delayMs), () {
         if (mounted && !_isExiting) _spawnPendingNotes();
@@ -379,10 +383,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     debugPrint('[SPAWN] elapsed=$spawnElapsed event.time=${event.time} col=${event.column} type=${event.type}');
 
     controller.addListener(() {
-      // 音符持续下落，不冻结
-      final easedT = Curves.easeOut.transform(controller.value);
+      // 音符持续下落（线性匀速）
       final targetY = screenSize.height + radius;
-      note.currentY = -radius + (targetY + radius) * easedT;
+      note.currentY = -radius + (targetY + radius) * controller.value;
 
       if (!note.judged && event.type != NoteType.hold) {
         final elapsed = _gameStopwatch.elapsedMilliseconds;

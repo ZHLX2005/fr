@@ -179,8 +179,8 @@ class GamePainter extends CustomPainter {
 
   final headY = note.currentY;
 
-  // tail 在 head 上方（Y 值更小）
-  final travelPerMsActual = screenHeight * scrollSpeed / dropDuration;
+  // tail 在 head 上方（Y 值更小）— 使用与下落动画一致的匀速速率
+  final travelPerMsActual = (screenHeight + 2 * radius) * scrollSpeed / dropDuration;
   final tailOffset = travelPerMsActual * note.event.holdDuration!;
   final tailY = headY - tailOffset;
 
