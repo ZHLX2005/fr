@@ -48,6 +48,38 @@ class WordDragNotifier extends ChangeNotifier {
     _springBack();
   }
 
+  /// 进入分类桶模式 (下滑 > 300px)
+  void enterFolderMode() {
+    _state = _state.copyWith(isFolderMode: true);
+    notifyListeners();
+  }
+
+  /// 退出分类桶模式
+  void exitFolderMode() {
+    _state = _state.copyWith(
+      isFolderMode: false,
+      activeCategoryBucketId: null,
+    );
+    _resetZoneAndHints();
+    notifyListeners();
+  }
+
+  /// 更新激活的分类桶
+  void updateActiveBucket(String? bucketId) {
+    _state = _state.copyWith(activeCategoryBucketId: bucketId);
+    notifyListeners();
+  }
+
+  /// 选择分类桶
+  void selectBucket(String bucketId) {
+    // 可以在这里添加将单词添加到对应分类的逻辑
+    _state = _state.copyWith(
+      isFolderMode: false,
+      activeCategoryBucketId: null,
+    );
+    _moveToNextWord();
+  }
+
   // ==================== 区域检测方法 ====================
 
   /// 更新区域状态
@@ -200,6 +232,8 @@ class WordDragNotifier extends ChangeNotifier {
     _state = _state.copyWith(
       cardOffset: Offset.zero,
       isDragging: false,
+      isFolderMode: false,
+      activeCategoryBucketId: null,
     );
     _resetZoneAndHints();
     notifyListeners();
@@ -275,6 +309,8 @@ class WordDragNotifier extends ChangeNotifier {
       showDetails: false,
       cardOffset: Offset.zero,
       isDragging: false,
+      isFolderMode: false,
+      activeCategoryBucketId: null,
     );
     _resetZoneAndHints();
     notifyListeners();
