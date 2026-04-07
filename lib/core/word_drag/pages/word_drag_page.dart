@@ -64,7 +64,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     final screenSize = MediaQuery.of(context).size;
 
     if (!_isDragging) {
-      // 拖动开始
       _isDragging = true;
       notifier.onDragStart();
     }
@@ -72,12 +71,28 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     notifier.onDragUpdate(offset, screenSize);
   }
 
+  void _handleSwipeComplete(SwipeDirection direction) {
+    final notifier = context.read<WordDragNotifier>();
+
+    switch (direction) {
+      case SwipeDirection.up:
+        notifier.onSwipeUp();
+        break;
+      case SwipeDirection.left:
+        notifier.onSwipeLeft();
+        break;
+      case SwipeDirection.right:
+        notifier.onSwipeRight();
+        break;
+      case SwipeDirection.none:
+        notifier.onSpringBack();
+        break;
+    }
+  }
+
   void _handleDragEnd() {
     if (_isDragging) {
       _isDragging = false;
-      final notifier = context.read<WordDragNotifier>();
-      final screenSize = MediaQuery.of(context).size;
-      notifier.onDragEnd(screenSize);
     }
   }
 
@@ -117,7 +132,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                     icon: Icons.bookmark_add_outlined,
                     label: '标新',
                     isActive: state.isInMarkZone,
-                    onTap: state.isInMarkZone ? notifier.onZoneConfirmed : null,
+                    onTap: state.isInMarkZone ? () => notifier.onZoneConfirmed(ZoneType.mark) : null,
                   ),
                 ),
               ),
@@ -134,7 +149,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                     label: '删除',
                     isActive: state.isInDeleteZone,
                     isDelete: true,
-                    onTap: state.isInDeleteZone ? notifier.onZoneConfirmed : null,
+                    onTap: state.isInDeleteZone ? () => notifier.onZoneConfirmed(ZoneType.delete) : null,
                   ),
                 ),
               ),
@@ -207,6 +222,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     return DraggableWordCard(
       controller: _cardController,
       onOffsetChanged: _handleOffsetChanged,
+      onSwipeComplete: _handleSwipeComplete,
       onDragEnd: _handleDragEnd,
       child: WordCardContent(
         word: state.currentWord!,

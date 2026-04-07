@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import '../providers/draggable_word_card_controller.dart';
 
-/// 弹性单词卡片 - 纯 UI 组件
+/// 滑动方向枚举
+enum SwipeDirection { left, right, up, none }
+
+/// 弹性单词卡片
 ///
-/// 状态管理由 WordDragNotifier 处理，此组件只负责 UI 渲染和手势转发
+/// 状态管理由 WordDragNotifier 处理，此组件负责手势和动画
 class DraggableWordCard extends StatefulWidget {
   final Widget child;
   final DraggableWordCardController controller;
-  /// 偏移量变化回调，用于通知外部状态管理器
+  /// 偏移量变化回调
   final void Function(Offset offset)? onOffsetChanged;
   /// 拖动结束回调
   final VoidCallback? onDragEnd;
+  /// 滑动方向回调
+  final void Function(SwipeDirection direction)? onSwipeComplete;
+  /// 动画目标偏移量
+  final Offset? targetOffset;
 
   const DraggableWordCard({
     super.key,
@@ -18,6 +26,8 @@ class DraggableWordCard extends StatefulWidget {
     required this.controller,
     this.onOffsetChanged,
     this.onDragEnd,
+    this.onSwipeComplete,
+    this.targetOffset,
   });
 
   @override
@@ -30,6 +40,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   Animation<Offset>? _animation;
 
   Offset _dragOffset = Offset.zero;
+  bool _isDragging = false;
+  SwipeDirection _swipeDirection = SwipeDirection.none;
 
   @override
   void initState() {
@@ -37,7 +49,6 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _controller = AnimationController.unbounded(vsync: this);
     _controller.addListener(_onAnimationUpdate);
 
-    // 注册控制器回调
     widget.controller.screenSize = MediaQuery.of(context).size;
     widget.controller.onDragStart = _onPanStart;
     widget.controller.onDragUpdate = _onPanUpdate;
@@ -56,6 +67,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       setState(() {
         _dragOffset = _animation!.value;
       });
+      widget.onOffsetChanged?.call(_dragOffset);
     }
   }
 
@@ -63,11 +75,13 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _controller.stop();
     setState(() {
       _dragOffset = Offset.zero;
+      _isDragging = true;
     });
     widget.onOffsetChanged?.call(_dragOffset);
   }
 
   void _onPanUpdate(Offset delta) {
+    if (!_isDragging) return;
     setState(() {
       _dragOffset += delta;
     });
@@ -75,8 +89,81 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   }
 
   void _onPanEnd() {
-    widget.onOffsetChanged?.call(_dragOffset);
-    widget.onDragEnd?.call();
+    if (!_isDragging) return;
+    _isDragging = false;
+
+    final screenSize = MediaQuery.of(context).size;
+    final thresholdX = screenSize.width * 0.15;
+    final thresholdY = screenSize.height * 0.12;
+
+    // 判断滑动方向
+    if (_dragOffset.dy < -thresholdY && _dragOffset.dy.abs() > _dragOffset.dx.abs()) {
+      _swipeDirection = SwipeDirection.up;
+    } else if (_dragOffset.dx > thresholdX) {
+      _swipeDirection = SwipeDirection.right;
+    } else if (_dragOffset.dx < -thresholdX) {
+      _swipeDirection = SwipeDirection.left;
+    } else {
+      _swipeDirection = SwipeDirection.none;
+    }
+
+    // 如果有明确方向，滑出屏幕
+    if (_swipeDirection != SwipeDirection.none) {
+      _animateOffScreenDirection(_swipeDirection);
+    } else {
+      // 否则弹回
+      _springBack();
+    }
+  }
+
+  void _animateOffScreenDirection(SwipeDirection direction) {
+    final screenSize = MediaQuery.of(context).size;
+    Offset target;
+
+    switch (direction) {
+      case SwipeDirection.up:
+        target = Offset(0, -screenSize.height);
+        break;
+      case SwipeDirection.left:
+        target = Offset(-screenSize.width * 1.5, 0);
+        break;
+      case SwipeDirection.right:
+        target = Offset(screenSize.width * 1.5, 0);
+        break;
+      case SwipeDirection.none:
+        return;
+    }
+
+    _animation = Tween<Offset>(
+      begin: _dragOffset,
+      end: target,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    _controller
+      ..value = 0.0
+      ..animateTo(1.0, duration: const Duration(milliseconds: 300)).then((_) {
+        widget.onSwipeComplete?.call(direction);
+        widget.onDragEnd?.call();
+      });
+  }
+
+  void _springBack() {
+    _animation = Tween<Offset>(
+      begin: _dragOffset,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
+    ));
+
+    _controller
+      ..value = 0.0
+      ..animateTo(1.0, duration: const Duration(milliseconds: 600)).then((_) {
+        widget.onDragEnd?.call();
+      });
   }
 
   @override

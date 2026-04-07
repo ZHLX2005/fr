@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/word.dart';
+import '../widgets/draggable_word_card.dart';
 import 'word_drag_state.dart';
-
-/// 滑动方向枚举
-enum SwipeDirection { none, up, left, right }
 
 /// WordDrag 状态管理通知器
 class WordDragNotifier extends ChangeNotifier {
@@ -17,28 +15,38 @@ class WordDragNotifier extends ChangeNotifier {
 
   /// 拖动开始
   void onDragStart() {
-    _state = _state.copyWith(isDragging: true, cardOffset: Offset.zero);
+    _state = _state.copyWith(isDragging: true);
     notifyListeners();
   }
 
   /// 拖动更新
-  void onDragUpdate(Offset delta, Size screenSize) {
-    _state = _state.copyWith(cardOffset: _state.cardOffset + delta);
+  void onDragUpdate(Offset offset, Size screenSize) {
+    _state = _state.copyWith(cardOffset: offset);
     _updateZoneState(screenSize);
     notifyListeners();
   }
 
-  /// 拖动结束
-  void onDragEnd(Size screenSize) {
-    if (_state.isInAnyZone) {
-      final zone = _checkZoneAtRelease(screenSize);
-      if (zone != ZoneType.none) {
-        _triggerZoneAction(zone);
-        return;
-      }
-    }
-    final direction = _calculateSwipeDirection(screenSize);
-    _handleSwipeDirection(direction);
+  // ==================== 滑动完成回调 ====================
+
+  /// 上滑完成
+  void onSwipeUp() {
+    _navigateToDetail();
+  }
+
+  /// 左滑完成
+  void onSwipeLeft() {
+    _markAsReviewed();
+  }
+
+  /// 右滑完成
+  void onSwipeRight() {
+    // 右滑未进区域 -> 导航到详情页
+    _navigateToDetail();
+  }
+
+  /// 回弹
+  void onSpringBack() {
+    _springBack();
   }
 
   // ==================== 区域检测方法 ====================
@@ -67,29 +75,12 @@ class WordDragNotifier extends ChangeNotifier {
     );
   }
 
-  /// 释放时检测区域
-  ZoneType _checkZoneAtRelease(Size screenSize) {
-    final cardCenter = _getCardCenter(screenSize);
-
-    final markZone = _getMarkZone(screenSize);
-    final deleteZone = _getDeleteZone(screenSize);
-
-    if (markZone.contains(cardCenter)) {
-      return ZoneType.mark;
-    }
-    if (deleteZone.contains(cardCenter)) {
-      return ZoneType.delete;
-    }
-    return ZoneType.none;
-  }
-
   /// 计算区域透明度
   double _calculateZoneOpacity(Offset offset, Size screenSize, {bool isDeleteZone = false}) {
     final zone = isDeleteZone ? _getDeleteZone(screenSize) : _getMarkZone(screenSize);
-    final zoneCenter = zone.center;
 
     // 计算距离
-    final distance = (offset - zoneCenter).distance;
+    final distance = (offset - zone.center).distance;
     final maxDistance = screenSize.width * 0.4;
 
     // 基于距离计算透明度
@@ -111,86 +102,16 @@ class WordDragNotifier extends ChangeNotifier {
     return Offset(cardCenterX, cardCenterY);
   }
 
-  /// 计算滑动方向
-  SwipeDirection _calculateSwipeDirection(Size screenSize) {
-    final offset = _state.cardOffset;
-
-    // 水平滑动的阈值
-    final horizontalThreshold = screenSize.width * 0.15;
-    // 垂直向上的阈值
-    final verticalUpThreshold = screenSize.height * 0.12;
-
-    // 上滑优先
-    if (offset.dy < -verticalUpThreshold && offset.dy < offset.dx.abs()) {
-      return SwipeDirection.up;
-    }
-
-    // 左滑
-    if (offset.dx < -horizontalThreshold) {
-      return SwipeDirection.left;
-    }
-
-    // 右滑
-    if (offset.dx > horizontalThreshold) {
-      return SwipeDirection.right;
-    }
-
-    return SwipeDirection.none;
-  }
-
-  // ==================== 滑动方向处理 ====================
-
-  /// 处理滑动方向
-  void _handleSwipeDirection(SwipeDirection direction) {
-    switch (direction) {
-      case SwipeDirection.up:
-        _navigateToDetail();
-        break;
-      case SwipeDirection.left:
-        _markAsReviewed();
-        break;
-      case SwipeDirection.right:
-        // 右滑未进区域 -> 导航到详情页
-        _navigateToDetail();
-        break;
-      case SwipeDirection.none:
-        _springBack();
-        break;
-    }
-  }
-
   // ==================== 区域操作方法 ====================
 
   /// 用户确认区域操作
-  void onZoneConfirmed() {
-    // 根据当前激活的区域触发对应操作
-    if (_state.activeZone == ZoneType.mark) {
-      _markAsNew();
-    } else if (_state.activeZone == ZoneType.delete) {
-      _deleteWord();
-    }
-  }
-
-  /// 触发区域动作
-  void _triggerZoneAction(ZoneType zone) {
+  void onZoneConfirmed(ZoneType zone) {
     switch (zone) {
       case ZoneType.mark:
-        _state = _state.copyWith(showMarkNewSuccessHint: true);
-        notifyListeners();
-        _hideHintAfterDelay(() {
-          _state = _state.copyWith(showMarkNewSuccessHint: false);
-          notifyListeners();
-        });
-        _moveToNextWord();
+        _markAsNew();
         break;
       case ZoneType.delete:
-        _state = _state.copyWith(showDeleteSuccessHint: true);
-        notifyListeners();
-        _hideHintAfterDelay(() {
-          _state = _state.copyWith(showDeleteSuccessHint: false);
-          notifyListeners();
-        });
-        _moveToNextWord();
+        _deleteWord();
         break;
       case ZoneType.none:
         _springBack();
@@ -200,7 +121,6 @@ class WordDragNotifier extends ChangeNotifier {
 
   /// 标记为新词
   void _markAsNew() {
-    // 标记当前单词为新词（未掌握）
     if (_state.currentWord != null) {
       final updatedWords = List<Word>.from(_state.words);
       final currentWord = updatedWords[_state.currentIndex];
@@ -245,7 +165,6 @@ class WordDragNotifier extends ChangeNotifier {
       _ensureValidIndex();
       _resetZoneAndHints();
     } else {
-      // 如果只剩一个单词，回弹
       _springBack();
     }
   }
