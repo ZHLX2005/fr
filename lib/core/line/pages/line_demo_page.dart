@@ -552,6 +552,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final elapsed = _gameStopwatch.elapsedMilliseconds;
     final scaledMissWindow = (_missWindow * _timingScale).round();
 
+    // 如果该列还有未判定的 tap/slide 音符，先处理它们，不激活 hold
+    for (final note in _notes[col]) {
+      if (!note.judged && note.event.type != NoteType.hold) return;
+    }
+
     // 找到这一列中第一个未判定的 hold 音符
     FallingNote? foundNote;
     String skipReason = '';
