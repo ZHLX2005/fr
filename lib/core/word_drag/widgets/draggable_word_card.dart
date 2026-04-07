@@ -348,12 +348,17 @@ class _DraggableWordCardState extends State<DraggableWordCard>
           width: screenSize.width * 0.8,
           height: screenSize.height * 0.5,
           decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.grey.shade300,
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 12,
-                offset: const Offset(0, 8),
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
