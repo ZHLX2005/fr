@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:provider/provider.dart';
 import '../models/word.dart';
 import '../providers/word_drag_notifier.dart';
-import '../providers/draggable_word_card_controller.dart';
 import '../providers/word_drag_state.dart';
-import '../widgets/draggable_word_card.dart';
 import '../widgets/word_card_content.dart';
 import 'word_detail_page.dart';
 
 /// 单词拖拽背词页面
-/// 使用 ChangeNotifier 模式管理状态
+/// 使用 CardSwiper 实现卡片滑动，顶部抽屉显示单词列表
 class WordDragPage extends StatelessWidget {
   const WordDragPage({super.key});
 
@@ -30,8 +29,8 @@ class _WordDragPageContent extends StatefulWidget {
 }
 
 class _WordDragPageContentState extends State<_WordDragPageContent> {
-  final DraggableWordCardController _cardController = DraggableWordCardController();
-  bool _isDragging = false;
+  final CardSwiperController _cardController = CardSwiperController();
+  final GlobalKey<_WordListDrawerState> _drawerKey = GlobalKey();
 
   @override
   void initState() {
@@ -40,6 +39,12 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
       final notifier = context.read<WordDragNotifier>();
       notifier.setNavigateCallback(_navigateToDetail);
     });
+  }
+
+  @override
+  void dispose() {
+    _cardController.dispose();
+    super.dispose();
   }
 
   void _navigateToDetail() {
@@ -59,41 +64,28 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     );
   }
 
-  void _handleOffsetChanged(Offset offset) {
-    final notifier = context.read<WordDragNotifier>();
-    final screenSize = MediaQuery.of(context).size;
-
-    if (!_isDragging) {
-      _isDragging = true;
-      notifier.onDragStart();
-    }
-
-    notifier.onDragUpdate(offset, screenSize);
-  }
-
-  void _handleSwipeComplete(SwipeDirection direction) {
+  bool _onSwipe(
+    int previousIndex,
+    int? currentIndex,
+    CardSwiperDirection direction,
+  ) {
     final notifier = context.read<WordDragNotifier>();
 
     switch (direction) {
-      case SwipeDirection.up:
+      case CardSwiperDirection.top:
         notifier.onSwipeUp();
         break;
-      case SwipeDirection.left:
+      case CardSwiperDirection.left:
         notifier.onSwipeLeft();
         break;
-      case SwipeDirection.right:
+      case CardSwiperDirection.right:
         notifier.onSwipeRight();
         break;
-      case SwipeDirection.none:
+      default:
         notifier.onSpringBack();
-        break;
+        return false;
     }
-  }
-
-  void _handleDragEnd() {
-    if (_isDragging) {
-      _isDragging = false;
-    }
+    return true;
   }
 
   @override
@@ -102,64 +94,39 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     final state = notifier.state;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
+      backgroundColor: const Color(0xFF0f0f1e),
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
+            // 顶部抽屉区域
+            _WordListDrawer(
+              key: _drawerKey,
+              words: state.words,
+              currentIndex: state.currentIndex,
+              onWordTap: (index) {
+                // 跳转到指定单词
+              },
+            ),
+
             // 顶部进度
-            Positioned(
-              top: 20,
-              left: 0,
-              right: 0,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: _buildProgressIndicator(state),
             ),
 
-            // 中心卡片
-            Center(
-              child: state.hasNextWord
-                  ? _buildCardStack(notifier, state)
-                  : _buildEmptyState(notifier),
+            // 中心卡片区域
+            Expanded(
+              child: Center(
+                child: state.hasNextWord
+                    ? _buildCardSwiper(notifier, state)
+                    : _buildEmptyState(notifier),
+              ),
             ),
 
-            // 右上角标新区
-            if (state.hasNextWord)
-              Positioned(
-                right: 16,
-                top: MediaQuery.of(context).size.height * 0.15,
-                child: Opacity(
-                  opacity: state.markZoneOpacity.clamp(0.0, 1.0),
-                  child: _ActionZone(
-                    icon: Icons.bookmark_add_outlined,
-                    label: '标新',
-                    isActive: state.isInMarkZone,
-                    onTap: state.isInMarkZone ? () => notifier.onZoneConfirmed(ZoneType.mark) : null,
-                  ),
-                ),
-              ),
-
-            // 右下角删除区
-            if (state.hasNextWord)
-              Positioned(
-                right: 16,
-                top: MediaQuery.of(context).size.height * 0.60,
-                child: Opacity(
-                  opacity: state.deleteZoneOpacity.clamp(0.0, 1.0),
-                  child: _ActionZone(
-                    icon: Icons.delete_outline,
-                    label: '删除',
-                    isActive: state.isInDeleteZone,
-                    isDelete: true,
-                    onTap: state.isInDeleteZone ? () => notifier.onZoneConfirmed(ZoneType.delete) : null,
-                  ),
-                ),
-              ),
-
             // 底部提示
-            if (state.hasNextWord && state.markZoneOpacity < 0.1 && state.deleteZoneOpacity < 0.1)
-              Positioned(
-                bottom: 20,
-                left: 0,
-                right: 0,
+            if (state.hasNextWord)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
                 child: Center(
                   child: Opacity(
                     opacity: 0.5,
@@ -170,96 +137,119 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                   ),
                 ),
               ),
-
-            // 区域确认提示
-            if (state.isInMarkZone)
-              Positioned(
-                bottom: 100,
-                left: 0,
-                right: 0,
-                child: Center(child: _ConfirmHint(label: '松开标记新词', color: Colors.blue)),
-              ),
-
-            if (state.isInDeleteZone)
-              Positioned(
-                bottom: 100,
-                left: 0,
-                right: 0,
-                child: Center(child: _ConfirmHint(label: '松开删除', color: Colors.red)),
-              ),
-
-            // 成功提示
-            if (state.showMarkSuccessHint)
-              Positioned(
-                bottom: 100,
-                left: 0,
-                right: 0,
-                child: Center(child: _SuccessHint(label: '已标记稍后复习', icon: Icons.check_circle)),
-              ),
-
-            if (state.showMarkNewSuccessHint)
-              Positioned(
-                bottom: 160,
-                left: 0,
-                right: 0,
-                child: Center(child: _SuccessHint(label: '已标记为新词', icon: Icons.bookmark_add)),
-              ),
-
-            if (state.showDeleteSuccessHint)
-              Positioned(
-                bottom: 160,
-                left: 0,
-                right: 0,
-                child: Center(child: _SuccessHint(label: '已删除单词', icon: Icons.delete)),
-              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCardStack(WordDragNotifier notifier, WordDragState state) {
-    return DraggableWordCard(
-      controller: _cardController,
-      onOffsetChanged: _handleOffsetChanged,
-      onSwipeComplete: _handleSwipeComplete,
-      onDragEnd: _handleDragEnd,
-      child: WordCardContent(
-        word: state.currentWord!,
-        isDragging: state.isDragging,
+  Widget _buildCardSwiper(WordDragNotifier notifier, WordDragState state) {
+    final cards = state.words.map((word) {
+      return WordCardContent(
+        word: word,
+        isDragging: false,
+      );
+    }).toList();
+
+    return SizedBox(
+      width: 340,
+      height: 450,
+      child: CardSwiper(
+        controller: _cardController,
+        cardsCount: cards.length,
+        onSwipe: _onSwipe,
+        numberOfCardsDisplayed: 2,
+        backCardOffset: const Offset(0, 40),
+        padding: EdgeInsets.zero,
+        isDisabled: false,
+        allowedSwipeDirection: const AllowedSwipeDirection.only(
+          left: true,
+          right: true,
+          up: true,
+        ),
+        cardBuilder: (
+          context,
+          index,
+          horizontalThresholdPercentage,
+          verticalThresholdPercentage,
+        ) =>
+            cards[index],
       ),
     );
   }
 
   Widget _buildProgressIndicator(WordDragState state) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${state.words.length} 个单词',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+    final progress = state.words.isEmpty
+        ? 1.0
+        : (Word.sampleWords.length - state.words.length) / Word.sampleWords.length;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(20),
               ),
-              Text(
-                '已复习 ${Word.sampleWords.length - state.words.length}',
-                style: TextStyle(color: Colors.green.shade400, fontSize: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.school, color: Colors.deepPurple.shade300, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${state.words.length} 个单词',
+                    style: TextStyle(color: Colors.deepPurple.shade200, fontSize: 12),
+                  ),
+                ],
               ),
-            ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle_outline, color: Colors.green.shade300, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '已复习 ${Word.sampleWords.length - state.words.length}',
+                    style: TextStyle(color: Colors.green.shade200, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 6,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(3),
+            color: Colors.grey.shade800,
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: state.words.isEmpty
-                ? 1.0
-                : (Word.sampleWords.length - state.words.length) / Word.sampleWords.length,
-            backgroundColor: Colors.grey.shade800,
-            valueColor: AlwaysStoppedAnimation(Colors.green.shade400),
-            borderRadius: BorderRadius.circular(4),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: progress,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.deepPurple.shade400,
+                    Colors.purple.shade400,
+                  ],
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -267,143 +257,321 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.check_circle_outline, size: 80, color: Colors.green.shade400),
-        const SizedBox(height: 24),
+        Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                Colors.green.withValues(alpha: 0.3),
+                Colors.green.withValues(alpha: 0.0),
+              ],
+            ),
+          ),
+          child: Icon(Icons.celebration, size: 60, color: Colors.green.shade400),
+        ),
+        const SizedBox(height: 32),
         const Text(
           '太棒了！',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: 2,
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Text(
           '已完成全部 ${Word.sampleWords.length} 个单词',
           style: TextStyle(fontSize: 16, color: Colors.grey.shade400),
         ),
-        const SizedBox(height: 32),
-        TextButton(
-          onPressed: notifier.resetWords,
-          child: const Text('再学一遍'),
+        const SizedBox(height: 40),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: LinearGradient(
+              colors: [
+                Colors.deepPurple.shade600,
+                Colors.purple.shade600,
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.deepPurple.withValues(alpha: 0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(30),
+              onTap: notifier.resetWords,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      '再学一遍',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-/// 操作区域组件
-class _ActionZone extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isActive;
-  final bool isDelete;
-  final VoidCallback? onTap;
+/// 顶部抽屉单词列表组件
+class _WordListDrawer extends StatefulWidget {
+  final List<Word> words;
+  final int currentIndex;
+  final Function(int) onWordTap;
 
-  const _ActionZone({
-    required this.icon,
-    required this.label,
-    this.isActive = false,
-    this.isDelete = false,
-    this.onTap,
+  const _WordListDrawer({
+    super.key,
+    required this.words,
+    required this.currentIndex,
+    required this.onWordTap,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final color = isDelete ? Colors.red : Colors.blue;
+  State<_WordListDrawer> createState() => _WordListDrawerState();
+}
 
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 80,
-        height: 100,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isActive
-                ? [color.shade500, color.shade700]
-                : [Colors.grey.shade800, Colors.grey.shade900],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive ? color.shade300.withValues(alpha: 0.8) : Colors.grey.shade700,
-            width: 2,
-          ),
-          boxShadow: isActive
-              ? [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 2)]
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedScale(
-              scale: isActive ? 1.2 : 1.0,
-              duration: const Duration(milliseconds: 150),
-              child: Icon(icon, color: isActive ? Colors.white : Colors.grey, size: 36),
+class _WordListDrawerState extends State<_WordListDrawer>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _heightAnimation;
+  bool _isExpanded = false;
+  static const double _collapsedHeight = 60.0;
+  static const double _expandedHeight = 200.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _heightAnimation = Tween<double>(
+      begin: _collapsedHeight,
+      end: _expandedHeight,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggleDrawer() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _heightAnimation,
+      builder: (context, child) {
+        return Container(
+          height: _heightAnimation.value,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.deepPurple.withValues(alpha: 0.2),
+                Colors.purple.withValues(alpha: 0.1),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? Colors.white : Colors.grey,
-                fontSize: 14,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            border: Border.all(
+              color: Colors.deepPurple.withValues(alpha: 0.3),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.deepPurple.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 确认提示组件
-class _ConfirmHint extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _ConfirmHint({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '松开$label',
-        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-}
-
-/// 成功提示组件
-class _SuccessHint extends StatelessWidget {
-  final String label;
-  final IconData icon;
-
-  const _SuccessHint({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            ],
           ),
-        ],
-      ),
+          child: Column(
+            children: [
+              // 抽屉手柄和标题
+              GestureDetector(
+                onTap: _toggleDrawer,
+                child: Container(
+                  height: 60,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.deepPurple.shade400,
+                              Colors.purple.shade400,
+                            ],
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.list_alt,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '单词列表',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${widget.words.length} 个单词待学习',
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AnimatedRotation(
+                        turns: _isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 300),
+                        child: Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 单词列表
+              if (_isExpanded)
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    itemCount: widget.words.length,
+                    itemBuilder: (context, index) {
+                      final word = widget.words[index];
+                      final isCurrentWord = index == widget.currentIndex;
+
+                      return GestureDetector(
+                        onTap: () => widget.onWordTap(index),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: isCurrentWord
+                                ? Colors.deepPurple.withValues(alpha: 0.3)
+                                : Colors.transparent,
+                            border: isCurrentWord
+                                ? Border.all(
+                                    color: Colors.deepPurple.withValues(alpha: 0.5),
+                                  )
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isCurrentWord
+                                      ? Colors.deepPurple
+                                      : Colors.grey.shade700,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  word.text,
+                                  style: TextStyle(
+                                    color: isCurrentWord
+                                        ? Colors.white
+                                        : Colors.grey.shade300,
+                                    fontSize: 13,
+                                    fontWeight: isCurrentWord
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              if (isCurrentWord)
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: Colors.deepPurple.shade300,
+                                  size: 12,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
+

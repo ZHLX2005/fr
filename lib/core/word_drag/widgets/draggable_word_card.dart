@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 import '../providers/draggable_word_card_controller.dart';
 
 /// 滑动方向枚举
