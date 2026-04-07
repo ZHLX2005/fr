@@ -5,6 +5,14 @@ import 'package:flutter/services.dart';
 /// 滑动方向枚举
 enum SwipeDirection { left, right, up, down, none }
 
+/// Action 指示器类型
+enum ActionIndicator {
+  like,
+  delete,
+  skip,
+  move,
+}
+
 /// 弹性单词卡片组件
 ///
 /// 基于 photoo DraggableCard 实现，支持：
@@ -76,6 +84,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   static const double _folderModeThreshold = 300; // 下滑进入桶模式
   static const double _flingThreshold = 800;      // 快速滑动速度阈值
 
+  // Action Indicator 阈值 (基于 photoo: 100px 显示，150px 进入 folder mode)
+  static const double _actionIndicatorThreshold = 100;
+  static const double _folderModeVisualThreshold = 150;
+
   // 堆叠效果常量
   double get _stackScale => 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
   double get _stackYOffset => widget.stackIndex * 15.0;
@@ -115,13 +127,9 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     widget.onDragUpdate?.call(_animControllerX.value, _animControllerY.value);
   }
 
-  void _onAlpha() {
-    // 透明度动画不需要通知
-  }
+  void _onAlpha() {}
 
-  void _onScale() {
-    // 缩放动画不需要通知
-  }
+  void _onScale() {}
 
   // 触觉反馈
   void _performHaptic() {
@@ -253,6 +261,24 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   // 计算旋转角度
   double get _rotation => (_animControllerX.value / 60).clamp(-10, 10);
 
+  // 计算当前 Action Indicator 类型
+  ActionIndicator? get _currentActionIndicator {
+    final offsetX = _animControllerX.value;
+    final offsetY = _animControllerY.value;
+    final isFolderMode = offsetY > _folderModeVisualThreshold;
+
+    if (!isFolderMode && offsetX > _actionIndicatorThreshold) {
+      return ActionIndicator.like;
+    } else if (!isFolderMode && offsetX < -_actionIndicatorThreshold) {
+      return ActionIndicator.delete;
+    } else if (offsetY < -_actionIndicatorThreshold) {
+      return ActionIndicator.skip;
+    } else if (isFolderMode) {
+      return ActionIndicator.move;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -267,6 +293,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       builder: (context, child) {
         final offsetX = _animControllerX.value;
         final offsetY = _animControllerY.value;
+        final actionIndicator = _currentActionIndicator;
 
         return Transform.translate(
           offset: Offset(offsetX, offsetY + _stackYOffset),
@@ -276,7 +303,18 @@ class _DraggableWordCardState extends State<DraggableWordCard>
               opacity: _alphaAnimation.value.clamp(0.0, 1.0),
               child: Transform.rotate(
                 angle: _rotation * 3.14159 / 180,
-                child: child,
+                child: Stack(
+                  children: [
+                    child!,
+                    // Action Indicator Overlay
+                    if (widget.isTopCard && actionIndicator != null)
+                      Positioned(
+                        top: 24,
+                        right: 24,
+                        child: _ActionIndicator(indicator: actionIndicator),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -323,5 +361,169 @@ class _DraggableWordCardState extends State<DraggableWordCard>
         ),
       ),
     );
+  }
+}
+
+/// Action 指示器组件
+class _ActionIndicator extends StatelessWidget {
+  final ActionIndicator indicator;
+
+  const _ActionIndicator({required this.indicator});
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildIndicator();
+  }
+
+  Widget _buildIndicator() {
+    switch (indicator) {
+      case ActionIndicator.like:
+        // LIKE (Orange) - Right Swipe
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+            border: Border.all(color: const Color(0xFFFF9800), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.favorite, color: Color(0xFFFF9800), size: 20),
+              SizedBox(width: 8),
+              Text(
+                'LIKE',
+                style: TextStyle(
+                  color: Color(0xFFFF9800),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case ActionIndicator.delete:
+        // DELETE (Red) - Left Swipe
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+            border: Border.all(color: const Color(0xFFEF4444), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+              SizedBox(width: 8),
+              Text(
+                'DELETE',
+                style: TextStyle(
+                  color: Color(0xFFEF4444),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case ActionIndicator.skip:
+        // SKIP (Blue) - Up Swipe
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+            border: Border.all(color: const Color(0xFF3B82F6), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.arrow_upward, color: Color(0xFF3B82F6), size: 20),
+              SizedBox(width: 8),
+              Text(
+                'SKIP',
+                style: TextStyle(
+                  color: Color(0xFF3B82F6),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case ActionIndicator.move:
+        // MOVE (Purple) - Down Swipe
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(8),
+            ),
+            border: Border.all(color: const Color(0xFF9C27B0), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.drive_file_move, color: Color(0xFF9C27B0), size: 20),
+              SizedBox(width: 8),
+              Text(
+                'MOVE',
+                style: TextStyle(
+                  color: Color(0xFF9C27B0),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        );
+    }
   }
 }
