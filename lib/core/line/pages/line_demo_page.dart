@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../lab/lab_container.dart';
 import '../models/line_models.dart';
 import 'line_page.dart';
+import '../models/game_result.dart';
+import 'game_result_page.dart';
+import 'song_select_page.dart';
 import '../settings/line_settings.dart';
 
 /// 音频与游戏同步器 — 定期校准 Stopwatch 消除漂移
@@ -129,7 +132,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
   int _score = 0;
   double _health = 1.0;
   int _highScore = 0;
-  bool _isGameOver = false;
 
   // 判定 & 连击计数
   int _perfectCount = 0;
@@ -289,7 +291,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     // 监听音频播放完成 → 自动进入评分
     _audioCompletionSub?.cancel();
     _audioCompletionSub = _audioPlayer?.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed && !_isGameOver && mounted) {
+      if (state == ProcessingState.completed && !_isExiting && mounted) {
         debugPrint('[AUDIO_COMPLETE] 音乐播放结束，自动进入评分');
         _gameOver();
       }
@@ -315,7 +317,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   }
 
   void _spawnPendingNotes() {
-    if (_chart == null || _isGameOver) return;
+    if (_chart == null || _isExiting) return;
     final elapsed = _gameStopwatch.elapsedMilliseconds;
     final dropMs = _chart!.dropDuration;
 
@@ -331,13 +333,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
       }
     }
 
-    if (_nextNoteIndex < _chart!.notes.length && !_isGameOver) {
+    if (_nextNoteIndex < _chart!.notes.length && !_isExiting) {
       final nextEvent = _chart!.notes[_nextNoteIndex];
       final nextActualDropMs = dropMs / _scrollSpeed;
       final nextSpawnTime = nextEvent.time - (nextActualDropMs * _easeInToJudgeRatio).round();
       final delayMs = (nextSpawnTime - elapsed).clamp(1, 100);
       Future.delayed(Duration(milliseconds: delayMs), () {
-        if (mounted && !_isGameOver) _spawnPendingNotes();
+        if (mounted && !_isExiting) _spawnPendingNotes();
       });
     }
   }
@@ -439,7 +441,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   }
 
   void _handlePointerDown(PointerDownEvent event) {
-    if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
+    if (_isExiting || _isCountingDown || _chart == null) return;
     final col = _getColumnFromX(event.localPosition.dx);
     if (col == null) return;
 
@@ -797,14 +799,49 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _stopGame();
     _audioCompletionSub?.cancel();
     _syncGuard?.dispose();
-    _audioPlayer?.stop();  // 游戏结束时完全停止音频
+    _audioPlayer?.stop();
     for (final noteList in _notes) {
       for (final note in noteList) {
         note.controller.stop();
       }
     }
-    setState(() => _isGameOver = true);
     _saveHighScore();
+
+    // 构建结果数据
+    final result = GameResult(
+      songName: _chart?.name ?? 'Unknown',
+      score: _score,
+      highScore: _highScore,
+      perfectCount: _perfectCount,
+      greatCount: _greatCount,
+      goodCount: _goodCount,
+      missCount: _missCount,
+      maxCombo: _maxCombo,
+      totalNotes: _chart?.notes.length ?? 0,
+    );
+
+    // 播放水退场动画，然后导航到评分页
+    setState(() => _isExiting = true);
+    _exitController.reset();
+    _exitController.forward().then((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => GameResultPage(
+            result: result,
+            chart: widget.chart,
+            audioPath: widget.audioPath,
+          ),
+        ),
+      ).then((_) {
+        // 评分页关闭后回到选歌界面
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const SongSelectPage()),
+          );
+        }
+      });
+    });
   }
 
   void _restartGame() {
@@ -820,7 +857,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _explodes.clear();
 
     setState(() {
-      _isGameOver = false;
       _score = 0;
       _health = 1.0;
       _nextNoteIndex = 0;
@@ -855,7 +891,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   }
 
   void _showSpeedSettings() {
-    _wasGameRunning = !_isGameOver && !_isCountingDown;
+    _wasGameRunning = !(_isExiting) && !_isCountingDown;
     _isCountingDown = false;
 
     _stopGame();
@@ -879,7 +915,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
         .then((_) {
       if (!mounted || _isExiting) return;
       _loadSettings().then((_) {
-        if (_isGameOver) {
+        if (_isExiting) {
           // 游戏结束时，点击设置返回应该保持游戏结束状态
           return;
         } else {
@@ -1052,81 +1088,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       letterSpacing: -2,
                     ),
                   ),
-                ),
-              ),
-
-            if (_isGameOver)
-              Positioned.fill(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: Container(
-                          color: theme.colorScheme.surface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '$_score',
-                            style: TextStyle(
-                              fontSize: 64 * w / 750,
-                              fontWeight: FontWeight.w100,
-                              color: theme.colorScheme.primary,
-                              height: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _score >= _highScore ? '新纪录!' : '最高分: $_highScore',
-                            style: TextStyle(
-                              fontSize: 14 * w / 750,
-                              fontWeight: FontWeight.w300,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          GestureDetector(
-                            onTap: _restartGame,
-                            child: Text(
-                              '再来一次',
-                              style: TextStyle(
-                                fontSize: 16 * w / 750,
-                                fontWeight: FontWeight.w300,
-                                color: theme.colorScheme.primary,
-                                decoration: TextDecoration.underline,
-                                decorationColor:
-                                    theme.colorScheme.primary.withValues(alpha: 0.3),
-                                decorationThickness: 1,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          GestureDetector(
-                            onTap: () {
-                              _stopGame();
-                              Navigator.of(context).pop();
-                            },
-                            child: Text(
-                              '返回主页',
-                              style: TextStyle(
-                                fontSize: 14 * w / 750,
-                                fontWeight: FontWeight.w300,
-                                color: theme.colorScheme.onSurfaceVariant,
-                                decoration: TextDecoration.underline,
-                                decorationColor:
-                                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                                decorationThickness: 1,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               ),
 
