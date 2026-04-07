@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:provider/provider.dart';
 import '../models/word.dart';
 import '../providers/word_drag_notifier.dart';
 import '../providers/word_drag_state.dart';
+import '../widgets/category_drop_row.dart';
+import '../widgets/draggable_word_card.dart';
 import '../widgets/word_card_content.dart';
 import 'word_detail_page.dart';
 
 /// 单词拖拽背词页面
-/// 使用 CardSwiper 实现卡片滑动，顶部抽屉显示单词列表
+///
+/// 基于 photoo 实现，支持：
+/// - 上滑跳过/查看详情
+/// - 左滑稍后复习
+/// - 右滑喜欢/掌握
+/// - 下滑 > 300px 显示分类桶
 class WordDragPage extends StatelessWidget {
   const WordDragPage({super.key});
 
@@ -21,6 +27,40 @@ class WordDragPage extends StatelessWidget {
   }
 }
 
+/// 分类桶配置
+const _categoryBuckets = [
+  CategoryBucket(
+    id: 'noun',
+    name: '名词',
+    icon: Icons.category,
+    color: Color(0xFF3B82F6),
+  ),
+  CategoryBucket(
+    id: 'verb',
+    name: '动词',
+    icon: Icons.play_arrow,
+    color: Color(0xFF10B981),
+  ),
+  CategoryBucket(
+    id: 'adj',
+    name: '形容词',
+    icon: Icons.color_lens,
+    color: Color(0xFFF59E0B),
+  ),
+  CategoryBucket(
+    id: 'adv',
+    name: '副词',
+    icon: Icons.speed,
+    color: Color(0xFF8B5CF6),
+  ),
+  CategoryBucket(
+    id: 'other',
+    name: '其他',
+    icon: Icons.more_horiz,
+    color: Color(0xFF6B7280),
+  ),
+];
+
 class _WordDragPageContent extends StatefulWidget {
   const _WordDragPageContent();
 
@@ -29,8 +69,11 @@ class _WordDragPageContent extends StatefulWidget {
 }
 
 class _WordDragPageContentState extends State<_WordDragPageContent> {
-  final CardSwiperController _cardController = CardSwiperController();
   final GlobalKey<_WordListDrawerState> _drawerKey = GlobalKey();
+  final GlobalKey<CategoryDropRowState> _dropRowKey = GlobalKey();
+
+  // 是否正在拖动
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -39,12 +82,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
       final notifier = context.read<WordDragNotifier>();
       notifier.setNavigateCallback(_navigateToDetail);
     });
-  }
-
-  @override
-  void dispose() {
-    _cardController.dispose();
-    super.dispose();
   }
 
   void _navigateToDetail() {
@@ -64,28 +101,73 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     );
   }
 
-  bool _onSwipe(
-    int previousIndex,
-    int? currentIndex,
-    CardSwiperDirection direction,
-  ) {
+  void _onDragStart() {
+    setState(() {
+      _isDragging = true;
+    });
+    context.read<WordDragNotifier>().onDragStart();
+  }
+
+  void _onDragUpdate(double x, double y) {
+    // 不需要 setState，动画由 DraggableWordCard 内部处理
+    final screenSize = MediaQuery.of(context).size;
+    context.read<WordDragNotifier>().onDragUpdate(
+      Offset(x, y),
+      screenSize,
+    );
+
+    // 如果是 folder mode，更新碰撞检测
+    final notifier = context.read<WordDragNotifier>();
+    if (notifier.state.isFolderMode) {
+      final cardCenter = Offset(
+        screenSize.width / 2 + x,
+        screenSize.height * 0.4 + y,
+      );
+      _dropRowKey.currentState?.updateCardPosition(cardCenter);
+    }
+  }
+
+  bool _onDragEnd(double x, double y) {
     final notifier = context.read<WordDragNotifier>();
 
-    switch (direction) {
-      case CardSwiperDirection.top:
-        notifier.onSwipeUp();
-        break;
-      case CardSwiperDirection.left:
-        notifier.onSwipeLeft();
-        break;
-      case CardSwiperDirection.right:
-        notifier.onSwipeRight();
-        break;
-      default:
-        notifier.onSpringBack();
-        return false;
+    // 检查是否是下滑桶模式
+    final isFolderMode = y > 300;
+
+    if (isFolderMode) {
+      notifier.enterFolderMode();
+      setState(() {
+        _isDragging = false;
+      });
+      return true; // 消耗事件，不回弹
     }
-    return true;
+
+    setState(() {
+      _isDragging = false;
+    });
+    return false;
+  }
+
+  void _onDragCancel() {
+    setState(() {
+      _isDragging = false;
+    });
+    context.read<WordDragNotifier>().onSpringBack();
+  }
+
+  void _onSwipeLeft() {
+    context.read<WordDragNotifier>().onSwipeLeft();
+  }
+
+  void _onSwipeRight() {
+    context.read<WordDragNotifier>().onSwipeRight();
+  }
+
+  void _onSwipeUp() {
+    context.read<WordDragNotifier>().onSwipeUp();
+  }
+
+  void _onBucketSelected(String bucketId) {
+    context.read<WordDragNotifier>().selectBucket(bucketId);
   }
 
   @override
@@ -96,84 +178,115 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     return Scaffold(
       backgroundColor: const Color(0xFF0f0f1e),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // 顶部抽屉区域
-            _WordListDrawer(
-              key: _drawerKey,
-              words: state.words,
-              currentIndex: state.currentIndex,
-              onWordTap: (index) {
-                // 跳转到指定单词
-              },
-            ),
+            Column(
+              children: [
+                // 顶部抽屉区域
+                _WordListDrawer(
+                  key: _drawerKey,
+                  words: state.words,
+                  currentIndex: state.currentIndex,
+                  onWordTap: (index) {
+                    // 跳转到指定单词
+                  },
+                ),
 
-            // 顶部进度
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _buildProgressIndicator(state),
-            ),
+                // 顶部进度
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: _buildProgressIndicator(state),
+                ),
 
-            // 中心卡片区域
-            Expanded(
-              child: Center(
-                child: state.hasNextWord
-                    ? _buildCardSwiper(notifier, state)
-                    : _buildEmptyState(notifier),
-              ),
-            ),
-
-            // 底部提示
-            if (state.hasNextWord)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Center(
-                  child: Opacity(
-                    opacity: 0.5,
-                    child: Text(
-                      '上: 详情 | 左: 稍后 | 右: 操作',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                    ),
+                // 中心卡片区域
+                Expanded(
+                  child: Center(
+                    child: state.hasNextWord
+                        ? _buildCardStack(notifier, state)
+                        : _buildEmptyState(notifier),
                   ),
                 ),
+
+                // 底部提示
+                if (state.hasNextWord)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Center(
+                      child: Opacity(
+                        opacity: 0.5,
+                        child: Text(
+                          '上: 详情 | 左: 稍后 | 右: 操作 | 下: 分类',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+
+            // 分类桶选择行 (覆盖在卡片下方)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: CategoryDropRow(
+                key: _dropRowKey,
+                visible: state.isFolderMode,
+                buckets: _categoryBuckets,
+                activeBucketId: state.activeCategoryBucketId,
+                onBucketSelected: _onBucketSelected,
               ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCardSwiper(WordDragNotifier notifier, WordDragState state) {
-    final cards = state.words.map((word) {
-      return WordCardContent(
-        word: word,
-        isDragging: false,
+  Widget _buildCardStack(WordDragNotifier notifier, WordDragState state) {
+    final screenSize = MediaQuery.of(context).size;
+    final cardWidth = screenSize.width * 0.85;
+    final cardHeight = screenSize.height * 0.55;
+
+    // 计算要显示的卡片数量 (最多3张)
+    final displayCount = (state.words.length - state.currentIndex).clamp(0, 3);
+    final cards = <Widget>[];
+
+    for (int i = displayCount - 1; i >= 0; i--) {
+      final wordIndex = state.currentIndex + i;
+      if (wordIndex >= state.words.length) continue;
+
+      final word = state.words[wordIndex];
+      final isTopCard = i == 0;
+
+      cards.add(
+        Positioned(
+          child: DraggableWordCard(
+            index: wordIndex,
+            isTopCard: isTopCard,
+            stackIndex: i,
+            onSwipeLeft: isTopCard && !_isDragging ? _onSwipeLeft : null,
+            onSwipeRight: isTopCard && !_isDragging ? _onSwipeRight : null,
+            onSwipeUp: isTopCard && !_isDragging ? _onSwipeUp : null,
+            onDragStart: isTopCard ? _onDragStart : null,
+            onDragUpdate: isTopCard ? _onDragUpdate : null,
+            onDragEnd: isTopCard ? _onDragEnd : null,
+            onDragCancel: isTopCard ? _onDragCancel : null,
+            child: WordCardContent(
+              word: word,
+              isDragging: isTopCard && _isDragging,
+            ),
+          ),
+        ),
       );
-    }).toList();
+    }
 
     return SizedBox(
-      width: 340,
-      height: 450,
-      child: CardSwiper(
-        controller: _cardController,
-        cardsCount: cards.length,
-        onSwipe: _onSwipe,
-        numberOfCardsDisplayed: 2,
-        backCardOffset: const Offset(0, 40),
-        padding: EdgeInsets.zero,
-        isDisabled: false,
-        allowedSwipeDirection: const AllowedSwipeDirection.only(
-          left: true,
-          right: true,
-          up: true,
-        ),
-        cardBuilder: (
-          context,
-          index,
-          horizontalThresholdPercentage,
-          verticalThresholdPercentage,
-        ) =>
-            cards[index],
+      width: cardWidth,
+      height: cardHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: cards,
       ),
     );
   }
@@ -574,4 +687,3 @@ class _WordListDrawerState extends State<_WordListDrawer>
     );
   }
 }
-

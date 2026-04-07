@@ -43,6 +43,12 @@ class WordDragState {
   /// 是否显示详情页
   final bool showDetails;
 
+  /// 是否处于分类桶模式 (下滑 > 300px)
+  final bool isFolderMode;
+
+  /// 当前激活的分类桶 ID
+  final String? activeCategoryBucketId;
+
   const WordDragState({
     required this.words,
     required this.currentIndex,
@@ -55,6 +61,8 @@ class WordDragState {
     required this.showMarkNewSuccessHint,
     required this.showDeleteSuccessHint,
     required this.showDetails,
+    required this.isFolderMode,
+    required this.activeCategoryBucketId,
   });
 
   /// 当前单词
@@ -91,6 +99,8 @@ class WordDragState {
       showMarkNewSuccessHint: false,
       showDeleteSuccessHint: false,
       showDetails: false,
+      isFolderMode: false,
+      activeCategoryBucketId: null,
     );
   }
 
@@ -107,6 +117,8 @@ class WordDragState {
     bool? showMarkNewSuccessHint,
     bool? showDeleteSuccessHint,
     bool? showDetails,
+    bool? isFolderMode,
+    String? activeCategoryBucketId,
   }) {
     return WordDragState(
       words: words ?? this.words,
@@ -120,6 +132,8 @@ class WordDragState {
       showMarkNewSuccessHint: showMarkNewSuccessHint ?? this.showMarkNewSuccessHint,
       showDeleteSuccessHint: showDeleteSuccessHint ?? this.showDeleteSuccessHint,
       showDetails: showDetails ?? this.showDetails,
+      isFolderMode: isFolderMode ?? this.isFolderMode,
+      activeCategoryBucketId: activeCategoryBucketId,
     );
   }
 }
