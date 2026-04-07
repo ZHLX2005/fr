@@ -1,14 +1,51 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../lab/lab_container.dart';
 import '../models/line_models.dart';
 import 'line_page.dart';
 import '../settings/line_settings.dart';
+
+/// 音频与游戏同步器 — 定期校准 Stopwatch 消除漂移
+class _AudioSyncGuard {
+  final AudioPlayer player;
+  final Stopwatch stopwatch;
+  Timer? _timer;
+  int _lastCorrection = 0;
+
+  _AudioSyncGuard({required this.player, required this.stopwatch});
+
+  void start() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 2), (_) => _correct());
+  }
+
+  void stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void _correct() {
+    // 获取音频当前位置（ms）
+    final audioMs = player.position.inMilliseconds;
+    final swMs = stopwatch.elapsedMilliseconds;
+    final diff = (audioMs - swMs).abs();
+
+    if (diff > 50 && _lastCorrection != audioMs) {
+      // 偏差超过 50ms，需要修正
+      debugPrint('[SYNC] 修正偏移 audio=${audioMs}ms stopwatch=${swMs}ms diff=${diff}ms');
+      stopwatch.reset();
+      // 需要在外部重新 start stopwatch 并补偿
+      _lastCorrection = audioMs;
+    }
+  }
+
+  void dispose() {
+    stop();
+  }
+}
 
 /// 线 Demo
 class LineDemo extends DemoPage {
@@ -30,6 +67,23 @@ class LineDemo extends DemoPage {
   Widget buildPage(BuildContext context) {
     return _LineDemoPage(chart: chart!, audioPath: audioPath);
   }
+}
+
+/// 每根手指的触摸状态
+class _PointerState {
+  final int pointerId;
+  int column;
+  Offset startPosition;
+  Offset lastPosition;
+  DateTime pressTime;
+
+  _PointerState({
+    required this.pointerId,
+    required this.column,
+    required this.startPosition,
+    required this.lastPosition,
+    required this.pressTime,
+  });
 }
 
 class _LineDemoPage extends StatefulWidget {
@@ -68,6 +122,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   // ── 音频 ──
   AudioPlayer? _audioPlayer;
+  StreamSubscription? _audioCompletionSub;
+  _AudioSyncGuard? _syncGuard;
 
   // 分数 & 血条
   int _score = 0;
@@ -75,9 +131,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
   int _highScore = 0;
   bool _isGameOver = false;
 
+  // 判定 & 连击计数
+  int _perfectCount = 0;
+  int _greatCount = 0;
+  int _goodCount = 0;
+  int _missCount = 0;
+  int _maxCombo = 0;
+  int _currentCombo = 0;
+
   BackgroundStyle _backgroundStyle = BackgroundStyle.none;
   static const String _backgroundKey = lineBackgroundKey;
-  static const String _highScoreKey = 'line_demo_high_score';
+  String _highScoreKey = 'line_demo_high_score'; // 会在 _loadSettings 中按歌曲覆盖
 
   double _timingScale = 1.0;
   static const String _timingScaleKey = lineTimingScaleKey;
@@ -85,7 +149,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   double _scrollSpeed = 1.0;
   static const String _scrollSpeedKey = lineScrollSpeedKey;
 
-  static const double _circleRadiusRpx = 20.0;
+  static const double _noteSizeRatio = 0.28; // 音符大小占列宽的比例
   static const double _judgeLineRatio = 0.75;
 
 // easeOut 曲线下，到达 judgeLineRatio 位置的动画进度：1-sqrt(0.25) ≈ 0.5
@@ -97,12 +161,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
   static const int _goodWindow = 150;
   static const int _missWindow = 200;
 
-  // 手势追踪
+  // 手势追踪 — 多指触摸
   final Set<int> _heldColumns = {};
-  Offset? _panStart;
-  int? _panColumn;
+  final Map<int, _PointerState> _pointers = {}; // pointerId → 状态
 
-  double _rpx(double value) => value * MediaQuery.of(context).size.width / 750;
+
+  /// 根据列宽计算音符半径，确保音符在不同屏幕上都清晰可见
+  double get _radius {
+    final w = MediaQuery.of(context).size.width;
+    final colWidth = w / _columnCount;
+    return colWidth * _noteSizeRatio;
+  }
 
   // 暂停
   bool _wasGameRunning = false;
@@ -149,13 +218,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     try {
-      ChartData? chartData;
-      if (widget.chart != null) {
-        chartData = widget.chart;
-      } else {
-        final chartJson = await rootBundle.loadString('assets/charts/test_chart.json');
-        chartData = ChartData.fromJson(jsonDecode(chartJson));
-      }
+      final chartData = widget.chart;
+      // 使用歌曲名作为 per-song 高分 key
+      _highScoreKey = 'line_high_score_${chartData.name.hashCode}';
       if (mounted) {
         setState(() {
           _chart = chartData;
@@ -192,6 +257,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _healthController.dispose();
     _renderTicker.dispose();
     _gameStopwatch.stop();
+    _audioCompletionSub?.cancel();
+    _syncGuard?.dispose();
     for (final noteList in _notes) {
       for (final note in noteList) {
         note.controller.dispose();
@@ -204,6 +271,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
       fb.controller.dispose();
     }
     _audioPlayer?.dispose();
+    _pointers.clear();
+    _heldColumns.clear();
     super.dispose();
   }
 
@@ -216,10 +285,27 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _spawnPendingNotes();
     // 播放音乐
     _audioPlayer?.play();
+
+    // 监听音频播放完成 → 自动进入评分
+    _audioCompletionSub?.cancel();
+    _audioCompletionSub = _audioPlayer?.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed && !_isGameOver && mounted) {
+        debugPrint('[AUDIO_COMPLETE] 音乐播放结束，自动进入评分');
+        _gameOver();
+      }
+    });
+
+    // 启动音画同步校准
+    if (_audioPlayer != null) {
+      _syncGuard?.stop();
+      _syncGuard = _AudioSyncGuard(player: _audioPlayer!, stopwatch: _gameStopwatch);
+      _syncGuard!.start();
+    }
   }
 
   void _stopGame() {
     _gameStopwatch.stop();
+    _syncGuard?.stop();
     _audioPlayer?.pause();
     for (final noteList in _notes) {
       for (final note in noteList) {
@@ -258,7 +344,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _spawnNote(NoteEvent event) {
     final screenSize = MediaQuery.of(context).size;
-    final radius = _rpx(_circleRadiusRpx);
+    final radius = _radius;
 
     final actualDropMs = (_chart!.dropDuration / _scrollSpeed).round();
     final controller = AnimationController(
@@ -329,7 +415,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
   }
 
-  // ── 手势处理 ──
+  // ── 手势处理（多指触摸） ──
 
   int? _getColumnFromX(double x) {
     final w = MediaQuery.of(context).size.width;
@@ -352,42 +438,69 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
   }
 
-  void _handleTapUp(TapUpDetails details) {
+  void _handlePointerDown(PointerDownEvent event) {
     if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
-    final col = _getColumnFromX(details.localPosition.dx);
+    final col = _getColumnFromX(event.localPosition.dx);
     if (col == null) return;
+
+    final now = DateTime.now();
+    _pointers[event.pointer] = _PointerState(
+      pointerId: event.pointer,
+      column: col,
+      startPosition: event.position,
+      lastPosition: event.position,
+      pressTime: now,
+    );
+
     final elapsed = _gameStopwatch.elapsedMilliseconds;
-    debugPrint('[TAP] elapsed=$elapsed col=$col');
-    _handleColumnTap(col);
+    debugPrint('[PRESS] elapsed=$elapsed col=$col pointer=${event.pointer}');
+    _handleColumnPress(col);
   }
 
-  void _handlePanStart(DragStartDetails details) {
-    if (_isExiting || _isGameOver || _isCountingDown || _chart == null) return;
-    final col = _getColumnFromX(details.localPosition.dx);
-    if (col != null) {
-      _panStart = details.globalPosition;
-      _panColumn = col;
-      final elapsed = _gameStopwatch.elapsedMilliseconds;
-      debugPrint('[PRESS] elapsed=$elapsed col=$col');
-      _handleColumnPress(col);
+  void _handlePointerMove(PointerMoveEvent event) {
+    final state = _pointers[event.pointer];
+    if (state == null) return;
+    state.lastPosition = event.position;
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    final state = _pointers.remove(event.pointer);
+    if (state == null) return;
+
+    final elapsed = _gameStopwatch.elapsedMilliseconds;
+    final col = state.column;
+    final pressDuration = DateTime.now().difference(state.pressTime).inMilliseconds;
+    final displacement = (event.position - state.startPosition).distance;
+
+    debugPrint('[RELEASE] elapsed=$elapsed col=$col pointer=${event.pointer} duration=${pressDuration}ms disp=${displacement.toStringAsFixed(0)}');
+
+    // 短按 + 位移小 → 视为 Tap
+    if (pressDuration < 300 && displacement < 20) {
+      debugPrint('[TAP] elapsed=$elapsed col=$col');
+      _handleColumnTap(col);
+      // tap 后也释放 hold（如果之前 press 触发了 hold）
+      _handleColumnRelease(col);
+      return;
     }
-  }
 
-  void _handlePanEnd(DragEndDetails details) {
-    if (_panColumn == null) return;
-    final elapsed = _gameStopwatch.elapsedMilliseconds;
-    debugPrint('[RELEASE] elapsed=$elapsed col=$_panColumn');
-    _handleColumnRelease(_panColumn!);
+    // 长按 → 释放 hold
+    _handleColumnRelease(col);
 
-    if (_panStart != null && details.velocity.pixelsPerSecond.distance > 50) {
-      final dir = _getSwipeDirection(details.velocity.pixelsPerSecond);
+    // 滑动检测
+    final velocity = (event.position - state.startPosition) / (pressDuration / 1000.0);
+    if (velocity.distance > 50) {
+      final dir = _getSwipeDirection(velocity);
       if (dir != null) {
-        debugPrint('[SWIPE] elapsed=$elapsed col=$_panColumn dir=$dir');
-        _handleSwipe(_panColumn!, dir);
+        debugPrint('[SWIPE] elapsed=$elapsed col=$col dir=$dir');
+        _handleSwipe(col, dir);
       }
     }
-    _panStart = null;
-    _panColumn = null;
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    final state = _pointers.remove(event.pointer);
+    if (state == null) return;
+    _handleColumnRelease(state.column);
   }
 
   // ── 判定 ──
@@ -531,9 +644,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
     final screenSize = MediaQuery.of(context).size;
     final w = screenSize.width;
+    final h = screenSize.height;
     final colWidth = w / _columnCount;
     final centerX = colWidth * col + colWidth / 2;
-    final radius = _rpx(_circleRadiusRpx);
+    final radius = _radius;
+    final judgeY = h * _judgeLineRatio;
 
     final feedbackController = AnimationController(
       duration: const Duration(milliseconds: 600),
@@ -542,11 +657,24 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final feedback = JudgeFeedback(
       text: judgeText,
       x: centerX,
-      y: note.currentY - radius - 20,
+      y: judgeY - radius * 3, // 判定线上方固定位置
       color: Theme.of(context).colorScheme.primary,
       baseAlpha: judgeAlpha,
       controller: feedbackController,
     );
+
+    // 更新判定计数和连击
+    if (judgeText == 'Perfect') {
+      _perfectCount++;
+      _currentCombo++;
+    } else if (judgeText == 'Great') {
+      _greatCount++;
+      _currentCombo++;
+    } else {
+      _goodCount++;
+      _currentCombo++;
+    }
+    _maxCombo = math.max(_maxCombo, _currentCombo);
 
     setState(() {
       _score += points;
@@ -592,6 +720,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void _onNoteMissed(int col, FallingNote note) {
     if (note.judged) return;
     note.judged = true;
+    _missCount++;
+    _currentCombo = 0;
     final healthScale = 1.0 / _timingScale;
     setState(() {
       _health = (_health - 0.15 * healthScale).clamp(0.0, 1.0);
@@ -665,6 +795,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _gameOver() {
     _stopGame();
+    _audioCompletionSub?.cancel();
+    _syncGuard?.dispose();
     _audioPlayer?.stop();  // 游戏结束时完全停止音频
     for (final noteList in _notes) {
       for (final note in noteList) {
@@ -692,6 +824,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
       _score = 0;
       _health = 1.0;
       _nextNoteIndex = 0;
+      _perfectCount = 0;
+      _greatCount = 0;
+      _goodCount = 0;
+      _missCount = 0;
+      _maxCombo = 0;
+      _currentCombo = 0;
     });
 
     _startCountdown();
@@ -700,6 +838,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
   Future<void> _handleExit() async {
     if (_isExiting) return;
     _stopGame();
+    _audioCompletionSub?.cancel();
+    _syncGuard?.dispose();
     _audioPlayer?.stop();
     await _saveHighScore();
     for (final noteList in _notes) {
@@ -801,7 +941,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final screenSize = MediaQuery.of(context).size;
     final w = screenSize.width;
     final h = screenSize.height;
-    final radius = _rpx(_circleRadiusRpx);
+    final radius = _radius;
     final judgeY = h * _judgeLineRatio;
 
     final allControllers = <AnimationController>[];
@@ -821,11 +961,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: GestureDetector(
+      body: Listener(
         behavior: HitTestBehavior.opaque,
-        onTapUp: _handleTapUp,
-        onPanStart: _handlePanStart,
-        onPanEnd: _handlePanEnd,
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerCancel,
         child: Stack(
           children: [
             Positioned.fill(
