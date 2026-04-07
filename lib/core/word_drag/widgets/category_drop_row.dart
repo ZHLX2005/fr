@@ -49,29 +49,77 @@ class CategoryDropRow extends StatefulWidget {
   State<CategoryDropRow> createState() => CategoryDropRowState();
 }
 
-class CategoryDropRowState extends State<CategoryDropRow> {
+class CategoryDropRowState extends State<CategoryDropRow>
+    with SingleTickerProviderStateMixin {
   final Map<String, GlobalKey> _bucketKeys = {};
   final Map<String, Rect> _bucketRects = {};
+
+  // 动画控制器
+  late AnimationController _animController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOut,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOut,
+    ));
+
     for (var bucket in widget.buckets) {
       _bucketKeys[bucket.id] = GlobalKey();
     }
+
+    if (widget.visible) {
+      _animController.value = 1.0;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateBucketRects());
   }
 
   @override
   void didUpdateWidget(CategoryDropRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.buckets != widget.buckets) {
+
+    if (widget.visible != oldWidget.visible) {
+      if (widget.visible) {
+        _animController.forward();
+      } else {
+        _animController.reverse();
+      }
+    }
+
+    if (widget.buckets != oldWidget.buckets) {
       _bucketKeys.clear();
       for (var bucket in widget.buckets) {
         _bucketKeys[bucket.id] = GlobalKey();
       }
     }
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateBucketRects());
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   void _updateBucketRects() {
@@ -130,26 +178,29 @@ class CategoryDropRowState extends State<CategoryDropRow> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSlide(
-      offset: widget.visible ? Offset.zero : const Offset(0, 1),
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      child: AnimatedOpacity(
-        opacity: widget.visible ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 200),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: widget.buckets.map((bucket) {
-              return _BucketItem(
-                key: _bucketKeys[bucket.id],
-                bucket: bucket,
-                isActive: bucket.id == widget.activeBucketId,
-                onTap: () => widget.onBucketSelected?.call(bucket.id),
-              );
-            }).toList(),
+    return AnimatedBuilder(
+      animation: _animController,
+      builder: (context, child) {
+        return FractionalTranslation(
+          translation: _slideAnimation.value,
+          child: Opacity(
+            opacity: _fadeAnimation.value.clamp(0.0, 1.0),
+            child: child,
           ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: widget.buckets.map((bucket) {
+            return _BucketItem(
+              key: _bucketKeys[bucket.id],
+              bucket: bucket,
+              isActive: bucket.id == widget.activeBucketId,
+              onTap: () => widget.onBucketSelected?.call(bucket.id),
+            );
+          }).toList(),
         ),
       ),
     );
@@ -182,9 +233,11 @@ class _BucketItemState extends State<_BucketItem>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this);
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
 
-    // 弹性动画配置 (基于 photoo: dampingRatio=0.6f, stiffness=320f)
     _scaleAnimation = Tween<double>(begin: 0.82, end: 1.2).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
@@ -229,20 +282,32 @@ class _BucketItemState extends State<_BucketItem>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 68,
-              height: 68,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: widget.isActive ? 88 : 68,
+              height: widget.isActive ? 88 : 68,
               decoration: BoxDecoration(
-                color: widget.bucket.color.withValues(alpha: 0.15),
+                color: widget.isActive
+                    ? widget.bucket.color.withValues(alpha: 0.15)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: widget.bucket.color.withValues(alpha: 0.3),
-                  width: 2,
+                  color: widget.isActive
+                      ? widget.bucket.color
+                      : Colors.grey.shade300,
+                  width: widget.isActive ? 2 : 1,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Icon(
                 widget.bucket.icon,
-                color: widget.bucket.color,
+                color: widget.isActive ? widget.bucket.color : Colors.grey.shade600,
                 size: 32,
               ),
             ),
@@ -251,8 +316,8 @@ class _BucketItemState extends State<_BucketItem>
               widget.bucket.name,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[700],
+                fontWeight: widget.isActive ? FontWeight.bold : FontWeight.w500,
+                color: widget.isActive ? widget.bucket.color : Colors.grey.shade700,
               ),
               textAlign: TextAlign.center,
               maxLines: 1,

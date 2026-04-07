@@ -112,28 +112,28 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     final screenSize = MediaQuery.of(context).size;
     final notifier = context.read<WordDragNotifier>();
 
-    // 实时检测是否进入 folder mode (下滑 > 300px)
-    final isEnteringFolderMode = y > 300 && !notifier.state.isFolderMode;
-    final isExitingFolderMode = y <= 300 && notifier.state.isFolderMode;
-
-    if (isEnteringFolderMode) {
-      notifier.enterFolderMode();
-    } else if (isExitingFolderMode) {
-      notifier.exitFolderMode();
-    }
-
+    // 实时更新卡片偏移
     notifier.onDragUpdate(
       Offset(x, y),
       screenSize,
     );
 
-    // 如果是 folder mode，更新碰撞检测
-    if (notifier.state.isFolderMode) {
+    // 直接检测 folder mode - 当下滑超过 300px 时进入
+    // 不使用 else if，确保能正确进入和退出
+    if (y > 300) {
+      if (!notifier.state.isFolderMode) {
+        notifier.enterFolderMode();
+      }
+      // 更新碰撞检测
       final cardCenter = Offset(
         screenSize.width / 2 + x,
         screenSize.height * 0.4 + y,
       );
       _dropRowKey.currentState?.updateCardPosition(cardCenter);
+    } else {
+      if (notifier.state.isFolderMode) {
+        notifier.exitFolderMode();
+      }
     }
   }
 
