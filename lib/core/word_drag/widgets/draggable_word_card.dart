@@ -88,7 +88,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   static const double _actionIndicatorThreshold = 100;
   static const double _folderModeVisualThreshold = 150;
 
-  // 堆叠效果常量
+  // 堆叠效果常量 (基于 photoo)
   double get _stackScale => 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
   double get _stackYOffset => widget.stackIndex * 15.0;
 
@@ -215,7 +215,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _isAnimating = true;
 
     _animControllerX.animateTo(targetX, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
-    _animControllerY.animateTo(targetY, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    _animControllerY.animateTo(targetY, duration: const Duration(milliseconds: 200), curve: Curves.easeOut)
+        .then((_) {
+      _isAnimating = false;
+    });
   }
 
   // Spring 回弹动画 (基于 photoo 的 snappy 效果: stiffness=2000f, dampingRatio=0.85f)
@@ -342,8 +345,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
           _animateSpringBack();
         } : null,
         child: Container(
-          width: screenSize.width * 0.85,
-          height: screenSize.height * 0.55,
+          width: screenSize.width * 0.8,
+          height: screenSize.height * 0.5,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
