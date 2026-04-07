@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'overlay_service_android.dart'
+    if (dart.library.html) 'overlay_service_stub.dart';
+
 /// 悬浮窗服务接口
 abstract class OverlayServiceInterface {
   bool get isSupported;
@@ -67,9 +70,7 @@ class OverlayService implements OverlayServiceInterface {
     if (!isSupported) return;
 
     _isOverlayActive = true;
-
-    // Android 上使用 flutter_overlay_window
-    // 在 Android 原生代码中实现
+    await showOverlayWindow(onScreenshot);
   }
 
   /// 隐藏悬浮按钮
@@ -78,6 +79,7 @@ class OverlayService implements OverlayServiceInterface {
     if (!isSupported) return;
 
     _isOverlayActive = false;
+    await closeOverlayWindow();
   }
 
   /// 切换悬浮按钮显示状态

@@ -80,6 +80,9 @@ dependencies:
   permission_handler: ^11.4.0
   app_settings: ^5.1.1
 
+  # Overlay (Android only)
+  flutter_overlay_window: ^0.5.0
+
   # Audio Player
   audioplayers: ^5.2.1
   just_audio: ^0.9.40
