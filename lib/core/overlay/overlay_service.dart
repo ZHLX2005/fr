@@ -19,17 +19,17 @@ class OverlayService {
   /// 检查悬浮窗权限
   Future<bool> checkOverlayPermission() async {
     if (!isSupported) return false;
-    // 使用 permission_handler 检查权限
-    // 注意：这里只是粗略检查，实际以 showOverlay 返回为准
-    return _overlayPermissionGranted;
+    // 使用 flutter_overlay_window 本身检查权限
+    return await FlutterOverlayWindow.isPermissionGranted();
   }
 
   /// 请求悬浮窗权限
   Future<bool> requestOverlayPermission() async {
     if (!isSupported) return false;
-    // 请求权限 - flutter_overlay_window.requestPermission 会检查并请求
+    // 请求权限 - flutter_overlay_window.requestPermission 会打开系统设置页面
     final result = await FlutterOverlayWindow.requestPermission();
-    return result;
+    _overlayPermissionGranted = result ?? false;
+    return result ?? false;
   }
 
   /// 初始化悬浮窗
@@ -46,14 +46,14 @@ class OverlayService {
 
     // 请求权限并显示悬浮窗
     final granted = await FlutterOverlayWindow.requestPermission();
-    if (!granted) {
+    if (granted != true) {
       throw Exception('悬浮窗权限被拒绝');
     }
 
     _isOverlayActive = true;
     await FlutterOverlayWindow.showOverlay(
       enableDrag: true,
-      flag: OverlayFlag.clickThrough,
+      flag: OverlayFlag.defaultFlag,
       visibility: NotificationVisibility.visibilityPublic,
       positionGravity: PositionGravity.right,
       height: 60,
