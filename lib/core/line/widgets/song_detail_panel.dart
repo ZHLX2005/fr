@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/line_models.dart';
 import 'rotating_cover.dart';
 import 'song_list_tile.dart';
@@ -110,7 +111,7 @@ class LineDensityPicker extends StatelessWidget {
 }
 
 /// 歌曲详情面板
-class SongDetailPanel extends StatelessWidget {
+class SongDetailPanel extends StatefulWidget {
   final SongData song;
   final GameBorderStyle borderStyle;
   final LineDensity lineDensity;
@@ -129,9 +130,70 @@ class SongDetailPanel extends StatelessWidget {
   });
 
   @override
+  State<SongDetailPanel> createState() => _SongDetailPanelState();
+}
+
+class _SongDetailPanelState extends State<SongDetailPanel> {
+  int _highScore = 0;
+  double _highAccuracy = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHighScore();
+  }
+
+  @override
+  void didUpdateWidget(SongDetailPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.song.id != widget.song.id) {
+      _loadHighScore();
+    }
+  }
+
+  Future<void> _loadHighScore() async {
+    final songHash = widget.song.name.hashCode;
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _highScore = prefs.getInt('line_high_score_$songHash') ?? 0;
+        _highAccuracy = prefs.getDouble('line_high_accuracy_$songHash') ?? 0;
+      });
+    }
+  }
+
+  String _calculateGrade(double accuracy) {
+    if (accuracy >= 100) return 'P';
+    if (accuracy >= 95) return 'S';
+    if (accuracy >= 85) return 'A';
+    if (accuracy >= 70) return 'B';
+    if (accuracy >= 50) return 'C';
+    return 'D';
+  }
+
+  Color _gradeColor(String grade) {
+    switch (grade) {
+      case 'P':
+        return const Color(0xFFc44dff);
+      case 'S':
+        return const Color(0xFFffd700);
+      case 'A':
+        return const Color(0xFF4fc3f7);
+      case 'B':
+        return const Color(0xFF81c784);
+      case 'C':
+        return const Color(0xFFffb74d);
+      default:
+        return const Color(0xFFe57373);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme.primary;
+
+    final song = widget.song;
 
     return Column(
       children: [
@@ -165,7 +227,7 @@ class SongDetailPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // 难度 + 时长
+        // 难度 + 时长 + 最高分
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -178,6 +240,35 @@ class SongDetailPanel extends StatelessWidget {
                 color: theme.textTheme.bodySmall?.color,
               ),
             ),
+            if (_highScore > 0) ...[
+              const SizedBox(width: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.emoji_events, size: 14, color: color.withValues(alpha: 0.6)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$_highScore',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: color.withValues(alpha: 0.7),
+                        fontFeatures: [const FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 20),
@@ -210,8 +301,8 @@ class SongDetailPanel extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             GameBorderStylePicker(
-              selected: borderStyle,
-              onChanged: onBorderStyleChanged,
+              selected: widget.borderStyle,
+              onChanged: widget.onBorderStyleChanged,
               color: color,
             ),
           ],
@@ -230,16 +321,20 @@ class SongDetailPanel extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             LineDensityPicker(
-              selected: lineDensity,
-              onChanged: onLineDensityChanged,
+              selected: widget.lineDensity,
+              onChanged: widget.onLineDensityChanged,
               color: color,
             ),
           ],
         ),
+        if (_highAccuracy > 0) ...[
+          const SizedBox(height: 24),
+          _buildGradeDisplay(color),
+        ],
         const Spacer(),
         // START 按钮
         GestureDetector(
-          onTap: onStart,
+          onTap: widget.onStart,
           child: Container(
             width: 200,
             height: 56,
@@ -262,6 +357,34 @@ class SongDetailPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 48),
+      ],
+    );
+  }
+
+  Widget _buildGradeDisplay(Color themeColor) {
+    final grade = _calculateGrade(_highAccuracy);
+    final gradeColor = _gradeColor(grade);
+
+    return Column(
+      children: [
+        Text(
+          grade,
+          style: TextStyle(
+            fontSize: 40,
+            fontWeight: FontWeight.w100,
+            color: gradeColor,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${_highAccuracy.toStringAsFixed(1)}%',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w300,
+            color: themeColor.withValues(alpha: 0.4),
+          ),
+        ),
       ],
     );
   }
