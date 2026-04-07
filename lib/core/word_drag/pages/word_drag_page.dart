@@ -270,9 +270,12 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
       final word = state.words[wordIndex];
       final isTopCard = i == 0;
 
+      // 使用 ValueKey 确保 Flutter 正确识别每个卡片
       cards.add(
         Positioned(
+          key: ValueKey('card_$wordIndex'),
           child: DraggableWordCard(
+            key: ValueKey('draggable_$wordIndex'),
             index: wordIndex,
             isTopCard: isTopCard,
             stackIndex: i,

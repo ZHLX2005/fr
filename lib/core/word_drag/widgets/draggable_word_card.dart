@@ -214,11 +214,20 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   void _animateSwipeOut(double targetX, double targetY) {
     _isAnimating = true;
 
+    // 使用 addStatusListener 确保动画完成时重置状态
+    void onComplete(AnimationStatus status) {
+      if (status == AnimationStatus.completed) {
+        _isAnimating = false;
+        _animControllerX.removeStatusListener(onComplete);
+        _animControllerY.removeStatusListener(onComplete);
+      }
+    }
+
+    _animControllerX.addStatusListener(onComplete);
+    _animControllerY.addStatusListener(onComplete);
+
     _animControllerX.animateTo(targetX, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
-    _animControllerY.animateTo(targetY, duration: const Duration(milliseconds: 200), curve: Curves.easeOut)
-        .then((_) {
-      _isAnimating = false;
-    });
+    _animControllerY.animateTo(targetY, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
   }
 
   // Spring 回弹动画 (基于 photoo 的 snappy 效果: stiffness=2000f, dampingRatio=0.85f)
@@ -240,14 +249,16 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _animControllerX.animateWith(simulationX);
     _animControllerY.animateWith(simulationY);
 
-    // 监听动画完成
-    void onComplete() {
-      _isAnimating = false;
-      _animControllerX.removeListener(onComplete);
-      _animControllerY.removeListener(onComplete);
+    // 使用 addStatusListener 确保动画完成时重置状态
+    void onComplete(AnimationStatus status) {
+      if (status == AnimationStatus.completed) {
+        _isAnimating = false;
+        _animControllerX.removeStatusListener(onComplete);
+        _animControllerY.removeStatusListener(onComplete);
+      }
     }
-    _animControllerX.addListener(onComplete);
-    _animControllerY.addListener(onComplete);
+    _animControllerX.addStatusListener(onComplete);
+    _animControllerY.addStatusListener(onComplete);
   }
 
   // 计算动态缩放 (上下滑动时卡片变薄/变小)
