@@ -59,6 +59,13 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   }
 
   Future<void> _toggleOverlay() async {
+    if (!_overlayService.isSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('悬浮窗仅支持Android设备')),
+      );
+      return;
+    }
+
     if (!_hasPermission) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请先授予悬浮窗权限')),
