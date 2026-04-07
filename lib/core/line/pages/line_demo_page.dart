@@ -245,20 +245,25 @@ class _LineDemoPageState extends State<_LineDemoPage>
   }
 
   Future<void> _saveHighScore() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 保存最佳准确率（独立于分数记录）
+    final total = _chart?.notes.length ?? 0;
+    if (total > 0) {
+      final accuracyKey = _highScoreKey.replaceFirst(
+          'line_high_score_', 'line_high_accuracy_');
+      final accuracy = (_perfectCount * 3 + _greatCount * 2 + _goodCount) /
+          (total * 3) * 100;
+      final storedAccuracy = prefs.getDouble(accuracyKey) ?? 0;
+      if (accuracy > storedAccuracy) {
+        await prefs.setDouble(accuracyKey, accuracy);
+      }
+    }
+
+    // 保存最高分
     if (_score > _highScore) {
       _highScore = _score;
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_highScoreKey, _highScore);
-      // 同步保存准确率（用于选歌界面显示等级）
-      final total = _chart?.notes.length ?? 0;
-      if (total > 0) {
-        final accuracy = (_perfectCount * 3 + _greatCount * 2 + _goodCount) /
-            (total * 3) * 100;
-        await prefs.setDouble(
-          _highScoreKey.replaceFirst('line_high_score_', 'line_high_accuracy_'),
-          accuracy,
-        );
-      }
     }
   }
 
