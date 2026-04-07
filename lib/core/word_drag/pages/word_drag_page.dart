@@ -109,15 +109,25 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   }
 
   void _onDragUpdate(double x, double y) {
-    // 不需要 setState，动画由 DraggableWordCard 内部处理
     final screenSize = MediaQuery.of(context).size;
-    context.read<WordDragNotifier>().onDragUpdate(
+    final notifier = context.read<WordDragNotifier>();
+
+    // 实时检测是否进入 folder mode (下滑 > 300px)
+    final isEnteringFolderMode = y > 300 && !notifier.state.isFolderMode;
+    final isExitingFolderMode = y <= 300 && notifier.state.isFolderMode;
+
+    if (isEnteringFolderMode) {
+      notifier.enterFolderMode();
+    } else if (isExitingFolderMode) {
+      notifier.exitFolderMode();
+    }
+
+    notifier.onDragUpdate(
       Offset(x, y),
       screenSize,
     );
 
     // 如果是 folder mode，更新碰撞检测
-    final notifier = context.read<WordDragNotifier>();
     if (notifier.state.isFolderMode) {
       final cardCenter = Offset(
         screenSize.width / 2 + x,
@@ -245,8 +255,9 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
 
   Widget _buildCardStack(WordDragNotifier notifier, WordDragState state) {
     final screenSize = MediaQuery.of(context).size;
-    final cardWidth = screenSize.width * 0.85;
-    final cardHeight = screenSize.height * 0.55;
+    // photox 使用 0.8 宽度比例
+    final cardWidth = screenSize.width * 0.8;
+    final cardHeight = screenSize.height * 0.5;
 
     // 计算要显示的卡片数量 (最多3张)
     final displayCount = (state.words.length - state.currentIndex).clamp(0, 3);
@@ -265,9 +276,9 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             index: wordIndex,
             isTopCard: isTopCard,
             stackIndex: i,
-            onSwipeLeft: isTopCard && !_isDragging ? _onSwipeLeft : null,
-            onSwipeRight: isTopCard && !_isDragging ? _onSwipeRight : null,
-            onSwipeUp: isTopCard && !_isDragging ? _onSwipeUp : null,
+            onSwipeLeft: isTopCard ? _onSwipeLeft : null,
+            onSwipeRight: isTopCard ? _onSwipeRight : null,
+            onSwipeUp: isTopCard ? _onSwipeUp : null,
             onDragStart: isTopCard ? _onDragStart : null,
             onDragUpdate: isTopCard ? _onDragUpdate : null,
             onDragEnd: isTopCard ? _onDragEnd : null,
