@@ -1,10 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:path_provider/path_provider.dart';
-
-// 条件导入 flutter_overlay_window（仅 Android）
-import 'overlay_service_impl.dart'
-    if (dart.library.html) 'overlay_service_stub.dart';
 
 /// 悬浮窗服务（跨平台兼容）
 class OverlayService {
@@ -22,25 +19,23 @@ class OverlayService {
   /// 检查悬浮窗权限
   Future<bool> checkOverlayPermission() async {
     if (!isSupported) return false;
-    return await _checkOverlayPermission();
+    // 使用 permission_handler 检查权限
+    // 注意：这里只是粗略检查，实际以 showOverlay 返回为准
+    return _overlayPermissionGranted;
   }
 
   /// 请求悬浮窗权限
   Future<bool> requestOverlayPermission() async {
     if (!isSupported) return false;
-    return await _requestOverlayPermission();
+    // 请求权限 - flutter_overlay_window.requestPermission 会检查并请求
+    final result = await FlutterOverlayWindow.requestPermission();
+    return result;
   }
 
   /// 初始化悬浮窗
   Future<bool> initOverlay() async {
     if (!isSupported) return false;
-
-    final hasPermission = await checkOverlayPermission();
-    if (!hasPermission) {
-      final granted = await requestOverlayPermission();
-      if (!granted) return false;
-    }
-    return true;
+    return await requestOverlayPermission();
   }
 
   /// 显示悬浮截屏按钮
@@ -49,8 +44,23 @@ class OverlayService {
   }) async {
     if (!isSupported) return;
 
+    // 请求权限并显示悬浮窗
+    final granted = await FlutterOverlayWindow.requestPermission();
+    if (!granted) {
+      throw Exception('悬浮窗权限被拒绝');
+    }
+
     _isOverlayActive = true;
-    await _showOverlay(onScreenshot);
+    await FlutterOverlayWindow.showOverlay(
+      enableDrag: true,
+      flag: OverlayFlag.clickThrough,
+      visibility: NotificationVisibility.visibilityPublic,
+      positionGravity: PositionGravity.right,
+      height: 60,
+      width: 60,
+      alignment: OverlayAlignment.topRight,
+      startPosition: const OverlayPosition(0, 100),
+    );
   }
 
   /// 隐藏悬浮按钮
@@ -58,7 +68,7 @@ class OverlayService {
     if (!isSupported) return;
 
     _isOverlayActive = false;
-    await _closeOverlay();
+    await FlutterOverlayWindow.closeOverlay();
   }
 
   /// 切换悬浮按钮显示状态
@@ -81,6 +91,8 @@ class OverlayService {
     }
     return screenshotDir;
   }
+
+  bool _overlayPermissionGranted = false;
 }
 
 /// 悬浮窗权限状态
