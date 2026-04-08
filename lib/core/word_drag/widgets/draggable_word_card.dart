@@ -182,6 +182,9 @@ class _DraggableWordCardState extends State<DraggableWordCard>
         _animateSuckIntoFolder();
         return;
       }
+      // 文件夹模式但没有落在有效目标上 → 仅回弹，不触发滑动
+      _animateSpringBack();
+      return;
     }
 
     // 左滑 - 删除/稍后复习
