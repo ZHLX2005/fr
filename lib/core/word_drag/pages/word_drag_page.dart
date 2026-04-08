@@ -196,12 +196,12 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             notifier.onSwipeRight();
           },
           onSwipeUp: () {
-            // 上滑跳过 - 调用 notifier 跳到下一个单词
+            // 上滑跳过 - 先捕获当前单词显示详情，再跳到下一个
+            final wordToShow = notifier.state.currentWord;
             notifier.onSwipeUp();
-            // 同时显示详情页（使用 notifier.state 获取最新状态）
             Future.delayed(const Duration(milliseconds: 300), () {
-              if (mounted && notifier.state.currentWord != null) {
-                _showDetail(notifier.state.currentWord!);
+              if (mounted && wordToShow != null) {
+                _showDetail(wordToShow);
               }
             });
           },
@@ -264,6 +264,8 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   }
 
   void _updateBucketCollision(Offset cardCenter, double offsetX) {
+    // 先强制更新桶位置，确保碰撞检测有最新数据
+    _dropRowKey.currentState?.forceUpdateRects();
     _dropRowKey.currentState?.updateCardPosition(cardCenter, offsetX);
   }
 
