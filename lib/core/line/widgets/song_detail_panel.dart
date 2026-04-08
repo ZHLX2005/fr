@@ -335,14 +335,15 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
             children: [
               // 左侧 50%
               Expanded(
-                child: _highAccuracy > 0
-                    ? _buildGradeDisplay(color)
-                    : const SizedBox(),
+                child: Center(
+                  child: _highAccuracy > 0
+                      ? _buildGradeDisplay(color)
+                      : const SizedBox(),
+                ),
               ),
               // 右侧 50%
               Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
+                child: Center(
                   child: GestureDetector(
                     onTap: widget.onStart,
                     child: Container(
