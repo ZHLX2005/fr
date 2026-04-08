@@ -150,7 +150,11 @@ class _SongSelectPageState extends State<SongSelectPage> {
                 // 左侧歌曲滚轮 (30%)
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.3,
-                  child: ListWheelScrollView.useDelegate(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: -(MediaQuery.of(context).padding.top + 56) / 2,
+                    ),
+                    child: ListWheelScrollView.useDelegate(
                     controller: _scrollController,
                     itemExtent: 48,
                     diameterRatio: 100,
@@ -191,6 +195,7 @@ class _SongSelectPageState extends State<SongSelectPage> {
                         );
                       },
                     ),
+                  ),
                   ),
                 ),
                 // 右侧详情面板 (70%)
