@@ -225,6 +225,8 @@ AnimatedVisibility(
 10. ✅ 代码清理：移除未使用的 _folderDropRowThreshold 字段
 11. ✅ 堆叠动画：添加 spring 动画实现 (stiffness=350, dampingRatio=0.75)
 12. ✅ 碰撞检测：修正卡片中心位置计算 (考虑 BiasAlignment 上移 12%)
+13. ✅ 上滑修复：添加 notifier.onSwipeUp() 调用使卡片正确前进
+14. ✅ 上滑速度条件：修正为 (offsetY < -threshold || (velocityY < -flingThreshold && offsetY < 0))
 
 ## 参考来源
 
