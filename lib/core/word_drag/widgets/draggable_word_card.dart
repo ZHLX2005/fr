@@ -92,6 +92,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
   // Action Indicator 阈值
   static const double _actionIndicatorThreshold = 100;
+  // Action Indicator 文件夹模式阈值 (Kotlin: 150f)
+  static const double _actionIndicatorFolderThreshold = 150;
 
   // 堆叠效果常量
   double get _stackScale => 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
@@ -296,7 +298,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
   // 计算当前 Action Indicator
   ActionIndicator? get _currentActionIndicator {
-    final isFolderMode = _offsetY > _folderDropRowThreshold;
+    // Kotlin 使用 150f 作为 Action Indicator 的文件夹模式阈值
+    final isFolderMode = _offsetY > _actionIndicatorFolderThreshold;
 
     if (isFolderMode) {
       return ActionIndicator.folder;
