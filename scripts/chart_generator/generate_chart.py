@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-音乐乐谱生成脚本 v2
+音乐乐谱生成脚本 v3
 使用 librosa 分析音频，生成下落式音游的乐谱 JSON
 根据音乐能量动态调整难度，支持主动生成 hold 和 slide
+
+碰撞规则（与游戏保持一致）：
+  - tap/slide：列占用 [spawn, event.time + MISS_WINDOW_MS]
+  - hold：列占用 [spawn, event.time + holdDuration + MISS_WINDOW_MS]
+  - spawn = event.time - JUDGE_RATIO * dropDuration
 """
 
 import argparse
@@ -14,12 +19,18 @@ from pathlib import Path
 # Magic number constants
 MIN_BEAT_INTERVAL_MS = 150  # 最小节拍间隔（ms），低于此认为是快速段
 MAX_HOLD_DURATION_MS = 1500  # 最大 hold 时长
-SLIDE_PROBABILITY = 0.25  # 滑动音符概率
-HOLD_PROBABILITY = 0.35  # Hold 音符概率（提高）
-RANDOM_COLUMN_PROBABILITY = 0.7  # 随机 column 的概率
+MIN_HOLD_DURATION_MS = 300  # 最小 hold 时长（确保 hold 有意义）
+SLIDE_PROBABILITY = 0.40  # Slide 音符基础概率（目标 30%）
+HOLD_PROBABILITY = 0.20  # Hold 音符基础概率（目标 15%）
+DOUBLE_TAP_PROBABILITY = 0.80  # 双击概率（提高难度）
+RANDOM_COLUMN_PROBABILITY = 0.5  # 随机 column 的概率
 DEFAULT_DURATION = 180
 DEFAULT_DIFFICULTY = 3
 DEFAULT_DROP_DURATION = 2500
+# 判定窗口（与游戏代码保持一致）
+MISS_WINDOW_MS = 200
+# 下落时间比例（与游戏代码保持一致）
+JUDGE_RATIO = 0.733
 
 try:
     import librosa
@@ -40,10 +51,8 @@ def detect_beats_with_energy(audio_path, bpm):
     """检测节拍时间点（ms）和能量（基于 RMS 音量）"""
     y, sr = librosa.load(audio_path)
 
-    # 使用 RMS 音量作为能量指标
     rms = librosa.feature.rms(y=y)[0]
 
-    # 获取 beats
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
     beats = librosa.beat.beat_track(
         onset_envelope=onset_env,
@@ -53,11 +62,8 @@ def detect_beats_with_energy(audio_path, bpm):
     )[1]
 
     beat_times = librosa.frames_to_time(beats, sr=sr)
-
-    # 计算每个 beat 对应的帧
     beat_frames = librosa.time_to_frames(beat_times, sr=sr)
 
-    # 获取每个 beat 的 RMS 能量
     energies = []
     for frame in beat_frames:
         if frame < len(rms):
@@ -73,129 +79,177 @@ def generate_notes(beat_times, energies, bpm, column_count=3):
     notes = []
     beat_interval_ms = 60000 / bpm
 
-    # 计算能量统计（librosa 的 onset_strength 是相对值，需要归一化）
+    # 能量统计
     if energies and max(energies) > 0:
         avg_energy = sum(energies) / len(energies)
         max_energy = max(energies)
-        high_energy_threshold = avg_energy + (max_energy - avg_energy) * 0.6
+        high_energy_threshold = avg_energy + (max_energy - avg_energy) * 0.5
+        low_energy_threshold = avg_energy * 0.4
     else:
         avg_energy = 0.5
+        max_energy = 1.0
         high_energy_threshold = 0.65
+        low_energy_threshold = 0.2
+
+    # 每列的占用结束时间
+    occupation_end = [0] * column_count
+
+    def spawn_time(time):
+        return time - int(JUDGE_RATIO * DEFAULT_DROP_DURATION)
+
+    def can_place(col, time, duration=0):
+        """检查是否能放置"""
+        st = spawn_time(time)
+        end = time + duration + MISS_WINDOW_MS
+        return st >= occupation_end[col] and time >= occupation_end[col]
+
+    def place(col, time, ntype, duration=0, direction=None):
+        """放置音符并更新占用"""
+        end = time + duration + MISS_WINDOW_MS
+        note = {"time": time, "column": col, "type": ntype}
+        if duration > 0:
+            note["holdDuration"] = duration
+        if direction:
+            note["direction"] = direction
+        notes.append(note)
+        if end > occupation_end[col]:
+            occupation_end[col] = end
+        return True
+
+    def try_place_any_column(time, ntype, duration=0, direction=None):
+        """尝试所有列，找到第一个可用的"""
+        cols = list(range(column_count))
+        random.shuffle(cols)
+        for col in cols:
+            if can_place(col, time, duration):
+                place(col, time, ntype, duration, direction)
+                return True
+        return False
+
+    def try_place_at_columns(cols, time, ntype, duration=0, direction=None):
+        """尝试指定的列"""
+        for col in cols:
+            if can_place(col, time, duration):
+                place(col, time, ntype, duration, direction)
+                return True
+        return False
 
     for i, (beat_time, energy) in enumerate(zip(beat_times, energies)):
         if i < 2:
             continue
 
-        # 随机决定 column（增加趣味性）
-        if random.random() < RANDOM_COLUMN_PROBABILITY:
-            column = random.randint(0, column_count - 1)
-        else:
-            column = i % column_count
+        interval = beat_times[i] - beat_times[i - 1] if i > 0 else 9999
+        is_fast = interval < MIN_BEAT_INTERVAL_MS
+        is_high = energy > high_energy_threshold if max(energies) > 0 else False
+        is_low = energy < low_energy_threshold
 
-        # 检测是否是快速段（节拍间隔小）
-        is_fast = False
-        if i > 0:
-            interval = beat_time - beat_times[i - 1]
-            is_fast = interval < MIN_BEAT_INTERVAL_MS
+        # 根据列索引决定基础列
+        base_col = i % column_count
 
-        # 高能量段：更大概率生成特殊音符
-        is_high_energy = energy > high_energy_threshold if max(energies) > 0 else False
-
-        # 额外随机判断（增加多样性）
-        use_hold = random.random() < 0.12  # 12% 基础 hold 概率
-
-        # Slide 音符：高能量段或随机概率
-        if (is_high_energy or random.random() < SLIDE_PROBABILITY * 0.3) and not is_fast:
-            directions = ["up", "down", "left", "right"]
-            notes.append({
-                "time": beat_time,
-                "column": column,
-                "type": "slide",
-                "direction": random.choice(directions),
-            })
-            continue
-
-        # Hold 音符：高能量段或随机概率，hold 时长根据能量和节拍间隔计算
-        if use_hold or (is_high_energy and random.random() < HOLD_PROBABILITY):
-            # 根据能量决定 hold 时长（高能量 = 长 hold）
-            energy_factor = min(energy / max(high_energy_threshold, 0.01), 2.0)
-            hold_duration = int(min(MAX_HOLD_DURATION_MS, beat_interval_ms * energy_factor * random.uniform(0.8, 1.5)))
-            notes.append({
-                "time": beat_time,
-                "column": column,
-                "type": "hold",
-                "holdDuration": hold_duration,
-            })
-            continue
-
-        # 快速段：生成短 tap 或 double tap（两列同时）
+        # ========== 快速段处理 ==========
         if is_fast and i > 0:
-            interval = beat_times[i] - beat_times[i - 1]
-            if interval < 120 and random.random() < 0.3:
-                # Double tap：同一列紧接一个 tap
-                notes.append({
-                    "time": beat_time,
-                    "column": column,
-                    "type": "tap",
-                })
-                if random.random() < 0.5:
-                    # 额外在相邻列加一个 tap
-                    next_col = (column + 1) % column_count
-                    notes.append({
-                        "time": beat_time + int(interval * 0.5),
-                        "column": next_col,
-                        "type": "tap",
-                    })
-                continue
+            short_interval = interval < 120
 
-        # 普通 tap
-        notes.append({
-            "time": beat_time,
-            "column": column,
-            "type": "tap",
-        })
+            if short_interval:
+                # 短间隔：双击或三击
+                if random.random() < DOUBLE_TAP_PROBABILITY:
+                    # 双击：当前列 + 相邻列
+                    placed = try_place_at_columns([base_col], beat_time, "tap")
+                    next_col = (base_col + 1) % column_count
+                    try_place_at_columns([next_col], beat_time + int(interval * 0.5), "tap")
+                else:
+                    # 单击
+                    try_place_any_column(beat_time, "tap")
+            else:
+                # 中等间隔：单击
+                try_place_any_column(beat_time, "tap")
+            continue
 
-    # 添加一些主动设计的 hold 模式（连续 hold）
-    notes = add_hold_patterns(notes, beat_times, column_count)
+        # ========== 正常段落处理 ==========
+        # 目标分布：tap 55%，slide 30%，hold 15%
+
+        roll = random.random()
+        placed = False
+
+        # 1. Slide（30%）
+        if roll < 0.30:
+            directions = ["up", "down", "left", "right"]
+            if try_place_any_column(beat_time, "slide", direction=random.choice(directions)):
+                placed = True
+
+        # 2. Hold（15%）
+        if not placed and roll < 0.45:
+            raw_min = int(beat_interval_ms * 2.0)
+            raw_max = int(beat_interval_ms * 4.0)
+            min_dur = max(MIN_HOLD_DURATION_MS, min(raw_min, MAX_HOLD_DURATION_MS))
+            max_dur = min(MAX_HOLD_DURATION_MS, max(raw_max, min_dur + 1))
+            hold_duration = random.randint(min_dur, max_dur)
+            if try_place_any_column(beat_time, "hold", duration=hold_duration):
+                placed = True
+
+        # 3. Tap（55%）：上述都失败则放 tap
+        if not placed:
+            if not try_place_any_column(beat_time, "tap"):
+                if i + 1 < len(beat_times):
+                    next_time = beat_times[i + 1]
+                    if next_time - beat_time < 300:
+                        try_place_any_column(next_time, "tap")
 
     # 按时间排序
     notes.sort(key=lambda x: x["time"])
-
     return notes
 
 
 def add_hold_patterns(notes, beat_times, column_count):
-    """添加有节奏感的 hold 模式"""
+    """添加连续 hold 模式（带碰撞检测）"""
     if len(beat_times) < 8:
         return notes
 
-    # 在歌曲中间段随机插入一些 hold 模式
+    beat_interval_ms = 60000 / (random.uniform(60, 120))  # 随机 BPM 估算
+
+    # 构建每列的占用结束时间（从已放置的音符，逐步更新）
+    occupation_end = {}
+
+    def can_place_hold(col, time, duration):
+        # 只需检查 event_time > 上一音符的 end_time
+        return time > occupation_end.get(col, 0)
+
+    def place_hold(col, time, duration):
+        end_time = time + duration + MISS_WINDOW_MS
+        notes.append({
+            "time": time,
+            "column": col,
+            "type": "hold",
+            "holdDuration": duration,
+        })
+        if end_time > occupation_end.get(col, 0):
+            occupation_end[col] = end_time
+
     total_beats = len(beat_times)
     middle_start = total_beats // 4
     middle_end = total_beats * 3 // 4
 
-    # 随机选择几个位置插入 hold 链
-    num_patterns = random.randint(1, 3)
+    # 插入 2-4 个 hold 链
+    num_patterns = random.randint(2, 4)
     for _ in range(num_patterns):
-        start_idx = random.randint(middle_start, middle_end - 4)
+        start_idx = random.randint(middle_start, max(middle_start, middle_end - 6))
         column = random.randint(0, column_count - 1)
+        num_holds = random.randint(3, 5)
 
-        # 创建 2-4 个连续的 hold
-        num_holds = random.randint(2, 4)
         for j in range(num_holds):
-            if start_idx + j * 2 < len(beat_times):
-                beat_time = beat_times[start_idx + j * 2]
-                hold_duration = random.randint(400, 1000)
-
-                # 检查该时间点是否已有音符
-                existing = [n for n in notes if abs(n["time"] - beat_time) < 100]
-                if not existing:
-                    notes.append({
-                        "time": beat_time,
-                        "column": column,
-                        "type": "hold",
-                        "holdDuration": hold_duration,
-                    })
+            idx = start_idx + j * 2
+            if idx >= len(beat_times):
+                break
+            beat_time = beat_times[idx]
+            # 每个 hold 至少 2 个 beat 的长度
+            hold_duration = random.randint(
+                max(MIN_HOLD_DURATION_MS, int(beat_interval_ms * 2)),
+                min(MAX_HOLD_DURATION_MS, int(beat_interval_ms * 3.5))
+            )
+            # 检查 100ms 范围内没有其他音符
+            existing = [n for n in notes if abs(n["time"] - beat_time) < 100]
+            if not existing and can_place_hold(column, beat_time, hold_duration):
+                place_hold(column, beat_time, hold_duration)
 
     return notes
 
@@ -239,30 +293,209 @@ def generate_chart(audio_path, output_path, song_name=None, artist=None, intro="
     print(f"  Tap: {tap_count}, Hold: {hold_count}, Slide: {slide_count}")
 
 
+def rebuild_chart(input_path, output_path=None):
+    """从现有乐谱重构，应用新的生成逻辑：
+    1. 扩展 hold 时长
+    2. 尝试在空隙处插入更多 tap/slide
+    3. 确保无碰撞
+    """
+    with open(input_path, 'r', encoding='utf-8') as f:
+        chart = json.load(f)
+
+    drop_duration = chart.get("dropDuration", DEFAULT_DROP_DURATION)
+    existing_notes = sorted(chart.get("notes", []), key=lambda x: x["time"])
+    column_count = 3
+
+    # occupation_end 按时间顺序逐步构建
+    occupation_end = {}
+
+    def spawn_time(time):
+        return time - int(JUDGE_RATIO * drop_duration)
+
+    def can_place(col, time, duration=0):
+        # collision window = [event_time, event_time + duration + MISS_WINDOW_MS]
+        # 新音符的 event_time 必须 > 上一音符的 end_time（> 不是 >=，确保不重叠）
+        return time > occupation_end.get(col, 0)
+
+    def place(col, time, ntype, duration=0, direction=None):
+        end_time = time + duration + MISS_WINDOW_MS
+        note = {"time": time, "column": col, "type": ntype}
+        if duration > 0:
+            note["holdDuration"] = duration
+        if direction:
+            note["direction"] = direction
+        if end_time > occupation_end.get(col, 0):
+            occupation_end[col] = end_time
+        return note
+
+    kept_notes = []
+
+    # 1. 先放置所有现有音符，尝试扩展 hold 时长
+    for n in existing_notes:
+        col = n["column"]
+        time = n["time"]
+        ntype = n["type"]
+        duration = n.get("holdDuration", 0)
+        direction = n.get("direction")
+
+        if ntype == "hold":
+            # 尝试扩展 hold 时长
+            max_extend = int(DEFAULT_DROP_DURATION * 0.5)  # 最多扩展半个下落时间
+            for ext in range(max_extend, 0, -50):
+                if can_place(col, time, duration + ext):
+                    duration += ext
+                    break
+            # 即使不能扩展，也要确保能放置原时长
+            if can_place(col, time, duration):
+                note_to_keep = {"time": time, "column": col, "type": ntype, "holdDuration": duration}
+                if direction:
+                    note_to_keep["direction"] = direction
+                kept_notes.append(note_to_keep)
+                # 更新 occupation_end（用扩展后的 duration）
+                end_time = time + duration + MISS_WINDOW_MS
+                if end_time > occupation_end.get(col, 0):
+                    occupation_end[col] = end_time
+            else:
+                # 降级为 tap，但也需要检查 tap 能否放置
+                if can_place(col, time, 0):
+                    kept_notes.append(place(col, time, "tap", 0, None))
+                # else: tap 也放不下，干脆丢弃
+        elif can_place(col, time, 0):
+            kept_notes.append(place(col, time, ntype, 0, direction))
+
+    # 2. 在空隙处插入更多 tap
+    if len(existing_notes) > 1:
+        for i in range(len(existing_notes) - 1):
+            n1 = existing_notes[i]
+            n2 = existing_notes[i + 1]
+            gap = n2["time"] - n1["time"]
+
+            if gap > 700:  # 间隔够大，尝试插入
+                mid_time = int((n1["time"] + n2["time"]) / 2)
+                for col in range(column_count):
+                    if can_place(col, mid_time, 0):
+                        kept_notes.append(place(col, mid_time, "tap", 0, None))
+                        break
+
+    # 按时间排序
+    kept_notes.sort(key=lambda x: x["time"])
+
+    chart["notes"] = kept_notes
+    out_path = output_path or input_path
+    with open(out_path, 'w', encoding='utf-8') as f:
+        json.dump(chart, f, indent=2, ensure_ascii=False)
+
+    print(f"Chart: {chart.get('name', 'Unknown')}")
+    tap = sum(1 for n in kept_notes if n["type"] == "tap")
+    hold = sum(1 for n in kept_notes if n["type"] == "hold")
+    slide = sum(1 for n in kept_notes if n["type"] == "slide")
+    print(f"  Total: {len(kept_notes)} notes | Tap: {tap}, Hold: {hold}, Slide: {slide}")
+    avg_hold = sum(n.get("holdDuration", 0) for n in kept_notes if n["type"] == "hold")
+    hold_count = hold
+    if hold_count > 0:
+        print(f"  Avg hold duration: {avg_hold // hold_count}ms")
+    print(f"  Saved to: {out_path}")
+
+
+def fix_chart(input_path, output_path=None):
+    """修复现有乐谱 JSON，移除碰撞音符"""
+    with open(input_path, 'r', encoding='utf-8') as f:
+        chart = json.load(f)
+
+    notes = chart.get("notes", [])
+    column_count = 3
+    drop_duration = chart.get("dropDuration", DEFAULT_DROP_DURATION)
+
+    occupation_end = {}
+    removed = []
+    kept = []
+
+    notes_sorted = sorted(notes, key=lambda x: x["time"])
+
+    def spawn_time(time):
+        return time - int(JUDGE_RATIO * drop_duration)
+
+    def can_place(col, time, duration=0):
+        # collision window = [event_time, event_time + duration + MISS_WINDOW_MS]
+        # 新音符的 event_time 必须 > 上一音符的 end_time（> 不是 >=，确保不重叠）
+        return time > occupation_end.get(col, 0)
+
+    def place(col, time, ntype, duration=0, direction=None):
+        end_time = time + duration + MISS_WINDOW_MS
+        note = {"time": time, "column": col, "type": ntype}
+        if duration > 0:
+            note["holdDuration"] = duration
+        if direction:
+            note["direction"] = direction
+        kept.append(note)
+        if end_time > occupation_end.get(col, 0):
+            occupation_end[col] = end_time
+
+    for n in notes_sorted:
+        col = n["column"]
+        time = n["time"]
+        ntype = n["type"]
+        duration = n.get("holdDuration", 0)
+        direction = n.get("direction")
+
+        if can_place(col, time, duration):
+            place(col, time, ntype, duration, direction)
+        else:
+            removed.append(n)
+
+    chart["notes"] = kept
+    out_path = output_path or input_path
+    with open(out_path, 'w', encoding='utf-8') as f:
+        json.dump(chart, f, indent=2, ensure_ascii=False)
+
+    print(f"Chart: {chart.get('name', 'Unknown')}")
+    print(f"  Kept: {len(kept)} notes, Removed: {len(removed)} conflicting notes")
+    if removed:
+        for n in removed[:5]:
+            print(f"    REMOVED: col={n['column']} time={n['time']} type={n['type']}")
+        if len(removed) > 5:
+            print(f"    ... and {len(removed) - 5} more")
+    print(f"  Saved to: {out_path}")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="生成音游乐谱 v2")
-    parser.add_argument("audio", help="音频文件路径 (m4a, mp3, wav)")
+    parser = argparse.ArgumentParser(description="生成音游乐谱 v3")
+    parser.add_argument("audio", help="音频文件路径 (m4a, mp3, wav) 或 JSON 乐谱路径 (用 --fix)")
     parser.add_argument("-o", "--output", help="输出JSON路径")
     parser.add_argument("--name", help="歌曲名称")
     parser.add_argument("--artist", help="艺术家名称")
     parser.add_argument("--intro", default="", help="简介")
+    parser.add_argument("--fix", action="store_true", help="修复现有乐谱 JSON，移除碰撞音符")
+    parser.add_argument("--rebuild", action="store_true", help="从现有乐谱重构，扩展 hold 时长并补充 tap/slide")
 
     args = parser.parse_args()
 
     audio_path = Path(args.audio)
-    if not audio_path.exists():
-        print(f"Error: File not found: {audio_path}")
-        sys.exit(1)
 
-    output_path = args.output or f"assets/charts/{audio_path.stem}.json"
+    if args.fix:
+        if not audio_path.exists():
+            print(f"Error: File not found: {audio_path}")
+            sys.exit(1)
+        fix_chart(str(audio_path), args.output)
+    elif args.rebuild:
+        if not audio_path.exists():
+            print(f"Error: File not found: {audio_path}")
+            sys.exit(1)
+        rebuild_chart(str(audio_path), args.output)
+    else:
+        if not audio_path.exists():
+            print(f"Error: File not found: {audio_path}")
+            sys.exit(1)
 
-    generate_chart(
-        str(audio_path),
-        output_path,
-        song_name=args.name,
-        artist=args.artist,
-        intro=args.intro,
-    )
+        output_path = args.output or f"assets/charts/{audio_path.stem}.json"
+
+        generate_chart(
+            str(audio_path),
+            output_path,
+            song_name=args.name,
+            artist=args.artist,
+            intro=args.intro,
+        )
 
 
 if __name__ == "__main__":
