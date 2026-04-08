@@ -154,7 +154,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
   // 触觉反馈 (photox: HapticFeedbackType.LongPress)
   void _performHaptic() {
-    HapticFeedback.heavyImpact();
+    HapticFeedback.mediumImpact();
   }
 
   // 处理拖动更新
