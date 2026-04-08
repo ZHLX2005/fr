@@ -227,6 +227,7 @@ AnimatedVisibility(
 12. ✅ 碰撞检测：修正卡片中心位置计算 (考虑 BiasAlignment 上移 12%)
 13. ✅ 上滑修复：添加 notifier.onSwipeUp() 调用使卡片正确前进
 14. ✅ 上滑速度条件：修正为 (offsetY < -threshold || (velocityY < -flingThreshold && offsetY < 0))
+15. ✅ 状态捕获修复：使用 notifier.state.currentWord 而非捕获的 state.currentWord
 
 ## 参考来源
 
