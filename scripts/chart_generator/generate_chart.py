@@ -173,11 +173,17 @@ def generate_notes(beat_times, energies, bpm, column_count=3):
 
         # 2. Hold（15%）
         if not placed and roll < 0.45:
-            raw_min = int(beat_interval_ms * 2.0)
-            raw_max = int(beat_interval_ms * 4.0)
-            min_dur = max(MIN_HOLD_DURATION_MS, min(raw_min, MAX_HOLD_DURATION_MS))
-            max_dur = min(MAX_HOLD_DURATION_MS, max(raw_max, min_dur + 1))
-            hold_duration = random.randint(min_dur, max_dur)
+            # 能量驱动的 hold 时长：低能量 → 长 hold，高能量 → 短 hold
+            energy_range = high_energy_threshold - low_energy_threshold
+            if energy_range > 0:
+                energy_ratio = (energy - low_energy_threshold) / energy_range
+            else:
+                energy_ratio = 0.5
+            energy_ratio = max(0.0, min(1.0, energy_ratio))
+            # 低能量(0.0) → 4x beats, 高能量(1.0) → 1x beats
+            beat_mult = 1.0 + 3.0 * (1.0 - energy_ratio)
+            hold_duration = int(beat_interval_ms * beat_mult)
+            hold_duration = max(MIN_HOLD_DURATION_MS, min(MAX_HOLD_DURATION_MS, hold_duration))
             if try_place_any_column(beat_time, "hold", duration=hold_duration):
                 placed = True
 
