@@ -180,9 +180,9 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
       children: [
         // 底层卡片 (模拟堆叠效果)
         if (state.currentIndex + 1 < state.words.length)
-          _buildBackgroundCard(cardWidth, cardHeight, 0.96, 20),
+          _buildBackgroundCard(cardWidth, cardHeight, 1),
         if (state.currentIndex + 2 < state.words.length)
-          _buildBackgroundCard(cardWidth, cardHeight, 0.92, 40),
+          _buildBackgroundCard(cardWidth, cardHeight, 2),
 
         // 顶层卡片 (使用 ValueKey 确保 currentIndex 改变时重建)
         DraggableWordCard(
@@ -241,9 +241,12 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     );
   }
 
-  Widget _buildBackgroundCard(double width, double height, double scale, double topOffset) {
+  Widget _buildBackgroundCard(double width, double height, int stackIndex) {
+    // 匹配 DraggableWordCard 的堆叠公式
+    final scale = 1.0 - (stackIndex * 0.04);
+    final yOffset = stackIndex * 15.0;
     return Transform.translate(
-      offset: Offset(0, topOffset),
+      offset: Offset(0, yOffset),
       child: Transform.scale(
         scale: scale,
         child: Container(
