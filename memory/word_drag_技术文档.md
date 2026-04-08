@@ -67,6 +67,26 @@ val yOffset by animateDpAsState(
 )
 ```
 
+### 卡片垂直定位 (2026-04-09 修复)
+```kotlin
+// Kotlin - 使用 BiasAlignment(0f, -0.12f) 将卡片上移 12%
+Box(
+    modifier = Modifier.fillMaxSize(),
+    contentAlignment = BiasAlignment(0f, -0.12f) // 上移 12%
+) { ... }
+```
+
+```dart
+// Dart - 卡片居中，碰撞检测使用修正后的中心位置
+Offset getCardCenter(double offsetX, double offsetY) {
+  // Kotlin card center = 0.08 * screenHeight + cardHeight/2
+  // (card top = 0.08 * screenHeight due to -0.12 bias)
+  final cardCenterY = screenSize.height * 0.08 + cardHeight / 2;
+  return Offset(screenSize.width / 2 + offsetX, cardCenterY + offsetY);
+}
+```
+✅ 碰撞检测位置已修正
+
 ```dart
 // Dart - 使用 AnimationController + SpringSimulation
 // didUpdateWidget 中当 stackIndex 变化时触发动画
@@ -204,6 +224,7 @@ AnimatedVisibility(
 9. ✅ 按压缩放动画阻尼参数修正 (15.0 → 26.83)
 10. ✅ 代码清理：移除未使用的 _folderDropRowThreshold 字段
 11. ✅ 堆叠动画：添加 spring 动画实现 (stiffness=350, dampingRatio=0.75)
+12. ✅ 碰撞检测：修正卡片中心位置计算 (考虑 BiasAlignment 上移 12%)
 
 ## 参考来源
 
