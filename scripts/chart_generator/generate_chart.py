@@ -19,8 +19,6 @@ from pathlib import Path
 MIN_BEAT_INTERVAL_MS = 150  # 最小节拍间隔（ms），低于此认为是快速段
 MAX_HOLD_DURATION_MS = 1500  # 最大 hold 时长
 MIN_HOLD_DURATION_MS = 300  # 最小 hold 时长（确保 hold 有意义）
-SLIDE_PROBABILITY = 0.40  # Slide 音符基础概率（目标 30%）
-HOLD_PROBABILITY = 0.20  # Hold 音符基础概率（目标 15%）
 DOUBLE_TAP_PROBABILITY = 0.80  # 双击概率（提高难度）
 RANDOM_COLUMN_PROBABILITY = 0.5  # 随机 column 的概率
 DEFAULT_DURATION = 180
@@ -160,19 +158,28 @@ def generate_notes(beat_times, energies, bpm, column_count=3):
             continue
 
         # ========== 正常段落处理 ==========
-        # 目标分布：tap 55%，slide 30%，hold 15%
+        # 能量驱动音符类型分布
+        if is_low:
+            # 低能量：hold 25%, slide 15%, tap 60%
+            tap_prob, slide_prob, hold_prob = 0.60, 0.15, 0.25
+        elif is_high:
+            # 高能量：tap 65%, slide 25%, hold 10%
+            tap_prob, slide_prob, hold_prob = 0.65, 0.25, 0.10
+        else:
+            # 中等能量：tap 55%, slide 30%, hold 15%
+            tap_prob, slide_prob, hold_prob = 0.55, 0.30, 0.15
 
         roll = random.random()
         placed = False
 
-        # 1. Slide（30%）
-        if roll < 0.30:
+        # 1. Slide
+        if roll < slide_prob:
             directions = ["up", "down", "left", "right"]
             if try_place_any_column(beat_time, "slide", direction=random.choice(directions)):
                 placed = True
 
-        # 2. Hold（15%）
-        if not placed and roll < 0.45:
+        # 2. Hold
+        if not placed and roll < slide_prob + hold_prob:
             # 能量驱动的 hold 时长：低能量 → 长 hold，高能量 → 短 hold
             energy_range = high_energy_threshold - low_energy_threshold
             if energy_range > 0:
@@ -187,7 +194,7 @@ def generate_notes(beat_times, energies, bpm, column_count=3):
             if try_place_any_column(beat_time, "hold", duration=hold_duration):
                 placed = True
 
-        # 3. Tap（55%）：上述都失败则放 tap
+        # 3. Tap (fallback)
         if not placed:
             if not try_place_any_column(beat_time, "tap"):
                 if i + 1 < len(beat_times):
@@ -197,60 +204,6 @@ def generate_notes(beat_times, energies, bpm, column_count=3):
 
     # 按时间排序
     notes.sort(key=lambda x: x["time"])
-    return notes
-
-
-def add_hold_patterns(notes, beat_times, column_count):
-    """添加连续 hold 模式（带碰撞检测）"""
-    if len(beat_times) < 8:
-        return notes
-
-    beat_interval_ms = 60000 / (random.uniform(60, 120))  # 随机 BPM 估算
-
-    # 构建每列的占用结束时间（从已放置的音符，逐步更新）
-    occupation_end = {}
-
-    def can_place_hold(col, time, duration):
-        # 只需检查 event_time > 上一音符的 end_time
-        return time > occupation_end.get(col, 0)
-
-    def place_hold(col, time, duration):
-        end_time = time + duration + MISS_WINDOW_MS
-        notes.append({
-            "time": time,
-            "column": col,
-            "type": "hold",
-            "holdDuration": duration,
-        })
-        if end_time > occupation_end.get(col, 0):
-            occupation_end[col] = end_time
-
-    total_beats = len(beat_times)
-    middle_start = total_beats // 4
-    middle_end = total_beats * 3 // 4
-
-    # 插入 2-4 个 hold 链
-    num_patterns = random.randint(2, 4)
-    for _ in range(num_patterns):
-        start_idx = random.randint(middle_start, max(middle_start, middle_end - 6))
-        column = random.randint(0, column_count - 1)
-        num_holds = random.randint(3, 5)
-
-        for j in range(num_holds):
-            idx = start_idx + j * 2
-            if idx >= len(beat_times):
-                break
-            beat_time = beat_times[idx]
-            # 每个 hold 至少 2 个 beat 的长度
-            hold_duration = random.randint(
-                max(MIN_HOLD_DURATION_MS, int(beat_interval_ms * 2)),
-                min(MAX_HOLD_DURATION_MS, int(beat_interval_ms * 3.5))
-            )
-            # 检查 100ms 范围内没有其他音符
-            existing = [n for n in notes if abs(n["time"] - beat_time) < 100]
-            if not existing and can_place_hold(column, beat_time, hold_duration):
-                place_hold(column, beat_time, hold_duration)
-
     return notes
 
 
