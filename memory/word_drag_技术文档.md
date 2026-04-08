@@ -105,6 +105,21 @@ _offsetYController.animateTo(_offsetYController.value + 200, ...);
 ```
 ✅ 一致
 
+### 按压缩放动画
+```kotlin
+// Kotlin
+val pressScale by animateFloatAsState(
+    targetValue = if (isPressed) 0.96f else 1f,
+    animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.6f)
+)
+```
+
+```dart
+// Dart - damping = 2 * sqrt(500) * 0.6 ≈ 26.83
+final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 26.83);
+```
+✅ 一致 (2026-04-09 修复)
+
 ## FolderDropRow 参数对比
 
 ### 动画参数
@@ -160,6 +175,7 @@ AnimatedVisibility(
 6. ✅ 进入文件夹模式时重置滚动位置
 7. ✅ 文件夹模式未命中目标时正确回弹（不触发滑动）
 8. ✅ Action Indicator 文件夹阈值修正为 150f
+9. ✅ 按压缩放动画阻尼参数修正 (15.0 → 26.83)
 
 ## 参考来源
 
