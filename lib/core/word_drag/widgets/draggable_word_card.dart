@@ -153,9 +153,9 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     });
   }
 
-  // 触觉反馈
+  // 触觉反馈 (photox: HapticFeedbackType.LongPress)
   void _performHaptic() {
-    HapticFeedback.mediumImpact();
+    HapticFeedback.heavyImpact();
   }
 
   // 处理拖动更新
@@ -236,19 +236,19 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     });
   }
 
-  // 滑出动画
+  // 滑出动画 (photoo: FastOutLinearInEasing - 线性加速)
   void _animateSwipeOut(double targetX, double targetY) {
     _isAnimating = true;
 
     _offsetXController.animateTo(
       targetX,
       duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
+      curve: Curves.linear,
     );
     _offsetYController.animateTo(
       targetY,
       duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
+      curve: Curves.linear,
     ).then((_) {
       _isAnimating = false;
     });
@@ -337,7 +337,11 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                     onPanStart: widget.isTopCard ? (_) {
                       if (_isAnimating) return;
                       _isPressed = true;
-                      _pressScaleController.animateTo(0.96, duration: const Duration(milliseconds: 150));
+                      // photoo: spring(stiffness=Medium, dampingRatio=0.6f)
+                      // Animate from 1.0 to 0.96 (press down effect)
+                      final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 15.0);
+                      final simulation = SpringSimulation(spring, 1.0, 0.96, 0);
+                      _pressScaleController.animateWith(simulation);
                       widget.onDragStart?.call();
                     } : null,
                     onPanUpdate: widget.isTopCard ? (details) {

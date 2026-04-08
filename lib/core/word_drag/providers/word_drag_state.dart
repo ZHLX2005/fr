@@ -37,6 +37,9 @@ class WordDragState {
   /// 标新成功
   final bool showMarkNewSuccessHint;
 
+  /// 掌握成功
+  final bool showMasteredSuccessHint;
+
   /// 删除成功
   final bool showDeleteSuccessHint;
 
@@ -59,6 +62,7 @@ class WordDragState {
     required this.deleteZoneOpacity,
     required this.showMarkSuccessHint,
     required this.showMarkNewSuccessHint,
+    required this.showMasteredSuccessHint,
     required this.showDeleteSuccessHint,
     required this.showDetails,
     required this.isFolderMode,
@@ -97,6 +101,7 @@ class WordDragState {
       deleteZoneOpacity: 0.0,
       showMarkSuccessHint: false,
       showMarkNewSuccessHint: false,
+      showMasteredSuccessHint: false,
       showDeleteSuccessHint: false,
       showDetails: false,
       isFolderMode: false,
@@ -115,6 +120,7 @@ class WordDragState {
     double? deleteZoneOpacity,
     bool? showMarkSuccessHint,
     bool? showMarkNewSuccessHint,
+    bool? showMasteredSuccessHint,
     bool? showDeleteSuccessHint,
     bool? showDetails,
     bool? isFolderMode,
@@ -130,6 +136,7 @@ class WordDragState {
       deleteZoneOpacity: deleteZoneOpacity ?? this.deleteZoneOpacity,
       showMarkSuccessHint: showMarkSuccessHint ?? this.showMarkSuccessHint,
       showMarkNewSuccessHint: showMarkNewSuccessHint ?? this.showMarkNewSuccessHint,
+      showMasteredSuccessHint: showMasteredSuccessHint ?? this.showMasteredSuccessHint,
       showDeleteSuccessHint: showDeleteSuccessHint ?? this.showDeleteSuccessHint,
       showDetails: showDetails ?? this.showDetails,
       isFolderMode: isFolderMode ?? this.isFolderMode,

@@ -27,20 +27,19 @@ class WordDragNotifier extends ChangeNotifier {
 
   // ==================== 滑动完成回调 ====================
 
-  /// 上滑完成
+  /// 上滑完成 (跳过)
   void onSwipeUp() {
-    _navigateToDetail();
+    _skipWord();
   }
 
-  /// 左滑完成
+  /// 左滑完成 (稍后复习)
   void onSwipeLeft() {
     _markAsReviewed();
   }
 
-  /// 右滑完成
+  /// 右滑完成 (标记为已掌握)
   void onSwipeRight() {
-    // 右滑未进区域 -> 导航到详情页
-    _navigateToDetail();
+    _markAsMastered();
   }
 
   /// 回弹
@@ -211,6 +210,40 @@ class WordDragNotifier extends ChangeNotifier {
     _moveToNextWord();
   }
 
+  /// 标记为已掌握 (右滑)
+  void _markAsMastered() {
+    if (_state.currentWord != null) {
+      final updatedWords = List<Word>.from(_state.words);
+      final currentWord = updatedWords[_state.currentIndex];
+      final index = updatedWords.indexOf(currentWord);
+      if (index >= 0) {
+        updatedWords[index] = Word(
+          id: currentWord.id,
+          text: currentWord.text,
+          phonetic: currentWord.phonetic,
+          definition: currentWord.definition,
+          example: currentWord.example,
+          mastered: true,
+        );
+      }
+      _state = _state.copyWith(
+        words: updatedWords,
+        showMasteredSuccessHint: true,
+      );
+      notifyListeners();
+      _hideHintAfterDelay(() {
+        _state = _state.copyWith(showMasteredSuccessHint: false);
+        notifyListeners();
+      });
+      _moveToNextWord();
+    }
+  }
+
+  /// 跳过当前单词 (上滑)
+  void _skipWord() {
+    _moveToNextWord();
+  }
+
   // ==================== 导航回调 ====================
 
   /// 设置导航到详情的回调
@@ -247,6 +280,7 @@ class WordDragNotifier extends ChangeNotifier {
       deleteZoneOpacity: 0.0,
       showMarkSuccessHint: false,
       showMarkNewSuccessHint: false,
+      showMasteredSuccessHint: false,
       showDeleteSuccessHint: false,
     );
     notifyListeners();
