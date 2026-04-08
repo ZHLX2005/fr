@@ -198,10 +198,10 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
           onSwipeUp: () {
             // 上滑跳过 - 调用 notifier 跳到下一个单词
             notifier.onSwipeUp();
-            // 同时显示详情页
+            // 同时显示详情页（使用 notifier.state 获取最新状态）
             Future.delayed(const Duration(milliseconds: 300), () {
-              if (mounted && state.currentWord != null) {
-                _showDetail(state.currentWord!);
+              if (mounted && notifier.state.currentWord != null) {
+                _showDetail(notifier.state.currentWord!);
               }
             });
           },
