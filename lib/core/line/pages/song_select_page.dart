@@ -100,110 +100,117 @@ class _SongSelectPageState extends State<SongSelectPage> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: Stack(
+      body: Column(
         children: [
-          // 主内容
-          Row(
-            children: [
-              // 左侧歌曲滚轮 (30%)
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.3,
-                child: ListWheelScrollView.useDelegate(
-                  controller: _scrollController,
-                  itemExtent: 48,
-                  diameterRatio: 100,
-                  perspective: 0.001,
-                  physics: const FixedExtentScrollPhysics(),
-                  onSelectedItemChanged: (index) {
-                    setState(() => _selectedSong = _songs[index]);
-                  },
-                  childDelegate: ListWheelChildBuilderDelegate(
-                    childCount: _songs.length,
-                    builder: (context, index) {
-                      final song = _songs[index];
-                      final selectedIndex = _songs.indexWhere((s) => s.id == _selectedSong?.id);
-                      final distance = (selectedIndex - index).abs();
-                      final isSelected = distance == 0;
-                      final isNeighbor = distance == 1;
-
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 32),
-                          child: Text(
-                            song.name,
-                            style: TextStyle(
-                              fontSize: isSelected ? 22 : (isNeighbor ? 16 : 12),
-                              fontWeight: FontWeight.w200,
-                              color: isSelected
-                                  ? color
-                                  : (isNeighbor
-                                      ? color.withValues(alpha: 0.5)
-                                      : color.withValues(alpha: 0.25)),
-                              letterSpacing: isSelected ? 4 : 2,
-                            ),
-                            textAlign: TextAlign.right,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+          // 导航栏
+          SizedBox(
+            height: MediaQuery.of(context).padding.top + 56,
+            child: Row(
+              children: [
+                // 返回按钮
+                Padding(
+                  padding: EdgeInsets.only(left: 16, top: MediaQuery.of(context).padding.top),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new,
+                      color: color,
+                      size: 24,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const Spacer(),
+                // 设置按钮
+                Padding(
+                  padding: EdgeInsets.only(right: 16, top: MediaQuery.of(context).padding.top),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.settings_outlined,
+                      color: color,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (context) => SpeedSettingsPage(
+                            primaryColor: color,
                           ),
                         ),
                       );
                     },
                   ),
                 ),
-              ),
-              // 右侧详情面板 (70%)
-              Expanded(
-                child: _selectedSong != null
-                    ? SongDetailPanel(
-                        song: _selectedSong!,
-                        borderStyle: _borderStyle,
-                        lineDensity: _lineDensity,
-                        onBorderStyleChanged: (style) {
-                          setState(() => _borderStyle = style);
-                        },
-                        onLineDensityChanged: (density) {
-                          setState(() => _lineDensity = density);
-                        },
-                        onStart: _onStart,
-                      )
-                    : const SizedBox(),
-              ),
-            ],
-          ),
-
-          // 返回按钮（左上角）
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back_ios_new,
-                color: color,
-                size: 24,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
+              ],
             ),
           ),
+          // 选歌区域
+          Expanded(
+            child: Row(
+              children: [
+                // 左侧歌曲滚轮 (30%)
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.3,
+                  child: ListWheelScrollView.useDelegate(
+                    controller: _scrollController,
+                    itemExtent: 48,
+                    diameterRatio: 100,
+                    perspective: 0.001,
+                    physics: const FixedExtentScrollPhysics(),
+                    onSelectedItemChanged: (index) {
+                      setState(() => _selectedSong = _songs[index]);
+                    },
+                    childDelegate: ListWheelChildBuilderDelegate(
+                      childCount: _songs.length,
+                      builder: (context, index) {
+                        final song = _songs[index];
+                        final selectedIndex = _songs.indexWhere((s) => s.id == _selectedSong?.id);
+                        final distance = (selectedIndex - index).abs();
+                        final isSelected = distance == 0;
+                        final isNeighbor = distance == 1;
 
-          // 设置按钮（右上角）
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            right: 16,
-            child: IconButton(
-              icon: Icon(
-                Icons.settings_outlined,
-                color: color,
-                size: 24,
-              ),
-              onPressed: () {
-                Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (context) => SpeedSettingsPage(
-                      primaryColor: color,
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 32),
+                            child: Text(
+                              song.name,
+                              style: TextStyle(
+                                fontSize: isSelected ? 22 : (isNeighbor ? 16 : 12),
+                                fontWeight: FontWeight.w200,
+                                color: isSelected
+                                    ? color
+                                    : (isNeighbor
+                                        ? color.withValues(alpha: 0.5)
+                                        : color.withValues(alpha: 0.25)),
+                                letterSpacing: isSelected ? 4 : 2,
+                              ),
+                              textAlign: TextAlign.right,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                );
-              },
+                ),
+                // 右侧详情面板 (70%)
+                Expanded(
+                  child: _selectedSong != null
+                      ? SongDetailPanel(
+                          song: _selectedSong!,
+                          borderStyle: _borderStyle,
+                          lineDensity: _lineDensity,
+                          onBorderStyleChanged: (style) {
+                            setState(() => _borderStyle = style);
+                          },
+                          onLineDensityChanged: (density) {
+                            setState(() => _lineDensity = density);
+                          },
+                          onStart: _onStart,
+                        )
+                      : const SizedBox(),
+                ),
+              ],
             ),
           ),
         ],
