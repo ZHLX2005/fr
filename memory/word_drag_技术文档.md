@@ -54,6 +54,32 @@ lib/core/word_drag/
 - scaleValue = 1f - (effectiveStackIndex * 0.04f) ✅
 - yOffsetValue = effectiveStackIndex * 15dp ✅
 
+### 堆叠动画 (2026-04-09 修复)
+```kotlin
+// Kotlin - 使用 animateFloatAsState 进行堆叠过渡动画
+val scale by animateFloatAsState(
+    targetValue = scaleValue,
+    animationSpec = spring(stiffness = 350f, dampingRatio = 0.75f)
+)
+val yOffset by animateDpAsState(
+    targetValue = yOffsetValue,
+    animationSpec = spring(stiffness = 350f, dampingRatio = 0.75f)
+)
+```
+
+```dart
+// Dart - 使用 AnimationController + SpringSimulation
+// didUpdateWidget 中当 stackIndex 变化时触发动画
+final spring = SpringDescription(
+  mass: 1.0,
+  stiffness: 350.0,
+  damping: 0.75 * 2 * sqrt(350.0), // ≈ 28.07
+);
+_stackScaleController.animateWith(SpringSimulation(spring, _stackScale, targetScale, 0));
+_stackYOffsetController.animateWith(SpringSimulation(spring, _stackYOffset, targetYOffset, 0));
+```
+✅ 一致
+
 ### 动态缩放
 ```kotlin
 // Kotlin
@@ -177,6 +203,7 @@ AnimatedVisibility(
 8. ✅ Action Indicator 文件夹阈值修正为 150f
 9. ✅ 按压缩放动画阻尼参数修正 (15.0 → 26.83)
 10. ✅ 代码清理：移除未使用的 _folderDropRowThreshold 字段
+11. ✅ 堆叠动画：添加 spring 动画实现 (stiffness=350, dampingRatio=0.75)
 
 ## 参考来源
 
