@@ -240,8 +240,8 @@ class GamePainter extends CustomPainter {
     Rect.fromLTWH(cx - capsuleHalf, tailY, capsuleWidth, totalHeight),
     topLeft: Radius.circular(cornerRadius),
     topRight: Radius.circular(cornerRadius),
-    bottomLeft: Radius.circular(cornerRadius),
-    bottomRight: Radius.circular(cornerRadius),
+    bottomLeft: Radius.zero,
+    bottomRight: Radius.zero,
   );
   final outlinePaint = Paint()
     ..color = color.withValues(alpha: 0.35)
@@ -263,8 +263,8 @@ class GamePainter extends CustomPainter {
         topRight: fillTop <= tailY + cornerRadius
             ? Radius.circular(cornerRadius)
             : Radius.zero,
-        bottomLeft: Radius.circular(cornerRadius),
-        bottomRight: Radius.circular(cornerRadius),
+        bottomLeft: Radius.zero,
+        bottomRight: Radius.zero,
       );
 
       // 霓虹发光
@@ -309,13 +309,6 @@ class GamePainter extends CustomPainter {
       }
     }
   }
-
-  // ── 头部圆圈（胶囊底部圆头） ──
-  final circlePaint = Paint()
-    ..color = color.withValues(alpha: alpha.clamp(0.0, 1.0))
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 2;
-  canvas.drawCircle(Offset(cx, headY), radius, circlePaint);
 
   // ── 尾部小圆点（胶囊顶部标记） ──
   final tailDotPaint = Paint()
