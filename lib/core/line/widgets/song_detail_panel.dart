@@ -335,16 +335,23 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
             children: [
               // 左侧 50%
               Expanded(
-                child: Center(
-                  child: _highAccuracy > 0
-                      ? _buildGradeDisplay(color)
-                      : const SizedBox(),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 24),
+                    child: _highAccuracy > 0
+                        ? _buildGradeDisplay(color)
+                        : const SizedBox(),
+                  ),
                 ),
               ),
               // 右侧 50%
               Expanded(
-                child: Center(
-                  child: GestureDetector(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 24),
+                    child: GestureDetector(
                     onTap: widget.onStart,
                     child: Container(
                       width: 140,
@@ -366,10 +373,11 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
                   ),
                 ),
               ),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 92),
       ],
     );
   }
