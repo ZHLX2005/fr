@@ -831,7 +831,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _exitController.reset();
     _exitController.forward().then((_) {
       if (!mounted) return;
-      Navigator.of(context).push(
+      Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => GameResultPage(
             result: result,
@@ -839,14 +839,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
             audioPath: widget.audioPath,
           ),
         ),
-      ).then((_) {
-        // 评分页关闭后回到选歌界面
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const SongSelectPage()),
-          );
-        }
-      });
+      );
     });
   }
 

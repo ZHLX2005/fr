@@ -66,7 +66,12 @@ class _GameResultPageState extends State<GameResultPage>
     final result = widget.result;
     final w = MediaQuery.of(context).size.width;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goToSongSelect();
+      },
+      child: Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: Stack(
         children: [
@@ -203,6 +208,7 @@ class _GameResultPageState extends State<GameResultPage>
             ),
         ],
       ),
+    ),
     );
   }
 
