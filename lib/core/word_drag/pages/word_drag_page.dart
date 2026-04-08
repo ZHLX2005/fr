@@ -126,11 +126,11 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
               ],
             ),
 
-            // 分类桶
+            // 分类桶 (photoo: padding bottom = 24dp)
             Positioned(
               left: 0,
               right: 0,
-              bottom: 0,
+              bottom: 24,
               child: CategoryDropRow(
                 key: _dropRowKey,
                 visible: _isFolderMode,
