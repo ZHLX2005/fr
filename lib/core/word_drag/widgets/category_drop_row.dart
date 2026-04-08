@@ -121,6 +121,11 @@ class CategoryDropRowState extends State<CategoryDropRow>
     if (widget.visible) {
       _animController.value = 1.0;
     }
+
+    // 初始化后延迟更新桶位置 (匹配 Kotlin onGloballyPositioned 行为)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateBucketRects();
+    });
   }
 
   void _initBucketKeys() {
