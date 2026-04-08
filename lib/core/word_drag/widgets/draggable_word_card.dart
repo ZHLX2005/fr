@@ -187,24 +187,21 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     // 左滑 - 删除/稍后复习
     if (offsetX < -_threshold) {
       _performHaptic();
-      _animateSwipeOut(-1500, 0);
-      widget.onSwipeLeft?.call();
+      _animateSwipeOut(-1500, 0, onComplete: widget.onSwipeLeft);
       return;
     }
 
     // 右滑 - 掌握
     if (offsetX > _threshold) {
       _performHaptic();
-      _animateSwipeOut(1500, 0);
-      widget.onSwipeRight?.call();
+      _animateSwipeOut(1500, 0, onComplete: widget.onSwipeRight);
       return;
     }
 
     // 上滑 - 跳过 (位置或速度触发)
     if (offsetY < -_threshold || velocityY < -_flingThreshold) {
       _performHaptic();
-      _animateSwipeOut(0, -2000);
-      widget.onSwipeUp?.call();
+      _animateSwipeOut(0, -2000, onComplete: widget.onSwipeUp);
       return;
     }
 
@@ -247,7 +244,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   }
 
   // 滑出动画 (photoo: FastOutLinearInEasing - 线性加速)
-  void _animateSwipeOut(double targetX, double targetY) {
+  void _animateSwipeOut(double targetX, double targetY, {VoidCallback? onComplete}) {
     _isAnimating = true;
 
     _offsetXController.animateTo(
@@ -261,6 +258,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       curve: Curves.linear,
     ).then((_) {
       _isAnimating = false;
+      onComplete?.call();
     });
   }
 
@@ -342,60 +340,64 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                 scale: totalScale,
                 child: Opacity(
                   opacity: _alpha.clamp(0.0, 1.0),
-                  child: GestureDetector(
-                    onTap: widget.isTopCard ? widget.onDetail : null,
-                    onPanStart: widget.isTopCard ? (_) {
-                      if (_isAnimating) return;
-                      // photoo: spring(stiffness=Medium, dampingRatio=0.6f)
-                      // Animate from 1.0 to 0.96 (press down effect)
-                      final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 15.0);
-                      final simulation = SpringSimulation(spring, 1.0, 0.96, 0);
-                      _pressScaleController.animateWith(simulation);
-                      widget.onDragStart?.call();
-                    } : null,
-                    onPanUpdate: widget.isTopCard ? (details) {
-                      if (_isAnimating) return;
-                      _handleDragUpdate(details.delta.dx, details.delta.dy);
-                    } : null,
-                    onPanEnd: widget.isTopCard ? (details) {
-                      if (_isAnimating) return;
-                      _pressScaleController.reverse();
-                      _handleDragEnd(
-                        details.velocity.pixelsPerSecond.dx,
-                        details.velocity.pixelsPerSecond.dy,
-                      );
-                    } : null,
-                    onPanCancel: widget.isTopCard ? _handleDragCancel : null,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      GestureDetector(
+                        onTap: widget.isTopCard ? widget.onDetail : null,
+                        onPanStart: widget.isTopCard ? (_) {
+                          if (_isAnimating) return;
+                          // photoo: spring(stiffness=Medium, dampingRatio=0.6f)
+                          // Animate from 1.0 to 0.96 (press down effect)
+                          final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 15.0);
+                          final simulation = SpringSimulation(spring, 1.0, 0.96, 0);
+                          _pressScaleController.animateWith(simulation);
+                          widget.onDragStart?.call();
+                        } : null,
+                        onPanUpdate: widget.isTopCard ? (details) {
+                          if (_isAnimating) return;
+                          _handleDragUpdate(details.delta.dx, details.delta.dy);
+                        } : null,
+                        onPanEnd: widget.isTopCard ? (details) {
+                          if (_isAnimating) return;
+                          _pressScaleController.reverse();
+                          _handleDragEnd(
+                            details.velocity.pixelsPerSecond.dx,
+                            details.velocity.pixelsPerSecond.dy,
+                          );
+                        } : null,
+                        onPanCancel: widget.isTopCard ? _handleDragCancel : null,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                        ],
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: widget.child,
+                          ),
+                        ),
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: widget.child,
-                      ),
-                    ),
+                      // Action Indicator (位于卡片右上角，跟随卡片移动)
+                      if (widget.isTopCard && actionIndicator != null)
+                        Positioned(
+                          top: 16,
+                          right: 16,
+                          child: _ActionIndicatorWidget(indicator: actionIndicator),
+                        ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-
-          // Action Indicator (位于卡片右上角)
-          if (widget.isTopCard && actionIndicator != null)
-            Positioned(
-              top: 16,
-              right: 16,
-              child: _ActionIndicatorWidget(indicator: actionIndicator),
-            ),
         ],
       ),
     );

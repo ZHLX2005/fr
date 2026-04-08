@@ -194,7 +194,12 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             notifier.onSwipeRight();
           },
           onSwipeUp: () {
-            _showDetail(state.currentWord!);
+            // 上滑跳过 - 动画完成后显示详情（不在这里立即显示，会遮挡新卡片）
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (mounted && state.currentWord != null) {
+                _showDetail(state.currentWord!);
+              }
+            });
           },
           onFolderModeDragEnd: (x, y) {
             // 检查是否在桶上
