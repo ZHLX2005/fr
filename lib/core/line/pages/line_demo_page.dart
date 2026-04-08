@@ -412,13 +412,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
         return;
       }
 
-      // 未按时 hold 音符的自动 miss（与 tap/slide 相同的 missWindow）
+      // 未按时 hold 音符的静默移除（不判 miss、不扣血）
       if (!note.judged && event.type == NoteType.hold && !note.holding) {
         final elapsed = _gameStopwatch.elapsedMilliseconds;
         final missThreshold = event.time + (_missWindow * _timingScale).round();
         if (elapsed > missThreshold) {
-          debugPrint('[HOLD_AUTO_MISS] elapsed=$elapsed col=${event.column} event.time=${event.time} holdDuration=${event.holdDuration} headY=${note.currentY.toStringAsFixed(0)} (never pressed)');
-          _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
+          debugPrint('[HOLD_AUTO_SILENT] elapsed=$elapsed col=${event.column} event.time=${event.time} (never pressed)');
+          _silentFadeOutHold(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
         }
       }
     });
@@ -609,8 +609,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
       if (heldTime >= note.event.holdDuration! * 0.8) {
         _judgeNote(col, note, note.holdJudgeDiff);
       } else {
-        debugPrint('[HOLD_RELEASE_MISS] col=$col heldTime=${heldTime}ms < ${note.event.holdDuration}ms * 0.8');
-        _onNoteMissed(col, note);
+        debugPrint('[HOLD_RELEASE_SILENT] col=$col heldTime=${heldTime}ms < ${note.event.holdDuration}ms * 0.8');
+        _silentFadeOutHold(col, note);
       }
       note.holding = false;
       return;
@@ -759,27 +759,33 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
 
     if (note.event.type == NoteType.hold) {
-      // Hold 音符：停止主控制器，启动 fade-out 动画
-      note.removeMe = false;
-      note.controller.stop();
-      final fadeController = AnimationController(
-        duration: const Duration(milliseconds: 300),
-        vsync: this,
-      );
-      fadeController.addListener(() {
-        note.holdFadeOut = fadeController.value;
-        if (fadeController.value >= 1.0) {
-          fadeController.dispose();
-          if (!mounted) return;
-          note.controller.dispose();
-          setState(() => _notes[col].remove(note));
-        }
-      });
-      fadeController.forward();
+      _silentFadeOutHold(col, note);
     } else {
       note.removeMe = true;
       note.controller.stop();
     }
+  }
+
+  /// Hold 音符静默淡出：不判 miss、不扣血、不断 combo
+  void _silentFadeOutHold(int col, FallingNote note) {
+    if (note.judged) return;
+    note.judged = true;
+    note.removeMe = false;
+    note.controller.stop();
+    final fadeController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    fadeController.addListener(() {
+      note.holdFadeOut = fadeController.value;
+      if (fadeController.value >= 1.0) {
+        fadeController.dispose();
+        if (!mounted) return;
+        note.controller.dispose();
+        setState(() => _notes[col].remove(note));
+      }
+    });
+    fadeController.forward();
   }
 
   void _createExplode(int col, double x, double y, double radius) {
