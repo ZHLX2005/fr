@@ -824,6 +824,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   // ── 游戏控制 ──
 
   void _gameOver() {
+    if (_isExiting) return;
     _stopGame();
     _audioCompletionSub?.cancel();
     _syncGuard?.dispose();
