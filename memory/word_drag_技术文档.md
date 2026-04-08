@@ -176,6 +176,7 @@ AnimatedVisibility(
 7. ✅ 文件夹模式未命中目标时正确回弹（不触发滑动）
 8. ✅ Action Indicator 文件夹阈值修正为 150f
 9. ✅ 按压缩放动画阻尼参数修正 (15.0 → 26.83)
+10. ✅ 代码清理：移除未使用的 _folderDropRowThreshold 字段
 
 ## 参考来源
 
