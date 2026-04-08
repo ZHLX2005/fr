@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/line_models.dart';
 import '../repository/chart_repository.dart';
+import '../settings/line_settings.dart';
 import '../widgets/song_detail_panel.dart';
 import 'line_demo_page.dart';
 
@@ -99,12 +100,15 @@ class _SongSelectPageState extends State<SongSelectPage> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      body: Row(
+      body: Stack(
         children: [
-          // 左侧歌曲滚轮 (30%)
-          SizedBox(
-            width: MediaQuery.of(context).size.width * 0.3,
-            child: ListWheelScrollView.useDelegate(
+          // 主内容
+          Row(
+            children: [
+              // 左侧歌曲滚轮 (30%)
+              SizedBox(
+                width: MediaQuery.of(context).size.width * 0.3,
+                child: ListWheelScrollView.useDelegate(
                   controller: _scrollController,
                   itemExtent: 48,
                   diameterRatio: 100,
@@ -146,23 +150,61 @@ class _SongSelectPageState extends State<SongSelectPage> {
                     },
                   ),
                 ),
+              ),
+              // 右侧详情面板 (70%)
+              Expanded(
+                child: _selectedSong != null
+                    ? SongDetailPanel(
+                        song: _selectedSong!,
+                        borderStyle: _borderStyle,
+                        lineDensity: _lineDensity,
+                        onBorderStyleChanged: (style) {
+                          setState(() => _borderStyle = style);
+                        },
+                        onLineDensityChanged: (density) {
+                          setState(() => _lineDensity = density);
+                        },
+                        onStart: _onStart,
+                      )
+                    : const SizedBox(),
+              ),
+            ],
           ),
-          // 右侧详情面板 (70%)
-          Expanded(
-            child: _selectedSong != null
-                ? SongDetailPanel(
-                    song: _selectedSong!,
-                    borderStyle: _borderStyle,
-                    lineDensity: _lineDensity,
-                    onBorderStyleChanged: (style) {
-                      setState(() => _borderStyle = style);
-                    },
-                    onLineDensityChanged: (density) {
-                      setState(() => _lineDensity = density);
-                    },
-                    onStart: _onStart,
-                  )
-                : const SizedBox(),
+
+          // 返回按钮（左上角）
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                color: color,
+                size: 24,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+
+          // 设置按钮（右上角）
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            right: 16,
+            child: IconButton(
+              icon: Icon(
+                Icons.settings_outlined,
+                color: color,
+                size: 24,
+              ),
+              onPressed: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute(
+                    builder: (context) => SpeedSettingsPage(
+                      primaryColor: color,
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
