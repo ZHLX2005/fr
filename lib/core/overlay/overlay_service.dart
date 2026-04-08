@@ -1,87 +1,77 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// 悬浮窗服务接口
-abstract class OverlayServiceInterface {
-  bool get isSupported;
-  bool get isOverlayActive;
-  Future<bool> checkOverlayPermission();
-  Future<bool> requestOverlayPermission();
-  Future<bool> initOverlay();
-  Future<void> showOverlayButton({required VoidCallback onScreenshot});
-  Future<void> hideOverlayButton();
-  Future<void> toggleOverlay({required VoidCallback onScreenshot});
-  Future<Directory> getScreenshotDirectory();
-}
-
 /// 悬浮窗服务（跨平台兼容）
-class OverlayService implements OverlayServiceInterface {
+class OverlayService {
   static final OverlayService _instance = OverlayService._internal();
   factory OverlayService() => _instance;
   OverlayService._internal();
 
   bool _isOverlayActive = false;
 
-  @override
   bool get isOverlayActive => _isOverlayActive;
 
   /// 是否支持悬浮窗（仅 Android）
-  @override
   bool get isSupported => Platform.isAndroid;
 
   /// 检查悬浮窗权限
-  @override
   Future<bool> checkOverlayPermission() async {
     if (!isSupported) return false;
-    return await Permission.systemAlertWindow.isGranted;
+    // 使用 flutter_overlay_window 本身检查权限
+    return await FlutterOverlayWindow.isPermissionGranted();
   }
 
   /// 请求悬浮窗权限
-  @override
   Future<bool> requestOverlayPermission() async {
     if (!isSupported) return false;
-    final status = await Permission.systemAlertWindow.request();
-    return status.isGranted;
+    // 请求权限 - flutter_overlay_window.requestPermission 会打开系统设置页面
+    final result = await FlutterOverlayWindow.requestPermission();
+    _overlayPermissionGranted = result ?? false;
+    return result ?? false;
   }
 
   /// 初始化悬浮窗
-  @override
   Future<bool> initOverlay() async {
     if (!isSupported) return false;
-
-    final hasPermission = await checkOverlayPermission();
-    if (!hasPermission) {
-      final granted = await requestOverlayPermission();
-      if (!granted) return false;
-    }
-    return true;
+    return await requestOverlayPermission();
   }
 
   /// 显示悬浮截屏按钮
-  @override
   Future<void> showOverlayButton({
     required VoidCallback onScreenshot,
   }) async {
     if (!isSupported) return;
 
-    _isOverlayActive = true;
+    // 请求权限并显示悬浮窗
+    final granted = await FlutterOverlayWindow.requestPermission();
+    if (granted != true) {
+      throw Exception('悬浮窗权限被拒绝');
+    }
 
-    // Android 上使用 flutter_overlay_window
-    // 在 Android 原生代码中实现
+    _isOverlayActive = true;
+    await FlutterOverlayWindow.showOverlay(
+      enableDrag: true,
+      flag: OverlayFlag.defaultFlag,
+      visibility: NotificationVisibility.visibilityPublic,
+      positionGravity: PositionGravity.right,
+      height: 60,
+      width: 60,
+      alignment: OverlayAlignment.topRight,
+      startPosition: const OverlayPosition(0, 100),
+    );
   }
 
   /// 隐藏悬浮按钮
-  @override
   Future<void> hideOverlayButton() async {
     if (!isSupported) return;
 
     _isOverlayActive = false;
+    await FlutterOverlayWindow.closeOverlay();
   }
 
   /// 切换悬浮按钮显示状态
-  @override
   Future<void> toggleOverlay({
     required VoidCallback onScreenshot,
   }) async {
@@ -93,7 +83,6 @@ class OverlayService implements OverlayServiceInterface {
   }
 
   /// 获取截图保存目录
-  @override
   Future<Directory> getScreenshotDirectory() async {
     final directory = await getApplicationDocumentsDirectory();
     final screenshotDir = Directory('${directory.path}/screenshots');
@@ -102,6 +91,8 @@ class OverlayService implements OverlayServiceInterface {
     }
     return screenshotDir;
   }
+
+  bool _overlayPermissionGranted = false;
 }
 
 /// 悬浮窗权限状态

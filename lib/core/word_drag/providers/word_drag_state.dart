@@ -37,11 +37,20 @@ class WordDragState {
   /// 标新成功
   final bool showMarkNewSuccessHint;
 
+  /// 掌握成功
+  final bool showMasteredSuccessHint;
+
   /// 删除成功
   final bool showDeleteSuccessHint;
 
   /// 是否显示详情页
   final bool showDetails;
+
+  /// 是否处于分类桶模式 (下滑 > 300px)
+  final bool isFolderMode;
+
+  /// 当前激活的分类桶 ID
+  final String? activeCategoryBucketId;
 
   const WordDragState({
     required this.words,
@@ -53,8 +62,11 @@ class WordDragState {
     required this.deleteZoneOpacity,
     required this.showMarkSuccessHint,
     required this.showMarkNewSuccessHint,
+    required this.showMasteredSuccessHint,
     required this.showDeleteSuccessHint,
     required this.showDetails,
+    required this.isFolderMode,
+    required this.activeCategoryBucketId,
   });
 
   /// 当前单词
@@ -89,8 +101,11 @@ class WordDragState {
       deleteZoneOpacity: 0.0,
       showMarkSuccessHint: false,
       showMarkNewSuccessHint: false,
+      showMasteredSuccessHint: false,
       showDeleteSuccessHint: false,
       showDetails: false,
+      isFolderMode: false,
+      activeCategoryBucketId: null,
     );
   }
 
@@ -105,8 +120,11 @@ class WordDragState {
     double? deleteZoneOpacity,
     bool? showMarkSuccessHint,
     bool? showMarkNewSuccessHint,
+    bool? showMasteredSuccessHint,
     bool? showDeleteSuccessHint,
     bool? showDetails,
+    bool? isFolderMode,
+    String? activeCategoryBucketId,
   }) {
     return WordDragState(
       words: words ?? this.words,
@@ -118,8 +136,11 @@ class WordDragState {
       deleteZoneOpacity: deleteZoneOpacity ?? this.deleteZoneOpacity,
       showMarkSuccessHint: showMarkSuccessHint ?? this.showMarkSuccessHint,
       showMarkNewSuccessHint: showMarkNewSuccessHint ?? this.showMarkNewSuccessHint,
+      showMasteredSuccessHint: showMasteredSuccessHint ?? this.showMasteredSuccessHint,
       showDeleteSuccessHint: showDeleteSuccessHint ?? this.showDeleteSuccessHint,
       showDetails: showDetails ?? this.showDetails,
+      isFolderMode: isFolderMode ?? this.isFolderMode,
+      activeCategoryBucketId: activeCategoryBucketId,
     );
   }
 }
