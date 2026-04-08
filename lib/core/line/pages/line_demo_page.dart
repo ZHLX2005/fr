@@ -379,8 +379,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
       currentY: -radius,
     );
 
-    final spawnElapsed = _gameStopwatch.elapsedMilliseconds;
-    debugPrint('[SPAWN] elapsed=$spawnElapsed event.time=${event.time} col=${event.column} type=${event.type}');
+    note.spawnElapsed = _gameStopwatch.elapsedMilliseconds;
+    debugPrint('[SPAWN] elapsed=${note.spawnElapsed} event.time=${event.time} col=${event.column} type=${event.type}');
 
     controller.addListener(() {
       // 音符持续下落（线性匀速）
@@ -412,11 +412,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
         return;
       }
 
-      // 未按时 hold 音符的自动 miss
+      // 未按时 hold 音符的自动 miss（与 tap/slide 相同的 missWindow）
       if (!note.judged && event.type == NoteType.hold && !note.holding) {
         final elapsed = _gameStopwatch.elapsedMilliseconds;
-        final holdTimeout = event.time + note.event.holdDuration!;
-        if (elapsed > holdTimeout) {
+        final missThreshold = event.time + (_missWindow * _timingScale).round();
+        if (elapsed > missThreshold) {
           debugPrint('[HOLD_AUTO_MISS] elapsed=$elapsed col=${event.column} event.time=${event.time} holdDuration=${event.holdDuration} headY=${note.currentY.toStringAsFixed(0)} (never pressed)');
           _onNoteMissed(_notes.indexOf(_notes.firstWhere((col) => col.contains(note))), note);
         }
@@ -428,9 +428,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
 
     controller.forward().then((_) {
-      note.controller.dispose();
       if (!mounted) return;
       if (note.removeMe) return; // 已被判定移除，不再重复处理
+      // hold 音符未判定时不能 dispose 或移除，由 auto-miss 或 hold 完成回调处理
+      if (event.type == NoteType.hold && !note.judged) return;
+      note.controller.dispose();
       setState(() => _notes[event.column].remove(note));
     });
   }
@@ -729,6 +731,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
         if (fadeController.value >= 1.0) {
           fadeController.dispose();
           if (!mounted) return;
+          note.controller.dispose();
           setState(() => _notes[col].remove(note));
         }
       });
@@ -756,8 +759,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
 
     if (note.event.type == NoteType.hold) {
-      // Hold 音符：启动 fade-out 动画
+      // Hold 音符：停止主控制器，启动 fade-out 动画
       note.removeMe = false;
+      note.controller.stop();
       final fadeController = AnimationController(
         duration: const Duration(milliseconds: 300),
         vsync: this,
@@ -767,6 +771,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
         if (fadeController.value >= 1.0) {
           fadeController.dispose();
           if (!mounted) return;
+          note.controller.dispose();
           setState(() => _notes[col].remove(note));
         }
       });
