@@ -350,9 +350,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                         onTap: widget.isTopCard ? widget.onDetail : null,
                         onPanStart: widget.isTopCard ? (_) {
                           if (_isAnimating) return;
-                          // photoo: spring(stiffness=Medium, dampingRatio=0.6f)
+                          // photoo: spring(stiffness=Medium (≈500), dampingRatio=0.6f)
+                          // damping = 2 * sqrt(500) * 0.6 ≈ 26.83
                           // Animate from 1.0 to 0.96 (press down effect)
-                          final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 15.0);
+                          final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 26.83);
                           final simulation = SpringSimulation(spring, 1.0, 0.96, 0);
                           _pressScaleController.animateWith(simulation);
                           widget.onDragStart?.call();
