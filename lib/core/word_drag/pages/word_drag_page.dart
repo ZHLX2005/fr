@@ -218,8 +218,13 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                 setState(() {
                   _isFolderMode = true;
                 });
+                // 延迟碰撞检测到下一帧，确保 CategoryDropRow 已构建
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _updateBucketCollision(getCardCenter(x, y), x);
+                });
+              } else {
+                _updateBucketCollision(getCardCenter(x, y), x);
               }
-              _updateBucketCollision(getCardCenter(x, y), x);
               // 更新边缘滚动状态
               _edgeScrollState.cardCenterX = getCardCenter(x, y).dx;
               _edgeScrollState.screenWidth = screenSize.width;
@@ -246,6 +251,8 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     // 匹配 DraggableWordCard 的堆叠公式
     final scale = 1.0 - (stackIndex * 0.04);
     final yOffset = stackIndex * 15.0;
+    // Kotlin 中背景卡片只显示缩放的阴影，不显示实际内容
+    // 这里用带阴影的半透明容器模拟堆叠效果
     return Transform.translate(
       offset: Offset(0, yOffset),
       child: Transform.scale(
@@ -254,9 +261,15 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
           width: width,
           height: height,
           decoration: BoxDecoration(
-            color: Colors.grey.shade300,
+            color: Colors.grey.shade200,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.grey.shade400),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 8 * stackIndex.toDouble(),
+                offset: Offset(0, 2 * stackIndex.toDouble()),
+              ),
+            ],
           ),
         ),
       ),
@@ -274,6 +287,8 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
       _isFolderMode = false;
       _activeBucketId = null;
     });
+    // 同时清除 CategoryDropRow 中的活跃桶状态
+    _dropRowKey.currentState?.clearActiveBucket();
   }
 
   void _showDetail(Word word) {

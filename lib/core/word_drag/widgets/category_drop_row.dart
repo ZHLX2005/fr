@@ -196,12 +196,10 @@ class CategoryDropRowState extends State<CategoryDropRow>
   }
 
   /// 强制立即更新桶位置（在碰撞检测前调用）
-  /// 如果桶尚未渲染，会延迟更新
+  /// 立即执行更新，不等待下一帧
   void forceUpdateRects() {
-    if (_bucketRects.isEmpty && mounted && widget.visible) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _updateBucketRects();
-      });
+    if (mounted && widget.visible) {
+      _updateBucketRects();
     }
   }
 
@@ -263,6 +261,13 @@ class CategoryDropRowState extends State<CategoryDropRow>
       widget.onActiveBucketChanged?.call(closestId);
     }
     _updateEdgeScroll(cardCenter);
+  }
+
+  /// 清除活跃桶状态（退出文件夹模式时调用）
+  void clearActiveBucket() {
+    if (widget.activeBucketId != null) {
+      widget.onActiveBucketChanged?.call(null);
+    }
   }
 
   /// 计算边缘滚动速度 (匹配 Kotlin 公式)

@@ -228,6 +228,12 @@ AnimatedVisibility(
 13. ✅ 上滑修复：添加 notifier.onSwipeUp() 调用使卡片正确前进
 14. ✅ 上滑速度条件：修正为 (offsetY < -threshold || (velocityY < -flingThreshold && offsetY < 0))
 15. ✅ 状态捕获修复：使用 notifier.state.currentWord 而非捕获的 state.currentWord
+16. ✅ 上滑详情页修复：在调用 onSwipeUp() 之前捕获当前单词，避免显示下一个单词
+17. ✅ 桶位置更新时序：添加 forceUpdateRects() 方法确保碰撞检测前桶位置已更新
+18. ✅ 桶隐藏/显示逻辑：添加 `visible` 状态变化时清除 rects，匹配 Kotlin `rects.clear()` 行为
+19. ✅ 中心位置松开卡片消失：`_exitFolderMode` 时清除 `_activeBucketId` 和 `CategoryDropRow` 的活跃桶状态
+20. ✅ 背景卡片过大：使用带阴影的半透明容器替代灰色实心卡片
+21. ✅ 下拉桶不显示：进入文件夹模式时延迟碰撞检测到下一帧，确保 CategoryDropRow 已构建
 
 ## 参考来源
 
