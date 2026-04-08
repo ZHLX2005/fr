@@ -332,30 +332,35 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 48),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (_highAccuracy > 0) ...[
-                _buildGradeDisplay(color),
-                const Spacer(),
-              ] else
-                const Spacer(),
-              // START 按钮
-              GestureDetector(
-                onTap: widget.onStart,
-                child: Container(
-                  width: 140,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: color, width: 2),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'START',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w300,
-                      color: color,
-                      letterSpacing: 4,
+              // 左侧 50%
+              Expanded(
+                child: _highAccuracy > 0
+                    ? _buildGradeDisplay(color)
+                    : const SizedBox(),
+              ),
+              // 右侧 50%
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: widget.onStart,
+                    child: Container(
+                      width: 140,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: color, width: 2),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'START',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w300,
+                          color: color,
+                          letterSpacing: 4,
+                        ),
+                      ),
                     ),
                   ),
                 ),
