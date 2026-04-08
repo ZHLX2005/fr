@@ -382,6 +382,7 @@ class _BucketItemState extends State<_BucketItem>
     stiffness: 320.0,
     damping: 0.6 * 2 * sqrt(320.0), // ≈ 21.47
   );
+  // lift 和 width 共用同一个 spring (dampingRatio=0.7f, stiffness=320f)
   static final SpringDescription _otherSpring = SpringDescription(
     mass: 1.0,
     stiffness: 320.0,
@@ -389,23 +390,29 @@ class _BucketItemState extends State<_BucketItem>
   );
 
   late AnimationController _scaleController;
-  late AnimationController _otherController;
+  late AnimationController _liftController;
+  late AnimationController _widthController;
 
   @override
   void initState() {
     super.initState();
     _scaleController = AnimationController.unbounded(vsync: this);
-    _otherController = AnimationController.unbounded(vsync: this);
+    _liftController = AnimationController.unbounded(vsync: this);
+    _widthController = AnimationController.unbounded(vsync: this);
 
     _scaleController.addListener(() {
       setState(() {
         _scale = _scaleController.value.clamp(0.82, 1.2);
       });
     });
-    _otherController.addListener(() {
+    _liftController.addListener(() {
       setState(() {
-        _lift = _otherController.value.clamp(-8.0, 0.0);
-        _width = _otherController.value.clamp(68.0, 88.0);
+        _lift = _liftController.value.clamp(-8.0, 0.0);
+      });
+    });
+    _widthController.addListener(() {
+      setState(() {
+        _width = _widthController.value.clamp(68.0, 88.0);
       });
     });
 
@@ -425,7 +432,10 @@ class _BucketItemState extends State<_BucketItem>
         _scaleController.animateWith(
           SpringSimulation(_scaleSpring, _scale, 1.2, 0),
         );
-        _otherController.animateWith(
+        _liftController.animateWith(
+          SpringSimulation(_otherSpring, _lift, -8, 0),
+        );
+        _widthController.animateWith(
           SpringSimulation(_otherSpring, _width, 88, 0),
         );
       } else {
@@ -433,7 +443,10 @@ class _BucketItemState extends State<_BucketItem>
         _scaleController.animateWith(
           SpringSimulation(_scaleSpring, _scale, 0.82, 0),
         );
-        _otherController.animateWith(
+        _liftController.animateWith(
+          SpringSimulation(_otherSpring, _lift, 0, 0),
+        );
+        _widthController.animateWith(
           SpringSimulation(_otherSpring, _width, 68, 0),
         );
       }
@@ -443,7 +456,8 @@ class _BucketItemState extends State<_BucketItem>
   @override
   void dispose() {
     _scaleController.dispose();
-    _otherController.dispose();
+    _liftController.dispose();
+    _widthController.dispose();
     super.dispose();
   }
 
