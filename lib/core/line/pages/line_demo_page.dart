@@ -717,26 +717,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
     _createExplode(col, centerX, note.currentY, radius);
 
-    note.controller.stop();
-
     if (note.event.type == NoteType.hold) {
-      // Hold 音符：启动 fade-out 动画（300ms 内透明度从 0.5 渐变到 0）
+      // Hold 音符：不停止控制器，继续自然下落离开屏幕，由 .then() 回收
       note.removeMe = false;
-      final fadeController = AnimationController(
-        duration: const Duration(milliseconds: 300),
-        vsync: this,
-      );
-      fadeController.addListener(() {
-        note.holdFadeOut = fadeController.value;
-        if (fadeController.value >= 1.0) {
-          fadeController.dispose();
-          if (!mounted) return;
-          note.controller.dispose();
-          setState(() => _notes[col].remove(note));
-        }
-      });
-      fadeController.forward();
     } else {
+      note.controller.stop();
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
         setState(() => _notes[col].remove(note));
@@ -766,26 +751,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
     }
   }
 
-  /// Hold 音符静默淡出：不判 miss、不扣血、不断 combo
+  /// Hold 音符静默处理：不判 miss、不扣血、不断 combo，继续自然下落
   void _silentFadeOutHold(int col, FallingNote note) {
     if (note.judged) return;
     note.judged = true;
     note.removeMe = false;
-    note.controller.stop();
-    final fadeController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    fadeController.addListener(() {
-      note.holdFadeOut = fadeController.value;
-      if (fadeController.value >= 1.0) {
-        fadeController.dispose();
-        if (!mounted) return;
-        note.controller.dispose();
-        setState(() => _notes[col].remove(note));
-      }
-    });
-    fadeController.forward();
+    // 不停止控制器，让音符自然下落离开屏幕，由 .then() 回收
   }
 
   void _createExplode(int col, double x, double y, double radius) {
