@@ -1,4 +1,6 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 /// 分类桶数据模型
 class CategoryBucket {
@@ -369,28 +371,49 @@ class _BucketItem extends StatefulWidget {
 
 class _BucketItemState extends State<_BucketItem>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _liftAnimation;
-  late Animation<double> _widthAnimation;
+  // 动画值
+  double _scale = 0.82;
+  double _lift = 0;
+  double _width = 68;
+
+  // Spring 参数 (匹配 Kotlin: spring(dampingRatio=0.6f, stiffness=320f))
+  static final SpringDescription _scaleSpring = SpringDescription(
+    mass: 1.0,
+    stiffness: 320.0,
+    damping: 0.6 * 2 * sqrt(320.0), // ≈ 21.47
+  );
+  static final SpringDescription _otherSpring = SpringDescription(
+    mass: 1.0,
+    stiffness: 320.0,
+    damping: 0.7 * 2 * sqrt(320.0), // ≈ 25.05
+  );
+
+  late AnimationController _scaleController;
+  late AnimationController _otherController;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
+    _scaleController = AnimationController.unbounded(vsync: this);
+    _otherController = AnimationController.unbounded(vsync: this);
 
-    _scaleAnimation = Tween<double>(begin: 0.82, end: 1.2).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _liftAnimation = Tween<double>(begin: 0, end: -8).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _widthAnimation = Tween<double>(begin: 68, end: 88).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _scaleController.addListener(() {
+      setState(() {
+        _scale = _scaleController.value.clamp(0.82, 1.2);
+      });
+    });
+    _otherController.addListener(() {
+      setState(() {
+        _lift = _otherController.value.clamp(-8.0, 0.0);
+        _width = _otherController.value.clamp(68.0, 88.0);
+      });
+    });
+
+    if (widget.isActive) {
+      _scale = 1.2;
+      _lift = -8;
+      _width = 88;
+    }
   }
 
   @override
@@ -398,87 +421,95 @@ class _BucketItemState extends State<_BucketItem>
     super.didUpdateWidget(oldWidget);
     if (widget.isActive != oldWidget.isActive) {
       if (widget.isActive) {
-        _controller.forward();
+        // 激活动画
+        _scaleController.animateWith(
+          SpringSimulation(_scaleSpring, _scale, 1.2, 0),
+        );
+        _otherController.animateWith(
+          SpringSimulation(_otherSpring, _width, 88, 0),
+        );
       } else {
-        _controller.reverse();
+        // 取消激活动画
+        _scaleController.animateWith(
+          SpringSimulation(_scaleSpring, _scale, 0.82, 0),
+        );
+        _otherController.animateWith(
+          SpringSimulation(_otherSpring, _width, 68, 0),
+        );
       }
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _scaleController.dispose();
+    _otherController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Container(
-          width: _widthAnimation.value,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Transform.translate(
-                  offset: Offset(0, _liftAnimation.value),
-                  child: Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: widget.isActive
-                            ? Color(0xFFEFF6FF)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: widget.isActive
-                              ? const Color(0xFF3B82F6)
-                              : Colors.transparent,
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        widget.bucket.icon,
-                        color: widget.isActive
-                            ? const Color(0xFF3B82F6)
-                            : Colors.grey.shade600,
-                        size: 32,
-                      ),
+    return Container(
+      width: _width,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Transform.translate(
+              offset: Offset(0, _lift),
+              child: Transform.scale(
+                scale: _scale,
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: widget.isActive
+                        ? const Color(0xFFEFF6FF)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: widget.isActive
+                          ? const Color(0xFF3B82F6)
+                          : Colors.transparent,
+                      width: 2,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.bucket.name,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: widget.isActive ? FontWeight.bold : FontWeight.w500,
+                  child: Icon(
+                    widget.bucket.icon,
                     color: widget.isActive
                         ? const Color(0xFF3B82F6)
-                        : Colors.grey.shade700,
+                        : Colors.grey.shade600,
+                    size: 32,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 8),
+            Text(
+              widget.bucket.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: widget.isActive ? FontWeight.bold : FontWeight.w500,
+                color: widget.isActive
+                    ? const Color(0xFF3B82F6)
+                    : Colors.grey.shade700,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
