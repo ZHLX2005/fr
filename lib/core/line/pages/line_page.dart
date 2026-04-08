@@ -157,11 +157,16 @@ class GamePainter extends CustomPainter {
 
   void _paintTapNote(Canvas canvas, double cx, FallingNote note) {
     if (note.judged || note.removeMe) return;
-    if (note.currentY < -radius || note.currentY > screenHeight + radius) return;
+    // 根据 gameElapsed 实时计算位置，不依赖可能冻结的 note.currentY
+    final noteElapsed = gameElapsed - note.spawnElapsed;
+    final actualDropMs = dropDuration / scrollSpeed;
+    final travelPerMs = (screenHeight + 2 * radius) / actualDropMs;
+    final currentY = -radius + travelPerMs * noteElapsed;
+    if (currentY < -radius || currentY > screenHeight + radius) return;
 
     double alpha = 0.3;
-    if (note.currentY > judgeY) {
-      final dist = note.currentY - judgeY;
+    if (currentY > judgeY) {
+      final dist = currentY - judgeY;
       final fadeRange = screenHeight * 0.25;
       alpha = 0.3 * (1.0 - (dist / fadeRange).clamp(0.0, 1.0));
       if (alpha <= 0.01) return;
@@ -171,18 +176,32 @@ class GamePainter extends CustomPainter {
       ..color = color.withValues(alpha: alpha)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
-    canvas.drawCircle(Offset(cx, note.currentY), radius, circlePaint);
+    canvas.drawCircle(Offset(cx, currentY), radius, circlePaint);
   }
 
   void _paintHoldNote(Canvas canvas, double cx, FallingNote note) {
-  if (note.currentY < -radius * 2) return;
+  // 计算 travelPerMs（复用）
+  final actualDropMs = dropDuration / scrollSpeed;
+  final travelPerMs = (screenHeight + 2 * radius) / actualDropMs;
 
-  final headY = note.currentY;
+  // 根据 gameElapsed 实时计算 headY；但 fade 状态下用冻结的 note.currentY
+  double headY;
+  if (note.holdFadeOut > 0) {
+    headY = note.currentY; // fade 开始时冻结
+  } else {
+    final noteElapsed = gameElapsed - note.spawnElapsed;
+    headY = -radius + travelPerMs * noteElapsed;
+  }
 
-  // tail 在 head 上方（Y 值更小）— 使用与下落动画一致的匀速速率
-  final travelPerMsActual = (screenHeight + 2 * radius) * scrollSpeed / dropDuration;
-  final tailOffset = travelPerMsActual * note.event.holdDuration!;
-  final tailY = headY - tailOffset;
+  // 整个 hold（头+尾）都在屏幕外才跳过绘制
+  final tailOffset = travelPerMs * note.event.holdDuration!;
+  var tailY = headY - tailOffset;
+  if (tailY > screenHeight + radius && headY > screenHeight + radius) return;
+  if (headY < -radius * 2) return;
+
+  // 如果 tail 超出屏幕上方，限制在屏幕顶部可见（防止整个 hold 不可见）
+  final double minVisibleY = -radius * 2;
+  if (tailY < minVisibleY) tailY = minVisibleY;
 
   // 胶囊尺寸：宽度 = 直径，形成胶囊造型
   final capsuleWidth = radius * 2.0;
@@ -192,16 +211,23 @@ class GamePainter extends CustomPainter {
   // 填充高度计算
   final totalHeight = headY - tailY;
   final fillBottom = headY;
-  final fillTop = tailY + totalHeight * (1 - note.holdProgress);
+  // 基于实际流逝时间计算 fillProgress，不依赖可能冻结的 holdProgress
+  // 用 computedHoldProgress 判断，这样 judged 后 fill 仍然保持满状态
+  double computedHoldProgress = 0.0;
+  if (note.holdPressTime > 0) {
+    final heldTime = (gameElapsed - note.holdPressTime).clamp(0, note.event.holdDuration!);
+    computedHoldProgress = (heldTime / note.event.holdDuration!).clamp(0.0, 1.0);
+  }
+  final fillTop = tailY + totalHeight * (1.0 - computedHoldProgress);
 
   // 透明度计算
   double alpha;
   if (note.holdFadeOut > 0) {
-    final flickerFreq = 30.0;
-    final flicker = 0.5 + 0.5 * math.sin(note.holdFadeOut * math.pi * flickerFreq);
-    alpha = 0.5 * (1.0 - note.holdFadeOut) * flicker;
+    // fade-out：线性渐隐，无抖动
+    alpha = 0.5 * (1.0 - note.holdFadeOut);
   } else if (note.holding) {
-    alpha = 0.5 * (1.0 - note.holdProgress * 0.8);
+    // holdProgress 低时保持较高 alpha，高时渐隐
+    alpha = 0.5 * (1.0 - computedHoldProgress * 0.7).clamp(0.15, 1.0);
   } else {
     alpha = 0.5;
   }
@@ -221,8 +247,8 @@ class GamePainter extends CustomPainter {
     ..strokeWidth = 1.5;
   canvas.drawRRect(capsuleRect, outlinePaint);
 
-  // ── 填充区域（按住中才绘制）──
-  if (note.holding || note.holdProgress > 0) {
+  // ── 填充区域（只要按过就绘制，填充满后保持满状态）──
+  if (note.holdPressTime > 0) {
     // 计算填充区域的胶囊形状
     final fillHeight = fillBottom - fillTop;
     if (fillHeight > 0) {
@@ -241,7 +267,7 @@ class GamePainter extends CustomPainter {
 
       // 霓虹发光
       final glowAlpha = alpha * 0.6;
-      final glowBlur = 15.0 * note.holdProgress;
+      final glowBlur = 15.0 * computedHoldProgress;
       final glowPaint = Paint()
         ..color = color.withValues(alpha: glowAlpha)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlur);
@@ -256,7 +282,7 @@ class GamePainter extends CustomPainter {
       // 左侧高光边缘
       final edgePaint = Paint()
         ..color = Color.lerp(color, Colors.white, 0.4)!
-            .withValues(alpha: (0.6 + 0.3 * note.holdProgress) * alpha)
+            .withValues(alpha: (0.6 + 0.3 * computedHoldProgress) * alpha)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
       canvas.drawLine(
@@ -266,8 +292,8 @@ class GamePainter extends CustomPainter {
       );
 
       // 顶部前沿亮条（胶囊填充前沿）
-      if (note.holdProgress > 0 && note.holdProgress < 1) {
-        final edgeAlpha = alpha * (0.7 + 0.3 * note.holdProgress);
+      if (computedHoldProgress > 0 && computedHoldProgress < 1) {
+        final edgeAlpha = alpha * (0.7 + 0.3 * computedHoldProgress);
         final frontPaint = Paint()
           ..color = Colors.white.withValues(alpha: edgeAlpha.clamp(0.0, 1.0))
           ..style = PaintingStyle.fill;
@@ -358,24 +384,41 @@ void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alph
   }
 
   void _drawArrow(Canvas canvas, double cx, double cy, double size, SlideDirection dir, Paint paint) {
+    paint.style = PaintingStyle.fill;
     final path = Path();
     switch (dir) {
       case SlideDirection.up:
+        paint.style = PaintingStyle.stroke;
+        paint.strokeWidth = size * 0.25;
+        canvas.drawLine(Offset(cx, cy - size), Offset(cx, cy + size * 0.5), paint);
+        paint.style = PaintingStyle.fill;
         path.moveTo(cx, cy - size);
-        path.lineTo(cx - size * 0.7, cy + size * 0.3);
-        path.lineTo(cx + size * 0.7, cy + size * 0.3);
+        path.lineTo(cx - size * 0.5, cy - size * 0.2);
+        path.lineTo(cx + size * 0.5, cy - size * 0.2);
       case SlideDirection.down:
+        paint.style = PaintingStyle.stroke;
+        paint.strokeWidth = size * 0.25;
+        canvas.drawLine(Offset(cx, cy + size), Offset(cx, cy - size * 0.5), paint);
+        paint.style = PaintingStyle.fill;
         path.moveTo(cx, cy + size);
-        path.lineTo(cx - size * 0.7, cy - size * 0.3);
-        path.lineTo(cx + size * 0.7, cy - size * 0.3);
+        path.lineTo(cx - size * 0.5, cy + size * 0.2);
+        path.lineTo(cx + size * 0.5, cy + size * 0.2);
       case SlideDirection.left:
+        paint.style = PaintingStyle.stroke;
+        paint.strokeWidth = size * 0.25;
+        canvas.drawLine(Offset(cx - size, cy), Offset(cx + size * 0.5, cy), paint);
+        paint.style = PaintingStyle.fill;
         path.moveTo(cx - size, cy);
-        path.lineTo(cx + size * 0.3, cy - size * 0.7);
-        path.lineTo(cx + size * 0.3, cy + size * 0.7);
+        path.lineTo(cx - size * 0.2, cy - size * 0.5);
+        path.lineTo(cx - size * 0.2, cy + size * 0.5);
       case SlideDirection.right:
+        paint.style = PaintingStyle.stroke;
+        paint.strokeWidth = size * 0.25;
+        canvas.drawLine(Offset(cx + size, cy), Offset(cx - size * 0.5, cy), paint);
+        paint.style = PaintingStyle.fill;
         path.moveTo(cx + size, cy);
-        path.lineTo(cx - size * 0.3, cy - size * 0.7);
-        path.lineTo(cx - size * 0.3, cy + size * 0.7);
+        path.lineTo(cx + size * 0.2, cy - size * 0.5);
+        path.lineTo(cx + size * 0.2, cy + size * 0.5);
     }
     path.close();
     canvas.drawPath(path, paint);
