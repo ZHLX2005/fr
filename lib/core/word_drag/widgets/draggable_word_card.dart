@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
@@ -73,6 +74,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   late AnimationController _alphaController;
   late AnimationController _exitScaleController;
   late AnimationController _pressScaleController;
+  late AnimationController _stackScaleController;
+  late AnimationController _stackYOffsetController;
 
   // 动画值
   double _offsetX = 0;
@@ -80,6 +83,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   double _alpha = 1;
   double _exitScale = 1;
   double _pressScale = 1;
+  double _stackScale = 1.0;
+  double _stackYOffset = 0.0;
 
   // 状态标志
   bool _isAnimating = false;
@@ -94,10 +99,6 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   // Action Indicator 文件夹模式阈值 (Kotlin: 150f)
   static const double _actionIndicatorFolderThreshold = 150;
 
-  // 堆叠效果常量
-  double get _stackScale => 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
-  double get _stackYOffset => widget.stackIndex * 15.0;
-
   @override
   void initState() {
     super.initState();
@@ -109,12 +110,24 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       vsync: this,
       duration: const Duration(milliseconds: 150),
     );
+    _stackScaleController = AnimationController.unbounded(vsync: this);
+    _stackYOffsetController = AnimationController.unbounded(vsync: this);
 
     _offsetXController.addListener(_onOffsetChanged);
     _offsetYController.addListener(_onOffsetChanged);
     _alphaController.addListener(_onAlphaChanged);
     _exitScaleController.addListener(_onExitScaleChanged);
     _pressScaleController.addListener(_onPressScaleChanged);
+    _stackScaleController.addListener(_onStackScaleChanged);
+    _stackYOffsetController.addListener(_onStackYOffsetChanged);
+
+    // Initialize stack values
+    final initialScale = 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
+    final initialYOffset = widget.stackIndex * 15.0;
+    _stackScale = initialScale;
+    _stackYOffset = initialYOffset;
+    _stackScaleController.value = initialScale;
+    _stackYOffsetController.value = initialYOffset;
   }
 
   @override
@@ -124,7 +137,34 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _alphaController.dispose();
     _exitScaleController.dispose();
     _pressScaleController.dispose();
+    _stackScaleController.dispose();
+    _stackYOffsetController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(DraggableWordCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // 当堆叠索引变化时，使用 spring 动画过渡 (匹配 Kotlin: stiffness=350f, dampingRatio=0.75f)
+    if (widget.stackIndex != oldWidget.stackIndex) {
+      final targetScale = 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
+      final targetYOffset = widget.stackIndex * 15.0;
+
+      // Spring 参数 (Kotlin: stiffness=350f, dampingRatio=0.75f)
+      final spring = SpringDescription(
+        mass: 1.0,
+        stiffness: 350.0,
+        damping: 0.75 * 2 * sqrt(350.0), // ≈ 28.07
+      );
+
+      _stackScaleController.animateWith(
+        SpringSimulation(spring, _stackScale, targetScale, 0),
+      );
+      _stackYOffsetController.animateWith(
+        SpringSimulation(spring, _stackYOffset, targetYOffset, 0),
+      );
+    }
   }
 
   void _onOffsetChanged() {
@@ -150,6 +190,18 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   void _onPressScaleChanged() {
     setState(() {
       _pressScale = _pressScaleController.value;
+    });
+  }
+
+  void _onStackScaleChanged() {
+    setState(() {
+      _stackScale = _stackScaleController.value;
+    });
+  }
+
+  void _onStackYOffsetChanged() {
+    setState(() {
+      _stackYOffset = _stackYOffsetController.value;
     });
   }
 
