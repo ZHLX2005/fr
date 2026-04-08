@@ -17,10 +17,11 @@ class CategoryBucket {
 
 /// 分类桶选择行组件
 ///
-/// 基于 photoo FolderDropRow 实现：
+/// 基于 photoo FolderDropRow 实现 (FolderDropTarget.kt)
 /// - 下滑 > 300px 时从底部滑入显示
-/// - 桶激活时有弹性缩放动画
+/// - 桶激活时有弹性缩放动画 (scale 0.82->1.2, lift 0->-8dp, width 68->88dp)
 /// - 支持碰撞检测确定最近桶
+/// - LazyRow 支持水平滚动
 class CategoryDropRow extends StatefulWidget {
   /// 是否显示
   final bool visible;
@@ -28,7 +29,7 @@ class CategoryDropRow extends StatefulWidget {
   final List<CategoryBucket> buckets;
   /// 当前激活的桶 ID
   final String? activeBucketId;
-  /// 桶位置变化回调 (bucketId -> Rect)
+  /// 桶位置变化回调
   final void Function(Map<String, Rect>)? onBucketPositionsChanged;
   /// 桶激活状态变化回调
   final void Function(String?)? onActiveBucketChanged;
@@ -56,8 +57,8 @@ class CategoryDropRowState extends State<CategoryDropRow>
 
   // 动画控制器
   late AnimationController _animController;
-  late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
@@ -67,6 +68,11 @@ class CategoryDropRowState extends State<CategoryDropRow>
       vsync: this,
     );
 
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(_animController);
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
@@ -75,23 +81,18 @@ class CategoryDropRowState extends State<CategoryDropRow>
       curve: Curves.easeOut,
     ));
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOut,
-    ));
-
-    for (var bucket in widget.buckets) {
-      _bucketKeys[bucket.id] = GlobalKey();
-    }
+    _initBucketKeys();
 
     if (widget.visible) {
       _animController.value = 1.0;
     }
+  }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateBucketRects());
+  void _initBucketKeys() {
+    _bucketKeys.clear();
+    for (var bucket in widget.buckets) {
+      _bucketKeys[bucket.id] = GlobalKey();
+    }
   }
 
   @override
@@ -107,10 +108,7 @@ class CategoryDropRowState extends State<CategoryDropRow>
     }
 
     if (widget.buckets != oldWidget.buckets) {
-      _bucketKeys.clear();
-      for (var bucket in widget.buckets) {
-        _bucketKeys[bucket.id] = GlobalKey();
-      }
+      _initBucketKeys();
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateBucketRects());
@@ -137,14 +135,24 @@ class CategoryDropRowState extends State<CategoryDropRow>
         );
       }
     }
-    if (_bucketRects != newRects) {
+
+    if (_bucketRects.isEmpty || !_rectsEqual(_bucketRects, newRects)) {
       _bucketRects.clear();
       _bucketRects.addAll(newRects);
       widget.onBucketPositionsChanged?.call(Map.from(_bucketRects));
     }
   }
 
-  /// 计算最近的桶
+  bool _rectsEqual(Map<String, Rect> a, Map<String, Rect> b) {
+    if (a.length != b.length) return false;
+    for (var entry in a.entries) {
+      final other = b[entry.key];
+      if (other == null || entry.value != other) return false;
+    }
+    return true;
+  }
+
+  /// 计算最近的桶 (280px 半径粘附阈值)
   String? _findClosestBucket(Offset cardCenter) {
     if (_bucketRects.isEmpty) return null;
 
@@ -158,7 +166,6 @@ class CategoryDropRowState extends State<CategoryDropRow>
       final dy = cardCenter.dy - bucketCenter.dy;
       final dist = dx * dx + dy * dy;
 
-      // 280px 半径粘附阈值 (photox: 280f)
       if (dist < 280 * 280 && dist < minDist) {
         minDist = dist;
         closestId = entry.key;
@@ -181,26 +188,29 @@ class CategoryDropRowState extends State<CategoryDropRow>
     return AnimatedBuilder(
       animation: _animController,
       builder: (context, child) {
-        return FractionalTranslation(
-          translation: _slideAnimation.value,
-          child: Opacity(
-            opacity: _fadeAnimation.value.clamp(0.0, 1.0),
+        return Opacity(
+          opacity: _fadeAnimation.value.clamp(0.0, 1.0),
+          child: FractionalTranslation(
+            translation: _slideAnimation.value,
             child: child,
           ),
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: widget.buckets.map((bucket) {
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: widget.buckets.length,
+          itemBuilder: (context, index) {
+            final bucket = widget.buckets[index];
             return _BucketItem(
               key: _bucketKeys[bucket.id],
               bucket: bucket,
               isActive: bucket.id == widget.activeBucketId,
               onTap: () => widget.onBucketSelected?.call(bucket.id),
             );
-          }).toList(),
+          },
         ),
       ),
     );
@@ -208,6 +218,21 @@ class CategoryDropRowState extends State<CategoryDropRow>
 }
 
 /// 单个分类桶组件
+///
+/// 基于 photoo FolderItem:
+///
+/// val scale by animateFloatAsState(
+///     targetValue = if (isActive) 1.2f else 0.82f,
+///     animationSpec = spring(dampingRatio = 0.6f, stiffness = 320f)
+/// )
+/// val lift by animateDpAsState(
+///     targetValue = if (isActive) (-8).dp else 0.dp,
+///     animationSpec = spring(dampingRatio = 0.7f, stiffness = 320f)
+/// )
+/// val itemWidth by animateDpAsState(
+///     targetValue = if (isActive) 88.dp else 68.dp,
+///     animationSpec = spring(dampingRatio = 0.7f, stiffness = 320f)
+/// )
 class _BucketItem extends StatefulWidget {
   final CategoryBucket bucket;
   final bool isActive;
@@ -229,6 +254,7 @@ class _BucketItemState extends State<_BucketItem>
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _liftAnimation;
+  late Animation<double> _widthAnimation;
 
   @override
   void initState() {
@@ -242,6 +268,9 @@ class _BucketItemState extends State<_BucketItem>
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
     _liftAnimation = Tween<double>(begin: 0, end: -8).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _widthAnimation = Tween<double>(begin: 68, end: 88).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
   }
@@ -269,63 +298,69 @@ class _BucketItemState extends State<_BucketItem>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _liftAnimation.value),
-          child: Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
+        return Container(
+          width: _widthAnimation.value,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Transform.translate(
+                  offset: Offset(0, _liftAnimation.value),
+                  child: Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: widget.isActive
+                            ? Color(0xFFEFF6FF)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: widget.isActive
+                              ? const Color(0xFF3B82F6)
+                              : Colors.transparent,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        widget.bucket.icon,
+                        color: widget.isActive
+                            ? const Color(0xFF3B82F6)
+                            : Colors.grey.shade600,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.bucket.name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: widget.isActive ? FontWeight.bold : FontWeight.w500,
+                    color: widget.isActive
+                        ? const Color(0xFF3B82F6)
+                        : Colors.grey.shade700,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         );
       },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: widget.isActive ? 88 : 68,
-              height: widget.isActive ? 88 : 68,
-              decoration: BoxDecoration(
-                color: widget.isActive
-                    ? widget.bucket.color.withValues(alpha: 0.15)
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: widget.isActive
-                      ? widget.bucket.color
-                      : Colors.grey.shade300,
-                  width: widget.isActive ? 2 : 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Icon(
-                widget.bucket.icon,
-                color: widget.isActive ? widget.bucket.color : Colors.grey.shade600,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.bucket.name,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: widget.isActive ? FontWeight.bold : FontWeight.w500,
-                color: widget.isActive ? widget.bucket.color : Colors.grey.shade700,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

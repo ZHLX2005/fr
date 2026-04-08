@@ -3,23 +3,20 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 
 /// 滑动方向枚举
-enum SwipeDirection { left, right, up, down, none }
+enum SwipeDirection { left, right, up, down }
 
 /// Action 指示器类型
 enum ActionIndicator {
   like,
   delete,
   skip,
-  move,
+  folder,
 }
 
 /// 弹性单词卡片组件
 ///
-/// 基于 photoo DraggableCard 实现，支持：
-/// - 上滑跳过
-/// - 左滑删除/稍后复习
-/// - 右滑喜欢/掌握
-/// - 下滑显示分类桶
+/// 基于 photoo DraggableCard 实现 (第 4388-4800 行)
+/// 支持：上滑跳过、左滑稍后复习、右滑掌握、下滑显示分类桶
 class DraggableWordCard extends StatefulWidget {
   final Widget child;
   /// 单词索引
@@ -34,14 +31,18 @@ class DraggableWordCard extends StatefulWidget {
   final VoidCallback? onSwipeRight;
   /// 上滑回调
   final VoidCallback? onSwipeUp;
+  /// 下滑进入文件夹模式回调
+  final bool Function(double x, double y)? onFolderModeDragEnd;
   /// 开始拖动回调
   final VoidCallback? onDragStart;
-  /// 拖动更新回调 (offsetX, offsetY)
+  /// 拖动更新回调 (x, y)
   final void Function(double x, double y)? onDragUpdate;
-  /// 拖动结束回调，返回是否消耗事件
-  final bool Function(double x, double y)? onDragEnd;
+  /// 拖动结束回调
+  final void Function(double x, double y)? onDragEnd;
   /// 拖动取消回调
   final VoidCallback? onDragCancel;
+  /// 详情页回调
+  final VoidCallback? onDetail;
 
   const DraggableWordCard({
     super.key,
@@ -52,10 +53,12 @@ class DraggableWordCard extends StatefulWidget {
     this.onSwipeLeft,
     this.onSwipeRight,
     this.onSwipeUp,
+    this.onFolderModeDragEnd,
     this.onDragStart,
     this.onDragUpdate,
     this.onDragEnd,
     this.onDragCancel,
+    this.onDetail,
   });
 
   @override
@@ -64,115 +67,130 @@ class DraggableWordCard extends StatefulWidget {
 
 class _DraggableWordCardState extends State<DraggableWordCard>
     with TickerProviderStateMixin {
-  // 动画状态
-  late AnimationController _animControllerX;
-  late AnimationController _animControllerY;
-
-  // 透明度控制器
+  // 动画状态 - 使用 Animatable 支持自由拖动值
+  late AnimationController _offsetXController;
+  late AnimationController _offsetYController;
   late AnimationController _alphaController;
-  late Animation<double> _alphaAnimation;
+  late AnimationController _exitScaleController;
+  late AnimationController _pressScaleController;
 
-  // 缩放控制器
-  late AnimationController _scaleController;
-  late Animation<double> _scaleAnimation;
+  // 动画值
+  double _offsetX = 0;
+  double _offsetY = 0;
+  double _alpha = 1;
+  double _exitScale = 1;
+  double _pressScale = 1;
 
+  // 状态标志
   bool _isPressed = false;
   bool _isAnimating = false;
 
-  // 阈值常量 (基于 photoo)
-  static const double _threshold = 160;        // 滑动确认阈值
-  static const double _folderModeThreshold = 300; // 下滑进入桶模式
-  static const double _flingThreshold = 800;      // 快速滑动速度阈值
+  // ==================== 常量 (完全匹配 photoo) ====================
+  static const double _threshold = 160;           // 滑动确认阈值
+  static const double _folderModeThreshold = 420;  // 下滑进入文件夹模式
+  static const double _flingThreshold = 800;       // 快速滑动速度阈值
 
-  // Action Indicator 阈值 (基于 photoo: 100px 显示，150px 进入 folder mode)
+  // Action Indicator 阈值
   static const double _actionIndicatorThreshold = 100;
   static const double _folderModeVisualThreshold = 150;
 
-  // 堆叠效果常量 (基于 photoo)
+  // 堆叠效果常量
   double get _stackScale => 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
   double get _stackYOffset => widget.stackIndex * 15.0;
 
   @override
   void initState() {
     super.initState();
-    _animControllerX = AnimationController.unbounded(vsync: this);
-    _animControllerY = AnimationController.unbounded(vsync: this);
-
+    _offsetXController = AnimationController.unbounded(vsync: this);
+    _offsetYController = AnimationController.unbounded(vsync: this);
     _alphaController = AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
-    _alphaAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_alphaController);
+    _exitScaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
+    _pressScaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
 
-    _scaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.1).animate(_scaleController);
-
-    _animControllerX.addListener(_onAnimationX);
-    _animControllerY.addListener(_onAnimationY);
-    _alphaController.addListener(_onAlpha);
-    _scaleController.addListener(_onScale);
+    _offsetXController.addListener(_onOffsetChanged);
+    _offsetYController.addListener(_onOffsetChanged);
+    _alphaController.addListener(_onAlphaChanged);
+    _exitScaleController.addListener(_onExitScaleChanged);
+    _pressScaleController.addListener(_onPressScaleChanged);
   }
 
   @override
   void dispose() {
-    _animControllerX.dispose();
-    _animControllerY.dispose();
+    _offsetXController.dispose();
+    _offsetYController.dispose();
     _alphaController.dispose();
-    _scaleController.dispose();
+    _exitScaleController.dispose();
+    _pressScaleController.dispose();
     super.dispose();
   }
 
-  void _onAnimationX() {
-    widget.onDragUpdate?.call(_animControllerX.value, _animControllerY.value);
+  void _onOffsetChanged() {
+    setState(() {
+      _offsetX = _offsetXController.value;
+      _offsetY = _offsetYController.value;
+    });
+    widget.onDragUpdate?.call(_offsetX, _offsetY);
   }
 
-  void _onAnimationY() {
-    widget.onDragUpdate?.call(_animControllerX.value, _animControllerY.value);
+  void _onAlphaChanged() {
+    setState(() {
+      _alpha = _alphaController.value;
+    });
   }
 
-  void _onAlpha() {}
+  void _onExitScaleChanged() {
+    setState(() {
+      _exitScale = _exitScaleController.value;
+    });
+  }
 
-  void _onScale() {}
+  void _onPressScaleChanged() {
+    setState(() {
+      _pressScale = _pressScaleController.value;
+    });
+  }
 
   // 触觉反馈
   void _performHaptic() {
     HapticFeedback.mediumImpact();
   }
 
-  // 处理拖动更新 - 直接修改 AnimationController 的 value
+  // 处理拖动更新
   void _handleDragUpdate(double dx, double dy) {
     if (!widget.isTopCard || _isAnimating) return;
-    _animControllerX.value += dx;
-    _animControllerY.value += dy;
-    widget.onDragUpdate?.call(_animControllerX.value, _animControllerY.value);
+    _offsetXController.value += dx;
+    _offsetYController.value += dy;
   }
 
   // 处理拖动结束
-  bool _handleDragEnd(double velocityX, double velocityY) {
-    if (!widget.isTopCard || _isAnimating) return false;
+  void _handleDragEnd(double velocityX, double velocityY) {
+    if (!widget.isTopCard || _isAnimating) return;
 
-    final offsetX = _animControllerX.value;
-    final offsetY = _animControllerY.value;
+    final offsetX = _offsetXController.value;
+    final offsetY = _offsetYController.value;
 
-    // 检查是否是下滑桶模式 (父组件处理)
+    // 检查是否是文件夹模式
     final isFolderMode = offsetY > _folderModeThreshold;
 
-    // 检查水平滑动意图
-    final isHorizontalSwipe = offsetX.abs() > 500;
-
-    // 如果是下滑模式且不是水平滑动，交给父组件处理
-    if (isFolderMode && !isHorizontalSwipe) {
-      final consumed = widget.onDragEnd?.call(offsetX, offsetY) ?? false;
+    // 文件夹模式：交给父组件处理
+    if (isFolderMode) {
+      final consumed = widget.onFolderModeDragEnd?.call(offsetX, offsetY) ?? false;
       if (consumed) {
         // 吸进动画
-        _animateSuckIn(offsetY);
-        return true;
+        _animateSuckIntoFolder();
+        return;
       }
     }
 
-    // 左滑 - 删除
+    // 左滑 - 删除/稍后复习
     if (offsetX < -_threshold) {
       _performHaptic();
       _animateSwipeOut(-1500, 0);
       widget.onSwipeLeft?.call();
-      return true;
+      return;
     }
 
     // 右滑 - 掌握
@@ -180,32 +198,40 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       _performHaptic();
       _animateSwipeOut(1500, 0);
       widget.onSwipeRight?.call();
-      return true;
+      return;
     }
 
-    // 上滑 - 跳过
+    // 上滑 - 跳过 (位置或速度触发)
     if (offsetY < -_threshold || velocityY < -_flingThreshold) {
       _performHaptic();
       _animateSwipeOut(0, -2000);
       widget.onSwipeUp?.call();
-      return true;
+      return;
     }
 
-    // 回弹 - 使用 Spring 动画
+    // 回弹
     _animateSpringBack();
-    return false;
   }
 
-  // 吸进动画 (放入桶)
-  void _animateSuckIn(double currentY) {
-    _isAnimating = true;
-    _alphaController.forward();
-    _scaleController.forward();
+  // 拖动取消
+  void _handleDragCancel() {
+    if (!widget.isTopCard || _isAnimating) return;
+    _isPressed = false;
+    _pressScaleController.reverse();
+    widget.onDragCancel?.call();
+    _animateSpringBack();
+  }
 
-    final targetY = currentY + 200;
-    _animControllerY
-        .animateTo(targetY, duration: const Duration(milliseconds: 250), curve: Curves.easeOut)
-        .then((_) {
+  // 吸进动画 (放入文件夹)
+  void _animateSuckIntoFolder() {
+    _isAnimating = true;
+
+    _exitScaleController.animateTo(0.1, duration: const Duration(milliseconds: 250));
+    _alphaController.animateTo(0, duration: const Duration(milliseconds: 250));
+    _offsetYController.animateTo(
+      _offsetYController.value + 200,
+      duration: const Duration(milliseconds: 250),
+    ).then((_) {
       _isAnimating = false;
     });
   }
@@ -214,81 +240,67 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   void _animateSwipeOut(double targetX, double targetY) {
     _isAnimating = true;
 
-    // 使用 addStatusListener 确保动画完成时重置状态
-    void onComplete(AnimationStatus status) {
-      if (status == AnimationStatus.completed) {
-        _isAnimating = false;
-        _animControllerX.removeStatusListener(onComplete);
-        _animControllerY.removeStatusListener(onComplete);
-      }
-    }
-
-    _animControllerX.addStatusListener(onComplete);
-    _animControllerY.addStatusListener(onComplete);
-
-    _animControllerX.animateTo(targetX, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
-    _animControllerY.animateTo(targetY, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    _offsetXController.animateTo(
+      targetX,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+    _offsetYController.animateTo(
+      targetY,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    ).then((_) {
+      _isAnimating = false;
+    });
   }
 
-  // Spring 回弹动画 (基于 photoo 的 snappy 效果: stiffness=2000f, dampingRatio=0.85f)
+  // Spring 回弹动画 (phoot: stiffness=2000f, dampingRatio=0.85f)
   void _animateSpringBack() {
     _isAnimating = true;
 
     final spring = SpringDescription(
       mass: 1.0,
       stiffness: 2000.0,
-      damping: 76.0,
+      damping: 76.0, // dampingRatio = 0.85
     );
 
-    final currentX = _animControllerX.value;
-    final currentY = _animControllerY.value;
+    final simX = SpringSimulation(spring, _offsetXController.value, 0, 0);
+    final simY = SpringSimulation(spring, _offsetYController.value, 0, 0);
 
-    final simulationX = SpringSimulation(spring, currentX, 0, 0);
-    final simulationY = SpringSimulation(spring, currentY, 0, 0);
-
-    _animControllerX.animateWith(simulationX);
-    _animControllerY.animateWith(simulationY);
-
-    // 使用 addStatusListener 确保动画完成时重置状态
-    void onComplete(AnimationStatus status) {
-      if (status == AnimationStatus.completed) {
-        _isAnimating = false;
-        _animControllerX.removeStatusListener(onComplete);
-        _animControllerY.removeStatusListener(onComplete);
-      }
-    }
-    _animControllerX.addStatusListener(onComplete);
-    _animControllerY.addStatusListener(onComplete);
+    _offsetXController.animateWith(simX);
+    _offsetYController.animateWith(simY).then((_) {
+      _isAnimating = false;
+    });
   }
 
-  // 计算动态缩放 (上下滑动时卡片变薄/变小)
+  // 计算动态缩放
   double get _dynamicScale {
-    final offsetY = _animControllerY.value;
-    if (offsetY < 0) {
-      return (1.0 + offsetY / 1000).clamp(0.9, 1.0);
-    } else if (offsetY > 0) {
-      return (1.0 - offsetY / 1000).clamp(0.5, 1.0);
+    if (_offsetY < 0) {
+      return (1.0 + _offsetY / 1000).clamp(0.9, 1.0);
+    } else if (_offsetY > 0) {
+      return (1.0 - _offsetY / 1000).clamp(0.5, 1.0);
     }
     return 1.0;
   }
 
-  // 计算旋转角度
-  double get _rotation => (_animControllerX.value / 60).clamp(-10, 10);
+  // 计算旋转角度 (已禁用，仅保留计算)
+  double get _rotation => (_offsetX / 60).clamp(-10.0, 10.0);
 
-  // 计算当前 Action Indicator 类型
+  // 计算当前 Action Indicator
   ActionIndicator? get _currentActionIndicator {
-    final offsetX = _animControllerX.value;
-    final offsetY = _animControllerY.value;
-    final isFolderMode = offsetY > _folderModeVisualThreshold;
+    final isFolderMode = _offsetY > _folderModeVisualThreshold;
 
-    if (!isFolderMode && offsetX > _actionIndicatorThreshold) {
+    if (isFolderMode) {
+      return ActionIndicator.folder;
+    }
+    if (_offsetX > _actionIndicatorThreshold) {
       return ActionIndicator.like;
-    } else if (!isFolderMode && offsetX < -_actionIndicatorThreshold) {
+    }
+    if (_offsetX < -_actionIndicatorThreshold) {
       return ActionIndicator.delete;
-    } else if (offsetY < -_actionIndicatorThreshold) {
+    }
+    if (_offsetY < -_actionIndicatorThreshold) {
       return ActionIndicator.skip;
-    } else if (isFolderMode) {
-      return ActionIndicator.move;
     }
     return null;
   }
@@ -296,253 +308,156 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
+    final cardWidth = screenSize.width * 0.8;
+    final cardHeight = screenSize.height * 0.6;
 
-    return AnimatedBuilder(
-      animation: Listenable.merge([
-        _animControllerX,
-        _animControllerY,
-        _alphaController,
-        _scaleController,
-      ]),
-      builder: (context, child) {
-        final offsetX = _animControllerX.value;
-        final offsetY = _animControllerY.value;
-        final actionIndicator = _currentActionIndicator;
+    // 总缩放 = 堆叠缩放 * 动态缩放 * 退出缩放 * 按压缩放
+    final totalScale = _stackScale * _dynamicScale * _exitScale * _pressScale;
+    final actionIndicator = _currentActionIndicator;
 
-        return Transform.translate(
-          offset: Offset(offsetX, offsetY + _stackYOffset),
-          child: Transform.scale(
-            scale: _stackScale * _dynamicScale * _scaleAnimation.value * (_isPressed ? 0.96 : 1.0),
-            child: Opacity(
-              opacity: _alphaAnimation.value.clamp(0.0, 1.0),
-              child: Transform.rotate(
-                angle: _rotation * 3.14159 / 180,
-                child: Stack(
-                  children: [
-                    child!,
-                    // Action Indicator Overlay
-                    if (widget.isTopCard && actionIndicator != null)
-                      Positioned(
-                        top: 24,
-                        right: 24,
-                        child: _ActionIndicator(indicator: actionIndicator),
+    return SizedBox(
+      width: cardWidth,
+      height: cardHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // 卡片本身
+          Positioned(
+            top: _stackYOffset,
+            left: 0,
+            right: 0,
+            child: Transform.translate(
+              offset: Offset(_offsetX, _offsetY),
+              child: Transform.scale(
+                scale: totalScale,
+                child: Opacity(
+                  opacity: _alpha.clamp(0.0, 1.0),
+                  child: GestureDetector(
+                    onTap: widget.isTopCard ? widget.onDetail : null,
+                    onPanStart: widget.isTopCard ? (_) {
+                      if (_isAnimating) return;
+                      _isPressed = true;
+                      _pressScaleController.animateTo(0.96, duration: const Duration(milliseconds: 150));
+                      widget.onDragStart?.call();
+                    } : null,
+                    onPanUpdate: widget.isTopCard ? (details) {
+                      if (_isAnimating) return;
+                      _handleDragUpdate(details.delta.dx, details.delta.dy);
+                    } : null,
+                    onPanEnd: widget.isTopCard ? (details) {
+                      if (_isAnimating) return;
+                      _isPressed = false;
+                      _pressScaleController.reverse();
+                      _handleDragEnd(
+                        details.velocity.pixelsPerSecond.dx,
+                        details.velocity.pixelsPerSecond.dy,
+                      );
+                    } : null,
+                    onPanCancel: widget.isTopCard ? _handleDragCancel : null,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                  ],
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: widget.child,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        );
-      },
-      child: GestureDetector(
-        onPanStart: widget.isTopCard ? (_) {
-          if (_isAnimating) return;
-          _isPressed = true;
-          widget.onDragStart?.call();
-        } : null,
-        onPanUpdate: widget.isTopCard ? (details) {
-          if (_isAnimating) return;
-          _handleDragUpdate(details.delta.dx, details.delta.dy);
-        } : null,
-        onPanEnd: widget.isTopCard ? (details) {
-          if (_isAnimating) return;
-          _isPressed = false;
-          _handleDragEnd(details.velocity.pixelsPerSecond.dx, details.velocity.pixelsPerSecond.dy);
-        } : null,
-        onPanCancel: widget.isTopCard ? () {
-          if (_isAnimating) return;
-          _isPressed = false;
-          widget.onDragCancel?.call();
-          _animateSpringBack();
-        } : null,
-        child: Container(
-          width: screenSize.width * 0.8,
-          height: screenSize.height * 0.5,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.grey.shade300,
-              width: 1,
+
+          // Action Indicator (位于卡片右上角)
+          if (widget.isTopCard && actionIndicator != null)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: _ActionIndicatorWidget(indicator: actionIndicator),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: widget.child,
-          ),
-        ),
+        ],
       ),
     );
   }
 }
 
-/// Action 指示器组件
-class _ActionIndicator extends StatelessWidget {
+/// Action Indicator 组件
+class _ActionIndicatorWidget extends StatelessWidget {
   final ActionIndicator indicator;
 
-  const _ActionIndicator({required this.indicator});
+  const _ActionIndicatorWidget({required this.indicator});
 
   @override
   Widget build(BuildContext context) {
-    return _buildIndicator();
-  }
+    Color color;
+    IconData icon;
+    String text;
 
-  Widget _buildIndicator() {
     switch (indicator) {
       case ActionIndicator.like:
-        // LIKE (Orange) - Right Swipe
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(8),
-              bottomRight: Radius.circular(8),
-            ),
-            border: Border.all(color: const Color(0xFFFF9800), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.favorite, color: Color(0xFFFF9800), size: 20),
-              SizedBox(width: 8),
-              Text(
-                'LIKE',
-                style: TextStyle(
-                  color: Color(0xFFFF9800),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        );
-
+        color = const Color(0xFFFF9800);
+        icon = Icons.favorite;
+        text = 'LIKE';
+        break;
       case ActionIndicator.delete:
-        // DELETE (Red) - Left Swipe
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(8),
-              bottomRight: Radius.circular(8),
-            ),
-            border: Border.all(color: const Color(0xFFEF4444), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
-              SizedBox(width: 8),
-              Text(
-                'DELETE',
-                style: TextStyle(
-                  color: Color(0xFFEF4444),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        );
-
+        color = const Color(0xFFEF4444);
+        icon = Icons.delete_outline;
+        text = 'DELETE';
+        break;
       case ActionIndicator.skip:
-        // SKIP (Blue) - Up Swipe
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(8),
-              bottomRight: Radius.circular(8),
-            ),
-            border: Border.all(color: const Color(0xFF3B82F6), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.arrow_upward, color: Color(0xFF3B82F6), size: 20),
-              SizedBox(width: 8),
-              Text(
-                'SKIP',
-                style: TextStyle(
-                  color: Color(0xFF3B82F6),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        );
-
-      case ActionIndicator.move:
-        // MOVE (Purple) - Down Swipe
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(8),
-              bottomRight: Radius.circular(8),
-            ),
-            border: Border.all(color: const Color(0xFF9C27B0), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.drive_file_move, color: Color(0xFF9C27B0), size: 20),
-              SizedBox(width: 8),
-              Text(
-                'MOVE',
-                style: TextStyle(
-                  color: Color(0xFF9C27B0),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        );
+        color = const Color(0xFF3B82F6);
+        icon = Icons.arrow_upward;
+        text = 'SKIP';
+        break;
+      case ActionIndicator.folder:
+        color = const Color(0xFF9C27B0);
+        icon = Icons.drive_file_move;
+        text = 'FOLDER';
+        break;
     }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+        border: Border.all(color: color, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
