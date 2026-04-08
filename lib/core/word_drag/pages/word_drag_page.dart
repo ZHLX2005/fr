@@ -196,7 +196,9 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             notifier.onSwipeRight();
           },
           onSwipeUp: () {
-            // 上滑跳过 - 动画完成后显示详情（不在这里立即显示，会遮挡新卡片）
+            // 上滑跳过 - 调用 notifier 跳到下一个单词
+            notifier.onSwipeUp();
+            // 同时显示详情页
             Future.delayed(const Duration(milliseconds: 300), () {
               if (mounted && state.currentWord != null) {
                 _showDetail(state.currentWord!);

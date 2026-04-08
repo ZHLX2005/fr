@@ -255,7 +255,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     }
 
     // 上滑 - 跳过 (位置或速度触发)
-    if (offsetY < -_threshold || velocityY < -_flingThreshold) {
+    // Kotlin: offsetY < -threshold || (velocityY < -verticalFlingThreshold && offsetY < 0)
+    if (offsetY < -_threshold || (velocityY < -_flingThreshold && offsetY < 0)) {
       _performHaptic();
       _animateSwipeOut(0, -2000, onComplete: widget.onSwipeUp);
       return;
