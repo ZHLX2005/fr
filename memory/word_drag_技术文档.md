@@ -40,6 +40,15 @@ lib/core/word_drag/
 - threshold = 160f ✅
 - folderModeThreshold = 420f ✅
 - velocityThreshold = 800f ✅
+- actionIndicatorFolderThreshold = 150f ✅ (2026-04-09 修复)
+
+### Action Indicator 阈值
+| 指示器 | Kotlin | Dart | 状态 |
+|--------|--------|------|------|
+| folder | 150f | 150 | ✅ |
+| like | 100f | 100 | ✅ |
+| delete | 100f | 100 | ✅ |
+| skip | 100f | 100 | ✅ |
 
 ### 堆叠效果
 - scaleValue = 1f - (effectiveStackIndex * 0.04f) ✅
@@ -150,6 +159,7 @@ AnimatedVisibility(
 5. ✅ 背景卡片堆叠偏移与主卡一致
 6. ✅ 进入文件夹模式时重置滚动位置
 7. ✅ 文件夹模式未命中目标时正确回弹（不触发滑动）
+8. ✅ Action Indicator 文件夹阈值修正为 150f
 
 ## 参考来源
 
