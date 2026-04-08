@@ -327,33 +327,40 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
             ),
           ],
         ),
-        if (_highAccuracy > 0) ...[
-          const SizedBox(height: 24),
-          _buildGradeDisplay(color),
-        ],
         const Spacer(),
-        // START 按钮
-        GestureDetector(
-          onTap: widget.onStart,
-          child: Container(
-            width: 200,
-            height: 56,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: color, width: 2),
-            ),
-            child: Center(
-              child: Text(
-                'START',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  letterSpacing: 4,
+        // 评分等级 + START 按钮
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 48),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (_highAccuracy > 0) ...[
+                _buildGradeDisplay(color),
+                const Spacer(),
+              ] else
+                const Spacer(),
+              // START 按钮
+              GestureDetector(
+                onTap: widget.onStart,
+                child: Container(
+                  width: 140,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: color, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'START',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w300,
+                      color: color,
+                      letterSpacing: 4,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
         const SizedBox(height: 48),
@@ -370,7 +377,7 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
         Text(
           grade,
           style: TextStyle(
-            fontSize: 40,
+            fontSize: 72,
             fontWeight: FontWeight.w100,
             color: gradeColor,
             height: 1,
