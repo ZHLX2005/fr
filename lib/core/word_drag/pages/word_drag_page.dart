@@ -182,8 +182,9 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
         if (state.currentIndex + 2 < state.words.length)
           _buildBackgroundCard(cardWidth, cardHeight, 0.92, 40),
 
-        // 顶层卡片
+        // 顶层卡片 (使用 ValueKey 确保 currentIndex 改变时重建)
         DraggableWordCard(
+          key: ValueKey('top_card_${state.currentIndex}'),
           isTopCard: true,
           stackIndex: 0,
           index: state.currentIndex,

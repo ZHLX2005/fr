@@ -390,7 +390,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                         Positioned(
                           top: 16,
                           right: 16,
-                          child: _ActionIndicatorWidget(indicator: actionIndicator),
+                          child: Transform.translate(
+                            offset: Offset(_offsetX, _offsetY),
+                            child: _ActionIndicatorWidget(indicator: actionIndicator),
+                          ),
                         ),
                     ],
                   ),
