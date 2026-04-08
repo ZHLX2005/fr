@@ -149,7 +149,13 @@ class CategoryDropRowState extends State<CategoryDropRow>
         // 重置滚动位置到开头 (匹配 Kotlin: folderListState.scrollToItem(0))
         _scrollController.jumpTo(0);
         _animController.forward();
+        // 动画开始后更新桶位置（确保布局已完成）
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && widget.visible) _updateBucketRects();
+        });
       } else {
+        // 隐藏时清除桶位置 (匹配 Kotlin: rects.clear())
+        _bucketRects.clear();
         _animController.reverse();
       }
     }
@@ -157,8 +163,6 @@ class CategoryDropRowState extends State<CategoryDropRow>
     if (widget.buckets != oldWidget.buckets) {
       _initBucketKeys();
     }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateBucketRects());
   }
 
   @override
@@ -188,6 +192,16 @@ class CategoryDropRowState extends State<CategoryDropRow>
       _bucketRects.clear();
       _bucketRects.addAll(newRects);
       widget.onBucketPositionsChanged?.call(Map.from(_bucketRects));
+    }
+  }
+
+  /// 强制立即更新桶位置（在碰撞检测前调用）
+  /// 如果桶尚未渲染，会延迟更新
+  void forceUpdateRects() {
+    if (_bucketRects.isEmpty && mounted && widget.visible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _updateBucketRects();
+      });
     }
   }
 
