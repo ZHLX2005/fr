@@ -162,13 +162,12 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     final cardWidth = screenSize.width * 0.8;
     final cardHeight = screenSize.height * 0.6;
 
-    // 计算卡片中心位置 (用于碰撞检测)
-    // 卡片宽度: screenSize.width * 0.8
-    // 卡片高度: screenSize.height * 0.6
-    // 卡片顶部位置: screenSize.height * 0.35 (居中偏上)
-    // 卡片中心: top + height/2 = screenSize.height * 0.35 + cardHeight/2
+    // Kotlin 使用 BiasAlignment(0f, -0.12f) 将卡片上移 12% 屏幕高度
+    // 这使得卡片顶部位置从 0.2 * screenHeight 变为 0.08 * screenHeight
+    // Dart 使用 Alignment.center，需要手动应用这个偏移
+    // 卡片中心位置 = 0.2 * screenHeight - 0.12 * screenHeight + cardHeight/2 = 0.08 * screenHeight + cardHeight/2
     Offset getCardCenter(double offsetX, double offsetY) {
-      final cardCenterY = screenSize.height * 0.35 + cardHeight / 2;
+      final cardCenterY = screenSize.height * 0.08 + cardHeight / 2;
       return Offset(
         screenSize.width / 2 + offsetX,
         cardCenterY + offsetY,
