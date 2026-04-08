@@ -69,6 +69,7 @@ class _SongSelectPageState extends State<SongSelectPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme.primary;
+    final navHeight = MediaQuery.of(context).padding.top + 56;
 
     if (_isLoading) {
       return Scaffold(
@@ -104,37 +105,25 @@ class _SongSelectPageState extends State<SongSelectPage> {
         children: [
           // 导航栏
           SizedBox(
-            height: MediaQuery.of(context).padding.top + 56,
+            height: navHeight,
             child: Row(
               children: [
-                // 返回按钮
                 Padding(
                   padding: EdgeInsets.only(left: 16, top: MediaQuery.of(context).padding.top),
                   child: IconButton(
-                    icon: Icon(
-                      Icons.arrow_back_ios_new,
-                      color: color,
-                      size: 24,
-                    ),
+                    icon: Icon(Icons.arrow_back_ios_new, color: color, size: 24),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
                 const Spacer(),
-                // 设置按钮
                 Padding(
                   padding: EdgeInsets.only(right: 16, top: MediaQuery.of(context).padding.top),
                   child: IconButton(
-                    icon: Icon(
-                      Icons.settings_outlined,
-                      color: color,
-                      size: 24,
-                    ),
+                    icon: Icon(Icons.settings_outlined, color: color, size: 24),
                     onPressed: () {
                       Navigator.of(context).push<void>(
                         MaterialPageRoute(
-                          builder: (context) => SpeedSettingsPage(
-                            primaryColor: color,
-                          ),
+                          builder: (context) => SpeedSettingsPage(primaryColor: color),
                         ),
                       );
                     },
@@ -150,52 +139,52 @@ class _SongSelectPageState extends State<SongSelectPage> {
                 // 左侧歌曲滚轮 (30%)
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.3,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      top: -(MediaQuery.of(context).padding.top + 56) / 2,
-                    ),
-                    child: ListWheelScrollView.useDelegate(
-                    controller: _scrollController,
-                    itemExtent: 48,
-                    diameterRatio: 100,
-                    perspective: 0.001,
-                    physics: const FixedExtentScrollPhysics(),
-                    onSelectedItemChanged: (index) {
-                      setState(() => _selectedSong = _songs[index]);
-                    },
-                    childDelegate: ListWheelChildBuilderDelegate(
-                      childCount: _songs.length,
-                      builder: (context, index) {
-                        final song = _songs[index];
-                        final selectedIndex = _songs.indexWhere((s) => s.id == _selectedSong?.id);
-                        final distance = (selectedIndex - index).abs();
-                        final isSelected = distance == 0;
-                        final isNeighbor = distance == 1;
+                  child: ClipRect(
+                    child: Transform.translate(
+                      offset: Offset(0, -navHeight / 2),
+                      child: ListWheelScrollView.useDelegate(
+                        controller: _scrollController,
+                        itemExtent: 48,
+                        diameterRatio: 100,
+                        perspective: 0.001,
+                        physics: const FixedExtentScrollPhysics(),
+                        onSelectedItemChanged: (index) {
+                          setState(() => _selectedSong = _songs[index]);
+                        },
+                        childDelegate: ListWheelChildBuilderDelegate(
+                          childCount: _songs.length,
+                          builder: (context, index) {
+                            final song = _songs[index];
+                            final selectedIndex = _songs.indexWhere((s) => s.id == _selectedSong?.id);
+                            final distance = (selectedIndex - index).abs();
+                            final isSelected = distance == 0;
+                            final isNeighbor = distance == 1;
 
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 32),
-                            child: Text(
-                              song.name,
-                              style: TextStyle(
-                                fontSize: isSelected ? 22 : (isNeighbor ? 16 : 12),
-                                fontWeight: FontWeight.w200,
-                                color: isSelected
-                                    ? color
-                                    : (isNeighbor
-                                        ? color.withValues(alpha: 0.5)
-                                        : color.withValues(alpha: 0.25)),
-                                letterSpacing: isSelected ? 4 : 2,
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 32),
+                                child: Text(
+                                  song.name,
+                                  style: TextStyle(
+                                    fontSize: isSelected ? 22 : (isNeighbor ? 16 : 12),
+                                    fontWeight: FontWeight.w200,
+                                    color: isSelected
+                                        ? color
+                                        : (isNeighbor
+                                            ? color.withValues(alpha: 0.5)
+                                            : color.withValues(alpha: 0.25)),
+                                    letterSpacing: isSelected ? 4 : 2,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              textAlign: TextAlign.right,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        );
-                      },
+                            );
+                          },
+                        ),
+                      ),
                     ),
-                  ),
                   ),
                 ),
                 // 右侧详情面板 (70%)
