@@ -8,8 +8,6 @@ class WordDragNotifier extends ChangeNotifier {
   WordDragState _state = WordDragState.initial();
   WordDragState get state => _state;
 
-  VoidCallback? _onNavigateToDetail;
-
   // ==================== 拖动事件方法 ====================
 
   /// 拖动开始
@@ -242,20 +240,6 @@ class WordDragNotifier extends ChangeNotifier {
   /// 跳过当前单词 (上滑)
   void _skipWord() {
     _moveToNextWord();
-  }
-
-  // ==================== 导航回调 ====================
-
-  /// 设置导航到详情的回调
-  void setNavigateCallback(VoidCallback callback) {
-    _onNavigateToDetail = callback;
-  }
-
-  /// 导航到详情页
-  void _navigateToDetail() {
-    _state = _state.copyWith(showDetails: true);
-    notifyListeners();
-    _onNavigateToDetail?.call();
   }
 
   // ==================== 辅助方法 ====================

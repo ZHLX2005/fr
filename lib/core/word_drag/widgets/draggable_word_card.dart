@@ -291,9 +291,6 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     return 1.0;
   }
 
-  // 计算旋转角度 (已禁用，仅保留计算)
-  double get _rotation => (_offsetX / 60).clamp(-10.0, 10.0);
-
   // 计算当前 Action Indicator
   ActionIndicator? get _currentActionIndicator {
     final isFolderMode = _offsetY > _folderDropRowThreshold;
@@ -386,14 +383,12 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                         ),
                       ),
                       // Action Indicator (位于卡片右上角，跟随卡片移动)
+                      // Note: Stack already translated by card offset, so indicator position is relative
                       if (widget.isTopCard && actionIndicator != null)
                         Positioned(
                           top: 16,
                           right: 16,
-                          child: Transform.translate(
-                            offset: Offset(_offsetX, _offsetY),
-                            child: _ActionIndicatorWidget(indicator: actionIndicator),
-                          ),
+                          child: _ActionIndicatorWidget(indicator: actionIndicator),
                         ),
                     ],
                   ),
