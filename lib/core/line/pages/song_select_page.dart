@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/line_models.dart';
 import '../repository/chart_repository.dart';
-import '../widgets/song_list_tile.dart';
 import '../widgets/song_detail_panel.dart';
 import 'line_demo_page.dart';
 
@@ -19,11 +18,19 @@ class _SongSelectPageState extends State<SongSelectPage> {
   GameBorderStyle _borderStyle = GameBorderStyle.solid;
   LineDensity _lineDensity = LineDensity.normal;
   bool _isLoading = true;
+  late FixedExtentScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = FixedExtentScrollController(initialItem: 0);
     _loadSongs();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSongs() async {
@@ -37,30 +44,9 @@ class _SongSelectPageState extends State<SongSelectPage> {
     }
   }
 
-  void _onSongSelected(SongData song) {
-    setState(() => _selectedSong = song);
-  }
-
-  void _onSwipeUp() {
-    if (_songs.isEmpty || _selectedSong == null) return;
-    final currentIndex = _songs.indexWhere((s) => s.id == _selectedSong!.id);
-    if (currentIndex > 0) {
-      setState(() => _selectedSong = _songs[currentIndex - 1]);
-    }
-  }
-
-  void _onSwipeDown() {
-    if (_songs.isEmpty || _selectedSong == null) return;
-    final currentIndex = _songs.indexWhere((s) => s.id == _selectedSong!.id);
-    if (currentIndex < _songs.length - 1) {
-      setState(() => _selectedSong = _songs[currentIndex + 1]);
-    }
-  }
-
   void _onStart() {
     if (_selectedSong == null) return;
 
-    // Convert SongData to ChartData for LineDemoPage
     final chart = ChartData(
       name: _selectedSong!.name,
       bpm: _selectedSong!.bpm,
@@ -115,78 +101,92 @@ class _SongSelectPageState extends State<SongSelectPage> {
       backgroundColor: theme.colorScheme.surface,
       body: Row(
         children: [
-          // 左侧歌曲列表 (30%)
-          Container(
+          // 左侧歌曲滚轮 (30%)
+          SizedBox(
             width: MediaQuery.of(context).size.width * 0.3,
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(
-                  color: color.withValues(alpha: 0.1),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Column(
+            child: Stack(
+              alignment: Alignment.centerLeft,
               children: [
-                // 标题
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'SONGS',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: color.withValues(alpha: 0.6),
-                      letterSpacing: 4,
-                    ),
-                  ),
-                ),
-                Divider(color: color.withValues(alpha: 0.1), height: 1),
-                // 列表
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _songs.length,
-                    itemBuilder: (context, index) {
+                ListWheelScrollView.useDelegate(
+                  controller: _scrollController,
+                  itemExtent: 48,
+                  diameterRatio: 100,
+                  perspective: 0.001,
+                  physics: const FixedExtentScrollPhysics(),
+                  onSelectedItemChanged: (index) {
+                    setState(() => _selectedSong = _songs[index]);
+                  },
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    childCount: _songs.length,
+                    builder: (context, index) {
                       final song = _songs[index];
-                      return SongListTile(
-                        song: song,
-                        isSelected: song.id == _selectedSong?.id,
-                        onTap: () => _onSongSelected(song),
+                      final selectedIndex = _songs.indexWhere((s) => s.id == _selectedSong?.id);
+                      final distance = (selectedIndex - index).abs();
+                      final isSelected = distance == 0;
+                      final isNeighbor = distance == 1;
+
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 32),
+                          child: Text(
+                            song.name,
+                            style: TextStyle(
+                              fontSize: isSelected ? 22 : (isNeighbor ? 16 : 12),
+                              fontWeight: FontWeight.w200,
+                              color: isSelected
+                                  ? color
+                                  : (isNeighbor
+                                      ? color.withValues(alpha: 0.5)
+                                      : color.withValues(alpha: 0.25)),
+                              letterSpacing: isSelected ? 4 : 2,
+                            ),
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       );
                     },
+                  ),
+                ),
+                // 短横线指示器
+                Positioned(
+                  left: 0,
+                  child: Center(
+                    child: Container(
+                      width: 24,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            color,
+                            color.withValues(alpha: 0),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          // 右侧详情面板 (70%) - 支持上下滑动切换歌曲
+          // 右侧详情面板 (70%)
           Expanded(
-            child: GestureDetector(
-              onVerticalDragEnd: (details) {
-                if (details.primaryVelocity != null) {
-                  if (details.primaryVelocity! < -100) {
-                    _onSwipeUp();
-                  } else if (details.primaryVelocity! > 100) {
-                    _onSwipeDown();
-                  }
-                }
-              },
-              child: _selectedSong != null
-                  ? SongDetailPanel(
-                      song: _selectedSong!,
-                      borderStyle: _borderStyle,
-                      lineDensity: _lineDensity,
-                      onBorderStyleChanged: (style) {
-                        setState(() => _borderStyle = style);
-                      },
-                      onLineDensityChanged: (density) {
-                        setState(() => _lineDensity = density);
-                      },
-                      onStart: _onStart,
-                    )
-                  : const SizedBox(),
-            ),
+            child: _selectedSong != null
+                ? SongDetailPanel(
+                    song: _selectedSong!,
+                    borderStyle: _borderStyle,
+                    lineDensity: _lineDensity,
+                    onBorderStyleChanged: (style) {
+                      setState(() => _borderStyle = style);
+                    },
+                    onLineDensityChanged: (density) {
+                      setState(() => _lineDensity = density);
+                    },
+                    onStart: _onStart,
+                  )
+                : const SizedBox(),
           ),
         ],
       ),
