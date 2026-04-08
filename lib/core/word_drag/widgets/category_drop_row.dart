@@ -88,9 +88,10 @@ class CategoryDropRowState extends State<CategoryDropRow>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  // 边缘滚动
-  static const double _edgeScrollThreshold = 80.0; // 边缘触发阈值
-  static const double _maxScrollSpeed = 15.0; // 最大滚动速度
+  // 边缘滚动 (匹配 Kotlin: edgeThreshold=100f, minSpeed=6f, maxSpeed=36f)
+  static const double _edgeScrollThreshold = 100.0;
+  static const double _minScrollSpeed = 6.0;
+  static const double _maxScrollSpeed = 36.0;
 
   // 边缘滚动循环控制器
   bool _isEdgeScrolling = false;
@@ -219,26 +220,27 @@ class CategoryDropRowState extends State<CategoryDropRow>
     _updateEdgeScroll(cardCenter);
   }
 
-  /// 计算边缘滚动速度
+  /// 计算边缘滚动速度 (匹配 Kotlin 公式)
   double _calculateEdgeScrollSpeed(double cardCenterX, double screenWidth) {
     if (!_scrollController.hasClients) return 0;
 
-    final viewportWidth = _scrollController.position.viewportDimension;
-    final contentWidth = _scrollController.position.maxScrollExtent + viewportWidth;
-    final scrollOffset = _scrollController.offset;
-
-    // 左边缘区域
-    if (cardCenterX < _edgeScrollThreshold) {
-      final proximity = 1 - (cardCenterX / _edgeScrollThreshold);
-      return -_maxScrollSpeed * proximity;
+    // 左边缘: edgeThreshold - cardCenterX
+    final leftOverflow = _edgeScrollThreshold - cardCenterX;
+    if (leftOverflow > 0) {
+      final factor = (leftOverflow / _edgeScrollThreshold).clamp(0.0, 1.0);
+      return -(_minScrollSpeed + (_maxScrollSpeed - _minScrollSpeed) * factor);
     }
 
-    // 右边缘区域
-    if (cardCenterX > screenWidth - _edgeScrollThreshold) {
-      final proximity = 1 - ((screenWidth - cardCenterX) / _edgeScrollThreshold);
-      final maxScroll = contentWidth - scrollOffset - viewportWidth;
+    // 右边缘: cardCenterX - (screenWidth - edgeThreshold)
+    final rightOverflow = cardCenterX - (screenWidth - _edgeScrollThreshold);
+    if (rightOverflow > 0) {
+      final factor = (rightOverflow / _edgeScrollThreshold).clamp(0.0, 1.0);
+      // 检查是否还有可滚动内容
+      final viewportWidth = _scrollController.position.viewportDimension;
+      final maxScroll = _scrollController.position.maxScrollExtent +
+          viewportWidth - _scrollController.offset;
       if (maxScroll > 0) {
-        return _maxScrollSpeed * proximity;
+        return _minScrollSpeed + (_maxScrollSpeed - _minScrollSpeed) * factor;
       }
     }
 
