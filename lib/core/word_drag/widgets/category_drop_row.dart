@@ -93,6 +93,11 @@ class CategoryDropRowState extends State<CategoryDropRow>
   static const double _minScrollSpeed = 6.0;
   static const double _maxScrollSpeed = 36.0;
 
+  // 碰撞检测常量 (匹配 Kotlin)
+  static const double _bandPadding = 90.0; // 垂直频道区域
+  static const double _stickyRadius = 280.0; // 粘附半径
+  static const double _horizontalSwipeThreshold = 500.0; // 水平滑动忽略阈值
+
   // 边缘滚动循环控制器
   bool _isEdgeScrolling = false;
 
@@ -193,21 +198,40 @@ class CategoryDropRowState extends State<CategoryDropRow>
     return true;
   }
 
-  /// 计算最近的桶 (280px 半径粘附阈值)
-  String? _findClosestBucket(Offset cardCenter) {
+  /// 计算最近的桶 (匹配 Kotlin 碰撞检测逻辑)
+  /// 包含 bandPadding 和水平滑动忽略逻辑
+  String? _findClosestBucket(Offset cardCenter, double offsetX) {
     if (_bucketRects.isEmpty) return null;
+
+    // 水平滑动检测: |offsetX| > 500 时忽略桶目标
+    final isHorizontalSwipe = offsetX.abs() > _horizontalSwipeThreshold;
+    if (isHorizontalSwipe) return null;
+
+    // 找出在垂直频道内的桶
+    final inBand = <String, Rect>{};
+    for (var entry in _bucketRects.entries) {
+      final rect = entry.value;
+      if (cardCenter.dy >= rect.top - _bandPadding &&
+          cardCenter.dy <= rect.bottom + _bandPadding) {
+        inBand[entry.key] = rect;
+      }
+    }
+
+    // 使用 inBand 或所有有效 rect
+    final pool = inBand.isNotEmpty ? inBand : _bucketRects;
 
     String? closestId;
     double minDist = double.infinity;
 
-    for (var entry in _bucketRects.entries) {
+    for (var entry in pool.entries) {
       final rect = entry.value;
       final bucketCenter = rect.center;
       final dx = cardCenter.dx - bucketCenter.dx;
       final dy = cardCenter.dy - bucketCenter.dy;
       final dist = dx * dx + dy * dy;
 
-      if (dist < 280 * 280 && dist < minDist) {
+      // 粘附条件: 距离 < 280px 或在频道内
+      if ((dist < _stickyRadius * _stickyRadius || inBand.isNotEmpty) && dist < minDist) {
         minDist = dist;
         closestId = entry.key;
       }
@@ -217,8 +241,8 @@ class CategoryDropRowState extends State<CategoryDropRow>
   }
 
   /// 更新卡片碰撞检测
-  void updateCardPosition(Offset cardCenter) {
-    final closestId = _findClosestBucket(cardCenter);
+  void updateCardPosition(Offset cardCenter, double offsetX) {
+    final closestId = _findClosestBucket(cardCenter, offsetX);
     if (closestId != widget.activeBucketId) {
       widget.onActiveBucketChanged?.call(closestId);
     }
