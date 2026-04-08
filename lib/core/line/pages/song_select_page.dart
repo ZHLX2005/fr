@@ -104,10 +104,7 @@ class _SongSelectPageState extends State<SongSelectPage> {
           // 左侧歌曲滚轮 (30%)
           SizedBox(
             width: MediaQuery.of(context).size.width * 0.3,
-            child: Stack(
-              alignment: Alignment.centerLeft,
-              children: [
-                ListWheelScrollView.useDelegate(
+            child: ListWheelScrollView.useDelegate(
                   controller: _scrollController,
                   itemExtent: 48,
                   diameterRatio: 100,
@@ -149,27 +146,6 @@ class _SongSelectPageState extends State<SongSelectPage> {
                     },
                   ),
                 ),
-                // 短横线指示器
-                Positioned(
-                  left: 0,
-                  child: Center(
-                    child: Container(
-                      width: 24,
-                      height: 2,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            color,
-                            color.withValues(alpha: 0),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(1),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
           // 右侧详情面板 (70%)
           Expanded(
