@@ -146,6 +146,8 @@ class CategoryDropRowState extends State<CategoryDropRow>
 
     if (widget.visible != oldWidget.visible) {
       if (widget.visible) {
+        // 重置滚动位置到开头 (匹配 Kotlin: folderListState.scrollToItem(0))
+        _scrollController.jumpTo(0);
         _animController.forward();
       } else {
         _animController.reverse();
