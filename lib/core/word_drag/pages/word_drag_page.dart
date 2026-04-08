@@ -70,12 +70,14 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   // Folder mode 状态
   bool _isFolderMode = false;
   String? _activeBucketId;
+  final CategoryDropEdgeScrollState _edgeScrollState = CategoryDropEdgeScrollState();
 
   // 当前查看的单词详情
   Word? _viewingWord;
 
   // 阈值常量 (匹配 DraggableWordCard)
-  static const double _folderModeThreshold = 420;
+  static const double _folderModeThreshold = 420; // 进入文件夹模式
+  static const double _folderDropRowThreshold = 300; // 显示桶选择器
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +136,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                 visible: _isFolderMode,
                 buckets: _categoryBuckets,
                 activeBucketId: _activeBucketId,
+                edgeScrollState: _edgeScrollState,
                 onActiveBucketChanged: (id) {
                   setState(() {
                     _activeBucketId = id;
@@ -200,16 +203,21 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             return _activeBucketId != null;
           },
           onDragUpdate: (x, y) {
-            // 检测是否进入文件夹模式
-            if (y > _folderModeThreshold) {
+            // 检测是否显示桶选择器 (300px)
+            if (y > _folderDropRowThreshold) {
               if (!_isFolderMode) {
                 setState(() {
                   _isFolderMode = true;
                 });
               }
               _updateBucketCollision(getCardCenter(x, y));
+              // 更新边缘滚动状态
+              _edgeScrollState.cardCenterX = getCardCenter(x, y).dx;
+              _edgeScrollState.screenWidth = screenSize.width;
+              _edgeScrollState.visible = true;
             } else if (_isFolderMode) {
               _exitFolderMode();
+              _edgeScrollState.visible = false;
             }
           },
           onDetail: () {

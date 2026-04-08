@@ -22,6 +22,26 @@ class CategoryBucket {
 /// - 桶激活时有弹性缩放动画 (scale 0.82->1.2, lift 0->-8dp, width 68->88dp)
 /// - 支持碰撞检测确定最近桶
 /// - LazyRow 支持水平滚动
+/// 分类桶边缘滚动状态
+class CategoryDropEdgeScrollState {
+  /// 卡片中心 X 坐标 (屏幕坐标)
+  double cardCenterX = 0;
+  /// 屏幕宽度
+  double screenWidth = 0;
+  /// 是否处于边缘滚动模式
+  bool visible = false;
+
+  CategoryDropEdgeScrollState();
+}
+
+/// 分类桶选择行组件
+///
+/// 基于 photoo FolderDropRow 实现 (FolderDropTarget.kt)
+/// - 下滑 > 300px 时从底部滑入显示
+/// - 桶激活时有弹性缩放动画 (scale 0.82->1.2, lift 0->-8dp, width 68->88dp)
+/// - 支持碰撞检测确定最近桶
+/// - LazyRow 支持水平滚动
+/// - 支持边缘滚动：当卡片靠近列表边缘时自动滚动
 class CategoryDropRow extends StatefulWidget {
   /// 是否显示
   final bool visible;
@@ -35,6 +55,8 @@ class CategoryDropRow extends StatefulWidget {
   final void Function(String?)? onActiveBucketChanged;
   /// 桶被选中回调
   final void Function(String bucketId)? onBucketSelected;
+  /// 边缘滚动状态引用
+  final CategoryDropEdgeScrollState? edgeScrollState;
 
   const CategoryDropRow({
     super.key,
@@ -44,6 +66,7 @@ class CategoryDropRow extends StatefulWidget {
     this.onBucketPositionsChanged,
     this.onActiveBucketChanged,
     this.onBucketSelected,
+    this.edgeScrollState,
   });
 
   @override
@@ -55,10 +78,20 @@ class CategoryDropRowState extends State<CategoryDropRow>
   final Map<String, GlobalKey> _bucketKeys = {};
   final Map<String, Rect> _bucketRects = {};
 
+  // 滚动控制器
+  late ScrollController _scrollController;
+
   // 动画控制器
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // 边缘滚动
+  static const double _edgeScrollThreshold = 80.0; // 边缘触发阈值
+  static const double _maxScrollSpeed = 15.0; // 最大滚动速度
+
+  // 边缘滚动循环控制器
+  bool _isEdgeScrolling = false;
 
   @override
   void initState() {
@@ -80,6 +113,8 @@ class CategoryDropRowState extends State<CategoryDropRow>
       parent: _animController,
       curve: Curves.easeOut,
     ));
+
+    _scrollController = ScrollController();
 
     _initBucketKeys();
 
@@ -116,6 +151,7 @@ class CategoryDropRowState extends State<CategoryDropRow>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -181,6 +217,87 @@ class CategoryDropRowState extends State<CategoryDropRow>
     if (closestId != widget.activeBucketId) {
       widget.onActiveBucketChanged?.call(closestId);
     }
+    _updateEdgeScroll(cardCenter);
+  }
+
+  /// 计算边缘滚动速度
+  double _calculateEdgeScrollSpeed(double cardCenterX, double screenWidth) {
+    if (!_scrollController.hasClients) return 0;
+
+    final viewportWidth = _scrollController.position.viewportDimension;
+    final contentWidth = _scrollController.position.maxScrollExtent + viewportWidth;
+    final scrollOffset = _scrollController.offset;
+
+    // 左边缘区域
+    if (cardCenterX < _edgeScrollThreshold) {
+      final proximity = 1 - (cardCenterX / _edgeScrollThreshold);
+      return -_maxScrollSpeed * proximity;
+    }
+
+    // 右边缘区域
+    if (cardCenterX > screenWidth - _edgeScrollThreshold) {
+      final proximity = 1 - ((screenWidth - cardCenterX) / _edgeScrollThreshold);
+      final maxScroll = contentWidth - scrollOffset - viewportWidth;
+      if (maxScroll > 0) {
+        return _maxScrollSpeed * proximity;
+      }
+    }
+
+    return 0;
+  }
+
+  /// 更新边缘滚动
+  void _updateEdgeScroll(Offset cardCenter) {
+    if (!widget.visible || !widget.edgeScrollState!.visible) return;
+
+    final speed = _calculateEdgeScrollSpeed(
+      cardCenter.dx,
+      widget.edgeScrollState!.screenWidth > 0
+          ? widget.edgeScrollState!.screenWidth
+          : MediaQuery.of(context).size.width,
+    );
+
+    if (speed != 0 && !_isEdgeScrolling) {
+      _startEdgeScrollLoop();
+    }
+  }
+
+  /// 开始边缘滚动循环
+  void _startEdgeScrollLoop() {
+    _isEdgeScrolling = true;
+    _runEdgeScroll();
+  }
+
+  void _runEdgeScroll() async {
+    while (_isEdgeScrolling && mounted) {
+      await Future.delayed(const Duration(milliseconds: 16)); // ~60fps
+
+      if (!widget.visible || !mounted) {
+        _isEdgeScrolling = false;
+        break;
+      }
+
+      final speed = _calculateEdgeScrollSpeed(
+        widget.edgeScrollState!.cardCenterX,
+        widget.edgeScrollState!.screenWidth > 0
+            ? widget.edgeScrollState!.screenWidth
+            : MediaQuery.of(context).size.width,
+      );
+
+      if (speed == 0) {
+        _isEdgeScrolling = false;
+        break;
+      }
+
+      if (_scrollController.hasClients) {
+        final newOffset = (_scrollController.offset + speed).clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
+        _scrollController.jumpTo(newOffset);
+      }
+    }
+    _isEdgeScrolling = false;
   }
 
   @override
@@ -199,6 +316,7 @@ class CategoryDropRowState extends State<CategoryDropRow>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: ListView.builder(
+          controller: _scrollController,
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           itemCount: widget.buckets.length,
