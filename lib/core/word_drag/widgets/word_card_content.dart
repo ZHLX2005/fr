@@ -3,9 +3,10 @@ import '../models/word.dart';
 
 /// 单词卡片内容
 ///
-/// 支持两种模式：
-/// - 简洁模式：只显示单词和释义
-/// - 详情模式：显示单词、音标、释义、例句
+/// 模仿 photoo PhotoCard 风格：
+/// - 白色/浅灰色背景
+/// - 深色文字
+/// - 简洁清晰的设计
 class WordCardContent extends StatelessWidget {
   final Word word;
   final bool showDetails;
@@ -20,160 +21,138 @@ class WordCardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      width: showDetails ? 340 : 300,
-      padding: EdgeInsets.all(showDetails ? 28 : 24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: showDetails
-              ? [Colors.deepPurple.shade500, Colors.purple.shade600]
-              : [Colors.indigo.shade400, Colors.purple.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(showDetails ? 28 : 24),
-        boxShadow: [
-          BoxShadow(
-            color: (showDetails ? Colors.deepPurple : Colors.purple)
-                .withValues(alpha: isDragging ? 0.5 : 0.3),
-            blurRadius: isDragging ? 30 : 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 单词
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 300),
-            style: TextStyle(
-              fontSize: showDetails ? 42 : 36,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              letterSpacing: 1.2,
-            ),
-            child: Text(word.text),
-          ),
-          const SizedBox(height: 8),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Use available width from parent (card width)
+        final availableWidth = constraints.maxWidth;
 
-          // 音标
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: showDetails ? 1.0 : 0.8,
-            child: Text(
-              word.phonetic,
-              style: TextStyle(
-                fontSize: showDetails ? 18 : 16,
-                color: Colors.white.withValues(alpha: 0.8),
-                fontStyle: FontStyle.italic,
+        return Container(
+          width: availableWidth,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 单词
+              Text(
+                word.text,
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A1A2E),
+                  letterSpacing: 1.2,
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
-          // 释义
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              word.definition,
-              style: TextStyle(
-                fontSize: showDetails ? 20 : 18,
-                color: Colors.white,
-                height: 1.4,
+              // 音标
+              Text(
+                word.phonetic,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
-            ),
-          ),
+              const SizedBox(height: 20),
 
-          // 详情模式：例句
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            child: showDetails
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              // 释义
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  word.definition,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    color: Color(0xFF2D2D44),
+                    height: 1.5,
+                  ),
+                ),
+              ),
+
+              // 例句
+              if (showDetails) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.blue.shade100,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.format_quote,
-                                color: Colors.white.withValues(alpha: 0.6),
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '例句',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                          Icon(
+                            Icons.format_quote,
+                            color: Colors.blue.shade400,
+                            size: 16,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(width: 4),
                           Text(
-                            word.example,
+                            '例句',
                             style: TextStyle(
-                              fontSize: 15,
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontStyle: FontStyle.italic,
-                              height: 1.5,
+                              fontSize: 12,
+                              color: Colors.blue.shade600,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
+                      const SizedBox(height: 8),
+                      Text(
+                        word.example,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.blue.shade900,
+                          fontStyle: FontStyle.italic,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
-          // 底部提示
-          const SizedBox(height: 20),
-          Center(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: showDetails ? 0.0 : 0.5,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.swipe,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    showDetails ? '' : '上滑查看详情',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.white,
+              // 底部提示
+              const Spacer(),
+              Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.swipe,
+                      color: Colors.grey.shade400,
+                      size: 14,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Text(
+                      '上滑查看详情',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
