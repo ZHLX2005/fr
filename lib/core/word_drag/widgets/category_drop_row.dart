@@ -111,10 +111,7 @@ class CategoryDropRowState extends State<CategoryDropRow>
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOut,
-    ));
+    ).animate(_animController); // tween(200) 默认 linear (FastOutLinearInEasing)
 
     _scrollController = ScrollController();
 
