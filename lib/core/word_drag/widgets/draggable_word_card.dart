@@ -82,17 +82,16 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   double _pressScale = 1;
 
   // 状态标志
-  bool _isPressed = false;
   bool _isAnimating = false;
 
   // ==================== 常量 (完全匹配 photoo) ====================
   static const double _threshold = 160;           // 滑动确认阈值
-  static const double _folderModeThreshold = 420;  // 下滑进入文件夹模式
+  static const double _folderModeThreshold = 420;  // 下滑进入文件夹模式 (拖拽被消耗)
+  static const double _folderDropRowThreshold = 300; // 下滑显示桶选择器
   static const double _flingThreshold = 800;       // 快速滑动速度阈值
 
   // Action Indicator 阈值
   static const double _actionIndicatorThreshold = 100;
-  static const double _folderModeVisualThreshold = 150;
 
   // 堆叠效果常量
   double get _stackScale => 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
@@ -213,13 +212,24 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _animateSpringBack();
   }
 
-  // 拖动取消
+  // 拖动取消 (photoo: tween(160, LinearOutSlowInEasing) -> Curves.fastOutSlowIn)
   void _handleDragCancel() {
     if (!widget.isTopCard || _isAnimating) return;
-    _isPressed = false;
     _pressScaleController.reverse();
     widget.onDragCancel?.call();
-    _animateSpringBack();
+    _isAnimating = true;
+    _offsetXController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.fastOutSlowIn,
+    );
+    _offsetYController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.fastOutSlowIn,
+    ).then((_) {
+      _isAnimating = false;
+    });
   }
 
   // 吸进动画 (放入文件夹)
@@ -288,7 +298,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
   // 计算当前 Action Indicator
   ActionIndicator? get _currentActionIndicator {
-    final isFolderMode = _offsetY > _folderModeVisualThreshold;
+    final isFolderMode = _offsetY > _folderDropRowThreshold;
 
     if (isFolderMode) {
       return ActionIndicator.folder;
@@ -336,7 +346,6 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                     onTap: widget.isTopCard ? widget.onDetail : null,
                     onPanStart: widget.isTopCard ? (_) {
                       if (_isAnimating) return;
-                      _isPressed = true;
                       // photoo: spring(stiffness=Medium, dampingRatio=0.6f)
                       // Animate from 1.0 to 0.96 (press down effect)
                       final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 15.0);
@@ -350,7 +359,6 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                     } : null,
                     onPanEnd: widget.isTopCard ? (details) {
                       if (_isAnimating) return;
-                      _isPressed = false;
                       _pressScaleController.reverse();
                       _handleDragEnd(
                         details.velocity.pixelsPerSecond.dx,
