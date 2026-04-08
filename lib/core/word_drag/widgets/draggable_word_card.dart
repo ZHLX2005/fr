@@ -172,7 +172,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       _offsetX = _offsetXController.value;
       _offsetY = _offsetYController.value;
     });
-    widget.onDragUpdate?.call(_offsetX, _offsetY);
+    // 只在用户拖动时通知父组件，动画期间不通知
+    if (!_isAnimating) {
+      widget.onDragUpdate?.call(_offsetX, _offsetY);
+    }
   }
 
   void _onAlphaChanged() {
