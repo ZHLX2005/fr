@@ -76,7 +76,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   Word? _viewingWord;
 
   // 阈值常量 (匹配 DraggableWordCard)
-  static const double _folderModeThreshold = 420; // 进入文件夹模式
   static const double _folderDropRowThreshold = 300; // 显示桶选择器
 
   @override
@@ -164,12 +163,15 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     final cardHeight = screenSize.height * 0.6;
 
     // 计算卡片中心位置 (用于碰撞检测)
-    // 卡片居中，top = (screenHeight - cardHeight) / 2
-    // 实际位置需要根据 DraggableWordCard 的偏移计算
+    // 卡片宽度: screenSize.width * 0.8
+    // 卡片高度: screenSize.height * 0.6
+    // 卡片顶部位置: screenSize.height * 0.35 (居中偏上)
+    // 卡片中心: top + height/2 = screenSize.height * 0.35 + cardHeight/2
     Offset getCardCenter(double offsetX, double offsetY) {
+      final cardCenterY = screenSize.height * 0.35 + cardHeight / 2;
       return Offset(
         screenSize.width / 2 + offsetX,
-        screenSize.height * 0.35 + offsetY, // 估算的中心位置
+        cardCenterY + offsetY,
       );
     }
 
