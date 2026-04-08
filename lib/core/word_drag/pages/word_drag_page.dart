@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 import 'package:provider/provider.dart';
 import '../models/word.dart';
 import '../providers/word_drag_notifier.dart';
 import '../providers/word_drag_state.dart';
 import '../widgets/category_drop_row.dart';
 import '../widgets/word_card_content.dart';
+import '../widgets/draggable_word_card.dart';
 
 /// 单词拖拽背词页面
 ///
-/// 基于 photoo NativeVoiceLikeActivity.kt 实现，支持：
-/// - 上滑跳过/查看详情
-/// - 左滑稍后复习
-/// - 右滑喜欢/掌握
-/// - 下滑 > 420px 显示分类桶
+/// 基于 photoo NativeVoiceLikeActivity.kt 实现
+/// 支持：上滑跳过、左滑稍后复习、右滑掌握、下滑 > 420px 显示分类桶
 class WordDragPage extends StatelessWidget {
   const WordDragPage({super.key});
 
@@ -67,307 +64,34 @@ class _WordDragPageContent extends StatefulWidget {
   State<_WordDragPageContent> createState() => _WordDragPageContentState();
 }
 
-class _WordDragPageContentState extends State<_WordDragPageContent>
-    with TickerProviderStateMixin {
-  final GlobalKey<_WordListDrawerState> _drawerKey = GlobalKey();
+class _WordDragPageContentState extends State<_WordDragPageContent> {
   final GlobalKey<CategoryDropRowState> _dropRowKey = GlobalKey();
 
-  // 详情页overlay
-  Word? _viewingWord;
-  OverlayEntry? _detailOverlay;
-
-  // 卡片动画控制器 - 使用 unbounded 支持自由拖动
-  late AnimationController _cardControllerX;
-  late AnimationController _cardControllerY;
-  late AnimationController _cardAlphaController;
-  late AnimationController _cardScaleController;
-
-  // 动画值 (从 controller 同步)
-  double _cardOffsetX = 0;
-  double _cardOffsetY = 0;
-  double _cardScale = 1;
-  double _cardAlpha = 1;
-
-  // 状态标志
-  bool _isDragging = false;
-  bool _isAnimating = false;
-  bool _isLeaving = false;
-
-  // Folder mode (基于 photoo: offsetY > 420 进入 folder mode)
+  // Folder mode 状态
   bool _isFolderMode = false;
   String? _activeBucketId;
 
-  // 阈值常量 (完全匹配 photoo)
-  static const double _threshold = 160;
+  // 当前查看的单词详情
+  Word? _viewingWord;
+
+  // 阈值常量 (匹配 DraggableWordCard)
   static const double _folderModeThreshold = 420;
-  static const double _flingThreshold = 800;
-  static const double _actionIndicatorThreshold = 100;
-  static const double _folderModeVisualThreshold = 150;
-
-  @override
-  void initState() {
-    super.initState();
-    // 使用 unbounded 支持自由拖动值
-    _cardControllerX = AnimationController.unbounded(vsync: this);
-    _cardControllerY = AnimationController.unbounded(vsync: this);
-    _cardAlphaController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _cardScaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-
-    _cardControllerX.addListener(_onAnimation);
-    _cardControllerY.addListener(_onAnimation);
-    _cardAlphaController.addListener(_onAnimation);
-    _cardScaleController.addListener(_onAnimation);
-  }
-
-  @override
-  void dispose() {
-    _cardControllerX.dispose();
-    _cardControllerY.dispose();
-    _cardAlphaController.dispose();
-    _cardScaleController.dispose();
-    _detailOverlay?.remove();
-    super.dispose();
-  }
-
-  void _onAnimation() {
-    setState(() {
-      _cardOffsetX = _cardControllerX.value;
-      _cardOffsetY = _cardControllerY.value;
-      _cardAlpha = _cardAlphaController.value;
-      _cardScale = _cardScaleController.value;
-    });
-  }
-
-  // ==================== 手势处理 ====================
-
-  void _onDragStart(DragStartDetails details) {
-    // photoo: 只有顶层卡片响应拖动，且非动画状态时
-    if (_isAnimating || _isLeaving) return;
-    setState(() {
-      _isDragging = true;
-    });
-  }
-
-  void _onDragUpdate(double dx, double dy) {
-    // photoo: 直接累加到 offset (snapTo)
-    if (_isAnimating || _isLeaving) return;
-
-    _cardControllerX.value += dx;
-    _cardControllerY.value += dy;
-
-    // photoo: folder mode 检测在 onDragEnd 中进行
-    // 但我们需要实时更新 bucket 碰撞检测
-    if (_cardControllerY.value > _folderModeThreshold) {
-      if (!_isFolderMode) {
-        setState(() {
-          _isFolderMode = true;
-        });
-      }
-      // 更新 bucket 碰撞检测
-      _updateBucketCollision();
-    } else if (_isFolderMode) {
-      setState(() {
-        _isFolderMode = false;
-        _activeBucketId = null;
-      });
-    }
-  }
-
-  void _updateBucketCollision() {
-    final screenSize = MediaQuery.of(context).size;
-    final cardCenter = Offset(
-      screenSize.width / 2 + _cardControllerX.value,
-      screenSize.height * 0.4 + _cardControllerY.value,
-    );
-    _dropRowKey.currentState?.updateCardPosition(cardCenter);
-  }
-
-  void _onDragEnd(double velocityX, double velocityY) {
-    if (_isAnimating || _isLeaving) return;
-
-    final offsetX = _cardControllerX.value;
-    final offsetY = _cardControllerY.value;
-
-    // photoo: folder mode 检测 (offsetY > 420)
-    final isFolderMode = offsetY > _folderModeThreshold;
-
-    if (isFolderMode) {
-      // Folder mode: 检查是否放入桶
-      if (_activeBucketId != null) {
-        _animateSuckIntoBucket();
-      } else {
-        _animateSpringBack();
-      }
-      return;
-    }
-
-    // photoo: 方向判断顺序 - folder mode > 左/右 > 上 > 回弹
-    // 左滑 - 删除/稍后复习
-    if (offsetX < -_threshold) {
-      _animateSwipeOut(-1500, 0, SwipeDirection.left);
-      return;
-    }
-
-    // 右滑 - 掌握
-    if (offsetX > _threshold) {
-      _animateSwipeOut(1500, 0, SwipeDirection.right);
-      return;
-    }
-
-    // 上滑 - 跳过/查看详情
-    if (offsetY < -_threshold || velocityY < -_flingThreshold) {
-      _animateSwipeOut(0, -2000, SwipeDirection.up);
-      return;
-    }
-
-    // 回弹
-    _animateSpringBack();
-  }
-
-  // ==================== 动画 ====================
-
-  void _animateSwipeOut(double targetX, double targetY, SwipeDirection direction) {
-    if (_isAnimating) return;
-    _isAnimating = true;
-
-    // 先调用状态变化（触发 UI 更新，但 _isLeaving 仍是 false）
-    final notifier = context.read<WordDragNotifier>();
-    switch (direction) {
-      case SwipeDirection.left:
-        notifier.onSwipeLeft();
-        break;
-      case SwipeDirection.right:
-        notifier.onSwipeRight();
-        break;
-      case SwipeDirection.up:
-        // 上滑显示详情，不消耗卡片
-        _showDetail();
-        _animateSpringBack();
-        return;
-      case SwipeDirection.down:
-        break;
-    }
-
-    // photoo: tween(200, easing = FastOutLinearInEasing)
-    _cardControllerX.animateTo(
-      targetX,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.fastOutSlowIn,
-    );
-    _cardControllerY.animateTo(
-      targetY,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.fastOutSlowIn,
-    ).then((_) {
-      _isAnimating = false;
-      _isLeaving = true;
-    });
-  }
-
-  void _animateSuckIntoBucket() {
-    if (_isAnimating) return;
-    _isAnimating = true;
-
-    // photoo: 吸进动画 - scale 0.1, alpha 0, offsetY + 200
-    _cardAlphaController.animateTo(0);
-    _cardScaleController.animateTo(0.1);
-    _cardControllerY.animateTo(
-      _cardControllerY.value + 200,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-    ).then((_) {
-      _isAnimating = false;
-      _isLeaving = true;
-      _isFolderMode = false;
-
-      // 通知选择桶
-      context.read<WordDragNotifier>().selectBucket(_activeBucketId ?? 'other');
-      _activeBucketId = null;
-    });
-  }
-
-  void _animateSpringBack() {
-    if (_isAnimating) return;
-    _isAnimating = true;
-
-    // photoo: spring(stiffness = 2000f, dampingRatio = 0.85f)
-    final spring = SpringDescription(
-      mass: 1.0,
-      stiffness: 2000.0,
-      damping: 76.0,
-    );
-
-    final simX = SpringSimulation(spring, _cardControllerX.value, 0, 0);
-    final simY = SpringSimulation(spring, _cardControllerY.value, 0, 0);
-
-    _cardControllerX.animateWith(simX);
-    _cardControllerY.animateWith(simY).then((_) {
-      _isAnimating = false;
-    });
-  }
-
-  // ==================== 详情页 ====================
-
-  void _showDetail() {
-    final notifier = context.read<WordDragNotifier>();
-    final word = notifier.state.currentWord;
-    if (word == null) return;
-
-    setState(() {
-      _viewingWord = word;
-    });
-  }
-
-  void _hideDetail() {
-    setState(() {
-      _viewingWord = null;
-    });
-    context.read<WordDragNotifier>().onDetailPageComplete();
-  }
-
-  // ==================== 构建 ====================
 
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<WordDragNotifier>();
     final state = notifier.state;
 
-    // 检查是否需要重置离开状态
-    if (_isLeaving && state.hasNextWord) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _isLeaving = false;
-            _cardOffsetX = 0;
-            _cardOffsetY = 0;
-            _cardAlpha = 1;
-            _cardScale = 1;
-            _cardControllerX.value = 0;
-            _cardControllerY.value = 0;
-            _cardAlphaController.value = 1;
-            _cardScaleController.value = 1;
-          });
-        }
-      });
-    }
-
     return Scaffold(
       backgroundColor: const Color(0xFF0f0f1e),
-      body: Stack(
-        children: [
-          // 主内容
-          SafeArea(
-            child: Column(
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // 主内容
+            Column(
               children: [
                 // 顶部抽屉
                 _WordListDrawer(
-                  key: _drawerKey,
                   words: state.words,
                   currentIndex: state.currentIndex,
                   onWordTap: (index) {},
@@ -382,14 +106,14 @@ class _WordDragPageContentState extends State<_WordDragPageContent>
                 // 卡片区域
                 Expanded(
                   child: Center(
-                    child: state.hasNextWord && !_isLeaving
+                    child: state.hasNextWord
                         ? _buildCard(notifier, state)
                         : _buildEmptyState(notifier),
                   ),
                 ),
 
                 // 底部提示
-                if (state.hasNextWord && !_isLeaving)
+                if (state.hasNextWord)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 20),
                     child: Text(
@@ -399,36 +123,34 @@ class _WordDragPageContentState extends State<_WordDragPageContent>
                   ),
               ],
             ),
-          ),
 
-          // 分类桶
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: CategoryDropRow(
-              key: _dropRowKey,
-              visible: _isFolderMode,
-              buckets: _categoryBuckets,
-              activeBucketId: _activeBucketId,
-              onActiveBucketChanged: (id) {
-                setState(() {
-                  _activeBucketId = id;
-                });
-              },
-              onBucketSelected: (bucketId) {
-                setState(() {
-                  _activeBucketId = bucketId;
-                });
-                _animateSuckIntoBucket();
-              },
+            // 分类桶
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: CategoryDropRow(
+                key: _dropRowKey,
+                visible: _isFolderMode,
+                buckets: _categoryBuckets,
+                activeBucketId: _activeBucketId,
+                onActiveBucketChanged: (id) {
+                  setState(() {
+                    _activeBucketId = id;
+                  });
+                },
+                onBucketSelected: (bucketId) {
+                  notifier.selectBucket(bucketId);
+                  _exitFolderMode();
+                },
+              ),
             ),
-          ),
 
-          // 详情页Overlay
-          if (_viewingWord != null)
-            _buildDetailOverlay(_viewingWord!),
-        ],
+            // 详情页
+            if (_viewingWord != null)
+              _buildDetailOverlay(_viewingWord!),
+          ],
+        ),
       ),
     );
   }
@@ -436,130 +158,113 @@ class _WordDragPageContentState extends State<_WordDragPageContent>
   Widget _buildCard(WordDragNotifier notifier, WordDragState state) {
     final screenSize = MediaQuery.of(context).size;
     final cardWidth = screenSize.width * 0.8;
-    final cardHeight = screenSize.height * 0.5;
+    final cardHeight = screenSize.height * 0.6;
 
-    // photoo: 动态缩放
-    double dynamicScale = 1.0;
-    if (_cardOffsetY < 0) {
-      dynamicScale = (1.0 + _cardOffsetY / 1000).clamp(0.9, 1.0);
-    } else if (_cardOffsetY > 0) {
-      dynamicScale = (1.0 - _cardOffsetY / 1000).clamp(0.5, 1.0);
+    // 计算卡片中心位置 (用于碰撞检测)
+    // 卡片居中，top = (screenHeight - cardHeight) / 2
+    // 实际位置需要根据 DraggableWordCard 的偏移计算
+    Offset getCardCenter(double offsetX, double offsetY) {
+      return Offset(
+        screenSize.width / 2 + offsetX,
+        screenSize.height * 0.35 + offsetY, // 估算的中心位置
+      );
     }
 
-    // photoo: 旋转角度
-    final rotation = (_cardOffsetX / 60).clamp(-10.0, 10.0);
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // 底层卡片 (模拟堆叠效果)
+        if (state.currentIndex + 1 < state.words.length)
+          _buildBackgroundCard(cardWidth, cardHeight, 0.96, 20),
+        if (state.currentIndex + 2 < state.words.length)
+          _buildBackgroundCard(cardWidth, cardHeight, 0.92, 40),
 
-    // Action Indicator
-    final actionIndicator = _getActionIndicator();
-
-    return SizedBox(
-      width: cardWidth,
-      height: cardHeight,
-      child: GestureDetector(
-        onPanStart: _onDragStart,
-        onPanUpdate: (details) => _onDragUpdate(details.delta.dx, details.delta.dy),
-        onPanEnd: (details) => _onDragEnd(
-          details.velocity.pixelsPerSecond.dx,
-          details.velocity.pixelsPerSecond.dy,
+        // 顶层卡片
+        DraggableWordCard(
+          isTopCard: true,
+          stackIndex: 0,
+          index: state.currentIndex,
+          onSwipeLeft: () {
+            notifier.onSwipeLeft();
+          },
+          onSwipeRight: () {
+            notifier.onSwipeRight();
+          },
+          onSwipeUp: () {
+            _showDetail(state.currentWord!);
+          },
+          onFolderModeDragEnd: (x, y) {
+            // 检查是否在桶上
+            final cardCenter = getCardCenter(x, y);
+            _updateBucketCollision(cardCenter);
+            return _activeBucketId != null;
+          },
+          onDragUpdate: (x, y) {
+            // 检测是否进入文件夹模式
+            if (y > _folderModeThreshold) {
+              if (!_isFolderMode) {
+                setState(() {
+                  _isFolderMode = true;
+                });
+              }
+              _updateBucketCollision(getCardCenter(x, y));
+            } else if (_isFolderMode) {
+              _exitFolderMode();
+            }
+          },
+          onDetail: () {
+            _showDetail(state.currentWord!);
+          },
+          child: WordCardContent(
+            word: state.words[state.currentIndex],
+            showDetails: false,
+            isDragging: false,
+          ),
         ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // 底层卡片 (模拟堆叠效果 - photoo 每层缩小4%，下移15dp)
-            if (state.currentIndex + 1 < state.words.length)
-              Positioned(
-                top: 20,
-                child: Transform.scale(
-                  scale: 0.96,
-                  child: Container(
-                    width: cardWidth,
-                    height: cardHeight,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey.shade400),
-                    ),
-                  ),
-                ),
-              ),
-            if (state.currentIndex + 2 < state.words.length)
-              Positioned(
-                top: 40,
-                child: Transform.scale(
-                  scale: 0.92,
-                  child: Container(
-                    width: cardWidth,
-                    height: cardHeight,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                  ),
-                ),
-              ),
+      ],
+    );
+  }
 
-            // 顶层卡片
-            Transform.translate(
-              offset: Offset(_cardOffsetX, _cardOffsetY),
-              child: Transform.scale(
-                scale: dynamicScale * _cardScale,
-                child: Transform.rotate(
-                  angle: rotation * 3.14159 / 180,
-                  child: Opacity(
-                    opacity: _cardAlpha.clamp(0.0, 1.0),
-                    child: Container(
-                      width: cardWidth,
-                      height: cardHeight,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: WordCardContent(
-                          word: state.words[state.currentIndex],
-                          showDetails: false,
-                          isDragging: _isDragging,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Action Indicator
-            if (actionIndicator != null)
-              Positioned(
-                top: 24,
-                right: 24,
-                child: _ActionIndicator(indicator: actionIndicator),
-              ),
-          ],
+  Widget _buildBackgroundCard(double width, double height, double scale, double topOffset) {
+    return Transform.translate(
+      offset: Offset(0, topOffset),
+      child: Transform.scale(
+        scale: scale,
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.grey.shade400),
+          ),
         ),
       ),
     );
   }
 
-  String? _getActionIndicator() {
-    // photoo: offsetY > 150 显示 MOVE
-    if (_cardOffsetY > _folderModeVisualThreshold) return 'move';
-    // photoo: offsetX > 100 显示 LIKE
-    if (_cardOffsetX > _actionIndicatorThreshold) return 'like';
-    // photoo: offsetX < -100 显示 DELETE
-    if (_cardOffsetX < -_actionIndicatorThreshold) return 'delete';
-    // photoo: offsetY < -100 显示 SKIP
-    if (_cardOffsetY < -_actionIndicatorThreshold) return 'skip';
-    return null;
+  void _updateBucketCollision(Offset cardCenter) {
+    _dropRowKey.currentState?.updateCardPosition(cardCenter);
+  }
+
+  void _exitFolderMode() {
+    setState(() {
+      _isFolderMode = false;
+      _activeBucketId = null;
+    });
+  }
+
+  void _showDetail(Word word) {
+    setState(() {
+      _viewingWord = word;
+    });
+  }
+
+  void _hideDetail() {
+    setState(() {
+      _viewingWord = null;
+    });
+    context.read<WordDragNotifier>().onDetailPageComplete();
   }
 
   Widget _buildDetailOverlay(Word word) {
@@ -810,83 +515,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent>
   }
 }
 
-/// 滑动方向
-enum SwipeDirection { left, right, up, down }
-
-/// Action Indicator 组件
-class _ActionIndicator extends StatelessWidget {
-  final String indicator;
-
-  const _ActionIndicator({required this.indicator});
-
-  @override
-  Widget build(BuildContext context) {
-    Color color;
-    IconData icon;
-    String text;
-
-    switch (indicator) {
-      case 'like':
-        color = const Color(0xFFFF9800);
-        icon = Icons.favorite;
-        text = 'LIKE';
-        break;
-      case 'delete':
-        color = const Color(0xFFEF4444);
-        icon = Icons.delete_outline;
-        text = 'DELETE';
-        break;
-      case 'skip':
-        color = const Color(0xFF3B82F6);
-        icon = Icons.arrow_upward;
-        text = 'SKIP';
-        break;
-      case 'move':
-        color = const Color(0xFF9C27B0);
-        icon = Icons.drive_file_move;
-        text = 'MOVE';
-        break;
-      default:
-        return const SizedBox.shrink();
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(8),
-          bottomRight: Radius.circular(8),
-        ),
-        border: Border.all(color: color, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(
-              color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// 顶部抽屉单词列表组件
 class _WordListDrawer extends StatefulWidget {
   final List<Word> words;
@@ -894,7 +522,6 @@ class _WordListDrawer extends StatefulWidget {
   final Function(int) onWordTap;
 
   const _WordListDrawer({
-    super.key,
     required this.words,
     required this.currentIndex,
     required this.onWordTap,
