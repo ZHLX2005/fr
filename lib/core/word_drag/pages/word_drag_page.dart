@@ -207,7 +207,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
           onFolderModeDragEnd: (x, y) {
             // 检查是否在桶上
             final cardCenter = getCardCenter(x, y);
-            _updateBucketCollision(cardCenter);
+            _updateBucketCollision(cardCenter, x);
             return _activeBucketId != null;
           },
           onDragUpdate: (x, y) {
@@ -218,7 +218,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                   _isFolderMode = true;
                 });
               }
-              _updateBucketCollision(getCardCenter(x, y));
+              _updateBucketCollision(getCardCenter(x, y), x);
               // 更新边缘滚动状态
               _edgeScrollState.cardCenterX = getCardCenter(x, y).dx;
               _edgeScrollState.screenWidth = screenSize.width;
@@ -262,8 +262,8 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     );
   }
 
-  void _updateBucketCollision(Offset cardCenter) {
-    _dropRowKey.currentState?.updateCardPosition(cardCenter);
+  void _updateBucketCollision(Offset cardCenter, double offsetX) {
+    _dropRowKey.currentState?.updateCardPosition(cardCenter, offsetX);
   }
 
   void _exitFolderMode() {
