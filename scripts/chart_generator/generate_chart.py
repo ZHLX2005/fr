@@ -4,10 +4,9 @@
 使用 librosa 分析音频，生成下落式音游的乐谱 JSON
 根据音乐能量动态调整难度，支持主动生成 hold 和 slide
 
-碰撞规则（与游戏保持一致）：
-  - tap/slide：列占用 [spawn, event.time + MISS_WINDOW_MS]
-  - hold：列占用 [spawn, event.time + holdDuration + MISS_WINDOW_MS]
-  - spawn = event.time - JUDGE_RATIO * dropDuration
+碰撞规则（统一模型）：
+  - 每个音符占用列的时间窗口 [event.time, event.time + duration + MISS_WINDOW_MS]
+  - 同列下一个音符的 event.time 必须 > 上一音符的 end
 """
 
 import argparse
@@ -30,7 +29,7 @@ DEFAULT_DROP_DURATION = 2500
 # 判定窗口（与游戏代码保持一致）
 MISS_WINDOW_MS = 200
 # 下落时间比例（与游戏代码保持一致）
-JUDGE_RATIO = 0.733
+
 
 try:
     import librosa
@@ -94,14 +93,9 @@ def generate_notes(beat_times, energies, bpm, column_count=3):
     # 每列的占用结束时间
     occupation_end = [0] * column_count
 
-    def spawn_time(time):
-        return time - int(JUDGE_RATIO * DEFAULT_DROP_DURATION)
-
     def can_place(col, time, duration=0):
-        """检查是否能放置"""
-        st = spawn_time(time)
-        end = time + duration + MISS_WINDOW_MS
-        return st >= occupation_end[col] and time >= occupation_end[col]
+        """检查是否能放置（统一碰撞模型：event.time > 上一音符 end）"""
+        return time > occupation_end[col]
 
     def place(col, time, ntype, duration=0, direction=None):
         """放置音符并更新占用"""
@@ -309,9 +303,6 @@ def rebuild_chart(input_path, output_path=None):
     # occupation_end 按时间顺序逐步构建
     occupation_end = {}
 
-    def spawn_time(time):
-        return time - int(JUDGE_RATIO * drop_duration)
-
     def can_place(col, time, duration=0):
         # collision window = [event_time, event_time + duration + MISS_WINDOW_MS]
         # 新音符的 event_time 必须 > 上一音符的 end_time（> 不是 >=，确保不重叠）
@@ -411,9 +402,6 @@ def fix_chart(input_path, output_path=None):
     kept = []
 
     notes_sorted = sorted(notes, key=lambda x: x["time"])
-
-    def spawn_time(time):
-        return time - int(JUDGE_RATIO * drop_duration)
 
     def can_place(col, time, duration=0):
         # collision window = [event_time, event_time + duration + MISS_WINDOW_MS]
