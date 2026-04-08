@@ -223,8 +223,10 @@ class GamePainter extends CustomPainter {
   // 透明度计算
   double alpha;
   if (note.holdFadeOut > 0) {
-    // fade-out：线性渐隐，无抖动
-    alpha = 0.5 * (1.0 - note.holdFadeOut);
+    // fade-out：从 hold 结束时的 alpha 平滑过渡到 0
+    // hold 结束时 computedHoldProgress≈1.0，alpha≈0.15，从此处渐隐
+    final baseAlpha = 0.5 * (1.0 - computedHoldProgress * 0.7).clamp(0.15, 1.0);
+    alpha = baseAlpha * (1.0 - note.holdFadeOut);
   } else if (note.holding) {
     // holdProgress 低时保持较高 alpha，高时渐隐
     alpha = 0.5 * (1.0 - computedHoldProgress * 0.7).clamp(0.15, 1.0);
