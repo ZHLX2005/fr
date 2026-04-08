@@ -369,7 +369,7 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
             ],
           ),
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: 16),
       ],
     );
   }
