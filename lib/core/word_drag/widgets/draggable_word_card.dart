@@ -272,7 +272,11 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   // 拖动取消 (photoo: tween(160, LinearOutSlowInEasing) -> Curves.fastOutSlowIn)
   void _handleDragCancel() {
     if (!widget.isTopCard || _isAnimating) return;
-    _pressScaleController.reverse();
+    // spring 回弹到 1.0（不能用 reverse()，因为 lowerBound=0 会让卡片消失）
+    final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 26.83);
+    _pressScaleController.animateWith(
+      SpringSimulation(spring, _pressScaleController.value, 1.0, 0),
+    );
     widget.onDragCancel?.call();
     _isAnimating = true;
     _offsetXController.animateTo(
@@ -419,7 +423,11 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                         } : null,
                         onPanEnd: widget.isTopCard ? (details) {
                           if (_isAnimating) return;
-                          _pressScaleController.reverse();
+                          // spring 回弹到 1.0（不能用 reverse()，因为 lowerBound=0 会让卡片消失）
+                          final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 26.83);
+                          _pressScaleController.animateWith(
+                            SpringSimulation(spring, _pressScaleController.value, 1.0, 0),
+                          );
                           _handleDragEnd(
                             details.velocity.pixelsPerSecond.dx,
                             details.velocity.pixelsPerSecond.dy,
