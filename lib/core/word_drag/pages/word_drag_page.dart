@@ -6,6 +6,7 @@ import '../providers/word_drag_state.dart';
 import '../widgets/category_drop_row.dart';
 import '../widgets/word_card_content.dart';
 import '../widgets/draggable_word_card.dart';
+import '../word_drag_constants.dart';
 
 /// 单词拖拽背词页面
 ///
@@ -75,8 +76,8 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   // 当前查看的单词详情
   Word? _viewingWord;
 
-  // 阈值常量 (匹配 DraggableWordCard)
-  static const double _folderDropRowThreshold = 300; // 显示桶选择器
+  // 阈值常量 (从 WordDragConstants 统一获取)
+  double get _folderDropRowThreshold => WordDragConstants.folderModeThreshold;
 
   @override
   Widget build(BuildContext context) {
@@ -534,7 +535,7 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
   late Animation<double> _heightAnimation;
   bool _isExpanded = false;
   static const double _collapsedHeight = 60.0;
-  static const double _expandedHeight = 280.0;
+  static const double _expandedHeight = WordDragConstants.actionLogExpandedHeight;
 
   @override
   void initState() {

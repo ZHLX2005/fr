@@ -1,5 +1,6 @@
 // Core word_drag module - 弹性拖动背单词
 
+export 'word_drag_constants.dart';
 export 'models/word.dart';
 export 'providers/word_drag_state.dart';
 export 'providers/word_drag_notifier.dart';
