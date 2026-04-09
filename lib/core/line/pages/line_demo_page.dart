@@ -151,7 +151,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   double _scrollSpeed = 1.0;
   static const String _scrollSpeedKey = lineScrollSpeedKey;
 
-  static const double _noteSizeRatio = 0.14; // 音符大小占列宽的比例
+  static const double _noteSizeRatio = 0.168; // 音符大小占列宽的比例（扩大20%）
   static const double _judgeLineRatio = 0.75;
 
   /// 线性下落时，音符到达判定线的动画进度比例
@@ -885,7 +885,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     setState(() => _isExiting = true);
     await _exitController.forward();
     if (mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const SongSelectPage()),
+      );
     }
   }
 
@@ -994,7 +996,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
     allControllers.add(_healthController);
     allControllers.add(_renderTicker);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleExit();
+      },
+      child: Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: Listener(
         behavior: HitTestBehavior.opaque,
@@ -1121,6 +1128,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
               ),
           ],
         ),
+      ),
       ),
     );
   }
