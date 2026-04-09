@@ -33,7 +33,11 @@ class DraggableWordCard extends StatefulWidget {
   /// 上滑回调
   final VoidCallback? onSwipeUp;
   /// 下滑进入文件夹模式回调
-  final bool Function(double x, double y)? onFolderModeDragEnd;
+  /// 返回选中的 bucketId 表示落在有效桶上，卡片将被吸入
+  /// 返回 null 表示没有落在有效桶上
+  final String? Function(double x, double y)? onFolderModeDragEnd;
+  /// 吸入动画完成回调 (带 bucketId 参数)
+  final void Function(String bucketId)? onFolderAnimationComplete;
   /// 开始拖动回调
   final VoidCallback? onDragStart;
   /// 拖动更新回调 (x, y)
@@ -55,6 +59,7 @@ class DraggableWordCard extends StatefulWidget {
     this.onSwipeRight,
     this.onSwipeUp,
     this.onFolderModeDragEnd,
+    this.onFolderAnimationComplete,
     this.onDragStart,
     this.onDragUpdate,
     this.onDragEnd,
@@ -88,6 +93,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
   // 状态标志
   bool _isAnimating = false;
+  // 文件夹吸入动画选中的桶 ID
+  String? _selectedBucketId;
 
   // ==================== 常量 (完全匹配 photoo) ====================
   static const double _threshold = 160;           // 滑动确认阈值
@@ -232,8 +239,9 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
     // 文件夹模式：交给父组件处理
     if (isFolderMode) {
-      final consumed = widget.onFolderModeDragEnd?.call(offsetX, offsetY) ?? false;
-      if (consumed) {
+      final bucketId = widget.onFolderModeDragEnd?.call(offsetX, offsetY);
+      if (bucketId != null) {
+        _selectedBucketId = bucketId;
         // 吸进动画
         _animateSuckIntoFolder();
         return;
@@ -304,6 +312,12 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       duration: const Duration(milliseconds: 250),
     ).then((_) {
       _isAnimating = false;
+      // 动画完成后通知父组件选择桶
+      final bucketId = _selectedBucketId;
+      if (bucketId != null) {
+        widget.onFolderAnimationComplete?.call(bucketId);
+        _selectedBucketId = null;
+      }
     });
   }
 

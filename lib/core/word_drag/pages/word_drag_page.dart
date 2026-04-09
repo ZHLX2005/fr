@@ -209,7 +209,11 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             // 检查是否在桶上
             final cardCenter = getCardCenter(x, y);
             _updateBucketCollision(cardCenter, x);
-            return _activeBucketId != null;
+            return _activeBucketId;
+          },
+          onFolderAnimationComplete: (bucketId) {
+            notifier.selectBucket(bucketId);
+            _exitFolderMode();
           },
           onDragUpdate: (x, y) {
             // 检测是否显示桶选择器 (300px)
