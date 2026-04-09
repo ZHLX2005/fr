@@ -133,14 +133,27 @@ class SongDetailPanel extends StatefulWidget {
   State<SongDetailPanel> createState() => _SongDetailPanelState();
 }
 
-class _SongDetailPanelState extends State<SongDetailPanel> {
+class _SongDetailPanelState extends State<SongDetailPanel>
+    with TickerProviderStateMixin {
   int _highScore = 0;
   double _highAccuracy = 0;
+  bool _isStarting = false;
+  late AnimationController _fillController;
 
   @override
   void initState() {
     super.initState();
+    _fillController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
     _loadHighScore();
+  }
+
+  @override
+  void dispose() {
+    _fillController.dispose();
+    super.dispose();
   }
 
   @override
@@ -160,6 +173,14 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
         _highAccuracy = prefs.getDouble('line_high_accuracy_$songHash') ?? 0;
       });
     }
+  }
+
+  void _onStartTap() {
+    if (_isStarting) return;
+    _isStarting = true;
+    _fillController.forward().then((_) {
+      if (mounted) widget.onStart();
+    });
   }
 
   String _calculateGrade(double accuracy) {
@@ -353,24 +374,47 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
                   child: Padding(
                     padding: const EdgeInsets.only(left: 16),
                     child: GestureDetector(
-                      onTap: widget.onStart,
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: color, width: 2),
-                        ),
-                        alignment: Alignment.center,
-                        child: FittedBox(
-                          child: Text(
-                            'START',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w300,
-                              color: color,
-                              letterSpacing: 2,
+                      onTap: _onStartTap,
+                      child: AnimatedBuilder(
+                        animation: _fillController,
+                        builder: (context, child) {
+                          return Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: color, width: 2),
                             ),
-                          ),
-                        ),
+                            child: ClipRRect(
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // 填充层
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FractionallySizedBox(
+                                      widthFactor: _fillController.value,
+                                      child: Container(
+                                        height: 48,
+                                        color: color.withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                  ),
+                                  // 文字
+                                  FittedBox(
+                                    child: Text(
+                                      'START',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w200,
+                                        color: color,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
