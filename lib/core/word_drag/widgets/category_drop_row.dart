@@ -365,7 +365,7 @@ class CategoryDropRowState extends State<CategoryDropRow>
         );
       },
       child: Container(
-        height: 120,
+        height: 140,
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: ListView.builder(
           controller: _scrollController,
