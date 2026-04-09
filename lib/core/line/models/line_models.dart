@@ -82,6 +82,7 @@ class FallingNote {
   final NoteEvent event;
   final AnimationController controller;
   double currentY;
+  int spawnElapsed; // 音符 spawn 时的 game elapsed（ms），用于基于时间的 Y 计算
   bool judged;
   bool removeMe; // 被判定后从绘制层立即移除，只留炸开动画
   bool holding; // 仅 hold：正在被按住
@@ -100,7 +101,8 @@ class FallingNote {
         holdProgress = 0.0,
         holdJudgeDiff = 0,
         holdPressTime = 0,
-        holdFadeOut = 0.0;
+        holdFadeOut = 0.0,
+        spawnElapsed = 0;
 }
 
 /// 炸开动画状态
