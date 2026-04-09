@@ -112,16 +112,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                         : _buildEmptyState(notifier),
                   ),
                 ),
-
-                // 底部提示
-                if (state.hasNextWord)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: Text(
-                      '上: 详情 | 左: 稍后 | 右: 操作 | 下: 分类',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                    ),
-                  ),
               ],
             ),
 
