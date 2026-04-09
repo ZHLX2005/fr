@@ -92,10 +92,9 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             Column(
               children: [
                 // 顶部抽屉
-                _WordListDrawer(
-                  words: state.words,
-                  currentIndex: state.currentIndex,
-                  onWordTap: (index) {},
+                _ActionLogDrawer(
+                  currentAction: state.currentAction,
+                  actionLog: state.actionLog,
                 ),
 
                 // 进度条
@@ -556,29 +555,27 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   }
 }
 
-/// 顶部抽屉单词列表组件
-class _WordListDrawer extends StatefulWidget {
-  final List<Word> words;
-  final int currentIndex;
-  final Function(int) onWordTap;
+/// 顶部抽屉操作日志组件
+class _ActionLogDrawer extends StatefulWidget {
+  final ActionLogEntry? currentAction;
+  final List<ActionLogEntry> actionLog;
 
-  const _WordListDrawer({
-    required this.words,
-    required this.currentIndex,
-    required this.onWordTap,
+  const _ActionLogDrawer({
+    this.currentAction,
+    required this.actionLog,
   });
 
   @override
-  State<_WordListDrawer> createState() => _WordListDrawerState();
+  State<_ActionLogDrawer> createState() => _ActionLogDrawerState();
 }
 
-class _WordListDrawerState extends State<_WordListDrawer>
+class _ActionLogDrawerState extends State<_ActionLogDrawer>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _heightAnimation;
   bool _isExpanded = false;
   static const double _collapsedHeight = 60.0;
-  static const double _expandedHeight = 200.0;
+  static const double _expandedHeight = 280.0;
 
   @override
   void initState() {
@@ -611,6 +608,14 @@ class _WordListDrawerState extends State<_WordListDrawer>
         _controller.reverse();
       }
     });
+  }
+
+  Color _actionColor(String action) {
+    if (action.contains('←')) return const Color(0xFFEF4444); // 红色 - 左
+    if (action.contains('→')) return const Color(0xFF10B981); // 绿色 - 右
+    if (action.contains('↑')) return const Color(0xFF3B82F6); // 蓝色 - 上
+    if (action.contains('↓')) return const Color(0xFFF59E0B); // 黄色 - 下
+    return Colors.grey;
   }
 
   @override
@@ -656,7 +661,7 @@ class _WordListDrawerState extends State<_WordListDrawer>
                             ],
                           ),
                         ),
-                        child: const Icon(Icons.list_alt, color: Colors.white, size: 20),
+                        child: const Icon(Icons.bug_report, color: Colors.white, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -665,17 +670,27 @@ class _WordListDrawerState extends State<_WordListDrawer>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              '单词列表',
+                              '操作日志',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Text(
-                              '${widget.words.length} 个单词待学习',
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                            ),
+                            if (widget.currentAction != null)
+                              Text(
+                                widget.currentAction!.action,
+                                style: TextStyle(
+                                  color: _actionColor(widget.currentAction!.action),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            else
+                              Text(
+                                '${widget.actionLog.length} 条记录',
+                                style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                              ),
                           ],
                         ),
                       ),
@@ -690,60 +705,83 @@ class _WordListDrawerState extends State<_WordListDrawer>
               ),
               if (_isExpanded)
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    itemCount: widget.words.length,
-                    itemBuilder: (context, index) {
-                      final word = widget.words[index];
-                      final isCurrentWord = index == widget.currentIndex;
-                      return GestureDetector(
-                        onTap: () => widget.onWordTap(index),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 2),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: isCurrentWord
-                                ? Colors.deepPurple.withValues(alpha: 0.3)
-                                : Colors.transparent,
+                  child: widget.actionLog.isEmpty
+                      ? Center(
+                          child: Text(
+                            '暂无操作记录\n滑动卡片触发操作',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isCurrentWord ? Colors.deepPurple : Colors.grey.shade700,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          itemCount: widget.actionLog.length,
+                          itemBuilder: (context, index) {
+                            final entry = widget.actionLog[index];
+                            final color = _actionColor(entry.action);
+                            return Container(
+                              margin: const EdgeInsets.symmetric(vertical: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: color.withValues(alpha: 0.1),
+                                border: Border.all(color: color.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: color.withValues(alpha: 0.2),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '${entry.index + 1}',
+                                        style: TextStyle(
+                                          color: color,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  word.text,
-                                  style: TextStyle(
-                                    color: isCurrentWord ? Colors.white : Colors.grey.shade300,
-                                    fontSize: 13,
-                                    fontWeight: isCurrentWord ? FontWeight.bold : FontWeight.normal,
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          entry.word,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                Text(
+                                          entry.action,
+                                          style: TextStyle(
+                                            color: color,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                  Text(
+                                    '${entry.timestamp.hour}:${entry.timestamp.minute.toString().padLeft(2, '0')}:${entry.timestamp.second.toString().padLeft(2, '0')}',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade500,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
             ],
           ),
@@ -752,3 +790,4 @@ class _WordListDrawerState extends State<_WordListDrawer>
     );
   }
 }
+
