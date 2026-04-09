@@ -418,47 +418,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
 
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.school, color: Colors.deepPurple.shade300, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${state.words.length} 个单词',
-                    style: TextStyle(color: Colors.deepPurple.shade200, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle_outline, color: Colors.green.shade300, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    '已复习 ${Word.sampleWords.length - state.words.length}',
-                    style: TextStyle(color: Colors.green.shade200, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 12),
         Container(
           height: 6,
