@@ -91,7 +91,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
   // ==================== 常量 (完全匹配 photoo) ====================
   static const double _threshold = 160;           // 滑动确认阈值
-  static const double _folderModeThreshold = 420;  // 下滑进入文件夹模式 (拖拽被消耗)
+  static const double _folderModeThreshold = 300;  // 下滑进入文件夹模式 (与桶显示阈值一致)
   static const double _flingThreshold = 800;       // 快速滑动速度阈值
 
   // Action Indicator 阈值
