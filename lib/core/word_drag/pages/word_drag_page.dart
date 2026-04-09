@@ -112,16 +112,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                         : _buildEmptyState(notifier),
                   ),
                 ),
-
-                // 底部提示
-                if (state.hasNextWord)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: Text(
-                      '上: 详情 | 左: 稍后 | 右: 操作 | 下: 分类',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                    ),
-                  ),
               ],
             ),
 
@@ -177,15 +167,37 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // 底层卡片 (模拟堆叠效果)
-        if (state.currentIndex + 1 < state.words.length)
-          _buildBackgroundCard(cardWidth, cardHeight, 1),
+        // 背景卡片 2 (最底层)
         if (state.currentIndex + 2 < state.words.length)
-          _buildBackgroundCard(cardWidth, cardHeight, 2),
+          DraggableWordCard(
+            key: ValueKey('card_${state.currentIndex + 2}'),
+            isTopCard: false,
+            stackIndex: 2,
+            index: state.currentIndex + 2,
+            child: WordCardContent(
+              word: state.words[state.currentIndex + 2],
+              showDetails: false,
+              isDragging: false,
+            ),
+          ),
 
-        // 顶层卡片 (使用 ValueKey 确保 currentIndex 改变时重建)
+        // 背景卡片 1
+        if (state.currentIndex + 1 < state.words.length)
+          DraggableWordCard(
+            key: ValueKey('card_${state.currentIndex + 1}'),
+            isTopCard: false,
+            stackIndex: 1,
+            index: state.currentIndex + 1,
+            child: WordCardContent(
+              word: state.words[state.currentIndex + 1],
+              showDetails: false,
+              isDragging: false,
+            ),
+          ),
+
+        // 顶层卡片
         DraggableWordCard(
-          key: ValueKey('top_card_${state.currentIndex}'),
+          key: ValueKey('card_${state.currentIndex}'),
           isTopCard: true,
           stackIndex: 0,
           index: state.currentIndex,
@@ -248,35 +260,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildBackgroundCard(double width, double height, int stackIndex) {
-    // 匹配 DraggableWordCard 的堆叠公式
-    final scale = 1.0 - (stackIndex * 0.04);
-    final yOffset = stackIndex * 15.0;
-    // Kotlin 中背景卡片只显示缩放的阴影，不显示实际内容
-    // 这里用带阴影的半透明容器模拟堆叠效果
-    return Transform.translate(
-      offset: Offset(0, yOffset),
-      child: Transform.scale(
-        scale: scale,
-        child: Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8 * stackIndex.toDouble(),
-                offset: Offset(0, 2 * stackIndex.toDouble()),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
