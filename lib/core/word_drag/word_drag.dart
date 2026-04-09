@@ -3,7 +3,6 @@
 export 'models/word.dart';
 export 'providers/word_drag_state.dart';
 export 'providers/word_drag_notifier.dart';
-export 'providers/draggable_word_card_controller.dart';
 export 'widgets/draggable_word_card.dart' hide SwipeDirection;
 export 'widgets/category_drop_row.dart';
 export 'widgets/word_card_content.dart';
