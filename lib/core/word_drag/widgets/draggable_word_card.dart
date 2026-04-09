@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
+import '../word_drag_constants.dart';
 
 /// 滑动方向枚举
 enum SwipeDirection { left, right, up, down }
@@ -96,16 +97,6 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   // 文件夹吸入动画选中的桶 ID
   String? _selectedBucketId;
 
-  // ==================== 常量 (完全匹配 photoo) ====================
-  static const double _threshold = 160;           // 滑动确认阈值
-  static const double _folderModeThreshold = 300;  // 下滑进入文件夹模式 (与桶显示阈值一致)
-  static const double _flingThreshold = 800;       // 快速滑动速度阈值
-
-  // Action Indicator 阈值
-  static const double _actionIndicatorThreshold = 100;
-  // Action Indicator 文件夹模式阈值 (Kotlin: 150f)
-  static const double _actionIndicatorFolderThreshold = 150;
-
   @override
   void initState() {
     super.initState();
@@ -129,8 +120,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _stackYOffsetController.addListener(_onStackYOffsetChanged);
 
     // Initialize stack values
-    final initialScale = 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
-    final initialYOffset = widget.stackIndex * 15.0;
+    final initialScale = 1.0 - (widget.stackIndex.clamp(0, 2) * WordDragConstants.stackScaleDecrement);
+    final initialYOffset = widget.stackIndex * WordDragConstants.stackYOffsetIncrement;
     _stackScale = initialScale;
     _stackYOffset = initialYOffset;
     _stackScaleController.value = initialScale;
@@ -153,10 +144,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   void didUpdateWidget(DraggableWordCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 当堆叠索引变化时，使用 spring 动画过渡 (匹配 Kotlin: stiffness=350f, dampingRatio=0.75f)
+    // 当堆叠索引变化时，使用 spring 动画过渡
     if (widget.stackIndex != oldWidget.stackIndex) {
-      final targetScale = 1.0 - (widget.stackIndex.clamp(0, 2) * 0.04);
-      final targetYOffset = widget.stackIndex * 15.0;
+      final targetScale = 1.0 - (widget.stackIndex.clamp(0, 2) * WordDragConstants.stackScaleDecrement);
+      final targetYOffset = widget.stackIndex * WordDragConstants.stackYOffsetIncrement;
 
       // Spring 参数 (Kotlin: stiffness=350f, dampingRatio=0.75f)
       final spring = SpringDescription(
@@ -235,7 +226,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     final offsetY = _offsetYController.value;
 
     // 检查是否是文件夹模式
-    final isFolderMode = offsetY > _folderModeThreshold;
+    final isFolderMode = offsetY > WordDragConstants.folderModeThreshold;
 
     // 文件夹模式：交给父组件处理
     if (isFolderMode) {
@@ -252,22 +243,21 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     }
 
     // 左滑 - 删除/稍后复习
-    if (offsetX < -_threshold) {
+    if (offsetX < -WordDragConstants.swipeThreshold) {
       _performHaptic();
       _animateSwipeOut(-1500, 0, onComplete: widget.onSwipeLeft);
       return;
     }
 
     // 右滑 - 掌握
-    if (offsetX > _threshold) {
+    if (offsetX > WordDragConstants.swipeThreshold) {
       _performHaptic();
       _animateSwipeOut(1500, 0, onComplete: widget.onSwipeRight);
       return;
     }
 
     // 上滑 - 跳过 (位置或速度触发)
-    // Kotlin: offsetY < -threshold || (velocityY < -verticalFlingThreshold && offsetY < 0)
-    if (offsetY < -_threshold || (velocityY < -_flingThreshold && offsetY < 0)) {
+    if (offsetY < -WordDragConstants.swipeThreshold || (velocityY < -WordDragConstants.flingThreshold && offsetY < 0)) {
       _performHaptic();
       _animateSwipeOut(0, -2000, onComplete: widget.onSwipeUp);
       return;
@@ -277,11 +267,15 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _animateSpringBack();
   }
 
-  // 拖动取消 (photoo: tween(160, LinearOutSlowInEasing) -> Curves.fastOutSlowIn)
+  // 拖动取消
   void _handleDragCancel() {
     if (!widget.isTopCard || _isAnimating) return;
     // spring 回弹到 1.0（不能用 reverse()，因为 lowerBound=0 会让卡片消失）
-    final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 26.83);
+    final spring = SpringDescription(
+      mass: 1.0,
+      stiffness: WordDragConstants.cardPressStiffness,
+      damping: WordDragConstants.cardPressDampingRatio * 2 * sqrt(WordDragConstants.cardPressStiffness),
+    );
     _pressScaleController.animateWith(
       SpringSimulation(spring, _pressScaleController.value, 1.0, 0),
     );
@@ -305,10 +299,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
   void _animateSuckIntoFolder() {
     _isAnimating = true;
 
-    _exitScaleController.animateTo(0.1, duration: const Duration(milliseconds: 250));
+    _exitScaleController.animateTo(WordDragConstants.cardSuckScale, duration: const Duration(milliseconds: 250));
     _alphaController.animateTo(0, duration: const Duration(milliseconds: 250));
     _offsetYController.animateTo(
-      _offsetYController.value + 200,
+      _offsetYController.value + WordDragConstants.cardSuckOffsetY,
       duration: const Duration(milliseconds: 250),
     ).then((_) {
       _isAnimating = false;
@@ -340,14 +334,14 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     });
   }
 
-  // Spring 回弹动画 (phoot: stiffness=2000f, dampingRatio=0.85f)
+  // Spring 回弹动画
   void _animateSpringBack() {
     _isAnimating = true;
 
     final spring = SpringDescription(
       mass: 1.0,
-      stiffness: 2000.0,
-      damping: 76.0, // dampingRatio = 0.85
+      stiffness: WordDragConstants.cardSpringStiffness,
+      damping: WordDragConstants.cardSpringDampingRatio * 2 * sqrt(WordDragConstants.cardSpringStiffness),
     );
 
     final simX = SpringSimulation(spring, _offsetXController.value, 0, 0);
@@ -371,19 +365,18 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
   // 计算当前 Action Indicator
   ActionIndicator? get _currentActionIndicator {
-    // Kotlin 使用 150f 作为 Action Indicator 的文件夹模式阈值
-    final isFolderMode = _offsetY > _actionIndicatorFolderThreshold;
+    final isFolderMode = _offsetY > WordDragConstants.actionIndicatorFolderThreshold;
 
     if (isFolderMode) {
       return ActionIndicator.folder;
     }
-    if (_offsetX > _actionIndicatorThreshold) {
+    if (_offsetX > WordDragConstants.actionIndicatorThreshold) {
       return ActionIndicator.like;
     }
-    if (_offsetX < -_actionIndicatorThreshold) {
+    if (_offsetX < -WordDragConstants.actionIndicatorThreshold) {
       return ActionIndicator.delete;
     }
-    if (_offsetY < -_actionIndicatorThreshold) {
+    if (_offsetY < -WordDragConstants.actionIndicatorThreshold) {
       return ActionIndicator.skip;
     }
     return null;
@@ -423,11 +416,12 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                         onTap: widget.isTopCard ? widget.onDetail : null,
                         onPanStart: widget.isTopCard ? (_) {
                           if (_isAnimating) return;
-                          // photoo: spring(stiffness=Medium (≈500), dampingRatio=0.6f)
-                          // damping = 2 * sqrt(500) * 0.6 ≈ 26.83
-                          // Animate from 1.0 to 0.96 (press down effect)
-                          final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 26.83);
-                          final simulation = SpringSimulation(spring, 1.0, 0.96, 0);
+                          final spring = SpringDescription(
+                            mass: 1.0,
+                            stiffness: WordDragConstants.cardPressStiffness,
+                            damping: WordDragConstants.cardPressDampingRatio * 2 * sqrt(WordDragConstants.cardPressStiffness),
+                          );
+                          final simulation = SpringSimulation(spring, 1.0, WordDragConstants.cardPressScale, 0);
                           _pressScaleController.animateWith(simulation);
                           widget.onDragStart?.call();
                         } : null,
@@ -437,8 +431,11 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                         } : null,
                         onPanEnd: widget.isTopCard ? (details) {
                           if (_isAnimating) return;
-                          // spring 回弹到 1.0（不能用 reverse()，因为 lowerBound=0 会让卡片消失）
-                          final spring = SpringDescription(mass: 1.0, stiffness: 500.0, damping: 26.83);
+                          final spring = SpringDescription(
+                            mass: 1.0,
+                            stiffness: WordDragConstants.cardPressStiffness,
+                            damping: WordDragConstants.cardPressDampingRatio * 2 * sqrt(WordDragConstants.cardPressStiffness),
+                          );
                           _pressScaleController.animateWith(
                             SpringSimulation(spring, _pressScaleController.value, 1.0, 0),
                           );
