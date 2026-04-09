@@ -133,14 +133,27 @@ class SongDetailPanel extends StatefulWidget {
   State<SongDetailPanel> createState() => _SongDetailPanelState();
 }
 
-class _SongDetailPanelState extends State<SongDetailPanel> {
+class _SongDetailPanelState extends State<SongDetailPanel>
+    with TickerProviderStateMixin {
   int _highScore = 0;
   double _highAccuracy = 0;
+  bool _isStarting = false;
+  late AnimationController _fillController;
 
   @override
   void initState() {
     super.initState();
+    _fillController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
     _loadHighScore();
+  }
+
+  @override
+  void dispose() {
+    _fillController.dispose();
+    super.dispose();
   }
 
   @override
@@ -160,6 +173,14 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
         _highAccuracy = prefs.getDouble('line_high_accuracy_$songHash') ?? 0;
       });
     }
+  }
+
+  void _onStartTap() {
+    if (_isStarting) return;
+    _isStarting = true;
+    _fillController.forward().then((_) {
+      if (mounted) widget.onStart();
+    });
   }
 
   String _calculateGrade(double accuracy) {
@@ -195,53 +216,54 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
 
     final song = widget.song;
 
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       children: [
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
         // 大尺寸旋转封面
         RotatingCover(
           imagePath: song.coverPath,
-          size: 180,
+          size: 160,
           borderWidth: 3,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
         // 歌曲名
         Text(
           song.name,
           style: TextStyle(
-            fontSize: 28,
+            fontSize: 24,
             fontWeight: FontWeight.w200,
             color: color,
             letterSpacing: 2,
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         // 艺术家
         Text(
           song.artist,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w300,
             color: theme.textTheme.bodyMedium?.color,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         // 难度 + 时长 + 最高分
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            DifficultyStars(difficulty: song.difficulty, size: 18),
-            const SizedBox(width: 16),
+            DifficultyStars(difficulty: song.difficulty, size: 16),
+            const SizedBox(width: 12),
             Text(
               '${song.duration ~/ 60}:${(song.duration % 60).toString().padLeft(2, '0')}',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 color: theme.textTheme.bodySmall?.color,
               ),
             ),
             if (_highScore > 0) ...[
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
@@ -271,7 +293,7 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
             ],
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         // 简介
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -283,102 +305,127 @@ class _SongDetailPanelState extends State<SongDetailPanel> {
               height: 1.5,
             ),
             textAlign: TextAlign.center,
-            maxLines: 3,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(height: 28),
-        // 边框风格
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '边框',
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.textTheme.bodySmall?.color,
-              ),
-            ),
-            const SizedBox(width: 12),
-            GameBorderStylePicker(
-              selected: widget.borderStyle,
-              onChanged: widget.onBorderStyleChanged,
-              color: color,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // 线条密度
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '线条',
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.textTheme.bodySmall?.color,
-              ),
-            ),
-            const SizedBox(width: 12),
-            LineDensityPicker(
-              selected: widget.lineDensity,
-              onChanged: widget.onLineDensityChanged,
-              color: color,
-            ),
-          ],
-        ),
-        const Spacer(),
+        const SizedBox(height: 20),
+        // // 边框风格
+        // Row(
+        //   mainAxisAlignment: MainAxisAlignment.center,
+        //   children: [
+        //     Text(
+        //       '边框',
+        //       style: TextStyle(
+        //         fontSize: 13,
+        //         color: theme.textTheme.bodySmall?.color,
+        //       ),
+        //     ),
+        //     const SizedBox(width: 12),
+        //     GameBorderStylePicker(
+        //       selected: widget.borderStyle,
+        //       onChanged: widget.onBorderStyleChanged,
+        //       color: color,
+        //     ),
+        //   ],
+        // ),
+        // const SizedBox(height: 12),
+        // // 线条密度
+        // Row(
+        //   mainAxisAlignment: MainAxisAlignment.center,
+        //   children: [
+        //     Text(
+        //       '线条',
+        //       style: TextStyle(
+        //         fontSize: 13,
+        //         color: theme.textTheme.bodySmall?.color,
+        //       ),
+        //     ),
+        //     const SizedBox(width: 12),
+        //     LineDensityPicker(
+        //       selected: widget.lineDensity,
+        //       onChanged: widget.onLineDensityChanged,
+        //       color: color,
+        //     ),
+        //   ],
+        // ),
+        // const SizedBox(height: 24),
         // 评分等级 + START 按钮
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Row(
             children: [
-              // 左侧 50%
+              // 左侧：等级
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 24),
+                    padding: const EdgeInsets.only(right: 16),
                     child: _highAccuracy > 0
                         ? _buildGradeDisplay(color)
                         : const SizedBox(),
                   ),
                 ),
               ),
-              // 右侧 50%
+              // 右侧：START 按钮
               Expanded(
                 child: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.centerRight,
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 24),
+                    padding: const EdgeInsets.only(left: 16),
                     child: GestureDetector(
-                    onTap: widget.onStart,
-                    child: Container(
-                      width: 140,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: color, width: 2),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'START',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w300,
-                          color: color,
-                          letterSpacing: 4,
-                        ),
+                      onTap: _onStartTap,
+                      child: AnimatedBuilder(
+                        animation: _fillController,
+                        builder: (context, child) {
+                          return Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: color, width: 2),
+                            ),
+                            child: ClipRRect(
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // 填充层
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FractionallySizedBox(
+                                      widthFactor: _fillController.value,
+                                      child: Container(
+                                        height: 48,
+                                        color: color.withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                  ),
+                                  // 文字
+                                  FittedBox(
+                                    child: Text(
+                                      'START',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w200,
+                                        color: color,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
                 ),
               ),
-              ),
             ],
           ),
         ),
-        const SizedBox(height: 92),
+        const SizedBox(height: 48),
       ],
+      ),
     );
   }
 

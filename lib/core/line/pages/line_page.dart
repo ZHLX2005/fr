@@ -175,7 +175,7 @@ class GamePainter extends CustomPainter {
     final circlePaint = Paint()
       ..color = color.withValues(alpha: alpha)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
+      ..strokeWidth = 2.75;
     canvas.drawCircle(Offset(cx, currentY), radius, circlePaint);
   }
 
@@ -246,7 +246,7 @@ class GamePainter extends CustomPainter {
   final outlinePaint = Paint()
     ..color = color.withValues(alpha: 0.35)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.5;
+    ..strokeWidth = 1.65;
   canvas.drawRRect(capsuleRect, outlinePaint);
 
   // ── 填充区域（只要按过就绘制，填充满后保持满状态）──
@@ -286,7 +286,7 @@ class GamePainter extends CustomPainter {
         ..color = Color.lerp(color, Colors.white, 0.4)!
             .withValues(alpha: (0.6 + 0.3 * computedHoldProgress) * alpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
+        ..strokeWidth = 1.65;
       canvas.drawLine(
         Offset(cx - capsuleHalf, fillTop.clamp(tailY, fillBottom)),
         Offset(cx - capsuleHalf, fillBottom),
@@ -361,7 +361,7 @@ void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alph
     final circlePaint = Paint()
       ..color = color.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
+      ..strokeWidth = 2.75;
     canvas.drawCircle(Offset(cx, note.currentY), radius, circlePaint);
 
     // 内圈填充（微弱）
@@ -384,7 +384,7 @@ void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alph
     switch (dir) {
       case SlideDirection.up:
         paint.style = PaintingStyle.stroke;
-        paint.strokeWidth = size * 0.25;
+        paint.strokeWidth = size * 0.275;
         canvas.drawLine(Offset(cx, cy - size), Offset(cx, cy + size * 0.5), paint);
         paint.style = PaintingStyle.fill;
         path.moveTo(cx, cy - size);
@@ -392,7 +392,7 @@ void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alph
         path.lineTo(cx + size * 0.5, cy - size * 0.2);
       case SlideDirection.down:
         paint.style = PaintingStyle.stroke;
-        paint.strokeWidth = size * 0.25;
+        paint.strokeWidth = size * 0.275;
         canvas.drawLine(Offset(cx, cy + size), Offset(cx, cy - size * 0.5), paint);
         paint.style = PaintingStyle.fill;
         path.moveTo(cx, cy + size);
@@ -400,7 +400,7 @@ void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alph
         path.lineTo(cx + size * 0.5, cy + size * 0.2);
       case SlideDirection.left:
         paint.style = PaintingStyle.stroke;
-        paint.strokeWidth = size * 0.25;
+        paint.strokeWidth = size * 0.275;
         canvas.drawLine(Offset(cx - size, cy), Offset(cx + size * 0.5, cy), paint);
         paint.style = PaintingStyle.fill;
         path.moveTo(cx - size, cy);
@@ -408,7 +408,7 @@ void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alph
         path.lineTo(cx - size * 0.2, cy + size * 0.5);
       case SlideDirection.right:
         paint.style = PaintingStyle.stroke;
-        paint.strokeWidth = size * 0.25;
+        paint.strokeWidth = size * 0.275;
         canvas.drawLine(Offset(cx + size, cy), Offset(cx - size * 0.5, cy), paint);
         paint.style = PaintingStyle.fill;
         path.moveTo(cx + size, cy);
@@ -430,7 +430,7 @@ void _paintHoldNoteParticles(Canvas canvas, double cx, double headY, double alph
 
       if (currentRadius > 0.1) {
         paint.color = color.withValues(alpha: 0.3);
-        paint.strokeWidth = 1.5;
+        paint.strokeWidth = 1.65;
         canvas.drawCircle(Offset(explode.x, explode.y), currentRadius, paint);
       }
     }
