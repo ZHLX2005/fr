@@ -554,11 +554,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final elapsed = _gameStopwatch.elapsedMilliseconds;
     final scaledMissWindow = (_missWindow * _timingScale).round();
 
-    // 如果该列还有未判定且仍在判定窗口内的 tap/slide 音符，先处理它们，不激活 hold
+    // 如果该列有当前应按的 tap/slide 音符（在判定窗口内），先处理它们，不激活 hold
+    // 注意：只阻塞"当前时刻应该按的"音符，不阻塞已 spawn 但还没到的未来音符
     for (final note in _notes[col]) {
       if (!note.judged && note.event.type != NoteType.hold) {
-        final missThreshold = note.event.time + scaledMissWindow;
-        if (elapsed <= missThreshold) return; // 仍在窗口内，不激活 hold
+        final diff = (elapsed - note.event.time).abs();
+        if (diff <= scaledMissWindow) return; // 在 ±missWindow 内，不激活 hold
       }
     }
 

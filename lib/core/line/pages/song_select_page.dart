@@ -20,11 +20,12 @@ class _SongSelectPageState extends State<SongSelectPage> {
   LineDensity _lineDensity = LineDensity.normal;
   bool _isLoading = true;
   late FixedExtentScrollController _scrollController;
+  static const int _loopMultiplier = 10000; // 循环倍数，用于无限滚动
 
   @override
   void initState() {
     super.initState();
-    _scrollController = FixedExtentScrollController(initialItem: 0);
+    _scrollController = FixedExtentScrollController();
     _loadSongs();
   }
 
@@ -42,6 +43,11 @@ class _SongSelectPageState extends State<SongSelectPage> {
         _selectedSong = songs.isNotEmpty ? songs.first : null;
         _isLoading = false;
       });
+      // 跳转到中间位置，实现无限循环
+      if (songs.isNotEmpty) {
+        final middleItem = (songs.length * _loopMultiplier / 2).round();
+        _scrollController.jumpToItem(middleItem);
+      }
     }
   }
 
@@ -136,29 +142,35 @@ class _SongSelectPageState extends State<SongSelectPage> {
           Expanded(
             child: Row(
               children: [
-                // 左侧歌曲滚轮 (30%)
+                // 左侧歌曲滚轮 (30%) — 圆筒循环滚动，只显示3个
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.3,
-                  child: ClipRect(
-                    child: Transform.translate(
-                      offset: Offset(0, -navHeight / 2),
+                  child: Align(
+                    alignment: const Alignment(0, -0.3),
+                    child: SizedBox(
+                      height: 48 * 3, // 恰好显示3个 item
                       child: ListWheelScrollView.useDelegate(
                         controller: _scrollController,
                         itemExtent: 48,
-                        diameterRatio: 100,
-                        perspective: 0.001,
+                        diameterRatio: 1.5,
+                        perspective: 0.003,
                         physics: const FixedExtentScrollPhysics(),
-                        onSelectedItemChanged: (index) {
-                          setState(() => _selectedSong = _songs[index]);
+                        onSelectedItemChanged: (virtualIndex) {
+                          final realIndex = virtualIndex % _songs.length;
+                          setState(() => _selectedSong = _songs[realIndex]);
                         },
                         childDelegate: ListWheelChildBuilderDelegate(
-                          childCount: _songs.length,
-                          builder: (context, index) {
-                            final song = _songs[index];
+                          childCount: _songs.length * _loopMultiplier,
+                          builder: (context, virtualIndex) {
+                            final realIndex = virtualIndex % _songs.length;
+                            final song = _songs[realIndex];
                             final selectedIndex = _songs.indexWhere((s) => s.id == _selectedSong?.id);
-                            final distance = (selectedIndex - index).abs();
-                            final isSelected = distance == 0;
-                            final isNeighbor = distance == 1;
+                            final distance = (selectedIndex - realIndex).abs();
+                            final minDistance = distance > _songs.length / 2
+                                ? _songs.length - distance
+                                : distance;
+                            final isSelected = minDistance == 0;
+                            final isNeighbor = minDistance == 1;
 
                             return Center(
                               child: Padding(
