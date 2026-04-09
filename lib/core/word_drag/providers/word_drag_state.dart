@@ -8,6 +8,23 @@ enum ZoneType {
   delete,
 }
 
+/// 操作日志条目
+class ActionLogEntry {
+  final int index;
+  final String word;
+  final String action;
+  final String? bucketId;
+  final DateTime timestamp;
+
+  const ActionLogEntry({
+    required this.index,
+    required this.word,
+    required this.action,
+    this.bucketId,
+    required this.timestamp,
+  });
+}
+
 /// WordDrag 状态数据类
 class WordDragState {
   /// 单词列表
@@ -52,6 +69,12 @@ class WordDragState {
   /// 当前激活的分类桶 ID
   final String? activeCategoryBucketId;
 
+  /// 操作日志列表
+  final List<ActionLogEntry> actionLog;
+
+  /// 当前正在执行的操作（用于实时显示）
+  final ActionLogEntry? currentAction;
+
   const WordDragState({
     required this.words,
     required this.currentIndex,
@@ -67,6 +90,8 @@ class WordDragState {
     required this.showDetails,
     required this.isFolderMode,
     required this.activeCategoryBucketId,
+    required this.actionLog,
+    this.currentAction,
   });
 
   /// 当前单词
@@ -106,6 +131,8 @@ class WordDragState {
       showDetails: false,
       isFolderMode: false,
       activeCategoryBucketId: null,
+      actionLog: const [],
+      currentAction: null,
     );
   }
 
@@ -125,6 +152,8 @@ class WordDragState {
     bool? showDetails,
     bool? isFolderMode,
     String? activeCategoryBucketId,
+    List<ActionLogEntry>? actionLog,
+    ActionLogEntry? currentAction,
   }) {
     return WordDragState(
       words: words ?? this.words,
@@ -141,6 +170,8 @@ class WordDragState {
       showDetails: showDetails ?? this.showDetails,
       isFolderMode: isFolderMode ?? this.isFolderMode,
       activeCategoryBucketId: activeCategoryBucketId,
+      actionLog: actionLog ?? this.actionLog,
+      currentAction: currentAction,
     );
   }
 }
