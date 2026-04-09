@@ -502,6 +502,13 @@ class _BucketItemState extends State<_BucketItem>
 
   @override
   Widget build(BuildContext context) {
+    // 使用 Align 代替 Transform.translate 来实现 lift 效果
+    // Transform.translate 只影响视觉，不改变布局约束，会导致溢出被截断
+    // Align 通过 alignment 改变布局位置，不会溢出
+    final alignment = widget.isActive
+        ? const Alignment(0, -0.08) // 激活时向上偏移 (lift 效果)
+        : Alignment.center;
+
     return Container(
       width: _width,
       margin: const EdgeInsets.symmetric(horizontal: WordDragConstants.bucketSpacing / 2),
@@ -510,8 +517,9 @@ class _BucketItemState extends State<_BucketItem>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Transform.translate(
-              offset: Offset(0, _lift),
+            Align(
+              alignment: alignment,
+              heightFactor: 1 / _scale, // scale 向上拉伸的补偿
               child: Transform.scale(
                 scale: _scale,
                 child: Container(
