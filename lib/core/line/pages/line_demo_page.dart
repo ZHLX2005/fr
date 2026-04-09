@@ -171,6 +171,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
   final Set<int> _heldColumns = {};
   final Map<int, _PointerState> _pointers = {}; // pointerId → 状态
 
+  // hold 音符完成后需要松手才能激活下一个 hold（防止长按穿透）
+  final Set<int> _holdCompletedColumns = {};
+
 
   /// 根据列宽计算音符半径，确保音符在不同屏幕上都清晰可见
   double get _radius {
@@ -294,6 +297,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _audioPlayer?.dispose();
     _pointers.clear();
     _heldColumns.clear();
+    _holdCompletedColumns.clear();
     super.dispose();
   }
 
@@ -408,6 +412,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
           debugPrint('[HOLD_COMPLETE] elapsed=$elapsed col=${event.column} totalHeldTime=${heldTime}ms');
           _judgeNote(event.column, note, note.holdJudgeDiff);
           note.holding = false;
+          // 标记该列需要松手后才能激活下一个 hold 音符
+          _holdCompletedColumns.add(event.column);
         }
         return;
       }
@@ -551,6 +557,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _handleColumnPress(int col) {
     if (_chart == null) return;
+    // 上一个 hold 完成后必须松手再按，防止长按穿透到下一个 hold
+    if (_holdCompletedColumns.contains(col)) return;
     final elapsed = _gameStopwatch.elapsedMilliseconds;
     final scaledMissWindow = (_missWindow * _timingScale).round();
 
@@ -597,9 +605,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void _handleColumnRelease(int col) {
     if (!_heldColumns.contains(col)) {
       debugPrint('[HOLD_RELEASE] elapsed=${_gameStopwatch.elapsedMilliseconds} col=$col notInHeldColumns');
+      // 即使不在 _heldColumns 中，也清除 holdCompleted 标记
+      // 这样松手后再次按下可以正常激活
+      _holdCompletedColumns.remove(col);
       return;
     }
     _heldColumns.remove(col);
+    _holdCompletedColumns.remove(col);
 
     final elapsed = _gameStopwatch.elapsedMilliseconds;
 

@@ -146,7 +146,7 @@ class _SongSelectPageState extends State<SongSelectPage> {
                 SizedBox(
                   width: MediaQuery.of(context).size.width * 0.3,
                   child: Align(
-                    alignment: const Alignment(0, -0.3),
+                    alignment: const Alignment(0, -0.2),
                     child: SizedBox(
                       height: 48 * 3, // 恰好显示3个 item
                       child: ListWheelScrollView.useDelegate(
