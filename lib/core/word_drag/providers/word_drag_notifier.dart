@@ -69,7 +69,7 @@ class WordDragNotifier extends ChangeNotifier {
 
   /// 选择分类桶
   void selectBucket(String bucketId) {
-    // 可以在这里添加将单词添加到对应分类的逻辑
+    _recordAction('↓ 下滑(分类:$bucketId)', bucketId: bucketId);
     _state = _state.copyWith(
       isFolderMode: false,
       activeCategoryBucketId: null,
@@ -150,6 +150,7 @@ class WordDragNotifier extends ChangeNotifier {
   /// 标记为新词
   void _markAsNew() {
     if (_state.currentWord != null) {
+      _recordAction('→↗ 标新');
       final updatedWords = List<Word>.from(_state.words);
       final currentWord = updatedWords[_state.currentIndex];
       final index = updatedWords.indexOf(currentWord);
@@ -179,6 +180,7 @@ class WordDragNotifier extends ChangeNotifier {
   /// 删除单词
   void _deleteWord() {
     if (_state.words.length > 1) {
+      _recordAction('←↙ 删除');
       final updatedWords = List<Word>.from(_state.words);
       updatedWords.removeAt(_state.currentIndex);
       _state = _state.copyWith(
@@ -199,6 +201,7 @@ class WordDragNotifier extends ChangeNotifier {
 
   /// 标记稍后复习
   void _markAsReviewed() {
+    _recordAction('← 左滑(稍后复习)');
     _state = _state.copyWith(showMarkSuccessHint: true);
     notifyListeners();
     _hideHintAfterDelay(() {
@@ -211,6 +214,7 @@ class WordDragNotifier extends ChangeNotifier {
   /// 标记为已掌握 (右滑)
   void _markAsMastered() {
     if (_state.currentWord != null) {
+      _recordAction('→ 右滑(掌握)');
       final updatedWords = List<Word>.from(_state.words);
       final currentWord = updatedWords[_state.currentIndex];
       final index = updatedWords.indexOf(currentWord);
@@ -239,6 +243,7 @@ class WordDragNotifier extends ChangeNotifier {
 
   /// 跳过当前单词 (上滑)
   void _skipWord() {
+    _recordAction('↑ 上滑(跳过)');
     _moveToNextWord();
   }
 
@@ -337,6 +342,25 @@ class WordDragNotifier extends ChangeNotifier {
   /// 重置单词列表
   void resetWords() {
     _state = WordDragState.initial();
+    notifyListeners();
+  }
+
+  /// 记录操作日志
+  void _recordAction(String action, {String? bucketId}) {
+    final word = _state.currentWord;
+    final entry = ActionLogEntry(
+      index: _state.currentIndex,
+      word: word?.text ?? 'unknown',
+      action: action,
+      bucketId: bucketId,
+      timestamp: DateTime.now(),
+    );
+    final newLog = List<ActionLogEntry>.from(_state.actionLog);
+    newLog.insert(0, entry); // 最新在前面
+    _state = _state.copyWith(
+      currentAction: entry,
+      actionLog: newLog,
+    );
     notifyListeners();
   }
 }
