@@ -151,7 +151,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   double _scrollSpeed = 1.0;
   static const String _scrollSpeedKey = lineScrollSpeedKey;
 
-  static const double _noteSizeRatio = 0.14; // 音符大小占列宽的比例
+  static const double _noteSizeRatio = 0.168; // 音符大小占列宽的比例（扩大20%）
   static const double _judgeLineRatio = 0.75;
 
   /// 线性下落时，音符到达判定线的动画进度比例
@@ -170,6 +170,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
   // 手势追踪 — 多指触摸
   final Set<int> _heldColumns = {};
   final Map<int, _PointerState> _pointers = {}; // pointerId → 状态
+
+  // hold 音符完成后需要松手才能激活下一个 hold（防止长按穿透）
+  final Set<int> _holdCompletedColumns = {};
 
 
   /// 根据列宽计算音符半径，确保音符在不同屏幕上都清晰可见
@@ -294,6 +297,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _audioPlayer?.dispose();
     _pointers.clear();
     _heldColumns.clear();
+    _holdCompletedColumns.clear();
     super.dispose();
   }
 
@@ -408,6 +412,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
           debugPrint('[HOLD_COMPLETE] elapsed=$elapsed col=${event.column} totalHeldTime=${heldTime}ms');
           _judgeNote(event.column, note, note.holdJudgeDiff);
           note.holding = false;
+          // 标记该列需要松手后才能激活下一个 hold 音符
+          _holdCompletedColumns.add(event.column);
         }
         return;
       }
@@ -551,12 +557,18 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   void _handleColumnPress(int col) {
     if (_chart == null) return;
+    // 上一个 hold 完成后必须松手再按，防止长按穿透到下一个 hold
+    if (_holdCompletedColumns.contains(col)) return;
     final elapsed = _gameStopwatch.elapsedMilliseconds;
     final scaledMissWindow = (_missWindow * _timingScale).round();
 
-    // 如果该列还有未判定的 tap/slide 音符，先处理它们，不激活 hold
+    // 如果该列有当前应按的 tap/slide 音符（在判定窗口内），先处理它们，不激活 hold
+    // 注意：只阻塞"当前时刻应该按的"音符，不阻塞已 spawn 但还没到的未来音符
     for (final note in _notes[col]) {
-      if (!note.judged && note.event.type != NoteType.hold) return;
+      if (!note.judged && note.event.type != NoteType.hold) {
+        final diff = (elapsed - note.event.time).abs();
+        if (diff <= scaledMissWindow) return; // 在 ±missWindow 内，不激活 hold
+      }
     }
 
     // 找到这一列中第一个未判定的 hold 音符
@@ -593,9 +605,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
   void _handleColumnRelease(int col) {
     if (!_heldColumns.contains(col)) {
       debugPrint('[HOLD_RELEASE] elapsed=${_gameStopwatch.elapsedMilliseconds} col=$col notInHeldColumns');
+      // 即使不在 _heldColumns 中，也清除 holdCompleted 标记
+      // 这样松手后再次按下可以正常激活
+      _holdCompletedColumns.remove(col);
       return;
     }
     _heldColumns.remove(col);
+    _holdCompletedColumns.remove(col);
 
     final elapsed = _gameStopwatch.elapsedMilliseconds;
 
@@ -885,7 +901,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     setState(() => _isExiting = true);
     await _exitController.forward();
     if (mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const SongSelectPage()),
+      );
     }
   }
 
@@ -994,7 +1012,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
     allControllers.add(_healthController);
     allControllers.add(_renderTicker);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleExit();
+      },
+      child: Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: Listener(
         behavior: HitTestBehavior.opaque,
@@ -1121,6 +1144,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
               ),
           ],
         ),
+      ),
       ),
     );
   }
