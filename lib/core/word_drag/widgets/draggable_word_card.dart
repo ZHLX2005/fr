@@ -403,6 +403,7 @@ class _DraggableWordCardState extends State<DraggableWordCard>
             top: _stackYOffset,
             left: 0,
             right: 0,
+            bottom: 0,
             child: Transform.translate(
               offset: Offset(_offsetX, _offsetY),
               child: Transform.scale(
