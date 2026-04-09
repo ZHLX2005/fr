@@ -415,19 +415,16 @@ class _BucketItem extends StatefulWidget {
 class _BucketItemState extends State<_BucketItem>
     with SingleTickerProviderStateMixin {
   // 动画值
-  double _scale = 0.82;
-  double _lift = 0;
+  double _scale = WordDragConstants.bucketDefaultScale;
   double _width = WordDragConstants.bucketDefaultWidth;
 
   late AnimationController _scaleController;
-  late AnimationController _liftController;
   late AnimationController _widthController;
 
   @override
   void initState() {
     super.initState();
     _scaleController = AnimationController.unbounded(vsync: this);
-    _liftController = AnimationController.unbounded(vsync: this);
     _widthController = AnimationController.unbounded(vsync: this);
 
     _scaleController.addListener(() {
@@ -435,14 +432,6 @@ class _BucketItemState extends State<_BucketItem>
         _scale = _scaleController.value.clamp(
           WordDragConstants.bucketDefaultScale,
           WordDragConstants.bucketActiveScale,
-        );
-      });
-    });
-    _liftController.addListener(() {
-      setState(() {
-        _lift = _liftController.value.clamp(
-          WordDragConstants.bucketActiveLift,
-          WordDragConstants.bucketDefaultLift,
         );
       });
     });
@@ -457,7 +446,6 @@ class _BucketItemState extends State<_BucketItem>
 
     if (widget.isActive) {
       _scale = WordDragConstants.bucketActiveScale;
-      _lift = WordDragConstants.bucketActiveLift;
       _width = WordDragConstants.bucketActiveWidth;
     }
   }
@@ -471,9 +459,6 @@ class _BucketItemState extends State<_BucketItem>
         _scaleController.animateWith(
           SpringSimulation(WordDragConstants.bucketScaleSpring, _scale, WordDragConstants.bucketActiveScale, 0),
         );
-        _liftController.animateWith(
-          SpringSimulation(WordDragConstants.bucketOtherSpring, _lift, WordDragConstants.bucketActiveLift, 0),
-        );
         _widthController.animateWith(
           SpringSimulation(WordDragConstants.bucketOtherSpring, _width, WordDragConstants.bucketActiveWidth, 0),
         );
@@ -481,9 +466,6 @@ class _BucketItemState extends State<_BucketItem>
         // 取消激活动画
         _scaleController.animateWith(
           SpringSimulation(WordDragConstants.bucketScaleSpring, _scale, WordDragConstants.bucketDefaultScale, 0),
-        );
-        _liftController.animateWith(
-          SpringSimulation(WordDragConstants.bucketOtherSpring, _lift, WordDragConstants.bucketDefaultLift, 0),
         );
         _widthController.animateWith(
           SpringSimulation(WordDragConstants.bucketOtherSpring, _width, WordDragConstants.bucketDefaultWidth, 0),
@@ -495,20 +477,15 @@ class _BucketItemState extends State<_BucketItem>
   @override
   void dispose() {
     _scaleController.dispose();
-    _liftController.dispose();
     _widthController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 使用 Align 代替 Transform.translate 来实现 lift 效果
-    // Transform.translate 只影响视觉，不改变布局约束，会导致溢出被截断
-    // Align 通过 alignment 改变布局位置，不会溢出
-    final alignment = widget.isActive
-        ? const Alignment(0, -0.08) // 激活时向上偏移 (lift 效果)
-        : Alignment.center;
-
+    // 用 AnimatedContainer + padding 实现 lift 效果（替代 Transform.translate）
+    // Transform.translate 只移动视觉，不改变布局，会被父容器截断
+    // 通过动态 padding 让容器本身为 lift 留出空间，不会溢出
     return Container(
       width: _width,
       margin: const EdgeInsets.symmetric(horizontal: WordDragConstants.bucketSpacing / 2),
@@ -517,9 +494,12 @@ class _BucketItemState extends State<_BucketItem>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Align(
-              alignment: alignment,
-              heightFactor: 1 / _scale, // scale 向上拉伸的补偿
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              // 激活时增加顶部 padding，实现视觉上的向上移动效果
+              padding: EdgeInsets.only(
+                top: widget.isActive ? 8 : 0,
+              ),
               child: Transform.scale(
                 scale: _scale,
                 child: Container(
