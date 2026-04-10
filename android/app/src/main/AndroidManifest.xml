@@ -39,6 +39,9 @@
     <!-- 悬浮窗权限 (Overlay) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- 截图权限 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+
     <!-- 允许安装未知应用（Android 8+ 必须） -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
@@ -148,6 +151,12 @@
                 android:resource="@xml/openfile_filepaths"
                 tools:replace="android:resource" />
         </provider>
+
+        <!-- 悬浮窗截屏服务 -->
+        <service
+            android:name=".FloatingWindowService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
     </application>
 
     <!-- Required to query activities that can process text, see:

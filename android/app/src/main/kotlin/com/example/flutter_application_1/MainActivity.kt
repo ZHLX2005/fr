@@ -22,6 +22,7 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.flutter_application_1/widget"
     private val CLOCK_CHANNEL = "com.example.flutter_application_1/clock"
     private val SYSTEM_CHANNEL = "com.example.flutter_application_1/system"
+    private val FLOATING_CHANNEL = "com.example.flutter_application_1/floating"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -70,6 +71,33 @@ class MainActivity : FlutterActivity() {
                     result.success(usageList)
                 }
                 else -> result.notImplemented()
+            }
+        }
+
+        // 悬浮窗相关 MethodChannel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FLOATING_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startFloating" -> {
+                    val intent = Intent(this, FloatingWindowService::class.java).apply {
+                        action = FloatingWindowService.ACTION_START
+                    }
+                    startForegroundService(intent)
+                    result.success(true)
+                }
+                "stopFloating" -> {
+                    val intent = Intent(this, FloatingWindowService::class.java).apply {
+                        action = FloatingWindowService.ACTION_STOP
+                    }
+                    startService(intent)
+                    result.success(true)
+                }
+                "requestScreenshotPermission" -> {
+                    // 返回需要截图授权，需要在 Activity 中调用
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
             }
         }
     }
