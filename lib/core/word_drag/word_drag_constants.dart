@@ -75,7 +75,7 @@ class WordDragConstants {
   /// [draggable_word_card.dart] 卡片 offsetY > 此值时进入文件夹模式
   /// [word_drag_page.dart] 卡片 offsetY > 此值时显示 CategoryDropRow
   /// ⚠️ 两处必须保持相同值
-  static const double folderModeThreshold = 300;
+  static const double folderModeThreshold = 200;
 
   /// 快速滑动速度阈值 (px/s)
   /// [draggable_word_card.dart] velocityY < -此值时触发快速上滑
