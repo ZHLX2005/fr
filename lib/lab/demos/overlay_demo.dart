@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import '../../core/overlay/overlay_service.dart';
+import '../../native/overlay/overlay_service.dart';
 
 /// 悬浮窗截屏Demo
 class OverlayDemo extends DemoPage {
@@ -34,6 +34,11 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   @override
   void initState() {
     super.initState();
+    _initService();
+  }
+
+  Future<void> _initService() async {
+    await _overlayService.init();
     _checkPermission();
   }
 
@@ -45,17 +50,11 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   }
 
   Future<void> _requestPermission() async {
-    final granted = await _overlayService.requestOverlayPermission();
-    setState(() {
-      _hasPermission = granted;
-    });
-    if (granted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('悬浮窗权限已授予')),
-        );
-      }
-    }
+    // 跳转到悬浮窗权限设置页面
+    await _overlayService.requestOverlayPermission();
+    // 等待用户返回后检查权限状态
+    await Future.delayed(const Duration(milliseconds: 500));
+    await _checkPermission();
   }
 
   Future<void> _toggleOverlay() async {
@@ -66,6 +65,8 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
       return;
     }
 
+    // 先检查权限
+    await _checkPermission();
     if (!_hasPermission) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请先授予悬浮窗权限')),
@@ -73,14 +74,23 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
       return;
     }
 
-    await _overlayService.toggleOverlay(
-      onScreenshot: () {
-        debugPrint('Screenshot requested');
-      },
-    );
+    final success = await _overlayService.showOverlayButton();
 
     setState(() {
       _isOverlayActive = _overlayService.isOverlayActive;
+    });
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('启动悬浮窗失败，请检查权限设置')),
+      );
+    }
+  }
+
+  Future<void> _hideOverlay() async {
+    await _overlayService.hideOverlayButton();
+    setState(() {
+      _isOverlayActive = false;
     });
   }
 
@@ -135,7 +145,12 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
                     if (!_hasPermission)
                       ElevatedButton(
                         onPressed: _requestPermission,
-                        child: const Text('请求悬浮窗权限'),
+                        child: const Text('前往授权悬浮窗权限'),
+                      ),
+                    if (_hasPermission)
+                      ElevatedButton(
+                        onPressed: _checkPermission,
+                        child: const Text('刷新权限状态'),
                       ),
                   ],
                 ),
@@ -173,11 +188,18 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _toggleOverlay,
-                      child: Text(
-                        _isOverlayActive ? '隐藏悬浮窗' : '显示悬浮窗',
-                      ),
+                    Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: _hasPermission ? _toggleOverlay : null,
+                          child: const Text('显示悬浮窗'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: _isOverlayActive ? _hideOverlay : null,
+                          child: const Text('隐藏悬浮窗'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -199,8 +221,12 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      '此功能仅在Android设备上有效。需要悬浮窗权限才能显示悬浮按钮。'
-                      '悬浮按钮可拖动到任意位置，点击后执行截屏操作。',
+                      '1. 悬浮窗权限需要在系统设置中手动开启\n'
+                      '2. 点击"显示悬浮窗"后，屏幕上会出现一个悬浮按钮\n'
+                      '3. 拖动悬浮按钮可调整位置\n'
+                      '4. 点击悬浮按钮可进行截屏\n'
+                      '5. 截屏图片保存在应用私有目录',
+                      style: TextStyle(fontSize: 14),
                     ),
                   ],
                 ),
@@ -213,6 +239,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   }
 }
 
+/// 注册悬浮窗Demo
 void registerOverlayDemo() {
   demoRegistry.register(OverlayDemo());
 }

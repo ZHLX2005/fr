@@ -4,15 +4,17 @@ import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
-import 'screens/gallery/gallery_manage_page.dart';
+import 'lab/demos/localnet_demo.dart';
+import 'lab/demos/gallery_demo.dart';
+import 'lab/demos/schema_demo.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
-import 'core/localnet/localnet.dart';
 import 'core/timetable/timetable.dart';
 import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
+import 'native/schema.dart';
 import 'lab/demos/grid_dashboard_demo.dart';
 import 'lab/demos/notebook_demo_ai_proto.dart';
 import 'lab/demos/clock_demo.dart';
@@ -74,6 +76,12 @@ void main() async {
   registerSensorDemo();
   registerWordDragDemo();
   registerOverlayDemo();
+  registerLocalnetDemo();
+  registerGalleryDemo();
+  registerSchemaDemo();
+
+  // 初始化 Schema 注册表（自动发现所有 Demo）
+  initSchemaRegistry();
 
   // 使用 ProviderScope 包装应用，注入 Repository
   runApp(
@@ -106,6 +114,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _channel.setMethodCallHandler(_handleMethodCall);
     _themeProvider = ThemeProvider()..init();
+
+    // 初始化 Schema 导航器
+    SchemaNavigator.setNavigatorKey(navigatorKey);
 
     // 加载课表数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -213,8 +224,8 @@ class _MainScreenState extends State<MainScreen> {
     ProfilePage(), // 0: 主页（用户页面）
     HomePage(), // 1: 聊天
     FocusHomePage(), // 2: O - 专注计时器
-    _DevPage(), //
-    GalleryManagePage(),
+    _PlaceholderPage(icon: Icons.wifi, title: 'LocalNet', desc: '局域网发现功能开发中'),
+    _PlaceholderPage(icon: Icons.photo_library, title: '图库', desc: '图库管理功能开发中'),
   ];
 
   @override
@@ -268,12 +279,45 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-/// LocalNet 页面
-class _DevPage extends StatelessWidget {
-  const _DevPage();
+/// 占位页面 - 功能开发中
+class _PlaceholderPage extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String desc;
+
+  const _PlaceholderPage({
+    required this.icon,
+    required this.title,
+    required this.desc,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const LocalnetDiscoverPage();
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 80,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              desc,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
