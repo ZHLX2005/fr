@@ -50,7 +50,7 @@ class FloatingWindowManager : Service() {
 
     /**
      * 选框边框视图 - 绘制半透明黑色遮罩（选区内部透明）+ 白色边框
-     * 使用四个矩形绘制遮罩：上下左右包围选区
+     * 未选中时绘制全屏半透明遮罩，选中时绘制四个矩形围绕选区
      */
     class SelectionBorderView(context: Context) : View(context) {
         val rect = Rect()
@@ -74,14 +74,13 @@ class FloatingWindowManager : Service() {
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             if (rect.width() > 0 && rect.height() > 0) {
+                // 有选区时：绘制四个矩形围绕选区（中间透明）
                 val selectionRect = android.graphics.RectF(
                     rect.left.toFloat(),
                     rect.top.toFloat(),
                     rect.right.toFloat(),
                     rect.bottom.toFloat()
                 )
-
-                // 绘制四个半透明黑色矩形，围绕选区
                 // 上方
                 canvas.drawRect(0f, 0f, width.toFloat(), selectionRect.top, overlayPaint)
                 // 下方
@@ -90,9 +89,11 @@ class FloatingWindowManager : Service() {
                 canvas.drawRect(0f, selectionRect.top, selectionRect.left, selectionRect.bottom, overlayPaint)
                 // 右侧
                 canvas.drawRect(selectionRect.right, selectionRect.top, width.toFloat(), selectionRect.bottom, overlayPaint)
-
                 // 绘制白色边框
                 canvas.drawRect(selectionRect, borderPaint)
+            } else {
+                // 无选区时：绘制全屏半透明遮罩
+                canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
             }
         }
     }
