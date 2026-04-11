@@ -6,6 +6,7 @@ import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
 import 'lab/demos/localnet_demo.dart';
 import 'lab/demos/gallery_demo.dart';
+import 'lab/demos/schema_demo.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
@@ -13,6 +14,7 @@ import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
 import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
+import 'native/schema.dart';
 import 'lab/demos/grid_dashboard_demo.dart';
 import 'lab/demos/notebook_demo_ai_proto.dart';
 import 'lab/demos/clock_demo.dart';
@@ -76,6 +78,10 @@ void main() async {
   registerOverlayDemo();
   registerLocalnetDemo();
   registerGalleryDemo();
+  registerSchemaDemo();
+
+  // 初始化 Schema 注册表（自动发现所有 Demo）
+  initSchemaRegistry();
 
   // 使用 ProviderScope 包装应用，注入 Repository
   runApp(
@@ -108,6 +114,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _channel.setMethodCallHandler(_handleMethodCall);
     _themeProvider = ThemeProvider()..init();
+
+    // 初始化 Schema 导航器
+    SchemaNavigator.setNavigatorKey(navigatorKey);
 
     // 加载课表数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
