@@ -47,6 +47,31 @@ import java.util.Locale
  */
 class FloatingWindowManager : Service() {
 
+    /**
+     * 选框边框视图 - 在 onDraw 中绘制白色矩形边框
+     */
+    class SelectionBorderView(context: Context) : View(context) {
+        val rect = Rect()
+        val paint = Paint().apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = 2 * context.resources.displayMetrics.density
+            isAntiAlias = true
+        }
+
+        fun updateRect(left: Int, top: Int, right: Int, bottom: Int) {
+            rect.set(left, top, right, bottom)
+            invalidate()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            if (rect.width() > 0 && rect.height() > 0) {
+                canvas.drawRect(rect, paint)
+            }
+        }
+    }
+
     private var windowManager: WindowManager? = null
     private var floatingView: View? = null
     private var params: WindowManager.LayoutParams? = null
@@ -635,39 +660,37 @@ class FloatingWindowManager : Service() {
 
     @SuppressLint("InflateParams", "ClickableViewAccessibility")
     private fun createSelectionOverlayView(context: Context): View {
-        val overlayView = View(context).apply {
-            setBackgroundColor(0x80000000) // 半透明黑色遮罩
+        val container = FrameLayout(context).apply {
             isClickable = true
             isFocusable = true
         }
 
-        setupSelectionTouchListener(overlayView)
-        return overlayView
+        val overlayView = View(context).apply {
+            setBackgroundColor(0x80000000) // 半透明黑色遮罩
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        container.addView(overlayView)
+
+        // 添加选框边框视图
+        val borderView = SelectionBorderView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        container.addView(borderView)
+
+        setupSelectionTouchListener(overlayView, borderView)
+        return container
     }
 
     /**
      * 设置选框触摸监听
      */
-    private fun setupSelectionTouchListener(overlayView: View) {
-        val borderPaint = Paint().apply {
-            color = 0xFFFFFFFF.toInt() // 白色边框
-            style = Paint.Style.STROKE
-            strokeWidth = dpToPx(2).toFloat()
-            isAntiAlias = true
-        }
-
-        var selectionRect = Rect()
-        var isDrawing = false
-
-        overlayView.viewTreeObserver.addOnPreDrawListener {
-            if (isDrawing && selectionRect.width() > 0 && selectionRect.height() > 0) {
-                // 手动绘制选框
-                val canvas = Canvas()
-                // 这里通过 invalidate 触发重绘来绘制边框
-            }
-            true
-        }
-
+    private fun setupSelectionTouchListener(overlayView: View, borderView: SelectionBorderView) {
         overlayView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -675,44 +698,36 @@ class FloatingWindowManager : Service() {
                     selectionStartY = event.rawY.toInt()
                     selectionEndX = selectionStartX
                     selectionEndY = selectionStartY
-                    isSelecting = true
-                    isDrawing = true
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (isSelecting) {
-                        selectionEndX = event.rawX.toInt()
-                        selectionEndY = event.rawY.toInt()
-                        updateSelectionPreview()
-                    }
+                    selectionEndX = event.rawX.toInt()
+                    selectionEndY = event.rawY.toInt()
+                    updateSelectionPreview(borderView)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (isSelecting) {
-                        isSelecting = false
-                        isDrawing = false
-                        selectionEndX = event.rawX.toInt()
-                        selectionEndY = event.rawY.toInt()
+                    selectionEndX = event.rawX.toInt()
+                    selectionEndY = event.rawY.toInt()
 
-                        // 计算选区大小
-                        val left = minOf(selectionStartX, selectionEndX)
-                        val top = minOf(selectionStartY, selectionEndY)
-                        val right = maxOf(selectionStartX, selectionEndX)
-                        val bottom = maxOf(selectionStartY, selectionEndY)
-                        val width = right - left
-                        val height = bottom - top
+                    // 计算选区大小
+                    val left = minOf(selectionStartX, selectionEndX)
+                    val top = minOf(selectionStartY, selectionEndY)
+                    val right = maxOf(selectionStartX, selectionEndX)
+                    val bottom = maxOf(selectionStartY, selectionEndY)
+                    val width = right - left
+                    val height = bottom - top
 
-                        // 选区过小视为无效，重新显示遮罩
-                        if (width < dpToPx(20) || height < dpToPx(20)) {
-                            handler.post {
-                                Toast.makeText(this, "选区过小，请重新选择", Toast.LENGTH_SHORT).show()
-                            }
-                            // 重新显示悬浮窗
-                            showFloatingWindow()
-                            hideSelectionOverlay()
-                        } else {
-                            captureRegion()
+                    // 选区过小视为无效，重新显示遮罩
+                    if (width < dpToPx(20) || height < dpToPx(20)) {
+                        handler.post {
+                            Toast.makeText(this, "选区过小，请重新选择", Toast.LENGTH_SHORT).show()
                         }
+                        // 重新显示悬浮窗
+                        showFloatingWindow()
+                        hideSelectionOverlay()
+                    } else {
+                        captureRegion()
                     }
                     true
                 }
@@ -728,8 +743,12 @@ class FloatingWindowManager : Service() {
     /**
      * 更新选框预览
      */
-    private fun updateSelectionPreview() {
-        // 选框预览更新逻辑，如果需要可以在此实现
+    private fun updateSelectionPreview(borderView: SelectionBorderView) {
+        val left = minOf(selectionStartX, selectionEndX)
+        val top = minOf(selectionStartY, selectionEndY)
+        val right = maxOf(selectionStartX, selectionEndX)
+        val bottom = maxOf(selectionStartY, selectionEndY)
+        borderView.updateRect(left, top, right, bottom)
     }
 
     /**
