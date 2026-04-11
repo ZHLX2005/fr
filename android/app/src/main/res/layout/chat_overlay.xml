@@ -21,21 +21,9 @@
         android:layout_height="0dp" android:layout_weight="1" android:scaleType="fitCenter"
         android:background="#333333" android:layout_marginTop="8dp"/>
 
-    <!-- 问题输入 -->
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="horizontal" android:layout_marginTop="8dp">
-        <EditText android:id="@+id/question_input" android:layout_width="0dp"
-            android:layout_height="wrap_content" android:layout_weight="1"
-            android:hint="输入问题..." android:textColorHint="#888888"
-            android:textColor="#FFFFFF" android:background="@android:drawable/edit_text"
-            android:padding="8dp"/>
-        <Button android:id="@+id/btn_send" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="发送" android:layout_marginStart="8dp"/>
-    </LinearLayout>
-
     <!-- AI 回答 -->
-    <FrameLayout android:layout_width="match_parent" android:layout_height="120dp"
-        android:layout_marginTop="8dp">
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:layout_marginTop="8dp">
         <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
             <TextView android:id="@+id/answer_text" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:textColor="#FFFFFF"

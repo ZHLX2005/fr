@@ -24,12 +24,41 @@ class OverlayService {
   bool get hasScreenshotPermission => _hasScreenshotPermission;
   bool get isSupported => Platform.isAndroid;
 
+  /// 获取当前 AI 配置（用于回填表单）
+  Map<String, String> get aiConfig => {
+    'apiUrl': _aiApiUrl,
+    'apiKey': _aiApiKey,
+    'model': _aiModel,
+    'systemPrompt': _aiSystemPrompt,
+  };
+
   /// 初始化服务
   Future<void> init() async {
     if (!isSupported) return;
     await checkOverlayPermission();
     await checkScreenshotPermission();
     _setupMethodCallHandler();
+    // 加载已保存的配置
+    await loadAiConfig();
+  }
+
+  /// 从原生层加载 AI 配置
+  Future<void> loadAiConfig() async {
+    try {
+      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('loadAiConfig');
+      if (result != null) {
+        final loadedUrl = result['apiUrl'] as String?;
+        if (loadedUrl != null && loadedUrl.isNotEmpty) _aiApiUrl = loadedUrl;
+        final loadedKey = result['apiKey'] as String?;
+        if (loadedKey != null && loadedKey.isNotEmpty) _aiApiKey = loadedKey;
+        final loadedModel = result['model'] as String?;
+        if (loadedModel != null && loadedModel.isNotEmpty) _aiModel = loadedModel;
+        final loadedPrompt = result['systemPrompt'] as String?;
+        if (loadedPrompt != null && loadedPrompt.isNotEmpty) _aiSystemPrompt = loadedPrompt;
+      }
+    } on PlatformException catch (e) {
+      debugPrint('加载配置失败: ${e.message}');
+    }
   }
 
   /// 设置方法通道监听
@@ -57,9 +86,9 @@ class OverlayService {
           final args = call.arguments as Map<dynamic, dynamic>?;
           if (args != null) {
             final question = args['question'] as String? ?? '';
-            final imageData = args['imageData'] as Uint8List?;
-            if (imageData != null && question.isNotEmpty) {
-              await _handleAiQuestion(question, imageData);
+            final imagePath = args['imagePath'] as String?;
+            if (imagePath != null && question.isNotEmpty) {
+              await _handleAiQuestion(question, imagePath);
             }
           }
           break;
@@ -68,20 +97,30 @@ class OverlayService {
   }
 
   /// 处理 AI 问题（由原生层调用）
-  Future<void> _handleAiQuestion(String question, Uint8List imageBytes) async {
-    await callAiApi(
-      question: question,
-      imageBytes: imageBytes,
-      onChunk: (chunk) {
-        sendAiAnswerChunk(chunk);
-      },
-      onError: (error) {
-        sendAiAnswerError(error ?? '未知错误');
-      },
-      onDone: () {
-        sendAiAnswerDone();
-      },
-    );
+  Future<void> _handleAiQuestion(String question, String imagePath) async {
+    try {
+      // 读取文件内容
+      final file = File(imagePath);
+      final imageBytes = await file.readAsBytes();
+      // 删除临时文件
+      await file.delete();
+
+      await callAiApi(
+        question: question,
+        imageBytes: imageBytes,
+        onChunk: (chunk) {
+          sendAiAnswerChunk(chunk);
+        },
+        onError: (error) {
+          sendAiAnswerError(error ?? '未知错误');
+        },
+        onDone: () {
+          sendAiAnswerDone();
+        },
+      );
+    } catch (e) {
+      sendAiAnswerError('读取图片失败: $e');
+    }
   }
 
   /// 截图权限授予回调
@@ -110,6 +149,12 @@ class OverlayService {
     required String systemPrompt,
   }) async {
     try {
+      // 同时更新本地变量，确保 callAiApi 使用最新配置
+      _aiApiUrl = apiUrl;
+      _aiApiKey = apiKey;
+      _aiModel = model;
+      _aiSystemPrompt = systemPrompt;
+
       await _channel.invokeMethod('saveAiConfig', {
         'apiUrl': apiUrl,
         'apiKey': apiKey,
@@ -327,7 +372,7 @@ class OverlayService {
         'stream': true,
       };
 
-      request.write(body.toString());
+      request.add(utf8.encode(jsonEncode(body)));
       final response = await request.close();
 
       if (response.statusCode != 200) {

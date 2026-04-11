@@ -56,6 +56,18 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
     await _checkPermission();
     // 从原生层检查悬浮窗实际状态，避免退出后状态丢失
     await _checkOverlayStatus();
+    // 回填已保存的配置到表单
+    _loadConfigToForm();
+  }
+
+  void _loadConfigToForm() {
+    final config = _overlayService.aiConfig;
+    setState(() {
+      _apiUrl = config['apiUrl'] ?? _apiUrl;
+      _apiKey = config['apiKey'] ?? _apiKey;
+      _selectedModel = config['model'] ?? _selectedModel;
+      _systemPrompt = config['systemPrompt'] ?? _systemPrompt;
+    });
   }
 
   Future<void> _checkPermission() async {
@@ -138,7 +150,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
         title: const Text('悬浮截屏演示'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,7 +240,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
                     Row(
                       children: [
                         ElevatedButton(
-                          onPressed: _hasPermission ? _toggleOverlay : null,
+                          onPressed: (_hasPermission && _apiKey.isNotEmpty) ? _toggleOverlay : null,
                           child: const Text('显示悬浮窗'),
                         ),
                         const SizedBox(width: 12),
