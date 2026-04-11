@@ -8,7 +8,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -27,11 +26,9 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.example.flutter_application_1.MainActivity
-import com.example.flutter_application_1.R
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -46,6 +43,7 @@ class FloatingWindowManager : Service() {
 
     private var windowManager: WindowManager? = null
     private var floatingView: View? = null
+    private var params: WindowManager.LayoutParams? = null
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
@@ -173,7 +171,7 @@ class FloatingWindowManager : Service() {
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
-        val params = WindowManager.LayoutParams(
+        params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -240,18 +238,19 @@ class FloatingWindowManager : Service() {
         var initialTouchY = 0f
 
         container.setOnTouchListener { _, event ->
+            val layoutParams = params ?: return@setOnTouchListener false
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    initialX = params.x
-                    initialY = params.y
+                    initialX = layoutParams.x
+                    initialY = layoutParams.y
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.x = initialX - (event.rawX - initialTouchX).toInt()
-                    params.y = initialY + (event.rawY - initialTouchY).toInt()
-                    windowManager?.updateViewLayout(floatingView, params)
+                    layoutParams.x = initialX - (event.rawX - initialTouchX).toInt()
+                    layoutParams.y = initialY + (event.rawY - initialTouchY).toInt()
+                    windowManager?.updateViewLayout(floatingView, layoutParams)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
@@ -259,7 +258,7 @@ class FloatingWindowManager : Service() {
                     val movedY = kotlin.math.abs(event.rawY - initialTouchY)
                     if (movedX < 50 && movedY < 50) {
                         // 点击事件
-                        performClick()
+                        container.performClick()
                         captureScreen()
                     }
                     true
@@ -369,19 +368,18 @@ class FloatingWindowManager : Service() {
             image?.let {
                 val planes = it.planes
                 val buffer = planes[0].buffer
-                val pixelStride = planes[0].pixelStride
                 val rowStride = planes[0].rowStride
-                val rowPadding = rowStride - pixelStride * it.width
+                val rowPadding = rowStride - it.width * planes[0].pixelStride
 
-                val bitmap = Bitmap.createBitmap(
-                    it.width + rowPadding / pixelStride,
+                val bitmap = android.graphics.Bitmap.createBitmap(
+                    it.width + rowPadding / planes[0].pixelStride,
                     it.height,
-                    Bitmap.Config.ARGB_8888
+                    android.graphics.Bitmap.Config.ARGB_8888
                 )
                 bitmap.copyPixelsFromBuffer(buffer)
 
                 // 裁剪到实际显示区域
-                val finalBitmap = Bitmap.createBitmap(
+                val finalBitmap = android.graphics.Bitmap.createBitmap(
                     bitmap,
                     0,
                     0,
@@ -402,7 +400,7 @@ class FloatingWindowManager : Service() {
         }
     }
 
-    private fun saveBitmap(bitmap: Bitmap) {
+    private fun saveBitmap(bitmap: android.graphics.Bitmap) {
         try {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val filename = "screenshot_$timestamp.png"
@@ -414,7 +412,7 @@ class FloatingWindowManager : Service() {
 
             val file = File(dir, filename)
             FileOutputStream(file).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
             }
 
             handler.post {
