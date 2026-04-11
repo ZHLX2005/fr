@@ -2,8 +2,10 @@ package com.example.flutter_application_1
 
 import android.app.Activity
 import android.app.AppOpsManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.RingtoneManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
@@ -28,6 +30,8 @@ class MainActivity : FlutterActivity() {
     private val FLOATING_CHANNEL = "com.example.flutter_application_1/floating"
 
     private var mediaProjectionManager: MediaProjectionManager? = null
+    private var regionCaptureReceiver: BroadcastReceiver? = null
+    private var aiQuestionReceiver: BroadcastReceiver? = null
     private val SCREEN_CAPTURE_REQUEST_CODE = 1001
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -88,6 +92,17 @@ class MainActivity : FlutterActivity() {
                     val hasPermission = FloatingWindowManager.canDrawOverlays(this)
                     result.success(hasPermission)
                 }
+                "loadAiConfig" -> {
+                    // 从 SharedPreferences 加载 AI 配置
+                    val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
+                    val config = mapOf(
+                        "apiUrl" to (prefs.getString("api_url", "") ?: ""),
+                        "apiKey" to (prefs.getString("api_key", "") ?: ""),
+                        "model" to (prefs.getString("model", "glm-4v-flash") ?: "glm-4v-flash"),
+                        "systemPrompt" to (prefs.getString("system_prompt", "") ?: "")
+                    )
+                    result.success(config)
+                }
                 "requestOverlayPermission" -> {
                     // 跳转到悬浮窗权限设置页面
                     val intent = FloatingWindowManager.getOverlaySettingsIntent(this)
@@ -109,6 +124,17 @@ class MainActivity : FlutterActivity() {
                         action = FloatingWindowManager.ACTION_START
                     }
                     startForegroundService(intent)
+
+                    // 立即请求截图权限（而非等到截图时再请求）
+                    requestScreenCapturePermission()
+
+                    // 设置截图权限请求回调（备用）
+                    FloatingWindowManager.onScreenshotPermissionNeeded = {
+                        runOnUiThread {
+                            requestScreenCapturePermission()
+                        }
+                    }
+
                     result.success(true)
                 }
                 "stopFloating" -> {
@@ -126,6 +152,62 @@ class MainActivity : FlutterActivity() {
                 "isFloatingShowing" -> {
                     val manager = FloatingWindowManager.getInstance()
                     result.success(manager?.isFloatingWindowShowing() ?: false)
+                }
+                "saveScreenshotToGallery" -> {
+                    val data = call.arguments as? ByteArray
+                    if (data != null) {
+                        FloatingWindowManager.getInstance()?.saveScreenshotToGallery(data)
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGUMENT", "No image data provided", null)
+                    }
+                }
+                "saveAiConfig" -> {
+                    val apiUrl = call.argument<String>("apiUrl") ?: ""
+                    val apiKey = call.argument<String>("apiKey") ?: ""
+                    val model = call.argument<String>("model") ?: "glm-4v-flash"
+                    val systemPrompt = call.argument<String>("systemPrompt") ?: ""
+
+                    // 使用 applicationContext 确保与 Service 中 loadAiConfig 使用相同的 SharedPreferences
+                    val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putString("api_url", apiUrl)
+                        .putString("api_key", apiKey)
+                        .putString("model", model)
+                        .putString("system_prompt", systemPrompt)
+                        .apply()
+
+                    // 同时更新 FloatingWindowManager 实例的配置
+                    FloatingWindowManager.getInstance()?.apply {
+                        this.apiUrl = apiUrl
+                        this.apiKey = apiKey
+                        this.model = model
+                        this.systemPrompt = systemPrompt
+                    }
+
+                    result.success(true)
+                }
+                "onAiAnswerChunk" -> {
+                    // Flutter 推送 AI 答案片段
+                    val chunk = call.argument<String>("chunk") ?: ""
+                    FloatingWindowManager.getInstance()?.appendAiAnswer(chunk)
+                    result.success(true)
+                }
+                "onAiAnswerError" -> {
+                    // Flutter 推送 AI 错误
+                    val error = call.argument<String>("error") ?: ""
+                    FloatingWindowManager.getInstance()?.showAiError(error)
+                    result.success(true)
+                }
+                "onAiAnswerStart" -> {
+                    // Flutter 开始 AI 回答
+                    FloatingWindowManager.getInstance()?.showAiLoading()
+                    result.success(true)
+                }
+                "onAiAnswerDone" -> {
+                    // Flutter 完成 AI 回答
+                    FloatingWindowManager.getInstance()?.hideAiLoading()
+                    result.success(true)
                 }
                 else -> result.notImplemented()
             }
@@ -210,6 +292,59 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         // 处理启动时的 Intent
         handleIntent(intent)
+        // 注册区域截图广播接收器
+        registerRegionCaptureReceiver()
+        // 注册 AI 问题广播接收器
+        registerAiQuestionReceiver()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        regionCaptureReceiver?.let { unregisterReceiver(it) }
+        aiQuestionReceiver?.let { unregisterReceiver(it) }
+    }
+
+    private fun registerRegionCaptureReceiver() {
+        if (regionCaptureReceiver != null) return
+        regionCaptureReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.example.flutter_application_1.REGION_CAPTURED") {
+                    val data = intent.getByteArrayExtra("data")
+                    data?.let {
+                        runOnUiThread {
+                            flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                                MethodChannel(messenger, FLOATING_CHANNEL)
+                                    .invokeMethod("onRegionCaptured", it)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter("com.example.flutter_application_1.REGION_CAPTURED")
+        registerReceiver(regionCaptureReceiver, filter)
+    }
+
+    private fun registerAiQuestionReceiver() {
+        if (aiQuestionReceiver != null) return
+        aiQuestionReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.example.flutter_application_1.AI_QUESTION") {
+                    val question = intent.getStringExtra("question") ?: return
+                    val imagePath = intent.getStringExtra("image_path") ?: return
+                    // 通过 MethodChannel 通知 Flutter 调用 AI（传文件路径而非字节数组）
+                    flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                        MethodChannel(messenger, FLOATING_CHANNEL)
+                            .invokeMethod("onAiQuestion", mapOf(
+                                "question" to question,
+                                "imagePath" to imagePath
+                            ))
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter("com.example.flutter_application_1.AI_QUESTION")
+        registerReceiver(aiQuestionReceiver, filter)
     }
 
     private fun handleIntent(intent: Intent?) {

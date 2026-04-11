@@ -1,0 +1,75 @@
+{
+  "id": "Hold Test",
+  "name": "Hold Test",
+  "bpm": 120,
+  "dropDuration": 2000,
+  "notes": [
+    "=== Part 1: Single holds, various durations ===",
+    {"time": 3000, "column": 0, "type": "hold", "holdDuration": 600},
+    {"time": 4000, "column": 1, "type": "hold", "holdDuration": 800},
+    {"time": 5000, "column": 2, "type": "hold", "holdDuration": 1000},
+    {"time": 6200, "column": 1, "type": "hold", "holdDuration": 1200},
+    {"time": 7600, "column": 0, "type": "hold", "holdDuration": 500},
+    {"time": 8300, "column": 2, "type": "hold", "holdDuration": 1500},
+
+    "=== Part 2: Quick successive holds (test multi-touch) ===",
+    {"time": 10000, "column": 0, "type": "hold", "holdDuration": 600},
+    {"time": 10500, "column": 1, "type": "hold", "holdDuration": 600},
+    {"time": 11000, "column": 2, "type": "hold", "holdDuration": 600},
+    {"time": 11500, "column": 0, "type": "hold", "holdDuration": 600},
+    {"time": 12000, "column": 1, "type": "hold", "holdDuration": 600},
+    {"time": 12500, "column": 2, "type": "hold", "holdDuration": 600},
+
+    "=== Part 3: Long hold (test auto-complete) ===",
+    {"time": 14000, "column": 1, "type": "hold", "holdDuration": 4000},
+
+    "=== Part 4: Very short holds ===",
+    {"time": 18500, "column": 0, "type": "hold", "holdDuration": 300},
+    {"time": 19000, "column": 1, "type": "hold", "holdDuration": 300},
+    {"time": 19500, "column": 2, "type": "hold", "holdDuration": 300},
+    {"time": 20000, "column": 0, "type": "hold", "holdDuration": 300},
+    {"time": 20500, "column": 1, "type": "hold", "holdDuration": 300},
+    {"time": 21000, "column": 2, "type": "hold", "holdDuration": 300},
+
+    "=== Part 5: Staircase pattern ===",
+    {"time": 22000, "column": 0, "type": "hold", "holdDuration": 800},
+    {"time": 22800, "column": 1, "type": "hold", "holdDuration": 800},
+    {"time": 23600, "column": 2, "type": "hold", "holdDuration": 800},
+    {"time": 24400, "column": 1, "type": "hold", "holdDuration": 800},
+    {"time": 25200, "column": 0, "type": "hold", "holdDuration": 800},
+    {"time": 26000, "column": 1, "type": "hold", "holdDuration": 800},
+    {"time": 26800, "column": 2, "type": "hold", "holdDuration": 800},
+
+    "=== Part 6: Simultaneous two-column holds (test multi-touch) ===",
+    {"time": 28000, "column": 0, "type": "hold", "holdDuration": 1000},
+    {"time": 28000, "column": 2, "type": "hold", "holdDuration": 1000},
+    {"time": 29500, "column": 1, "type": "hold", "holdDuration": 1200},
+    {"time": 31000, "column": 0, "type": "hold", "holdDuration": 800},
+    {"time": 31000, "column": 2, "type": "hold", "holdDuration": 800},
+
+    "=== Part 7: All three columns ===",
+    {"time": 32500, "column": 0, "type": "hold", "holdDuration": 1000},
+    {"time": 32500, "column": 1, "type": "hold", "holdDuration": 1000},
+    {"time": 32500, "column": 2, "type": "hold", "holdDuration": 1000},
+
+    "=== Part 8: Rapid alternation ===",
+    {"time": 34000, "column": 0, "type": "hold", "holdDuration": 400},
+    {"time": 34400, "column": 1, "type": "hold", "holdDuration": 400},
+    {"time": 34800, "column": 2, "type": "hold", "holdDuration": 400},
+    {"time": 35200, "column": 1, "type": "hold", "holdDuration": 400},
+    {"time": 35600, "column": 0, "type": "hold", "holdDuration": 400},
+    {"time": 36000, "column": 2, "type": "hold", "holdDuration": 400},
+    {"time": 36400, "column": 1, "type": "hold", "holdDuration": 400},
+    {"time": 36800, "column": 0, "type": "hold", "holdDuration": 400},
+    {"time": 37200, "column": 2, "type": "hold", "holdDuration": 400},
+
+    "=== Part 9: Very long hold ===",
+    {"time": 38500, "column": 1, "type": "hold", "holdDuration": 6000},
+
+    "=== Part 10: Final burst ===",
+    {"time": 45000, "column": 0, "type": "hold", "holdDuration": 800},
+    {"time": 45000, "column": 1, "type": "hold", "holdDuration": 800},
+    {"time": 45000, "column": 2, "type": "hold", "holdDuration": 800},
+    {"time": 46000, "column": 1, "type": "hold", "holdDuration": 1500}
+  ]
+}
