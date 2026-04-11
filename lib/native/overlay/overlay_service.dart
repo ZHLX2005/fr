@@ -73,6 +73,25 @@ class OverlayService {
     _onScreenshotCompleted = callback;
   }
 
+  /// 保存 AI 配置到原生层
+  Future<void> saveAiConfig({
+    required String apiUrl,
+    required String apiKey,
+    required String model,
+    required String systemPrompt,
+  }) async {
+    try {
+      await _channel.invokeMethod('saveAiConfig', {
+        'apiUrl': apiUrl,
+        'apiKey': apiKey,
+        'model': model,
+        'systemPrompt': systemPrompt,
+      });
+    } on PlatformException catch (e) {
+      debugPrint('保存配置失败: ${e.message}');
+    }
+  }
+
   /// 区域截图数据回调
   void Function(Uint8List? data)? _onRegionCaptured;
   void setOnRegionCaptured(void Function(Uint8List? data)? callback) {

@@ -33,6 +33,18 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   bool _hasPermission = false;
   bool _isOverlayActive = false;
 
+  // AI 配置
+  String _apiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+  String _apiKey = '';
+  String _selectedModel = 'glm-4v-flash';
+  String _systemPrompt = '你是一个专业的AI助手，请根据图片回答用户问题。';
+
+  final List<String> _availableModels = [
+    'glm-4v-flash',
+    'glm-5v-turbo',
+    'glm-4.6v',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +115,20 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
     setState(() {
       _isOverlayActive = false;
     });
+  }
+
+  Future<void> _saveConfig() async {
+    await _overlayService.saveAiConfig(
+      apiUrl: _apiUrl,
+      apiKey: _apiKey,
+      model: _selectedModel,
+      systemPrompt: _systemPrompt,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('配置已保存')),
+      );
+    }
   }
 
   @override
@@ -224,6 +250,56 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
+                      'AI 配置',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      decoration: const InputDecoration(labelText: 'API URL', hintText: 'https://...'),
+                      controller: TextEditingController(text: _apiUrl),
+                      onChanged: (v) => _apiUrl = v,
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      decoration: const InputDecoration(labelText: 'API Key', hintText: 'your-api-key'),
+                      controller: TextEditingController(text: _apiKey),
+                      onChanged: (v) => _apiKey = v,
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _selectedModel,
+                      decoration: const InputDecoration(labelText: '模型'),
+                      items: _availableModels.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                      onChanged: (v) => setState(() => _selectedModel = v!),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      decoration: const InputDecoration(labelText: '系统提示词'),
+                      controller: TextEditingController(text: _systemPrompt),
+                      onChanged: (v) => _systemPrompt = v,
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _saveConfig,
+                      child: const Text('保存配置'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
                       '说明',
                       style: TextStyle(
                         fontSize: 18,
@@ -235,8 +311,8 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
                       '1. 悬浮窗权限需要在系统设置中手动开启\n'
                       '2. 点击"显示悬浮窗"后，屏幕上会出现一个悬浮按钮\n'
                       '3. 拖动悬浮按钮可调整位置\n'
-                      '4. 点击悬浮按钮可进行截屏\n'
-                      '5. 截屏后可在图库中查看',
+                      '4. 点击悬浮按钮可进行区域截屏\n'
+                      '5. 截屏后可输入问题，AI 将流式回答',
                       style: TextStyle(fontSize: 14),
                     ),
                   ],
