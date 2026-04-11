@@ -148,6 +148,12 @@
                 android:resource="@xml/openfile_filepaths"
                 tools:replace="android:resource" />
         </provider>
+
+        <!-- 悬浮窗截屏服务 -->
+        <service
+            android:name=".native.overlay.FloatingWindowManager"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
     </application>
 
     <!-- Required to query activities that can process text, see:
