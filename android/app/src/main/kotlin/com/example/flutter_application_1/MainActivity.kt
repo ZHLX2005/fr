@@ -113,7 +113,10 @@ class MainActivity : FlutterActivity() {
                     }
                     startForegroundService(intent)
 
-                    // 设置截图权限请求回调
+                    // 立即请求截图权限（而非等到截图时再请求）
+                    requestScreenCapturePermission()
+
+                    // 设置截图权限请求回调（备用）
                     FloatingWindowManager.onScreenshotPermissionNeeded = {
                         runOnUiThread {
                             requestScreenCapturePermission()
