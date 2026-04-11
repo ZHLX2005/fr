@@ -171,6 +171,10 @@ class FloatingWindowManager : Service() {
             answerText?.text = "错误: $message"
         }
 
+        fun hideLoading() {
+            loadingIndicator?.visibility = View.GONE
+        }
+
         fun clearAnswer() {
             answerText?.text = ""
         }
@@ -1144,87 +1148,48 @@ class FloatingWindowManager : Service() {
         }
     }
 
-    /**
-     * 调用 AI API
-     */
-    private fun callAiApi(question: String, bitmap: android.graphics.Bitmap) {
-        if (apiKey.isEmpty()) {
-            chatOverlay?.showError("请先配置 API Key")
-            return
+    // ========== AI 回调方法（由 Flutter 调用）==========
+
+    fun showAiLoading() {
+        handler.post {
+            chatOverlay?.showLoading()
         }
+    }
 
-        chatOverlay?.showLoading()
+    fun appendAiAnswer(chunk: String) {
+        handler.post {
+            chatOverlay?.appendAnswer(chunk)
+        }
+    }
 
-        Thread {
-            try {
-                val url = URL(apiUrl)
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("Authorization", "Bearer $apiKey")
-                conn.doOutput = true
-                conn.doInput = true
-                conn.connectTimeout = 30000
-                conn.readTimeout = 120000
+    fun showAiError(error: String) {
+        handler.post {
+            chatOverlay?.showError(error)
+        }
+    }
 
-                // 将 bitmap 转为 base64
-                val imageBytes = imageToByteArray(bitmap)
-                val base64Image = android.util.Base64.encodeToString(imageBytes, android.util.Base64.NO_WRAP)
+    fun hideAiLoading() {
+        handler.post {
+            chatOverlay?.hideLoading()
+        }
+    }
 
-                val jsonBody = """
-                {
-                    "model": "$model",
-                    "messages": [
-                        {"role": "system", "content": "$systemPrompt"},
-                        {"role": "user", "content": [
-                            {"type": "image_url", "image_url": {"url": "data:image/png;base64,$base64Image"}},
-                            {"type": "text", "text": "$question"}
-                        ]}
-                    ],
-                    "stream": true
-                }
-                """.trimIndent()
-
-                conn.outputStream.write(jsonBody.toByteArray())
-                conn.outputStream.flush()
-
-                val responseCode = conn.responseCode
-                if (responseCode != 200) {
-                    handler.post {
-                        chatOverlay?.showError("API 错误: $responseCode")
-                    }
-                    return@Thread
-                }
-
-                // 处理 SSE 流
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                var line: String?
-
-                while ((reader.readLine().also { line = it }) != null) {
-                    if (line!!.startsWith("data: ")) {
-                        val data = line!!.substring(6)
-                        if (data == "[DONE]") break
-
-                        // 解析 SSE data
-                        val chunk = parseSseData(data)
-                        if (chunk.isNotEmpty()) {
-                            handler.post {
-                                chatOverlay?.appendAnswer(chunk)
-                            }
-                        }
-                    }
-                }
-
-                reader.close()
-                conn.disconnect()
-
-            } catch (e: Exception) {
-                e.printStackTrace()
-                handler.post {
-                    chatOverlay?.showError("请求失败: ${e.message}")
-                }
+    // 保留旧的 callAiApi 方法以兼容（但现在由 Flutter 调用）
+    // 这个方法现在只是广播问题给 Flutter，实际调用由 Flutter 处理
+    private fun callAiApi(question: String, bitmap: android.graphics.Bitmap) {
+        // 发送广播给 Flutter 处理
+        try {
+            val imageBytes = imageToByteArray(bitmap)
+            val intent = Intent("com.example.flutter_application_1.AI_QUESTION").apply {
+                putExtra("question", question)
+                putExtra("image_data", imageBytes)
+                setPackage(packageName)
             }
-        }.start()
+            sendBroadcast(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            chatOverlay?.showError("发送失败: ${e.message}")
+        }
     }
 
     private fun imageToByteArray(bitmap: android.graphics.Bitmap): ByteArray {

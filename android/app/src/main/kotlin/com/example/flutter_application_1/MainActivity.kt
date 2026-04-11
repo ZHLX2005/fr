@@ -31,6 +31,7 @@ class MainActivity : FlutterActivity() {
 
     private var mediaProjectionManager: MediaProjectionManager? = null
     private var regionCaptureReceiver: BroadcastReceiver? = null
+    private var aiQuestionReceiver: BroadcastReceiver? = null
     private val SCREEN_CAPTURE_REQUEST_CODE = 1001
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -175,6 +176,28 @@ class MainActivity : FlutterActivity() {
 
                     result.success(true)
                 }
+                "onAiAnswerChunk" -> {
+                    // Flutter 推送 AI 答案片段
+                    val chunk = call.argument<String>("chunk") ?: ""
+                    FloatingWindowManager.getInstance()?.appendAiAnswer(chunk)
+                    result.success(true)
+                }
+                "onAiAnswerError" -> {
+                    // Flutter 推送 AI 错误
+                    val error = call.argument<String>("error") ?: ""
+                    FloatingWindowManager.getInstance()?.showAiError(error)
+                    result.success(true)
+                }
+                "onAiAnswerStart" -> {
+                    // Flutter 开始 AI 回答
+                    FloatingWindowManager.getInstance()?.showAiLoading()
+                    result.success(true)
+                }
+                "onAiAnswerDone" -> {
+                    // Flutter 完成 AI 回答
+                    FloatingWindowManager.getInstance()?.hideAiLoading()
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -260,11 +283,14 @@ class MainActivity : FlutterActivity() {
         handleIntent(intent)
         // 注册区域截图广播接收器
         registerRegionCaptureReceiver()
+        // 注册 AI 问题广播接收器
+        registerAiQuestionReceiver()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         regionCaptureReceiver?.let { unregisterReceiver(it) }
+        aiQuestionReceiver?.let { unregisterReceiver(it) }
     }
 
     private fun registerRegionCaptureReceiver() {
@@ -286,6 +312,28 @@ class MainActivity : FlutterActivity() {
         }
         val filter = IntentFilter("com.example.flutter_application_1.REGION_CAPTURED")
         registerReceiver(regionCaptureReceiver, filter)
+    }
+
+    private fun registerAiQuestionReceiver() {
+        if (aiQuestionReceiver != null) return
+        aiQuestionReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.example.flutter_application_1.AI_QUESTION") {
+                    val question = intent.getStringExtra("question") ?: return
+                    val imageData = intent.getByteArrayExtra("image_data") ?: return
+                    // 通过 MethodChannel 通知 Flutter 调用 AI
+                    flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                        MethodChannel(messenger, FLOATING_CHANNEL)
+                            .invokeMethod("onAiQuestion", mapOf(
+                                "question" to question,
+                                "imageData" to imageData
+                            ))
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter("com.example.flutter_application_1.AI_QUESTION")
+        registerReceiver(aiQuestionReceiver, filter)
     }
 
     private fun handleIntent(intent: Intent?) {
