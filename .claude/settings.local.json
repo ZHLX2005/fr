@@ -3,7 +3,14 @@
     "allow": [
       "WebSearch",
       "Bash(flutter build:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Skill(plan-ceo-review)",
+      "WebFetch(domain:docs.flutter.cn)",
+      "mcp__web-search-prime__web_search_prime",
+      "WebFetch(domain:proandroiddev.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

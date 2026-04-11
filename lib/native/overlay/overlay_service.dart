@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -22,12 +24,41 @@ class OverlayService {
   bool get hasScreenshotPermission => _hasScreenshotPermission;
   bool get isSupported => Platform.isAndroid;
 
+  /// 获取当前 AI 配置（用于回填表单）
+  Map<String, String> get aiConfig => {
+    'apiUrl': _aiApiUrl,
+    'apiKey': _aiApiKey,
+    'model': _aiModel,
+    'systemPrompt': _aiSystemPrompt,
+  };
+
   /// 初始化服务
   Future<void> init() async {
     if (!isSupported) return;
     await checkOverlayPermission();
     await checkScreenshotPermission();
     _setupMethodCallHandler();
+    // 加载已保存的配置
+    await loadAiConfig();
+  }
+
+  /// 从原生层加载 AI 配置
+  Future<void> loadAiConfig() async {
+    try {
+      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('loadAiConfig');
+      if (result != null) {
+        final loadedUrl = result['apiUrl'] as String?;
+        if (loadedUrl != null && loadedUrl.isNotEmpty) _aiApiUrl = loadedUrl;
+        final loadedKey = result['apiKey'] as String?;
+        if (loadedKey != null && loadedKey.isNotEmpty) _aiApiKey = loadedKey;
+        final loadedModel = result['model'] as String?;
+        if (loadedModel != null && loadedModel.isNotEmpty) _aiModel = loadedModel;
+        final loadedPrompt = result['systemPrompt'] as String?;
+        if (loadedPrompt != null && loadedPrompt.isNotEmpty) _aiSystemPrompt = loadedPrompt;
+      }
+    } on PlatformException catch (e) {
+      debugPrint('加载配置失败: ${e.message}');
+    }
   }
 
   /// 设置方法通道监听
@@ -45,8 +76,51 @@ class OverlayService {
         case 'onScreenshotCompleted':
           _onScreenshotCompleted?.call(call.arguments as String?);
           break;
+        case 'onRegionCaptured':
+          final data = call.arguments as Uint8List?;
+          _pendingScreenshot = data;
+          _onRegionCaptured?.call(data);
+          break;
+        case 'onAiQuestion':
+          // 原生层触发的 AI 问答
+          final args = call.arguments as Map<dynamic, dynamic>?;
+          if (args != null) {
+            final question = args['question'] as String? ?? '';
+            final imagePath = args['imagePath'] as String?;
+            if (imagePath != null && question.isNotEmpty) {
+              await _handleAiQuestion(question, imagePath);
+            }
+          }
+          break;
       }
     });
+  }
+
+  /// 处理 AI 问题（由原生层调用）
+  Future<void> _handleAiQuestion(String question, String imagePath) async {
+    try {
+      // 读取文件内容
+      final file = File(imagePath);
+      final imageBytes = await file.readAsBytes();
+      // 删除临时文件
+      await file.delete();
+
+      await callAiApi(
+        question: question,
+        imageBytes: imageBytes,
+        onChunk: (chunk) {
+          sendAiAnswerChunk(chunk);
+        },
+        onError: (error) {
+          sendAiAnswerError(error ?? '未知错误');
+        },
+        onDone: () {
+          sendAiAnswerDone();
+        },
+      );
+    } catch (e) {
+      sendAiAnswerError('读取图片失败: $e');
+    }
   }
 
   /// 截图权限授予回调
@@ -65,6 +139,46 @@ class OverlayService {
   void Function(String? path)? _onScreenshotCompleted;
   void setOnScreenshotCompleted(void Function(String? path)? callback) {
     _onScreenshotCompleted = callback;
+  }
+
+  /// 保存 AI 配置到原生层
+  Future<void> saveAiConfig({
+    required String apiUrl,
+    required String apiKey,
+    required String model,
+    required String systemPrompt,
+  }) async {
+    try {
+      // 同时更新本地变量，确保 callAiApi 使用最新配置
+      _aiApiUrl = apiUrl;
+      _aiApiKey = apiKey;
+      _aiModel = model;
+      _aiSystemPrompt = systemPrompt;
+
+      await _channel.invokeMethod('saveAiConfig', {
+        'apiUrl': apiUrl,
+        'apiKey': apiKey,
+        'model': model,
+        'systemPrompt': systemPrompt,
+      });
+    } on PlatformException catch (e) {
+      debugPrint('保存配置失败: ${e.message}');
+    }
+  }
+
+  /// 区域截图数据回调
+  void Function(Uint8List? data)? _onRegionCaptured;
+  void setOnRegionCaptured(void Function(Uint8List? data)? callback) {
+    _onRegionCaptured = callback;
+  }
+
+  /// 待处理的截图数据
+  Uint8List? _pendingScreenshot;
+  Uint8List? get pendingScreenshot => _pendingScreenshot;
+
+  /// 清空待处理截图
+  void clearPendingScreenshot() {
+    _pendingScreenshot = null;
   }
 
   /// 检查悬浮窗权限（Android 6.0+ 需要用户在系统设置中开启）
@@ -193,6 +307,131 @@ class OverlayService {
     } on PlatformException catch (e) {
       debugPrint('截屏失败: ${e.message}');
     }
+  }
+
+  /// 保存截图到图库
+  Future<bool> saveScreenshotToGallery(Uint8List imageData) async {
+    if (!isSupported) return false;
+
+    try {
+      final result = await _channel.invokeMethod('saveScreenshotToGallery', imageData);
+      return result == true;
+    } on PlatformException catch (e) {
+      debugPrint('保存截图失败: ${e.message}');
+      return false;
+    }
+  }
+
+  /// AI 配置（从 Flutter 配置）
+  String _aiApiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+  String _aiApiKey = '';
+  String _aiModel = 'glm-4v-flash';
+  String _aiSystemPrompt = '你是一个专业的AI助手，请根据图片回答用户问题。';
+
+  /// 调用 AI API（由原生层触发，Flutter 发送流式答案回原生）
+  Future<void> callAiApi({
+    required String question,
+    required Uint8List imageBytes,
+    required Function(String) onChunk,
+    required Function(String?) onError,
+    required Function() onDone,
+  }) async {
+    if (!isSupported) {
+      onError('仅支持 Android 设备');
+      return;
+    }
+
+    if (_aiApiKey.isEmpty) {
+      onError('请先配置 API Key');
+      return;
+    }
+
+    try {
+      // 将图片转为 base64
+      final imageBase64 = base64Encode(imageBytes);
+
+      // 构建请求
+      final uri = Uri.parse(_aiApiUrl);
+      final httpClient = HttpClient();
+      final request = await httpClient.openUrl('POST', uri);
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Authorization', 'Bearer $_aiApiKey');
+
+      final body = {
+        'model': _aiModel,
+        'messages': [
+          {'role': 'system', 'content': _aiSystemPrompt},
+          {
+            'role': 'user',
+            'content': [
+              {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,$imageBase64'}},
+              {'type': 'text', 'text': question}
+            ]
+          }
+        ],
+        'stream': true,
+      };
+
+      request.add(utf8.encode(jsonEncode(body)));
+      final response = await request.close();
+
+      if (response.statusCode != 200) {
+        onError('API 错误: ${response.statusCode}');
+        return;
+      }
+
+      // 处理 SSE 流
+      await for (final chunk in response.transform(const SystemEncoding().decoder)) {
+        final lines = chunk.split('\n');
+        for (final line in lines) {
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6);
+            if (data == '[DONE]') break;
+
+            // 解析 SSE data
+            final content = _parseSseData(data);
+            if (content.isNotEmpty) {
+              onChunk(content);
+            }
+          }
+        }
+      }
+
+      onDone();
+    } catch (e) {
+      onError('请求失败: $e');
+    }
+  }
+
+  /// 解析 SSE data
+  String _parseSseData(String json) {
+    try {
+      // 简单解析 JSON
+      final match = RegExp(r'"content"\s*:\s*"([^"]*)"').firstMatch(json);
+      return match?.group(1) ?? '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /// 发送 AI 答案片段给原生显示
+  void sendAiAnswerChunk(String chunk) {
+    _channel.invokeMethod('onAiAnswerChunk', {'chunk': chunk});
+  }
+
+  /// 发送 AI 错误给原生显示
+  void sendAiAnswerError(String error) {
+    _channel.invokeMethod('onAiAnswerError', {'error': error});
+  }
+
+  /// 发送 AI 完成信号给原生
+  void sendAiAnswerDone() {
+    _channel.invokeMethod('onAiAnswerDone', {});
+  }
+
+  /// 发送 AI 开始给原生（用于显示 loading）
+  void sendAiAnswerStart() {
+    _channel.invokeMethod('onAiAnswerStart', {});
   }
 
   /// 获取截图保存目录
