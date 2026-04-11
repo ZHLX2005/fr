@@ -50,7 +50,7 @@ class FloatingWindowManager : Service() {
     /**
      * 选框边框视图 - 在 onDraw 中绘制白色矩形边框
      */
-    class SelectionBorderView(context: Context) : View(context) {
+    static class SelectionBorderView(context: Context) : View(context) {
         val rect = Rect()
         val paint = Paint().apply {
             color = Color.WHITE
@@ -392,6 +392,7 @@ class FloatingWindowManager : Service() {
             val density = displayMetrics.densityDpi
 
             android.util.Log.d("FloatingWindow", "startScreenCapture: creating ImageReader $width x $height density $density")
+            imageReader?.close()
             imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
             android.util.Log.d("FloatingWindow", "startScreenCapture: ImageReader created, surface=${imageReader?.surface}")
 
@@ -818,6 +819,7 @@ class FloatingWindowManager : Service() {
             val height = displayMetrics.heightPixels
             val density = displayMetrics.densityDpi
 
+            imageReader?.close()
             imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
 
             val callback = object : MediaProjection.Callback() {
@@ -882,7 +884,6 @@ class FloatingWindowManager : Service() {
                 // 保存全屏截图用于后续处理
                 pendingBitmap = fullBitmap
                 bitmap.recycle()
-                if (fullBitmap != bitmap) fullBitmap.recycle()
                 it.close()
 
                 // 裁剪并发送
