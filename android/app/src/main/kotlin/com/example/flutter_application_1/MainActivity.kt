@@ -1,9 +1,11 @@
 package com.example.flutter_application_1
 
+import android.app.Activity
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Process
@@ -17,12 +19,16 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.Calendar
+import com.example.flutter_application_1.native.overlay.FloatingWindowManager
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.flutter_application_1/widget"
     private val CLOCK_CHANNEL = "com.example.flutter_application_1/clock"
     private val SYSTEM_CHANNEL = "com.example.flutter_application_1/system"
     private val FLOATING_CHANNEL = "com.example.flutter_application_1/floating"
+
+    private var mediaProjectionManager: MediaProjectionManager? = null
+    private val SCREEN_CAPTURE_REQUEST_CODE = 1001
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -77,27 +83,84 @@ class MainActivity : FlutterActivity() {
         // 悬浮窗相关 MethodChannel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FLOATING_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "checkOverlayPermission" -> {
+                    // 检查悬浮窗权限
+                    val hasPermission = FloatingWindowManager.canDrawOverlays(this)
+                    result.success(hasPermission)
+                }
+                "requestOverlayPermission" -> {
+                    // 跳转到悬浮窗权限设置页面
+                    val intent = FloatingWindowManager.getOverlaySettingsIntent(this)
+                    startActivity(intent)
+                    result.success(true)
+                }
                 "startFloating" -> {
-                    val intent = Intent(this, FloatingWindowService::class.java).apply {
-                        action = FloatingWindowService.ACTION_START
+                    // 先检查悬浮窗权限
+                    if (!FloatingWindowManager.canDrawOverlays(this)) {
+                        // 没有权限，跳转到设置页面
+                        val intent = FloatingWindowManager.getOverlaySettingsIntent(this)
+                        startActivity(intent)
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+
+                    // 启动悬浮窗服务
+                    val intent = Intent(this, FloatingWindowManager::class.java).apply {
+                        action = FloatingWindowManager.ACTION_START
                     }
                     startForegroundService(intent)
                     result.success(true)
                 }
                 "stopFloating" -> {
-                    val intent = Intent(this, FloatingWindowService::class.java).apply {
-                        action = FloatingWindowService.ACTION_STOP
+                    val intent = Intent(this, FloatingWindowManager::class.java).apply {
+                        action = FloatingWindowManager.ACTION_STOP
                     }
                     startService(intent)
                     result.success(true)
                 }
                 "requestScreenshotPermission" -> {
-                    // 返回需要截图授权，需要在 Activity 中调用
+                    // 请求截图权限
+                    requestScreenCapturePermission()
                     result.success(true)
+                }
+                "isFloatingShowing" -> {
+                    val manager = FloatingWindowManager.getInstance()
+                    result.success(manager?.isFloatingWindowShowing() ?: false)
                 }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun requestScreenCapturePermission() {
+        mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        val intent = mediaProjectionManager?.createScreenCaptureIntent()
+        intent?.let {
+            startActivityForResult(it, SCREEN_CAPTURE_REQUEST_CODE)
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                // 授权成功，创建 MediaProjection
+                val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
+                // 设置给 FloatingWindowManager
+                FloatingWindowManager.getInstance()?.setMediaProjection(mediaProjection)
+
+                // 通知 Flutter 授权成功
+                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                    MethodChannel(messenger, FLOATING_CHANNEL)
+                        .invokeMethod("onScreenshotPermissionGranted", null)
+                }
+            } else {
+                // 授权失败
+                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                    MethodChannel(messenger, FLOATING_CHANNEL)
+                        .invokeMethod("onScreenshotPermissionDenied", null)
+                }
             }
         }
     }

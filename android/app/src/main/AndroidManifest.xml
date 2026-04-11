@@ -154,7 +154,7 @@
 
         <!-- 悬浮窗截屏服务 -->
         <service
-            android:name=".FloatingWindowService"
+            android:name=".native.overlay.FloatingWindowManager"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
     </application>
