@@ -150,6 +150,31 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGUMENT", "No image data provided", null)
                     }
                 }
+                "saveAiConfig" -> {
+                    val apiUrl = call.argument<String>("apiUrl") ?: ""
+                    val apiKey = call.argument<String>("apiKey") ?: ""
+                    val model = call.argument<String>("model") ?: "glm-4v-flash"
+                    val systemPrompt = call.argument<String>("systemPrompt") ?: ""
+
+                    // 保存到 SharedPreferences
+                    getSharedPreferences("ai_config", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("api_url", apiUrl)
+                        .putString("api_key", apiKey)
+                        .putString("model", model)
+                        .putString("system_prompt", systemPrompt)
+                        .apply()
+
+                    // 同时更新 FloatingWindowManager 实例的配置
+                    FloatingWindowManager.getInstance()?.apply {
+                        this.apiUrl = apiUrl
+                        this.apiKey = apiKey
+                        this.model = model
+                        this.systemPrompt = systemPrompt
+                    }
+
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }

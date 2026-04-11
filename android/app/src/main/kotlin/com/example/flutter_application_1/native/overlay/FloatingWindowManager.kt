@@ -27,17 +27,26 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import com.example.flutter_application_1.R
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -98,6 +107,75 @@ class FloatingWindowManager : Service() {
         }
     }
 
+    /**
+     * AI 问答视图 - 截图预览 + 问题输入 + AI 回答
+     */
+    class ChatOverlayView(context: Context) : FrameLayout(context) {
+        private var croppedBitmap: android.graphics.Bitmap? = null
+        private var answerText: android.widget.TextView? = null
+        private var loadingIndicator: ProgressBar? = null
+
+        var onSendQuestion: ((String) -> Unit)? = null
+        var onClose: (() -> Unit)? = null
+
+        init {
+            // 加载布局
+            android.view.LayoutInflater.from(context).inflate(R.layout.chat_overlay, this, true)
+
+            // 查找视图
+            answerText = findViewById(R.id.answer_text)
+            loadingIndicator = findViewById(R.id.loading)
+
+            val previewImage = findViewById<ImageView>(R.id.preview_image)
+            croppedBitmap?.let { previewImage?.setImageBitmap(it) }
+
+            val questionInput = findViewById<EditText>(R.id.question_input)
+            val sendButton = findViewById<Button>(R.id.btn_send)
+            val closeButton = findViewById<Button>(R.id.btn_close)
+
+            sendButton?.setOnClickListener {
+                val question = questionInput?.text?.toString() ?: ""
+                if (question.isNotEmpty()) {
+                    onSendQuestion?.invoke(question)
+                    questionInput?.text?.clear()
+                }
+            }
+
+            closeButton?.setOnClickListener {
+                onClose?.invoke()
+            }
+        }
+
+        fun setBitmap(bitmap: android.graphics.Bitmap) {
+            croppedBitmap = bitmap
+            findViewById<ImageView>(R.id.preview_image)?.setImageBitmap(bitmap)
+        }
+
+        fun showLoading() {
+            loadingIndicator?.visibility = View.VISIBLE
+            answerText?.text = ""
+        }
+
+        fun appendAnswer(text: String) {
+            loadingIndicator?.visibility = View.GONE
+            val current = answerText?.text ?: ""
+            answerText?.text = "$current$text"
+            // 自动滚动到底部
+            (answerText?.parent as? ScrollView)?.post {
+                (answerText?.parent as? ScrollView)?.fullScroll(View.FOCUS_DOWN)
+            }
+        }
+
+        fun showError(message: String) {
+            loadingIndicator?.visibility = View.GONE
+            answerText?.text = "错误: $message"
+        }
+
+        fun clearAnswer() {
+            answerText?.text = ""
+        }
+    }
+
     private var windowManager: WindowManager? = null
     private var floatingView: View? = null
     private var params: WindowManager.LayoutParams? = null
@@ -117,8 +195,12 @@ class FloatingWindowManager : Service() {
     private var pendingBitmap: android.graphics.Bitmap? = null
     private var pendingCroppedBitmap: android.graphics.Bitmap? = null
     private var isWaitingForScreenshotPermission = false
-    private var previewOverlay: View? = null
-    private var previewBackground: View? = null
+
+    // AI 配置
+    var apiUrl: String = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    var apiKey: String = ""
+    var model: String = "glm-4v-flash"
+    var systemPrompt: String = "你是一个专业的AI助手，请根据图片回答用户问题。"
 
     companion object {
         const val CHANNEL_ID = "FloatingWindowChannel"
@@ -157,6 +239,19 @@ class FloatingWindowManager : Service() {
         instance = this
         createNotificationChannel()
         handler = Handler(thread.looper)
+        loadAiConfig()
+    }
+
+    private fun loadAiConfig() {
+        try {
+            val prefs = getSharedPreferences("ai_config", Context.MODE_PRIVATE)
+            apiUrl = prefs.getString("api_url", apiUrl) ?: apiUrl
+            apiKey = prefs.getString("api_key", apiKey) ?: apiKey
+            model = prefs.getString("model", model) ?: model
+            systemPrompt = prefs.getString("system_prompt", systemPrompt) ?: systemPrompt
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -990,7 +1085,7 @@ class FloatingWindowManager : Service() {
             pendingCroppedBitmap = croppedBitmap
 
             // 显示原生预览视图
-            showPreviewOverlay(croppedBitmap)
+            showChatOverlay(croppedBitmap)
 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -1001,109 +1096,24 @@ class FloatingWindowManager : Service() {
     }
 
     /**
-     * 显示预览视图
+     * 显示 AI 问答视图
      */
-    private fun showPreviewOverlay(croppedBitmap: android.graphics.Bitmap) {
-        // 创建遮罩背景
-        val backgroundView = View(this).apply {
-            setBackgroundColor(Color.argb(180, 0, 0, 0))
-        }
+    private var chatOverlay: ChatOverlayView? = null
 
-        // 创建预览容器
-        val previewContainer = FrameLayout(this).apply {
-            setBackgroundColor(0xFF2A2A2A.toInt())
-        }
-
-        // 缩放bitmap以适应屏幕（最大宽度为屏幕宽度的90%）
-        val maxWidth = (resources.displayMetrics.widthPixels * 0.9).toInt()
-        val maxHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
-        val scaledBitmap = scaleBitmapToFit(croppedBitmap, maxWidth, maxHeight)
-
-        // 预览图像
-        val imageView = ImageView(this).apply {
-            setImageBitmap(scaledBitmap)
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
-                topMargin = dpToPx(50)
+    private fun showChatOverlay(croppedBitmap: android.graphics.Bitmap) {
+        val chatView = ChatOverlayView(this).apply {
+            setBitmap(croppedBitmap)
+            onSendQuestion = { question ->
+                // 发送问题到原生处理
+                callAiApi(question, croppedBitmap)
             }
-        }
-        previewContainer.addView(imageView)
-
-        // 按钮容器
-        val buttonContainer = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(80)
-            ).apply {
-                gravity = Gravity.BOTTOM
-                bottomMargin = dpToPx(100)
+            onClose = {
+                hideChatOverlay()
+                croppedBitmap.recycle()
+                showFloatingWindow()
             }
         }
 
-        // 取消按钮
-        val cancelButton = TextView(this).apply {
-            text = "取消"
-            textSize = 16f
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.argb(180, 255, 68, 68))
-            setPadding(dpToPx(24), dpToPx(12), dpToPx(24), dpToPx(12))
-        }
-        cancelButton.layoutParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = Gravity.CENTER
-            marginStart = dpToPx(80)
-        }
-        cancelButton.setOnClickListener {
-            hidePreviewOverlay()
-            pendingCroppedBitmap?.recycle()
-            pendingCroppedBitmap = null
-            if (scaledBitmap != croppedBitmap) {
-                scaledBitmap.recycle()
-            }
-            showFloatingWindow()
-        }
-
-        // 保存按钮
-        val saveButton = TextView(this).apply {
-            text = "保存"
-            textSize = 16f
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.argb(180, 76, 175, 80))
-            setPadding(dpToPx(24), dpToPx(12), dpToPx(24), dpToPx(12))
-        }
-        saveButton.layoutParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = Gravity.CENTER
-            marginEnd = dpToPx(80)
-        }
-        saveButton.setOnClickListener {
-            // 保存截图
-            pendingCroppedBitmap?.let { bmp ->
-                saveBitmap(bmp)
-                bmp.recycle()
-            }
-            pendingCroppedBitmap = null
-            hidePreviewOverlay()
-            if (scaledBitmap != croppedBitmap) {
-                scaledBitmap.recycle()
-            }
-            showFloatingWindow()
-        }
-
-        buttonContainer.addView(cancelButton)
-        buttonContainer.addView(saveButton)
-        previewContainer.addView(buttonContainer)
-
-        // 添加到窗口
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -1113,52 +1123,128 @@ class FloatingWindowManager : Service() {
         )
 
         try {
-            windowManager?.addView(backgroundView, params)
-            windowManager?.addView(previewContainer, params)
-            previewOverlay = previewContainer
-            previewBackground = backgroundView
+            windowManager?.addView(chatView, params)
+            chatOverlay = chatView
         } catch (e: Exception) {
             e.printStackTrace()
+            handler.post {
+                Toast.makeText(this, "显示失败: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
-    /**
-     * 缩放bitmap以适应指定尺寸
-     */
-    private fun scaleBitmapToFit(bitmap: android.graphics.Bitmap, maxWidth: Int, maxHeight: Int): android.graphics.Bitmap {
-        val width = bitmap.width
-        val height = bitmap.height
-
-        if (width <= maxWidth && height <= maxHeight) {
-            return bitmap
-        }
-
-        val ratio = minOf(maxWidth.toFloat() / width, maxHeight.toFloat() / height)
-        val newWidth = (width * ratio).toInt()
-        val newHeight = (height * ratio).toInt()
-
-        return android.graphics.Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
-    }
-
-    /**
-     * 隐藏预览视图
-     */
-    private fun hidePreviewOverlay() {
-        previewOverlay?.let {
+    private fun hideChatOverlay() {
+        chatOverlay?.let {
             try {
                 windowManager?.removeView(it)
             } catch (e: Exception) {
                 // 忽略
             }
-            previewOverlay = null
+            chatOverlay = null
         }
-        previewBackground?.let {
+    }
+
+    /**
+     * 调用 AI API
+     */
+    private fun callAiApi(question: String, bitmap: android.graphics.Bitmap) {
+        if (apiKey.isEmpty()) {
+            chatOverlay?.showError("请先配置 API Key")
+            return
+        }
+
+        chatOverlay?.showLoading()
+
+        Thread {
             try {
-                windowManager?.removeView(it)
+                val url = URL(apiUrl)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Authorization", "Bearer $apiKey")
+                conn.doOutput = true
+                conn.doInput = true
+                conn.connectTimeout = 30000
+                conn.readTimeout = 120000
+
+                // 将 bitmap 转为 base64
+                val imageBytes = imageToByteArray(bitmap)
+                val base64Image = android.util.Base64.encodeToString(imageBytes, android.util.Base64.NO_WRAP)
+
+                val jsonBody = """
+                {
+                    "model": "$model",
+                    "messages": [
+                        {"role": "system", "content": "$systemPrompt"},
+                        {"role": "user", "content": [
+                            {"type": "image_url", "image_url": {"url": "data:image/png;base64,$base64Image"}},
+                            {"type": "text", "text": "$question"}
+                        ]}
+                    ],
+                    "stream": true
+                }
+                """.trimIndent()
+
+                conn.outputStream.write(jsonBody.toByteArray())
+                conn.outputStream.flush()
+
+                val responseCode = conn.responseCode
+                if (responseCode != 200) {
+                    handler.post {
+                        chatOverlay?.showError("API 错误: $responseCode")
+                    }
+                    return@Thread
+                }
+
+                // 处理 SSE 流
+                val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                var line: String?
+
+                while ((reader.readLine().also { line = it }) != null) {
+                    if (line!!.startsWith("data: ")) {
+                        val data = line!!.substring(6)
+                        if (data == "[DONE]") break
+
+                        // 解析 SSE data
+                        val chunk = parseSseData(data)
+                        if (chunk.isNotEmpty()) {
+                            handler.post {
+                                chatOverlay?.appendAnswer(chunk)
+                            }
+                        }
+                    }
+                }
+
+                reader.close()
+                conn.disconnect()
+
             } catch (e: Exception) {
-                // 忽略
+                e.printStackTrace()
+                handler.post {
+                    chatOverlay?.showError("请求失败: ${e.message}")
+                }
             }
-            previewBackground = null
+        }.start()
+    }
+
+    private fun imageToByteArray(bitmap: android.graphics.Bitmap): ByteArray {
+        val stream = java.io.ByteArrayOutputStream()
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+        return stream.toByteArray()
+    }
+
+    private fun parseSseData(json: String): String {
+        // 解析 BigModel SSE 响应格式
+        // 格式: {"choices":[{"delta":{"content":"xxx"}}]}
+        return try {
+            val obj = org.json.JSONObject(json)
+            val choices = obj.optJSONArray("choices")
+            if (choices != null && choices.length() > 0) {
+                val delta = choices.getJSONObject(0).optJSONObject("delta")
+                delta?.optString("content") ?: ""
+            } else ""
+        } catch (e: Exception) {
+            ""
         }
     }
 
