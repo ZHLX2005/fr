@@ -28,7 +28,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
@@ -115,7 +114,7 @@ class FloatingWindowManager : Service() {
         private var answerText: android.widget.TextView? = null
         private var loadingIndicator: ProgressBar? = null
 
-        var onSendQuestion: ((String) -> Unit)? = null
+        var onRegionSelected: (() -> Unit)? = null  // 区域已选择，自动发送
         var onClose: (() -> Unit)? = null
 
         init {
@@ -129,17 +128,7 @@ class FloatingWindowManager : Service() {
             val previewImage = findViewById<ImageView>(R.id.preview_image)
             croppedBitmap?.let { previewImage?.setImageBitmap(it) }
 
-            val questionInput = findViewById<EditText>(R.id.question_input)
-            val sendButton = findViewById<Button>(R.id.btn_send)
             val closeButton = findViewById<Button>(R.id.btn_close)
-
-            sendButton?.setOnClickListener {
-                val question = questionInput?.text?.toString() ?: ""
-                if (question.isNotEmpty()) {
-                    onSendQuestion?.invoke(question)
-                    questionInput?.text?.clear()
-                }
-            }
 
             closeButton?.setOnClickListener {
                 onClose?.invoke()
@@ -248,7 +237,8 @@ class FloatingWindowManager : Service() {
 
     private fun loadAiConfig() {
         try {
-            val prefs = getSharedPreferences("ai_config", Context.MODE_PRIVATE)
+            // 使用 applicationContext 确保与 MainActivity 中 saveAiConfig 使用相同的 SharedPreferences
+            val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
             apiUrl = prefs.getString("api_url", apiUrl) ?: apiUrl
             apiKey = prefs.getString("api_key", apiKey) ?: apiKey
             model = prefs.getString("model", model) ?: model
@@ -1107,9 +1097,9 @@ class FloatingWindowManager : Service() {
     private fun showChatOverlay(croppedBitmap: android.graphics.Bitmap) {
         val chatView = ChatOverlayView(this).apply {
             setBitmap(croppedBitmap)
-            onSendQuestion = { question ->
-                // 发送问题到原生处理
-                callAiApi(question, croppedBitmap)
+            onRegionSelected = {
+                // 自动发送，使用系统提示词作为问题
+                callAiApi(systemPrompt, croppedBitmap)
             }
             onClose = {
                 hideChatOverlay()
@@ -1129,6 +1119,8 @@ class FloatingWindowManager : Service() {
         try {
             windowManager?.addView(chatView, params)
             chatOverlay = chatView
+            // 显示后自动触发 AI 问答
+            chatView.onRegionSelected?.invoke()
         } catch (e: Exception) {
             e.printStackTrace()
             handler.post {
@@ -1179,10 +1171,11 @@ class FloatingWindowManager : Service() {
     private fun callAiApi(question: String, bitmap: android.graphics.Bitmap) {
         // 发送广播给 Flutter 处理
         try {
-            val imageBytes = imageToByteArray(bitmap)
+            // 保存到临时文件，避免 Intent extra 大小限制（约 1MB）
+            val imagePath = saveBitmapToTempFile(bitmap)
             val intent = Intent("com.example.flutter_application_1.AI_QUESTION").apply {
                 putExtra("question", question)
-                putExtra("image_data", imageBytes)
+                putExtra("image_path", imagePath)
                 setPackage(packageName)
             }
             sendBroadcast(intent)
@@ -1192,10 +1185,14 @@ class FloatingWindowManager : Service() {
         }
     }
 
-    private fun imageToByteArray(bitmap: android.graphics.Bitmap): ByteArray {
-        val stream = java.io.ByteArrayOutputStream()
-        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
-        return stream.toByteArray()
+    // 保存 bitmap 到临时文件，返回文件路径
+    private fun saveBitmapToTempFile(bitmap: android.graphics.Bitmap): String {
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val file = File(cacheDir, "ai_question_$timestamp.png")
+        FileOutputStream(file).use { out ->
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out)
+        }
+        return file.absolutePath
     }
 
     private fun parseSseData(json: String): String {

@@ -92,6 +92,17 @@ class MainActivity : FlutterActivity() {
                     val hasPermission = FloatingWindowManager.canDrawOverlays(this)
                     result.success(hasPermission)
                 }
+                "loadAiConfig" -> {
+                    // 从 SharedPreferences 加载 AI 配置
+                    val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
+                    val config = mapOf(
+                        "apiUrl" to (prefs.getString("api_url", "") ?: ""),
+                        "apiKey" to (prefs.getString("api_key", "") ?: ""),
+                        "model" to (prefs.getString("model", "glm-4v-flash") ?: "glm-4v-flash"),
+                        "systemPrompt" to (prefs.getString("system_prompt", "") ?: "")
+                    )
+                    result.success(config)
+                }
                 "requestOverlayPermission" -> {
                     // 跳转到悬浮窗权限设置页面
                     val intent = FloatingWindowManager.getOverlaySettingsIntent(this)
@@ -157,9 +168,9 @@ class MainActivity : FlutterActivity() {
                     val model = call.argument<String>("model") ?: "glm-4v-flash"
                     val systemPrompt = call.argument<String>("systemPrompt") ?: ""
 
-                    // 保存到 SharedPreferences
-                    getSharedPreferences("ai_config", Context.MODE_PRIVATE)
-                        .edit()
+                    // 使用 applicationContext 确保与 Service 中 loadAiConfig 使用相同的 SharedPreferences
+                    val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
+                    prefs.edit()
                         .putString("api_url", apiUrl)
                         .putString("api_key", apiKey)
                         .putString("model", model)
@@ -320,13 +331,13 @@ class MainActivity : FlutterActivity() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == "com.example.flutter_application_1.AI_QUESTION") {
                     val question = intent.getStringExtra("question") ?: return
-                    val imageData = intent.getByteArrayExtra("image_data") ?: return
-                    // 通过 MethodChannel 通知 Flutter 调用 AI
+                    val imagePath = intent.getStringExtra("image_path") ?: return
+                    // 通过 MethodChannel 通知 Flutter 调用 AI（传文件路径而非字节数组）
                     flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
                         MethodChannel(messenger, FLOATING_CHANNEL)
                             .invokeMethod("onAiQuestion", mapOf(
                                 "question" to question,
-                                "imageData" to imageData
+                                "imagePath" to imagePath
                             ))
                     }
                 }
