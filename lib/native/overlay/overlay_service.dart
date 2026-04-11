@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -45,6 +46,11 @@ class OverlayService {
         case 'onScreenshotCompleted':
           _onScreenshotCompleted?.call(call.arguments as String?);
           break;
+        case 'onRegionCaptured':
+          final data = call.arguments as Uint8List?;
+          _pendingScreenshot = data;
+          _onRegionCaptured?.call(data);
+          break;
       }
     });
   }
@@ -65,6 +71,21 @@ class OverlayService {
   void Function(String? path)? _onScreenshotCompleted;
   void setOnScreenshotCompleted(void Function(String? path)? callback) {
     _onScreenshotCompleted = callback;
+  }
+
+  /// 区域截图数据回调
+  void Function(Uint8List? data)? _onRegionCaptured;
+  void setOnRegionCaptured(void Function(Uint8List? data)? callback) {
+    _onRegionCaptured = callback;
+  }
+
+  /// 待处理的截图数据
+  Uint8List? _pendingScreenshot;
+  Uint8List? get pendingScreenshot => _pendingScreenshot;
+
+  /// 清空待处理截图
+  void clearPendingScreenshot() {
+    _pendingScreenshot = null;
   }
 
   /// 检查悬浮窗权限（Android 6.0+ 需要用户在系统设置中开启）
