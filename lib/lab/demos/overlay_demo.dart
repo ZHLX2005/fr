@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import '../../core/overlay/overlay_service.dart';
+import '../../native/overlay/overlay_service.dart';
 
 /// 悬浮窗截屏Demo
 class OverlayDemo extends DemoPage {
