@@ -28,7 +28,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
-import com.example.flutter_application_1.MainActivity
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -145,7 +144,6 @@ class FloatingWindowManager : Service() {
 
     /**
      * 检查悬浮窗权限
-     * @return true 有权限, false 无权限
      */
     fun checkOverlayPermission(): Boolean {
         return Settings.canDrawOverlays(this)
@@ -153,9 +151,8 @@ class FloatingWindowManager : Service() {
 
     /**
      * 显示悬浮窗
-     * @return true 成功, false 失败（无权限）
      */
-    @SuppressLint("InflateParams", "ClickableViewAccessibility")
+    @SuppressLint("InflateParams", "ClickableViewAccessibility", "WrongConstant")
     fun showFloatingWindow(): Boolean {
         // 先检查权限
         if (!Settings.canDrawOverlays(this)) {
@@ -169,27 +166,31 @@ class FloatingWindowManager : Service() {
             return true
         }
 
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-
-        params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 50
-            y = 200
-        }
-
-        // 创建悬浮窗视图
-        floatingView = createFloatingView()
-
         try {
+            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+
+            // 使用更安全的 flags 组合
+            val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+
+            params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                flags,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                x = 50
+                y = 200
+            }
+
+            // 使用 applicationContext 创建视图，避免 context 问题
+            floatingView = createFloatingView(applicationContext)
+
             windowManager?.addView(floatingView, params)
             return true
+
         } catch (e: Exception) {
             e.printStackTrace()
             handler.post {
@@ -201,17 +202,15 @@ class FloatingWindowManager : Service() {
     }
 
     @SuppressLint("InflateParams", "ClickableViewAccessibility")
-    private fun createFloatingView(): View {
-        // 使用自定义布局
-        val container = FrameLayout(this).apply {
-            setBackgroundResource(android.R.drawable.screen_background_dark)
-            alpha = 0.95f
-        }
+    private fun createFloatingView(context: Context): View {
+        // 使用 applicationContext
+        val container = FrameLayout(context)
 
         val size = dpToPx(56)
         container.layoutParams = FrameLayout.LayoutParams(size, size)
 
-        val imageView = ImageView(this).apply {
+        // 相机图标
+        val imageView = ImageView(context).apply {
             setImageResource(android.R.drawable.ic_menu_camera)
             setColorFilter(0xFFFFFFFF.toInt())
             layoutParams = FrameLayout.LayoutParams(dpToPx(40), dpToPx(40)).apply {
@@ -220,14 +219,14 @@ class FloatingWindowManager : Service() {
         }
         container.addView(imageView)
 
-        // 添加截图图标
-        val captureIcon = ImageView(this).apply {
+        // 右下角截图指示器
+        val captureIcon = ImageView(context).apply {
             setImageResource(android.R.drawable.ic_menu_crop)
             setColorFilter(0xFF4CAF50.toInt())
-            layoutParams = FrameLayout.LayoutParams(dpToPx(20), dpToPx(20)).apply {
+            layoutParams = FrameLayout.LayoutParams(dpToPx(16), dpToPx(16)).apply {
                 gravity = Gravity.BOTTOM or Gravity.END
                 bottomMargin = dpToPx(2)
-                rightMargin = dpToPx(-4)
+                rightMargin = dpToPx(2)
             }
         }
         container.addView(captureIcon)
@@ -236,6 +235,7 @@ class FloatingWindowManager : Service() {
         var initialY = 0
         var initialTouchX = 0f
         var initialTouchY = 0f
+        var lastTapTime = 0L
 
         container.setOnTouchListener { _, event ->
             val layoutParams = params ?: return@setOnTouchListener false
@@ -250,25 +250,31 @@ class FloatingWindowManager : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     layoutParams.x = initialX - (event.rawX - initialTouchX).toInt()
                     layoutParams.y = initialY + (event.rawY - initialTouchY).toInt()
-                    windowManager?.updateViewLayout(floatingView, layoutParams)
+                    try {
+                        windowManager?.updateViewLayout(floatingView, layoutParams)
+                    } catch (e: Exception) {
+                        // 忽略更新异常
+                    }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     val movedX = kotlin.math.abs(event.rawX - initialTouchX)
                     val movedY = kotlin.math.abs(event.rawY - initialTouchY)
-                    if (movedX < 50 && movedY < 50) {
-                        // 点击事件
-                        container.performClick()
-                        captureScreen()
+
+                    // 判断为点击（移动距离小于 10dp）
+                    val touchSlop = 10 * resources.displayMetrics.density
+                    if (movedX < touchSlop && movedY < touchSlop) {
+                        val currentTime = System.currentTimeMillis()
+                        // 防抖：距离上次点击超过 300ms
+                        if (currentTime - lastTapTime > 300) {
+                            lastTapTime = currentTime
+                            captureScreen()
+                        }
                     }
                     true
                 }
                 else -> false
             }
-        }
-
-        container.setOnClickListener {
-            captureScreen()
         }
 
         return container
@@ -291,9 +297,11 @@ class FloatingWindowManager : Service() {
     }
 
     fun captureScreen() {
-        Toast.makeText(this, "截屏中...", Toast.LENGTH_SHORT).show()
-
         try {
+            handler.post {
+                Toast.makeText(this, "截屏中...", Toast.LENGTH_SHORT).show()
+            }
+
             val shutter = android.media.RingtoneManager.getDefaultUri(
                 android.media.RingtoneManager.TYPE_NOTIFICATION
             )
@@ -322,16 +330,22 @@ class FloatingWindowManager : Service() {
                 override fun onStop() {
                     virtualDisplay?.release()
                     handler.post {
-                        Toast.makeText(this@FloatingWindowManager, "截图权限已取消", Toast.LENGTH_SHORT).show()
+                        try {
+                            Toast.makeText(this@FloatingWindowManager, "截图权限已取消", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            // 忽略 Toast 异常
+                        }
                     }
                 }
             }
 
-            // 检查是否已有 mediaProjection
             if (mediaProjection == null) {
-                // 需要在 Activity 中预先授权
                 handler.post {
-                    Toast.makeText(this, "需要先授权截图权限", Toast.LENGTH_LONG).show()
+                    try {
+                        Toast.makeText(this, "需要先授权截图权限", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        // 忽略
+                    }
                 }
                 return
             }
@@ -349,7 +363,6 @@ class FloatingWindowManager : Service() {
                 handler
             )
 
-            // 延迟获取截图
             handler.postDelayed({
                 takePicture()
             }, 100)
@@ -357,7 +370,11 @@ class FloatingWindowManager : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
             handler.post {
-                Toast.makeText(this, "截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                try {
+                    Toast.makeText(this, "截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                } catch (e2: Exception) {
+                    // 忽略
+                }
             }
         }
     }
@@ -369,16 +386,16 @@ class FloatingWindowManager : Service() {
                 val planes = it.planes
                 val buffer = planes[0].buffer
                 val rowStride = planes[0].rowStride
-                val rowPadding = rowStride - it.width * planes[0].pixelStride
+                val pixelStride = planes[0].pixelStride
+                val rowPadding = rowStride - it.width * pixelStride
 
                 val bitmap = android.graphics.Bitmap.createBitmap(
-                    it.width + rowPadding / planes[0].pixelStride,
+                    it.width + rowPadding / pixelStride,
                     it.height,
                     android.graphics.Bitmap.Config.ARGB_8888
                 )
                 bitmap.copyPixelsFromBuffer(buffer)
 
-                // 裁剪到实际显示区域
                 val finalBitmap = android.graphics.Bitmap.createBitmap(
                     bitmap,
                     0,
@@ -395,7 +412,11 @@ class FloatingWindowManager : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
             handler.post {
-                Toast.makeText(this, "保存截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                try {
+                    Toast.makeText(this, "保存截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                } catch (e2: Exception) {
+                    // 忽略
+                }
             }
         }
     }
@@ -416,40 +437,59 @@ class FloatingWindowManager : Service() {
             }
 
             handler.post {
-                Toast.makeText(this, "截图已保存: $filename", Toast.LENGTH_LONG).show()
+                try {
+                    Toast.makeText(this, "截图已保存: $filename", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    // 忽略
+                }
             }
 
-            // 通知 Flutter
             notifyFlutterScreenshot(file.absolutePath)
 
         } catch (e: Exception) {
             e.printStackTrace()
             handler.post {
-                Toast.makeText(this, "保存截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                try {
+                    Toast.makeText(this, "保存截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                } catch (e2: Exception) {
+                    // 忽略
+                }
             }
         }
     }
 
     private fun notifyFlutterScreenshot(path: String) {
-        // 通过广播通知 Flutter
-        val intent = Intent("com.example.flutter_application_1.SCREENSHOT_COMPLETED").apply {
-            putExtra("path", path)
-            setPackage(packageName)
+        try {
+            val intent = Intent("com.example.flutter_application_1.SCREENSHOT_COMPLETED").apply {
+                putExtra("path", path)
+                setPackage(packageName)
+            }
+            sendBroadcast(intent)
+        } catch (e: Exception) {
+            // 忽略广播异常
         }
-        sendBroadcast(intent)
     }
 
-    /**
-     * 设置 MediaProjection（需要在 Activity 中授权后调用）
-     */
     fun setMediaProjection(mediaProjection: MediaProjection?) {
         this.mediaProjection = mediaProjection
     }
 
     private fun releaseMediaProjection() {
-        mediaProjection?.stop()
-        virtualDisplay?.release()
-        imageReader?.close()
+        try {
+            mediaProjection?.stop()
+        } catch (e: Exception) {
+            // 忽略
+        }
+        try {
+            virtualDisplay?.release()
+        } catch (e: Exception) {
+            // 忽略
+        }
+        try {
+            imageReader?.close()
+        } catch (e: Exception) {
+            // 忽略
+        }
         mediaProjection = null
         virtualDisplay = null
         imageReader = null
