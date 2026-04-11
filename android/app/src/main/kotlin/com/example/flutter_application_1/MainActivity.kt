@@ -2,8 +2,10 @@ package com.example.flutter_application_1
 
 import android.app.Activity
 import android.app.AppOpsManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.RingtoneManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
@@ -28,6 +30,7 @@ class MainActivity : FlutterActivity() {
     private val FLOATING_CHANNEL = "com.example.flutter_application_1/floating"
 
     private var mediaProjectionManager: MediaProjectionManager? = null
+    private var regionCaptureReceiver: BroadcastReceiver? = null
     private val SCREEN_CAPTURE_REQUEST_CODE = 1001
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -109,6 +112,14 @@ class MainActivity : FlutterActivity() {
                         action = FloatingWindowManager.ACTION_START
                     }
                     startForegroundService(intent)
+
+                    // 设置截图权限请求回调
+                    FloatingWindowManager.onScreenshotPermissionNeeded = {
+                        runOnUiThread {
+                            requestScreenCapturePermission()
+                        }
+                    }
+
                     result.success(true)
                 }
                 "stopFloating" -> {
@@ -210,6 +221,32 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         // 处理启动时的 Intent
         handleIntent(intent)
+        // 注册区域截图广播接收器
+        registerRegionCaptureReceiver()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        regionCaptureReceiver?.let { unregisterReceiver(it) }
+    }
+
+    private fun registerRegionCaptureReceiver() {
+        if (regionCaptureReceiver != null) return
+        regionCaptureReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.example.flutter_application_1.REGION_CAPTURED") {
+                    val data = intent.getByteArrayExtra("data")
+                    data?.let {
+                        runOnUiThread {
+                            MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger, FLOATING_CHANNEL)
+                                .invokeMethod("onRegionCaptured", it)
+                        }
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter("com.example.flutter_application_1.REGION_CAPTURED")
+        registerReceiver(regionCaptureReceiver, filter)
     }
 
     private fun handleIntent(intent: Intent?) {
