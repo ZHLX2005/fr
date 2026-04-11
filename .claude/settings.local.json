@@ -3,7 +3,9 @@
     "allow": [
       "WebSearch",
       "Bash(flutter build:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

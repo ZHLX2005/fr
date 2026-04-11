@@ -138,6 +138,15 @@ class MainActivity : FlutterActivity() {
                     val manager = FloatingWindowManager.getInstance()
                     result.success(manager?.isFloatingWindowShowing() ?: false)
                 }
+                "saveScreenshotToGallery" -> {
+                    val data = call.arguments as? ByteArray
+                    if (data != null) {
+                        FloatingWindowManager.getInstance()?.saveScreenshotToGallery(data)
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGUMENT", "No image data provided", null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -238,8 +247,10 @@ class MainActivity : FlutterActivity() {
                     val data = intent.getByteArrayExtra("data")
                     data?.let {
                         runOnUiThread {
-                            MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger, FLOATING_CHANNEL)
-                                .invokeMethod("onRegionCaptured", it)
+                            flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                                MethodChannel(messenger, FLOATING_CHANNEL)
+                                    .invokeMethod("onRegionCaptured", it)
+                            }
                         }
                     }
                 }

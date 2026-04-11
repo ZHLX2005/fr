@@ -29,6 +29,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import android.graphics.Canvas
@@ -48,14 +49,20 @@ import java.util.Locale
 class FloatingWindowManager : Service() {
 
     /**
-     * 选框边框视图 - 在 onDraw 中绘制白色矩形边框
+     * 选框边框视图 - 绘制半透明黑色遮罩（选区内部透明）+ 白色边框
+     * 使用四个矩形绘制遮罩：上下左右包围选区
      */
-    static class SelectionBorderView(context: Context) : View(context) {
+    class SelectionBorderView(context: Context) : View(context) {
         val rect = Rect()
-        val paint = Paint().apply {
+        val borderPaint = Paint().apply {
             color = Color.WHITE
             style = Paint.Style.STROKE
-            strokeWidth = 2 * context.resources.displayMetrics.density
+            strokeWidth = 3 * context.resources.displayMetrics.density
+            isAntiAlias = true
+        }
+        val overlayPaint = Paint().apply {
+            color = Color.argb(128, 0, 0, 0) // 半透明黑色
+            style = Paint.Style.FILL
             isAntiAlias = true
         }
 
@@ -67,7 +74,25 @@ class FloatingWindowManager : Service() {
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             if (rect.width() > 0 && rect.height() > 0) {
-                canvas.drawRect(rect, paint)
+                val selectionRect = android.graphics.RectF(
+                    rect.left.toFloat(),
+                    rect.top.toFloat(),
+                    rect.right.toFloat(),
+                    rect.bottom.toFloat()
+                )
+
+                // 绘制四个半透明黑色矩形，围绕选区
+                // 上方
+                canvas.drawRect(0f, 0f, width.toFloat(), selectionRect.top, overlayPaint)
+                // 下方
+                canvas.drawRect(0f, selectionRect.bottom, width.toFloat(), height.toFloat(), overlayPaint)
+                // 左侧
+                canvas.drawRect(0f, selectionRect.top, selectionRect.left, selectionRect.bottom, overlayPaint)
+                // 右侧
+                canvas.drawRect(selectionRect.right, selectionRect.top, width.toFloat(), selectionRect.bottom, overlayPaint)
+
+                // 绘制白色边框
+                canvas.drawRect(selectionRect, borderPaint)
             }
         }
     }
@@ -89,6 +114,10 @@ class FloatingWindowManager : Service() {
     private var selectionEndY = 0
     private var isSelecting = false
     private var pendingBitmap: android.graphics.Bitmap? = null
+    private var pendingCroppedBitmap: android.graphics.Bitmap? = null
+    private var isWaitingForScreenshotPermission = false
+    private var previewOverlay: View? = null
+    private var previewBackground: View? = null
 
     companion object {
         const val CHANNEL_ID = "FloatingWindowChannel"
@@ -592,6 +621,14 @@ class FloatingWindowManager : Service() {
 
     fun setMediaProjection(mediaProjection: MediaProjection?) {
         this.mediaProjection = mediaProjection
+        // 如果正在等待截图权限，权限授予后自动继续截图
+        if (mediaProjection != null && isWaitingForScreenshotPermission) {
+            android.util.Log.d("FloatingWindow", "setMediaProjection: permission granted, continuing screenshot")
+            isWaitingForScreenshotPermission = false
+            handler.post {
+                startScreenCaptureForRegion()
+            }
+        }
     }
 
     private fun releaseMediaProjection() {
@@ -611,6 +648,24 @@ class FloatingWindowManager : Service() {
             // 忽略
         }
         mediaProjection = null
+        virtualDisplay = null
+        imageReader = null
+    }
+
+    /**
+     * 只释放 imageReader 和 virtualDisplay，保留 mediaProjection
+     */
+    private fun releaseImageReaderAndVirtualDisplay() {
+        try {
+            virtualDisplay?.release()
+        } catch (e: Exception) {
+            // 忽略
+        }
+        try {
+            imageReader?.close()
+        } catch (e: Exception) {
+            // 忽略
+        }
         virtualDisplay = null
         imageReader = null
     }
@@ -666,16 +721,7 @@ class FloatingWindowManager : Service() {
             isFocusable = true
         }
 
-        val overlayView = View(context).apply {
-            setBackgroundColor(0x80000000) // 半透明黑色遮罩
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        container.addView(overlayView)
-
-        // 添加选框边框视图
+        // 添加选框边框视图（内部已包含遮罩和挖空逻辑）
         val borderView = SelectionBorderView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -684,34 +730,32 @@ class FloatingWindowManager : Service() {
         }
         container.addView(borderView)
 
-        setupSelectionTouchListener(overlayView, borderView)
-        return container
-    }
-
-    /**
-     * 设置选框触摸监听
-     */
-    private fun setupSelectionTouchListener(overlayView: View, borderView: SelectionBorderView) {
-        overlayView.setOnTouchListener { _, event ->
+        // 触摸事件直接监听在 container 上
+        container.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     selectionStartX = event.rawX.toInt()
                     selectionStartY = event.rawY.toInt()
                     selectionEndX = selectionStartX
                     selectionEndY = selectionStartY
+                    borderView.updateRect(selectionStartX, selectionStartY, selectionEndX, selectionEndY)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     selectionEndX = event.rawX.toInt()
                     selectionEndY = event.rawY.toInt()
-                    updateSelectionPreview(borderView)
+                    borderView.updateRect(
+                        minOf(selectionStartX, selectionEndX),
+                        minOf(selectionStartY, selectionEndY),
+                        maxOf(selectionStartX, selectionEndX),
+                        maxOf(selectionStartY, selectionEndY)
+                    )
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     selectionEndX = event.rawX.toInt()
                     selectionEndY = event.rawY.toInt()
 
-                    // 计算选区大小
                     val left = minOf(selectionStartX, selectionEndX)
                     val top = minOf(selectionStartY, selectionEndY)
                     val right = maxOf(selectionStartX, selectionEndX)
@@ -719,12 +763,10 @@ class FloatingWindowManager : Service() {
                     val width = right - left
                     val height = bottom - top
 
-                    // 选区过小视为无效，重新显示遮罩
                     if (width < dpToPx(20) || height < dpToPx(20)) {
                         handler.post {
                             Toast.makeText(this, "选区过小，请重新选择", Toast.LENGTH_SHORT).show()
                         }
-                        // 重新显示悬浮窗
                         showFloatingWindow()
                         hideSelectionOverlay()
                     } else {
@@ -739,17 +781,8 @@ class FloatingWindowManager : Service() {
                 else -> false
             }
         }
-    }
 
-    /**
-     * 更新选框预览
-     */
-    private fun updateSelectionPreview(borderView: SelectionBorderView) {
-        val left = minOf(selectionStartX, selectionEndX)
-        val top = minOf(selectionStartY, selectionEndY)
-        val right = maxOf(selectionStartX, selectionEndX)
-        val bottom = maxOf(selectionStartY, selectionEndY)
-        borderView.updateRect(left, top, right, bottom)
+        return container
     }
 
     /**
@@ -804,10 +837,12 @@ class FloatingWindowManager : Service() {
      * 全屏截图供裁剪
      */
     private fun startScreenCaptureForRegion() {
+        android.util.Log.d("FloatingWindow", ">>> startScreenCaptureForRegion, mediaProjection=$mediaProjection")
         if (mediaProjection == null) {
             handler.post {
                 Toast.makeText(this, "正在请求截图权限...", Toast.LENGTH_SHORT).show()
             }
+            isWaitingForScreenshotPermission = true
             onScreenshotPermissionNeeded?.invoke()
             return
         }
@@ -819,7 +854,9 @@ class FloatingWindowManager : Service() {
             val height = displayMetrics.heightPixels
             val density = displayMetrics.densityDpi
 
-            imageReader?.close()
+            // 只释放 imageReader 和 virtualDisplay，保留 mediaProjection
+            releaseImageReaderAndVirtualDisplay()
+
             imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
 
             val callback = object : MediaProjection.Callback() {
@@ -844,9 +881,10 @@ class FloatingWindowManager : Service() {
                 handler
             )
 
+            // 增加延迟到 300ms 确保 ImageReader 准备好
             handler.postDelayed({
                 takePictureForRegion(width, height)
-            }, 100)
+            }, 300)
 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -857,8 +895,10 @@ class FloatingWindowManager : Service() {
     }
 
     private fun takePictureForRegion(screenWidth: Int, screenHeight: Int) {
+        android.util.Log.d("FloatingWindow", ">>> takePictureForRegion begin, imageReader=$imageReader")
         try {
             val image = imageReader?.acquireLatestImage()
+            android.util.Log.d("FloatingWindow", "takePictureForRegion: acquired image=$image")
             image?.let {
                 val planes = it.planes
                 val buffer = planes[0].buffer
@@ -888,6 +928,11 @@ class FloatingWindowManager : Service() {
 
                 // 裁剪并发送
                 cropAndSendBitmap(screenWidth, screenHeight)
+            } ?: run {
+                android.util.Log.e("FloatingWindow", "takePictureForRegion: image is null, cannot capture")
+                handler.post {
+                    Toast.makeText(this, "截图失败：无法获取图像", Toast.LENGTH_SHORT).show()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -905,12 +950,12 @@ class FloatingWindowManager : Service() {
         pendingBitmap = null
 
         try {
-            // 计算选区坐标（考虑屏幕密度）
-            val density = resources.displayMetrics.density
-            val left = (minOf(selectionStartX, selectionEndX) / density).toInt()
-            val top = (minOf(selectionStartY, selectionEndY) / density).toInt()
-            val right = (maxOf(selectionStartX, selectionEndX) / density).toInt()
-            val bottom = (maxOf(selectionStartY, selectionEndY) / density).toInt()
+            // 直接使用屏幕像素坐标，不需要除以 density
+            // event.rawX/Y 是屏幕像素，bitmap 尺寸也是屏幕像素
+            val left = minOf(selectionStartX, selectionEndX)
+            val top = minOf(selectionStartY, selectionEndY)
+            val right = maxOf(selectionStartX, selectionEndX)
+            val bottom = maxOf(selectionStartY, selectionEndY)
 
             // 确保坐标在有效范围内
             val cropLeft = left.coerceIn(0, bitmap.width)
@@ -940,24 +985,179 @@ class FloatingWindowManager : Service() {
 
             bitmap.recycle()
 
-            // 转换为字节数组
-            val outputStream = java.io.ByteArrayOutputStream()
-            croppedBitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, outputStream)
-            val byteArray = outputStream.toByteArray()
-            croppedBitmap.recycle()
+            // 保存裁剪后的 bitmap 用于预览和保存
+            pendingCroppedBitmap = croppedBitmap
 
-            // 发送截图数据给 Flutter
-            notifyFlutterRegionCaptured(byteArray)
-
-            handler.post {
-                Toast.makeText(this, "区域截图已保存", Toast.LENGTH_SHORT).show()
-            }
+            // 显示原生预览视图
+            showPreviewOverlay(croppedBitmap)
 
         } catch (e: Exception) {
             e.printStackTrace()
             handler.post {
                 Toast.makeText(this, "裁剪截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    /**
+     * 显示预览视图
+     */
+    private fun showPreviewOverlay(croppedBitmap: android.graphics.Bitmap) {
+        // 创建遮罩背景
+        val backgroundView = View(this).apply {
+            setBackgroundColor(Color.argb(180, 0, 0, 0))
+        }
+
+        // 创建预览容器
+        val previewContainer = FrameLayout(this).apply {
+            setBackgroundColor(0xFF2A2A2A.toInt())
+        }
+
+        // 缩放bitmap以适应屏幕（最大宽度为屏幕宽度的90%）
+        val maxWidth = (resources.displayMetrics.widthPixels * 0.9).toInt()
+        val maxHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
+        val scaledBitmap = scaleBitmapToFit(croppedBitmap, maxWidth, maxHeight)
+
+        // 预览图像
+        val imageView = ImageView(this).apply {
+            setImageBitmap(scaledBitmap)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
+                topMargin = dpToPx(50)
+            }
+        }
+        previewContainer.addView(imageView)
+
+        // 按钮容器
+        val buttonContainer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(80)
+            ).apply {
+                gravity = Gravity.BOTTOM
+                bottomMargin = dpToPx(100)
+            }
+        }
+
+        // 取消按钮
+        val cancelButton = TextView(this).apply {
+            text = "取消"
+            textSize = 16f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.argb(180, 255, 68, 68))
+            setPadding(dpToPx(24), dpToPx(12), dpToPx(24), dpToPx(12))
+        }
+        cancelButton.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.CENTER
+            marginStart = dpToPx(80)
+        }
+        cancelButton.setOnClickListener {
+            hidePreviewOverlay()
+            pendingCroppedBitmap?.recycle()
+            pendingCroppedBitmap = null
+            if (scaledBitmap != croppedBitmap) {
+                scaledBitmap.recycle()
+            }
+            showFloatingWindow()
+        }
+
+        // 保存按钮
+        val saveButton = TextView(this).apply {
+            text = "保存"
+            textSize = 16f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.argb(180, 76, 175, 80))
+            setPadding(dpToPx(24), dpToPx(12), dpToPx(24), dpToPx(12))
+        }
+        saveButton.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.CENTER
+            marginEnd = dpToPx(80)
+        }
+        saveButton.setOnClickListener {
+            // 保存截图
+            pendingCroppedBitmap?.let { bmp ->
+                saveBitmap(bmp)
+                bmp.recycle()
+            }
+            pendingCroppedBitmap = null
+            hidePreviewOverlay()
+            if (scaledBitmap != croppedBitmap) {
+                scaledBitmap.recycle()
+            }
+            showFloatingWindow()
+        }
+
+        buttonContainer.addView(cancelButton)
+        buttonContainer.addView(saveButton)
+        previewContainer.addView(buttonContainer)
+
+        // 添加到窗口
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        )
+
+        try {
+            windowManager?.addView(backgroundView, params)
+            windowManager?.addView(previewContainer, params)
+            previewOverlay = previewContainer
+            previewBackground = backgroundView
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * 缩放bitmap以适应指定尺寸
+     */
+    private fun scaleBitmapToFit(bitmap: android.graphics.Bitmap, maxWidth: Int, maxHeight: Int): android.graphics.Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+
+        if (width <= maxWidth && height <= maxHeight) {
+            return bitmap
+        }
+
+        val ratio = minOf(maxWidth.toFloat() / width, maxHeight.toFloat() / height)
+        val newWidth = (width * ratio).toInt()
+        val newHeight = (height * ratio).toInt()
+
+        return android.graphics.Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+    }
+
+    /**
+     * 隐藏预览视图
+     */
+    private fun hidePreviewOverlay() {
+        previewOverlay?.let {
+            try {
+                windowManager?.removeView(it)
+            } catch (e: Exception) {
+                // 忽略
+            }
+            previewOverlay = null
+        }
+        previewBackground?.let {
+            try {
+                windowManager?.removeView(it)
+            } catch (e: Exception) {
+                // 忽略
+            }
+            previewBackground = null
         }
     }
 
@@ -977,6 +1177,24 @@ class FloatingWindowManager : Service() {
             sendBroadcast(intent)
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    /**
+     * 保存截图到图库（供 Flutter 调用）
+     */
+    fun saveScreenshotToGallery(byteArray: ByteArray) {
+        try {
+            val bitmap = android.graphics.BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+            if (bitmap != null) {
+                saveBitmap(bitmap)
+                bitmap.recycle()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FloatingWindow", "saveScreenshotToGallery error: ${e.message}", e)
+            handler.post {
+                Toast.makeText(this, "保存失败: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
