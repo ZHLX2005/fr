@@ -216,6 +216,19 @@ class OverlayService {
     }
   }
 
+  /// 保存截图到图库
+  Future<bool> saveScreenshotToGallery(Uint8List imageData) async {
+    if (!isSupported) return false;
+
+    try {
+      final result = await _channel.invokeMethod('saveScreenshotToGallery', imageData);
+      return result == true;
+    } on PlatformException catch (e) {
+      debugPrint('保存截图失败: ${e.message}');
+      return false;
+    }
+  }
+
   /// 获取截图保存目录
   Future<Directory> getScreenshotDirectory() async {
     // Android 使用外部私有目录

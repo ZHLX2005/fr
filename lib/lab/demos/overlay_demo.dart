@@ -32,8 +32,6 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   final OverlayService _overlayService = OverlayService();
   bool _hasPermission = false;
   bool _isOverlayActive = false;
-  bool _isPreviewShowing = false;
-  Uint8List? _currentScreenshot;
 
   @override
   void initState() {
@@ -46,17 +44,6 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
     await _checkPermission();
     // 从原生层检查悬浮窗实际状态，避免退出后状态丢失
     await _checkOverlayStatus();
-    _overlayService.setOnRegionCaptured((data) {
-      if (mounted && data != null) {
-        setState(() {
-          _currentScreenshot = data;
-          _isPreviewShowing = true;
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showPreviewSheet();
-        });
-      }
-    });
   }
 
   Future<void> _checkPermission() async {
@@ -115,45 +102,6 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
     await _overlayService.hideOverlayButton();
     setState(() {
       _isOverlayActive = false;
-    });
-  }
-
-  void _showPreviewSheet() {
-    if (!_isPreviewShowing || _currentScreenshot == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => _ScreenshotPreviewSheet(
-        imageData: _currentScreenshot!,
-        onSave: () {
-          Navigator.pop(ctx);
-          _saveScreenshot();
-        },
-        onReselect: () {
-          Navigator.pop(ctx);
-          _reselectRegion();
-        },
-      ),
-    );
-  }
-
-  Future<void> _saveScreenshot() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('截图已保存到图库')),
-    );
-    _overlayService.clearPendingScreenshot();
-    setState(() {
-      _isPreviewShowing = false;
-      _currentScreenshot = null;
-    });
-  }
-
-  void _reselectRegion() {
-    _overlayService.clearPendingScreenshot();
-    setState(() {
-      _isPreviewShowing = false;
-      _currentScreenshot = null;
     });
   }
 
@@ -297,63 +245,6 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ScreenshotPreviewSheet extends StatelessWidget {
-  final Uint8List imageData;
-  final VoidCallback onSave;
-  final VoidCallback onReselect;
-
-  const _ScreenshotPreviewSheet({
-    required this.imageData,
-    required this.onSave,
-    required this.onReselect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.5,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.memory(
-                imageData,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              TextButton.icon(
-                onPressed: onReselect,
-                icon: const Icon(Icons.refresh),
-                label: const Text('重新截取'),
-              ),
-              ElevatedButton.icon(
-                onPressed: onSave,
-                icon: const Icon(Icons.save),
-                label: const Text('保存'),
-              ),
-            ],
-          ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom),
-        ],
       ),
     );
   }
