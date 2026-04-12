@@ -10,7 +10,20 @@
       "WebFetch(domain:docs.flutter.cn)",
       "mcp__web-search-prime__web_search_prime",
       "WebFetch(domain:proandroiddev.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(git restore:*)",
+      "Read(//d DevProjects/my/github/**)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter pub:*)",
+      "WebFetch(domain:stackoverflow.com)",
+      "mcp__MiniMax__web_search",
+      "mcp__web-reader__webReader",
+      "Bash(bash:*)",
+      "Bash(cat \"D:/DevProjects/my/github/fr/.superpowers/brainstorm/\"*/state/server-info)",
+      "Read(//tmp/**)",
+      "Read(//d/tmp/**)",
+      "Bash(tasklist //FI \"PID eq 2339\")",
+      "Bash(flutter install:*)"
     ]
   }
 }
