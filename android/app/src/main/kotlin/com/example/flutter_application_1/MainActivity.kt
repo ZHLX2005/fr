@@ -228,7 +228,9 @@ class MainActivity : FlutterActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                // 授权成功，创建 MediaProjection
+                // 先升级为前台服务（Android 15 要求 getMediaProjection 前必须有 mediaProjection 类型的前台服务）
+                FloatingWindowManager.getInstance()?.promoteToForeground()
+                // 然后创建 MediaProjection
                 val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                 val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
                 // 设置给 FloatingWindowManager

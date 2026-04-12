@@ -317,6 +317,19 @@ class FloatingWindowManager : Service() {
     }
 
     /**
+     * 升级为前台服务（在用户授权 MediaProjection 后调用）
+     * 必须在 getMediaProjection() 之前调用，否则 Android 15 会拒绝
+     */
+    fun promoteToForeground() {
+        try {
+            startForeground(NOTIFICATION_ID, createNotification())
+            android.util.Log.d("FloatingWindow", "promoteToForeground: success")
+        } catch (e: Exception) {
+            android.util.Log.e("FloatingWindow", "promoteToForeground failed: ${e.message}", e)
+        }
+    }
+
+    /**
      * 显示悬浮窗
      */
     @SuppressLint("InflateParams", "ClickableViewAccessibility", "WrongConstant")
@@ -713,14 +726,7 @@ class FloatingWindowManager : Service() {
     fun setMediaProjection(mediaProjection: MediaProjection?) {
         this.mediaProjection = mediaProjection
         if (mediaProjection != null) {
-            // 授权成功，升级为 mediaProjection 类型的前台服务
-            // Android 15 要求在获得 MediaProjection 后才能以该类型启动前台服务
-            try {
-                startForeground(NOTIFICATION_ID, createNotification())
-            } catch (e: Exception) {
-                android.util.Log.e("FloatingWindow", "startForeground failed: ${e.message}", e)
-            }
-            // 立即创建 VirtualDisplay + ImageReader 并保持常驻
+            // 授权成功，立即创建 VirtualDisplay + ImageReader 并保持常驻
             setupVirtualDisplay()
         }
         if (mediaProjection != null && isWaitingForScreenshotPermission) {
