@@ -994,12 +994,24 @@ class FloatingWindowManager : Service() {
     private fun takePictureForRegion() {
         android.util.Log.d("FloatingWindow", ">>> takePictureForRegion begin, imageReader=$imageReader")
 
-        // 暂停自动消费，确保截屏能拿到帧
+        // 暂停自动消费，让新帧积累
         imageReader?.setOnImageAvailableListener(null, null)
 
+        // 延迟等待 VirtualDisplay 产出新帧
+        // drain listener 和本方法在同一个 handler 线程，listener 刚消费完所有帧
+        // 需要给 VirtualDisplay 时间产出至少一帧新画面
+        handler.postDelayed({
+            performRegionCapture()
+        }, 100)
+    }
+
+    /**
+     * 实际执行区域截图（由 takePictureForRegion 延迟调用）
+     */
+    private fun performRegionCapture() {
         try {
             val image = imageReader?.acquireLatestImage()
-            android.util.Log.d("FloatingWindow", "takePictureForRegion: acquired image=$image")
+            android.util.Log.d("FloatingWindow", "performRegionCapture: acquired image=$image")
             image?.let {
                 val planes = it.planes
                 val buffer = planes[0].buffer
@@ -1033,13 +1045,13 @@ class FloatingWindowManager : Service() {
                 // 裁剪并发送
                 cropAndSendBitmap(captureWidth, captureHeight)
             } ?: run {
-                android.util.Log.e("FloatingWindow", "takePictureForRegion: image is null, cannot capture")
+                android.util.Log.e("FloatingWindow", "performRegionCapture: image is null, cannot capture")
                 handler.post {
                     Toast.makeText(this, "截图失败：无法获取图像", Toast.LENGTH_SHORT).show()
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("FloatingWindow", "takePictureForRegion error: ${e.message}", e)
+            android.util.Log.e("FloatingWindow", "performRegionCapture error: ${e.message}", e)
             e.printStackTrace()
             handler.post {
                 Toast.makeText(this, "保存截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
