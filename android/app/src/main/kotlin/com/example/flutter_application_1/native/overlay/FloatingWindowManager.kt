@@ -721,6 +721,64 @@ class FloatingWindowManager : Service() {
         }
     }
 
+    /**
+     * 创建并保持 VirtualDisplay + ImageReader 常驻
+     * 在 MediaProjection 授权成功后调用一次，截屏时直接取帧
+     */
+    private fun setupVirtualDisplay() {
+        try {
+            val displayMetrics = DisplayMetrics()
+            windowManager?.defaultDisplay?.getMetrics(displayMetrics)
+            val width = displayMetrics.widthPixels
+            val height = displayMetrics.heightPixels
+            val density = displayMetrics.densityDpi
+
+            // 创建 ImageReader，buffer size 2
+            imageReader?.close()
+            imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+
+            // 持续消费旧帧，防止缓冲区满导致 VirtualDisplay 停止产出
+            imageReader?.setOnImageAvailableListener({ reader ->
+                reader.acquireLatestImage()?.close()
+            }, handler)
+
+            virtualDisplay?.release()
+            virtualDisplay = mediaProjection?.createVirtualDisplay(
+                "ScreenCapture",
+                width,
+                height,
+                density,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                imageReader?.surface,
+                null,
+                handler
+            )
+
+            // 监听 MediaProjection 被系统回收
+            mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() {
+                    virtualDisplay?.release()
+                    virtualDisplay = null
+                    imageReader?.close()
+                    imageReader = null
+                    mediaProjection = null
+                    handler.post {
+                        try {
+                            Toast.makeText(this@FloatingWindowManager, "截屏会话已结束，请重新启动", Toast.LENGTH_LONG).show()
+                        } catch (e: Exception) {
+                            // 忽略
+                        }
+                    }
+                }
+            }, handler)
+
+            android.util.Log.d("FloatingWindow", "setupVirtualDisplay: created ${width}x${height} density=$density")
+        } catch (e: Exception) {
+            android.util.Log.e("FloatingWindow", "setupVirtualDisplay error: ${e.message}", e)
+            e.printStackTrace()
+        }
+    }
+
     private fun releaseMediaProjection() {
         try {
             mediaProjection?.stop()
