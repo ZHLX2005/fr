@@ -322,7 +322,12 @@ class MainActivity : FlutterActivity() {
             }
         }
         val filter = IntentFilter("com.example.flutter_application_1.REGION_CAPTURED")
-        registerReceiver(regionCaptureReceiver, filter)
+        val receiverFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Context.RECEIVER_NOT_EXPORTED
+        } else {
+            0
+        }
+        registerReceiver(regionCaptureReceiver, filter, receiverFlags)
     }
 
     private fun registerAiQuestionReceiver() {
@@ -344,7 +349,12 @@ class MainActivity : FlutterActivity() {
             }
         }
         val filter = IntentFilter("com.example.flutter_application_1.AI_QUESTION")
-        registerReceiver(aiQuestionReceiver, filter)
+        val receiverFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Context.RECEIVER_NOT_EXPORTED
+        } else {
+            0
+        }
+        registerReceiver(aiQuestionReceiver, filter, receiverFlags)
     }
 
     private fun handleIntent(intent: Intent?) {

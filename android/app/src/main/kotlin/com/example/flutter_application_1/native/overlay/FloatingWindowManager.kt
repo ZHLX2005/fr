@@ -743,7 +743,9 @@ class FloatingWindowManager : Service() {
     }
 
     /**
-     * 只释放 imageReader 和 virtualDisplay，保留 mediaProjection
+     * 释放 imageReader、virtualDisplay，并停止 mediaProjection
+     * Android MediaProjection 每个实例只能创建一个 VirtualDisplay，
+     * 因此每次截图后需要完全释放，下一次重新请求权限
      */
     private fun releaseImageReaderAndVirtualDisplay() {
         try {
@@ -756,8 +758,14 @@ class FloatingWindowManager : Service() {
         } catch (e: Exception) {
             // 忽略
         }
+        try {
+            mediaProjection?.stop()
+        } catch (e: Exception) {
+            // 忽略
+        }
         virtualDisplay = null
         imageReader = null
+        mediaProjection = null
     }
 
     fun hideFloatingWindow() {
@@ -928,6 +936,8 @@ class FloatingWindowManager : Service() {
      */
     private fun startScreenCaptureForRegion() {
         android.util.Log.d("FloatingWindow", ">>> startScreenCaptureForRegion, mediaProjection=$mediaProjection")
+
+        // 如果没有 MediaProjection，先请求权限
         if (mediaProjection == null) {
             handler.post {
                 Toast.makeText(this, "正在请求截图权限...", Toast.LENGTH_SHORT).show()
@@ -943,9 +953,6 @@ class FloatingWindowManager : Service() {
             val width = displayMetrics.widthPixels
             val height = displayMetrics.heightPixels
             val density = displayMetrics.densityDpi
-
-            // 只释放 imageReader 和 virtualDisplay，保留 mediaProjection
-            releaseImageReaderAndVirtualDisplay()
 
             imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
 
@@ -1018,17 +1025,25 @@ class FloatingWindowManager : Service() {
 
                 // 裁剪并发送
                 cropAndSendBitmap(screenWidth, screenHeight)
+
+                // 截图完成，释放 MediaProjection
+                // 下次截图需要重新请求权限（Android MediaProjection token 只能用一次）
+                releaseMediaProjection()
             } ?: run {
                 android.util.Log.e("FloatingWindow", "takePictureForRegion: image is null, cannot capture")
                 handler.post {
                     Toast.makeText(this, "截图失败：无法获取图像", Toast.LENGTH_SHORT).show()
                 }
+                // 截图失败也释放 MediaProjection，下次重新请求
+                releaseMediaProjection()
             }
         } catch (e: Exception) {
             e.printStackTrace()
             handler.post {
                 Toast.makeText(this, "保存截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+            // 截图失败也释放 MediaProjection，下次重新请求
+            releaseMediaProjection()
         }
     }
 
