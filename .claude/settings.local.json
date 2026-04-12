@@ -22,7 +22,8 @@
       "Bash(cat \"D:/DevProjects/my/github/fr/.superpowers/brainstorm/\"*/state/server-info)",
       "Read(//tmp/**)",
       "Read(//d/tmp/**)",
-      "Bash(tasklist //FI \"PID eq 2339\")"
+      "Bash(tasklist //FI \"PID eq 2339\")",
+      "Bash(flutter install:*)"
     ]
   }
 }
