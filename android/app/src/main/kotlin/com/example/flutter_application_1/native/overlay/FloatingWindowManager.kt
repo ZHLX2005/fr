@@ -718,10 +718,10 @@ class FloatingWindowManager : Service() {
         if (mediaProjection != null && isWaitingForScreenshotPermission) {
             android.util.Log.d("FloatingWindow", "setMediaProjection: permission granted, continuing screenshot")
             isWaitingForScreenshotPermission = false
-            // VirtualDisplay 已在 setupVirtualDisplay() 中创建，直接取帧
-            handler.post {
+            // VirtualDisplay 刚创建，延迟 200ms 等待首帧就绪
+            handler.postDelayed({
                 takePictureForRegion()
-            }
+            }, 200)
         }
     }
 
