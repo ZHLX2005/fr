@@ -40,8 +40,10 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import android.util.Base64
 import java.io.BufferedReader
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -49,6 +51,7 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.io.OutputStreamWriter
 
 /**
  * 悬浮窗管理器 - 统一管理原生悬浮窗功能
@@ -1069,11 +1072,14 @@ class FloatingWindowManager : Service() {
     private var chatOverlay: ChatOverlayView? = null
 
     private fun showChatOverlay(croppedBitmap: android.graphics.Bitmap) {
+        // 保存 bitmap 到临时文件，API 调用时直接读文件
+        val imagePath = saveBitmapToTempFile(croppedBitmap)
+
         val chatView = ChatOverlayView(this).apply {
             setBitmap(croppedBitmap)
             onRegionSelected = {
                 // 自动发送，使用系统提示词作为问题
-                callAiApi(systemPrompt, croppedBitmap)
+                callAiApi(systemPrompt, imagePath)
             }
             onClose = {
                 hideChatOverlay()
@@ -1140,26 +1146,114 @@ class FloatingWindowManager : Service() {
         }
     }
 
-    // 保留旧的 callAiApi 方法以兼容（但现在由 Flutter 调用）
-    // 这个方法现在只是广播问题给 Flutter，实际调用由 Flutter 处理
-    private fun callAiApi(question: String, bitmap: android.graphics.Bitmap) {
-        // 发送广播给 Flutter 处理
-        try {
-            // ★ Clone bitmap 后再保存到文件，这样原 bitmap 可以立即被 recycle
-            val bitmapClone = bitmap.copy(bitmap.config ?: android.graphics.Bitmap.Config.ARGB_8888, true)
-            val imagePath = saveBitmapToTempFile(bitmapClone)
-            bitmapClone.recycle()  // clone 用完即回收
+    /**
+     * 调用 AI API（在 Kotlin 中执行 HTTP 请求）
+     * 图片文件路径已在 showChatOverlay 时保存到临时文件
+     */
+    private fun callAiApi(question: String, imagePath: String) {
+        // 显示 loading
+        handler.post { chatOverlay?.showLoading() }
 
-            val intent = Intent("com.example.flutter_application_1.AI_QUESTION").apply {
-                putExtra("question", question)
-                putExtra("image_path", imagePath)
-                setPackage(packageName)
+        // 在后台线程执行网络请求
+        Thread {
+            try {
+                // 读取图片文件
+                val file = File(imagePath)
+                val imageBytes = FileInputStream(file).use { it.readBytes() }
+
+                // 转换为 base64
+                val imageBase64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
+
+                // 构建请求 JSON
+                val messages = """
+                    [
+                        {"role": "system", "content": "$systemPrompt"},
+                        {"role": "user", "content": [
+                            {"type": "image_url", "image_url": {"url": "data:image/png;base64,$imageBase64"}},
+                            {"type": "text", "text": "$question"}
+                        ]}
+                    ]
+                """.trimIndent()
+
+                val jsonBody = """
+                    {
+                        "model": "$model",
+                        "messages": $messages,
+                        "stream": true
+                    }
+                """.trimIndent()
+
+                // 发送 HTTP 请求
+                val url = URL(apiUrl)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("Authorization", "Bearer $apiKey")
+                connection.connectTimeout = 30000
+                connection.readTimeout = 30000
+
+                // 写入请求体
+                OutputStreamWriter(connection.outputStream).use { writer ->
+                    writer.write(jsonBody)
+                    writer.flush()
+                }
+
+                // 读取响应
+                val responseCode = connection.responseCode
+                if (responseCode != 200) {
+                    handler.post {
+                        chatOverlay?.showError("API 错误: $responseCode")
+                        chatOverlay?.hideLoading()
+                    }
+                    connection.disconnect()
+                    return@Thread
+                }
+
+                // 解析 SSE 流
+                BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        line = line?.trim()
+                        if (line.isNullOrEmpty()) continue
+
+                        // SSE 格式: data: {...}
+                        if (line!!.startsWith("data: ")) {
+                            val data = line!!.substring(6)
+                            if (data == "[DONE]") break
+
+                            // 解析 content
+                            val content = parseSseData(data)
+                            if (content.isNotEmpty()) {
+                                handler.post {
+                                    chatOverlay?.appendAnswer(content)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                connection.disconnect()
+
+                handler.post {
+                    chatOverlay?.hideLoading()
+                }
+
+                // 删除临时图片文件
+                try {
+                    file.delete()
+                } catch (e: Exception) {
+                    // 忽略删除错误
+                }
+
+            } catch (e: Exception) {
+                android.util.Log.e("FloatingWindow", "callAiApi error: ${e.message}", e)
+                handler.post {
+                    chatOverlay?.showError("请求失败: ${e.message}")
+                    chatOverlay?.hideLoading()
+                }
             }
-            sendBroadcast(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            chatOverlay?.showError("发送失败: ${e.message}")
-        }
+        }.start()
     }
 
     // 保存 bitmap 到临时文件，返回文件路径
