@@ -17,6 +17,7 @@ import android.os.VibratorManager
 import android.provider.Settings
 import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -322,7 +323,7 @@ class MainActivity : FlutterActivity() {
             }
         }
         val filter = IntentFilter("com.example.flutter_application_1.REGION_CAPTURED")
-        registerReceiver(regionCaptureReceiver, filter)
+        registerReceiver(regionCaptureReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     private fun registerAiQuestionReceiver() {
@@ -344,7 +345,7 @@ class MainActivity : FlutterActivity() {
             }
         }
         val filter = IntentFilter("com.example.flutter_application_1.AI_QUESTION")
-        registerReceiver(aiQuestionReceiver, filter)
+        registerReceiver(aiQuestionReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     private fun handleIntent(intent: Intent?) {
