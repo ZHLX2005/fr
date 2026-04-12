@@ -27,7 +27,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion  // 设置最低SDK版本为21以支持更多功能
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35  // 显式设置避免 Flutter 默认值过高导致权限问题
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 

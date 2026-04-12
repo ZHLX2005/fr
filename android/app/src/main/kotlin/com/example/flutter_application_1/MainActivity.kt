@@ -17,7 +17,6 @@ import android.os.VibratorManager
 import android.provider.Settings
 import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager
-import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -124,7 +123,9 @@ class MainActivity : FlutterActivity() {
                     val intent = Intent(this, FloatingWindowManager::class.java).apply {
                         action = FloatingWindowManager.ACTION_START
                     }
-                    startForegroundService(intent)
+                    // Android 15 (targetSDK=35) 不允许在获得 MediaProjection 之前
+                    // 以 mediaProjection 类型启动前台服务，先用 startService
+                    startService(intent)
 
                     // 立即请求截图权限（而非等到截图时再请求）
                     requestScreenCapturePermission()
@@ -227,7 +228,9 @@ class MainActivity : FlutterActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                // 授权成功，创建 MediaProjection
+                // 先升级为前台服务（Android 15 要求 getMediaProjection 前必须有 mediaProjection 类型的前台服务）
+                FloatingWindowManager.getInstance()?.promoteToForeground()
+                // 然后创建 MediaProjection
                 val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                 val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
                 // 设置给 FloatingWindowManager
@@ -323,7 +326,12 @@ class MainActivity : FlutterActivity() {
             }
         }
         val filter = IntentFilter("com.example.flutter_application_1.REGION_CAPTURED")
-        registerReceiver(regionCaptureReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        val receiverFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Context.RECEIVER_NOT_EXPORTED
+        } else {
+            0
+        }
+        registerReceiver(regionCaptureReceiver, filter, receiverFlags)
     }
 
     private fun registerAiQuestionReceiver() {
@@ -345,7 +353,12 @@ class MainActivity : FlutterActivity() {
             }
         }
         val filter = IntentFilter("com.example.flutter_application_1.AI_QUESTION")
-        registerReceiver(aiQuestionReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        val receiverFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Context.RECEIVER_NOT_EXPORTED
+        } else {
+            0
+        }
+        registerReceiver(aiQuestionReceiver, filter, receiverFlags)
     }
 
     private fun handleIntent(intent: Intent?) {
