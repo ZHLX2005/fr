@@ -292,6 +292,16 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               obscureText: true,
             ),
             const SizedBox(height: 12),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'API URL',
+                hintText: '输入 API URL',
+                border: OutlineInputBorder(),
+              ),
+              controller: TextEditingController(text: _apiUrl),
+              onChanged: (v) => _apiUrl = v,
+            ),
+            const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _selectedModel,
               decoration: const InputDecoration(
