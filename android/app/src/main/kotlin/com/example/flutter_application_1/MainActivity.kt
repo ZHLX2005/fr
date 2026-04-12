@@ -95,11 +95,14 @@ class MainActivity : FlutterActivity() {
                 "loadAiConfig" -> {
                     // 从 SharedPreferences 加载 AI 配置
                     val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
+                    val defaultApiUrl = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+                    val defaultModel = "glm-4v-flash"
+                    val defaultSystemPrompt = "你是一个专业的AI助手，请根据图片回答用户问题。"
                     val config = mapOf(
-                        "apiUrl" to (prefs.getString("api_url", "") ?: ""),
-                        "apiKey" to (prefs.getString("api_key", "") ?: ""),
-                        "model" to (prefs.getString("model", "glm-4v-flash") ?: "glm-4v-flash"),
-                        "systemPrompt" to (prefs.getString("system_prompt", "") ?: "")
+                        "apiUrl" to (prefs.getString("api_url", null) ?: defaultApiUrl),
+                        "apiKey" to (prefs.getString("api_key", null) ?: ""),
+                        "model" to (prefs.getString("model", null) ?: defaultModel),
+                        "systemPrompt" to (prefs.getString("system_prompt", null) ?: defaultSystemPrompt)
                     )
                     result.success(config)
                 }

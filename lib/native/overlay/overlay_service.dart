@@ -80,24 +80,33 @@ class OverlayService {
 
   /// 加载 AI 配置（用于回填表单）
   Future<Map<String, String>> loadAiConfig() async {
+    const defaultApiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+    const defaultModel = 'glm-4v-flash';
+    const defaultSystemPrompt = '你是一个专业的AI助手，请根据图片回答用户问题。';
+
     try {
       final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('loadAiConfig');
       if (result != null) {
+        final apiUrl = result['apiUrl'] as String?;
+        final apiKey = result['apiKey'] as String?;
+        final model = result['model'] as String?;
+        final systemPrompt = result['systemPrompt'] as String?;
+
         return {
-          'apiUrl': result['apiUrl'] as String? ?? '',
-          'apiKey': result['apiKey'] as String? ?? '',
-          'model': result['model'] as String? ?? 'glm-4v-flash',
-          'systemPrompt': result['systemPrompt'] as String? ?? '',
+          'apiUrl': (apiUrl != null && apiUrl.isNotEmpty) ? apiUrl : defaultApiUrl,
+          'apiKey': apiKey ?? '',
+          'model': (model != null && model.isNotEmpty) ? model : defaultModel,
+          'systemPrompt': systemPrompt ?? defaultSystemPrompt,
         };
       }
     } on PlatformException catch (e) {
       debugPrint('加载配置失败: ${e.message}');
     }
     return {
-      'apiUrl': 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+      'apiUrl': defaultApiUrl,
       'apiKey': '',
-      'model': 'glm-4v-flash',
-      'systemPrompt': '你是一个专业的AI助手，请根据图片回答用户问题。',
+      'model': defaultModel,
+      'systemPrompt': defaultSystemPrompt,
     };
   }
 
