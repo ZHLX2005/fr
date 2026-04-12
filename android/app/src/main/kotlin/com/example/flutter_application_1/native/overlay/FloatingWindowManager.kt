@@ -711,12 +711,16 @@ class FloatingWindowManager : Service() {
 
     fun setMediaProjection(mediaProjection: MediaProjection?) {
         this.mediaProjection = mediaProjection
-        // 如果正在等待截图权限，权限授予后自动继续截图
+        if (mediaProjection != null) {
+            // 授权成功，立即创建 VirtualDisplay + ImageReader 并保持常驻
+            setupVirtualDisplay()
+        }
         if (mediaProjection != null && isWaitingForScreenshotPermission) {
             android.util.Log.d("FloatingWindow", "setMediaProjection: permission granted, continuing screenshot")
             isWaitingForScreenshotPermission = false
+            // VirtualDisplay 已在 setupVirtualDisplay() 中创建，直接取帧
             handler.post {
-                startScreenCaptureForRegion()
+                takePictureForRegion()
             }
         }
     }
@@ -798,32 +802,6 @@ class FloatingWindowManager : Service() {
         mediaProjection = null
         virtualDisplay = null
         imageReader = null
-    }
-
-    /**
-     * 释放 imageReader、virtualDisplay，并停止 mediaProjection
-     * Android MediaProjection 每个实例只能创建一个 VirtualDisplay，
-     * 因此每次截图后需要完全释放，下一次重新请求权限
-     */
-    private fun releaseImageReaderAndVirtualDisplay() {
-        try {
-            virtualDisplay?.release()
-        } catch (e: Exception) {
-            // 忽略
-        }
-        try {
-            imageReader?.close()
-        } catch (e: Exception) {
-            // 忽略
-        }
-        try {
-            mediaProjection?.stop()
-        } catch (e: Exception) {
-            // 忽略
-        }
-        virtualDisplay = null
-        imageReader = null
-        mediaProjection = null
     }
 
     fun hideFloatingWindow() {
@@ -968,7 +946,7 @@ class FloatingWindowManager : Service() {
      * 触发区域截图
      */
     private fun captureRegion() {
-        // 先隐藏选框
+        // 先隐藏选框，避免蒙层出现在截图中
         hideSelectionOverlay()
 
         // 播放截图音效
@@ -986,11 +964,15 @@ class FloatingWindowManager : Service() {
             Toast.makeText(this, "截屏中...", Toast.LENGTH_SHORT).show()
         }
 
-        startScreenCaptureForRegion()
+        // 延迟 50ms 等待蒙层从屏幕帧中消失（约 3 帧@60fps）
+        handler.postDelayed({
+            startScreenCaptureForRegion()
+        }, 50)
     }
 
     /**
-     * 全屏截图供裁剪
+     * 区域截图入口
+     * VirtualDisplay 已常驻运行，直接取帧即可
      */
     private fun startScreenCaptureForRegion() {
         android.util.Log.d("FloatingWindow", ">>> startScreenCaptureForRegion, mediaProjection=$mediaProjection")
@@ -1005,52 +987,16 @@ class FloatingWindowManager : Service() {
             return
         }
 
-        try {
-            val displayMetrics = DisplayMetrics()
-            windowManager?.defaultDisplay?.getMetrics(displayMetrics)
-            val width = displayMetrics.widthPixels
-            val height = displayMetrics.heightPixels
-            val density = displayMetrics.densityDpi
-
-            imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-
-            val callback = object : MediaProjection.Callback() {
-                override fun onStop() {
-                    virtualDisplay?.release()
-                    handler.post {
-                        Toast.makeText(this@FloatingWindowManager, "截图权限已取消", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-
-            mediaProjection?.registerCallback(callback, handler)
-
-            virtualDisplay = mediaProjection?.createVirtualDisplay(
-                "ScreenCapture",
-                width,
-                height,
-                density,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                imageReader?.surface,
-                null,
-                handler
-            )
-
-            // 增加延迟到 300ms 确保 ImageReader 准备好
-            handler.postDelayed({
-                takePictureForRegion(width, height)
-            }, 300)
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            handler.post {
-                Toast.makeText(this, "截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
+        // VirtualDisplay 已常驻，直接取帧
+        takePictureForRegion()
     }
 
-    private fun takePictureForRegion(screenWidth: Int, screenHeight: Int) {
+    private fun takePictureForRegion() {
         android.util.Log.d("FloatingWindow", ">>> takePictureForRegion begin, imageReader=$imageReader")
+
+        // 暂停自动消费，确保截屏能拿到帧
+        imageReader?.setOnImageAvailableListener(null, null)
+
         try {
             val image = imageReader?.acquireLatestImage()
             android.util.Log.d("FloatingWindow", "takePictureForRegion: acquired image=$image")
@@ -1076,32 +1022,37 @@ class FloatingWindowManager : Service() {
                     it.height
                 )
 
+                val captureWidth = it.width
+                val captureHeight = it.height
+
                 // 保存全屏截图用于后续处理
                 pendingBitmap = fullBitmap
                 bitmap.recycle()
                 it.close()
 
                 // 裁剪并发送
-                cropAndSendBitmap(screenWidth, screenHeight)
-
-                // 截图完成，释放 MediaProjection
-                // 下次截图需要重新请求权限（Android MediaProjection token 只能用一次）
-                releaseMediaProjection()
+                cropAndSendBitmap(captureWidth, captureHeight)
             } ?: run {
                 android.util.Log.e("FloatingWindow", "takePictureForRegion: image is null, cannot capture")
                 handler.post {
                     Toast.makeText(this, "截图失败：无法获取图像", Toast.LENGTH_SHORT).show()
                 }
-                // 截图失败也释放 MediaProjection，下次重新请求
-                releaseMediaProjection()
             }
         } catch (e: Exception) {
+            android.util.Log.e("FloatingWindow", "takePictureForRegion error: ${e.message}", e)
             e.printStackTrace()
             handler.post {
                 Toast.makeText(this, "保存截图失败: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-            // 截图失败也释放 MediaProjection，下次重新请求
-            releaseMediaProjection()
+        } finally {
+            // 恢复自动消费旧帧
+            try {
+                imageReader?.setOnImageAvailableListener({ reader ->
+                    reader.acquireLatestImage()?.close()
+                }, handler)
+            } catch (e: Exception) {
+                // 忽略
+            }
         }
     }
 
