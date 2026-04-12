@@ -251,7 +251,8 @@ class FloatingWindowManager : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                startForeground(NOTIFICATION_ID, createNotification())
+                // 不在此处调用 startForeground()，延迟到 MediaProjection 授权后
+                // Android 15 要求拥有 MediaProjection 后才能以 mediaProjection 类型启动前台服务
                 showFloatingWindow()
             }
             ACTION_STOP -> {
@@ -712,7 +713,14 @@ class FloatingWindowManager : Service() {
     fun setMediaProjection(mediaProjection: MediaProjection?) {
         this.mediaProjection = mediaProjection
         if (mediaProjection != null) {
-            // 授权成功，立即创建 VirtualDisplay + ImageReader 并保持常驻
+            // 授权成功，升级为 mediaProjection 类型的前台服务
+            // Android 15 要求在获得 MediaProjection 后才能以该类型启动前台服务
+            try {
+                startForeground(NOTIFICATION_ID, createNotification())
+            } catch (e: Exception) {
+                android.util.Log.e("FloatingWindow", "startForeground failed: ${e.message}", e)
+            }
+            // 立即创建 VirtualDisplay + ImageReader 并保持常驻
             setupVirtualDisplay()
         }
         if (mediaProjection != null && isWaitingForScreenshotPermission) {

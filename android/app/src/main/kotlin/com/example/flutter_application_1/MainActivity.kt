@@ -123,7 +123,9 @@ class MainActivity : FlutterActivity() {
                     val intent = Intent(this, FloatingWindowManager::class.java).apply {
                         action = FloatingWindowManager.ACTION_START
                     }
-                    startForegroundService(intent)
+                    // Android 15 (targetSDK=35) 不允许在获得 MediaProjection 之前
+                    // 以 mediaProjection 类型启动前台服务，先用 startService
+                    startService(intent)
 
                     // 立即请求截图权限（而非等到截图时再请求）
                     requestScreenCapturePermission()
