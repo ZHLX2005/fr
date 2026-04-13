@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import '../../native/schema.dart';
+import '../../core/schema/schema.dart';
 
 /// Schema 链接功能演示
 class SchemaDemo extends DemoPage {
