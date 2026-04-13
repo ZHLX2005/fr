@@ -288,30 +288,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 显示安装对话框
-  void _showInstallDialog(String filePath) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('下载完成'),
-        content: Text('APK 已下载到:\n$filePath\n\n是否立即安装？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _installApk(filePath);
-            },
-            child: const Text('安装'),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 安装APK
   Future<void> _installApk(String filePath) async {
     try {
