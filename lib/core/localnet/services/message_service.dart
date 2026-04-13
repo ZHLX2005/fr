@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:uuid/uuid.dart';
 
+import '../models/localnet_constants.dart';
 import '../models/localnet_device.dart';
 import '../models/localnet_message.dart';
 import 'debug_log_service.dart';
@@ -13,7 +14,7 @@ import 'debug_log_service.dart';
 /// - POST /message 发送消息 (HTTP client)
 /// - 接收消息由 DiscoveryService 的 HTTP 服务器代理
 class MessageService {
-  static const int defaultPort = 53317;
+  static int get defaultPort => LocalnetConstants.defaultPort;
 
   static const String stateInit = 'INIT';
   static const String stateRunning = 'RUNNING';
@@ -22,16 +23,15 @@ class MessageService {
   String deviceAlias;
   int apiPort = defaultPort;
 
-  final _messagesController = StreamController<List<LocalnetMessage>>.broadcast();
+  final _messagesController =
+      StreamController<List<LocalnetMessage>>.broadcast();
   final List<LocalnetMessage> _messages = [];
   String _serviceState = stateInit;
 
-  MessageService({
-    required this.deviceId,
-    required this.deviceAlias,
-  });
+  MessageService({required this.deviceId, required this.deviceAlias});
 
-  Stream<List<LocalnetMessage>> get messagesStream => _messagesController.stream;
+  Stream<List<LocalnetMessage>> get messagesStream =>
+      _messagesController.stream;
   List<LocalnetMessage> get messages => List.unmodifiable(_messages);
   String get serviceState => _serviceState;
 
@@ -53,12 +53,15 @@ class MessageService {
     );
 
     try {
-      debugLog.d('Message', '→ POST /message to ${target.ip}:${target.port}');
+      final url = LocalnetConstants.buildHttpUrl(
+        target.ip,
+        target.port,
+        LocalnetConstants.httpPathMessage,
+      );
+      debugLog.d('Message', '→ POST ${LocalnetConstants.httpPathMessage} to ${target.ip}:${target.port}');
 
       final client = HttpClient();
-      final request = await client.postUrl(
-        Uri.parse('http://${target.ip}:${target.port}/message'),
-      );
+      final request = await client.postUrl(Uri.parse(url));
       request.headers.set('Content-Type', 'application/json');
       request.write(jsonEncode(message.toJson()));
 
