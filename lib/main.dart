@@ -14,7 +14,7 @@ import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
 import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
-import 'native/schema.dart';
+import 'core/schema/schema.dart';
 import 'lab/demos/grid_dashboard_demo.dart';
 import 'lab/demos/notebook_demo_ai_proto.dart';
 import 'lab/demos/clock_demo.dart';
