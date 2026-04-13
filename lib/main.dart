@@ -38,10 +38,12 @@ import 'lab/demos/torch_demo.dart';
 import 'lab/demos/sensor_demo.dart';
 import 'lab/demos/word_drag_demo.dart';
 import 'lab/demos/overlay_demo.dart';
+import 'lab/demos/body_map_demo.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/body/models/body_record_repo.dart';
 
 void main() async {
   // 确保 Flutter 绑定初始化
@@ -50,6 +52,7 @@ void main() async {
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();
   await hiveRepo.init();
+  await bodyRecordRepo.init();
 
   // 注册 Demo 页面
   // 注册 Demo 页面
@@ -76,6 +79,7 @@ void main() async {
   registerSensorDemo();
   registerWordDragDemo();
   registerOverlayDemo();
+  registerBodyMapDemo();
   registerLocalnetDemo();
   registerGalleryDemo();
   registerSchemaDemo();
