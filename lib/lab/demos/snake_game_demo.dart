@@ -39,7 +39,6 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
   late FocusNode _focusNode;
   late Direction _direction;
   Timer? _gameTimer;
-  bool _isGameOver = false;
 
   @override
   void initState() {
@@ -52,7 +51,6 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
     _gameTimer?.cancel();
     setState(() {
       _score = 0;
-      _isGameOver = false;
       _makeBorder();
       _generateFood();
       _direction = Direction.right;
@@ -64,9 +62,6 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
       _updateSnake();
       if (_checkCollision()) {
         timer.cancel();
-        setState(() {
-          _isGameOver = true;
-        });
       }
     });
   }
@@ -158,31 +153,6 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
         }
       });
     }
-  }
-
-  void _handleSwipe(PointerScrollEvent event) {
-    final dy = event.scrollDelta.dy;
-    final dx = event.scrollDelta.dx;
-
-    if (dy.abs() > dx.abs()) {
-      // 垂直滑动
-      if (dy < 0 && _direction != Direction.down) {
-        _direction = Direction.up;
-      } else if (dy > 0 && _direction != Direction.up) {
-        _direction = Direction.down;
-      }
-    } else {
-      // 水平滑动
-      if (dx < 0 && _direction != Direction.right) {
-        _direction = Direction.left;
-      } else if (dx > 0 && _direction != Direction.left) {
-        _direction = Direction.right;
-      }
-    }
-  }
-
-  void _handleSwipeFromGesture(DragEndDetails details) {
-    // 这个方法保留用于可能的滑动手势
   }
 
   void _handleKey(RawKeyEvent event) {

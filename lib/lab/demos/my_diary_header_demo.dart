@@ -36,7 +36,6 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
   static const Color _tertiaryColor = Color(0xFF4ECDC4);
   static const Color _accentColor = Color(0xFFFFE66D);
   static const Color _backgroundColor = Color(0xFFF2F3F8);
-  static const Color _cardColor = Color(0xFFFFFFFF);
 
   final List<_DiaryCard> _cards = [
     _DiaryCard(

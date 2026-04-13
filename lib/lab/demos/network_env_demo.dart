@@ -44,12 +44,6 @@ class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProvi
   // 网络接口信息
   List<NetworkInterface> _interfaces = [];
 
-  // DNS 服务器
-  List<InternetAddress> _dnsServers = [];
-
-  // TCP 连接 (占位，实际需要系统API)
-  List<String> _tcpConnections = [];
-
   // 加载状态
   bool _loading = false;
   String? _error;
@@ -124,7 +118,7 @@ class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProvi
   Future<void> _loadDnsServers() async {
     try {
       // 尝试获取系统 DNS
-      _dnsServers = await InternetAddress.lookup('localhost');
+      await InternetAddress.lookup('localhost');
     } catch (e) {
       debugPrint('DNS error: $e');
     }
@@ -134,7 +128,7 @@ class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProvi
     // 注意: 获取系统 TCP 连接需要平台特定 API
     // 这里仅做占位显示
     try {
-      _tcpConnections = ['TCP 连接信息需要系统 API 支持'];
+      // 占位：实际需要系统 API
     } catch (e) {
       debugPrint('TCP connections error: $e');
     }
