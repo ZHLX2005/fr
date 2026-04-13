@@ -318,6 +318,17 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               },
             ),
             const SizedBox(height: 12),
+            TextField(
+              decoration: const InputDecoration(
+                labelText: '系统提示词',
+                hintText: '自定义 AI 行为指令',
+                border: OutlineInputBorder(),
+              ),
+              controller: TextEditingController(text: _systemPrompt),
+              onChanged: (v) => _systemPrompt = v,
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
