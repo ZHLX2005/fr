@@ -193,7 +193,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     return state.items[cellKey];
   });
 
-  /// 所有天的课程 Provider - 返回 Map<dayOfCycle, List<CourseItem?>>
+  /// 所有天的课程 Provider - 返回 Map&#60;dayOfCycle, List&#60;CourseItem?&#62;&#62;
   /// 这个 provider 按 dayOfCycle 存储课程，所以所有周期显示相同的课程
   static final allDaySlotsProvider = Provider<Map<int, List<CourseItem?>>>((ref) {
     final config = ref.watch(configProvider);

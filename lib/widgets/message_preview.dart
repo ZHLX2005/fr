@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 
 /// 预览消息类型
 enum PreviewType {
@@ -225,30 +223,6 @@ class MessagePreviewWidget extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWaveAnimation(BuildContext context) {
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          for (int i = 0; i < 5; i++)
-            Positioned(
-              left: i.toDouble() * 8,
-              child: Container(
-                width: 4,
-                height: 20 + (i * 6).toDouble(),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3 - (i * 0.05).clamp(0, 0.3)),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
         ],
       ),
     );

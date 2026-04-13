@@ -1,5 +1,5 @@
-/// 课表系统 - Domain Models
-/// 配置驱动的多层级课表系统
+// 课表系统 - Domain Models
+// 配置驱动的多层级课表系统
 
 /// 周期配置模型
 class TimetableConfig {

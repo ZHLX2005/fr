@@ -1,6 +1,6 @@
-/// Schema 路由导航器
-///
-/// 处理 schema:// 协议的路由分发
+// Schema 路由导航器
+//
+// 处理 schema:// 协议的路由分发
 
 import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';

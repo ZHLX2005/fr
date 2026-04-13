@@ -1,8 +1,8 @@
 // Schema 模块 - 内部链接协议
-///
-/// 提供文本内嵌可点击链接功能，支持跳转到应用内任意 Demo 页面
-///
-/// 使用方式:
+//
+// 提供文本内嵌可点击链接功能，支持跳转到应用内任意 Demo 页面
+//
+// 使用方式:
 /// ```dart
 /// import 'package:flutter_application_1/core/schema/schema.dart';
 ///
