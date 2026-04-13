@@ -67,8 +67,6 @@ class _FreeCanvasPage extends StatefulWidget {
 class _FreeCanvasPageState extends State<_FreeCanvasPage> {
   final List<CanvasNode> _nodes = [];
   String? _selectedNodeId;
-  Offset _canvasOffset = Offset.zero;
-  double _scale = 1.0;
   final TransformationController _transformController = TransformationController();
 
   @override
@@ -197,10 +195,6 @@ class _FreeCanvasPageState extends State<_FreeCanvasPage> {
             icon: const Icon(Icons.fit_screen),
             onPressed: () {
               _transformController.value = Matrix4.identity();
-              setState(() {
-                _scale = 1.0;
-                _canvasOffset = Offset.zero;
-              });
             },
             tooltip: '重置视图',
           ),

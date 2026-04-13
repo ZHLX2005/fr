@@ -1264,7 +1264,6 @@ class _RecordSwipeAction extends StatefulWidget {
   final Color themeColor;
 
   const _RecordSwipeAction({
-    super.key,
     required this.child,
     required this.onCreate,
     required this.onDelete,

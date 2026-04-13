@@ -156,7 +156,7 @@ class _HomeGridView extends StatelessWidget {
     // 文件夹点击打开
     VoidCallback? onTap;
     if (item is FolderItem) {
-      onTap = () => FolderSheet.show(context, item as FolderItem);
+      onTap = () => FolderSheet.show(context, item);
     }
 
     // 应用/文件夹拖到其他图标上触发合并

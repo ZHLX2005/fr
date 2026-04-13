@@ -288,37 +288,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 安装APK
-  Future<void> _installApk(String filePath) async {
-    try {
-      final result = await OpenFilex.open(
-        filePath,
-        type: 'application/vnd.android.package-archive',
-      );
-      if (mounted) {
-        if (result.type == ResultType.done) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('安装器已启动')),
-          );
-        } else if (result.type == ResultType.noAppToOpen) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('未找到可打开的应用')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('打开失败: ${result.message}')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法打开安装器: $e')),
-        );
-      }
-    }
-  }
-
   // 用系统方式打开文件（分享兜底）
   Future<void> _openApk() async {
     if (_downloadedApkPath == null) return;
