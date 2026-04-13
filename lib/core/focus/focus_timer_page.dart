@@ -86,8 +86,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
     final now = DateTime.now();
     final hour = now.hour.toString().padLeft(2, '0');
     final minute = now.minute.toString().padLeft(2, '0');
-    final second = now.second.toString().padLeft(2, '0');
-    return '$hour:$minute:$second';
+    return '$hour:$minute';
   }
 
   String _formatElapsed() {
@@ -491,31 +490,104 @@ class _FocusTimerPageState extends State<FocusTimerPage>
 
   void _showEndConfirmDialog(
       BuildContext context, FocusTimerProvider timer) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('完成专注'),
-        content: Text('已专注 ${timer.totalSeconds ~/ 60} 分钟，确定完成吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final session = timer.completeSession();
-              if (session != null && context.mounted) {
-                final focusProvider = context.read<data.FocusProvider>();
-                await focusProvider.addSession(session);
-                if (mounted) {
-                  _showCompletionDialog(context, session);
-                }
-              }
-            },
-            child: const Text('完成'),
-          ),
-        ],
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black26,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).padding.bottom + 24,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              '完成专注',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF7A9A6E),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '已专注 ${timer.totalSeconds ~/ 60} 分钟',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w200,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '取消',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () async {
+                      Navigator.pop(context);
+                      final session = timer.completeSession();
+                      if (session != null && context.mounted) {
+                        final focusProvider = context.read<data.FocusProvider>();
+                        await focusProvider.addSession(session);
+                        if (mounted) {
+                          _showCompletionDialog(context, session);
+                        }
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7A9A6E),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '完成',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
