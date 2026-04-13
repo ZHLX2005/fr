@@ -94,8 +94,6 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
     final config = ref.watch(TimetableStore.configProvider);
     final isEditing = widget.existingCourse != null;
 
-    final screenSize = MediaQuery.of(context).size;
-
     return Stack(
       children: [
         // 半透明遮罩
@@ -267,41 +265,6 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({
-    required this.label,
-    this.required = false,
-  });
-
-  final String label;
-  final bool required;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        if (required)
-          Text(
-            ' *',
-            style: TextStyle(
-              color: theme.colorScheme.error,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
       ],
     );
   }

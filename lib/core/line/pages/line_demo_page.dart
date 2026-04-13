@@ -859,33 +859,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
     });
   }
 
-  void _restartGame() {
-    for (final noteList in _notes) {
-      for (final note in noteList) {
-        note.controller.dispose();
-      }
-      noteList.clear();
-    }
-    for (final e in _explodes) {
-      e.controller.dispose();
-    }
-    _explodes.clear();
-
-    setState(() {
-      _score = 0;
-      _health = 1.0;
-      _nextNoteIndex = 0;
-      _perfectCount = 0;
-      _greatCount = 0;
-      _goodCount = 0;
-      _missCount = 0;
-      _maxCombo = 0;
-      _currentCombo = 0;
-    });
-
-    _startCountdown();
-  }
-
   Future<void> _handleExit() async {
     if (_isExiting) return;
     _stopGame();

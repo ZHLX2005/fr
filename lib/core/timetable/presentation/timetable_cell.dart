@@ -76,31 +76,6 @@ class TimetableCell extends StatelessWidget {
     return colors[seed % colors.length];
   }
 
-  Border? _border(ThemeData theme) {
-    switch (state) {
-      case TimetableCellState.empty:
-        return null;
-      case TimetableCellState.selected:
-        return null;
-      case TimetableCellState.filled:
-        return Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
-          width: 1,
-        );
-    }
-  }
-
-  List<BoxShadow>? _boxShadow(ThemeData theme) {
-    if (state != TimetableCellState.filled) return null;
-    return [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.06),
-        blurRadius: 4,
-        offset: const Offset(0, 1),
-      ),
-    ];
-  }
-
   Widget _buildContent(ThemeData theme) {
     switch (state) {
       case TimetableCellState.empty:
