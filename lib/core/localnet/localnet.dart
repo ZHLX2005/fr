@@ -1,4 +1,5 @@
 export 'localnet_service.dart';
+export 'models/localnet_constants.dart';
 export 'models/localnet_device.dart';
 export 'models/localnet_message.dart';
 export 'pages/localnet_discover_page.dart';

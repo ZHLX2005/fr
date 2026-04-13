@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'localnet_constants.dart';
+
 class LocalnetConfig {
   static const String _keyDeviceAlias = 'localnet_device_alias';
   static const String _keyHttpEnabled = 'localnet_http_enabled';
@@ -18,13 +20,13 @@ class LocalnetConfig {
   final int port;
 
   const LocalnetConfig({
-    this.deviceAlias = 'Flutter Device',
+    this.deviceAlias = LocalnetConstants.defaultDeviceAlias,
     this.httpEnabled = true,
     this.multicastEnabled = true,
     this.udpBroadcastEnabled = true,
     this.udpListenerEnabled = true,
     this.httpServerEnabled = true,
-    this.port = 53317,
+    this.port = LocalnetConstants.defaultPort,
   });
 
   LocalnetConfig copyWith({
@@ -59,26 +61,26 @@ class LocalnetConfig {
 
   factory LocalnetConfig.fromJson(Map<String, dynamic> json) {
     return LocalnetConfig(
-      deviceAlias: json['deviceAlias'] as String? ?? 'Flutter Device',
+      deviceAlias: json['deviceAlias'] as String? ?? LocalnetConstants.defaultDeviceAlias,
       httpEnabled: json['httpEnabled'] as bool? ?? true,
       multicastEnabled: json['multicastEnabled'] as bool? ?? true,
       udpBroadcastEnabled: json['udpBroadcastEnabled'] as bool? ?? true,
       udpListenerEnabled: json['udpListenerEnabled'] as bool? ?? true,
       httpServerEnabled: json['httpServerEnabled'] as bool? ?? true,
-      port: json['port'] as int? ?? 53317,
+      port: json['port'] as int? ?? LocalnetConstants.defaultPort,
     );
   }
 
   static Future<LocalnetConfig> load() async {
     final prefs = await SharedPreferences.getInstance();
     return LocalnetConfig(
-      deviceAlias: prefs.getString(_keyDeviceAlias) ?? 'Flutter Device',
+      deviceAlias: prefs.getString(_keyDeviceAlias) ?? LocalnetConstants.defaultDeviceAlias,
       httpEnabled: prefs.getBool(_keyHttpEnabled) ?? true,
       multicastEnabled: prefs.getBool(_keyMulticastEnabled) ?? true,
       udpBroadcastEnabled: prefs.getBool(_keyUdpBroadcastEnabled) ?? true,
       udpListenerEnabled: prefs.getBool(_keyUdpListenerEnabled) ?? true,
       httpServerEnabled: prefs.getBool(_keyHttpServerEnabled) ?? true,
-      port: prefs.getInt(_keyPort) ?? 53317,
+      port: prefs.getInt(_keyPort) ?? LocalnetConstants.defaultPort,
     );
   }
 
