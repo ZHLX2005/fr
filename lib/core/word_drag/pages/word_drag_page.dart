@@ -149,7 +149,6 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
 
   Widget _buildCard(WordDragNotifier notifier, WordDragState state) {
     final screenSize = MediaQuery.of(context).size;
-    final cardWidth = screenSize.width * 0.8;
     final cardHeight = screenSize.height * 0.6;
 
     // Kotlin 使用 BiasAlignment(0f, -0.12f) 将卡片上移 12% 屏幕高度

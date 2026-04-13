@@ -42,12 +42,10 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   bool _isDragging = false;
   late AnimationController _animController;
   late AnimationController _snapController;
-  late Animation<double> _waveAnimation;
   late Animation<double> _snapAnimation;
 
   // 摇一摇检测相关变量
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
-  double _lastAcceleration = 0;
   DateTime _lastShakeTime = DateTime.now();
   static const double _shakeThreshold = 15.0; // 摇晃阈值
   static const Duration _shakeCooldown = Duration(seconds: 2); // 摇晃冷却时间
@@ -96,9 +94,6 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    );
-    _waveAnimation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
 
     // 吸附动画 - 更快的吸附速度和更平滑的曲线
@@ -215,8 +210,6 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
         _onShakeDetected();
       }
     }
-
-    _lastAcceleration = acceleration;
   }
 
   // 摇晃检测到后的回调
@@ -1030,98 +1023,6 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
         ),
       ],
     );
-  }
-}
-
-/// 波浪线画笔
-class _WaveLinePainter extends CustomPainter {
-  final double waveAnimation;
-  final bool isDragging;
-  final Color color;
-  final bool isNearSnapPoint;  // 是否接近磁吸点
-  final int? snapPointIndex;   // 磁吸点索引 (0=1/3, 1=2/3)
-
-  _WaveLinePainter({
-    required this.waveAnimation,
-    required this.isDragging,
-    required this.color,
-    this.isNearSnapPoint = false,
-    this.snapPointIndex,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // 根据是否接近磁吸点调整样式
-    final isNear = isNearSnapPoint || isDragging;
-    final opacity = isNear ? 0.8 : 0.4;
-    final strokeWidth = isNear ? 3.5 : 2.0;
-
-    final paint = Paint()
-      ..color = color.withOpacity(opacity)
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-
-    // 增强波浪效果 - 接近磁吸点时波浪更大
-    final baseWaveHeight = isDragging ? 12.0 : 8.0;
-    final waveHeight = isNearSnapPoint ? baseWaveHeight * 1.5 : baseWaveHeight;
-
-    path.moveTo(0, size.height / 2);
-
-    for (double x = 0; x <= size.width; x += 5) {
-      final normalizedX = x / size.width;
-      final wavePhase = waveAnimation + (normalizedX * 4 * math.pi);
-      final yOffset = math.sin(wavePhase) * waveHeight;
-
-      // 在1/3和2/3位置添加增强的磁吸点效果
-      final snapEffect = _getSnapEffect(normalizedX);
-      final snapAmplitude = isNearSnapPoint ? 10.0 : 6.0;  // 接近时振幅更大
-      final snapYOffset = snapEffect * math.sin(waveAnimation * 2) * snapAmplitude;
-
-      // 如果接近特定磁吸点，在该位置产生脉冲效果
-      double pulseOffset = 0;
-      if (isNearSnapPoint && snapPointIndex != null) {
-        final targetX = snapPointIndex == 0 ? 1.0 / 3.0 : 2.0 / 3.0;
-        final distToTarget = (normalizedX - targetX).abs();
-        if (distToTarget < 0.15) {
-          // 在磁吸点附近产生脉冲
-          final pulseIntensity = 1.0 - (distToTarget / 0.15);
-          pulseOffset = math.sin(waveAnimation * 3) * 4 * pulseIntensity;
-        }
-      }
-
-      path.lineTo(x, size.height / 2 + yOffset + snapYOffset + pulseOffset);
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  double _getSnapEffect(double normalizedX) {
-    // 在1/3和2/3位置有更强的波浪效果
-    const snapOneThird = 1.0 / 3.0;
-    const snapTwoThird = 2.0 / 3.0;
-
-    final distToFirst = (normalizedX - snapOneThird).abs();
-    final distToSecond = (normalizedX - snapTwoThird).abs();
-
-    // 增加影响范围从0.1到0.15
-    if (distToFirst < 0.15) {
-      return (1.0 - distToFirst / 0.15);
-    } else if (distToSecond < 0.15) {
-      return (1.0 - distToSecond / 0.15);
-    }
-    return 0.0;
-  }
-
-  @override
-  bool shouldRepaint(_WaveLinePainter oldDelegate) {
-    return waveAnimation != oldDelegate.waveAnimation ||
-        isDragging != oldDelegate.isDragging ||
-        color != oldDelegate.color ||
-        isNearSnapPoint != oldDelegate.isNearSnapPoint ||
-        snapPointIndex != oldDelegate.snapPointIndex;
   }
 }
 
