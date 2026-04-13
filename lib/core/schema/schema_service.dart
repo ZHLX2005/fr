@@ -1,12 +1,12 @@
-/// Schema 服务 - 内部链接协议管理
-///
-/// 协议格式: fr://lab/demo/{demo-key}
-/// 示例: [悬浮截屏](fr://lab/demo/悬浮截屏)
-///
-/// 使用方式:
-/// - 在文本中使用 [显示文字](fr://lab/demo/目标Demo) 格式
-/// - 渲染后显示为下划线高亮文本
-/// - 点击后跳转到对应的 Demo 页面
+// Schema 服务 - 内部链接协议管理
+//
+// 协议格式: fr://lab/demo/{demo-key}
+// 示例: [悬浮截屏](fr://lab/demo/悬浮截屏)
+//
+// 使用方式:
+// - 在文本中使用 [显示文字](fr://lab/demo/目标Demo) 格式
+// - 渲染后显示为下划线高亮文本
+// - 点击后跳转到对应的 Demo 页面
 
 import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';

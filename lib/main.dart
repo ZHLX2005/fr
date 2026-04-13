@@ -15,7 +15,6 @@ import 'core/schema/schema.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
-import 'core/theme/app_theme.dart';
 import 'core/body/models/body_record_repo.dart';
 
 void main() async {
@@ -52,7 +51,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   static const _channel = MethodChannel(
     'com.example.flutter_application_1/widget',
   );
-  String? _pendingRoute;
   late ThemeProvider _themeProvider;
 
   @override

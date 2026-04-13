@@ -43,7 +43,6 @@ class FocusTimerProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final savedState = prefs.getInt(_timerStateKey);
       final savedSeconds = prefs.getInt(_timerSecondsKey) ?? 0;
-      final savedSubjectId = prefs.getString(_timerSubjectKey);
       final savedStartTimeStr = prefs.getString(_timerStartTimeKey);
 
       if (savedState == TimerState.running.index && savedStartTimeStr != null) {

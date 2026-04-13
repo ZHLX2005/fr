@@ -1,7 +1,7 @@
-/// Schema 链接解析器
-///
-/// 解析文本中的 Markdown 风格链接: [文字](schema://path)
-/// 支持嵌套和转义
+// Schema 链接解析器
+//
+// 解析文本中的 Markdown 风格链接: [文字](schema://path)
+// 支持嵌套和转义
 
 import 'schema_service.dart';
 

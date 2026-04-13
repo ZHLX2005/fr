@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';
-import 'schema_service.dart';
 
 /// Schema 导航服务（纯静态方法）
 class SchemaNavigator {

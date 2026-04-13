@@ -1,14 +1,13 @@
-/// Schema 文本组件
-///
-/// 支持在普通文本中嵌入可点击的 schema 链接
-/// 使用方式:
-/// ```dart
-/// SchemaText('这是一个 [悬浮截屏](fr://lab/demo/悬浮截屏) 示例')
-/// ```
+// Schema 文本组件
+//
+// 支持在普通文本中嵌入可点击的 schema 链接
+// 使用方式:
+// ```dart
+// SchemaText('这是一个 [悬浮截屏](fr://lab/demo/悬浮截屏) 示例')
+// ```
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'schema_service.dart';
 import 'schema_parser.dart';
 import 'schema_navigator.dart';
 
@@ -105,7 +104,6 @@ class SchemaText extends StatelessWidget {
 /// Schema 文本控制器（用于动态更新）
 class SchemaTextController extends ChangeNotifier {
   String _text = '';
-  final List<_LinkState> _links = [];
 
   String get text => _text;
   List<SchemaTextSpan> get spans => SchemaLinkParser.parse(_text).spans;
@@ -125,14 +123,6 @@ class SchemaTextController extends ChangeNotifier {
     _text = '';
     notifyListeners();
   }
-}
-
-class _LinkState {
-  final String schema;
-  final int start;
-  final int end;
-
-  _LinkState(this.schema, this.start, this.end);
 }
 
 /// Schema 文本字段 - 带输入功能
