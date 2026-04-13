@@ -79,7 +79,7 @@ class _TorchPageState extends State<_TorchPage>
     try {
       final brightness = await ScreenBrightness().current;
       setState(() {
-        _screenBrightness = brightness ?? 0.5;
+        _screenBrightness = brightness;
         _savedBrightness = _screenBrightness;
       });
     } catch (e) {
@@ -146,7 +146,7 @@ class _TorchPageState extends State<_TorchPage>
   Future<void> _turnOnScreenLight() async {
     try {
       // 保存当前亮度
-      _savedBrightness = await ScreenBrightness().current ?? 0.5;
+      _savedBrightness = await ScreenBrightness().current;
       // 设置为最大亮度
       await ScreenBrightness().setScreenBrightness(1.0);
       if (_keepScreenOn) {

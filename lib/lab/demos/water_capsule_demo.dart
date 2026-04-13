@@ -31,7 +31,6 @@ class _WaterCapsulePageState extends State<_WaterCapsulePage>
   static const Color _darkText = Color(0xFF253840);
   static const Color _grey = Color(0xFF3A5160);
   static const Color _pink = Color(0xFFF65283);
-  static const Color _lightBlue = Color(0xFFE8EDFE);
 
   // 当前水量 (0-100)
   double _waterLevel = 60.0;
