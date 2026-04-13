@@ -4,41 +4,14 @@ import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
-import 'lab/demos/localnet_demo.dart';
-import 'lab/demos/gallery_demo.dart';
-import 'lab/demos/schema_demo.dart';
+import 'lab/lab_bootstrap.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
-import 'lab/lab_container.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
-import 'lab/demos/grid_dashboard_demo.dart';
-import 'lab/demos/notebook_demo_ai_proto.dart';
-import 'lab/demos/clock_demo.dart';
-import 'lab/demos/network_demo.dart';
-import 'lab/demos/network_env_demo.dart';
-import 'lab/demos/game_2048_demo.dart';
-import 'lab/demos/free_canvas_demo.dart';
-import 'lab/demos/drag_reorder_demo.dart';
-import 'lab/demos/web_bookmark_demo.dart';
-import 'lab/demos/storage_analyze_demo.dart';
-import 'lab/demos/hexagon_panel_demo.dart';
-import 'lab/demos/typewriter_demo.dart';
-import 'lab/demos/snake_game_demo.dart';
-import 'lab/demos/api_test_demo.dart';
-import 'lab/demos/calendar_demo.dart';
-import 'lab/demos/my_diary_header_demo.dart';
-import 'lab/demos/water_capsule_demo.dart';
-import 'lab/demos/speech_synthesis_demo.dart';
-import 'lab/demos/line_demo.dart';
-import 'lab/demos/torch_demo.dart';
-import 'lab/demos/sensor_demo.dart';
-import 'lab/demos/word_drag_demo.dart';
-import 'lab/demos/overlay_demo.dart';
-import 'lab/demos/body_map_demo.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
@@ -54,38 +27,8 @@ void main() async {
   await hiveRepo.init();
   await bodyRecordRepo.init();
 
-  // 注册 Demo 页面
-  // 注册 Demo 页面
-  registerGridDashboardDemo();
-  registerNotebookDemoAiProto();
-  registerClockDemo();
-  registerNetworkDemo();
-  registerNetworkEnvDemo();
-  registerGame2048Demo();
-  registerFreeCanvasDemo();
-  registerDragReorderDemo();
-  registerWebBookmarkDemo();
-  registerStorageAnalyzeDemo();
-  registerHexagonPanelDemo();
-  registerTypewriterDemo();
-  registerSnakeGameDemo();
-  registerApiTestDemo();
-  registerCalendarDemo();
-  registerMyDiaryHeaderDemo();
-  registerWaterCapsuleDemo();
-  registerSpeechSynthesisDemo();
-  registerLineDemo();
-  registerTorchDemo();
-  registerSensorDemo();
-  registerWordDragDemo();
-  registerOverlayDemo();
-  registerBodyMapDemo();
-  registerLocalnetDemo();
-  registerGalleryDemo();
-  registerSchemaDemo();
-
-  // 初始化 Schema 注册表（自动发现所有 Demo）
-  initSchemaRegistry();
+  // 初始化 Lab 模块（注册所有 Demo + Schema）
+  bootstrapLab();
 
   // 使用 ProviderScope 包装应用，注入 Repository
   runApp(
