@@ -1179,7 +1179,8 @@ class FloatingWindowManager : Service() {
                     {
                         "model": "$model",
                         "messages": $messages,
-                        "stream": true
+                        "stream": true,
+                        "thinking": {"type": "disabled"}
                     }
                 """.trimIndent()
 
