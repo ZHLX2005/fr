@@ -204,7 +204,7 @@ class BookmarkProvider with ChangeNotifier {
 
   void startDrag(BookmarkItem item) {
     if (item is! SingleBookmark) return;
-    _draggingBookmark = item as SingleBookmark;
+    _draggingBookmark = item;
     _hoverBookmarkIndex = null;
     notifyListeners();
   }
@@ -285,7 +285,7 @@ class BookmarkProvider with ChangeNotifier {
       final folder = BookmarkFolder(
         id: 'folder_${DateTime.now().millisecondsSinceEpoch}',
         name: 'Folder',
-        children: [target, dragging as SingleBookmark],
+        children: [target, dragging],
       );
       newItems[targetIndex] = folder;
     } else if (target is BookmarkFolder) {
@@ -293,7 +293,7 @@ class BookmarkProvider with ChangeNotifier {
       final updatedFolder = BookmarkFolder(
         id: target.id,
         name: target.name,
-        children: [...target.children, dragging as SingleBookmark],
+        children: [...target.children, dragging],
       );
       newItems[targetIndex] = updatedFolder;
     }

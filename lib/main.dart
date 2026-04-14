@@ -93,13 +93,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// 导航到 Lab 页面
-  static void navigateToLab() {
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => const LabPage()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return classic_provider.MultiProvider(

@@ -29,8 +29,6 @@ class _MediaTestPageState extends State<MediaTestPage> {
   // 音频播放相关
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
-  Duration _audioDuration = Duration.zero;
-  Duration _audioPosition = Duration.zero;
 
   @override
   void initState() {
@@ -42,22 +40,6 @@ class _MediaTestPageState extends State<MediaTestPage> {
       if (mounted) {
         setState(() {
           _isPlaying = state == PlayerState.playing;
-        });
-      }
-    });
-
-    _audioPlayer.onDurationChanged.listen((duration) {
-      if (mounted) {
-        setState(() {
-          _audioDuration = duration;
-        });
-      }
-    });
-
-    _audioPlayer.onPositionChanged.listen((position) {
-      if (mounted) {
-        setState(() {
-          _audioPosition = position;
         });
       }
     });
@@ -285,30 +267,6 @@ class _MediaTestPageState extends State<MediaTestPage> {
       }
     } catch (e) {
       debugPrint('播放音频失败: $e');
-    }
-  }
-
-  Future<void> _downloadFile(String url, String fileName) async {
-    try {
-      if (kIsWeb) {
-        // Web 环境下使用 JavaScript 下载
-        // ignore:: undefined_prefixed_name
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Web端无法直接下载，请复制链接: $url')),
-          );
-        }
-      } else {
-        // 移动端提示
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('文件路径: $url')),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('下载失败: $e');
     }
   }
 

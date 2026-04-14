@@ -2,7 +2,6 @@
 /// 集中注册所有 Demo 页面
 library lab_bootstrap;
 
-import 'lab_container.dart';
 import '../core/schema/schema.dart' show initSchemaRegistry;
 import 'demos/grid_dashboard_demo.dart';
 import 'demos/notebook_demo_ai_proto.dart';
@@ -31,8 +30,6 @@ import 'demos/body_map_demo.dart';
 import 'demos/localnet_demo.dart';
 import 'demos/gallery_demo.dart';
 import 'demos/schema_demo.dart';
-
-import 'lab_container.dart';
 
 /// 注册所有 Demo 页面
 void registerAllDemos() {

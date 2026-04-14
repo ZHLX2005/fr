@@ -436,7 +436,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                 ),
               ),
               Text(
-                '共 ${totalMinutes} 分钟',
+                '共 $totalMinutes 分钟',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],

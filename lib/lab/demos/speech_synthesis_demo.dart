@@ -9,6 +9,7 @@ import '../lab_container.dart';
 
 /// 由 WebSocket 音频数据驱动的流式 AudioSource
 /// 用广播 StreamController 分发数据，每次 request() 创建新订阅
+// ignore: experimental_member_use, unused_local_variable
 class _WebSocketAudioSource extends StreamAudioSource {
   // 广播流：所有 chunk 都通过这里分发
   final StreamController<List<int>> _broadcast = StreamController<List<int>>.broadcast();
@@ -35,6 +36,7 @@ class _WebSocketAudioSource extends StreamAudioSource {
   bool get isClosed => _closed;
 
   @override
+  // ignore: experimental_member_use
   Future<StreamAudioResponse> request([int? start, int? end]) async {
     start ??= 0;
 
@@ -44,6 +46,7 @@ class _WebSocketAudioSource extends StreamAudioSource {
     }
 
     if (_totalBytes == 0) {
+      // ignore: experimental_member_use
       return StreamAudioResponse(
         sourceLength: 0,
         contentLength: 0,
@@ -94,6 +97,7 @@ class _WebSocketAudioSource extends StreamAudioSource {
       };
     }
 
+    // ignore: experimental_member_use
     return StreamAudioResponse(
       sourceLength: _closed ? _buffer.length : 0x7FFFFFFF,
       contentLength: _closed ? (_buffer.length - start) : 0x7FFFFFFF,
