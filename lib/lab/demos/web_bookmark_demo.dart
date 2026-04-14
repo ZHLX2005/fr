@@ -379,7 +379,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
 
         // 5. 验证并下载 icon
         try {
-          final iconResponse = await http.get(Uri.parse(iconUrl!)).timeout(const Duration(seconds: 5));
+          final iconResponse = await http.get(Uri.parse(iconUrl)).timeout(const Duration(seconds: 5));
           if (iconResponse.statusCode == 200 && iconResponse.bodyBytes.isNotEmpty) {
             dialogSetState(() {
               isFetchingIcon = false;
@@ -980,7 +980,6 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
             ),
           ],
         );
-      case BookmarkIconType.icon:
       default:
         return const SizedBox.shrink();
     }
@@ -1066,33 +1065,6 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     } catch (e) {
       onResult(null);
     }
-  }
-
-  Widget _buildPreviewIcon(String iconUrl, BookmarkIconType type, String selectedIconName, Color selectedColor) {
-    if (type == BookmarkIconType.local) {
-      return Image.file(
-        File(iconUrl),
-        width: 64,
-        height: 64,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Icon(
-          BookmarkIcons.getIcon(selectedIconName),
-          color: selectedColor,
-          size: 32,
-        ),
-      );
-    }
-    return Image.network(
-      iconUrl,
-      width: 64,
-      height: 64,
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => Icon(
-        BookmarkIcons.getIcon(selectedIconName),
-        color: selectedColor,
-        size: 32,
-      ),
-    );
   }
 
   void _showDeleteConfirmation(BuildContext context, BookmarkProvider controller, String itemId) {
@@ -1323,7 +1295,6 @@ Widget _buildBookmarkIconWidget(SingleBookmark bookmark) {
           errorBuilder: (_, __, ___) => Icon(bookmark.icon, color: Colors.white, size: 28),
         ),
       );
-    case BookmarkIconType.icon:
     default:
       return Icon(bookmark.icon, color: Colors.white, size: 28);
   }

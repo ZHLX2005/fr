@@ -153,6 +153,7 @@ class GalleryService {
       );
 
       // 将图片添加到目标相册
+      // ignore: unnecessary_null_comparison
       if (result != null) {
         // 检查是否需要将图片添加到指定相册
         // saveImage 默认保存到"最近添加"，需要额外处理
@@ -162,6 +163,7 @@ class GalleryService {
         );
       }
 
+      // ignore: unnecessary_null_comparison
       return result != null;
     } catch (e) {
       debugPrint('复制图片失败: $e');

@@ -118,7 +118,7 @@ class FocusHomePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                hours > 0 ? '$hours' : '${minutes.toString().padLeft(2, '0')}',
+                hours > 0 ? hours.toString() : minutes.toString().padLeft(2, '0'),
                 style: const TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.w200,

@@ -1,9 +1,7 @@
-import 'package:uuid/uuid.dart';
 import '../models/models.dart';
 import '../utils/storage_helper.dart';
 
 class MessageService {
-  static const Uuid _uuid = Uuid();
 
   static Future<List<Message>> getAllMessages() async {
     final messagesJson = await StorageHelper.getMessages();

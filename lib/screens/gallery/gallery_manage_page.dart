@@ -506,6 +506,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
             filename: title,
           );
 
+          // ignore: unnecessary_null_comparison, dead_code
           if (result == null) {
             debugPrint('保存图片失败: ${image.title}');
             failCount++;

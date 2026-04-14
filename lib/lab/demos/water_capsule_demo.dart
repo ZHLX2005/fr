@@ -292,8 +292,6 @@ class WaveCapsule extends StatelessWidget {
   final double percentageValue;
   final Animation<double> waveAnimation;
 
-  static const Color _nearlyDarkBlue = Color(0xFF2633C5);
-
   const WaveCapsule({
     super.key,
     required this.percentageValue,

@@ -114,13 +114,6 @@ class _ChatInputFieldState extends State<ChatInputField> {
     });
   }
 
-  // 清空所有预览
-  void _clearPreviews() {
-    setState(() {
-      _previews.clear();
-    });
-  }
-
   // 发送预览内容
   Future<void> _sendPreview(int index) async {
     final preview = _previews[index];
