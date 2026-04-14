@@ -10,8 +10,10 @@ class GalleryDemo extends DemoPage {
   @override
   String get description => '系统图片管理与相册分组';
 
-  @override
-  bool get preferFullScreen => false;
+  
+@override
+  bool get preferFullScreen => true;
+
 
   @override
   Widget buildPage(BuildContext context) {
