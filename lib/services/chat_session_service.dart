@@ -17,7 +17,9 @@ class ChatSessionService {
   }
 
   static Future<ChatSession?> getSessionByFriendId(
-      String userId, String friendId) async {
+    String userId,
+    String friendId,
+  ) async {
     final sessions = await getSessionsByUserId(userId);
     try {
       return sessions.firstWhere((s) => s.friendId == friendId);
@@ -38,7 +40,9 @@ class ChatSessionService {
   }
 
   static Future<void> updateSessionWithMessage(
-      String userId, Message message) async {
+    String userId,
+    Message message,
+  ) async {
     final friendId = message.senderId == userId
         ? message.receiverId
         : message.senderId;
@@ -72,7 +76,9 @@ class ChatSessionService {
     final index = sessions.indexWhere((s) => s.id == sessionId);
     if (index != -1) {
       sessions[index] = sessions[index].copyWith(unreadCount: 0);
-      await StorageHelper.saveSessions(sessions.map((s) => s.toJson()).toList());
+      await StorageHelper.saveSessions(
+        sessions.map((s) => s.toJson()).toList(),
+      );
     }
   }
 

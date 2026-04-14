@@ -30,13 +30,13 @@ class LocalnetMessage {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'senderId': senderId,
-        'senderAlias': senderAlias,
-        'content': content,
-        'timestamp': timestamp.toIso8601String(),
-        'type': type.name,
-      };
+    'id': id,
+    'senderId': senderId,
+    'senderAlias': senderAlias,
+    'content': content,
+    'timestamp': timestamp.toIso8601String(),
+    'type': type.name,
+  };
 }
 
 enum MessageType { text, file }

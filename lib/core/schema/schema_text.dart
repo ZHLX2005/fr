@@ -65,7 +65,8 @@ class SchemaText extends StatelessWidget {
     // 构建 TextSpan 列表
     final spans = parsed.spans.map((span) {
       if (span.isLink) {
-        final effectiveLinkStyle = linkStyle ??
+        final effectiveLinkStyle =
+            linkStyle ??
             defaultStyle?.copyWith(
               color: linkColor ?? theme.colorScheme.primary,
               decoration: TextDecoration.underline,
@@ -79,10 +80,7 @@ class SchemaText extends StatelessWidget {
             ..onTap = () => _handleLinkTap(span.schemaPath!, span.text),
         );
       } else {
-        return TextSpan(
-          text: span.text,
-          style: defaultStyle,
-        );
+        return TextSpan(text: span.text, style: defaultStyle);
       }
     }).toList();
 

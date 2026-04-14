@@ -21,12 +21,24 @@ class ClockWidgetService {
     try {
       // 保存数据到原生存储
       await HomeWidget.saveWidgetData(_keyTitle, data.title);
-      await HomeWidget.saveWidgetData(_keyRemainingSeconds, data.remainingSeconds.toString());
-      await HomeWidget.saveWidgetData(_keyDurationSeconds, data.durationSeconds.toString());
-      await HomeWidget.saveWidgetData(_keyIsRunning, data.isRunning ? '1' : '0');
+      await HomeWidget.saveWidgetData(
+        _keyRemainingSeconds,
+        data.remainingSeconds.toString(),
+      );
+      await HomeWidget.saveWidgetData(
+        _keyDurationSeconds,
+        data.durationSeconds.toString(),
+      );
+      await HomeWidget.saveWidgetData(
+        _keyIsRunning,
+        data.isRunning ? '1' : '0',
+      );
       await HomeWidget.saveWidgetData(_keyColor, data.color);
       await HomeWidget.saveWidgetData(_keyFormattedTime, data.formattedTime);
-      await HomeWidget.saveWidgetData(_keyIsOvertime, data.isOvertime ? '1' : '0');
+      await HomeWidget.saveWidgetData(
+        _keyIsOvertime,
+        data.isOvertime ? '1' : '0',
+      );
 
       // 触发 Widget 更新
       await HomeWidget.updateWidget(

@@ -6,10 +6,7 @@ import '../widgets/image_picker_widget.dart';
 class BannerCropPage extends StatelessWidget {
   final String? initialImagePath;
 
-  const BannerCropPage({
-    super.key,
-    this.initialImagePath,
-  });
+  const BannerCropPage({super.key, this.initialImagePath});
 
   @override
   Widget build(BuildContext context) {
@@ -18,10 +15,7 @@ class BannerCropPage extends StatelessWidget {
     final aspectRatio = screenWidth / bannerHeight;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('设置Banner'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('设置Banner'), centerTitle: true),
       body: ImagePickerWidget(
         config: ImagePickerConfig(
           aspectRatioX: aspectRatio,

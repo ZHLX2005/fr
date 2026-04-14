@@ -38,9 +38,7 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
   void _navigateToChat(LocalnetDevice device) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => LocalnetChatPage(device: device),
-      ),
+      MaterialPageRoute(builder: (_) => LocalnetChatPage(device: device)),
     );
   }
 
@@ -83,9 +81,7 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
           _buildSelfCard(),
           const Divider(height: 1),
           // 设备列表
-          Expanded(
-            child: _buildDeviceList(),
-          ),
+          Expanded(child: _buildDeviceList()),
         ],
       ),
     );
@@ -94,7 +90,9 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
   Widget _buildSelfCard() {
     return Container(
       padding: const EdgeInsets.all(16),
-      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+      color: Theme.of(
+        context,
+      ).colorScheme.primaryContainer.withValues(alpha: 0.3),
       child: Row(
         children: [
           Icon(
@@ -113,9 +111,9 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
                 ),
                 Text(
                   '本机 · 在线',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.green,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.green),
                 ),
               ],
             ),
@@ -152,15 +150,15 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
                 Text(
                   '正在搜索设备...',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '确保其他设备也运行了 LocalNet',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
               ],
             ),

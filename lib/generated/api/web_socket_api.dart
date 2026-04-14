@@ -10,9 +10,9 @@
 
 part of openapi.api;
 
-
 class WebSocketApi {
-  WebSocketApi([ApiClient? apiClient]) : apiClient = apiClient ?? defaultApiClient;
+  WebSocketApi([ApiClient? apiClient])
+      : apiClient = apiClient ?? defaultApiClient;
 
   final ApiClient apiClient;
 
@@ -23,7 +23,9 @@ class WebSocketApi {
   /// Parameters:
   ///
   /// * [DevCtrHelloApiWsV1WsBroadcastReq] devCtrHelloApiWsV1WsBroadcastReq (required):
-  Future<Response> apiV1WsBroadcastPostWithHttpInfo(DevCtrHelloApiWsV1WsBroadcastReq devCtrHelloApiWsV1WsBroadcastReq,) async {
+  Future<Response> apiV1WsBroadcastPostWithHttpInfo(
+    DevCtrHelloApiWsV1WsBroadcastReq devCtrHelloApiWsV1WsBroadcastReq,
+  ) async {
     // ignore: prefer_const_declarations
     final path = r'/api/v1/ws/broadcast';
 
@@ -35,7 +37,6 @@ class WebSocketApi {
     final formParams = <String, String>{};
 
     const contentTypes = <String>['application/json'];
-
 
     return apiClient.invokeAPI(
       path,
@@ -53,17 +54,24 @@ class WebSocketApi {
   /// Parameters:
   ///
   /// * [DevCtrHelloApiWsV1WsBroadcastReq] devCtrHelloApiWsV1WsBroadcastReq (required):
-  Future<DevCtrHelloApiWsV1WsBroadcastRes?> apiV1WsBroadcastPost(DevCtrHelloApiWsV1WsBroadcastReq devCtrHelloApiWsV1WsBroadcastReq,) async {
-    final response = await apiV1WsBroadcastPostWithHttpInfo(devCtrHelloApiWsV1WsBroadcastReq,);
+  Future<DevCtrHelloApiWsV1WsBroadcastRes?> apiV1WsBroadcastPost(
+    DevCtrHelloApiWsV1WsBroadcastReq devCtrHelloApiWsV1WsBroadcastReq,
+  ) async {
+    final response = await apiV1WsBroadcastPostWithHttpInfo(
+      devCtrHelloApiWsV1WsBroadcastReq,
+    );
     if (response.statusCode >= HttpStatus.badRequest) {
       throw ApiException(response.statusCode, await _decodeBodyBytes(response));
     }
     // When a remote server returns no body with a status of 204, we shall not decode it.
     // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
     // FormatException when trying to decode an empty string.
-    if (response.body.isNotEmpty && response.statusCode != HttpStatus.noContent) {
-      return await apiClient.deserializeAsync(await _decodeBodyBytes(response), 'DevCtrHelloApiWsV1WsBroadcastRes',) as DevCtrHelloApiWsV1WsBroadcastRes;
-    
+    if (response.body.isNotEmpty &&
+        response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(
+        await _decodeBodyBytes(response),
+        'DevCtrHelloApiWsV1WsBroadcastRes',
+      ) as DevCtrHelloApiWsV1WsBroadcastRes;
     }
     return null;
   }
@@ -76,7 +84,9 @@ class WebSocketApi {
   ///
   /// * [String] token:
   ///   WebSocket connection token
-  Future<Response> apiV1WsGetWithHttpInfo({ String? token, }) async {
+  Future<Response> apiV1WsGetWithHttpInfo({
+    String? token,
+  }) async {
     // ignore: prefer_const_declarations
     final path = r'/api/v1/ws';
 
@@ -92,7 +102,6 @@ class WebSocketApi {
     }
 
     const contentTypes = <String>[];
-
 
     return apiClient.invokeAPI(
       path,
@@ -111,17 +120,24 @@ class WebSocketApi {
   ///
   /// * [String] token:
   ///   WebSocket connection token
-  Future<DevCtrHelloApiWsV1WsConnectRes?> apiV1WsGet({ String? token, }) async {
-    final response = await apiV1WsGetWithHttpInfo( token: token, );
+  Future<DevCtrHelloApiWsV1WsConnectRes?> apiV1WsGet({
+    String? token,
+  }) async {
+    final response = await apiV1WsGetWithHttpInfo(
+      token: token,
+    );
     if (response.statusCode >= HttpStatus.badRequest) {
       throw ApiException(response.statusCode, await _decodeBodyBytes(response));
     }
     // When a remote server returns no body with a status of 204, we shall not decode it.
     // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
     // FormatException when trying to decode an empty string.
-    if (response.body.isNotEmpty && response.statusCode != HttpStatus.noContent) {
-      return await apiClient.deserializeAsync(await _decodeBodyBytes(response), 'DevCtrHelloApiWsV1WsConnectRes',) as DevCtrHelloApiWsV1WsConnectRes;
-    
+    if (response.body.isNotEmpty &&
+        response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(
+        await _decodeBodyBytes(response),
+        'DevCtrHelloApiWsV1WsConnectRes',
+      ) as DevCtrHelloApiWsV1WsConnectRes;
     }
     return null;
   }
@@ -141,7 +157,6 @@ class WebSocketApi {
     final formParams = <String, String>{};
 
     const contentTypes = <String>[];
-
 
     return apiClient.invokeAPI(
       path,
@@ -163,9 +178,12 @@ class WebSocketApi {
     // When a remote server returns no body with a status of 204, we shall not decode it.
     // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
     // FormatException when trying to decode an empty string.
-    if (response.body.isNotEmpty && response.statusCode != HttpStatus.noContent) {
-      return await apiClient.deserializeAsync(await _decodeBodyBytes(response), 'DevCtrHelloApiWsV1WsRoomsRes',) as DevCtrHelloApiWsV1WsRoomsRes;
-    
+    if (response.body.isNotEmpty &&
+        response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(
+        await _decodeBodyBytes(response),
+        'DevCtrHelloApiWsV1WsRoomsRes',
+      ) as DevCtrHelloApiWsV1WsRoomsRes;
     }
     return null;
   }
@@ -185,7 +203,6 @@ class WebSocketApi {
     final formParams = <String, String>{};
 
     const contentTypes = <String>[];
-
 
     return apiClient.invokeAPI(
       path,
@@ -207,9 +224,12 @@ class WebSocketApi {
     // When a remote server returns no body with a status of 204, we shall not decode it.
     // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
     // FormatException when trying to decode an empty string.
-    if (response.body.isNotEmpty && response.statusCode != HttpStatus.noContent) {
-      return await apiClient.deserializeAsync(await _decodeBodyBytes(response), 'DevCtrHelloApiWsV1WsStatsRes',) as DevCtrHelloApiWsV1WsStatsRes;
-    
+    if (response.body.isNotEmpty &&
+        response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(
+        await _decodeBodyBytes(response),
+        'DevCtrHelloApiWsV1WsStatsRes',
+      ) as DevCtrHelloApiWsV1WsStatsRes;
     }
     return null;
   }

@@ -132,18 +132,12 @@ class _HomeGridView extends StatelessWidget {
             child: SizedBox(
               width: 80,
               height: 90,
-              child: HomeTile(
-                item: item,
-                isDraggingFeedback: true,
-              ),
+              child: HomeTile(item: item, isDraggingFeedback: true),
             ),
           ),
         ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.0,
-        child: HomeTile(item: item),
-      ),
+      childWhenDragging: Opacity(opacity: 0.0, child: HomeTile(item: item)),
       child: _buildTileWithTarget(context, controller, item),
     );
   }
@@ -172,10 +166,7 @@ class _HomeGridView extends StatelessWidget {
           controller.commitReorder();
         },
         builder: (context, candidateData, rejectedData) {
-          return HomeTile(
-            item: item,
-            onTap: onTap,
-          );
+          return HomeTile(item: item, onTap: onTap);
         },
       ),
     );
@@ -265,13 +256,19 @@ class _HomeGridView extends StatelessWidget {
                                   : Colors.grey[100],
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: isSelected ? selectedColor : Colors.grey[300]!,
+                                color: isSelected
+                                    ? selectedColor
+                                    : Colors.grey[300]!,
                                 width: isSelected ? 2 : 1,
                               ),
                             ),
-                            child: Icon(icon,
-                                color: isSelected ? selectedColor : Colors.grey[600],
-                                size: 24),
+                            child: Icon(
+                              icon,
+                              color: isSelected
+                                  ? selectedColor
+                                  : Colors.grey[600],
+                              size: 24,
+                            ),
                           ),
                         );
                       }).toList(),
@@ -293,13 +290,18 @@ class _HomeGridView extends StatelessWidget {
                               color: color,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isSelected ? Colors.black : Colors.grey[300]!,
+                                color: isSelected
+                                    ? Colors.black
+                                    : Colors.grey[300]!,
                                 width: isSelected ? 3 : 1,
                               ),
                             ),
                             child: isSelected
-                                ? const Icon(Icons.check,
-                                    color: Colors.white, size: 20)
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 20,
+                                  )
                                 : null,
                           ),
                         );
@@ -335,15 +337,21 @@ class _HomeGridView extends StatelessWidget {
                                   : Colors.grey[100],
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: isSelected ? app.color : Colors.grey[300]!,
+                                color: isSelected
+                                    ? app.color
+                                    : Colors.grey[300]!,
                                 width: isSelected ? 2 : 1,
                               ),
                             ),
                             child: Stack(
                               children: [
-                                Icon(app.icon,
-                                    color: isSelected ? app.color : Colors.grey[600],
-                                    size: 24),
+                                Icon(
+                                  app.icon,
+                                  color: isSelected
+                                      ? app.color
+                                      : Colors.grey[600],
+                                  size: 24,
+                                ),
                                 if (isSelected)
                                   Positioned(
                                     right: 0,
@@ -355,8 +363,11 @@ class _HomeGridView extends StatelessWidget {
                                         color: Colors.green,
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.check,
-                                          color: Colors.white, size: 10),
+                                      child: const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 10,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -370,7 +381,10 @@ class _HomeGridView extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           '请至少选择2个应用',
-                          style: TextStyle(color: Colors.orange[700], fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.orange[700],
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                   ],
@@ -395,11 +409,13 @@ class _HomeGridView extends StatelessWidget {
                         .where((app) => selectedApps.contains(app.id))
                         .toList();
 
-                    controller.addFolder(FolderItem(
-                      id: 'folder_${DateTime.now().millisecondsSinceEpoch}',
-                      title: title,
-                      children: folderApps,
-                    ));
+                    controller.addFolder(
+                      FolderItem(
+                        id: 'folder_${DateTime.now().millisecondsSinceEpoch}',
+                        title: title,
+                        children: folderApps,
+                      ),
+                    );
 
                     // 从桌面移除已放入文件夹的应用
                     for (final app in folderApps) {
@@ -407,12 +423,14 @@ class _HomeGridView extends StatelessWidget {
                     }
                   } else {
                     // 创建应用
-                    controller.addItem(AppItem(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      title: title,
-                      icon: selectedIcon,
-                      color: selectedColor,
-                    ));
+                    controller.addItem(
+                      AppItem(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        title: title,
+                        icon: selectedIcon,
+                        color: selectedColor,
+                      ),
+                    );
                   }
                   Navigator.pop(context);
                 },

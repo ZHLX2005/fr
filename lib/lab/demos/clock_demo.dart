@@ -36,7 +36,8 @@ class _ClockDemoPage extends StatefulWidget {
   State<_ClockDemoPage> createState() => _ClockDemoPageState();
 }
 
-class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderStateMixin {
+class _ClockDemoPageState extends State<_ClockDemoPage>
+    with TickerProviderStateMixin {
   // 波浪分割线位置：0.0 = 时钟全屏，1.0 = 记录全屏
   double _splitPosition = 0.50; // 默认50-50分割
   bool _isDragging = false;
@@ -54,9 +55,9 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   bool _shakeToStartEnabled = false;
 
   // 吸附点位置 - 4个点：主吸附点+相邻点
-  static const double _snapTop = 0.30;      // 上方相邻点（靠近1/3）
-  static const double _snapBottom = 0.70;    // 下方相邻点（靠近2/3）
-  static const double _snapDefault = 0.50;   // 默认中间位置
+  static const double _snapTop = 0.30; // 上方相邻点（靠近1/3）
+  static const double _snapBottom = 0.70; // 下方相邻点（靠近2/3）
+  static const double _snapDefault = 0.50; // 默认中间位置
 
   // 吸附阈值 - 增大范围确保更容易吸附
   static const double _snapThreshold = 0.20;
@@ -99,10 +100,13 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
     // 吸附动画 - 更快的吸附速度和更平滑的曲线
     _snapController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),  // 从400ms减少到250ms，更灵敏
+      duration: const Duration(milliseconds: 250), // 从400ms减少到250ms，更灵敏
     );
     _snapAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _snapController, curve: Curves.easeOutBack),  // 使用easeOutBack获得更有力的吸附感
+      CurvedAnimation(
+        parent: _snapController,
+        curve: Curves.easeOutBack,
+      ), // 使用easeOutBack获得更有力的吸附感
     );
     _snapAnimation.addListener(() {
       if (_snapAnimation.isCompleted) {
@@ -186,7 +190,9 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   // 开始监听加速度传感器
   void _startAccelerometerListening() {
     _accelerometerSubscription?.cancel();
-    _accelerometerSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
+    _accelerometerSubscription = accelerometerEventStream().listen((
+      AccelerometerEvent event,
+    ) {
       _detectShake(event);
     });
   }
@@ -195,7 +201,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   void _detectShake(AccelerometerEvent event) {
     // 计算加速度向量的大小（去除重力影响）
     final double acceleration = math.sqrt(
-      event.x * event.x + event.y * event.y + event.z * event.z
+      event.x * event.x + event.y * event.y + event.z * event.z,
     );
 
     // 减去重力加速度 (~9.8)
@@ -294,7 +300,9 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
     _snapAnimation.addListener(() {
       if (_snapAnimation.status == AnimationStatus.forward) {
         setState(() {
-          _splitPosition = startPosition + (targetPosition - startPosition) * _snapAnimation.value;
+          _splitPosition =
+              startPosition +
+              (targetPosition - startPosition) * _snapAnimation.value;
         });
       }
     });
@@ -342,121 +350,127 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
           behavior: HitTestBehavior.translucent,
           onTap: _closeExpandedRecord, // 点击屏幕任何位置收回
           child: Stack(
-          children: [
-          // 时钟页面（上半部分）
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: splitY,
-            child: _buildClockPage(context),
-          ),
-          // 记录页面（下半部分）- 波浪线作为其顶部
-          Positioned(
-            top: splitY,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Column(
-              children: [
-                // 波浪分割线 - 位于记录页面顶部
-                GestureDetector(
-                  onVerticalDragStart: (_) {
-                    setState(() => _isDragging = true);
-                  },
-                  onVerticalDragUpdate: (details) {
-                    setState(() {
-                      // 向上拖动增加splitPosition（让clock区域变大），向下拖动减小
-                      final deltaRatio = details.delta.dy / screenHeight;
-                      _splitPosition = (_splitPosition - deltaRatio).clamp(0.1, 0.9);
-                    });
-                  },
-                  onVerticalDragEnd: (_) {
-                    setState(() => _isDragging = false);
-                    _snapToNearest(_splitPosition);
-                  },
-                  child: Container(
-                    height: 50, // 拖动响应区域
-                    color: Colors.transparent,
-                    child: Stack(
-                      children: [
-                        // 波浪线
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: 20,
-                          child: Builder(
-                            builder: (context) {
-                              // 检查是否接近磁吸点，用于增强视觉效果
-                              final proximity = _checkSnapProximity(_splitPosition);
+            children: [
+              // 时钟页面（上半部分）
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: splitY,
+                child: _buildClockPage(context),
+              ),
+              // 记录页面（下半部分）- 波浪线作为其顶部
+              Positioned(
+                top: splitY,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Column(
+                  children: [
+                    // 波浪分割线 - 位于记录页面顶部
+                    GestureDetector(
+                      onVerticalDragStart: (_) {
+                        setState(() => _isDragging = true);
+                      },
+                      onVerticalDragUpdate: (details) {
+                        setState(() {
+                          // 向上拖动增加splitPosition（让clock区域变大），向下拖动减小
+                          final deltaRatio = details.delta.dy / screenHeight;
+                          _splitPosition = (_splitPosition - deltaRatio).clamp(
+                            0.1,
+                            0.9,
+                          );
+                        });
+                      },
+                      onVerticalDragEnd: (_) {
+                        setState(() => _isDragging = false);
+                        _snapToNearest(_splitPosition);
+                      },
+                      child: Container(
+                        height: 50, // 拖动响应区域
+                        color: Colors.transparent,
+                        child: Stack(
+                          children: [
+                            // 波浪线
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: 20,
+                              child: Builder(
+                                builder: (context) {
+                                  // 检查是否接近磁吸点，用于增强视觉效果
+                                  final proximity = _checkSnapProximity(
+                                    _splitPosition,
+                                  );
 
-                              return _BreathingWaveLine(
-                                isRunning: _hasRunningClock,
-                                isDragging: _isDragging,
-                                color: const Color(0xFF007AFF),
-                                isNearSnapPoint: proximity.$1,
-                                snapPointIndex: proximity.$2,
-                              );
-                            },
-                          ),
-                        ),
-                        // iOS 26风格手柄 - 极简
-                        Positioned(
-                          top: 4,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOut,
-                              width: _isDragging ? 44 : 36,
-                              height: _isDragging ? 5 : 4,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFC7C7CC),
-                                borderRadius: BorderRadius.circular(2.5),
+                                  return _BreathingWaveLine(
+                                    isRunning: _hasRunningClock,
+                                    isDragging: _isDragging,
+                                    color: const Color(0xFF007AFF),
+                                    isNearSnapPoint: proximity.$1,
+                                    snapPointIndex: proximity.$2,
+                                  );
+                                },
                               ),
                             ),
-                          ),
+                            // iOS 26风格手柄 - 极简
+                            Positioned(
+                              top: 4,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeOut,
+                                  width: _isDragging ? 44 : 36,
+                                  height: _isDragging ? 5 : 4,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFC7C7CC),
+                                    borderRadius: BorderRadius.circular(2.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-                // 记录内容区域
-                Expanded(
-                  child: _buildRecordPageContent(context),
-                ),
-              ],
-            ),
-          ),
-          // 顶部提示 - 只在接近时钟全屏时显示
-          if (_splitPosition < 0.25)
-            Positioned(
-              top: 60,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: _splitPosition < 0.2 ? 0.6 : 0.0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      '向下拖动波浪线查看记录',
-                      style: TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ),
+                    // 记录内容区域
+                    Expanded(child: _buildRecordPageContent(context)),
+                  ],
                 ),
               ),
-            ),
-        ],
-      ),
-      ),
+              // 顶部提示 - 只在接近时钟全屏时显示
+              if (_splitPosition < 0.25)
+                Positioned(
+                  top: 60,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _splitPosition < 0.2 ? 0.6 : 0.0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          '向下拖动波浪线查看记录',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
       floatingActionButton: _buildFloatingActionButton(context),
     );
@@ -486,9 +500,12 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                 clock: clock,
                 onTap: () => _editClock(context, clock),
                 onDelete: () => _deleteClock(context, clock),
-                onStart: () => context.read<LabClockProvider>().startCountdown(clock.id),
-                onPause: () => context.read<LabClockProvider>().pauseCountdown(clock.id),
-                onReset: () => context.read<LabClockProvider>().resetCountdown(clock.id),
+                onStart: () =>
+                    context.read<LabClockProvider>().startCountdown(clock.id),
+                onPause: () =>
+                    context.read<LabClockProvider>().pauseCountdown(clock.id),
+                onReset: () =>
+                    context.read<LabClockProvider>().resetCountdown(clock.id),
               );
             },
           ),
@@ -507,7 +524,10 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
             children: [
               // 记录标题栏
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -530,7 +550,10 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                       GestureDetector(
                         onTap: () => _showClearRecordsDialog(context),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFF3B30),
                             borderRadius: BorderRadius.circular(16),
@@ -577,7 +600,11 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                           controller: _recordScrollController,
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           itemCount: records.length,
-                          itemBuilder: (_, index) => _buildModernRecordItem(context, records[index], index),
+                          itemBuilder: (_, index) => _buildModernRecordItem(
+                            context,
+                            records[index],
+                            index,
+                          ),
                         ),
                       ),
               ),
@@ -604,7 +631,11 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.timer_outlined, size: 64, color: const Color(0xFFE5E5EA)),
+            Icon(
+              Icons.timer_outlined,
+              size: 64,
+              color: const Color(0xFFE5E5EA),
+            ),
             const SizedBox(height: 16),
             Text('暂无时钟', style: TextStyle(color: const Color(0xFF8E8E93))),
             const SizedBox(height: 8),
@@ -623,7 +654,11 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
     );
   }
 
-  Widget _buildModernRecordItem(BuildContext context, LabClockRecord record, int index) {
+  Widget _buildModernRecordItem(
+    BuildContext context,
+    LabClockRecord record,
+    int index,
+  ) {
     final dateFormat = DateFormat('MM-dd HH:mm');
 
     // 直接使用 provider 提供的统一方法计算实时时间
@@ -636,116 +671,120 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0x0D000000),
-              offset: const Offset(0, 1),
-              blurRadius: 4,
-            ),
-          ],
-        ),
-        child: _RecordSwipeAction(
-          themeColor: Theme.of(context).primaryColor,
-          onCreate: () async {
-            // 优先使用自定义名称，否则使用原始名称
-            final title = record.customTitle ?? record.clockTitle;
-            if (actualDuration > 0) {
-              await context.read<LabClockProvider>().createClock(
-                title: title,
-                durationSeconds: actualDuration,
-                color: '#007AFF',
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x0D000000),
+            offset: const Offset(0, 1),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: _RecordSwipeAction(
+        themeColor: Theme.of(context).primaryColor,
+        onCreate: () async {
+          // 优先使用自定义名称，否则使用原始名称
+          final title = record.customTitle ?? record.clockTitle;
+          if (actualDuration > 0) {
+            await context.read<LabClockProvider>().createClock(
+              title: title,
+              durationSeconds: actualDuration,
+              color: '#007AFF',
+            );
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('已创建新时钟: $durationStr'),
+                  backgroundColor: Theme.of(context).primaryColor,
+                ),
               );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('已创建新时钟: $durationStr'),
-                    backgroundColor: Theme.of(context).primaryColor,
-                  ),
-                );
-              }
-            } else {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('记录时间无效'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              }
             }
-          },
-          onDelete: () {
-            context.read<LabClockProvider>().deleteRecord(record.id);
-          },
-          index: index,
-          onExpand: () {
-            setState(() {
-              _expandedRecordIndex = index;
-            });
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('记录时间无效'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
+        },
+        onDelete: () {
+          context.read<LabClockProvider>().deleteRecord(record.id);
+        },
+        index: index,
+        onExpand: () {
+          setState(() {
+            _expandedRecordIndex = index;
+          });
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
             ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: record.completed
-                      ? const Color(0xFF34C759).withOpacity(0.1)
-                      : const Color(0xFFFF9500).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  record.completed ? Icons.check_rounded : Icons.schedule_rounded,
-                  color: record.completed ? const Color(0xFF34C759) : const Color(0xFFFF9500),
-                  size: 22,
-                ),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: record.completed
+                    ? const Color(0xFF34C759).withOpacity(0.1)
+                    : const Color(0xFFFF9500).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
               ),
-              title: GestureDetector(
-                onLongPress: () => _showEditRecordTitleDialog(context, record),
-                child: Text(
-                  record.customTitle ?? record.clockTitle,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF000000),
-                  ),
-                ),
+              child: Icon(
+                record.completed ? Icons.check_rounded : Icons.schedule_rounded,
+                color: record.completed
+                    ? const Color(0xFF34C759)
+                    : const Color(0xFFFF9500),
+                size: 22,
               ),
-              subtitle: Text(
-                '${dateFormat.format(record.startTime)} • 计划: ${_formatDuration(record.durationSeconds)}',
+            ),
+            title: GestureDetector(
+              onLongPress: () => _showEditRecordTitleDialog(context, record),
+              child: Text(
+                record.customTitle ?? record.clockTitle,
                 style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF8E8E93),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF000000),
                 ),
               ),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
+            ),
+            subtitle: Text(
+              '${dateFormat.format(record.startTime)} • 计划: ${_formatDuration(record.durationSeconds)}',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: record.completed
+                    ? const Color(0xFF34C759).withOpacity(0.1)
+                    : const Color(0xFFFF9500).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '实际: $durationStr',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   color: record.completed
-                      ? const Color(0xFF34C759).withOpacity(0.1)
-                      : const Color(0xFFFF9500).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '实际: $durationStr',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: record.completed ? const Color(0xFF34C759) : const Color(0xFFFF9500),
-                  ),
+                      ? const Color(0xFF34C759)
+                      : const Color(0xFFFF9500),
                 ),
               ),
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -764,7 +803,10 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
         title: const Text('删除时钟'),
         content: Text('确定删除 "${clock.title}" 吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
           TextButton(
             onPressed: () {
               context.read<LabClockProvider>().deleteClock(clock.id);
@@ -778,7 +820,9 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
   }
 
   void _showEditRecordTitleDialog(BuildContext context, LabClockRecord record) {
-    final controller = TextEditingController(text: record.customTitle ?? record.clockTitle);
+    final controller = TextEditingController(
+      text: record.customTitle ?? record.clockTitle,
+    );
 
     showDialog(
       context: context,
@@ -801,7 +845,10 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
             onPressed: () {
               final newTitle = controller.text.trim();
               if (newTitle.isNotEmpty) {
-                context.read<LabClockProvider>().updateRecordTitle(record.id, newTitle);
+                context.read<LabClockProvider>().updateRecordTitle(
+                  record.id,
+                  newTitle,
+                );
               }
               Navigator.pop(ctx);
             },
@@ -819,7 +866,10 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
         title: const Text('清空记录'),
         content: const Text('确定清空所有使用记录吗？此操作不可恢复。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
           TextButton(
             onPressed: () {
               context.read<LabClockProvider>().clearRecords();
@@ -847,13 +897,26 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
 
   void _showClockEditor(BuildContext context, LabClock? clock) {
     final titleController = TextEditingController(text: clock?.title ?? '');
-    final descController = TextEditingController(text: clock?.description ?? '');
+    final descController = TextEditingController(
+      text: clock?.description ?? '',
+    );
     int hours = clock != null ? (clock.durationSeconds ?? 0) ~/ 3600 : 0;
-    int minutes = clock != null ? ((clock.durationSeconds ?? 0) % 3600) ~/ 60 : 5;
+    int minutes = clock != null
+        ? ((clock.durationSeconds ?? 0) % 3600) ~/ 60
+        : 5;
     int seconds = clock != null ? (clock.durationSeconds ?? 0) % 60 : 0;
     String selectedColor = clock?.color ?? '#2196F3';
 
-    final colors = ['#2196F3', '#4CAF50', '#FF9800', '#E91E63', '#9C27B0', '#00BCD4', '#795548', '#607D8B'];
+    final colors = [
+      '#2196F3',
+      '#4CAF50',
+      '#FF9800',
+      '#E91E63',
+      '#9C27B0',
+      '#00BCD4',
+      '#795548',
+      '#607D8B',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -864,7 +927,12 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 20, right: 20, top: 20),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -872,7 +940,13 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
               Row(
                 children: [
                   Expanded(
-                    child: Text(clock == null ? '添加时钟' : '编辑时钟', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      clock == null ? '添加时钟' : '编辑时钟',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   GestureDetector(
                     onTap: () => Navigator.pop(ctx),
@@ -883,16 +957,25 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
               const SizedBox(height: 20),
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: '标题', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: '标题',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: descController,
-                decoration: const InputDecoration(labelText: '描述', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: '描述',
+                  border: OutlineInputBorder(),
+                ),
                 maxLines: 2,
               ),
               const SizedBox(height: 16),
-              const Text('倒计时时长:', style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text(
+                '倒计时时长:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -900,14 +983,36 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                   _timePicker('时', hours, 23, (v) => setState(() => hours = v)),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(':', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      ':',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  _timePicker('分', minutes, 59, (v) => setState(() => minutes = v)),
+                  _timePicker(
+                    '分',
+                    minutes,
+                    59,
+                    (v) => setState(() => minutes = v),
+                  ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(':', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      ':',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  _timePicker('秒', seconds, 59, (v) => setState(() => seconds = v)),
+                  _timePicker(
+                    '秒',
+                    seconds,
+                    59,
+                    (v) => setState(() => seconds = v),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -955,7 +1060,9 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                     final totalSeconds = hours * 3600 + minutes * 60 + seconds;
                     if (clock == null) {
                       provider.createClock(
-                        title: titleController.text.isEmpty ? '新时钟' : titleController.text,
+                        title: titleController.text.isEmpty
+                            ? '新时钟'
+                            : titleController.text,
                         description: descController.text,
                         durationSeconds: totalSeconds,
                         color: selectedColor,
@@ -974,9 +1081,17 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(ctx).primaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: Text(clock == null ? '添加' : '保存', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    clock == null ? '添加' : '保存',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -987,11 +1102,19 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
     );
   }
 
-  Widget _timePicker(String label, int value, int max, Function(int) onChanged) {
+  Widget _timePicker(
+    String label,
+    int value,
+    int max,
+    Function(int) onChanged,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+        ),
         const SizedBox(height: 8),
         SizedBox(
           height: 100,
@@ -1012,8 +1135,12 @@ class _ClockDemoPageState extends State<_ClockDemoPage> with TickerProviderState
                     index.toString().padLeft(2, '0'),
                     style: TextStyle(
                       fontSize: isSelected ? 24 : 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? Colors.black : const Color(0xFFC7C7CC),
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: isSelected
+                          ? Colors.black
+                          : const Color(0xFFC7C7CC),
                     ),
                   ),
                 );
@@ -1050,9 +1177,9 @@ class _BreathingWaveLine extends StatefulWidget {
 
 class _BreathingWaveLineState extends State<_BreathingWaveLine>
     with TickerProviderStateMixin {
-  late AnimationController _waveController;   // 波浪动画
+  late AnimationController _waveController; // 波浪动画
   late AnimationController _breathController; // 呼吸动画
-  late AnimationController _fadeController;   // 渐变到直线的动画
+  late AnimationController _fadeController; // 渐变到直线的动画
 
   late Animation<double> _waveAnimation;
   late Animation<double> _breathAnimation;
@@ -1067,9 +1194,10 @@ class _BreathingWaveLineState extends State<_BreathingWaveLine>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-    _waveAnimation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
-      CurvedAnimation(parent: _waveController, curve: Curves.linear),
-    );
+    _waveAnimation = Tween<double>(
+      begin: 0,
+      end: 2 * math.pi,
+    ).animate(CurvedAnimation(parent: _waveController, curve: Curves.linear));
 
     // 呼吸动画控制器 - 控制波浪幅度周期变化
     _breathController = AnimationController(
@@ -1085,9 +1213,10 @@ class _BreathingWaveLineState extends State<_BreathingWaveLine>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
     // 根据运行状态启动/停止动画
     _updateAnimationState();
@@ -1132,7 +1261,11 @@ class _BreathingWaveLineState extends State<_BreathingWaveLine>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_waveAnimation, _breathAnimation, _fadeAnimation]),
+      animation: Listenable.merge([
+        _waveAnimation,
+        _breathAnimation,
+        _fadeAnimation,
+      ]),
       builder: (context, child) {
         return CustomPaint(
           size: Size.infinite,
@@ -1153,9 +1286,9 @@ class _BreathingWaveLineState extends State<_BreathingWaveLine>
 
 /// 呼吸波浪线画笔
 class _BreathingWavePainter extends CustomPainter {
-  final double wavePhase;        // 波浪相位
-  final double breathIntensity;  // 呼吸强度 (0.6-1.0)
-  final double fadeProgress;     // 渐变进度 (1.0=波浪, 0.0=直线)
+  final double wavePhase; // 波浪相位
+  final double breathIntensity; // 呼吸强度 (0.6-1.0)
+  final double fadeProgress; // 渐变进度 (1.0=波浪, 0.0=直线)
   final bool isDragging;
   final Color color;
   final bool isNearSnapPoint;
@@ -1199,11 +1332,13 @@ class _BreathingWavePainter extends CustomPainter {
       final normalizedX = x / size.width;
 
       // 基础波浪
-      final waveOffset = math.sin(wavePhase + normalizedX * 4 * math.pi) * waveHeight;
+      final waveOffset =
+          math.sin(wavePhase + normalizedX * 4 * math.pi) * waveHeight;
 
       // 磁吸点增强效果
       final snapEffect = _getSnapEffect(normalizedX);
-      final snapOffset = snapEffect * math.sin(wavePhase * 2) * nearWaveHeight * 0.6;
+      final snapOffset =
+          snapEffect * math.sin(wavePhase * 2) * nearWaveHeight * 0.6;
 
       // 脉冲效果
       double pulseOffset = 0;
@@ -1363,7 +1498,10 @@ class _RecordSwipeActionState extends State<_RecordSwipeAction> {
                         children: [
                           Icon(Icons.delete, color: Colors.white, size: 24),
                           SizedBox(height: 4),
-                          Text('删除', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          Text(
+                            '删除',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
                         ],
                       ),
                     ),
@@ -1392,7 +1530,10 @@ class _RecordSwipeActionState extends State<_RecordSwipeAction> {
                         children: [
                           Icon(Icons.add, color: Colors.white, size: 24),
                           SizedBox(height: 4),
-                          Text('创建', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          Text(
+                            '创建',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
                         ],
                       ),
                     ),
@@ -1445,7 +1586,9 @@ class _ClockCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = Color(int.parse(clock.color?.replaceFirst('#', '0xFF') ?? '0xFF2196F3'));
+    final baseColor = Color(
+      int.parse(clock.color?.replaceFirst('#', '0xFF') ?? '0xFF2196F3'),
+    );
 
     // 使用颜色工具类计算动态颜色
     final clockColor = ClockColorUtil.getClockColor(
@@ -1472,10 +1615,7 @@ class _ClockCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: borderColor,
-          width: 1,
-        ),
+        border: Border.all(color: borderColor, width: 1),
       ),
       child: InkWell(
         onTap: onTap,
@@ -1547,7 +1687,9 @@ class _ClockCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _ControlButton(
-                      icon: clock.isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      icon: clock.isRunning
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                       color: clockColor,
                       onTap: clock.isRunning ? onPause : onStart,
                     ),

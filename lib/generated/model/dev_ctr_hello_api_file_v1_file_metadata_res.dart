@@ -76,26 +76,29 @@ class DevCtrHelloApiFileV1FileMetadataRes {
   String? expiresAt;
 
   @override
-  bool operator ==(Object other) => identical(this, other) || other is DevCtrHelloApiFileV1FileMetadataRes &&
-    other.id == id &&
-    other.name == name &&
-    other.size == size &&
-    other.contentType == contentType &&
-    other.uploadTime == uploadTime &&
-    other.expiresAt == expiresAt;
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DevCtrHelloApiFileV1FileMetadataRes &&
+          other.id == id &&
+          other.name == name &&
+          other.size == size &&
+          other.contentType == contentType &&
+          other.uploadTime == uploadTime &&
+          other.expiresAt == expiresAt;
 
   @override
   int get hashCode =>
-    // ignore: unnecessary_parenthesis
-    (id == null ? 0 : id!.hashCode) +
-    (name == null ? 0 : name!.hashCode) +
-    (size == null ? 0 : size!.hashCode) +
-    (contentType == null ? 0 : contentType!.hashCode) +
-    (uploadTime == null ? 0 : uploadTime!.hashCode) +
-    (expiresAt == null ? 0 : expiresAt!.hashCode);
+      // ignore: unnecessary_parenthesis
+      (id == null ? 0 : id!.hashCode) +
+      (name == null ? 0 : name!.hashCode) +
+      (size == null ? 0 : size!.hashCode) +
+      (contentType == null ? 0 : contentType!.hashCode) +
+      (uploadTime == null ? 0 : uploadTime!.hashCode) +
+      (expiresAt == null ? 0 : expiresAt!.hashCode);
 
   @override
-  String toString() => 'DevCtrHelloApiFileV1FileMetadataRes[id=$id, name=$name, size=$size, contentType=$contentType, uploadTime=$uploadTime, expiresAt=$expiresAt]';
+  String toString() =>
+      'DevCtrHelloApiFileV1FileMetadataRes[id=$id, name=$name, size=$size, contentType=$contentType, uploadTime=$uploadTime, expiresAt=$expiresAt]';
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
@@ -144,8 +147,10 @@ class DevCtrHelloApiFileV1FileMetadataRes {
       // Note 2: this code is stripped in release mode!
       assert(() {
         requiredKeys.forEach((key) {
-          assert(json.containsKey(key), 'Required key "DevCtrHelloApiFileV1FileMetadataRes[$key]" is missing from JSON.');
-          assert(json[key] != null, 'Required key "DevCtrHelloApiFileV1FileMetadataRes[$key]" has a null value in JSON.');
+          assert(json.containsKey(key),
+              'Required key "DevCtrHelloApiFileV1FileMetadataRes[$key]" is missing from JSON.');
+          assert(json[key] != null,
+              'Required key "DevCtrHelloApiFileV1FileMetadataRes[$key]" has a null value in JSON.');
         });
         return true;
       }());
@@ -162,7 +167,10 @@ class DevCtrHelloApiFileV1FileMetadataRes {
     return null;
   }
 
-  static List<DevCtrHelloApiFileV1FileMetadataRes> listFromJson(dynamic json, {bool growable = false,}) {
+  static List<DevCtrHelloApiFileV1FileMetadataRes> listFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final result = <DevCtrHelloApiFileV1FileMetadataRes>[];
     if (json is List && json.isNotEmpty) {
       for (final row in json) {
@@ -175,7 +183,8 @@ class DevCtrHelloApiFileV1FileMetadataRes {
     return result.toList(growable: growable);
   }
 
-  static Map<String, DevCtrHelloApiFileV1FileMetadataRes> mapFromJson(dynamic json) {
+  static Map<String, DevCtrHelloApiFileV1FileMetadataRes> mapFromJson(
+      dynamic json) {
     final map = <String, DevCtrHelloApiFileV1FileMetadataRes>{};
     if (json is Map && json.isNotEmpty) {
       json = json.cast<String, dynamic>(); // ignore: parameter_assignments
@@ -190,20 +199,24 @@ class DevCtrHelloApiFileV1FileMetadataRes {
   }
 
   // maps a json object with a list of DevCtrHelloApiFileV1FileMetadataRes-objects as value to a dart map
-  static Map<String, List<DevCtrHelloApiFileV1FileMetadataRes>> mapListFromJson(dynamic json, {bool growable = false,}) {
+  static Map<String, List<DevCtrHelloApiFileV1FileMetadataRes>> mapListFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final map = <String, List<DevCtrHelloApiFileV1FileMetadataRes>>{};
     if (json is Map && json.isNotEmpty) {
       // ignore: parameter_assignments
       json = json.cast<String, dynamic>();
       for (final entry in json.entries) {
-        map[entry.key] = DevCtrHelloApiFileV1FileMetadataRes.listFromJson(entry.value, growable: growable,);
+        map[entry.key] = DevCtrHelloApiFileV1FileMetadataRes.listFromJson(
+          entry.value,
+          growable: growable,
+        );
       }
     }
     return map;
   }
 
   /// The list of required keys that must be present in a JSON.
-  static const requiredKeys = <String>{
-  };
+  static const requiredKeys = <String>{};
 }
-

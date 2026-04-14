@@ -7,7 +7,8 @@ class NativeNotificationsPage extends StatefulWidget {
   const NativeNotificationsPage({super.key});
 
   @override
-  State<NativeNotificationsPage> createState() => _NativeNotificationsPageState();
+  State<NativeNotificationsPage> createState() =>
+      _NativeNotificationsPageState();
 }
 
 class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
@@ -19,8 +20,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
   // 通知通道ID（Android）
   static const String _androidChannelId = 'fr_notification_channel';
   static const String _androidChannelName = 'FR Notifications';
-  static const String _androidChannelDescription =
-      'FR App 本地通知通道';
+  static const String _androidChannelDescription = 'FR App 本地通知通道';
 
   @override
   void initState() {
@@ -34,7 +34,9 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
       return;
     }
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -71,9 +73,10 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
 
     try {
       if (Platform.isAndroid) {
-        final androidPlugin =
-            _notifications.resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>();
+        final androidPlugin = _notifications
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
 
         // Android 13+ 使用 requestNotificationsPermission 会返回 null/pending
         // 需要引导用户去设置页面手动开启
@@ -112,8 +115,10 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
         }
         return false;
       } else if (Platform.isIOS) {
-        final iosPlugin = _notifications.resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
+        final iosPlugin = _notifications
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >();
         final granted = await iosPlugin?.requestPermissions(
           alert: true,
           badge: true,
@@ -167,9 +172,9 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
         payload: payload,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('通知已发送')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('通知已发送')));
       }
     } catch (e) {
       _showError('发送失败: $e');
@@ -180,17 +185,17 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
   Future<void> _cancelAllNotifications() async {
     await _notifications.cancelAll();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已取消所有通知')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已取消所有通知')));
     }
   }
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -283,16 +288,19 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                               ? '点击按钮请求通知权限'
                               : 'Web 平台不支持本地通知，请使用真机测试',
                           style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                              height: 1.5),
+                            color: Colors.grey,
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
                         ),
                       ],
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: _isInitialized ? null : _requestPermissions,
+                          onPressed: _isInitialized
+                              ? null
+                              : _requestPermissions,
                           icon: const Icon(Icons.lock_open),
                           label: const Text('请求通知权限'),
                         ),
@@ -411,8 +419,9 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed:
-                              _isInitialized ? _cancelAllNotifications : null,
+                          onPressed: _isInitialized
+                              ? _cancelAllNotifications
+                              : null,
                           icon: const Icon(Icons.delete_sweep),
                           label: const Text('取消所有通知'),
                           style: ElevatedButton.styleFrom(
@@ -440,8 +449,11 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline,
-                            color: Colors.blue[700], size: 20),
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.blue[700],
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           '使用说明',
@@ -484,4 +496,3 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
     );
   }
 }
-

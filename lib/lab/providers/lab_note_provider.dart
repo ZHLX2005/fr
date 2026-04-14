@@ -35,7 +35,11 @@ class LabNoteProvider with ChangeNotifier {
     }
   }
 
-  Future<LabNote> createNote({String title = '', String content = '', String? color}) async {
+  Future<LabNote> createNote({
+    String title = '',
+    String content = '',
+    String? color,
+  }) async {
     final now = DateTime.now();
     final note = LabNote(
       id: const Uuid().v4(),
@@ -52,7 +56,12 @@ class LabNoteProvider with ChangeNotifier {
     return note;
   }
 
-  Future<void> updateNote({required String id, String? title, String? content, String? color}) async {
+  Future<void> updateNote({
+    required String id,
+    String? title,
+    String? content,
+    String? color,
+  }) async {
     final index = _notes.indexWhere((n) => n.id == id);
     if (index != -1) {
       final note = _notes[index];

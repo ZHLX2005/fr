@@ -55,7 +55,10 @@ class _HexagonPanelPageState extends State<_HexagonPanelPage> {
               children: [
                 Text(
                   _title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -67,7 +70,10 @@ class _HexagonPanelPageState extends State<_HexagonPanelPage> {
               padding: const EdgeInsets.all(16),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final size = math.min(constraints.maxWidth, constraints.maxHeight);
+                  final size = math.min(
+                    constraints.maxWidth,
+                    constraints.maxHeight,
+                  );
                   return Center(
                     child: GestureDetector(
                       onTapUp: (details) {
@@ -159,7 +165,10 @@ class _HexagonPanelPageState extends State<_HexagonPanelPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('选择预设模板', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              '选择预设模板',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             ListTile(
               leading: const Icon(Icons.person),
@@ -168,12 +177,36 @@ class _HexagonPanelPageState extends State<_HexagonPanelPage> {
               onTap: () {
                 setState(() {
                   _items = [
-                    HexagonItem(label: '技术能力', value: 0.85, color: const Color(0xFF6366F1)),
-                    HexagonItem(label: '产品思维', value: 0.7, color: const Color(0xFF8B5CF6)),
-                    HexagonItem(label: '设计能力', value: 0.6, color: const Color(0xFFEC4899)),
-                    HexagonItem(label: '沟通协作', value: 0.9, color: const Color(0xFF14B8A6)),
-                    HexagonItem(label: '项目管理', value: 0.75, color: const Color(0xFFF59E0B)),
-                    HexagonItem(label: '创新能力', value: 0.65, color: const Color(0xFFEF4444)),
+                    HexagonItem(
+                      label: '技术能力',
+                      value: 0.85,
+                      color: const Color(0xFF6366F1),
+                    ),
+                    HexagonItem(
+                      label: '产品思维',
+                      value: 0.7,
+                      color: const Color(0xFF8B5CF6),
+                    ),
+                    HexagonItem(
+                      label: '设计能力',
+                      value: 0.6,
+                      color: const Color(0xFFEC4899),
+                    ),
+                    HexagonItem(
+                      label: '沟通协作',
+                      value: 0.9,
+                      color: const Color(0xFF14B8A6),
+                    ),
+                    HexagonItem(
+                      label: '项目管理',
+                      value: 0.75,
+                      color: const Color(0xFFF59E0B),
+                    ),
+                    HexagonItem(
+                      label: '创新能力',
+                      value: 0.65,
+                      color: const Color(0xFFEF4444),
+                    ),
                   ];
                   _title = '综合能力分析';
                 });
@@ -187,12 +220,36 @@ class _HexagonPanelPageState extends State<_HexagonPanelPage> {
               onTap: () {
                 setState(() {
                   _items = [
-                    HexagonItem(label: '文件大小', value: 0.4, color: const Color(0xFF22C55E)),
-                    HexagonItem(label: '创建时间', value: 0.8, color: const Color(0xFF3B82F6)),
-                    HexagonItem(label: '修改频率', value: 0.6, color: const Color(0xFF8B5CF6)),
-                    HexagonItem(label: '重要性', value: 0.9, color: const Color(0xFFEF4444)),
-                    HexagonItem(label: '活跃度', value: 0.7, color: const Color(0xFFF59E0B)),
-                    HexagonItem(label: '共享性', value: 0.5, color: const Color(0xFF06B6D4)),
+                    HexagonItem(
+                      label: '文件大小',
+                      value: 0.4,
+                      color: const Color(0xFF22C55E),
+                    ),
+                    HexagonItem(
+                      label: '创建时间',
+                      value: 0.8,
+                      color: const Color(0xFF3B82F6),
+                    ),
+                    HexagonItem(
+                      label: '修改频率',
+                      value: 0.6,
+                      color: const Color(0xFF8B5CF6),
+                    ),
+                    HexagonItem(
+                      label: '重要性',
+                      value: 0.9,
+                      color: const Color(0xFFEF4444),
+                    ),
+                    HexagonItem(
+                      label: '活跃度',
+                      value: 0.7,
+                      color: const Color(0xFFF59E0B),
+                    ),
+                    HexagonItem(
+                      label: '共享性',
+                      value: 0.5,
+                      color: const Color(0xFF06B6D4),
+                    ),
                   ];
                   _title = '文件分析';
                 });
@@ -206,12 +263,36 @@ class _HexagonPanelPageState extends State<_HexagonPanelPage> {
               onTap: () {
                 setState(() {
                   _items = [
-                    HexagonItem(label: '外向性', value: 0.7, color: const Color(0xFFF97316)),
-                    HexagonItem(label: '内向性', value: 0.5, color: const Color(0xFF6366F1)),
-                    HexagonItem(label: '理性思维', value: 0.8, color: const Color(0xFF3B82F6)),
-                    HexagonItem(label: '感性思维', value: 0.6, color: const Color(0xFFEC4899)),
-                    HexagonItem(label: '独立性', value: 0.75, color: const Color(0xFF14B8A6)),
-                    HexagonItem(label: '合作性', value: 0.85, color: const Color(0xFF22C55E)),
+                    HexagonItem(
+                      label: '外向性',
+                      value: 0.7,
+                      color: const Color(0xFFF97316),
+                    ),
+                    HexagonItem(
+                      label: '内向性',
+                      value: 0.5,
+                      color: const Color(0xFF6366F1),
+                    ),
+                    HexagonItem(
+                      label: '理性思维',
+                      value: 0.8,
+                      color: const Color(0xFF3B82F6),
+                    ),
+                    HexagonItem(
+                      label: '感性思维',
+                      value: 0.6,
+                      color: const Color(0xFFEC4899),
+                    ),
+                    HexagonItem(
+                      label: '独立性',
+                      value: 0.75,
+                      color: const Color(0xFF14B8A6),
+                    ),
+                    HexagonItem(
+                      label: '合作性',
+                      value: 0.85,
+                      color: const Color(0xFF22C55E),
+                    ),
                   ];
                   _title = '性格分析';
                 });
@@ -232,11 +313,7 @@ class HexagonItem {
   double value; // 0.0 - 1.0
   Color color;
 
-  HexagonItem({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  HexagonItem({required this.label, required this.value, required this.color});
 }
 
 /// 六边形雷达图Painter
@@ -244,10 +321,7 @@ class HexagonRadarPainter extends CustomPainter {
   final List<HexagonItem> items;
   final String? selectedLabel;
 
-  HexagonRadarPainter({
-    required this.items,
-    this.selectedLabel,
-  });
+  HexagonRadarPainter({required this.items, this.selectedLabel});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -363,7 +437,12 @@ class HexagonRadarPainter extends CustomPainter {
     canvas.drawPath(path, borderPaint);
   }
 
-  void _drawLabelsAndPoints(Canvas canvas, Offset center, double radius, int sides) {
+  void _drawLabelsAndPoints(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    int sides,
+  ) {
     for (int i = 0; i < sides; i++) {
       final item = items[i];
       final angle = (math.pi / 3) * i - math.pi / 2;
@@ -495,7 +574,8 @@ class HexagonRadarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant HexagonRadarPainter oldDelegate) {
-    return items != oldDelegate.items || selectedLabel != oldDelegate.selectedLabel;
+    return items != oldDelegate.items ||
+        selectedLabel != oldDelegate.selectedLabel;
   }
 }
 
@@ -523,11 +603,9 @@ class _EditDataSheetState extends State<_EditDataSheet> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.title);
-    _items = widget.items.map((e) => HexagonItem(
-      label: e.label,
-      value: e.value,
-      color: e.color,
-    )).toList();
+    _items = widget.items
+        .map((e) => HexagonItem(label: e.label, value: e.value, color: e.color))
+        .toList();
   }
 
   @override
@@ -553,7 +631,10 @@ class _EditDataSheetState extends State<_EditDataSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('编辑数据', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  '编辑数据',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -569,7 +650,10 @@ class _EditDataSheetState extends State<_EditDataSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text('数值 (0-100%)', style: TextStyle(fontWeight: FontWeight.w500)),
+            const Text(
+              '数值 (0-100%)',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 8),
             ...List.generate(_items.length, (index) {
               return Padding(
@@ -585,10 +669,7 @@ class _EditDataSheetState extends State<_EditDataSheet> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: Text(_items[index].label),
-                    ),
+                    Expanded(flex: 2, child: Text(_items[index].label)),
                     Expanded(
                       flex: 3,
                       child: Slider(

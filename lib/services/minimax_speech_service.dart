@@ -201,7 +201,8 @@ class MiniMaxSpeechService {
         task._setError('连接被关闭');
         return;
       }
-      final welcome = json.decode(iterator.current as String) as Map<String, dynamic>;
+      final welcome =
+          json.decode(iterator.current as String) as Map<String, dynamic>;
       if (welcome['event'] != 'connected_success') {
         task._setError('连接失败: ${iterator.current}');
         return;
@@ -220,27 +221,34 @@ class MiniMaxSpeechService {
         'format': task._params.format,
         'channel': task._params.channel,
       };
-      channel.sink.add(json.encode({
-        'event': 'task_start',
-        'model': task._params.model,
-        'language_boost': task._params.englishNormalization ? 'English' : 'Chinese',
-        'voice_setting': voiceSetting,
-        'audio_setting': audioSetting,
-      }));
+      channel.sink.add(
+        json.encode({
+          'event': 'task_start',
+          'model': task._params.model,
+          'language_boost': task._params.englishNormalization
+              ? 'English'
+              : 'Chinese',
+          'voice_setting': voiceSetting,
+          'audio_setting': audioSetting,
+        }),
+      );
 
       // 等待 task_started
       if (!await iterator.moveNext()) {
         task._setError('连接被关闭');
         return;
       }
-      final startResp = json.decode(iterator.current as String) as Map<String, dynamic>;
+      final startResp =
+          json.decode(iterator.current as String) as Map<String, dynamic>;
       if (startResp['event'] != 'task_started') {
         task._setError('任务启动失败: ${iterator.current}');
         return;
       }
 
       // 发送文本
-      channel.sink.add(json.encode({'event': 'task_continue', 'text': task._params.text}));
+      channel.sink.add(
+        json.encode({'event': 'task_continue', 'text': task._params.text}),
+      );
       channel.sink.add(json.encode({'event': 'task_finish'}));
 
       task._updateState(TaskState.synthesizing);
@@ -345,14 +353,19 @@ class SynthesisParams {
 enum TaskState {
   /// 空闲/未找到
   idle,
+
   /// 正在连接
   connecting,
+
   /// 正在合成（流式传输中）
   synthesizing,
+
   /// 已完成
   finished,
+
   /// 出错
   error,
+
   /// 被中断
   interrupted,
 }

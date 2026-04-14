@@ -15,10 +15,7 @@ class NativeControllerPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('原生功能测试'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('原生功能测试'), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -39,10 +36,7 @@ class NativeControllerPage extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.phone_android,
-                      color: theme.colorScheme.primary,
-                    ),
+                    Icon(Icons.phone_android, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Text(
                       '原生功能测试',
@@ -123,7 +117,9 @@ class NativeControllerPage extends StatelessWidget {
           // 权限设置卡片
           Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -138,7 +134,11 @@ class NativeControllerPage extends StatelessWidget {
                           color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.settings_applications, color: Colors.blue, size: 24),
+                        child: const Icon(
+                          Icons.settings_applications,
+                          color: Colors.blue,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -155,7 +155,9 @@ class NativeControllerPage extends StatelessWidget {
                             Text(
                               '快速跳转到系统权限设置页面',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                color: theme.colorScheme.onSurface.withOpacity(
+                                  0.6,
+                                ),
                               ),
                             ),
                           ],
@@ -185,7 +187,11 @@ class NativeControllerPage extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                          const Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: Colors.orange,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -316,15 +322,15 @@ class NativeControllerPage extends StatelessWidget {
     try {
       await AppSettings.openAppSettings(type: AppSettingsType.settings);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已打开系统设置页面')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已打开系统设置页面')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('打开设置失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开设置失败: $e')));
       }
     }
   }

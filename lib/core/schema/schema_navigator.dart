@@ -55,15 +55,20 @@ class SchemaNavigator {
   }
 
   /// 跳转到 Demo 页面
-  static Future<void> navigateToDemo(String demoKey, BuildContext context) async {
+  static Future<void> navigateToDemo(
+    String demoKey,
+    BuildContext context,
+  ) async {
     final demo = demoRegistry.get(demoKey);
 
     if (demo == null) {
       // 尝试模糊匹配
       final allDemos = demoRegistry.getAll();
-      final matched = allDemos.where(
-        (e) => e.key.contains(demoKey) || e.value.title.contains(demoKey),
-      ).toList();
+      final matched = allDemos
+          .where(
+            (e) => e.key.contains(demoKey) || e.value.title.contains(demoKey),
+          )
+          .toList();
 
       if (matched.length == 1) {
         await _openDemoDetail(matched.first.key, context);
@@ -90,12 +95,17 @@ class SchemaNavigator {
   }
 
   /// 打开 Demo 详情页
-  static Future<void> _openDemoDetail(String demoKey, BuildContext context) async {
+  static Future<void> _openDemoDetail(
+    String demoKey,
+    BuildContext context,
+  ) async {
     final demo = demoRegistry.get(demoKey);
     if (demo == null) return;
 
     // 先返回到 Lab 页面
-    _navigatorState?.popUntil((route) => route.settings.name == '/lab' || route.isFirst);
+    _navigatorState?.popUntil(
+      (route) => route.settings.name == '/lab' || route.isFirst,
+    );
 
     // 延迟打开详情页，等待导航完成
     await Future.delayed(const Duration(milliseconds: 100));
@@ -138,9 +148,9 @@ class SchemaNavigator {
 
   /// 显示错误提示
   static void _showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -151,12 +161,8 @@ class _LabPageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lab'),
-      ),
-      body: const Center(
-        child: Text('请从首页进入 Lab'),
-      ),
+      appBar: AppBar(title: const Text('Lab')),
+      body: const Center(child: Text('请从首页进入 Lab')),
     );
   }
 }

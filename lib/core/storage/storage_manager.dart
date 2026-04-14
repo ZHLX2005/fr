@@ -53,7 +53,10 @@ class StorageManager {
   }
 
   /// 获取键值对详情列表
-  Future<List<KeyDetail>> getKeyDetails(StorageType type, {String? boxName}) async {
+  Future<List<KeyDetail>> getKeyDetails(
+    StorageType type, {
+    String? boxName,
+  }) async {
     final List<KeyDetail> result = [];
 
     switch (type) {
@@ -67,12 +70,14 @@ class StorageManager {
             final box = Hive.box(boxName);
             for (final key in box.keys) {
               final value = box.get(key);
-              result.add(KeyDetail(
-                key: '$boxName/$key',
-                value: _formatValue(value),
-                rawValue: value,
-                size: _estimateSize(value),
-              ));
+              result.add(
+                KeyDetail(
+                  key: '$boxName/$key',
+                  value: _formatValue(value),
+                  rawValue: value,
+                  size: _estimateSize(value),
+                ),
+              );
             }
           } catch (e) {
             // Box 不存在或已删除
@@ -94,12 +99,14 @@ class StorageManager {
                 final box = Hive.box(name);
                 for (final key in box.keys) {
                   final value = box.get(key);
-                  result.add(KeyDetail(
-                    key: '$name/$key',
-                    value: _formatValue(value),
-                    rawValue: value,
-                    size: _estimateSize(value),
-                  ));
+                  result.add(
+                    KeyDetail(
+                      key: '$name/$key',
+                      value: _formatValue(value),
+                      rawValue: value,
+                      size: _estimateSize(value),
+                    ),
+                  );
                 }
               }
             } catch (e) {
@@ -113,12 +120,14 @@ class StorageManager {
         final prefs = await SharedPreferences.getInstance();
         for (final key in prefs.getKeys()) {
           final value = prefs.get(key);
-          result.add(KeyDetail(
-            key: key,
-            value: _formatValue(value),
-            rawValue: value,
-            size: _estimateSize(value),
-          ));
+          result.add(
+            KeyDetail(
+              key: key,
+              value: _formatValue(value),
+              rawValue: value,
+              size: _estimateSize(value),
+            ),
+          );
         }
         break;
     }
@@ -129,7 +138,11 @@ class StorageManager {
   }
 
   /// 获取单个值的详细信息
-  Future<KeyDetail?> getKeyDetail(StorageType type, String key, {String? boxName}) async {
+  Future<KeyDetail?> getKeyDetail(
+    StorageType type,
+    String key, {
+    String? boxName,
+  }) async {
     dynamic value;
     try {
       switch (type) {
@@ -196,7 +209,7 @@ class StorageManager {
 
       for (int i = 0; i < str.length; i++) {
         final char = str[i];
-        if (char == '"' && (i == 0 || str[i-1] != '\\')) {
+        if (char == '"' && (i == 0 || str[i - 1] != '\\')) {
           inString = !inString;
           buffer.write(char);
         } else if (!inString) {
@@ -216,7 +229,7 @@ class StorageManager {
             buffer.write('  ' * indent);
           } else if (char == ':') {
             buffer.write(': ');
-          } else if (char == ' ' && str[i-1] == ':') {
+          } else if (char == ' ' && str[i - 1] == ':') {
             // 跳过
           } else {
             buffer.write(char);
@@ -265,7 +278,11 @@ class StorageManager {
   }
 
   /// 批量删除
-  Future<int> deleteMany(StorageType type, List<String> keys, {String? boxName}) async {
+  Future<int> deleteMany(
+    StorageType type,
+    List<String> keys, {
+    String? boxName,
+  }) async {
     int deleted = 0;
     for (final key in keys) {
       if (await delete(type, key, boxName: boxName)) {
@@ -411,10 +428,7 @@ class StorageManager {
 }
 
 /// 存储类型
-enum StorageType {
-  hive,
-  prefs,
-}
+enum StorageType { hive, prefs }
 
 /// 存储信息
 class StorageInfo {

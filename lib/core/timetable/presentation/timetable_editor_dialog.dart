@@ -23,7 +23,8 @@ class TimetableEditorDialog extends ConsumerStatefulWidget {
   final VoidCallback onClose;
 
   @override
-  ConsumerState<TimetableEditorDialog> createState() => _TimetableEditorDialogState();
+  ConsumerState<TimetableEditorDialog> createState() =>
+      _TimetableEditorDialogState();
 }
 
 class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
@@ -35,10 +36,18 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.existingCourse?.title ?? '');
-    _locationController = TextEditingController(text: widget.existingCourse?.location ?? '');
-    _teacherController = TextEditingController(text: widget.existingCourse?.teacher ?? '');
-    _selectedCycles = List<int>.from(widget.existingCourse?.visibleInCycles ?? []);
+    _titleController = TextEditingController(
+      text: widget.existingCourse?.title ?? '',
+    );
+    _locationController = TextEditingController(
+      text: widget.existingCourse?.location ?? '',
+    );
+    _teacherController = TextEditingController(
+      text: widget.existingCourse?.teacher ?? '',
+    );
+    _selectedCycles = List<int>.from(
+      widget.existingCourse?.visibleInCycles ?? [],
+    );
   }
 
   @override
@@ -51,9 +60,9 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
 
   Future<void> _submit() async {
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入课程名称')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入课程名称')));
       return;
     }
 
@@ -63,12 +72,18 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
     final visibleInCycles = _selectedCycles.isEmpty ? null : _selectedCycles;
 
     final item = CourseItem(
-      id: widget.existingCourse?.id ?? '${now}_${widget.dayOfCycle}_${widget.slotIndex}',
+      id:
+          widget.existingCourse?.id ??
+          '${now}_${widget.dayOfCycle}_${widget.slotIndex}',
       dayOfCycle: widget.dayOfCycle,
       slotIndex: widget.slotIndex,
       title: _titleController.text.trim(),
-      location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
-      teacher: _teacherController.text.trim().isEmpty ? null : _teacherController.text.trim(),
+      location: _locationController.text.trim().isEmpty
+          ? null
+          : _locationController.text.trim(),
+      teacher: _teacherController.text.trim().isEmpty
+          ? null
+          : _teacherController.text.trim(),
       colorSeed: widget.existingCourse?.colorSeed ?? now,
       version: (widget.existingCourse?.version ?? 0) + 1,
       visibleInCycles: visibleInCycles,
@@ -111,10 +126,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
               width: 340,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: TimetableColors.border,
-                  width: 1,
-                ),
+                border: Border.all(color: TimetableColors.border, width: 1),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -207,7 +219,10 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           decoration: InputDecoration(
                             labelText: '上课地点',
                             hintText: '例如：教学楼A101',
-                            prefixIcon: const Icon(Icons.location_on_outlined, size: 18),
+                            prefixIcon: const Icon(
+                              Icons.location_on_outlined,
+                              size: 18,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -220,7 +235,10 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           decoration: InputDecoration(
                             labelText: '授课教师',
                             hintText: '例如：张老师',
-                            prefixIcon: const Icon(Icons.person_outline, size: 18),
+                            prefixIcon: const Icon(
+                              Icons.person_outline,
+                              size: 18,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),

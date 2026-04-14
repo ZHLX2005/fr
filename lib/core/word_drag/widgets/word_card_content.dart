@@ -87,9 +87,7 @@ class WordCardContent extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.blue.shade100,
-                    ),
+                    border: Border.all(color: Colors.blue.shade100),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,11 +131,7 @@ class WordCardContent extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.swipe,
-                      color: Colors.grey.shade400,
-                      size: 14,
-                    ),
+                    Icon(Icons.swipe, color: Colors.grey.shade400, size: 14),
                     const SizedBox(width: 4),
                     Text(
                       '上滑查看详情',

@@ -236,22 +236,15 @@ class _PlaceholderPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 80,
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            Icon(icon, size: 80, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 24),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text(
               desc,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
           ],
         ),

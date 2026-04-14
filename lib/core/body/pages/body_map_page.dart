@@ -10,11 +10,7 @@ class BodyMapPage extends StatefulWidget {
   final String title;
   final List<BlockRegion> regions;
 
-  const BodyMapPage({
-    super.key,
-    this.title = '全身',
-    required this.regions,
-  });
+  const BodyMapPage({super.key, this.title = '全身', required this.regions});
 
   @override
   State<BodyMapPage> createState() => _BodyMapPageState();
@@ -45,22 +41,18 @@ class _BodyMapPageState extends State<BodyMapPage> {
         builder: (_) => RecordSheet(bodyPart: hit),
       );
     } else {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => BodyMapPage(
-          title: hit.label,
-          regions: hit.children,
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => BodyMapPage(title: hit.label, regions: hit.children),
         ),
-      ));
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(widget.title), centerTitle: true),
       body: Column(
         children: [
           // 模式切换

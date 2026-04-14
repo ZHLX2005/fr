@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/word.dart';
 
 /// 区域类型枚举
-enum ZoneType {
-  none,
-  mark,
-  delete,
-}
+enum ZoneType { none, mark, delete }
 
 /// 操作日志条目
 class ActionLogEntry {
@@ -164,9 +160,12 @@ class WordDragState {
       markZoneOpacity: markZoneOpacity ?? this.markZoneOpacity,
       deleteZoneOpacity: deleteZoneOpacity ?? this.deleteZoneOpacity,
       showMarkSuccessHint: showMarkSuccessHint ?? this.showMarkSuccessHint,
-      showMarkNewSuccessHint: showMarkNewSuccessHint ?? this.showMarkNewSuccessHint,
-      showMasteredSuccessHint: showMasteredSuccessHint ?? this.showMasteredSuccessHint,
-      showDeleteSuccessHint: showDeleteSuccessHint ?? this.showDeleteSuccessHint,
+      showMarkNewSuccessHint:
+          showMarkNewSuccessHint ?? this.showMarkNewSuccessHint,
+      showMasteredSuccessHint:
+          showMasteredSuccessHint ?? this.showMasteredSuccessHint,
+      showDeleteSuccessHint:
+          showDeleteSuccessHint ?? this.showDeleteSuccessHint,
       showDetails: showDetails ?? this.showDetails,
       isFolderMode: isFolderMode ?? this.isFolderMode,
       activeCategoryBucketId: activeCategoryBucketId,

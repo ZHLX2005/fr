@@ -71,7 +71,8 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   // Folder mode 状态
   bool _isFolderMode = false;
   String? _activeBucketId;
-  final CategoryDropEdgeScrollState _edgeScrollState = CategoryDropEdgeScrollState();
+  final CategoryDropEdgeScrollState _edgeScrollState =
+      CategoryDropEdgeScrollState();
 
   // 当前查看的单词详情
   Word? _viewingWord;
@@ -139,8 +140,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             ),
 
             // 详情页
-            if (_viewingWord != null)
-              _buildDetailOverlay(_viewingWord!),
+            if (_viewingWord != null) _buildDetailOverlay(_viewingWord!),
           ],
         ),
       ),
@@ -157,10 +157,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     // 卡片中心位置 = 0.2 * screenHeight - 0.12 * screenHeight + cardHeight/2 = 0.08 * screenHeight + cardHeight/2
     Offset getCardCenter(double offsetX, double offsetY) {
       final cardCenterY = screenSize.height * 0.08 + cardHeight / 2;
-      return Offset(
-        screenSize.width / 2 + offsetX,
-        cardCenterY + offsetY,
-      );
+      return Offset(screenSize.width / 2 + offsetX, cardCenterY + offsetY);
     }
 
     return Stack(
@@ -355,7 +352,11 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.format_quote, color: Colors.blue.shade400, size: 16),
+                            Icon(
+                              Icons.format_quote,
+                              color: Colors.blue.shade400,
+                              size: 16,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '例句',
@@ -397,7 +398,8 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
   Widget _buildProgressIndicator(WordDragState state) {
     final progress = state.words.isEmpty
         ? 1.0
-        : (Word.sampleWords.length - state.words.length) / Word.sampleWords.length;
+        : (Word.sampleWords.length - state.words.length) /
+              Word.sampleWords.length;
 
     return Column(
       children: [
@@ -441,7 +443,11 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
               ],
             ),
           ),
-          child: Icon(Icons.celebration, size: 60, color: Colors.green.shade400),
+          child: Icon(
+            Icons.celebration,
+            size: 60,
+            color: Colors.green.shade400,
+          ),
         ),
         const SizedBox(height: 32),
         const Text(
@@ -502,10 +508,7 @@ class _ActionLogDrawer extends StatefulWidget {
   final ActionLogEntry? currentAction;
   final List<ActionLogEntry> actionLog;
 
-  const _ActionLogDrawer({
-    this.currentAction,
-    required this.actionLog,
-  });
+  const _ActionLogDrawer({this.currentAction, required this.actionLog});
 
   @override
   State<_ActionLogDrawer> createState() => _ActionLogDrawerState();
@@ -517,7 +520,8 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
   late Animation<double> _heightAnimation;
   bool _isExpanded = false;
   static const double _collapsedHeight = 60.0;
-  static const double _expandedHeight = WordDragConstants.actionLogExpandedHeight;
+  static const double _expandedHeight =
+      WordDragConstants.actionLogExpandedHeight;
 
   @override
   void initState() {
@@ -529,10 +533,7 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
     _heightAnimation = Tween<double>(
       begin: _collapsedHeight,
       end: _expandedHeight,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -578,9 +579,7 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                 Colors.purple.withValues(alpha: 0.1),
               ],
             ),
-            border: Border.all(
-              color: Colors.deepPurple.withValues(alpha: 0.3),
-            ),
+            border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.3)),
           ),
           child: Column(
             children: [
@@ -603,7 +602,11 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                             ],
                           ),
                         ),
-                        child: const Icon(Icons.bug_report, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.bug_report,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -623,7 +626,9 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                               Text(
                                 widget.currentAction!.action,
                                 style: TextStyle(
-                                  color: _actionColor(widget.currentAction!.action),
+                                  color: _actionColor(
+                                    widget.currentAction!.action,
+                                  ),
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -631,7 +636,10 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                             else
                               Text(
                                 '${widget.actionLog.length} 条记录',
-                                style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 12,
+                                ),
                               ),
                           ],
                         ),
@@ -639,7 +647,10 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                       AnimatedRotation(
                         turns: _isExpanded ? 0.5 : 0,
                         duration: const Duration(milliseconds: 300),
-                        child: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade400),
+                        child: Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Colors.grey.shade400,
+                        ),
                       ),
                     ],
                   ),
@@ -652,22 +663,33 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                           child: Text(
                             '暂无操作记录\n滑动卡片触发操作',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 13,
+                            ),
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           itemCount: widget.actionLog.length,
                           itemBuilder: (context, index) {
                             final entry = widget.actionLog[index];
                             final color = _actionColor(entry.action);
                             return Container(
                               margin: const EdgeInsets.symmetric(vertical: 2),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
                                 color: color.withValues(alpha: 0.1),
-                                border: Border.all(color: color.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: color.withValues(alpha: 0.3),
+                                ),
                               ),
                               child: Row(
                                 children: [
@@ -692,7 +714,8 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           entry.word,
@@ -702,7 +725,7 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                Text(
+                                        Text(
                                           entry.action,
                                           style: TextStyle(
                                             color: color,
@@ -732,4 +755,3 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
     );
   }
 }
-

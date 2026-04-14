@@ -15,14 +15,18 @@ class TimetableConfig {
 
   /// ISO 8601 日期字符串 (YYYY-MM-DD)
   final String startDateIso;
+
   /// 周期总数
   final int cycleCount;
+
   /// 每周期天数 (1-7)
   final int daysPerCycle;
+
   /// 每天节数 (1-6)
   final int slotsPerDay;
   final String id;
   final int? updatedAt;
+
   /// 背景图路径
   final String? backgroundImagePath;
 
@@ -43,7 +47,9 @@ class TimetableConfig {
       slotsPerDay: slotsPerDay ?? this.slotsPerDay,
       id: id ?? this.id,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
-      backgroundImagePath: clearBackgroundImage ? null : (backgroundImagePath ?? this.backgroundImagePath),
+      backgroundImagePath: clearBackgroundImage
+          ? null
+          : (backgroundImagePath ?? this.backgroundImagePath),
     );
   }
 
@@ -85,8 +91,10 @@ class CourseItem {
   });
 
   final String id;
+
   /// 周期中的第几天 (0 起, 0=周期第一天)
   final int dayOfCycle;
+
   /// 节次索引 (0 起)
   final int slotIndex;
   final String title;
@@ -94,6 +102,7 @@ class CourseItem {
   final String? teacher;
   final int? colorSeed;
   final int version;
+
   /// null 表示所有周期都显示
   final List<int>? visibleInCycles;
   final int createdAt;
@@ -127,7 +136,9 @@ class CourseItem {
       teacher: teacher ?? this.teacher,
       colorSeed: colorSeed ?? this.colorSeed,
       version: version ?? this.version,
-      visibleInCycles: clearVisibleInCycles ? null : (visibleInCycles ?? this.visibleInCycles),
+      visibleInCycles: clearVisibleInCycles
+          ? null
+          : (visibleInCycles ?? this.visibleInCycles),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now().millisecondsSinceEpoch,
     );

@@ -47,10 +47,7 @@ class ImagePickerService {
       try {
         croppedFile = await ImageCropper().cropImage(
           sourcePath: image.path,
-          aspectRatio: CropAspectRatio(
-            ratioX: aspectRatio,
-            ratioY: 1,
-          ),
+          aspectRatio: CropAspectRatio(ratioX: aspectRatio, ratioY: 1),
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: cropTitle,
@@ -71,11 +68,13 @@ class ImagePickerService {
         );
       } finally {
         // 恢复状态栏样式
-        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-        ));
+        SystemChrome.setSystemUIOverlayStyle(
+          const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+        );
       }
 
       if (croppedFile == null) {
