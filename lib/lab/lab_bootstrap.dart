@@ -3,7 +3,6 @@
 library lab_bootstrap;
 
 import '../core/schema/schema.dart' show initSchemaRegistry;
-import 'demos/drag_blend_demo.dart';
 import 'demos/grid_dashboard_demo.dart';
 import 'demos/notebook_demo_ai_proto.dart';
 import 'demos/clock_demo.dart';
@@ -34,7 +33,6 @@ import 'demos/schema_demo.dart';
 
 /// 注册所有 Demo 页面
 void registerAllDemos() {
-  registerDragBlendDemo();
   registerGridDashboardDemo();
   registerNotebookDemoAiProto();
   registerClockDemo();
