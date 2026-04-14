@@ -28,7 +28,9 @@ class ChartRepository {
       final songs = <SongData>[];
       for (final songInfo in songsList) {
         final songId = songInfo['id'] as String;
-        final chartJson = await rootBundle.loadString('$_chartsPath$songId.json');
+        final chartJson = await rootBundle.loadString(
+          '$_chartsPath$songId.json',
+        );
         final chartData = jsonDecode(chartJson) as Map<String, dynamic>;
         final notes = _parseNotes(chartData);
 

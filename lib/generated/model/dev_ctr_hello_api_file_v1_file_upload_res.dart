@@ -96,30 +96,33 @@ class DevCtrHelloApiFileV1FileUploadRes {
   String? downloadUrl;
 
   @override
-  bool operator ==(Object other) => identical(this, other) || other is DevCtrHelloApiFileV1FileUploadRes &&
-    other.id == id &&
-    other.name == name &&
-    other.size == size &&
-    other.contentType == contentType &&
-    other.extension_ == extension_ &&
-    other.uploadTime == uploadTime &&
-    other.expiresAt == expiresAt &&
-    other.downloadUrl == downloadUrl;
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DevCtrHelloApiFileV1FileUploadRes &&
+          other.id == id &&
+          other.name == name &&
+          other.size == size &&
+          other.contentType == contentType &&
+          other.extension_ == extension_ &&
+          other.uploadTime == uploadTime &&
+          other.expiresAt == expiresAt &&
+          other.downloadUrl == downloadUrl;
 
   @override
   int get hashCode =>
-    // ignore: unnecessary_parenthesis
-    (id == null ? 0 : id!.hashCode) +
-    (name == null ? 0 : name!.hashCode) +
-    (size == null ? 0 : size!.hashCode) +
-    (contentType == null ? 0 : contentType!.hashCode) +
-    (extension_ == null ? 0 : extension_!.hashCode) +
-    (uploadTime == null ? 0 : uploadTime!.hashCode) +
-    (expiresAt == null ? 0 : expiresAt!.hashCode) +
-    (downloadUrl == null ? 0 : downloadUrl!.hashCode);
+      // ignore: unnecessary_parenthesis
+      (id == null ? 0 : id!.hashCode) +
+      (name == null ? 0 : name!.hashCode) +
+      (size == null ? 0 : size!.hashCode) +
+      (contentType == null ? 0 : contentType!.hashCode) +
+      (extension_ == null ? 0 : extension_!.hashCode) +
+      (uploadTime == null ? 0 : uploadTime!.hashCode) +
+      (expiresAt == null ? 0 : expiresAt!.hashCode) +
+      (downloadUrl == null ? 0 : downloadUrl!.hashCode);
 
   @override
-  String toString() => 'DevCtrHelloApiFileV1FileUploadRes[id=$id, name=$name, size=$size, contentType=$contentType, extension_=$extension_, uploadTime=$uploadTime, expiresAt=$expiresAt, downloadUrl=$downloadUrl]';
+  String toString() =>
+      'DevCtrHelloApiFileV1FileUploadRes[id=$id, name=$name, size=$size, contentType=$contentType, extension_=$extension_, uploadTime=$uploadTime, expiresAt=$expiresAt, downloadUrl=$downloadUrl]';
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
@@ -178,8 +181,10 @@ class DevCtrHelloApiFileV1FileUploadRes {
       // Note 2: this code is stripped in release mode!
       assert(() {
         requiredKeys.forEach((key) {
-          assert(json.containsKey(key), 'Required key "DevCtrHelloApiFileV1FileUploadRes[$key]" is missing from JSON.');
-          assert(json[key] != null, 'Required key "DevCtrHelloApiFileV1FileUploadRes[$key]" has a null value in JSON.');
+          assert(json.containsKey(key),
+              'Required key "DevCtrHelloApiFileV1FileUploadRes[$key]" is missing from JSON.');
+          assert(json[key] != null,
+              'Required key "DevCtrHelloApiFileV1FileUploadRes[$key]" has a null value in JSON.');
         });
         return true;
       }());
@@ -198,7 +203,10 @@ class DevCtrHelloApiFileV1FileUploadRes {
     return null;
   }
 
-  static List<DevCtrHelloApiFileV1FileUploadRes> listFromJson(dynamic json, {bool growable = false,}) {
+  static List<DevCtrHelloApiFileV1FileUploadRes> listFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final result = <DevCtrHelloApiFileV1FileUploadRes>[];
     if (json is List && json.isNotEmpty) {
       for (final row in json) {
@@ -211,7 +219,8 @@ class DevCtrHelloApiFileV1FileUploadRes {
     return result.toList(growable: growable);
   }
 
-  static Map<String, DevCtrHelloApiFileV1FileUploadRes> mapFromJson(dynamic json) {
+  static Map<String, DevCtrHelloApiFileV1FileUploadRes> mapFromJson(
+      dynamic json) {
     final map = <String, DevCtrHelloApiFileV1FileUploadRes>{};
     if (json is Map && json.isNotEmpty) {
       json = json.cast<String, dynamic>(); // ignore: parameter_assignments
@@ -226,20 +235,24 @@ class DevCtrHelloApiFileV1FileUploadRes {
   }
 
   // maps a json object with a list of DevCtrHelloApiFileV1FileUploadRes-objects as value to a dart map
-  static Map<String, List<DevCtrHelloApiFileV1FileUploadRes>> mapListFromJson(dynamic json, {bool growable = false,}) {
+  static Map<String, List<DevCtrHelloApiFileV1FileUploadRes>> mapListFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final map = <String, List<DevCtrHelloApiFileV1FileUploadRes>>{};
     if (json is Map && json.isNotEmpty) {
       // ignore: parameter_assignments
       json = json.cast<String, dynamic>();
       for (final entry in json.entries) {
-        map[entry.key] = DevCtrHelloApiFileV1FileUploadRes.listFromJson(entry.value, growable: growable,);
+        map[entry.key] = DevCtrHelloApiFileV1FileUploadRes.listFromJson(
+          entry.value,
+          growable: growable,
+        );
       }
     }
     return map;
   }
 
   /// The list of required keys that must be present in a JSON.
-  static const requiredKeys = <String>{
-  };
+  static const requiredKeys = <String>{};
 }
-

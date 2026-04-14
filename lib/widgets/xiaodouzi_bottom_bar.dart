@@ -40,12 +40,33 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
 
   // 底部导航项
   static const List<BottomBarItem> _items = [
-    BottomBarItem(label: '主页', icon: Icons.home_outlined, selectedIcon: Icons.home),
-    BottomBarItem(label: '聊天', icon: Icons.chat_bubble_outline, selectedIcon: Icons.chat_bubble),
-    BottomBarItem(label: '专注', icon: Icons.radio_button_unchecked, selectedIcon: Icons.radio_button_checked, isEnabled: true), // 中间O按钮
-    BottomBarItem(label: 'LocalNet', icon: Icons.wifi, selectedIcon: Icons.wifi),
+    BottomBarItem(
+      label: '主页',
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+    ),
+    BottomBarItem(
+      label: '聊天',
+      icon: Icons.chat_bubble_outline,
+      selectedIcon: Icons.chat_bubble,
+    ),
+    BottomBarItem(
+      label: '专注',
+      icon: Icons.radio_button_unchecked,
+      selectedIcon: Icons.radio_button_checked,
+      isEnabled: true,
+    ), // 中间O按钮
+    BottomBarItem(
+      label: 'LocalNet',
+      icon: Icons.wifi,
+      selectedIcon: Icons.wifi,
+    ),
 
-    BottomBarItem(label: '图库', icon: Icons.photo_library_outlined, selectedIcon: Icons.photo_library),
+    BottomBarItem(
+      label: '图库',
+      icon: Icons.photo_library_outlined,
+      selectedIcon: Icons.photo_library,
+    ),
   ];
 
   @override
@@ -80,12 +101,16 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               color: colorScheme.surface,
               elevation: 16.0,
               clipper: _BottomBarClipper(
-                radius: Tween<double>(begin: 0.0, end: 1.0)
-                    .animate(CurvedAnimation(
-                      parent: _animationController,
-                      curve: Curves.fastOutSlowIn,
-                    ))
-                    .value * 38.0,
+                radius:
+                    Tween<double>(begin: 0.0, end: 1.0)
+                        .animate(
+                          CurvedAnimation(
+                            parent: _animationController,
+                            curve: Curves.fastOutSlowIn,
+                          ),
+                        )
+                        .value *
+                    38.0,
               ),
               child: child,
             );
@@ -101,39 +126,32 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                   child: Row(
                     children: [
                       // 主页
-                      Expanded(
-                        child: _buildTabItem(0, theme),
-                      ),
+                      Expanded(child: _buildTabItem(0, theme)),
                       // 聊天
-                      Expanded(
-                        child: _buildTabItem(1, theme),
-                      ),
+                      Expanded(child: _buildTabItem(1, theme)),
                       // 中间占位
                       SizedBox(
-                        width: Tween<double>(begin: 0.0, end: 1.0)
-                                .animate(CurvedAnimation(
-                                  parent: _animationController,
-                                  curve: Curves.fastOutSlowIn,
-                                ))
+                        width:
+                            Tween<double>(begin: 0.0, end: 1.0)
+                                .animate(
+                                  CurvedAnimation(
+                                    parent: _animationController,
+                                    curve: Curves.fastOutSlowIn,
+                                  ),
+                                )
                                 .value *
                             64.0,
                       ),
                       // 通讯录
-                      Expanded(
-                        child: _buildTabItem(3, theme),
-                      ),
+                      Expanded(child: _buildTabItem(3, theme)),
                       // 待开发
-                      Expanded(
-                        child: _buildTabItem(4, theme),
-                      ),
+                      Expanded(child: _buildTabItem(4, theme)),
                     ],
                   ),
                 ),
               ),
               // 底部安全区
-              SizedBox(
-                height: MediaQuery.of(context).padding.bottom,
-              ),
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
             ],
           ),
         ),
@@ -176,14 +194,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: widget.currentIndex == 2
-                                ? [
-                                    colorScheme.primary,
-                                    colorScheme.tertiary,
-                                  ]
-                                : [
-                                    colorScheme.primary,
-                                    colorScheme.secondary,
-                                  ],
+                                ? [colorScheme.primary, colorScheme.tertiary]
+                                : [colorScheme.primary, colorScheme.secondary],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -194,7 +206,9 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                                   ? colorScheme.primary.withValues(alpha: 0.6)
                                   : colorScheme.primary.withValues(alpha: 0.4),
                               offset: const Offset(4.0, 8.0),
-                              blurRadius: widget.currentIndex == 2 ? 24.0 : 16.0,
+                              blurRadius: widget.currentIndex == 2
+                                  ? 24.0
+                                  : 16.0,
                             ),
                           ],
                         ),
@@ -273,10 +287,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.tertiary,
-                    ],
+                    colors: [colorScheme.primary, colorScheme.tertiary],
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -294,16 +305,16 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               const SizedBox(height: 20),
               Text(
                 '🎉 发现了彩蛋！',
-                style: Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  dialogContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Text(
                 '专注时光，让每一刻都有意义',
                 style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
@@ -326,8 +337,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               Text(
                 '💡 翻转手机可自动进入专注模式',
                 style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 16),
               FilledButton(
@@ -373,7 +384,9 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                 shape: BoxShape.circle,
                 color: isSelected
                     ? colorScheme.primary.withValues(alpha: 0.15)
-                    : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    : colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.5,
+                      ),
                 border: Border.all(
                   color: isSelected
                       ? colorScheme.primary.withValues(alpha: 0.3)
@@ -391,15 +404,14 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                     shape: BoxShape.circle,
                     gradient: isSelected
                         ? LinearGradient(
-                            colors: [
-                              colorScheme.primary,
-                              colorScheme.tertiary,
-                            ],
+                            colors: [colorScheme.primary, colorScheme.tertiary],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
                         : null,
-                    color: isSelected ? null : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    color: isSelected
+                        ? null
+                        : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                   ),
                 ),
               ),
@@ -427,18 +439,11 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              item.icon,
-              size: 24,
-              color: colorScheme.outline,
-            ),
+            Icon(item.icon, size: 24, color: colorScheme.outline),
             const SizedBox(height: 2),
             Text(
               item.label,
-              style: TextStyle(
-                fontSize: 10,
-                color: colorScheme.outline,
-              ),
+              style: TextStyle(fontSize: 10, color: colorScheme.outline),
             ),
           ],
         ),

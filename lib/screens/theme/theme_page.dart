@@ -10,10 +10,7 @@ class ThemePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('主题设置'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('主题设置'), centerTitle: true),
       body: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return _ThemeGrid(currentMode: themeProvider.themeMode);
@@ -110,19 +107,13 @@ class _ThemeCard extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.secondary,
-                    ],
+                    colors: [colorScheme.primary, colorScheme.secondary],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  AppTheme.getThemeIcon(mode),
-                  color: Colors.white,
-                ),
+                child: Icon(AppTheme.getThemeIcon(mode), color: Colors.white),
               ),
               const SizedBox(height: 10),
 

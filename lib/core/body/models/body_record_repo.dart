@@ -17,20 +17,16 @@ class BodyRecordRepo {
   }
 
   List<BodyRecord> getRecords(String partId) {
-    return _box.values
-        .where((r) => r.bodyPartId == partId)
-        .toList()
+    return _box.values.where((r) => r.bodyPartId == partId).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   List<BodyRecord> getAll() => _box.values.toList();
 
   Future<void> add(String partId, String content, int? pain) async {
-    await _box.add(BodyRecord(
-      bodyPartId: partId,
-      content: content,
-      painLevel: pain,
-    ));
+    await _box.add(
+      BodyRecord(bodyPartId: partId, content: content, painLevel: pain),
+    );
   }
 
   Future<void> remove(BodyRecord record) async {

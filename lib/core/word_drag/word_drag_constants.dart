@@ -1,28 +1,28 @@
 // WordDrag 全局常量
 //
 // 所有跨组件共享的常量集中在此文件，避免同名常量分散在多处
-/// 修改时只需改一处，减少遗漏导致的 bug
-///
-/// ## 常量使用一览
-///
-/// ### ⚠️ 多文件共用常量（修改时必须同步检查）
-/// 这些常量在多个文件中被使用，修改时需确保两端值一致：
-///
-/// | 常量 | 文件 | 用途 |
-/// |------|------|------|
-/// | `folderModeThreshold` | `draggable_word_card.dart`, `word_drag_page.dart` | 卡片下滑进入分类桶模式的阈值，必须相同 |
-/// | `swipeThreshold` | `draggable_word_card.dart` | 左右滑确认阈值，同时控制 Action Indicator 显示 |
-/// | `actionIndicatorThreshold` | `draggable_word_card.dart` | Action Indicator 亮起阈值，与 swipeThreshold 共用同一值 |
-/// | `actionIndicatorFolderThreshold` | `draggable_word_card.dart` | Action Indicator 文件夹模式阈值（>300 时显示 FOLDER） |
-/// | `stackScaleDecrement` | `draggable_word_card.dart` | 控制堆叠卡片的 scale 和 Y 偏移，两边必须同步 |
-/// | `stackYOffsetIncrement` | `draggable_word_card.dart` | 背景卡片堆叠 Y 偏移，与 scale 配合保持视觉一致 |
-///
-/// ### 📦 category_drop_row.dart 专属
-/// | 常量 | 用途 |
-/// |------|------|
-/// | `bandPadding` | 垂直频道区域 padding |
-/// | `stickyRadius` | 粘附半径 |
-/// | `horizontalSwipeThreshold` | 水平滑动忽略阈值 |
+// 修改时只需改一处，减少遗漏导致的 bug
+//
+// ## 常量使用一览
+//
+// ### ⚠️ 多文件共用常量（修改时必须同步检查）
+// 这些常量在多个文件中被使用，修改时需确保两端值一致：
+//
+// | 常量 | 文件 | 用途 |
+// |------|------|------|
+// | `folderModeThreshold` | `draggable_word_card.dart`, `word_drag_page.dart` | 卡片下滑进入分类桶模式的阈值，必须相同 |
+// | `swipeThreshold` | `draggable_word_card.dart` | 左右滑确认阈值，同时控制 Action Indicator 显示 |
+// | `actionIndicatorThreshold` | `draggable_word_card.dart` | Action Indicator 亮起阈值，与 swipeThreshold 共用同一值 |
+// | `actionIndicatorFolderThreshold` | `draggable_word_card.dart` | Action Indicator 文件夹模式阈值（>300 时显示 FOLDER） |
+// | `stackScaleDecrement` | `draggable_word_card.dart` | 控制堆叠卡片的 scale 和 Y 偏移，两边必须同步 |
+// | `stackYOffsetIncrement` | `draggable_word_card.dart` | 背景卡片堆叠 Y 偏移，与 scale 配合保持视觉一致 |
+//
+// ### 📦 category_drop_row.dart 专属
+// | 常量 | 用途 |
+// |------|------|
+// | `bandPadding` | 垂直频道区域 padding |
+// | `stickyRadius` | 粘附半径 |
+// | `horizontalSwipeThreshold` | 水平滑动忽略阈值 |
 /// | `edgeScrollThreshold` | 边缘滚动触发距离 |
 /// | `minScrollSpeed` / `maxScrollSpeed` | 边缘滚动速度范围 |
 /// | `bucketDefaultWidth` / `bucketActiveWidth` | 桶默认/激活宽度 |

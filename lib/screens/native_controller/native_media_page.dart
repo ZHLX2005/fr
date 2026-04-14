@@ -29,8 +29,6 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
   // 音频播放相关
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
-  Duration _audioDuration = Duration.zero;
-  Duration _audioPosition = Duration.zero;
 
   @override
   void initState() {
@@ -42,22 +40,6 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
       if (mounted) {
         setState(() {
           _isPlaying = state == PlayerState.playing;
-        });
-      }
-    });
-
-    _audioPlayer.onDurationChanged.listen((duration) {
-      if (mounted) {
-        setState(() {
-          _audioDuration = duration;
-        });
-      }
-    });
-
-    _audioPlayer.onPositionChanged.listen((position) {
-      if (mounted) {
-        setState(() {
-          _audioPosition = position;
         });
       }
     });
@@ -94,7 +76,8 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
       if (path != null) {
         setState(() {
           _selectedImagePath = path;
-          _testResult = '成功选择图片\n\n路径: ${path.length > 100 ? path.substring(0, 100) + '...' : path}\n\n'
+          _testResult =
+              '成功选择图片\n\n路径: ${path.length > 100 ? path.substring(0, 100) + '...' : path}\n\n'
               '图片格式: ${kIsWeb ? "Base64 (Web)" : "文件路径"}';
         });
       } else {
@@ -124,7 +107,8 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
       if (path != null) {
         setState(() {
           _selectedImagePath = path;
-          _testResult = '成功拍照\n\n路径: ${path.length > 100 ? path.substring(0, 100) + '...' : path}\n\n'
+          _testResult =
+              '成功拍照\n\n路径: ${path.length > 100 ? path.substring(0, 100) + '...' : path}\n\n'
               '图片格式: ${kIsWeb ? "Base64 (Web)" : "文件路径"}';
         });
       } else {
@@ -182,7 +166,8 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
       if (result != null && result.files.isNotEmpty) {
         final file = result.files;
         setState(() {
-          _testResult = '成功选择文件\n\n'
+          _testResult =
+              '成功选择文件\n\n'
               '文件名: ${file.map((f) => f.name).join(', ')}\n'
               '大小: ${file.map((f) => f.size).join(' bytes, ')}';
         });
@@ -266,9 +251,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
 
     final hasPermission = await _audioService.checkPermission();
     setState(() {
-      _testResult = hasPermission
-          ? '麦克风权限: 已授权'
-          : '麦克风权限: 未授权';
+      _testResult = hasPermission ? '麦克风权限: 已授权' : '麦克风权限: 未授权';
     });
   }
 
@@ -285,30 +268,6 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
       }
     } catch (e) {
       debugPrint('播放音频失败: $e');
-    }
-  }
-
-  Future<void> _downloadFile(String url, String fileName) async {
-    try {
-      if (kIsWeb) {
-        // Web 环境下使用 JavaScript 下载
-        // ignore:: undefined_prefixed_name
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Web端无法直接下载，请复制链接: $url')),
-          );
-        }
-      } else {
-        // 移动端提示
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('文件路径: $url')),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('下载失败: $e');
     }
   }
 
@@ -339,10 +298,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '运行环境',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('运行环境', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 8),
                     Text('平台: ${kIsWeb ? 'Web' : 'Native'}'),
                     if (kIsWeb) Text('浏览器: ${defaultTargetPlatform}'),
@@ -363,10 +319,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '功能检测',
-                          style: theme.textTheme.titleMedium,
-                        ),
+                        Text('功能检测', style: theme.textTheme.titleMedium),
                         if (_isLoading)
                           const SizedBox(
                             width: 16,
@@ -377,8 +330,14 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     ),
                     const SizedBox(height: 12),
                     if (_capability != null) ...[
-                      _buildCapabilityItem('摄像头访问', _capability!.canAccessCamera),
-                      _buildCapabilityItem('图库访问', _capability!.canAccessGallery),
+                      _buildCapabilityItem(
+                        '摄像头访问',
+                        _capability!.canAccessCamera,
+                      ),
+                      _buildCapabilityItem(
+                        '图库访问',
+                        _capability!.canAccessGallery,
+                      ),
                       _buildCapabilityItem('视频录制', _capability!.canRecordVideo),
                       const SizedBox(height: 8),
                       Text(
@@ -406,10 +365,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      '功能测试',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('功能测试', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
                       onPressed: _isLoading ? null : _pickFromGallery,
@@ -449,16 +405,15 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     const SizedBox(height: 16),
 
                     // 录音测试
-                    Text(
-                      '录音功能测试',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('录音功能测试', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: _isAudioRecording ? null : _startRecording,
+                            onPressed: _isAudioRecording
+                                ? null
+                                : _startRecording,
                             icon: const Icon(Icons.mic),
                             label: const Text('开始录音'),
                             style: ElevatedButton.styleFrom(
@@ -471,7 +426,9 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: _isAudioRecording ? _stopRecording : null,
+                            onPressed: _isAudioRecording
+                                ? _stopRecording
+                                : null,
                             icon: const Icon(Icons.stop),
                             label: const Text('停止录音'),
                             style: ElevatedButton.styleFrom(
@@ -485,8 +442,11 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.fiber_manual_record,
-                              color: Colors.red, size: 16),
+                          const Icon(
+                            Icons.fiber_manual_record,
+                            color: Colors.red,
+                            size: 16,
+                          ),
                           const SizedBox(width: 8),
                           Text('录音中: $_recordingDuration 秒'),
                         ],
@@ -513,10 +473,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '测试结果',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      Text('测试结果', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 8),
                       Text(_testResult),
                     ],
@@ -532,10 +489,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '录音预览',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      Text('录音预览', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -546,7 +500,11 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                         child: Row(
                           children: [
                             IconButton(
-                              icon: Icon(_isPlaying ? Icons.pause_circle : Icons.play_circle),
+                              icon: Icon(
+                                _isPlaying
+                                    ? Icons.pause_circle
+                                    : Icons.play_circle,
+                              ),
                               iconSize: 40,
                               color: theme.colorScheme.primary,
                               onPressed: () => _playAudio(_recordedAudioPath!),
@@ -583,10 +541,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '图片预览',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      Text('图片预览', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
@@ -600,43 +555,41 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                                   return Container(
                                     height: 200,
                                     color: Colors.grey[300],
-                                    child: const Center(
-                                      child: Text('图片加载失败'),
-                                    ),
+                                    child: const Center(child: Text('图片加载失败')),
                                   );
                                 },
                               )
                             : kIsWeb
-                                ? Image.network(
-                                    _selectedImagePath,
-                                    width: double.infinity,
+                            ? Image.network(
+                                _selectedImagePath,
+                                width: double.infinity,
+                                height: 200,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
                                     height: 200,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        height: 200,
-                                        color: Colors.grey[300],
-                                        child: const Center(
-                                          child: Text('图片加载失败'),
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : Image.file(
-                                    File(_selectedImagePath),
-                                    width: double.infinity,
+                                    color: Colors.grey[300],
+                                    child: const Center(child: Text('图片加载失败')),
+                                  );
+                                },
+                              )
+                            : Image.file(
+                                File(_selectedImagePath),
+                                width: double.infinity,
+                                height: 200,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
                                     height: 200,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        height: 200,
-                                        color: Colors.grey[300],
-                                        child: Center(
-                                          child: Text('图片加载失败: $_selectedImagePath'),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                    color: Colors.grey[300],
+                                    child: Center(
+                                      child: Text(
+                                        '图片加载失败: $_selectedImagePath',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                       ),
                     ],
                   ),

@@ -14,7 +14,10 @@ class ApiResponse<T> {
 
   ApiResponse({required this.code, required this.message, this.data});
 
-  static ApiResponse<T?> fromJson<T>(Map<String, dynamic> json, T? Function(dynamic) fromJsonT) {
+  static ApiResponse<T?> fromJson<T>(
+    Map<String, dynamic> json,
+    T? Function(dynamic) fromJsonT,
+  ) {
     return ApiResponse(
       code: json['code'] as int? ?? -1,
       message: json['message'] as String? ?? '',
@@ -27,9 +30,7 @@ class ApiResponse<T> {
 class ApiService {
   static const String baseUrl = 'http://47.110.80.47:8988';
 
-  static final gen.ApiClient _client = gen.ApiClient(
-    basePath: baseUrl,
-  );
+  static final gen.ApiClient _client = gen.ApiClient(basePath: baseUrl);
 
   static gen.KVApi get kvApi => gen.KVApi(_client);
   static gen.FileApi get fileApi => gen.FileApi(_client);
@@ -81,14 +82,21 @@ class ApiService {
     }
   }
 
-  static Future<List<gen.DevCtrHelloApiKvV1KvItem>?> listKv({int limit = 50, int offset = 0}) async {
+  static Future<List<gen.DevCtrHelloApiKvV1KvItem>?> listKv({
+    int limit = 50,
+    int offset = 0,
+  }) async {
     try {
-      final response = await kvApi.apiV1KvGetWithHttpInfo(limit: limit, offset: offset);
+      final response = await kvApi.apiV1KvGetWithHttpInfo(
+        limit: limit,
+        offset: offset,
+      );
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         if (json['data'] != null && json['data']['items'] != null) {
-          return gen.DevCtrHelloApiKvV1KvItem.listFromJson(json['data']['items'])
-              .toList();
+          return gen.DevCtrHelloApiKvV1KvItem.listFromJson(
+            json['data']['items'],
+          ).toList();
         }
       }
       return null;
@@ -192,9 +200,12 @@ class ApiService {
   }
 
   // 获取APK元数据（用于检查更新）- 使用key作为id
-  static Future<gen.DevCtrHelloApiFileV1FileMetadataRes?> getApkMetadata() async {
+  static Future<gen.DevCtrHelloApiFileV1FileMetadataRes?>
+  getApkMetadata() async {
     try {
-      final response = await fileApi.apiV1FileIdMetadataGetWithHttpInfo(id: 'fr_latest_apk');
+      final response = await fileApi.apiV1FileIdMetadataGetWithHttpInfo(
+        id: 'fr_latest_apk',
+      );
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         if (json['data'] != null) {
@@ -253,7 +264,8 @@ class ApiService {
 
         final streamedResponse = await client.send(request);
 
-        if (streamedResponse.statusCode != 200 && streamedResponse.statusCode != 206) {
+        if (streamedResponse.statusCode != 200 &&
+            streamedResponse.statusCode != 206) {
           return null;
         }
 
@@ -324,7 +336,9 @@ class ApiService {
   }
 
   // 文件元数据
-  static Future<gen.DevCtrHelloApiFileV1FileMetadataRes?> getFileMetadata(String id) async {
+  static Future<gen.DevCtrHelloApiFileV1FileMetadataRes?> getFileMetadata(
+    String id,
+  ) async {
     try {
       final response = await fileApi.apiV1FileIdMetadataGetWithHttpInfo(id: id);
       if (response.statusCode == 200 && response.body.isNotEmpty) {

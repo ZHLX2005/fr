@@ -8,12 +8,7 @@ import '../word_drag_constants.dart';
 enum SwipeDirection { left, right, up, down }
 
 /// Action 指示器类型
-enum ActionIndicator {
-  like,
-  delete,
-  skip,
-  folder,
-}
+enum ActionIndicator { like, delete, skip, folder }
 
 /// 弹性单词卡片组件
 ///
@@ -21,32 +16,45 @@ enum ActionIndicator {
 /// 支持：上滑跳过、左滑稍后复习、右滑掌握、下滑显示分类桶
 class DraggableWordCard extends StatefulWidget {
   final Widget child;
+
   /// 单词索引
   final int index;
+
   /// 是否顶层卡片
   final bool isTopCard;
+
   /// 堆叠索引
   final int stackIndex;
+
   /// 左滑回调
   final VoidCallback? onSwipeLeft;
+
   /// 右滑回调
   final VoidCallback? onSwipeRight;
+
   /// 上滑回调
   final VoidCallback? onSwipeUp;
+
   /// 下滑进入文件夹模式回调
   /// 返回选中的 bucketId 表示落在有效桶上，卡片将被吸入
   /// 返回 null 表示没有落在有效桶上
   final String? Function(double x, double y)? onFolderModeDragEnd;
+
   /// 吸入动画完成回调 (带 bucketId 参数)
   final void Function(String bucketId)? onFolderAnimationComplete;
+
   /// 开始拖动回调
   final VoidCallback? onDragStart;
+
   /// 拖动更新回调 (x, y)
   final void Function(double x, double y)? onDragUpdate;
+
   /// 拖动结束回调
   final void Function(double x, double y)? onDragEnd;
+
   /// 拖动取消回调
   final VoidCallback? onDragCancel;
+
   /// 详情页回调
   final VoidCallback? onDetail;
 
@@ -102,8 +110,14 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     super.initState();
     _offsetXController = AnimationController.unbounded(vsync: this);
     _offsetYController = AnimationController.unbounded(vsync: this);
-    _alphaController = AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
-    _exitScaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
+    _alphaController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _exitScaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
     _pressScaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 150),
@@ -120,8 +134,11 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     _stackYOffsetController.addListener(_onStackYOffsetChanged);
 
     // Initialize stack values
-    final initialScale = 1.0 - (widget.stackIndex.clamp(0, 2) * WordDragConstants.stackScaleDecrement);
-    final initialYOffset = widget.stackIndex * WordDragConstants.stackYOffsetIncrement;
+    final initialScale =
+        1.0 -
+        (widget.stackIndex.clamp(0, 2) * WordDragConstants.stackScaleDecrement);
+    final initialYOffset =
+        widget.stackIndex * WordDragConstants.stackYOffsetIncrement;
     _stackScale = initialScale;
     _stackYOffset = initialYOffset;
     _stackScaleController.value = initialScale;
@@ -146,8 +163,12 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
     // 当堆叠索引变化时，使用 spring 动画过渡
     if (widget.stackIndex != oldWidget.stackIndex) {
-      final targetScale = 1.0 - (widget.stackIndex.clamp(0, 2) * WordDragConstants.stackScaleDecrement);
-      final targetYOffset = widget.stackIndex * WordDragConstants.stackYOffsetIncrement;
+      final targetScale =
+          1.0 -
+          (widget.stackIndex.clamp(0, 2) *
+              WordDragConstants.stackScaleDecrement);
+      final targetYOffset =
+          widget.stackIndex * WordDragConstants.stackYOffsetIncrement;
 
       // Spring 参数 (Kotlin: stiffness=350f, dampingRatio=0.75f)
       final spring = SpringDescription(
@@ -257,7 +278,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     }
 
     // 上滑 - 跳过 (位置或速度触发)
-    if (offsetY < -WordDragConstants.swipeThreshold || (velocityY < -WordDragConstants.flingThreshold && offsetY < 0)) {
+    if (offsetY < -WordDragConstants.swipeThreshold ||
+        (velocityY < -WordDragConstants.flingThreshold && offsetY < 0)) {
       _performHaptic();
       _animateSwipeOut(0, -2000, onComplete: widget.onSwipeUp);
       return;
@@ -274,7 +296,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     final spring = SpringDescription(
       mass: 1.0,
       stiffness: WordDragConstants.cardPressStiffness,
-      damping: WordDragConstants.cardPressDampingRatio * 2 * sqrt(WordDragConstants.cardPressStiffness),
+      damping:
+          WordDragConstants.cardPressDampingRatio *
+          2 *
+          sqrt(WordDragConstants.cardPressStiffness),
     );
     _pressScaleController.animateWith(
       SpringSimulation(spring, _pressScaleController.value, 1.0, 0),
@@ -286,37 +311,48 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       duration: const Duration(milliseconds: 160),
       curve: Curves.fastOutSlowIn,
     );
-    _offsetYController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.fastOutSlowIn,
-    ).then((_) {
-      _isAnimating = false;
-    });
+    _offsetYController
+        .animateTo(
+          0,
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.fastOutSlowIn,
+        )
+        .then((_) {
+          _isAnimating = false;
+        });
   }
 
   // 吸进动画 (放入文件夹)
   void _animateSuckIntoFolder() {
     _isAnimating = true;
 
-    _exitScaleController.animateTo(WordDragConstants.cardSuckScale, duration: const Duration(milliseconds: 250));
-    _alphaController.animateTo(0, duration: const Duration(milliseconds: 250));
-    _offsetYController.animateTo(
-      _offsetYController.value + WordDragConstants.cardSuckOffsetY,
+    _exitScaleController.animateTo(
+      WordDragConstants.cardSuckScale,
       duration: const Duration(milliseconds: 250),
-    ).then((_) {
-      _isAnimating = false;
-      // 动画完成后通知父组件选择桶
-      final bucketId = _selectedBucketId;
-      if (bucketId != null) {
-        widget.onFolderAnimationComplete?.call(bucketId);
-        _selectedBucketId = null;
-      }
-    });
+    );
+    _alphaController.animateTo(0, duration: const Duration(milliseconds: 250));
+    _offsetYController
+        .animateTo(
+          _offsetYController.value + WordDragConstants.cardSuckOffsetY,
+          duration: const Duration(milliseconds: 250),
+        )
+        .then((_) {
+          _isAnimating = false;
+          // 动画完成后通知父组件选择桶
+          final bucketId = _selectedBucketId;
+          if (bucketId != null) {
+            widget.onFolderAnimationComplete?.call(bucketId);
+            _selectedBucketId = null;
+          }
+        });
   }
 
   // 滑出动画 (photoo: FastOutLinearInEasing - 线性加速)
-  void _animateSwipeOut(double targetX, double targetY, {VoidCallback? onComplete}) {
+  void _animateSwipeOut(
+    double targetX,
+    double targetY, {
+    VoidCallback? onComplete,
+  }) {
     _isAnimating = true;
 
     _offsetXController.animateTo(
@@ -324,14 +360,16 @@ class _DraggableWordCardState extends State<DraggableWordCard>
       duration: const Duration(milliseconds: 200),
       curve: Curves.linear,
     );
-    _offsetYController.animateTo(
-      targetY,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.linear,
-    ).then((_) {
-      _isAnimating = false;
-      onComplete?.call();
-    });
+    _offsetYController
+        .animateTo(
+          targetY,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.linear,
+        )
+        .then((_) {
+          _isAnimating = false;
+          onComplete?.call();
+        });
   }
 
   // Spring 回弹动画
@@ -341,7 +379,10 @@ class _DraggableWordCardState extends State<DraggableWordCard>
     final spring = SpringDescription(
       mass: 1.0,
       stiffness: WordDragConstants.cardSpringStiffness,
-      damping: WordDragConstants.cardSpringDampingRatio * 2 * sqrt(WordDragConstants.cardSpringStiffness),
+      damping:
+          WordDragConstants.cardSpringDampingRatio *
+          2 *
+          sqrt(WordDragConstants.cardSpringStiffness),
     );
 
     final simX = SpringSimulation(spring, _offsetXController.value, 0, 0);
@@ -365,7 +406,8 @@ class _DraggableWordCardState extends State<DraggableWordCard>
 
   // 计算当前 Action Indicator
   ActionIndicator? get _currentActionIndicator {
-    final isFolderMode = _offsetY > WordDragConstants.actionIndicatorFolderThreshold;
+    final isFolderMode =
+        _offsetY > WordDragConstants.actionIndicatorFolderThreshold;
 
     if (isFolderMode) {
       return ActionIndicator.folder;
@@ -414,37 +456,70 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                     children: [
                       GestureDetector(
                         onTap: widget.isTopCard ? widget.onDetail : null,
-                        onPanStart: widget.isTopCard ? (_) {
-                          if (_isAnimating) return;
-                          final spring = SpringDescription(
-                            mass: 1.0,
-                            stiffness: WordDragConstants.cardPressStiffness,
-                            damping: WordDragConstants.cardPressDampingRatio * 2 * sqrt(WordDragConstants.cardPressStiffness),
-                          );
-                          final simulation = SpringSimulation(spring, 1.0, WordDragConstants.cardPressScale, 0);
-                          _pressScaleController.animateWith(simulation);
-                          widget.onDragStart?.call();
-                        } : null,
-                        onPanUpdate: widget.isTopCard ? (details) {
-                          if (_isAnimating) return;
-                          _handleDragUpdate(details.delta.dx, details.delta.dy);
-                        } : null,
-                        onPanEnd: widget.isTopCard ? (details) {
-                          if (_isAnimating) return;
-                          final spring = SpringDescription(
-                            mass: 1.0,
-                            stiffness: WordDragConstants.cardPressStiffness,
-                            damping: WordDragConstants.cardPressDampingRatio * 2 * sqrt(WordDragConstants.cardPressStiffness),
-                          );
-                          _pressScaleController.animateWith(
-                            SpringSimulation(spring, _pressScaleController.value, 1.0, 0),
-                          );
-                          _handleDragEnd(
-                            details.velocity.pixelsPerSecond.dx,
-                            details.velocity.pixelsPerSecond.dy,
-                          );
-                        } : null,
-                        onPanCancel: widget.isTopCard ? _handleDragCancel : null,
+                        onPanStart: widget.isTopCard
+                            ? (_) {
+                                if (_isAnimating) return;
+                                final spring = SpringDescription(
+                                  mass: 1.0,
+                                  stiffness:
+                                      WordDragConstants.cardPressStiffness,
+                                  damping:
+                                      WordDragConstants.cardPressDampingRatio *
+                                      2 *
+                                      sqrt(
+                                        WordDragConstants.cardPressStiffness,
+                                      ),
+                                );
+                                final simulation = SpringSimulation(
+                                  spring,
+                                  1.0,
+                                  WordDragConstants.cardPressScale,
+                                  0,
+                                );
+                                _pressScaleController.animateWith(simulation);
+                                widget.onDragStart?.call();
+                              }
+                            : null,
+                        onPanUpdate: widget.isTopCard
+                            ? (details) {
+                                if (_isAnimating) return;
+                                _handleDragUpdate(
+                                  details.delta.dx,
+                                  details.delta.dy,
+                                );
+                              }
+                            : null,
+                        onPanEnd: widget.isTopCard
+                            ? (details) {
+                                if (_isAnimating) return;
+                                final spring = SpringDescription(
+                                  mass: 1.0,
+                                  stiffness:
+                                      WordDragConstants.cardPressStiffness,
+                                  damping:
+                                      WordDragConstants.cardPressDampingRatio *
+                                      2 *
+                                      sqrt(
+                                        WordDragConstants.cardPressStiffness,
+                                      ),
+                                );
+                                _pressScaleController.animateWith(
+                                  SpringSimulation(
+                                    spring,
+                                    _pressScaleController.value,
+                                    1.0,
+                                    0,
+                                  ),
+                                );
+                                _handleDragEnd(
+                                  details.velocity.pixelsPerSecond.dx,
+                                  details.velocity.pixelsPerSecond.dy,
+                                );
+                              }
+                            : null,
+                        onPanCancel: widget.isTopCard
+                            ? _handleDragCancel
+                            : null,
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -469,7 +544,9 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                         Positioned(
                           top: 16,
                           right: 16,
-                          child: _ActionIndicatorWidget(indicator: actionIndicator),
+                          child: _ActionIndicatorWidget(
+                            indicator: actionIndicator,
+                          ),
                         ),
                     ],
                   ),

@@ -292,8 +292,6 @@ class WaveCapsule extends StatelessWidget {
   final double percentageValue;
   final Animation<double> waveAnimation;
 
-  static const Color _nearlyDarkBlue = Color(0xFF2633C5);
-
   const WaveCapsule({
     super.key,
     required this.percentageValue,
@@ -362,10 +360,7 @@ class WavePainter extends CustomPainter {
 
   static const Color _nearlyDarkBlue = Color(0xFF2633C5);
 
-  WavePainter({
-    required this.waveValue,
-    required this.percentage,
-  });
+  WavePainter({required this.waveValue, required this.percentage});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -383,7 +378,9 @@ class WavePainter extends CustomPainter {
     final path1 = Path();
     path1.moveTo(0, height);
     for (double x = 0; x <= width; x += 1) {
-      final y = waterY + math.sin((waveValue * 360 - x * 5) * math.pi / 180) * waveDepth;
+      final y =
+          waterY +
+          math.sin((waveValue * 360 - x * 5) * math.pi / 180) * waveDepth;
       path1.lineTo(x, y.clamp(0, height));
     }
     path1.lineTo(width, height);
@@ -398,7 +395,9 @@ class WavePainter extends CustomPainter {
     final path2 = Path();
     path2.moveTo(0, height);
     for (double x = 0; x <= width; x += 1) {
-      final y = waterY + math.sin((waveValue * 360 - x * 5 + 30) * math.pi / 180) * waveDepth;
+      final y =
+          waterY +
+          math.sin((waveValue * 360 - x * 5 + 30) * math.pi / 180) * waveDepth;
       path2.lineTo(x, y.clamp(0, height));
     }
     path2.lineTo(width, height);
@@ -412,7 +411,8 @@ class WavePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(WavePainter oldDelegate) {
-    return oldDelegate.waveValue != waveValue || oldDelegate.percentage != percentage;
+    return oldDelegate.waveValue != waveValue ||
+        oldDelegate.percentage != percentage;
   }
 }
 

@@ -12,8 +12,12 @@ class NativeSystemPage extends StatefulWidget {
 }
 
 class _NativeSystemPageState extends State<NativeSystemPage> {
-  static const _systemChannel = MethodChannel('com.example.flutter_application_1/system');
-  static const _clockChannel = MethodChannel('com.example.flutter_application_1/clock');
+  static const _systemChannel = MethodChannel(
+    'com.example.flutter_application_1/system',
+  );
+  static const _clockChannel = MethodChannel(
+    'com.example.flutter_application_1/clock',
+  );
 
   bool _isLoading = false;
   bool _hasUsagePermission = false;
@@ -41,13 +45,13 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
     });
 
     try {
-      final hasPermission = await _systemChannel.invokeMethod<bool>('checkUsagePermission');
+      final hasPermission = await _systemChannel.invokeMethod<bool>(
+        'checkUsagePermission',
+      );
       setState(() {
         _hasUsagePermission = hasPermission ?? false;
         _isLoading = false;
-        _testResult = hasPermission == true
-            ? '已授予使用统计权限'
-            : '未授予使用统计权限，请先授权';
+        _testResult = hasPermission == true ? '已授予使用统计权限' : '未授予使用统计权限，请先授权';
       });
     } catch (e) {
       setState(() {
@@ -71,9 +75,9 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('打开设置失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开设置失败: $e')));
       }
     }
   }
@@ -96,16 +100,23 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
     try {
       final result = await _systemChannel.invokeMethod('queryAppUsage');
       if (result is List) {
-        final list = result
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .map((e) => AppUsageInfo(
-                  packageName: e['packageName'] as String? ?? '',
-                  appName: e['appName'] as String? ?? e['packageName'] ?? '',
-                  totalTimeInForeground: e['totalTimeInForeground'] as int? ?? 0,
-                  lastTimeUsed: e['lastTimeUsed'] as int? ?? 0,
-                ))
-            .toList()
-          ..sort((a, b) => b.totalTimeInForeground.compareTo(a.totalTimeInForeground));
+        final list =
+            result
+                .map((e) => Map<String, dynamic>.from(e as Map))
+                .map(
+                  (e) => AppUsageInfo(
+                    packageName: e['packageName'] as String? ?? '',
+                    appName: e['appName'] as String? ?? e['packageName'] ?? '',
+                    totalTimeInForeground:
+                        e['totalTimeInForeground'] as int? ?? 0,
+                    lastTimeUsed: e['lastTimeUsed'] as int? ?? 0,
+                  ),
+                )
+                .toList()
+              ..sort(
+                (a, b) =>
+                    b.totalTimeInForeground.compareTo(a.totalTimeInForeground),
+              );
 
         setState(() {
           _appUsageList = list.take(20).toList(); // 只显示前20个
@@ -177,14 +188,15 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                     Row(
                       children: [
                         Icon(
-                          _hasUsagePermission ? Icons.check_circle : Icons.error_outline,
-                          color: _hasUsagePermission ? Colors.green : Colors.orange,
+                          _hasUsagePermission
+                              ? Icons.check_circle
+                              : Icons.error_outline,
+                          color: _hasUsagePermission
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '使用统计权限',
-                          style: theme.textTheme.titleMedium,
-                        ),
+                        Text('使用统计权限', style: theme.textTheme.titleMedium),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -195,7 +207,9 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: _hasUsagePermission
                             ? Colors.green
-                            : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.7,
+                              ),
                       ),
                     ),
                     if (!_hasUsagePermission) ...[
@@ -224,10 +238,7 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                       children: [
                         Icon(Icons.vibration, color: theme.colorScheme.primary),
                         const SizedBox(width: 8),
-                        Text(
-                          '震动测试',
-                          style: theme.textTheme.titleMedium,
-                        ),
+                        Text('震动测试', style: theme.textTheme.titleMedium),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -267,15 +278,14 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      '应用使用时长查询',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('应用使用时长查询', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 12),
                     Text(
                       '查询今日各应用的使用时长，按使用时间排序',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -310,10 +320,7 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '操作结果',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      Text('操作结果', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 8),
                       Text(_testResult),
                     ],

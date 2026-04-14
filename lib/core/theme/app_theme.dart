@@ -124,9 +124,7 @@ class AppTheme {
         elevation: 2,
         color: Colors.white,
         shadowColor: Colors.black.withOpacity(0.08),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       appBarTheme: const AppBarTheme(
@@ -141,9 +139,7 @@ class AppTheme {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -236,9 +232,7 @@ class AppTheme {
         elevation: 2,
         color: const Color(0xFF1E1E1E),
         shadowColor: Colors.black.withOpacity(0.3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       appBarTheme: AppBarTheme(
@@ -253,9 +247,7 @@ class AppTheme {
         backgroundColor: primaryColor,
         foregroundColor: const Color(0xFF1A237E),
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -349,9 +341,7 @@ class AppTheme {
         elevation: 2,
         color: Colors.white,
         shadowColor: const Color(0xFFFF6B95).withOpacity(0.15),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       appBarTheme: const AppBarTheme(
@@ -366,9 +356,7 @@ class AppTheme {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -470,9 +458,7 @@ class AppTheme {
         elevation: 2,
         color: Colors.white,
         shadowColor: const Color(0xFF10B981).withOpacity(0.15),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       appBarTheme: const AppBarTheme(
@@ -487,9 +473,7 @@ class AppTheme {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -581,9 +565,7 @@ class AppTheme {
         elevation: 2,
         color: const Color(0xFFFFFBF7),
         shadowColor: const Color(0xFFFF9500).withValues(alpha: 0.2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       appBarTheme: const AppBarTheme(
@@ -598,9 +580,7 @@ class AppTheme {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -691,9 +671,7 @@ class AppTheme {
         elevation: 2,
         color: const Color(0xFFFFFBFB),
         shadowColor: const Color(0xFFE53935).withValues(alpha: 0.2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       appBarTheme: const AppBarTheme(
@@ -708,9 +686,7 @@ class AppTheme {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -801,9 +777,7 @@ class AppTheme {
         elevation: 2,
         color: const Color(0xFF252535),
         shadowColor: Colors.black.withValues(alpha: 0.4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       appBarTheme: const AppBarTheme(
@@ -818,9 +792,7 @@ class AppTheme {
         backgroundColor: primaryColor,
         foregroundColor: const Color(0xFF1A1525),
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -911,10 +883,7 @@ class _PinkThemeColors extends ThemeExtension<_PinkThemeColors> {
   });
 
   @override
-  _PinkThemeColors copyWith({
-    Color? gradientStart,
-    Color? gradientEnd,
-  }) {
+  _PinkThemeColors copyWith({Color? gradientStart, Color? gradientEnd}) {
     return _PinkThemeColors(
       gradientStart: gradientStart ?? this.gradientStart,
       gradientEnd: gradientEnd ?? this.gradientEnd,
@@ -945,10 +914,7 @@ class _GreenThemeColors extends ThemeExtension<_GreenThemeColors> {
   });
 
   @override
-  _GreenThemeColors copyWith({
-    Color? gradientStart,
-    Color? gradientEnd,
-  }) {
+  _GreenThemeColors copyWith({Color? gradientStart, Color? gradientEnd}) {
     return _GreenThemeColors(
       gradientStart: gradientStart ?? this.gradientStart,
       gradientEnd: gradientEnd ?? this.gradientEnd,
@@ -979,10 +945,7 @@ class _OrangeThemeColors extends ThemeExtension<_OrangeThemeColors> {
   });
 
   @override
-  _OrangeThemeColors copyWith({
-    Color? gradientStart,
-    Color? gradientEnd,
-  }) {
+  _OrangeThemeColors copyWith({Color? gradientStart, Color? gradientEnd}) {
     return _OrangeThemeColors(
       gradientStart: gradientStart ?? this.gradientStart,
       gradientEnd: gradientEnd ?? this.gradientEnd,
@@ -1013,10 +976,7 @@ class _RoseThemeColors extends ThemeExtension<_RoseThemeColors> {
   });
 
   @override
-  _RoseThemeColors copyWith({
-    Color? gradientStart,
-    Color? gradientEnd,
-  }) {
+  _RoseThemeColors copyWith({Color? gradientStart, Color? gradientEnd}) {
     return _RoseThemeColors(
       gradientStart: gradientStart ?? this.gradientStart,
       gradientEnd: gradientEnd ?? this.gradientEnd,
@@ -1047,10 +1007,7 @@ class _PurpleThemeColors extends ThemeExtension<_PurpleThemeColors> {
   });
 
   @override
-  _PurpleThemeColors copyWith({
-    Color? gradientStart,
-    Color? gradientEnd,
-  }) {
+  _PurpleThemeColors copyWith({Color? gradientStart, Color? gradientEnd}) {
     return _PurpleThemeColors(
       gradientStart: gradientStart ?? this.gradientStart,
       gradientEnd: gradientEnd ?? this.gradientEnd,

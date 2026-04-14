@@ -11,12 +11,9 @@ class SchemaTextSpan {
   final bool isLink;
   final String? schemaPath;
 
-  const SchemaTextSpan.plain(this.text)
-      : isLink = false,
-        schemaPath = null;
+  const SchemaTextSpan.plain(this.text) : isLink = false, schemaPath = null;
 
-  const SchemaTextSpan.link(this.text, this.schemaPath)
-      : isLink = true;
+  const SchemaTextSpan.link(this.text, this.schemaPath) : isLink = true;
 
   bool get isPlain => !isLink;
 }
@@ -26,10 +23,7 @@ class SchemaParseResult {
   final List<SchemaTextSpan> spans;
   final List<String> errors;
 
-  const SchemaParseResult({
-    required this.spans,
-    this.errors = const [],
-  });
+  const SchemaParseResult({required this.spans, this.errors = const []});
 
   bool get hasErrors => errors.isNotEmpty;
   bool get hasLinks => spans.any((s) => s.isLink);
@@ -143,7 +137,9 @@ class SchemaLinkParser {
     for (final entry in entries) {
       final pattern = RegExp(RegExp.escape(entry.title));
       for (final match in pattern.allMatches(text)) {
-        allMatches.add(_MatchInfo(match.start, match.end, entry.title, entry.schema));
+        allMatches.add(
+          _MatchInfo(match.start, match.end, entry.title, entry.schema),
+        );
       }
     }
 

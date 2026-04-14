@@ -58,7 +58,10 @@ class MessageService {
         target.port,
         LocalnetConstants.httpPathMessage,
       );
-      debugLog.d('Message', '→ POST ${LocalnetConstants.httpPathMessage} to ${target.ip}:${target.port}');
+      debugLog.d(
+        'Message',
+        '→ POST ${LocalnetConstants.httpPathMessage} to ${target.ip}:${target.port}',
+      );
 
       final client = HttpClient();
       final request = await client.postUrl(Uri.parse(url));

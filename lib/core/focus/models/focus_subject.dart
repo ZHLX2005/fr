@@ -19,7 +19,8 @@ class FocusSubject {
   });
 
   /// 获取 IconData
-  IconData get icon => FocusIcons.availableIcons[iconIndex % FocusIcons.availableIcons.length];
+  IconData get icon =>
+      FocusIcons.availableIcons[iconIndex % FocusIcons.availableIcons.length];
 
   /// 完成进度百分比
   double get progress {
@@ -28,7 +29,8 @@ class FocusSubject {
   }
 
   /// 剩余学时
-  int get remainingMinutes => (targetMinutes - completedMinutes).clamp(0, targetMinutes);
+  int get remainingMinutes =>
+      (targetMinutes - completedMinutes).clamp(0, targetMinutes);
 
   FocusSubject copyWith({
     String? id,
@@ -89,25 +91,18 @@ class FocusSubjectPresets {
   static const List<int> _iconIndices = [0, 1, 2, 3, 4, 5];
 
   /// 预设名称
-  static const List<String> _names = [
-    '计算机基础',
-    '数学',
-    '英语',
-    '哲学',
-    '阅读',
-    '写作',
-  ];
+  static const List<String> _names = ['计算机基础', '数学', '英语', '哲学', '阅读', '写作'];
 
   static List<FocusSubject> get presets => List.generate(
-        _names.length,
-        (i) => FocusSubject(
-          id: 'preset_${i + 1}',
-          name: _names[i],
-          color: _colors[i],
-          iconIndex: _iconIndices[i],
-          targetMinutes: 3600,
-        ),
-      );
+    _names.length,
+    (i) => FocusSubject(
+      id: 'preset_${i + 1}',
+      name: _names[i],
+      color: _colors[i],
+      iconIndex: _iconIndices[i],
+      targetMinutes: 3600,
+    ),
+  );
 }
 
 /// 可选的柔和图标列表（常量）

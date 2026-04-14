@@ -104,10 +104,9 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
     do {
       _foodPosition = Random().nextInt(_noOfRow * _noOfColumn);
       attempts++;
-    } while (
-      (_borderList.contains(_foodPosition) || _snakePosition.contains(_foodPosition))
-      && attempts < 100
-    );
+    } while ((_borderList.contains(_foodPosition) ||
+            _snakePosition.contains(_foodPosition)) &&
+        attempts < 100);
   }
 
   void _updateSnake() {
@@ -211,7 +210,10 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.green,
                           borderRadius: BorderRadius.circular(16),
@@ -246,12 +248,19 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         // 计算每个格子的大小，确保正方形且适应容器
-                        final availableWidth = constraints.maxWidth - 32; // 减去左右margin
-                        final availableHeight = constraints.maxHeight - 32; // 减去上下margin
-                        final cellSize = (availableWidth / _noOfColumn < availableHeight / _noOfRow)
+                        final availableWidth =
+                            constraints.maxWidth - 32; // 减去左右margin
+                        final availableHeight =
+                            constraints.maxHeight - 32; // 减去上下margin
+                        final cellSize =
+                            (availableWidth / _noOfColumn <
+                                availableHeight / _noOfRow)
                             ? availableWidth / _noOfColumn
                             : availableHeight / _noOfRow;
-                        final actualCellSize = cellSize.clamp(8.0, 20.0); // 限制大小范围
+                        final actualCellSize = cellSize.clamp(
+                          8.0,
+                          20.0,
+                        ); // 限制大小范围
 
                         return Container(
                           margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -266,12 +275,15 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                               child: GridView.builder(
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: _noOfRow * _noOfColumn,
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: _noOfColumn,
-                                ),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: _noOfColumn,
+                                    ),
                                 itemBuilder: (context, index) {
                                   return Container(
-                                    margin: EdgeInsets.all(actualCellSize * 0.05),
+                                    margin: EdgeInsets.all(
+                                      actualCellSize * 0.05,
+                                    ),
                                     color: _boxFillColor(index),
                                   );
                                 },
@@ -374,10 +386,18 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
     for (int i = 0; i < _noOfRow * _noOfColumn; i += _noOfColumn) {
       _borderList.add(i);
     }
-    for (int i = _noOfColumn - 1; i < _noOfRow * _noOfColumn; i += _noOfColumn) {
+    for (
+      int i = _noOfColumn - 1;
+      i < _noOfRow * _noOfColumn;
+      i += _noOfColumn
+    ) {
       _borderList.add(i);
     }
-    for (int i = (_noOfRow * _noOfColumn) - _noOfColumn; i < _noOfRow * _noOfColumn; i++) {
+    for (
+      int i = (_noOfRow * _noOfColumn) - _noOfColumn;
+      i < _noOfRow * _noOfColumn;
+      i++
+    ) {
       _borderList.add(i);
     }
   }
@@ -411,11 +431,7 @@ class _DirectionButton extends StatelessWidget {
           width: size,
           height: size,
           alignment: Alignment.center,
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: size * 0.5,
-          ),
+          child: Icon(icon, color: Colors.white, size: size * 0.5),
         ),
       ),
     );

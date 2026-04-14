@@ -3,13 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// 预览消息类型
-enum PreviewType {
-  text,
-  image,
-  video,
-  audio,
-  file,
-}
+enum PreviewType { text, image, video, audio, file }
 
 /// 预览消息数据
 class PreviewMessage {
@@ -55,20 +49,14 @@ class MessagePreviewWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.2),
-        ),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 预览内容
-          SizedBox(
-            width: 88,
-            height: 56,
-            child: _buildPreviewContent(context),
-          ),
+          SizedBox(width: 88, height: 56, child: _buildPreviewContent(context)),
           const SizedBox(height: 4),
           // 操作按钮
           Row(
@@ -125,22 +113,22 @@ class MessagePreviewWidget extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       child: kIsWeb
           ? (preview.filePath?.startsWith('data:') == true
-              ? Image.network(
-                  preview.filePath!,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildErrorPlaceholder();
-                  },
-                )
-              : Image.file(
-                  File(preview.filePath!),
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildErrorPlaceholder();
-                  },
-                ))
+                ? Image.network(
+                    preview.filePath!,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildErrorPlaceholder();
+                    },
+                  )
+                : Image.file(
+                    File(preview.filePath!),
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildErrorPlaceholder();
+                    },
+                  ))
           : Image.file(
               File(preview.filePath!),
               width: double.infinity,
@@ -169,7 +157,11 @@ class MessagePreviewWidget extends StatelessWidget {
               height: double.infinity,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.videocam, size: 48, color: Colors.white);
+                return const Icon(
+                  Icons.videocam,
+                  size: 48,
+                  color: Colors.white,
+                );
               },
             )
           else
@@ -186,8 +178,11 @@ class MessagePreviewWidget extends StatelessWidget {
           const Positioned(
             top: 8,
             right: 8,
-            child: Icon(Icons.play_circle_filled,
-                color: Colors.white70, size: 32),
+            child: Icon(
+              Icons.play_circle_filled,
+              color: Colors.white70,
+              size: 32,
+            ),
           ),
         ],
       ),
@@ -210,11 +205,7 @@ class MessagePreviewWidget extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.mic,
-            color: theme.colorScheme.primary,
-            size: 20,
-          ),
+          Icon(Icons.mic, color: theme.colorScheme.primary, size: 20),
           const SizedBox(width: 6),
           Text(
             durationText,
@@ -233,8 +224,8 @@ class MessagePreviewWidget extends StatelessWidget {
     final size = preview.fileSize ?? 0;
     final sizeText = size > 0
         ? size > 1024 * 1024
-            ? '${(size / (1024 * 1024)).toStringAsFixed(1)}MB'
-            : '${(size / 1024).toStringAsFixed(1)}KB'
+              ? '${(size / (1024 * 1024)).toStringAsFixed(1)}MB'
+              : '${(size / 1024).toStringAsFixed(1)}KB'
         : '';
 
     return Container(
@@ -286,10 +277,7 @@ class MessagePreviewWidget extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        preview.content,
-        style: theme.textTheme.bodyMedium,
-      ),
+      child: Text(preview.content, style: theme.textTheme.bodyMedium),
     );
   }
 

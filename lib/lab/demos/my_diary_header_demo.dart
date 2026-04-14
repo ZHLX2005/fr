@@ -41,7 +41,8 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '今天的计划',
       content: '完成项目报告，阅读一本书籍',
-      expandedContent: '今日待办：\n• 完成项目报告\n• 阅读《Flutter实战》第5章\n• 整理笔记\n• 复习React组件',
+      expandedContent:
+          '今日待办：\n• 完成项目报告\n• 阅读《Flutter实战》第5章\n• 整理笔记\n• 复习React组件',
       time: '08:30',
       color: _primaryColor,
       icon: Icons.assignment,
@@ -49,7 +50,8 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '健身记录',
       content: '跑步5公里，瑜伽30分钟',
-      expandedContent: '今日运动详情：\n• 晨跑：5公里（30分钟）\n• 瑜伽：30分钟\n• 消耗卡路里：约350kcal\n• 明天计划：游泳1小时',
+      expandedContent:
+          '今日运动详情：\n• 晨跑：5公里（30分钟）\n• 瑜伽：30分钟\n• 消耗卡路里：约350kcal\n• 明天计划：游泳1小时',
       time: '09:15',
       color: _secondaryColor,
       icon: Icons.fitness_center,
@@ -57,7 +59,8 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '学习笔记',
       content: 'Flutter高级组件与动画技巧',
-      expandedContent: '学习内容总结：\n• CustomPainter绘制波浪动画\n• AnimationController控制器\n• Tween动画插值\n• 实战：水位胶囊组件',
+      expandedContent:
+          '学习内容总结：\n• CustomPainter绘制波浪动画\n• AnimationController控制器\n• Tween动画插值\n• 实战：水位胶囊组件',
       time: '14:20',
       color: _tertiaryColor,
       icon: Icons.school,
@@ -81,7 +84,8 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     _DiaryCard(
       title: '每日反思',
       content: '今天完成了很多事情，很充实！',
-      expandedContent: '今日总结：\n✓ 项目报告进度80%\n✓ 完成运动计划\n✓ 学习Flutter动画\n○ 明天需要加强...',
+      expandedContent:
+          '今日总结：\n✓ 项目报告进度80%\n✓ 完成运动计划\n✓ 学习Flutter动画\n○ 明天需要加强...',
       time: '22:30',
       color: _secondaryColor,
       icon: Icons.nightlight_round,
@@ -116,7 +120,8 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
           _topBarOpacity = 1.0;
         });
       }
-    } else if (_scrollController.offset <= 24 && _scrollController.offset >= 0) {
+    } else if (_scrollController.offset <= 24 &&
+        _scrollController.offset >= 0) {
       if (_topBarOpacity != _scrollController.offset / 24) {
         setState(() {
           _topBarOpacity = _scrollController.offset / 24;
@@ -148,9 +153,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
           children: [
             _buildListView(),
             _buildHeader(),
-            SizedBox(
-              height: MediaQuery.of(context).padding.bottom,
-            )
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
           ],
         ),
       ),
@@ -161,9 +164,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top +
-            kToolbarHeight +
-            24,
+        top: MediaQuery.of(context).padding.top + kToolbarHeight + 24,
         bottom: 62 + MediaQuery.of(context).padding.bottom,
       ),
       itemCount: _cards.length,
@@ -239,9 +240,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
             ),
             child: Column(
               children: [
-                SizedBox(
-                  height: MediaQuery.of(context).padding.top,
-                ),
+                SizedBox(height: MediaQuery.of(context).padding.top),
                 Padding(
                   padding: EdgeInsets.only(
                     left: 16,
@@ -328,7 +327,7 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
                       ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -378,9 +377,10 @@ class _DiaryCardWidgetState extends State<_DiaryCardWidget>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _iconTurns = Tween<double>(begin: 0.0, end: 0.5).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _iconTurns = Tween<double>(
+      begin: 0.0,
+      end: 0.5,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -479,10 +479,7 @@ class _DiaryCardWidgetState extends State<_DiaryCardWidget>
                   // 展开图标
                   RotationTransition(
                     turns: _iconTurns,
-                    child: Icon(
-                      Icons.expand_more,
-                      color: widget.card.color,
-                    ),
+                    child: Icon(Icons.expand_more, color: widget.card.color),
                   ),
                 ],
               ),

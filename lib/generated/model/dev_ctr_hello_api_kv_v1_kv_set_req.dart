@@ -33,25 +33,26 @@ class DevCtrHelloApiKvV1KvSetReq {
   int? ttl;
 
   @override
-  bool operator ==(Object other) => identical(this, other) || other is DevCtrHelloApiKvV1KvSetReq &&
-    other.key == key &&
-    other.value == value &&
-    other.ttl == ttl;
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DevCtrHelloApiKvV1KvSetReq &&
+          other.key == key &&
+          other.value == value &&
+          other.ttl == ttl;
 
   @override
   int get hashCode =>
-    // ignore: unnecessary_parenthesis
-    (key.hashCode) +
-    (value.hashCode) +
-    (ttl == null ? 0 : ttl!.hashCode);
+      // ignore: unnecessary_parenthesis
+      (key.hashCode) + (value.hashCode) + (ttl == null ? 0 : ttl!.hashCode);
 
   @override
-  String toString() => 'DevCtrHelloApiKvV1KvSetReq[key=$key, value=$value, ttl=$ttl]';
+  String toString() =>
+      'DevCtrHelloApiKvV1KvSetReq[key=$key, value=$value, ttl=$ttl]';
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
-      json[r'key'] = this.key;
-      json[r'value'] = this.value;
+    json[r'key'] = this.key;
+    json[r'value'] = this.value;
     if (this.ttl != null) {
       json[r'ttl'] = this.ttl;
     } else {
@@ -72,8 +73,10 @@ class DevCtrHelloApiKvV1KvSetReq {
       // Note 2: this code is stripped in release mode!
       assert(() {
         requiredKeys.forEach((key) {
-          assert(json.containsKey(key), 'Required key "DevCtrHelloApiKvV1KvSetReq[$key]" is missing from JSON.');
-          assert(json[key] != null, 'Required key "DevCtrHelloApiKvV1KvSetReq[$key]" has a null value in JSON.');
+          assert(json.containsKey(key),
+              'Required key "DevCtrHelloApiKvV1KvSetReq[$key]" is missing from JSON.');
+          assert(json[key] != null,
+              'Required key "DevCtrHelloApiKvV1KvSetReq[$key]" has a null value in JSON.');
         });
         return true;
       }());
@@ -87,7 +90,10 @@ class DevCtrHelloApiKvV1KvSetReq {
     return null;
   }
 
-  static List<DevCtrHelloApiKvV1KvSetReq> listFromJson(dynamic json, {bool growable = false,}) {
+  static List<DevCtrHelloApiKvV1KvSetReq> listFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final result = <DevCtrHelloApiKvV1KvSetReq>[];
     if (json is List && json.isNotEmpty) {
       for (final row in json) {
@@ -115,13 +121,19 @@ class DevCtrHelloApiKvV1KvSetReq {
   }
 
   // maps a json object with a list of DevCtrHelloApiKvV1KvSetReq-objects as value to a dart map
-  static Map<String, List<DevCtrHelloApiKvV1KvSetReq>> mapListFromJson(dynamic json, {bool growable = false,}) {
+  static Map<String, List<DevCtrHelloApiKvV1KvSetReq>> mapListFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final map = <String, List<DevCtrHelloApiKvV1KvSetReq>>{};
     if (json is Map && json.isNotEmpty) {
       // ignore: parameter_assignments
       json = json.cast<String, dynamic>();
       for (final entry in json.entries) {
-        map[entry.key] = DevCtrHelloApiKvV1KvSetReq.listFromJson(entry.value, growable: growable,);
+        map[entry.key] = DevCtrHelloApiKvV1KvSetReq.listFromJson(
+          entry.value,
+          growable: growable,
+        );
       }
     }
     return map;
@@ -133,4 +145,3 @@ class DevCtrHelloApiKvV1KvSetReq {
     'value',
   };
 }
-

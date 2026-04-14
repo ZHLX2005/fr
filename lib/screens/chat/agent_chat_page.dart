@@ -9,10 +9,7 @@ import 'ai_chat_settings_page.dart';
 class AgentChatPage extends StatefulWidget {
   final String title;
 
-  const AgentChatPage({
-    super.key,
-    this.title = 'Agent',
-  });
+  const AgentChatPage({super.key, this.title = 'Agent'});
 
   @override
   State<AgentChatPage> createState() => _AgentChatPageState();
@@ -54,10 +51,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('请先配置 API Key'),
-          action: SnackBarAction(
-            label: '去设置',
-            onPressed: _openSettings,
-          ),
+          action: SnackBarAction(label: '去设置', onPressed: _openSettings),
         ),
       );
       return;
@@ -115,26 +109,22 @@ class _AgentChatPageState extends State<AgentChatPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                  Text(widget.title, style: const TextStyle(fontSize: 16)),
                   Consumer<AgentChatProvider>(
                     builder: (context, provider, _) {
                       if (provider.isLoading) {
                         return const Text(
                           '处理中...',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue,
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.blue),
                         );
                       }
                       return Text(
                         provider.isConfigured ? '已连接' : '未配置',
                         style: TextStyle(
                           fontSize: 12,
-                          color: provider.isConfigured ? Colors.green : Colors.orange,
+                          color: provider.isConfigured
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                       );
                     },
@@ -184,8 +174,12 @@ class _AgentChatPageState extends State<AgentChatPage> {
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: messages.length + (agentProvider.isLoading ? 1 : 0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  itemCount:
+                      messages.length + (agentProvider.isLoading ? 1 : 0),
                   itemBuilder: (context, index) {
                     // 如果正在加载，显示加载指示器
                     if (agentProvider.isLoading && index == messages.length) {
@@ -225,21 +219,13 @@ class _AgentChatPageState extends State<AgentChatPage> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              '事件记录 Agent',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('事件记录 Agent', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              provider.isConfigured
-                  ? '记录你的事件，我会为你生成分析报告'
-                  : '请先配置 API Key',
+              provider.isConfigured ? '记录你的事件，我会为你生成分析报告' : '请先配置 API Key',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.5),
-                  ),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              ),
               textAlign: TextAlign.center,
             ),
             if (!provider.isConfigured) ...[
@@ -255,11 +241,8 @@ class _AgentChatPageState extends State<AgentChatPage> {
             Text(
               '例如：',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.5),
-                  ),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -313,7 +296,9 @@ class _AgentChatPageState extends State<AgentChatPage> {
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  fillColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
@@ -381,10 +366,7 @@ class _MessageBubble extends StatelessWidget {
   final AIChatMessage message;
   final bool isMe;
 
-  const _MessageBubble({
-    required this.message,
-    required this.isMe,
-  });
+  const _MessageBubble({required this.message, required this.isMe});
 
   @override
   Widget build(BuildContext context) {
@@ -439,15 +421,11 @@ class _MessageBubble extends StatelessWidget {
               Text(
                 message.content,
                 style: TextStyle(
-                  color: isMe
-                      ? Colors.white
-                      : theme.colorScheme.onSurface,
+                  color: isMe ? Colors.white : theme.colorScheme.onSurface,
                 ),
               )
             else
-              MarkdownRendererWidget(
-                data: message.content,
-              ),
+              MarkdownRendererWidget(data: message.content),
           ],
         ),
       ),
@@ -485,10 +463,7 @@ class _QuickReply extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
 
-  const _QuickReply({
-    required this.text,
-    required this.onTap,
-  });
+  const _QuickReply({required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

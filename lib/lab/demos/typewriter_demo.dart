@@ -28,27 +28,16 @@ class _TypewriterPageState extends State<_TypewriterPage> {
   final List<TextPreset> _presets = [
     TextPreset(
       title: '心灵鸡汤',
-      texts: [
-        '人生就像一场旅行，\n不必在乎目的地，\n在乎的是沿途的风景，\n和看风景的心情。',
-      ],
+      texts: ['人生就像一场旅行，\n不必在乎目的地，\n在乎的是沿途的风景，\n和看风景的心情。'],
     ),
-    TextPreset(
-      title: '诗句',
-      texts: [
-        '床前明月光，\n疑是地上霜。\n举头望明月，\n低头思故乡。',
-      ],
-    ),
+    TextPreset(title: '诗句', texts: ['床前明月光，\n疑是地上霜。\n举头望明月，\n低头思故乡。']),
     TextPreset(
       title: '代码感悟',
-      texts: [
-        '代码是写给人看的，\n顺便能在机器上运行。\n\n—— Donald Knuth',
-      ],
+      texts: ['代码是写给人看的，\n顺便能在机器上运行。\n\n—— Donald Knuth'],
     ),
     TextPreset(
       title: '心灵语录',
-      texts: [
-        '每一次挫折，都是成长的契机。\n\n每一次失败，都是成功的铺垫。\n\n相信自己，你可以的！',
-      ],
+      texts: ['每一次挫折，都是成长的契机。\n\n每一次失败，都是成功的铺垫。\n\n相信自己，你可以的！'],
     ),
   ];
 
@@ -148,7 +137,10 @@ class _TypewriterPageState extends State<_TypewriterPage> {
               children: [
                 Text(
                   _presets[_currentPresetIndex].title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Row(
                   children: [
@@ -286,10 +278,7 @@ class TextPreset {
   final String title;
   final List<String> texts;
 
-  TextPreset({
-    required this.title,
-    required this.texts,
-  });
+  TextPreset({required this.title, required this.texts});
 }
 
 void registerTypewriterDemo() {

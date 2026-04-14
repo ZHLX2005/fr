@@ -44,8 +44,10 @@ class _FocusTimerPageState extends State<FocusTimerPage>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final focusProvider =
-            Provider.of<data.FocusProvider>(context, listen: false);
+        final focusProvider = Provider.of<data.FocusProvider>(
+          context,
+          listen: false,
+        );
         focusProvider.restoreTimerState(_timerProvider);
       }
     });
@@ -103,12 +105,20 @@ class _FocusTimerPageState extends State<FocusTimerPage>
   String _formatDate() {
     final now = DateTime.now();
     final months = [
-      '一月', '二月', '三月', '四月', '五月', '六月',
-      '七月', '八月', '九月', '十月', '十一月', '十二月'
+      '一月',
+      '二月',
+      '三月',
+      '四月',
+      '五月',
+      '六月',
+      '七月',
+      '八月',
+      '九月',
+      '十月',
+      '十一月',
+      '十二月',
     ];
-    final weekdays = [
-      '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'
-    ];
+    final weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
     return '${months[now.month - 1]}${now.day}日 ${weekdays[now.weekday - 1]}';
   }
 
@@ -233,10 +243,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
               const SizedBox(height: 12),
               Text(
                 _getTimerText(timer),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[500],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
               ),
             ],
           ),
@@ -266,10 +273,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withValues(alpha: 0.1),
-            Colors.transparent,
-          ],
+          colors: [Colors.black.withValues(alpha: 0.1), Colors.transparent],
         ),
       ),
       child: Row(
@@ -449,8 +453,10 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                     itemBuilder: (context, index) {
                       if (index == focusProvider.subjects.length) {
                         return ListTile(
-                          leading: Icon(Icons.add_circle_outline,
-                              color: Colors.grey[600]),
+                          leading: Icon(
+                            Icons.add_circle_outline,
+                            color: Colors.grey[600],
+                          ),
                           title: const Text('添加新领域'),
                           onTap: () => Navigator.pop(context),
                         );
@@ -488,8 +494,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
     );
   }
 
-  void _showEndConfirmDialog(
-      BuildContext context, FocusTimerProvider timer) {
+  void _showEndConfirmDialog(BuildContext context, FocusTimerProvider timer) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -562,7 +567,8 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                       Navigator.pop(context);
                       final session = timer.completeSession();
                       if (session != null && context.mounted) {
-                        final focusProvider = context.read<data.FocusProvider>();
+                        final focusProvider = context
+                            .read<data.FocusProvider>();
                         await focusProvider.addSession(session);
                         if (mounted) {
                           _showCompletionDialog(context, session);
@@ -578,7 +584,11 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                       child: const Center(
                         child: Text(
                           '完成',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -602,8 +612,10 @@ class _FocusTimerPageState extends State<FocusTimerPage>
           children: [
             const Icon(Icons.check_circle, color: Color(0xFFB5C9A3), size: 64),
             const SizedBox(height: 16),
-            const Text('专注完成',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500)),
+            const Text(
+              '专注完成',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 8),
             Text(
               '${session.durationMinutes} 分钟',

@@ -39,7 +39,8 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
     final newPort = int.tryParse(_portController.text) ?? config.port;
 
     setState(() {
-      _hasChanges = newAlias != config.deviceAlias ||
+      _hasChanges =
+          newAlias != config.deviceAlias ||
           newPort != config.port ||
           _udpBroadcastEnabled != config.udpBroadcastEnabled ||
           _udpListenerEnabled != config.udpListenerEnabled ||
@@ -102,9 +103,7 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
             onPressed: _hasChanges ? _save : null,
             child: Text(
               '保存',
-              style: TextStyle(
-                color: _hasChanges ? null : Colors.grey,
-              ),
+              style: TextStyle(color: _hasChanges ? null : Colors.grey),
             ),
           ),
         ],
@@ -117,10 +116,7 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
           const SizedBox(height: 24),
 
           // 基本设置
-          Text(
-            '基本设置',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('基本设置', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Padding(
@@ -153,10 +149,7 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
           const SizedBox(height: 24),
 
           // 服务开关
-          Text(
-            '服务开关',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('服务开关', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
 
           // UDP 广播开关
@@ -221,10 +214,7 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
           const SizedBox(height: 32),
 
           // 说明
-          Text(
-            '说明',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('说明', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -233,21 +223,13 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '• UDP 广播：主动发送 UDP 多播包，每3秒一次（电池消耗较高）',
-                  ),
+                  Text('• UDP 广播：主动发送 UDP 多播包，每3秒一次（电池消耗较高）'),
                   SizedBox(height: 4),
-                  Text(
-                    '• UDP 监听：接收其他设备的 UDP 多播包',
-                  ),
+                  Text('• UDP 监听：接收其他设备的 UDP 多播包'),
                   SizedBox(height: 4),
-                  Text(
-                    '• HTTP 服务：响应 /join 等 HTTP 请求，必开',
-                  ),
+                  Text('• HTTP 服务：响应 /join 等 HTTP 请求，必开'),
                   SizedBox(height: 4),
-                  Text(
-                    '• 修改设置后服务会自动重启以应用更改',
-                  ),
+                  Text('• 修改设置后服务会自动重启以应用更改'),
                 ],
               ),
             ),
@@ -277,10 +259,7 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+                  Text(title, style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 2),
                   Text(
                     '端口: $port${detail != null ? '  |  $detail' : ''}',
@@ -291,17 +270,14 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
                   if (warning != null)
                     Text(
                       warning,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.orange,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.orange),
                     ),
                 ],
               ),
             ),
-            Switch(
-              value: enabled,
-              onChanged: onChanged,
-            ),
+            Switch(value: enabled, onChanged: onChanged),
           ],
         ),
       ),
@@ -333,7 +309,9 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
     }
 
     return Card(
-      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+      color: Theme.of(
+        context,
+      ).colorScheme.primaryContainer.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -346,10 +324,7 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '当前状态',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text('当前状态', style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 12),

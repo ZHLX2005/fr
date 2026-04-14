@@ -11,7 +11,9 @@ class OverlayService {
   bool _isOverlayActive = false;
   bool _hasOverlayPermission = false;
 
-  static const _channel = MethodChannel('com.example.flutter_application_1/floating');
+  static const _channel = MethodChannel(
+    'com.example.flutter_application_1/floating',
+  );
 
   bool get isOverlayActive => _isOverlayActive;
   bool get hasOverlayPermission => _hasOverlayPermission;
@@ -80,12 +82,15 @@ class OverlayService {
 
   /// 加载 AI 配置（用于回填表单）
   Future<Map<String, String>> loadAiConfig() async {
-    const defaultApiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+    const defaultApiUrl =
+        'https://open.bigmodel.cn/api/paas/v4/chat/completions';
     const defaultModel = 'glm-4v-flash';
     const defaultSystemPrompt = '你是一个专业的AI助手，请根据图片回答用户问题。';
 
     try {
-      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('loadAiConfig');
+      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'loadAiConfig',
+      );
       if (result != null) {
         final apiUrl = result['apiUrl'] as String?;
         final apiKey = result['apiKey'] as String?;
@@ -93,7 +98,9 @@ class OverlayService {
         final systemPrompt = result['systemPrompt'] as String?;
 
         return {
-          'apiUrl': (apiUrl != null && apiUrl.isNotEmpty) ? apiUrl : defaultApiUrl,
+          'apiUrl': (apiUrl != null && apiUrl.isNotEmpty)
+              ? apiUrl
+              : defaultApiUrl,
           'apiKey': apiKey ?? '',
           'model': (model != null && model.isNotEmpty) ? model : defaultModel,
           'systemPrompt': systemPrompt ?? defaultSystemPrompt,
@@ -114,7 +121,9 @@ class OverlayService {
   Future<bool> checkOverlayPermission() async {
     if (!isSupported) return false;
     try {
-      final result = await _channel.invokeMethod<bool>('checkOverlayPermission');
+      final result = await _channel.invokeMethod<bool>(
+        'checkOverlayPermission',
+      );
       _hasOverlayPermission = result ?? false;
       return _hasOverlayPermission;
     } on PlatformException catch (e) {
@@ -194,9 +203,4 @@ class OverlayService {
 }
 
 /// 悬浮窗权限状态
-enum OverlayPermissionStatus {
-  unknown,
-  granted,
-  denied,
-  permanentlyDenied,
-}
+enum OverlayPermissionStatus { unknown, granted, denied, permanentlyDenied }

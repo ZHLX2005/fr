@@ -23,15 +23,60 @@ class HomeController extends ChangeNotifier {
 
   void _initDefaultItems() {
     _items = [
-      AppItem(id: '1', title: '微信', icon: Icons.chat, color: const Color(0xFF07C160)),
-      AppItem(id: '2', title: 'QQ', icon: Icons.message, color: const Color(0xFF12B7F5)),
-      AppItem(id: '3', title: '淘宝', icon: Icons.shopping_bag, color: const Color(0xFFFF6A00)),
-      AppItem(id: '4', title: '抖音', icon: Icons.music_video, color: const Color(0xFF000000)),
-      AppItem(id: '5', title: '京东', icon: Icons.local_mall, color: const Color(0xFFE4393C)),
-      AppItem(id: '6', title: '拼多多', icon: Icons.thumb_up, color: const Color(0xFFE22018)),
-      AppItem(id: '7', title: '美团', icon: Icons.fastfood, color: const Color(0xFFFF6B00)),
-      AppItem(id: '8', title: '支付宝', icon: Icons.payment, color: const Color(0xFF1677FF)),
-      AppItem(id: '9', title: '银行', icon: Icons.account_balance, color: const Color(0xFF2196F3)),
+      AppItem(
+        id: '1',
+        title: '微信',
+        icon: Icons.chat,
+        color: const Color(0xFF07C160),
+      ),
+      AppItem(
+        id: '2',
+        title: 'QQ',
+        icon: Icons.message,
+        color: const Color(0xFF12B7F5),
+      ),
+      AppItem(
+        id: '3',
+        title: '淘宝',
+        icon: Icons.shopping_bag,
+        color: const Color(0xFFFF6A00),
+      ),
+      AppItem(
+        id: '4',
+        title: '抖音',
+        icon: Icons.music_video,
+        color: const Color(0xFF000000),
+      ),
+      AppItem(
+        id: '5',
+        title: '京东',
+        icon: Icons.local_mall,
+        color: const Color(0xFFE4393C),
+      ),
+      AppItem(
+        id: '6',
+        title: '拼多多',
+        icon: Icons.thumb_up,
+        color: const Color(0xFFE22018),
+      ),
+      AppItem(
+        id: '7',
+        title: '美团',
+        icon: Icons.fastfood,
+        color: const Color(0xFFFF6B00),
+      ),
+      AppItem(
+        id: '8',
+        title: '支付宝',
+        icon: Icons.payment,
+        color: const Color(0xFF1677FF),
+      ),
+      AppItem(
+        id: '9',
+        title: '银行',
+        icon: Icons.account_balance,
+        color: const Color(0xFF2196F3),
+      ),
     ];
   }
 
@@ -91,7 +136,9 @@ class HomeController extends ChangeNotifier {
 
   /// 提交排序
   void commitReorder() {
-    if (_drag.draggingId == null || _previewItems == null || _drag.hoverIndex == null) {
+    if (_drag.draggingId == null ||
+        _previewItems == null ||
+        _drag.hoverIndex == null) {
       cancelDrag();
       return;
     }
@@ -225,11 +272,7 @@ class HomeController extends ChangeNotifier {
     final index = _items.indexWhere((e) => e.id == id);
     if (index >= 0 && _items[index] is AppItem) {
       final item = _items[index] as AppItem;
-      _items[index] = item.copyWith(
-        title: title,
-        icon: icon,
-        color: color,
-      );
+      _items[index] = item.copyWith(title: title, icon: icon, color: color);
       notifyListeners();
     }
   }

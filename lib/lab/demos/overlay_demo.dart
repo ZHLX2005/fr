@@ -11,7 +11,7 @@ class OverlayDemo extends DemoPage {
   String get description => 'Android悬浮窗权限与截屏功能演示';
 
   @override
-  bool get preferFullScreen => false;
+  bool get preferFullScreen => true;
 
   @override
   Widget buildPage(BuildContext context) {
@@ -94,16 +94,16 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
 
   Future<void> _toggleOverlay() async {
     if (!_overlayService.isSupported) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('悬浮窗仅支持Android设备')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('悬浮窗仅支持Android设备')));
       return;
     }
 
     if (!_hasPermission) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先授予悬浮窗权限')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先授予悬浮窗权限')));
       return;
     }
 
@@ -116,9 +116,9 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
     }
 
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('启动悬浮窗失败，请检查权限设置')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('启动悬浮窗失败，请检查权限设置')));
     }
   }
 
@@ -139,9 +139,9 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
       systemPrompt: _systemPrompt,
     );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('配置已保存')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('配置已保存')));
     }
   }
 

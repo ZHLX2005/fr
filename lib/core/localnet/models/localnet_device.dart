@@ -1,7 +1,7 @@
 enum DeviceType { mobile, desktop, web }
 
 class LocalnetDevice {
-  final String id;          // fingerprint
+  final String id; // fingerprint
   final String alias;
   final String ip;
   final int port;

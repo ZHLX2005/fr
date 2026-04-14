@@ -27,7 +27,8 @@ class _SensorPage extends StatefulWidget {
   State<_SensorPage> createState() => _SensorPageState();
 }
 
-class _SensorPageState extends State<_SensorPage> with SingleTickerProviderStateMixin {
+class _SensorPageState extends State<_SensorPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   // 传感器流
@@ -124,16 +125,13 @@ class _SensorPageState extends State<_SensorPage> with SingleTickerProviderState
     );
 
     // 用户加速度（去除重力）
-    _userAccelSubscription = userAccelerometerEventStream().listen(
-      (event) {
-        setState(() {
-          _userAccelX = event.x;
-          _userAccelY = event.y;
-          _userAccelZ = event.z;
-        });
-      },
-      onError: (e) {},
-    );
+    _userAccelSubscription = userAccelerometerEventStream().listen((event) {
+      setState(() {
+        _userAccelX = event.x;
+        _userAccelY = event.y;
+        _userAccelZ = event.z;
+      });
+    }, onError: (e) {});
   }
 
   void _updateHistory(List<double> history, double value) {
@@ -201,7 +199,11 @@ class _SensorPageState extends State<_SensorPage> with SingleTickerProviderState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSensorInfo('加速度计 (Accelerometer)', '含重力影响，单位 m/s²', _accelAvailable),
+          _buildSensorInfo(
+            '加速度计 (Accelerometer)',
+            '含重力影响，单位 m/s²',
+            _accelAvailable,
+          ),
           const SizedBox(height: 16),
           _buildWaveChart('X', _accelHistoryX, Colors.red),
           _buildWaveChart('Y', _accelHistoryY, Colors.green),
@@ -295,7 +297,9 @@ class _SensorPageState extends State<_SensorPage> with SingleTickerProviderState
         children: [
           Icon(
             available ? Icons.sensors : Icons.sensors_off,
-            color: available ? const Color(0xFF30D158) : const Color(0xFFFF453A),
+            color: available
+                ? const Color(0xFF30D158)
+                : const Color(0xFFFF453A),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -332,7 +336,9 @@ class _SensorPageState extends State<_SensorPage> with SingleTickerProviderState
             child: Text(
               available ? '可用' : '不可用',
               style: TextStyle(
-                color: available ? const Color(0xFF30D158) : const Color(0xFFFF453A),
+                color: available
+                    ? const Color(0xFF30D158)
+                    : const Color(0xFFFF453A),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -349,8 +355,8 @@ class _SensorPageState extends State<_SensorPage> with SingleTickerProviderState
     final color = axis == 'X'
         ? Colors.red
         : axis == 'Y'
-            ? Colors.green
-            : Colors.blue;
+        ? Colors.green
+        : Colors.blue;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -358,9 +364,7 @@ class _SensorPageState extends State<_SensorPage> with SingleTickerProviderState
       decoration: BoxDecoration(
         color: const Color(0xFF2C2C2E),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -415,16 +419,15 @@ class _SensorPageState extends State<_SensorPage> with SingleTickerProviderState
       decoration: BoxDecoration(
         color: const Color(0xFF2C2C2E),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF0A84FF).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: const Color(0xFF0A84FF).withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         children: [
           const Text(
             '向量模长 (|a|)',
-            style: TextStyle(
-              color: Color(0xFF8E8E93),
-              fontSize: 13,
-            ),
+            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
           ),
           const SizedBox(height: 4),
           Text(
@@ -439,10 +442,7 @@ class _SensorPageState extends State<_SensorPage> with SingleTickerProviderState
           const SizedBox(height: 4),
           Text(
             '与重力加速度偏差: ${deviation.toStringAsFixed(3)} m/s²',
-            style: const TextStyle(
-              color: Color(0xFF8E8E93),
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
           ),
         ],
       ),

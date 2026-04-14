@@ -28,12 +28,7 @@ class LocalnetDebugPage extends StatelessWidget {
             ],
           ),
         ),
-        body: const TabBarView(
-          children: [
-            _LogTab(),
-            _StateMachineTab(),
-          ],
-        ),
+        body: const TabBarView(children: [_LogTab(), _StateMachineTab()]),
       ),
     );
   }
@@ -51,9 +46,7 @@ class _LogTab extends StatelessWidget {
         final logs = snapshot.data ?? [];
 
         if (logs.isEmpty) {
-          return const Center(
-            child: Text('暂无日志'),
-          );
+          return const Center(child: Text('暂无日志'));
         }
 
         return ListView.builder(
@@ -112,10 +105,7 @@ class _LogEntryTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            entry.levelIcon,
-            style: const TextStyle(fontSize: 12),
-          ),
+          Text(entry.levelIcon, style: const TextStyle(fontSize: 12)),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -168,10 +158,7 @@ class _StateMachineTab extends StatelessWidget {
                 SizedBox(height: 16),
                 Text('暂无状态转换记录'),
                 SizedBox(height: 8),
-                Text(
-                  '状态转换会显示在这里',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                Text('状态转换会显示在这里', style: TextStyle(color: Colors.grey)),
               ],
             ),
           );
@@ -262,7 +249,11 @@ class _StateMachineTile extends StatelessWidget {
                     _StateBadge(state: entry.fromState, isActive: false),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(Icons.arrow_forward, size: 16, color: Colors.grey),
+                      child: Icon(
+                        Icons.arrow_forward,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
                     ),
                     _StateBadge(state: entry.toState, isActive: true),
                   ],
@@ -271,10 +262,7 @@ class _StateMachineTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     entry.note!,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ],

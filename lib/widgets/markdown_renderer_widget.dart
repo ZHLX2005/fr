@@ -7,11 +7,7 @@ class MarkdownRendererWidget extends StatelessWidget {
   final String data;
   final double? maxWidth;
 
-  const MarkdownRendererWidget({
-    super.key,
-    required this.data,
-    this.maxWidth,
-  });
+  const MarkdownRendererWidget({super.key, required this.data, this.maxWidth});
 
   @override
   Widget build(BuildContext context) {
