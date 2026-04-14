@@ -1,150 +1,164 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 
-/// 拖拽混合效果Demo
-/// 使用 DraggableScrollableSheet 实现底部卡片上拖，圆角与颜色随拖拽进度渐变
+/// 主题色头部 + 白色内容区布局Demo
 class DragBlendDemo extends DemoPage {
   @override
   String get title => '拖拽混合';
 
   @override
-  String get description => '上拖卡片产生圆角与颜色混合渐变效果';
+  String get description => 'collapsing header 效果';
 
   @override
   Widget buildPage(BuildContext context) => const _DragBlendPage();
 }
 
-class _DragBlendPage extends StatefulWidget {
+const double _kExpandedHeight = 240.0;
+const double _kMaxRadius = 60.0;
+const double _kExpandedFontSize = 32.0;
+const double _kCollapsedFontSize = 18.0;
+
+class _DragBlendPage extends StatelessWidget {
   const _DragBlendPage();
 
   @override
-  State<_DragBlendPage> createState() => _DragBlendPageState();
-}
-
-class _DragBlendPageState extends State<_DragBlendPage> {
-  double _progress = 0.0;
-
-  static const double _minExtent = 0.35;
-  static const double _maxExtent = 1.0;
-  static const Color _navColor = Color(0xFF6C63FF);
-  static const Color _sheetColor = Colors.white;
-  static const double _maxRadius = 24.0;
-
-  @override
   Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
-      backgroundColor: _navColor,
-      body: Stack(
-        children: [
-          // 顶部导航区
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Text(
-                '探索',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white.withOpacity(1 - _progress * 0.6),
-                ),
-              ),
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        slivers: [
+          SliverPersistentHeader(
+            pinned: false,
+            delegate: _CollapsingHeaderDelegate(
+              expandedHeight: _kExpandedHeight,
+              maxRadius: _kMaxRadius,
+              expandedFontSize: _kExpandedFontSize,
+              collapsedFontSize: _kCollapsedFontSize,
+              themeColor: themeColor,
             ),
           ),
-
-          // 可拖拽卡片
-          NotificationListener<DraggableScrollableNotification>(
-            onNotification: (n) {
-              setState(() {
-                _progress = ((n.extent - _minExtent) / (_maxExtent - _minExtent))
-                    .clamp(0.0, 1.0);
-              });
-              return true;
-            },
-            child: DraggableScrollableSheet(
-              initialChildSize: _minExtent,
-              minChildSize: _minExtent,
-              maxChildSize: _maxExtent,
-              snap: true,
-              snapSizes: const [_minExtent, 0.65, _maxExtent],
-              builder: (context, scrollController) {
-                final radius = _maxRadius * (1 - _progress);
-                final bgColor = Color.lerp(_sheetColor, _navColor, _progress)!;
-                final textColor = _progress > 0.5 ? Colors.white : Colors.black87;
-
-                return Container(
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(radius),
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: themeColor.withAlpha(31),
+                      child: Text(
+                        '${index + 1}',
+                        style: TextStyle(color: themeColor, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1 * (1 - _progress)),
-                        blurRadius: 12,
-                        offset: const Offset(0, -4),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('列表项 ${index + 1}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
+                          Text('这是第 ${index + 1} 条内容的描述信息', style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: CustomScrollView(
-                    controller: scrollController,
-                    slivers: [
-                      // 拖拽手柄
-                      SliverToBoxAdapter(
-                        child: Center(
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 12, bottom: 8),
-                            width: 36,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: textColor.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // 卡片标题
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                          child: Text(
-                            '推荐内容',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // 列表占位
-                      SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, i) => ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor:
-                                  _navColor.withOpacity(0.15 + 0.85 * _progress),
-                              child: Text('${i + 1}',
-                                  style: TextStyle(color: textColor)),
-                            ),
-                            title: Text('Item ${i + 1}',
-                                style: TextStyle(color: textColor)),
-                            subtitle: Text('描述文字',
-                                style: TextStyle(
-                                    color: textColor.withOpacity(0.6))),
-                          ),
-                          childCount: 20,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                    ),
+                    Icon(Icons.chevron_right, color: Colors.grey[400]),
+                  ],
+                ),
+              ),
+              childCount: 30,
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _CollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double expandedHeight;
+  final double maxRadius;
+  final double expandedFontSize;
+  final double collapsedFontSize;
+  final Color themeColor;
+
+  _CollapsingHeaderDelegate({
+    required this.expandedHeight,
+    required this.maxRadius,
+    required this.expandedFontSize,
+    required this.collapsedFontSize,
+    required this.themeColor,
+  });
+
+  @override
+  double get maxExtent => expandedHeight;
+
+  @override
+  double get minExtent => 0;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final t = (shrinkOffset / maxExtent).clamp(0.0, 1.0);
+    final radius = maxRadius * (1 - t);
+    final fontSize = expandedFontSize - (expandedFontSize - collapsedFontSize) * t;
+
+    return SizedBox(
+      height: expandedHeight - shrinkOffset,
+      child: Stack(
+        children: [
+          // 主题色背景块 - 只有渐变，没有 color
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: expandedHeight - shrinkOffset,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [themeColor.withAlpha(204), themeColor],
+                ),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(radius),
+                  bottomRight: Radius.circular(radius),
+                ),
+              ),
+            ),
+          ),
+          // 标题内容
+          SafeArea(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  bottom: 24,
+                  top: 24 + 40 * (1 - t),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Opacity(
+                      opacity: (1 - t * 2.5).clamp(0.0, 1.0),
+                      child: const Text('欢迎回来 👋', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('我的主页', style: TextStyle(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _CollapsingHeaderDelegate oldDelegate) => true;
 }
 
 void registerDragBlendDemo() {
