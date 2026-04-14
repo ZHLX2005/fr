@@ -67,7 +67,8 @@ class _FreeCanvasPage extends StatefulWidget {
 class _FreeCanvasPageState extends State<_FreeCanvasPage> {
   final List<CanvasNode> _nodes = [];
   String? _selectedNodeId;
-  final TransformationController _transformController = TransformationController();
+  final TransformationController _transformController =
+      TransformationController();
 
   @override
   void dispose() {

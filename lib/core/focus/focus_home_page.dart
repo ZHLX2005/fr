@@ -61,16 +61,16 @@ class FocusHomePage extends StatelessWidget {
         Text(
           '$greeting，',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w300,
-                color: Colors.grey[600],
-              ),
+            fontWeight: FontWeight.w300,
+            color: Colors.grey[600],
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           '今天准备深潜到哪一段时光？',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w400,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w400),
         ),
       ],
     );
@@ -118,7 +118,9 @@ class FocusHomePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                hours > 0 ? hours.toString() : minutes.toString().padLeft(2, '0'),
+                hours > 0
+                    ? hours.toString()
+                    : minutes.toString().padLeft(2, '0'),
                 style: const TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.w200,
@@ -129,7 +131,9 @@ class FocusHomePage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  hours > 0 ? ' 小时 ${minutes.toString().padLeft(2, '0')} 分钟' : ' 分钟',
+                  hours > 0
+                      ? ' 小时 ${minutes.toString().padLeft(2, '0')} 分钟'
+                      : ' 分钟',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w300,
@@ -145,7 +149,10 @@ class FocusHomePage extends StatelessWidget {
   }
 
   /// 科目快捷入口
-  Widget _buildSubjectSection(BuildContext context, FocusProvider focusProvider) {
+  Widget _buildSubjectSection(
+    BuildContext context,
+    FocusProvider focusProvider,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -154,17 +161,15 @@ class FocusHomePage extends StatelessWidget {
           children: [
             Text(
               '学习领域',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
             TextButton.icon(
               onPressed: () => _showSubjectManagement(context, focusProvider),
               icon: const Icon(Icons.edit_outlined, size: 18),
               label: const Text('管理'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.grey[600],
-              ),
+              style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
             ),
           ],
         ),
@@ -178,7 +183,9 @@ class FocusHomePage extends StatelessWidget {
             crossAxisSpacing: 12,
             childAspectRatio: 1.6,
           ),
-          itemCount: focusProvider.subjects.length > 4 ? 4 : focusProvider.subjects.length,
+          itemCount: focusProvider.subjects.length > 4
+              ? 4
+              : focusProvider.subjects.length,
           itemBuilder: (context, index) {
             final subject = focusProvider.subjects[index];
             return _buildSubjectCard(context, subject, focusProvider);
@@ -189,7 +196,11 @@ class FocusHomePage extends StatelessWidget {
   }
 
   /// 科目卡片
-  Widget _buildSubjectCard(BuildContext context, FocusSubject subject, FocusProvider focusProvider) {
+  Widget _buildSubjectCard(
+    BuildContext context,
+    FocusSubject subject,
+    FocusProvider focusProvider,
+  ) {
     final completedMinutes = focusProvider.getSubjectMinutes(subject.id);
     final hours = completedMinutes ~/ 60;
     final minutes = completedMinutes % 60;
@@ -218,11 +229,7 @@ class FocusHomePage extends StatelessWidget {
                     color: subject.color.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    subject.icon,
-                    size: 20,
-                    color: subject.color,
-                  ),
+                  child: Icon(subject.icon, size: 20, color: subject.color),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -242,10 +249,7 @@ class FocusHomePage extends StatelessWidget {
             const Spacer(),
             Text(
               hours > 0 ? '$hours 小时 $minutes 分钟' : '$minutes 分钟',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
             const SizedBox(height: 4),
             ClipRRect(
@@ -340,22 +344,21 @@ class FocusHomePage extends StatelessWidget {
   void _navigateToStats(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const FocusStatsPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const FocusStatsPage()),
     );
   }
 
   void _navigateToTimetable(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const TimetablePage(),
-      ),
+      MaterialPageRoute(builder: (context) => const TimetablePage()),
     );
   }
 
-  void _showSubjectManagement(BuildContext context, FocusProvider focusProvider) {
+  void _showSubjectManagement(
+    BuildContext context,
+    FocusProvider focusProvider,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -428,10 +431,7 @@ class _SubjectManagementSheet extends StatelessWidget {
                           color: subject.color.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(
-                          subject.icon,
-                          color: subject.color,
-                        ),
+                        child: Icon(subject.icon, color: subject.color),
                       ),
                       title: Text(subject.name),
                       trailing: Row(
@@ -507,10 +507,7 @@ class _SubjectEditDialog extends StatefulWidget {
   final FocusSubject? subject;
   final Future<void> Function(FocusSubject) onSave;
 
-  const _SubjectEditDialog({
-    this.subject,
-    required this.onSave,
-  });
+  const _SubjectEditDialog({this.subject, required this.onSave});
 
   @override
   State<_SubjectEditDialog> createState() => _SubjectEditDialogState();
@@ -528,13 +525,15 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
     _nameController = TextEditingController(text: widget.subject?.name ?? '');
     _selectedIconIndex = widget.subject != null
         ? FocusIcons.availableIcons.indexWhere(
-            (i) => i == widget.subject!.iconIndex)
+            (i) => i == widget.subject!.iconIndex,
+          )
         : 0;
     if (_selectedIconIndex < 0) _selectedIconIndex = 0;
 
     _selectedColorIndex = widget.subject != null
         ? FocusColors.availableColors.indexWhere(
-            (c) => c.toARGB32() == widget.subject!.color.toARGB32())
+            (c) => c.toARGB32() == widget.subject!.color.toARGB32(),
+          )
         : 0;
     if (_selectedColorIndex < 0) _selectedColorIndex = 0;
 
@@ -565,12 +564,17 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
               maxLength: 20,
             ),
             const SizedBox(height: 16),
-            const Text('图标', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text(
+              '图标',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: List.generate(FocusIcons.availableIcons.length, (index) {
+              children: List.generate(FocusIcons.availableIcons.length, (
+                index,
+              ) {
                 final isSelected = _selectedIconIndex == index;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedIconIndex = index),
@@ -579,29 +583,41 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
                     height: 40,
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? FocusColors.availableColors[_selectedColorIndex].withValues(alpha: 0.2)
+                          ? FocusColors.availableColors[_selectedColorIndex]
+                                .withValues(alpha: 0.2)
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(10),
                       border: isSelected
-                          ? Border.all(color: FocusColors.availableColors[_selectedColorIndex], width: 2)
+                          ? Border.all(
+                              color: FocusColors
+                                  .availableColors[_selectedColorIndex],
+                              width: 2,
+                            )
                           : null,
                     ),
                     child: Icon(
                       FocusIcons.availableIcons[index],
                       size: 20,
-                      color: isSelected ? FocusColors.availableColors[_selectedColorIndex] : Colors.grey[600],
+                      color: isSelected
+                          ? FocusColors.availableColors[_selectedColorIndex]
+                          : Colors.grey[600],
                     ),
                   ),
                 );
               }),
             ),
             const SizedBox(height: 16),
-            const Text('颜色', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text(
+              '颜色',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: List.generate(FocusColors.availableColors.length, (index) {
+              children: List.generate(FocusColors.availableColors.length, (
+                index,
+              ) {
                 final isSelected = _selectedColorIndex == index;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedColorIndex = index),
@@ -617,9 +633,10 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: FocusColors.availableColors[index].withValues(alpha: 0.5),
+                                color: FocusColors.availableColors[index]
+                                    .withValues(alpha: 0.5),
                                 blurRadius: 8,
-                              )
+                              ),
                             ]
                           : null,
                     ),
@@ -631,7 +648,10 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
               }),
             ),
             const SizedBox(height: 16),
-            const Text('目标学时（小时）', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text(
+              '目标学时（小时）',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -643,17 +663,17 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
                 ),
                 Text(
                   '$_targetHours',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 IconButton(
                   onPressed: () => setState(() => _targetHours++),
                   icon: const Icon(Icons.add_circle_outline),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '小时',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
+                Text('小时', style: TextStyle(color: Colors.grey[600])),
               ],
             ),
           ],
@@ -669,7 +689,9 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
             if (_nameController.text.trim().isEmpty) return;
 
             final subject = FocusSubject(
-              id: widget.subject?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              id:
+                  widget.subject?.id ??
+                  DateTime.now().millisecondsSinceEpoch.toString(),
               name: _nameController.text.trim(),
               color: FocusColors.availableColors[_selectedColorIndex],
               iconIndex: _selectedIconIndex,

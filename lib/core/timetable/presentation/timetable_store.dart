@@ -11,7 +11,8 @@ class TimetableState {
   });
 
   final TimetableConfig config;
-  final Map<String, CourseItem> items; // 按 cellKey 索引 (cellKey = 'd${dayOfCycle}_s$slotIndex')
+  final Map<String, CourseItem>
+  items; // 按 cellKey 索引 (cellKey = 'd${dayOfCycle}_s$slotIndex')
   final bool isLoading;
 
   TimetableState copyWith({
@@ -29,11 +30,14 @@ class TimetableState {
 
 /// TimetableStore - 单一数据源 (SSOT)
 class TimetableStore extends StateNotifier<TimetableState> {
-  TimetableStore(this._repo) : super(const TimetableState(
-    config: TimetableConfig.defaultConfig,
-    items: {},
-    isLoading: false,
-  ));
+  TimetableStore(this._repo)
+    : super(
+        const TimetableState(
+          config: TimetableConfig.defaultConfig,
+          items: {},
+          isLoading: false,
+        ),
+      );
 
   final TimetableRepository _repo;
 
@@ -50,11 +54,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
       final itemsList = await _repo.loadItems();
       final items = {for (var item in itemsList) item.cellKey: item};
 
-      state = TimetableState(
-        config: config,
-        items: items,
-        isLoading: false,
-      );
+      state = TimetableState(config: config, items: items, isLoading: false);
     } catch (e) {
       state = TimetableState(
         config: TimetableConfig.defaultConfig,
@@ -110,8 +110,18 @@ class TimetableStore extends StateNotifier<TimetableState> {
     final oldConfig = state.config;
 
     // 计算新的 daysPerCycle 和 slotsPerDay
-    final newDaysPerCycle = daysPerCycle?.clamp(TimetableConfig.minDaysPerCycle, TimetableConfig.maxDaysPerCycle) ?? oldConfig.daysPerCycle;
-    final newSlotsPerDay = slotsPerDay?.clamp(TimetableConfig.minSlotsPerDay, TimetableConfig.maxSlotsPerDay) ?? oldConfig.slotsPerDay;
+    final newDaysPerCycle =
+        daysPerCycle?.clamp(
+          TimetableConfig.minDaysPerCycle,
+          TimetableConfig.maxDaysPerCycle,
+        ) ??
+        oldConfig.daysPerCycle;
+    final newSlotsPerDay =
+        slotsPerDay?.clamp(
+          TimetableConfig.minSlotsPerDay,
+          TimetableConfig.maxSlotsPerDay,
+        ) ??
+        oldConfig.slotsPerDay;
 
     // 检查是否有课程超出新的边界
     final newItems = Map<String, CourseItem>.from(state.items);
@@ -141,7 +151,10 @@ class TimetableStore extends StateNotifier<TimetableState> {
 
     final newConfig = oldConfig.copyWith(
       startDateIso: startDateIso,
-      cycleCount: cycleCount?.clamp(TimetableConfig.minCycles, TimetableConfig.maxCycles),
+      cycleCount: cycleCount?.clamp(
+        TimetableConfig.minCycles,
+        TimetableConfig.maxCycles,
+      ),
       daysPerCycle: newDaysPerCycle,
       slotsPerDay: newSlotsPerDay,
     );
@@ -177,10 +190,12 @@ class TimetableStore extends StateNotifier<TimetableState> {
   });
 
   /// 初始化 Provider
-  static final provider = StateNotifierProvider<TimetableStore, TimetableState>((ref) {
-    final repo = ref.watch(repoProvider);
-    return TimetableStore(repo);
-  });
+  static final provider = StateNotifierProvider<TimetableStore, TimetableState>(
+    (ref) {
+      final repo = ref.watch(repoProvider);
+      return TimetableStore(repo);
+    },
+  );
 
   /// Config Provider (只读，方便 Settings 页面只重建自己)
   static final configProvider = Provider<TimetableConfig>((ref) {
@@ -188,14 +203,19 @@ class TimetableStore extends StateNotifier<TimetableState> {
   });
 
   /// 单格 Provider (family) - 通过 cellKey 获取
-  static final cellProvider = Provider.family<CourseItem?, String>((ref, cellKey) {
+  static final cellProvider = Provider.family<CourseItem?, String>((
+    ref,
+    cellKey,
+  ) {
     final state = ref.watch(timetableProvider);
     return state.items[cellKey];
   });
 
   /// 所有天的课程 Provider - 返回 Map&#60;dayOfCycle, List&#60;CourseItem?&#62;&#62;
   /// 这个 provider 按 dayOfCycle 存储课程，所以所有周期显示相同的课程
-  static final allDaySlotsProvider = Provider<Map<int, List<CourseItem?>>>((ref) {
+  static final allDaySlotsProvider = Provider<Map<int, List<CourseItem?>>>((
+    ref,
+  ) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
 
@@ -213,7 +233,10 @@ class TimetableStore extends StateNotifier<TimetableState> {
   });
 
   /// 某天所有节次 Provider (family) - 通过 dayOfCycle 获取
-  static final daySlotsProvider = Provider.family<List<CourseItem?>, int>((ref, dayOfCycle) {
+  static final daySlotsProvider = Provider.family<List<CourseItem?>, int>((
+    ref,
+    dayOfCycle,
+  ) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
     final slots = <CourseItem?>[];
@@ -231,31 +254,32 @@ class TimetableStore extends StateNotifier<TimetableState> {
 
   /// 某周期网格 Provider (family) - 返回 2D 数组 [dayOfCycle][slot]
   /// 根据课程的 visibleInCycles 决定是否在特定周期显示
-  static final cycleGridProvider = Provider.family<List<List<CourseItem?>>, int>((ref, cycleIndex) {
-    final config = ref.watch(configProvider);
-    final state = ref.watch(timetableProvider);
+  static final cycleGridProvider =
+      Provider.family<List<List<CourseItem?>>, int>((ref, cycleIndex) {
+        final config = ref.watch(configProvider);
+        final state = ref.watch(timetableProvider);
 
-    // 创建 2D 数组: [dayOfCycle][slot]
-    final grid = List.generate(
-      config.daysPerCycle,
-      (dayOfCycle) {
-        return List.generate(config.slotsPerDay, (slot) {
-          final item = state.items['d${dayOfCycle}_s$slot'];
-          // 检查课程是否在该周期可见
-          if (item != null && !item.isVisibleInCycle(cycleIndex)) {
-            return null;
-          }
-          return item;
+        // 创建 2D 数组: [dayOfCycle][slot]
+        final grid = List.generate(config.daysPerCycle, (dayOfCycle) {
+          return List.generate(config.slotsPerDay, (slot) {
+            final item = state.items['d${dayOfCycle}_s$slot'];
+            // 检查课程是否在该周期可见
+            if (item != null && !item.isVisibleInCycle(cycleIndex)) {
+              return null;
+            }
+            return item;
+          });
         });
-      },
-    );
 
-    return grid;
-  });
+        return grid;
+      });
 
   /// 总览数据 Provider - 返回每个周期的摘要
   /// 由于课程按 dayOfCycle 存储，所有周期的课程数相同
-  static final overviewProvider = Provider.family<List<CycleSummary>, int>((ref, _) {
+  static final overviewProvider = Provider.family<List<CycleSummary>, int>((
+    ref,
+    _,
+  ) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
 
@@ -272,11 +296,13 @@ class TimetableStore extends StateNotifier<TimetableState> {
     // 所有周期课程数相同
     final summaries = <CycleSummary>[];
     for (int cycle = 0; cycle < config.cycleCount; cycle++) {
-      summaries.add(CycleSummary(
-        cycleIndex: cycle,
-        title: TimetableMappers.getCycleTitle(cycle, config.daysPerCycle),
-        courseCount: dayCourseCount,
-      ));
+      summaries.add(
+        CycleSummary(
+          cycleIndex: cycle,
+          title: TimetableMappers.getCycleTitle(cycle, config.daysPerCycle),
+          courseCount: dayCourseCount,
+        ),
+      );
     }
 
     return summaries;

@@ -72,7 +72,11 @@ class _DemoPainter extends CustomPainter {
       ..color = color.withValues(alpha: 0.25)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    canvas.drawLine(Offset(0, actualJudgeY), Offset(w, actualJudgeY), judgePaint);
+    canvas.drawLine(
+      Offset(0, actualJudgeY),
+      Offset(w, actualJudgeY),
+      judgePaint,
+    );
 
     // 判定区域可视化（设置页面演示用）
     final perfectWindow = 50.0 * timingScale;
@@ -101,7 +105,12 @@ class _DemoPainter extends CustomPainter {
     final greatPaint = Paint()
       ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.12);
     canvas.drawRect(
-      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight, size.width, greatHeight),
+      Rect.fromLTWH(
+        0,
+        judgeY - perfectHeight - greatHeight,
+        size.width,
+        greatHeight,
+      ),
       greatPaint,
     );
 
@@ -109,7 +118,12 @@ class _DemoPainter extends CustomPainter {
     final goodPaint = Paint()
       ..color = const Color(0xFFFF9800).withValues(alpha: 0.10);
     canvas.drawRect(
-      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight - goodHeight, size.width, goodHeight),
+      Rect.fromLTWH(
+        0,
+        judgeY - perfectHeight - greatHeight - goodHeight,
+        size.width,
+        goodHeight,
+      ),
       goodPaint,
     );
 
@@ -117,7 +131,12 @@ class _DemoPainter extends CustomPainter {
     final missPaint = Paint()
       ..color = const Color(0xFFF44336).withValues(alpha: 0.08);
     canvas.drawRect(
-      Rect.fromLTWH(0, judgeY - perfectHeight - greatHeight - goodHeight - missHeight, size.width, missHeight),
+      Rect.fromLTWH(
+        0,
+        judgeY - perfectHeight - greatHeight - goodHeight - missHeight,
+        size.width,
+        missHeight,
+      ),
       missPaint,
     );
 
@@ -196,10 +215,7 @@ class _DemoPainter extends CustomPainter {
 class SpeedSettingsPage extends StatefulWidget {
   final Color primaryColor;
 
-  const SpeedSettingsPage({
-    super.key,
-    required this.primaryColor,
-  });
+  const SpeedSettingsPage({super.key, required this.primaryColor});
 
   @override
   State<SpeedSettingsPage> createState() => _SpeedSettingsPageState();
@@ -239,7 +255,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     _loadSettings();
 
     _fallController = AnimationController(
-      duration: const Duration(milliseconds: 2500),  // Fixed demo duration
+      duration: const Duration(milliseconds: 2500), // Fixed demo duration
       vsync: this,
     );
 
@@ -261,7 +277,8 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
         _timingScale = prefs.getDouble(lineTimingScaleKey) ?? 1.0;
         _scrollSpeed = prefs.getDouble(lineScrollSpeedKey) ?? 1.0;
         final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
-        _backgroundStyle = BackgroundStyle.values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
+        _backgroundStyle = BackgroundStyle
+            .values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
       });
     }
   }
@@ -325,11 +342,13 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
 
     for (int i = 0; i < count; i++) {
       final angle = baseAngles[i] + (rng.nextDouble() - 0.5) * 0.6;
-      particles.add(Particle(
-        angle: angle,
-        distance: distances[i] + rng.nextDouble() * 5,
-        initialAlpha: alphas[i],
-      ));
+      particles.add(
+        Particle(
+          angle: angle,
+          distance: distances[i] + rng.nextDouble() * 5,
+          initialAlpha: alphas[i],
+        ),
+      );
     }
     return particles;
   }
@@ -388,14 +407,21 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                       child: AspectRatio(
                         aspectRatio: 0.6,
                         child: AnimatedBuilder(
-                          animation: Listenable.merge([_fallController, _explodeController]),
+                          animation: Listenable.merge([
+                            _fallController,
+                            _explodeController,
+                          ]),
                           builder: (context, _) {
                             return Container(
                               decoration: BoxDecoration(
-                                color: widget.primaryColor.withValues(alpha: 0.05),
+                                color: widget.primaryColor.withValues(
+                                  alpha: 0.05,
+                                ),
                                 borderRadius: BorderRadius.circular(rpx(16)),
                                 border: Border.all(
-                                  color: widget.primaryColor.withValues(alpha: 0.2),
+                                  color: widget.primaryColor.withValues(
+                                    alpha: 0.2,
+                                  ),
                                 ),
                               ),
                               child: ClipRRect(
@@ -429,8 +455,8 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                     child: _currentTab == 0
                         ? _buildTimingControls(theme, rpx)
                         : _currentTab == 1
-                            ? _buildScrollSpeedControls(theme, rpx)
-                            : _buildBackgroundControls(theme, rpx),
+                        ? _buildScrollSpeedControls(theme, rpx)
+                        : _buildBackgroundControls(theme, rpx),
                   ),
                 ],
               ),
@@ -489,9 +515,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
           Container(
             height: 1,
             width: 40,
-            color: isSelected
-                ? widget.primaryColor
-                : Colors.transparent,
+            color: isSelected ? widget.primaryColor : Colors.transparent,
           ),
         ],
       ),
@@ -499,68 +523,71 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   }
 
   Widget _buildTimingControls(ThemeData theme, double Function(double) rpx) {
-  return Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: [
-      Text(
-        '判定缩放',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-      const SizedBox(height: 12),
-      Text(
-        '${_timingScale.toStringAsFixed(1)}x',
-        style: TextStyle(
-          fontSize: rpx(32),
-          fontWeight: FontWeight.w100,
-          color: widget.primaryColor.withValues(alpha: 0.4),
-          fontFeatures: [const FontFeature.tabularFigures()],
-        ),
-      ),
-      const SizedBox(height: 16),
-      SliderTheme(
-        data: SliderThemeData(
-          trackHeight: 1.5,
-          thumbShape: const LineThumbShape(thumbRadius: 4),
-          overlayShape: SliderComponentShape.noOverlay,
-          activeTrackColor: widget.primaryColor,
-          inactiveTrackColor: theme.colorScheme.outlineVariant,
-          thumbColor: widget.primaryColor,
-        ),
-        child: Slider(
-          value: _timingScale,
-          min: _minTimingScale,
-          max: _maxTimingScale,
-          onChanged: (v) {
-            setState(() => _timingScale = v);
-            _saveTimingScale(v);
-          },
-        ),
-      ),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            '精准',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          '判定缩放',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-          Text(
-            '宽容',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '${_timingScale.toStringAsFixed(1)}x',
+          style: TextStyle(
+            fontSize: rpx(32),
+            fontWeight: FontWeight.w100,
+            color: widget.primaryColor.withValues(alpha: 0.4),
+            fontFeatures: [const FontFeature.tabularFigures()],
           ),
-        ],
-      ),
-    ],
-  );
-}
+        ),
+        const SizedBox(height: 16),
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 1.5,
+            thumbShape: const LineThumbShape(thumbRadius: 4),
+            overlayShape: SliderComponentShape.noOverlay,
+            activeTrackColor: widget.primaryColor,
+            inactiveTrackColor: theme.colorScheme.outlineVariant,
+            thumbColor: widget.primaryColor,
+          ),
+          child: Slider(
+            value: _timingScale,
+            min: _minTimingScale,
+            max: _maxTimingScale,
+            onChanged: (v) {
+              setState(() => _timingScale = v);
+              _saveTimingScale(v);
+            },
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '精准',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              '宽容',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-  Widget _buildScrollSpeedControls(ThemeData theme, double Function(double) rpx) {
+  Widget _buildScrollSpeedControls(
+    ThemeData theme,
+    double Function(double) rpx,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -599,7 +626,9 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
               setState(() => _scrollSpeed = v);
               _saveScrollSpeed(v);
               // Restart demo animation with new speed
-              _fallController.duration = Duration(milliseconds: (2500 / v).round());
+              _fallController.duration = Duration(
+                milliseconds: (2500 / v).round(),
+              );
               if (!_showExplode) {
                 _fallController.forward(from: _fallController.value);
               }
@@ -627,7 +656,10 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     );
   }
 
-  Widget _buildBackgroundControls(ThemeData theme, double Function(double) rpx) {
+  Widget _buildBackgroundControls(
+    ThemeData theme,
+    double Function(double) rpx,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,

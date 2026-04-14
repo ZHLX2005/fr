@@ -38,9 +38,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('数据统计'),
-      ),
+      appBar: AppBar(title: const Text('数据统计')),
       body: Consumer<FocusProvider>(
         builder: (context, focusProvider, child) {
           return SingleChildScrollView(
@@ -79,10 +77,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF8B9DC3),
-            Color(0xFFB8C9DB),
-          ],
+          colors: [Color(0xFF8B9DC3), Color(0xFFB8C9DB)],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
@@ -98,10 +93,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         children: [
           const Text(
             '本周专注',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.white),
           ),
           const SizedBox(height: 12),
           Row(
@@ -245,10 +237,12 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     for (int day = 1; day <= lastDay.day; day++) {
       final date = DateTime(_currentMonth.year, _currentMonth.month, day);
       final dayMinutes = focusProvider.sessions
-          .where((session) =>
-              session.startTime.year == date.year &&
-              session.startTime.month == date.month &&
-              session.startTime.day == date.day)
+          .where(
+            (session) =>
+                session.startTime.year == date.year &&
+                session.startTime.month == date.month &&
+                session.startTime.day == date.day,
+          )
           .fold<int>(0, (sum, session) => sum + session.durationMinutes);
 
       result.add({
@@ -265,7 +259,9 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
   bool _isToday(DateTime date) {
     final now = DateTime.now();
-    return date.year == now.year && date.month == now.month && date.day == now.day;
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
 
   /// 热力图级别（0-4）
@@ -278,7 +274,11 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
   }
 
   /// 日历单元格
-  Widget _buildCalendarCell(Map<String, dynamic> dayData, bool isSelected, FocusProvider focusProvider) {
+  Widget _buildCalendarCell(
+    Map<String, dynamic> dayData,
+    bool isSelected,
+    FocusProvider focusProvider,
+  ) {
     final level = dayData['level'] as int;
     final isToday = dayData['isToday'] as bool;
     final date = dayData['date'] as DateTime;
@@ -318,15 +318,17 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           border: isSelected
               ? Border.all(color: const Color(0xFF7A9A6E), width: 2)
               : isToday
-                  ? Border.all(color: Colors.blue[300]!, width: 1)
-                  : null,
+              ? Border.all(color: Colors.blue[300]!, width: 1)
+              : null,
         ),
         child: Center(
           child: Text(
             '$day',
             style: TextStyle(
               fontSize: 12,
-              color: level > 0 ? Colors.white : (isWeekend ? Colors.red[300] : Colors.grey[700]),
+              color: level > 0
+                  ? Colors.white
+                  : (isWeekend ? Colors.red[300] : Colors.grey[700]),
               fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -364,10 +366,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
               const SizedBox(width: 2),
               Text(
                 labels[index],
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -387,10 +386,14 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     if (dayData == null) return const SizedBox.shrink();
 
     final date = dayData['date'] as DateTime;
-    final daySessions = focusProvider.sessions.where((session) =>
-        session.startTime.year == date.year &&
-        session.startTime.month == date.month &&
-        session.startTime.day == date.day).toList();
+    final daySessions = focusProvider.sessions
+        .where(
+          (session) =>
+              session.startTime.year == date.year &&
+              session.startTime.month == date.month &&
+              session.startTime.day == date.day,
+        )
+        .toList();
 
     if (daySessions.isEmpty) {
       return Container(
@@ -413,7 +416,10 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
       );
     }
 
-    final totalMinutes = daySessions.fold<int>(0, (sum, s) => sum + s.durationMinutes);
+    final totalMinutes = daySessions.fold<int>(
+      0,
+      (sum, s) => sum + s.durationMinutes,
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -437,10 +443,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
               ),
               Text(
                 '共 $totalMinutes 分钟',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -466,11 +469,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                       color: subject.color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      subject.icon,
-                      size: 18,
-                      color: subject.color,
-                    ),
+                    child: Icon(subject.icon, size: 18, color: subject.color),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -524,18 +523,12 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         children: [
           const Text(
             '学科分布',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 16),
           if (subjects.isEmpty)
             Center(
-              child: Text(
-                '暂无学科数据',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
+              child: Text('暂无学科数据', style: TextStyle(color: Colors.grey[600])),
             )
           else
             ...subjects.map((subject) {
@@ -580,7 +573,9 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                       child: LinearProgressIndicator(
                         value: subject.progress,
                         backgroundColor: subject.color.withValues(alpha: 0.12),
-                        valueColor: AlwaysStoppedAnimation<Color>(subject.color),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          subject.color,
+                        ),
                         minHeight: 6,
                       ),
                     ),
@@ -607,18 +602,11 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         ),
         child: Column(
           children: [
-            Icon(
-              Icons.hourglass_empty,
-              size: 48,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.hourglass_empty, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               '开始你的第一段专注时光',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -637,10 +625,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         children: [
           const Text(
             '最近记录',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 16),
           ...sessions.map((session) {
@@ -658,25 +643,16 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   color: subject.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  subject.icon,
-                  size: 20,
-                  color: subject.color,
-                ),
+                child: Icon(subject.icon, size: 20, color: subject.color),
               ),
               title: Text(subject.name),
               subtitle: Text(
                 '${session.mode == FocusMode.pomodoro ? "番茄钟" : "自由计时"} · ${_formatDate(session.startTime)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
               trailing: Text(
                 '${session.durationMinutes}分钟',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             );
           }),

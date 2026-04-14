@@ -10,7 +10,8 @@ class GalleryService {
     if (kIsWeb) return false;
 
     try {
-      final PermissionState state = await PhotoManager.requestPermissionExtend();
+      final PermissionState state =
+          await PhotoManager.requestPermissionExtend();
       return state.isAuth;
     } catch (e) {
       debugPrint('请求权限失败: $e');
@@ -143,7 +144,8 @@ class GalleryService {
       }
 
       // 获取原图标题
-      final title = sourceImage.title ?? 'image_${DateTime.now().millisecondsSinceEpoch}';
+      final title =
+          sourceImage.title ?? 'image_${DateTime.now().millisecondsSinceEpoch}';
 
       // 保存到目标相册
       final result = await PhotoManager.editor.saveImage(

@@ -136,7 +136,11 @@ class LabPage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Row(
-          children: [Icon(Icons.cleaning_services), SizedBox(width: 8), Text('图片缓存')],
+          children: [
+            Icon(Icons.cleaning_services),
+            SizedBox(width: 8),
+            Text('图片缓存'),
+          ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -159,9 +163,9 @@ class LabPage extends StatelessWidget {
               await cacheService.clearCache();
               if (context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('缓存已清除')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('缓存已清除')));
               }
             },
             child: const Text('清除缓存'),
@@ -174,7 +178,8 @@ class LabPage extends StatelessWidget {
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
@@ -247,7 +252,8 @@ class _DemoCardState extends State<_DemoCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final backgroundUrl = _provider.getBackground(widget.title);
-    final isLocalFile = backgroundUrl != null && _provider.isLocalFile(widget.title);
+    final isLocalFile =
+        backgroundUrl != null && _provider.isLocalFile(widget.title);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -263,72 +269,72 @@ class _DemoCardState extends State<_DemoCard> {
           duration: const Duration(milliseconds: 100),
           curve: Curves.easeInOut,
           child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 背景图片
-            if (backgroundUrl != null && backgroundUrl.isNotEmpty)
-              Positioned.fill(
-                child: isLocalFile
-                    ? _buildLocalImage(backgroundUrl, theme)
-                    : _buildNetworkImage(backgroundUrl, theme),
-              ),
-            // 渐变遮罩（确保文字可读）
-            if (backgroundUrl != null && backgroundUrl.isNotEmpty)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.3),
-                        Colors.black.withOpacity(0.6),
-                      ],
+            fit: StackFit.expand,
+            children: [
+              // 背景图片
+              if (backgroundUrl != null && backgroundUrl.isNotEmpty)
+                Positioned.fill(
+                  child: isLocalFile
+                      ? _buildLocalImage(backgroundUrl, theme)
+                      : _buildNetworkImage(backgroundUrl, theme),
+                ),
+              // 渐变遮罩（确保文字可读）
+              if (backgroundUrl != null && backgroundUrl.isNotEmpty)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.3),
+                          Colors.black.withOpacity(0.6),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            // 内容
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.widgets,
-                    color: backgroundUrl != null
-                        ? Colors.white
-                        : theme.colorScheme.primary,
-                    size: 32,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: backgroundUrl != null ? Colors.white : null,
+              // 内容
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.widgets,
+                      color: backgroundUrl != null
+                          ? Colors.white
+                          : theme.colorScheme.primary,
+                      size: 32,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Expanded(
-                    child: Text(
-                      widget.description,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: backgroundUrl != null
-                            ? Colors.white70
-                            : theme.colorScheme.onSurface.withOpacity(0.7),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: backgroundUrl != null ? Colors.white : null,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: Text(
+                        widget.description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: backgroundUrl != null
+                              ? Colors.white70
+                              : theme.colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -341,9 +347,7 @@ class _DemoCardState extends State<_DemoCard> {
       errorBuilder: (context, error, stackTrace) => Container(),
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
-        return Container(
-          color: theme.colorScheme.surfaceVariant,
-        );
+        return Container(color: theme.colorScheme.surfaceVariant);
       },
     );
   }
@@ -419,7 +423,8 @@ class _BackgroundSettingSheet extends StatefulWidget {
   });
 
   @override
-  State<_BackgroundSettingSheet> createState() => _BackgroundSettingSheetState();
+  State<_BackgroundSettingSheet> createState() =>
+      _BackgroundSettingSheetState();
 }
 
 class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
@@ -442,10 +447,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
             children: [
               const Icon(Icons.image, size: 24),
               const SizedBox(width: 8),
-              Text(
-                '设置背景图片',
-                style: theme.textTheme.titleLarge,
-              ),
+              Text('设置背景图片', style: theme.textTheme.titleLarge),
               const Spacer(),
               if (widget.currentUrl != null)
                 TextButton.icon(
@@ -497,10 +499,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           const SizedBox(height: 16),
 
           // 自定义 URL 输入
-          Text(
-            '自定义图片 URL',
-            style: theme.textTheme.titleSmall,
-          ),
+          Text('自定义图片 URL', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -535,10 +534,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           const SizedBox(height: 16),
 
           // 预设图片
-          Text(
-            '预设图片',
-            style: theme.textTheme.titleSmall,
-          ),
+          Text('预设图片', style: theme.textTheme.titleSmall),
           const SizedBox(height: 12),
           Expanded(
             child: GridView.builder(
@@ -563,7 +559,8 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                         child: Image.network(
                           url,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
                                 color: theme.colorScheme.surfaceVariant,
                                 child: const Icon(Icons.broken_image),
                               ),

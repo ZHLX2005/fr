@@ -53,7 +53,8 @@ class DiscoveryService {
   String get serviceState => _serviceState;
 
   /// 各组件运行状态
-  bool get isUdpBroadcastRunning => _broadcastTimer != null && _broadcastTimer!.isActive;
+  bool get isUdpBroadcastRunning =>
+      _broadcastTimer != null && _broadcastTimer!.isActive;
   bool get isUdpListenerRunning => _udpSocket != null;
   bool get isHttpServerRunning => _httpServer != null;
 
@@ -82,7 +83,10 @@ class DiscoveryService {
       debugLog.i('Discovery', '✓ 发现服务已启动');
       debugLog.i('Discovery', '  设备ID: ${deviceId.substring(0, 8)}...');
       debugLog.i('Discovery', '  设备别名: $deviceAlias');
-      debugLog.i('Discovery', '  多播地址: $multicastAddress:${LocalnetConstants.multicastPort}');
+      debugLog.i(
+        'Discovery',
+        '  多播地址: $multicastAddress:${LocalnetConstants.multicastPort}',
+      );
       debugLog.i('Discovery', '  HTTP 端口: ${LocalnetConstants.httpPort}');
     } catch (e) {
       debugLog.e('Discovery', '✗ 启动失败: $e');
@@ -143,10 +147,14 @@ class DiscoveryService {
       debugLog.i('Discovery', '✓ HTTP 服务器绑定成功 :$httpPort');
 
       _httpServer!.listen((request) async {
-        final remoteIp = request.connectionInfo?.remoteAddress.address ?? 'unknown';
+        final remoteIp =
+            request.connectionInfo?.remoteAddress.address ?? 'unknown';
         final path = request.uri.path;
 
-        debugLog.d('Discovery', '← HTTP ${request.method} $path (from $remoteIp)');
+        debugLog.d(
+          'Discovery',
+          '← HTTP ${request.method} $path (from $remoteIp)',
+        );
 
         if (path == LocalnetConstants.httpPathJoin) {
           // any_share 风格的 join 请求
@@ -166,7 +174,10 @@ class DiscoveryService {
 
             if (senderId.isNotEmpty && senderId != deviceId) {
               _addDevice(senderId, senderName, remoteIp, senderPort);
-              debugLog.i('Discovery', '✓ 设备加入: $senderName ($remoteIp:$senderPort)');
+              debugLog.i(
+                'Discovery',
+                '✓ 设备加入: $senderName ($remoteIp:$senderPort)',
+              );
             }
 
             // 响应 OK
@@ -203,7 +214,10 @@ class DiscoveryService {
             // 忽略自己发送的消息
             if (message.senderId != deviceId) {
               onMessageReceived?.call(message);
-              debugLog.i('Discovery', '✓ 收到消息 from ${message.senderAlias}: ${message.content}');
+              debugLog.i(
+                'Discovery',
+                '✓ 收到消息 from ${message.senderAlias}: ${message.content}',
+              );
             }
 
             request.response.write('OK');
@@ -304,12 +318,25 @@ class DiscoveryService {
   /// 发送 HTTP join 请求
   Future<void> _sendHttpJoin(String targetIp, int targetPort) async {
     try {
-      final body = LocalnetConstants.buildJoinBody(deviceId, deviceAlias, devicePort);
-      debugLog.d('Discovery', '→ HTTP POST ${LocalnetConstants.httpPathJoin} to $targetIp:$targetPort');
+      final body = LocalnetConstants.buildJoinBody(
+        deviceId,
+        deviceAlias,
+        devicePort,
+      );
+      debugLog.d(
+        'Discovery',
+        '→ HTTP POST ${LocalnetConstants.httpPathJoin} to $targetIp:$targetPort',
+      );
 
       final client = HttpClient();
       final request = await client.postUrl(
-        Uri.parse(LocalnetConstants.buildHttpUrl(targetIp, targetPort, LocalnetConstants.httpPathJoin)),
+        Uri.parse(
+          LocalnetConstants.buildHttpUrl(
+            targetIp,
+            targetPort,
+            LocalnetConstants.httpPathJoin,
+          ),
+        ),
       );
       request.headers.set('Content-Type', 'application/x-www-form-urlencoded');
       request.write(body);
@@ -342,7 +369,10 @@ class DiscoveryService {
 
     try {
       // 使用常量构建多播数据
-      final message = LocalnetConstants.buildMulticastData(deviceId, devicePort);
+      final message = LocalnetConstants.buildMulticastData(
+        deviceId,
+        devicePort,
+      );
       final data = utf8.encode(message);
 
       final sent = _udpSocket!.send(
@@ -373,7 +403,8 @@ class DiscoveryService {
     bool changed = false;
 
     _devices.removeWhere((key, device) {
-      final isStale = now.difference(device.lastSeen) >
+      final isStale =
+          now.difference(device.lastSeen) >
           Duration(seconds: LocalnetConstants.deviceTimeoutSeconds);
       if (isStale) {
         debugLog.i('Discovery', '设备离线: ${device.alias}');

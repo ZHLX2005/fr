@@ -72,7 +72,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       final exists = await file.exists();
       setState(() {
         _downloadedApkPath = exists ? path : null;
-        _downloadedApkSize = exists ? prefs.getInt(_kDownloadedApkSizeKey) : null;
+        _downloadedApkSize = exists
+            ? prefs.getInt(_kDownloadedApkSizeKey)
+            : null;
       });
     }
   }
@@ -95,11 +97,17 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     setState(() => _isLoading = true);
     final items = await ApiService.listKv(limit: 20);
     setState(() {
-      _kvList = items?.map((e) => _KvItem(
-        key: e.key ?? '',
-        value: e.value ?? '',
-        expiresAt: e.expiresAt,
-      )).toList() ?? [];
+      _kvList =
+          items
+              ?.map(
+                (e) => _KvItem(
+                  key: e.key ?? '',
+                  value: e.value ?? '',
+                  expiresAt: e.expiresAt,
+                ),
+              )
+              .toList() ??
+          [];
       _isLoading = false;
     });
   }
@@ -109,7 +117,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     if (_keyController.text.isEmpty || _valueController.text.isEmpty) return;
 
     setState(() => _isLoading = true);
-    final success = await ApiService.setKv(_keyController.text, _valueController.text);
+    final success = await ApiService.setKv(
+      _keyController.text,
+      _valueController.text,
+    );
     setState(() {
       _kvMessage = success ? '设置成功' : '设置失败';
       _isLoading = false;
@@ -163,7 +174,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     final result = await ApiService.uploadFile(_selectedFile!);
     setState(() {
       if (result != null) {
-        _uploadResult = '上传成功!\nID: ${result.id ?? ""}\nURL: ${result.downloadUrl ?? ""}';
+        _uploadResult =
+            '上传成功!\nID: ${result.id ?? ""}\nURL: ${result.downloadUrl ?? ""}';
       } else {
         _uploadResult = '上传失败';
       }
@@ -214,7 +226,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       if (metadata != null) {
         _apkMetadata = '大小: ${_formatFileSize(metadata.size ?? 0)}';
         _apkUpdateTime = metadata.uploadTime;
-        _downloadStatus = '发现新版本 (${metadata.uploadTime?.substring(0, 10) ?? ""})';
+        _downloadStatus =
+            '发现新版本 (${metadata.uploadTime?.substring(0, 10) ?? ""})';
       } else {
         _downloadStatus = '未找到APK或服务器错误';
       }
@@ -253,7 +266,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           if (mounted && total > 0) {
             setState(() {
               _downloadProgress = received / total;
-              _downloadStatus = '下载中: ${(_downloadProgress * 100).toStringAsFixed(1)}%';
+              _downloadStatus =
+                  '下载中: ${(_downloadProgress * 100).toStringAsFixed(1)}%';
             });
           }
         },
@@ -293,15 +307,12 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     if (_downloadedApkPath == null) return;
     try {
       final file = XFile(_downloadedApkPath!);
-      await Share.shareXFiles(
-        [file],
-        text: 'FR APK 安装包',
-      );
+      await Share.shareXFiles([file], text: 'FR APK 安装包');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('打开失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开失败: $e')));
       }
     }
   }
@@ -312,7 +323,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
     final file = File(_downloadedApkPath!);
     if (!await file.exists()) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('APK 文件不存在')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('APK 文件不存在')));
       return;
     }
 
@@ -323,13 +337,20 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         if (result.type == ResultType.done) {
           // 成功唤起
         } else if (result.type == ResultType.noAppToOpen) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('没有找到可安装的应用')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('没有找到可安装的应用')));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('唤起失败: ${result.message}')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('唤起失败: ${result.message}')));
         }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('唤起异常: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('唤起异常: $e')));
     }
   }
 
@@ -337,7 +358,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -448,7 +470,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                   ),
                   if (_kvMessage != null) ...[
                     const SizedBox(height: 8),
-                    Text(_kvMessage!, style: const TextStyle(color: Colors.green)),
+                    Text(
+                      _kvMessage!,
+                      style: const TextStyle(color: Colors.green),
+                    ),
                   ],
                 ],
               ),
@@ -459,7 +484,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('KV 列表', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text(
+                'KV 列表',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _loadKvList,
@@ -470,16 +498,18 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           if (_kvList.isEmpty)
             const Center(child: Text('暂无数据'))
           else
-            ..._kvList.map((item) => Card(
-              child: ListTile(
-                title: Text(item.key),
-                subtitle: Text(item.value),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteKv(item.key),
+            ..._kvList.map(
+              (item) => Card(
+                child: ListTile(
+                  title: Text(item.key),
+                  subtitle: Text(item.value),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _deleteKv(item.key),
+                  ),
                 ),
               ),
-            )),
+            ),
         ],
       ),
     );
@@ -497,7 +527,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  const Text('文件上传', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Text(
+                    '文件上传',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: _pickFile,
@@ -538,7 +571,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  const Text('文件下载/删除', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Text(
+                    '文件下载/删除',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _downloadIdController,
@@ -563,14 +599,19 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                           onPressed: _deleteFile,
                           icon: const Icon(Icons.delete),
                           label: const Text('删除'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   if (_downloadResult != null) ...[
                     const SizedBox(height: 8),
-                    Text(_downloadResult!, style: const TextStyle(fontSize: 12)),
+                    Text(
+                      _downloadResult!,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ],
                 ],
               ),
@@ -657,7 +698,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.refresh),
                           label: const Text('检查更新'),
@@ -678,14 +721,18 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _isDownloading ? null : _downloadApkInternal,
+                          onPressed: _isDownloading
+                              ? null
+                              : _downloadApkInternal,
                           icon: _isDownloading
                               ? SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    value: _downloadProgress > 0 ? _downloadProgress : null,
+                                    value: _downloadProgress > 0
+                                        ? _downloadProgress
+                                        : null,
                                   ),
                                 )
                               : const Icon(Icons.download_for_offline),
@@ -781,10 +828,13 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       ),
     );
   }
+
   // 已下载 APK 文件卡片
   Widget _buildApkFileCard() {
     final name = _downloadedApkPath!.split('/').last.split('\\').last;
-    final sizeStr = _downloadedApkSize != null ? _formatFileSize(_downloadedApkSize!) : '';
+    final sizeStr = _downloadedApkSize != null
+        ? _formatFileSize(_downloadedApkSize!)
+        : '';
 
     return Container(
       decoration: BoxDecoration(

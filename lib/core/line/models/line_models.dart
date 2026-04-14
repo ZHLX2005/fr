@@ -7,11 +7,7 @@ enum NoteType { tap, hold, slide }
 enum SlideDirection { up, down, left, right }
 
 /// 背景样式
-enum BackgroundStyle {
-  none,
-  grid,
-  lines;
-}
+enum BackgroundStyle { none, grid, lines }
 
 /// 谱面音符事件
 class NoteEvent {
@@ -95,14 +91,14 @@ class FallingNote {
     required this.event,
     required this.controller,
     required this.currentY,
-  })  : judged = false,
-        removeMe = false,
-        holding = false,
-        holdProgress = 0.0,
-        holdJudgeDiff = 0,
-        holdPressTime = 0,
-        holdFadeOut = 0.0,
-        spawnElapsed = 0;
+  }) : judged = false,
+       removeMe = false,
+       holding = false,
+       holdProgress = 0.0,
+       holdJudgeDiff = 0,
+       holdPressTime = 0,
+       holdFadeOut = 0.0,
+       spawnElapsed = 0;
 }
 
 /// 炸开动画状态
@@ -210,13 +206,17 @@ class SongData {
       'duration': duration,
       'difficulty': difficulty,
       'dropDuration': dropDuration,
-      'notes': notes.map((n) => {
-        'time': n.time,
-        'column': n.column,
-        'type': n.type.name,
-        if (n.direction != null) 'direction': n.direction!.name,
-        if (n.holdDuration != null) 'holdDuration': n.holdDuration,
-      }).toList(),
+      'notes': notes
+          .map(
+            (n) => {
+              'time': n.time,
+              'column': n.column,
+              'type': n.type.name,
+              if (n.direction != null) 'direction': n.direction!.name,
+              if (n.holdDuration != null) 'holdDuration': n.holdDuration,
+            },
+          )
+          .toList(),
     };
   }
 }

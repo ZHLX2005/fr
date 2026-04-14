@@ -12,7 +12,8 @@ import '../lab_container.dart';
 // ignore: experimental_member_use, unused_local_variable
 class _WebSocketAudioSource extends StreamAudioSource {
   // 广播流：所有 chunk 都通过这里分发
-  final StreamController<List<int>> _broadcast = StreamController<List<int>>.broadcast();
+  final StreamController<List<int>> _broadcast =
+      StreamController<List<int>>.broadcast();
   final List<int> _buffer = []; // 已接收的全部数据（用于支持 seek）
   bool _closed = false;
   int _totalBytes = 0;
@@ -321,7 +322,8 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
         setState(() => _statusMessage = '连接被关闭');
         return;
       }
-      final welcome = json.decode(iterator.current as String) as Map<String, dynamic>;
+      final welcome =
+          json.decode(iterator.current as String) as Map<String, dynamic>;
       if (welcome['event'] != 'connected_success') {
         await _ws!.close();
         _isSynthesizing = false;
@@ -342,13 +344,15 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
         'format': _format,
         'channel': _channel,
       };
-      _ws!.add(json.encode({
-        'event': 'task_start',
-        'model': model,
-        'language_boost': _englishNormalization ? 'English' : 'Chinese',
-        'voice_setting': voiceSetting,
-        'audio_setting': audioSetting,
-      }));
+      _ws!.add(
+        json.encode({
+          'event': 'task_start',
+          'model': model,
+          'language_boost': _englishNormalization ? 'English' : 'Chinese',
+          'voice_setting': voiceSetting,
+          'audio_setting': audioSetting,
+        }),
+      );
 
       // 等待 task_started
       if (!await iterator.moveNext()) {
@@ -356,7 +360,8 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
         setState(() => _statusMessage = '连接被关闭');
         return;
       }
-      final startResp = json.decode(iterator.current as String) as Map<String, dynamic>;
+      final startResp =
+          json.decode(iterator.current as String) as Map<String, dynamic>;
       if (startResp['event'] != 'task_started') {
         await _ws!.close();
         _isSynthesizing = false;
@@ -397,7 +402,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
             } else if (event == 'task_failed') {
               _isSynthesizing = false;
               _streamSource?.markComplete();
-              setState(() => _statusMessage = '合成失败: ${message['base_resp']?['status_msg'] ?? '未知错误'}');
+              setState(
+                () => _statusMessage =
+                    '合成失败: ${message['base_resp']?['status_msg'] ?? '未知错误'}',
+              );
               return;
             }
           } catch (e) {
@@ -411,14 +419,16 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
           _audioChunks.addAll(audioBytes);
           _streamSource?.addChunk(audioBytes);
           setState(() {
-            _statusMessage = '流式接收中... 已接收 $_chunkCount 个片段 (${_streamSource!.totalBytes ~/ 1024}KB)';
+            _statusMessage =
+                '流式接收中... 已接收 $_chunkCount 个片段 (${_streamSource!.totalBytes ~/ 1024}KB)';
           });
         }
       }
 
       _isSynthesizing = false;
       setState(() {
-        _statusMessage = '流式合成完成，共 $_chunkCount 个片段 (${_streamSource!.totalBytes ~/ 1024}KB)';
+        _statusMessage =
+            '流式合成完成，共 $_chunkCount 个片段 (${_streamSource!.totalBytes ~/ 1024}KB)';
       });
     } catch (e) {
       _isSynthesizing = false;
@@ -434,16 +444,19 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       _statusMessage = '正在播放流式音频...';
     });
 
-    _player.setAudioSource(_streamSource!).then((_) {
-      _player.play();
-    }).catchError((e) {
-      if (mounted) {
-        setState(() {
-          _statusMessage = '播放失败: $e';
-          _isPlaying = false;
+    _player
+        .setAudioSource(_streamSource!)
+        .then((_) {
+          _player.play();
+        })
+        .catchError((e) {
+          if (mounted) {
+            setState(() {
+              _statusMessage = '播放失败: $e';
+              _isPlaying = false;
+            });
+          }
         });
-      }
-    });
   }
 
   /// HTTP API 合成
@@ -484,18 +497,23 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
 
       if (response.statusCode == 200) {
         final responseData = json.decode(responseBody);
-        if (responseData['data'] != null && responseData['data']['audio'] != null) {
+        if (responseData['data'] != null &&
+            responseData['data']['audio'] != null) {
           final audioHex = responseData['data']['audio'] as String;
           final audioBytes = _hexToBytes(audioHex);
           _audioChunks.addAll(audioBytes);
-          setState(() => _statusMessage = '合成完成，音频大小: ${audioBytes.length} bytes');
+          setState(
+            () => _statusMessage = '合成完成，音频大小: ${audioBytes.length} bytes',
+          );
           await _playAudio();
           await _saveAudioToFile(audioBytes);
         } else {
           setState(() => _statusMessage = '响应格式错误: $responseData');
         }
       } else {
-        setState(() => _statusMessage = '请求失败: ${response.statusCode} - $responseBody');
+        setState(
+          () => _statusMessage = '请求失败: ${response.statusCode} - $responseBody',
+        );
       }
     } catch (e) {
       setState(() => _statusMessage = '请求异常: $e');
@@ -509,7 +527,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       if (directory == null) return;
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final extension = _format == 'wav' ? 'wav' : (_format == 'pcm' ? 'pcm' : 'mp3');
+      final extension = _format == 'wav'
+          ? 'wav'
+          : (_format == 'pcm' ? 'pcm' : 'mp3');
       final filePath = '${directory.path}/tts_$timestamp.$extension';
       final file = File(filePath);
       await file.writeAsBytes(audioBytes);
@@ -528,10 +548,7 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
           SnackBar(
             content: Text('已保存: $filePath'),
             duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: '好的',
-              onPressed: () {},
-            ),
+            action: SnackBarAction(label: '好的', onPressed: () {}),
           ),
         );
       }
@@ -683,7 +700,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.record_voice_over, color: theme.colorScheme.primary),
+                  Icon(
+                    Icons.record_voice_over,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 12),
                   const Text(
                     'MiniMax 语音合成',
@@ -701,7 +721,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('API Key', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      'API Key',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _apiKeyController,
@@ -727,11 +750,19 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                   children: [
                     Row(
                       children: [
-                        const Text('选择模型', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text(
+                          '选择模型',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         const Spacer(),
                         TextButton.icon(
-                          onPressed: () => setState(() => _showAdvanced = !_showAdvanced),
-                          icon: Icon(_showAdvanced ? Icons.expand_less : Icons.expand_more),
+                          onPressed: () =>
+                              setState(() => _showAdvanced = !_showAdvanced),
+                          icon: Icon(
+                            _showAdvanced
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                          ),
                           label: Text(_showAdvanced ? '收起高级设置' : '高级设置'),
                         ),
                       ],
@@ -743,10 +774,14 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      items: _models.map((m) => DropdownMenuItem(
-                        value: m.$1,
-                        child: Text(m.$2),
-                      )).toList(),
+                      items: _models
+                          .map(
+                            (m) => DropdownMenuItem(
+                              value: m.$1,
+                              child: Text(m.$2),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (v) => setState(() {
                         _selectedModel = v!;
                         _customModelController.text = v;
@@ -777,7 +812,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('语音设置', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text(
+                        '语音设置',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
@@ -792,7 +830,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                               onChanged: (v) => setState(() => _speed = v),
                             ),
                           ),
-                          SizedBox(width: 50, child: Text(_speed.toStringAsFixed(1))),
+                          SizedBox(
+                            width: 50,
+                            child: Text(_speed.toStringAsFixed(1)),
+                          ),
                         ],
                       ),
                       Row(
@@ -808,7 +849,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                               onChanged: (v) => setState(() => _vol = v),
                             ),
                           ),
-                          SizedBox(width: 50, child: Text(_vol.toStringAsFixed(1))),
+                          SizedBox(
+                            width: 50,
+                            child: Text(_vol.toStringAsFixed(1)),
+                          ),
                         ],
                       ),
                       Row(
@@ -824,13 +868,17 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                               onChanged: (v) => setState(() => _pitch = v),
                             ),
                           ),
-                          SizedBox(width: 50, child: Text(_pitch.toStringAsFixed(0))),
+                          SizedBox(
+                            width: 50,
+                            child: Text(_pitch.toStringAsFixed(0)),
+                          ),
                         ],
                       ),
                       SwitchListTile(
                         title: const Text('英文正则化'),
                         value: _englishNormalization,
-                        onChanged: (v) => setState(() => _englishNormalization = v),
+                        onChanged: (v) =>
+                            setState(() => _englishNormalization = v),
                         contentPadding: EdgeInsets.zero,
                       ),
                     ],
@@ -844,19 +892,27 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('音频设置', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text(
+                        '音频设置',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
                           const SizedBox(width: 80, child: Text('采样率')),
                           Expanded(
                             child: SegmentedButton<int>(
-                              segments: _sampleRates.map((r) => ButtonSegment(
-                                value: r,
-                                label: Text('${r ~/ 1000}k'),
-                              )).toList(),
+                              segments: _sampleRates
+                                  .map(
+                                    (r) => ButtonSegment(
+                                      value: r,
+                                      label: Text('${r ~/ 1000}k'),
+                                    ),
+                                  )
+                                  .toList(),
                               selected: {_sampleRate},
-                              onSelectionChanged: (s) => setState(() => _sampleRate = s.first),
+                              onSelectionChanged: (s) =>
+                                  setState(() => _sampleRate = s.first),
                             ),
                           ),
                         ],
@@ -867,12 +923,17 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                           const SizedBox(width: 80, child: Text('比特率')),
                           Expanded(
                             child: SegmentedButton<int>(
-                              segments: _bitrates.map((r) => ButtonSegment(
-                                value: r,
-                                label: Text('${r ~/ 1000}k'),
-                              )).toList(),
+                              segments: _bitrates
+                                  .map(
+                                    (r) => ButtonSegment(
+                                      value: r,
+                                      label: Text('${r ~/ 1000}k'),
+                                    ),
+                                  )
+                                  .toList(),
                               selected: {_bitrate},
-                              onSelectionChanged: (s) => setState(() => _bitrate = s.first),
+                              onSelectionChanged: (s) =>
+                                  setState(() => _bitrate = s.first),
                             ),
                           ),
                         ],
@@ -882,12 +943,17 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                         children: [
                           const SizedBox(width: 80, child: Text('格式')),
                           SegmentedButton<String>(
-                            segments: _formats.map((f) => ButtonSegment(
-                              value: f,
-                              label: Text(f.toUpperCase()),
-                            )).toList(),
+                            segments: _formats
+                                .map(
+                                  (f) => ButtonSegment(
+                                    value: f,
+                                    label: Text(f.toUpperCase()),
+                                  ),
+                                )
+                                .toList(),
                             selected: {_format},
-                            onSelectionChanged: (s) => setState(() => _format = s.first),
+                            onSelectionChanged: (s) =>
+                                setState(() => _format = s.first),
                           ),
                         ],
                       ),
@@ -896,12 +962,17 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                         children: [
                           const SizedBox(width: 80, child: Text('声道')),
                           SegmentedButton<int>(
-                            segments: _channels.map((c) => ButtonSegment(
-                              value: c,
-                              label: Text(c == 1 ? '单声道' : '立体声'),
-                            )).toList(),
+                            segments: _channels
+                                .map(
+                                  (c) => ButtonSegment(
+                                    value: c,
+                                    label: Text(c == 1 ? '单声道' : '立体声'),
+                                  ),
+                                )
+                                .toList(),
                             selected: {_channel},
-                            onSelectionChanged: (s) => setState(() => _channel = s.first),
+                            onSelectionChanged: (s) =>
+                                setState(() => _channel = s.first),
                           ),
                         ],
                       ),
@@ -919,9 +990,15 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('选择音色', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      '选择音色',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(height: 12),
-                    const Text('中文音色', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const Text(
+                      '中文音色',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -936,7 +1013,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                       }).toList(),
                     ),
                     const SizedBox(height: 12),
-                    const Text('英文音色', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const Text(
+                      '英文音色',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -953,7 +1033,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                     if (_selectedVoiceName != null) ...[
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.green[50],
                           borderRadius: BorderRadius.circular(16),
@@ -961,7 +1044,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                         ),
                         child: Text(
                           '已选择: $_selectedVoiceName',
-                          style: TextStyle(color: Colors.green[700], fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.green[700],
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ],
@@ -978,7 +1064,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('合成文本', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      '合成文本',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _textController,
@@ -989,7 +1078,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text('快速测试文本', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const Text(
+                      '快速测试文本',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -1017,11 +1109,13 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _statusMessage!.contains('失败') || _statusMessage!.contains('错误')
+                  color:
+                      _statusMessage!.contains('失败') ||
+                          _statusMessage!.contains('错误')
                       ? Colors.red[50]
                       : _statusMessage!.contains('流式')
-                          ? Colors.orange[50]
-                          : Colors.blue[50],
+                      ? Colors.orange[50]
+                      : Colors.blue[50],
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -1034,7 +1128,8 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                       )
                     else
                       Icon(
-                        _statusMessage!.contains('失败') || _statusMessage!.contains('错误')
+                        _statusMessage!.contains('失败') ||
+                                _statusMessage!.contains('错误')
                             ? Icons.error_outline
                             : Icons.info_outline,
                         size: 16,
@@ -1046,7 +1141,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                         _statusMessage!,
                         style: TextStyle(
                           fontSize: 12,
-                          color: _statusMessage!.contains('失败') || _statusMessage!.contains('错误')
+                          color:
+                              _statusMessage!.contains('失败') ||
+                                  _statusMessage!.contains('错误')
                               ? Colors.red[700]
                               : Colors.blue[700],
                         ),
@@ -1061,7 +1158,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
             Card(
               child: SwitchListTile(
                 title: const Text('流式输出'),
-                subtitle: Text(_useStreaming ? 'WebSocket 边合成边播放' : 'HTTP 等待合成完成后再播放'),
+                subtitle: Text(
+                  _useStreaming ? 'WebSocket 边合成边播放' : 'HTTP 等待合成完成后再播放',
+                ),
                 value: _useStreaming,
                 onChanged: (v) => setState(() => _useStreaming = v),
                 secondary: Icon(
@@ -1138,7 +1237,10 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                           style: const TextStyle(fontSize: 11),
                         ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
                           onPressed: () => _deleteSavedFile(index),
                           tooltip: '删除',
                         ),
@@ -1164,9 +1266,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       final f = File(file.path);
       if (!await f.exists()) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('文件不存在或已被删除')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('文件不存在或已被删除')));
         }
         return;
       }
@@ -1185,9 +1287,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
     } catch (e) {
       debugPrint('播放保存的文件失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('播放失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('播放失败: $e')));
       }
     }
   }

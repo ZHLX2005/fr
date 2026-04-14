@@ -66,7 +66,10 @@ class MiniDocEditorState extends State<MiniDocEditor> {
                 children: [
                   const Icon(Icons.auto_awesome, size: 20, color: Colors.amber),
                   const SizedBox(width: 8),
-                  const Text("AI:", style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text(
+                    "AI:",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: _AiPromptField(
@@ -114,11 +117,13 @@ class MiniDocEditorState extends State<MiniDocEditor> {
     }
 
     final submittedText = '\n$text';
-    final insertOffset = _savedSelection?.baseOffset ?? _textController.text.length;
+    final insertOffset =
+        _savedSelection?.baseOffset ?? _textController.text.length;
     final currentText = _textController.text;
 
     // 在光标位置插入AI生成的文字
-    final newText = currentText.substring(0, insertOffset) +
+    final newText =
+        currentText.substring(0, insertOffset) +
         submittedText +
         currentText.substring(insertOffset);
 

@@ -20,7 +20,8 @@ class LabNote {
     this.color,
   });
 
-  factory LabNote.fromJson(Map<String, dynamic> json) => _$LabNoteFromJson(json);
+  factory LabNote.fromJson(Map<String, dynamic> json) =>
+      _$LabNoteFromJson(json);
 
   Map<String, dynamic> toJson() => _$LabNoteToJson(this);
 

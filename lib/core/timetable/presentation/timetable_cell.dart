@@ -6,8 +6,10 @@ import 'timetable_colors.dart';
 enum TimetableCellState {
   /// 空白单元格
   empty,
+
   /// 选中状态（高亮+显示+按钮）
   selected,
+
   /// 已填充课程内容
   filled,
 }
@@ -83,11 +85,7 @@ class TimetableCell extends StatelessWidget {
         return Container(color: Colors.transparent);
       case TimetableCellState.selected:
         return Center(
-          child: Icon(
-            Icons.add,
-            size: 22,
-            color: TimetableColors.accentLight,
-          ),
+          child: Icon(Icons.add, size: 22, color: TimetableColors.accentLight),
         );
       case TimetableCellState.filled:
         if (course == null) return const SizedBox.shrink();
@@ -111,7 +109,9 @@ class TimetableCell extends StatelessWidget {
           height: 20,
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(10),
+              ),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -147,11 +147,7 @@ class TimetableCell extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      size: 10,
-                      color: subTextColor,
-                    ),
+                    Icon(Icons.location_on, size: 10, color: subTextColor),
                     const SizedBox(width: 2),
                     Expanded(
                       child: Text(

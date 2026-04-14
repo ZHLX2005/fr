@@ -104,7 +104,10 @@ class LocalnetService {
       }
 
       // 只有开启了至少一个网络功能，才启动清理定时器
-      final hasNetworkFeature = cfg.httpServerEnabled || cfg.udpListenerEnabled || cfg.udpBroadcastEnabled;
+      final hasNetworkFeature =
+          cfg.httpServerEnabled ||
+          cfg.udpListenerEnabled ||
+          cfg.udpBroadcastEnabled;
       if (hasNetworkFeature) {
         discovery.startCleanupTimer();
       }

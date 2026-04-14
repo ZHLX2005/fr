@@ -274,7 +274,9 @@ class AIChatProvider with ChangeNotifier {
         _messages.add(assistantMessage);
       } else {
         // 添加错误消息
-        final errorMessage = AIChatMessage.assistant('抱歉，请求失败，请检查 API Key 或网络设置');
+        final errorMessage = AIChatMessage.assistant(
+          '抱歉，请求失败，请检查 API Key 或网络设置',
+        );
         _messages.add(errorMessage);
       }
     } catch (e) {
@@ -304,13 +306,13 @@ class AIChatProvider with ChangeNotifier {
         'type': _settings.type,
       };
 
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 180));
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 180));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;

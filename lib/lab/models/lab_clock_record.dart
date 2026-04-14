@@ -26,7 +26,8 @@ class LabClockRecord {
     this.accumulatedSeconds,
   });
 
-  factory LabClockRecord.fromJson(Map<String, dynamic> json) => _$LabClockRecordFromJson(json);
+  factory LabClockRecord.fromJson(Map<String, dynamic> json) =>
+      _$LabClockRecordFromJson(json);
   Map<String, dynamic> toJson() => _$LabClockRecordToJson(this);
 
   LabClockRecord copyWith({

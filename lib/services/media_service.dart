@@ -135,7 +135,8 @@ class MediaService {
 
   /// Base64编码
   static String base64Encode(List<int> bytes) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     var result = '';
     for (var i = 0; i < bytes.length; i += 3) {
       final a = bytes[i];

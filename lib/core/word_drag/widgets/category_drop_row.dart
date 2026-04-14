@@ -28,8 +28,10 @@ class CategoryBucket {
 class CategoryDropEdgeScrollState {
   /// 卡片中心 X 坐标 (屏幕坐标)
   double cardCenterX = 0;
+
   /// 屏幕宽度
   double screenWidth = 0;
+
   /// 是否处于边缘滚动模式
   bool visible = false;
 
@@ -47,16 +49,22 @@ class CategoryDropEdgeScrollState {
 class CategoryDropRow extends StatefulWidget {
   /// 是否显示
   final bool visible;
+
   /// 分类桶列表
   final List<CategoryBucket> buckets;
+
   /// 当前激活的桶 ID
   final String? activeBucketId;
+
   /// 桶位置变化回调
   final void Function(Map<String, Rect>)? onBucketPositionsChanged;
+
   /// 桶激活状态变化回调
   final void Function(String?)? onActiveBucketChanged;
+
   /// 桶被选中回调
   final void Function(String bucketId)? onBucketSelected;
+
   /// 边缘滚动状态引用
   final CategoryDropEdgeScrollState? edgeScrollState;
 
@@ -167,7 +175,8 @@ class CategoryDropRowState extends State<CategoryDropRow>
   void _updateBucketRects() {
     final newRects = <String, Rect>{};
     for (var entry in _bucketKeys.entries) {
-      final renderBox = entry.value.currentContext?.findRenderObject() as RenderBox?;
+      final renderBox =
+          entry.value.currentContext?.findRenderObject() as RenderBox?;
       if (renderBox != null) {
         final position = renderBox.localToGlobal(Offset.zero);
         final size = renderBox.size;
@@ -210,7 +219,8 @@ class CategoryDropRowState extends State<CategoryDropRow>
     if (_bucketRects.isEmpty) return null;
 
     // 水平滑动检测: |offsetX| > 500 时忽略桶目标
-    final isHorizontalSwipe = offsetX.abs() > WordDragConstants.horizontalSwipeThreshold;
+    final isHorizontalSwipe =
+        offsetX.abs() > WordDragConstants.horizontalSwipeThreshold;
     if (isHorizontalSwipe) return null;
 
     // 找出在垂直频道内的桶
@@ -237,7 +247,11 @@ class CategoryDropRowState extends State<CategoryDropRow>
       final dist = dx * dx + dy * dy;
 
       // 粘附条件: 距离 < 280px 或在频道内
-      if ((dist < WordDragConstants.stickyRadius * WordDragConstants.stickyRadius || inBand.isNotEmpty) && dist < minDist) {
+      if ((dist <
+                  WordDragConstants.stickyRadius *
+                      WordDragConstants.stickyRadius ||
+              inBand.isNotEmpty) &&
+          dist < minDist) {
         minDist = dist;
         closestId = entry.key;
       }
@@ -269,20 +283,31 @@ class CategoryDropRowState extends State<CategoryDropRow>
     // 左边缘
     final leftOverflow = WordDragConstants.edgeScrollThreshold - cardCenterX;
     if (leftOverflow > 0) {
-      final factor = (leftOverflow / WordDragConstants.edgeScrollThreshold).clamp(0.0, 1.0);
-      return -(WordDragConstants.minScrollSpeed + (WordDragConstants.maxScrollSpeed - WordDragConstants.minScrollSpeed) * factor);
+      final factor = (leftOverflow / WordDragConstants.edgeScrollThreshold)
+          .clamp(0.0, 1.0);
+      return -(WordDragConstants.minScrollSpeed +
+          (WordDragConstants.maxScrollSpeed -
+                  WordDragConstants.minScrollSpeed) *
+              factor);
     }
 
     // 右边缘
-    final rightOverflow = cardCenterX - (screenWidth - WordDragConstants.edgeScrollThreshold);
+    final rightOverflow =
+        cardCenterX - (screenWidth - WordDragConstants.edgeScrollThreshold);
     if (rightOverflow > 0) {
-      final factor = (rightOverflow / WordDragConstants.edgeScrollThreshold).clamp(0.0, 1.0);
+      final factor = (rightOverflow / WordDragConstants.edgeScrollThreshold)
+          .clamp(0.0, 1.0);
       // 检查是否还有可滚动内容
       final viewportWidth = _scrollController.position.viewportDimension;
-      final maxScroll = _scrollController.position.maxScrollExtent +
-          viewportWidth - _scrollController.offset;
+      final maxScroll =
+          _scrollController.position.maxScrollExtent +
+          viewportWidth -
+          _scrollController.offset;
       if (maxScroll > 0) {
-        return WordDragConstants.minScrollSpeed + (WordDragConstants.maxScrollSpeed - WordDragConstants.minScrollSpeed) * factor;
+        return WordDragConstants.minScrollSpeed +
+            (WordDragConstants.maxScrollSpeed -
+                    WordDragConstants.minScrollSpeed) *
+                factor;
       }
     }
 
@@ -358,7 +383,9 @@ class CategoryDropRowState extends State<CategoryDropRow>
       },
       child: Container(
         height: WordDragConstants.categoryRowHeight,
-        padding: const EdgeInsets.symmetric(vertical: WordDragConstants.categoryRowPaddingV),
+        padding: const EdgeInsets.symmetric(
+          vertical: WordDragConstants.categoryRowPaddingV,
+        ),
         child: ListView.builder(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,
@@ -456,18 +483,38 @@ class _BucketItemState extends State<_BucketItem>
       if (widget.isActive) {
         // 激活动画
         _scaleController.animateWith(
-          SpringSimulation(WordDragConstants.bucketScaleSpring, _scale, WordDragConstants.bucketActiveScale, 0),
+          SpringSimulation(
+            WordDragConstants.bucketScaleSpring,
+            _scale,
+            WordDragConstants.bucketActiveScale,
+            0,
+          ),
         );
         _widthController.animateWith(
-          SpringSimulation(WordDragConstants.bucketOtherSpring, _width, WordDragConstants.bucketActiveWidth, 0),
+          SpringSimulation(
+            WordDragConstants.bucketOtherSpring,
+            _width,
+            WordDragConstants.bucketActiveWidth,
+            0,
+          ),
         );
       } else {
         // 取消激活动画
         _scaleController.animateWith(
-          SpringSimulation(WordDragConstants.bucketScaleSpring, _scale, WordDragConstants.bucketDefaultScale, 0),
+          SpringSimulation(
+            WordDragConstants.bucketScaleSpring,
+            _scale,
+            WordDragConstants.bucketDefaultScale,
+            0,
+          ),
         );
         _widthController.animateWith(
-          SpringSimulation(WordDragConstants.bucketOtherSpring, _width, WordDragConstants.bucketDefaultWidth, 0),
+          SpringSimulation(
+            WordDragConstants.bucketOtherSpring,
+            _width,
+            WordDragConstants.bucketDefaultWidth,
+            0,
+          ),
         );
       }
     }
@@ -487,7 +534,9 @@ class _BucketItemState extends State<_BucketItem>
     // 通过动态 padding 让容器本身为 lift 留出空间，不会溢出
     return Container(
       width: _width,
-      margin: const EdgeInsets.symmetric(horizontal: WordDragConstants.bucketSpacing / 2),
+      margin: const EdgeInsets.symmetric(
+        horizontal: WordDragConstants.bucketSpacing / 2,
+      ),
       child: GestureDetector(
         onTap: widget.onTap,
         child: Column(
@@ -496,9 +545,7 @@ class _BucketItemState extends State<_BucketItem>
             AnimatedContainer(
               duration: const Duration(milliseconds: 100),
               // 激活时增加顶部 padding，实现视觉上的向上移动效果
-              padding: EdgeInsets.only(
-                top: widget.isActive ? 8 : 0,
-              ),
+              padding: EdgeInsets.only(top: widget.isActive ? 8 : 0),
               child: Transform.scale(
                 scale: _scale,
                 child: Container(
@@ -508,7 +555,9 @@ class _BucketItemState extends State<_BucketItem>
                     color: widget.isActive
                         ? const Color(0xFFEFF6FF)
                         : Colors.white,
-                    borderRadius: BorderRadius.circular(WordDragConstants.bucketRadius),
+                    borderRadius: BorderRadius.circular(
+                      WordDragConstants.bucketRadius,
+                    ),
                     border: Border.all(
                       color: widget.isActive
                           ? const Color(0xFF3B82F6)

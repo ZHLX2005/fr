@@ -21,8 +21,10 @@ class MessageProvider with ChangeNotifier {
     final chatKey = [currentUserId, friendId]..sort();
     final conversationId = '${chatKey[0]}_${chatKey[1]}';
 
-    final chatMessages =
-        await MessageService.getMessagesBetweenUsers(currentUserId, friendId);
+    final chatMessages = await MessageService.getMessagesBetweenUsers(
+      currentUserId,
+      friendId,
+    );
     _chatMessages[conversationId] = chatMessages;
 
     notifyListeners();
@@ -64,7 +66,9 @@ class MessageProvider with ChangeNotifier {
       await MessageService.sendMessage(sentMessage);
 
       // Update local list
-      final index = _chatMessages[conversationId]!.indexWhere((m) => m.id == message.id);
+      final index = _chatMessages[conversationId]!.indexWhere(
+        (m) => m.id == message.id,
+      );
       if (index != -1) {
         _chatMessages[conversationId]![index] = sentMessage;
       }
@@ -74,7 +78,10 @@ class MessageProvider with ChangeNotifier {
       // Update session
       await ChatSessionService.updateSessionWithMessage(senderId, sentMessage);
       if (senderId != receiverId) {
-        await ChatSessionService.updateSessionWithMessage(receiverId, sentMessage);
+        await ChatSessionService.updateSessionWithMessage(
+          receiverId,
+          sentMessage,
+        );
       }
     } catch (e) {
       debugPrint('Send message error: $e');
@@ -94,10 +101,8 @@ class MessageProvider with ChangeNotifier {
         if (_chatMessages[conversationId]![i].senderId == senderId &&
             _chatMessages[conversationId]![i].receiverId == receiverId &&
             !_chatMessages[conversationId]![i].isRead) {
-          _chatMessages[conversationId]![i] = _chatMessages[conversationId]![i].copyWith(
-            status: MessageStatus.read,
-            readAt: DateTime.now(),
-          );
+          _chatMessages[conversationId]![i] = _chatMessages[conversationId]![i]
+              .copyWith(status: MessageStatus.read, readAt: DateTime.now());
         }
       }
     }

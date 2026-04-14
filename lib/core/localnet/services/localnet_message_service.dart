@@ -12,17 +12,16 @@ class LocalnetMessageService {
 
   final String deviceId;
   final String deviceAlias;
-  final _messagesController = StreamController<List<LocalnetMessage>>.broadcast();
+  final _messagesController =
+      StreamController<List<LocalnetMessage>>.broadcast();
   final List<LocalnetMessage> _messages = [];
   HttpServer? _server;
   final _logger = debugPrint;
 
-  LocalnetMessageService({
-    required this.deviceId,
-    required this.deviceAlias,
-  });
+  LocalnetMessageService({required this.deviceId, required this.deviceAlias});
 
-  Stream<List<LocalnetMessage>> get messagesStream => _messagesController.stream;
+  Stream<List<LocalnetMessage>> get messagesStream =>
+      _messagesController.stream;
   List<LocalnetMessage> get messages => List.unmodifiable(_messages);
 
   Future<void> startServer() async {
@@ -44,7 +43,8 @@ class LocalnetMessageService {
     try {
       final path = request.uri.path;
 
-      if (path == '/api/localsend/v1/info' || path == '/api/localsend/v2/info') {
+      if (path == '/api/localsend/v1/info' ||
+          path == '/api/localsend/v2/info') {
         // Device info endpoint
         final info = {
           'id': deviceId,
@@ -55,7 +55,8 @@ class LocalnetMessageService {
         };
         request.response.write(jsonEncode(info));
         request.response.close();
-      } else if (path == '/api/localsend/v1/message' || path == '/api/localsend/v2/message') {
+      } else if (path == '/api/localsend/v1/message' ||
+          path == '/api/localsend/v2/message') {
         // Message endpoint
         final bodyBytes = await request.fold<List<int>>(
           [],
@@ -68,7 +69,9 @@ class LocalnetMessageService {
         _messages.add(message);
         _messagesController.add(_messages);
 
-        _logger('[Localnet] Received message from ${message.senderAlias}: ${message.content}');
+        _logger(
+          '[Localnet] Received message from ${message.senderAlias}: ${message.content}',
+        );
 
         request.response.write(jsonEncode({'status': 'ok'}));
         request.response.close();
@@ -95,7 +98,9 @@ class LocalnetMessageService {
 
       final client = HttpClient();
       final request = await client.postUrl(
-        Uri.parse('http://${target.ip}:${target.port}/api/localsend/v1/message'),
+        Uri.parse(
+          'http://${target.ip}:${target.port}/api/localsend/v1/message',
+        ),
       );
 
       request.headers.set('Content-Type', 'application/json');

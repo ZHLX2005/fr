@@ -73,8 +73,9 @@ class _MessageBubbleState extends State<MessageBubble> {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
         child: Column(
-          crossAxisAlignment:
-              widget.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: widget.isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             if (!widget.isMe && widget.sender != null)
               Padding(
@@ -222,24 +223,24 @@ class _MessageBubbleState extends State<MessageBubble> {
         borderRadius: BorderRadius.circular(12),
         child: kIsWeb
             ? (filePath.startsWith('data:') == true
-                ? Image.network(
-                    filePath,
-                    width: 200,
-                    height: 200,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildImageError(theme);
-                    },
-                  )
-                : Image.file(
-                    File(filePath),
-                    width: 200,
-                    height: 200,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildImageError(theme);
-                    },
-                  ))
+                  ? Image.network(
+                      filePath,
+                      width: 200,
+                      height: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildImageError(theme);
+                      },
+                    )
+                  : Image.file(
+                      File(filePath),
+                      width: 200,
+                      height: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildImageError(theme);
+                      },
+                    ))
             : Image.file(
                 File(filePath),
                 width: 200,
@@ -311,7 +312,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                 height: double.infinity,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.videocam, size: 48, color: Colors.white70);
+                  return const Icon(
+                    Icons.videocam,
+                    size: 48,
+                    color: Colors.white70,
+                  );
                 },
               ),
             const Icon(
@@ -345,14 +350,16 @@ class _MessageBubbleState extends State<MessageBubble> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _VideoPlayerPage(videoPath: widget.message.content),
+        builder: (context) =>
+            _VideoPlayerPage(videoPath: widget.message.content),
       ),
     );
   }
 
   Widget _buildAudioMessage(BuildContext context, ThemeData theme) {
     // 检查当前是否正在播放这条语音
-    final isCurrentPlaying = _isPlaying && _currentlyPlayingPath == widget.message.content;
+    final isCurrentPlaying =
+        _isPlaying && _currentlyPlayingPath == widget.message.content;
 
     return GestureDetector(
       onTap: () => _playAudio(context),
@@ -368,7 +375,9 @@ class _MessageBubbleState extends State<MessageBubble> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              isCurrentPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+              isCurrentPlaying
+                  ? Icons.pause_circle_filled
+                  : Icons.play_circle_filled,
               color: widget.isMe
                   ? theme.colorScheme.onPrimary
                   : theme.colorScheme.primary,
@@ -398,9 +407,9 @@ class _MessageBubbleState extends State<MessageBubble> {
       final file = File(widget.message.content);
       if (!file.existsSync()) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('音频文件不存在')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('音频文件不存在')));
         }
         return;
       }
@@ -437,9 +446,9 @@ class _MessageBubbleState extends State<MessageBubble> {
         _currentlyPlayingPath = null;
       });
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('播放失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('播放失败: $e')));
       }
     }
   }
@@ -453,10 +462,11 @@ class _MessageBubbleState extends State<MessageBubble> {
           height: 12 + (index * 4).toDouble() % 12,
           margin: const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
-            color: (widget.isMe
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.primary)
-                .withOpacity(0.6),
+            color:
+                (widget.isMe
+                        ? theme.colorScheme.onPrimary
+                        : theme.colorScheme.primary)
+                    .withOpacity(0.6),
             borderRadius: BorderRadius.circular(1.5),
           ),
         );
@@ -506,10 +516,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                 Text(
                   '文件',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: (widget.isMe
-                            ? theme.colorScheme.onPrimary
-                            : theme.colorScheme.onSurface)
-                        .withOpacity(0.6),
+                    color:
+                        (widget.isMe
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.onSurface)
+                            .withOpacity(0.6),
                   ),
                 ),
               ],
@@ -580,8 +591,8 @@ class _ImageViewerPage extends StatelessWidget {
           maxScale: 4.0,
           child: kIsWeb
               ? (filePath.startsWith('data:')
-                  ? Image.network(filePath)
-                  : Image.file(File(filePath)))
+                    ? Image.network(filePath)
+                    : Image.file(File(filePath)))
               : Image.file(File(filePath)),
         ),
       ),
@@ -660,24 +671,24 @@ class _VideoPlayerPageState extends State<_VideoPlayerPage> {
                 children: [
                   const Icon(Icons.error, color: Colors.white, size: 48),
                   const SizedBox(height: 16),
-                  Text(
-                    '视频加载失败',
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  Text('视频加载失败', style: const TextStyle(color: Colors.white)),
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Text(
                       _errorMessage!,
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
                 ],
               )
             : _isInitialized && _chewieController != null
-                ? Chewie(controller: _chewieController!)
-                : const CircularProgressIndicator(color: Colors.white),
+            ? Chewie(controller: _chewieController!)
+            : const CircularProgressIndicator(color: Colors.white),
       ),
     );
   }

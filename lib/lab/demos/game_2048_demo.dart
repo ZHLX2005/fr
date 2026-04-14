@@ -324,7 +324,10 @@ class _Game2048PageState extends State<_Game2048Page> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF8F7A66),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                     ),
                     child: const Text('新游戏'),
                   ),
@@ -364,11 +367,12 @@ class _Game2048PageState extends State<_Game2048Page> {
                     ),
                     child: GridView.builder(
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: size,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: size,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                          ),
                       itemCount: size * size,
                       itemBuilder: (context, index) {
                         int row = index ~/ size;
@@ -385,7 +389,9 @@ class _Game2048PageState extends State<_Game2048Page> {
                                 ? Text(
                                     '$value',
                                     style: TextStyle(
-                                      fontSize: value < 100 ? 32 : (value < 1000 ? 28 : 20),
+                                      fontSize: value < 100
+                                          ? 32
+                                          : (value < 1000 ? 28 : 20),
                                       fontWeight: FontWeight.bold,
                                       color: _getTextColor(value),
                                     ),

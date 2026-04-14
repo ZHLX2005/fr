@@ -10,7 +10,7 @@ class SchemaDemo extends DemoPage {
   @override
   String get description => '内部链接协议，支持文本内嵌可跳转链接';
 
-@override
+  @override
   bool get preferFullScreen => true;
 
   @override
@@ -55,11 +55,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
     final selection = _inputController.selection;
 
     if (selection.isValid) {
-      final newText = text.replaceRange(
-        selection.start,
-        selection.end,
-        link,
-      );
+      final newText = text.replaceRange(selection.start, selection.end, link);
       _inputController.text = newText;
       _inputController.selection = TextSelection.collapsed(
         offset: selection.start + link.length,
@@ -92,10 +88,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '使用说明',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('使用说明', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 8),
                     const Text(
                       '在文本中使用 [显示文字](fr://lab/demo/Key) 格式创建可点击链接。\n'
@@ -109,7 +102,8 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                         return ActionChip(
                           avatar: Icon(entry.icon, size: 16),
                           label: Text(entry.title),
-                          onPressed: () => _insertDemoLink(entry.key, entry.title),
+                          onPressed: () =>
+                              _insertDemoLink(entry.key, entry.title),
                         );
                       }).toList(),
                     ),
@@ -128,10 +122,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          '输入文本',
-                          style: theme.textTheme.titleMedium,
-                        ),
+                        Text('输入文本', style: theme.textTheme.titleMedium),
                         const Spacer(),
                         Row(
                           children: [
@@ -167,10 +158,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '预览效果',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('预览效果', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -206,13 +194,18 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '协议格式',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('协议格式', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 8),
-                    _buildFormatRow(context, '[文字](fr://lab/demo/Key)', '跳转到指定 Demo'),
-                    _buildFormatRow(context, 'fr://lab/demo/悬浮截屏', '跳转到悬浮截屏 Demo'),
+                    _buildFormatRow(
+                      context,
+                      '[文字](fr://lab/demo/Key)',
+                      '跳转到指定 Demo',
+                    ),
+                    _buildFormatRow(
+                      context,
+                      'fr://lab/demo/悬浮截屏',
+                      '跳转到悬浮截屏 Demo',
+                    ),
                     _buildFormatRow(context, 'fr://lab/demo/时钟', '跳转到时钟 Demo'),
                     _buildFormatRow(context, 'fr://lab', '跳转到 Lab 首页'),
                   ],
@@ -228,10 +221,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '快速插入',
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    Text('快速插入', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -240,7 +230,8 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                         return ActionChip(
                           avatar: Icon(entry.icon, size: 16),
                           label: Text(entry.title),
-                          onPressed: () => _insertDemoLink(entry.key, entry.title),
+                          onPressed: () =>
+                              _insertDemoLink(entry.key, entry.title),
                         );
                       }).toList(),
                     ),
@@ -276,12 +267,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              desc,
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
+          Expanded(child: Text(desc, style: theme.textTheme.bodySmall)),
         ],
       ),
     );

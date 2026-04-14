@@ -30,7 +30,8 @@ class LabClock {
     this.startRemainingSeconds,
   });
 
-  factory LabClock.fromJson(Map<String, dynamic> json) => _$LabClockFromJson(json);
+  factory LabClock.fromJson(Map<String, dynamic> json) =>
+      _$LabClockFromJson(json);
 
   Map<String, dynamic> toJson() => _$LabClockToJson(this);
 
@@ -58,7 +59,8 @@ class LabClock {
       remainingSeconds: remainingSeconds ?? this.remainingSeconds,
       color: color ?? this.color,
       startTime: startTime ?? this.startTime,
-      startRemainingSeconds: startRemainingSeconds ?? this.startRemainingSeconds,
+      startRemainingSeconds:
+          startRemainingSeconds ?? this.startRemainingSeconds,
     );
   }
 }

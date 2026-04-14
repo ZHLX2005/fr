@@ -188,14 +188,19 @@ class BookmarkProvider with ChangeNotifier {
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final itemsJson = jsonEncode(_items.map((e) {
-        if (e is BookmarkFolder) {
-          return e.toJson();
-        } else if (e is SingleBookmark) {
-          return e.toJson();
-        }
-        return null;
-      }).where((e) => e != null).toList());
+      final itemsJson = jsonEncode(
+        _items
+            .map((e) {
+              if (e is BookmarkFolder) {
+                return e.toJson();
+              } else if (e is SingleBookmark) {
+                return e.toJson();
+              }
+              return null;
+            })
+            .where((e) => e != null)
+            .toList(),
+      );
       await prefs.setString(_storageKey, itemsJson);
     } catch (e) {
       debugPrint('保存收藏失败: $e');
@@ -342,7 +347,9 @@ class BookmarkProvider with ChangeNotifier {
     final index = _items.indexWhere((e) => e.id == folderId);
     if (index >= 0 && _items[index] is BookmarkFolder) {
       final folder = _items[index] as BookmarkFolder;
-      final newChildren = folder.children.where((c) => c.id != bookmarkId).toList();
+      final newChildren = folder.children
+          .where((c) => c.id != bookmarkId)
+          .toList();
 
       if (newChildren.isEmpty) {
         _items.removeAt(index);

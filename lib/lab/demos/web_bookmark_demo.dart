@@ -123,9 +123,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(controller.useExternalBrowser
-                ? Icons.open_in_browser
-                : Icons.web),
+            icon: Icon(
+              controller.useExternalBrowser ? Icons.open_in_browser : Icons.web,
+            ),
             onPressed: () => _showBrowserSettingDialog(context, controller),
             tooltip: 'Browser Setting',
           ),
@@ -145,9 +145,15 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                   children: [
                     Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
                     SizedBox(height: 16),
-                    Text('No Bookmarks', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    Text(
+                      'No Bookmarks',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
                     SizedBox(height: 8),
-                    Text('Tap + to add bookmarks', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                    Text(
+                      'Tap + to add bookmarks',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
                   ],
                 ),
               )
@@ -170,11 +176,14 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
       longPressDelay: const Duration(milliseconds: 300),
       onDragStarted: (index) {
         HapticFeedback.lightImpact();
-        _startEditModeTimer(Duration(milliseconds: controller.editModeDelayMs), () {
-          final item = bookmarks[index];
-          _enterEditMode();
-          _showEditBookmarkDialog(context, controller, item);
-        });
+        _startEditModeTimer(
+          Duration(milliseconds: controller.editModeDelayMs),
+          () {
+            final item = bookmarks[index];
+            _enterEditMode();
+            _showEditBookmarkDialog(context, controller, item);
+          },
+        );
       },
       onUpdatedDraggedChild: (index) {
         _cancelEditModeTimer();
@@ -227,14 +236,15 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => _WebViewPage(bookmark: item),
-        ),
+        MaterialPageRoute(builder: (context) => _WebViewPage(bookmark: item)),
       );
     }
   }
 
-  void _showBrowserSettingDialog(BuildContext context, BookmarkProvider controller) {
+  void _showBrowserSettingDialog(
+    BuildContext context,
+    BookmarkProvider controller,
+  ) {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -245,7 +255,10 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Browser', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Browser',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 RadioListTile<bool>(
                   title: const Text('In-App Browser'),
                   value: false,
@@ -318,7 +331,8 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
 
       try {
         var fetchUrl = url;
-        if (!fetchUrl.startsWith('http://') && !fetchUrl.startsWith('https://')) {
+        if (!fetchUrl.startsWith('http://') &&
+            !fetchUrl.startsWith('https://')) {
           fetchUrl = 'https://$fetchUrl';
         }
 
@@ -326,15 +340,17 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
         if (uri == null || uri.host.isEmpty) {
           dialogSetState(() => isFetchingIcon = false);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Invalid URL')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Invalid URL')));
           }
           return;
         }
 
         // 1. 获取网页 HTML
-        final response = await http.get(uri).timeout(const Duration(seconds: 8));
+        final response = await http
+            .get(uri)
+            .timeout(const Duration(seconds: 8));
 
         if (response.statusCode != 200) {
           dialogSetState(() => isFetchingIcon = false);
@@ -352,9 +368,18 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
 
         // 尝试多种 icon 选择器
         final patterns = [
-          RegExp(r'''<link[^>]+rel=["']?(?:shortcut )?icon["']?[^>]+href=["']([^"']+)["']''', caseSensitive: false),
-          RegExp(r'''<link[^>]+href=["']([^"']+)["'][^>]+rel=["']?(?:shortcut )?icon["']?''', caseSensitive: false),
-          RegExp(r'''<meta[^>]+itemprop=["']?image["']?[^>]+content=["']([^"']+)["']''', caseSensitive: false),
+          RegExp(
+            r'''<link[^>]+rel=["']?(?:shortcut )?icon["']?[^>]+href=["']([^"']+)["']''',
+            caseSensitive: false,
+          ),
+          RegExp(
+            r'''<link[^>]+href=["']([^"']+)["'][^>]+rel=["']?(?:shortcut )?icon["']?''',
+            caseSensitive: false,
+          ),
+          RegExp(
+            r'''<meta[^>]+itemprop=["']?image["']?[^>]+content=["']([^"']+)["']''',
+            caseSensitive: false,
+          ),
         ];
 
         for (final pattern in patterns) {
@@ -379,8 +404,11 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
 
         // 5. 验证并下载 icon
         try {
-          final iconResponse = await http.get(Uri.parse(iconUrl)).timeout(const Duration(seconds: 5));
-          if (iconResponse.statusCode == 200 && iconResponse.bodyBytes.isNotEmpty) {
+          final iconResponse = await http
+              .get(Uri.parse(iconUrl))
+              .timeout(const Duration(seconds: 5));
+          if (iconResponse.statusCode == 200 &&
+              iconResponse.bodyBytes.isNotEmpty) {
             dialogSetState(() {
               isFetchingIcon = false;
               fetchedIconUrl = iconUrl;
@@ -396,17 +424,17 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
         } catch (e) {
           dialogSetState(() => isFetchingIcon = false);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Icon error: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Icon error: $e')));
           }
         }
       } catch (e) {
         dialogSetState(() => isFetchingIcon = false);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString()}')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
         }
       }
     }
@@ -445,12 +473,17 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                         child: OutlinedButton.icon(
                           onPressed: isFetchingIcon
                               ? null
-                              : () => fetchIconForUrl(urlController.text, setState),
+                              : () => fetchIconForUrl(
+                                  urlController.text,
+                                  setState,
+                                ),
                           icon: isFetchingIcon
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.refresh),
                           label: const Text('Auto Icon'),
@@ -490,18 +523,26 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             children: [
                               Text(
                                 fetchedIconUrl!,
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  const Text('Save Icon:', style: TextStyle(fontSize: 12)),
+                                  const Text(
+                                    'Save Icon:',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
                                   Switch(
                                     value: saveIconLocally,
-                                    onChanged: (v) => setState(() => saveIconLocally = v),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    onChanged: (v) =>
+                                        setState(() => saveIconLocally = v),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ],
                               ),
@@ -518,7 +559,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     spacing: 8,
                     runSpacing: 8,
                     children: BookmarkIcons.availableNames.map((iconName) {
-                      final isSelected = selectedIconName == iconName && fetchedIconUrl == null;
+                      final isSelected =
+                          selectedIconName == iconName &&
+                          fetchedIconUrl == null;
                       final icon = BookmarkIcons.getIcon(iconName);
                       return GestureDetector(
                         onTap: () => setState(() {
@@ -534,13 +577,19 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                                 : Colors.grey[100],
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: isSelected ? selectedColor : Colors.grey[300]!,
+                              color: isSelected
+                                  ? selectedColor
+                                  : Colors.grey[300]!,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
-                          child: Icon(icon,
-                              color: isSelected ? selectedColor : Colors.grey[600],
-                              size: 24),
+                          child: Icon(
+                            icon,
+                            color: isSelected
+                                ? selectedColor
+                                : Colors.grey[600],
+                            size: 24,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -562,12 +611,18 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             color: color,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isSelected ? Colors.black : Colors.grey[300]!,
+                              color: isSelected
+                                  ? Colors.black
+                                  : Colors.grey[300]!,
                               width: isSelected ? 3 : 1,
                             ),
                           ),
                           child: isSelected
-                              ? const Icon(Icons.check, color: Colors.white, size: 20)
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 20,
+                                )
                               : null,
                         ),
                       );
@@ -587,7 +642,8 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                   var url = urlController.text.trim();
                   if (title.isEmpty || url.isEmpty) return;
 
-                  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                  if (!url.startsWith('http://') &&
+                      !url.startsWith('https://')) {
                     url = 'https://$url';
                   }
 
@@ -595,11 +651,14 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                   // 如果用户选择保存图标到本地
                   if (saveIconLocally && fetchedIconUrl != null) {
                     try {
-                      final iconResponse = await http.get(Uri.parse(fetchedIconUrl!)).timeout(const Duration(seconds: 5));
+                      final iconResponse = await http
+                          .get(Uri.parse(fetchedIconUrl!))
+                          .timeout(const Duration(seconds: 5));
                       if (iconResponse.statusCode == 200) {
                         // 保存到本地文件
                         final directory = await _getIconDirectory();
-                        final fileName = '${DateTime.now().millisecondsSinceEpoch}.png';
+                        final fileName =
+                            '${DateTime.now().millisecondsSinceEpoch}.png';
                         final file = File('${directory.path}/$fileName');
                         await file.writeAsBytes(iconResponse.bodyBytes);
                         iconUrlToSave = file.path;
@@ -610,17 +669,21 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     }
                   }
 
-                  controller.addItem(SingleBookmark(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    name: title,
-                    url: url,
-                    iconName: selectedIconName,
-                    color: selectedColor,
-                    iconType: iconUrlToSave != null
-                        ? (saveIconLocally ? BookmarkIconType.local : BookmarkIconType.network)
-                        : BookmarkIconType.icon,
-                    iconUrl: iconUrlToSave,
-                  ));
+                  controller.addItem(
+                    SingleBookmark(
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      name: title,
+                      url: url,
+                      iconName: selectedIconName,
+                      color: selectedColor,
+                      iconType: iconUrlToSave != null
+                          ? (saveIconLocally
+                                ? BookmarkIconType.local
+                                : BookmarkIconType.network)
+                          : BookmarkIconType.icon,
+                      iconUrl: iconUrlToSave,
+                    ),
+                  );
                   Navigator.pop(context);
                 },
                 child: const Text('Create'),
@@ -633,7 +696,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
   }
 
   Future<Directory> _getIconDirectory() async {
-    final directory = Directory('${(await getApplicationDocumentsDirectory()).path}/bookmark_icons');
+    final directory = Directory(
+      '${(await getApplicationDocumentsDirectory()).path}/bookmark_icons',
+    );
     if (!await directory.exists()) {
       await directory.create(recursive: true);
     }
@@ -682,7 +747,11 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     return 'png';
   }
 
-  void _showEditBookmarkDialog(BuildContext context, BookmarkProvider controller, SingleBookmark item) {
+  void _showEditBookmarkDialog(
+    BuildContext context,
+    BookmarkProvider controller,
+    SingleBookmark item,
+  ) {
     final nameController = TextEditingController(text: item.name);
     final urlController = TextEditingController(text: item.url);
     String selectedIconName = item.iconName;
@@ -721,11 +790,15 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                   const SizedBox(height: 16),
 
                   // Icon 类型选择
-                  const Text('Icon Source', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Icon Source',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
                   _IconTypeSelector(
                     selectedType: selectedIconType,
-                    onTypeChanged: (type) => setState(() => selectedIconType = type),
+                    onTypeChanged: (type) =>
+                        setState(() => selectedIconType = type),
                   ),
 
                   const SizedBox(height: 16),
@@ -739,7 +812,8 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     isFetchingIcon: isFetchingIcon,
                     iconUrl: iconUrl,
                     onIconUrlChanged: (url) => setState(() => iconUrl = url),
-                    onIconNameChanged: (name) => setState(() => selectedIconName = name),
+                    onIconNameChanged: (name) =>
+                        setState(() => selectedIconName = name),
                     onFetchStart: () => setState(() => isFetchingIcon = true),
                     onFetchEnd: (url) => setState(() {
                       isFetchingIcon = false;
@@ -748,23 +822,31 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                         iconUrlController.text = url;
                       }
                     }),
-                    onAutoFetch: () => _fetchIconFromUrl(urlController.text, (result) {
-                      if (result != null) {
-                        setState(() {
-                          isFetchingIcon = false;
-                          iconUrl = result;
-                          iconUrlController.text = result;
-                        });
-                      } else {
-                        setState(() => isFetchingIcon = false);
-                      }
-                    }),
+                    onAutoFetch: () =>
+                        _fetchIconFromUrl(urlController.text, (result) {
+                          if (result != null) {
+                            setState(() {
+                              isFetchingIcon = false;
+                              iconUrl = result;
+                              iconUrlController.text = result;
+                            });
+                          } else {
+                            setState(() => isFetchingIcon = false);
+                          }
+                        }),
                   ),
 
                   // 预览
-                  if (selectedIconType != BookmarkIconType.icon && iconUrl != null && iconUrl!.isNotEmpty) ...[
+                  if (selectedIconType != BookmarkIconType.icon &&
+                      iconUrl != null &&
+                      iconUrl!.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    _buildIconPreview(iconUrl!, selectedIconType, selectedIconName, selectedColor),
+                    _buildIconPreview(
+                      iconUrl!,
+                      selectedIconType,
+                      selectedIconName,
+                      selectedColor,
+                    ),
                   ],
 
                   const SizedBox(height: 16),
@@ -792,13 +874,19 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                                   : Colors.grey[100],
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: isSelected ? selectedColor : Colors.grey[300]!,
+                                color: isSelected
+                                    ? selectedColor
+                                    : Colors.grey[300]!,
                                 width: isSelected ? 2 : 1,
                               ),
                             ),
-                            child: Icon(icon,
-                                color: isSelected ? selectedColor : Colors.grey[600],
-                                size: 24),
+                            child: Icon(
+                              icon,
+                              color: isSelected
+                                  ? selectedColor
+                                  : Colors.grey[600],
+                              size: 24,
+                            ),
                           ),
                         );
                       }).toList(),
@@ -822,12 +910,18 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             color: color,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isSelected ? Colors.black : Colors.grey[300]!,
+                              color: isSelected
+                                  ? Colors.black
+                                  : Colors.grey[300]!,
                               width: isSelected ? 3 : 1,
                             ),
                           ),
                           child: isSelected
-                              ? const Icon(Icons.check, color: Colors.white, size: 20)
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 20,
+                                )
                               : null,
                         ),
                       );
@@ -862,12 +956,14 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                   var url = urlController.text.trim();
                   if (name.isEmpty || url.isEmpty) return;
 
-                  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                  if (!url.startsWith('http://') &&
+                      !url.startsWith('https://')) {
                     url = 'https://$url';
                   }
 
                   String? finalIconUrl;
-                  if (selectedIconType == BookmarkIconType.network || selectedIconType == BookmarkIconType.local) {
+                  if (selectedIconType == BookmarkIconType.network ||
+                      selectedIconType == BookmarkIconType.local) {
                     finalIconUrl = iconUrlController.text.trim();
                     if (finalIconUrl.isEmpty) finalIconUrl = null;
                   }
@@ -985,7 +1081,12 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     }
   }
 
-  Widget _buildIconPreview(String iconUrl, BookmarkIconType type, String iconName, Color color) {
+  Widget _buildIconPreview(
+    String iconUrl,
+    BookmarkIconType type,
+    String iconName,
+    Color color,
+  ) {
     return Center(
       child: Container(
         width: 64,
@@ -997,15 +1098,17 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: _buildBookmarkIconWidget(SingleBookmark(
-            id: '',
-            name: '',
-            url: '',
-            iconName: iconName,
-            color: color,
-            iconType: type,
-            iconUrl: iconUrl,
-          )),
+          child: _buildBookmarkIconWidget(
+            SingleBookmark(
+              id: '',
+              name: '',
+              url: '',
+              iconName: iconName,
+              color: color,
+              iconType: type,
+              iconUrl: iconUrl,
+            ),
+          ),
         ),
       ),
     );
@@ -1037,9 +1140,18 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
 
       final html = response.body;
       final patterns = [
-        RegExp(r'''<link[^>]+rel=["']?(?:shortcut )?icon["']?[^>]+href=["']([^"']+)["']''', caseSensitive: false),
-        RegExp(r'''<link[^>]+href=["']([^"']+)["'][^>]+rel=["']?(?:shortcut )?icon["']?''', caseSensitive: false),
-        RegExp(r'''<meta[^>]+itemprop=["']?image["']?[^>]+content=["']([^"']+)["']''', caseSensitive: false),
+        RegExp(
+          r'''<link[^>]+rel=["']?(?:shortcut )?icon["']?[^>]+href=["']([^"']+)["']''',
+          caseSensitive: false,
+        ),
+        RegExp(
+          r'''<link[^>]+href=["']([^"']+)["'][^>]+rel=["']?(?:shortcut )?icon["']?''',
+          caseSensitive: false,
+        ),
+        RegExp(
+          r'''<meta[^>]+itemprop=["']?image["']?[^>]+content=["']([^"']+)["']''',
+          caseSensitive: false,
+        ),
       ];
 
       String? iconUrl;
@@ -1067,7 +1179,11 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     }
   }
 
-  void _showDeleteConfirmation(BuildContext context, BookmarkProvider controller, String itemId) {
+  void _showDeleteConfirmation(
+    BuildContext context,
+    BookmarkProvider controller,
+    String itemId,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1083,9 +1199,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
               controller.deleteItem(itemId);
               Navigator.pop(context);
               _exitEditMode();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已删除')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('已删除')));
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
@@ -1166,7 +1282,9 @@ class _IconTypeOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF007AFF).withAlpha(26) : Colors.grey[100],
+          color: isSelected
+              ? const Color(0xFF007AFF).withAlpha(26)
+              : Colors.grey[100],
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? const Color(0xFF007AFF) : Colors.grey[300]!,
@@ -1281,7 +1399,8 @@ Widget _buildBookmarkIconWidget(SingleBookmark bookmark) {
           width: 52,
           height: 52,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Icon(bookmark.icon, color: Colors.white, size: 28),
+          errorBuilder: (_, __, ___) =>
+              Icon(bookmark.icon, color: Colors.white, size: 28),
         ),
       );
     case BookmarkIconType.network:
@@ -1292,7 +1411,8 @@ Widget _buildBookmarkIconWidget(SingleBookmark bookmark) {
           width: 52,
           height: 52,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Icon(bookmark.icon, color: Colors.white, size: 28),
+          errorBuilder: (_, __, ___) =>
+              Icon(bookmark.icon, color: Colors.white, size: 28),
         ),
       );
     default:
@@ -1305,10 +1425,7 @@ class _EditModeWrapper extends StatefulWidget {
   final Widget child;
   final bool isActive;
 
-  const _EditModeWrapper({
-    required this.child,
-    required this.isActive,
-  });
+  const _EditModeWrapper({required this.child, required this.isActive});
 
   @override
   State<_EditModeWrapper> createState() => _EditModeWrapperState();
@@ -1436,10 +1553,7 @@ class _WebViewPageState extends State<_WebViewPage> {
           onPressed: _goBack,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _reload,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
         ],
       ),
       body: Stack(
@@ -1453,7 +1567,9 @@ class _WebViewPageState extends State<_WebViewPage> {
               child: LinearProgressIndicator(
                 value: _loadProgress,
                 backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF007AFF),
+                ),
                 minHeight: 2,
               ),
             ),

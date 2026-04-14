@@ -29,13 +29,15 @@ class ClockColorUtil {
     }
 
     // 计算超时比例（0 ~ 1）
-    final overRatio = (-remainingSeconds).clamp(0, durationSeconds) / durationSeconds;
+    final overRatio =
+        (-remainingSeconds).clamp(0, durationSeconds) / durationSeconds;
 
     // 应用缓动函数（默认使用 easeInQuad 让变化逐渐加快）
     final adjustedRatio = (curve ?? _easeInQuad)(overRatio);
 
     // 混合黑色，模拟颜色变暗
-    return Color.lerp(baseColor, Colors.black, adjustedRatio * maxDarkness) ?? baseColor;
+    return Color.lerp(baseColor, Colors.black, adjustedRatio * maxDarkness) ??
+        baseColor;
   }
 
   /// 获取带透明度的背景色（用于卡片背景）
@@ -88,13 +90,24 @@ class ClockColorUtil {
       return const Color(0xFF007AFF);
     }
 
-    final overRatio = (-remainingSeconds).clamp(0, durationSeconds) / durationSeconds;
+    final overRatio =
+        (-remainingSeconds).clamp(0, durationSeconds) / durationSeconds;
 
     // 超时：从橙色渐变到红色
     if (overRatio < 0.5) {
-      return Color.lerp(const Color(0xFFFF9500), const Color(0xFFFF3B30), overRatio * 2) ?? const Color(0xFFFF9500);
+      return Color.lerp(
+            const Color(0xFFFF9500),
+            const Color(0xFFFF3B30),
+            overRatio * 2,
+          ) ??
+          const Color(0xFFFF9500);
     } else {
-      return Color.lerp(const Color(0xFFFF3B30), const Color(0xFF000000), (overRatio - 0.5) * 2) ?? const Color(0xFFFF3B30);
+      return Color.lerp(
+            const Color(0xFFFF3B30),
+            const Color(0xFF000000),
+            (overRatio - 0.5) * 2,
+          ) ??
+          const Color(0xFFFF3B30);
     }
   }
 
@@ -137,7 +150,8 @@ class ClockColorUtil {
   static double _easeOutQuad(double t) => 1 - (1 - t) * (1 - t);
 
   /// 缓入缓出（先加速后减速）
-  static double _easeInOutQuad(double t) => t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+  static double _easeInOutQuad(double t) =>
+      t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
 
   /// 预设缓动函数
   static const curves = {

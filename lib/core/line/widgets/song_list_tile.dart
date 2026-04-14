@@ -7,11 +7,7 @@ class DifficultyStars extends StatelessWidget {
   final int difficulty;
   final double size;
 
-  const DifficultyStars({
-    super.key,
-    required this.difficulty,
-    this.size = 14,
-  });
+  const DifficultyStars({super.key, required this.difficulty, this.size = 14});
 
   @override
   Widget build(BuildContext context) {
@@ -70,11 +66,7 @@ class SongListTile extends StatelessWidget {
         child: Row(
           children: [
             // 旋转封面
-            RotatingCover(
-              imagePath: song.coverPath,
-              size: 44,
-              borderWidth: 1,
-            ),
+            RotatingCover(imagePath: song.coverPath, size: 44, borderWidth: 1),
             const SizedBox(width: 12),
             // 歌曲信息
             Expanded(
@@ -97,7 +89,9 @@ class SongListTile extends StatelessWidget {
                     song.artist,
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                      color: theme.textTheme.bodySmall?.color?.withValues(
+                        alpha: 0.7,
+                      ),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

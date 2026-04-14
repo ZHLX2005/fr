@@ -6,11 +6,7 @@ class WordDetailPage extends StatelessWidget {
   final Word word;
   final VoidCallback? onComplete; // 学习完成后的回调
 
-  const WordDetailPage({
-    super.key,
-    required this.word,
-    this.onComplete,
-  });
+  const WordDetailPage({super.key, required this.word, this.onComplete});
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +45,7 @@ class WordDetailPage extends StatelessWidget {
               // 音标
               Text(
                 word.phonetic,
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.blue.shade300,
-                ),
+                style: TextStyle(fontSize: 20, color: Colors.blue.shade300),
               ),
               const SizedBox(height: 40),
               // 释义卡片

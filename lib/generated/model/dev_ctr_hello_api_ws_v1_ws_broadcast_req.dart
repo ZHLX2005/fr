@@ -30,22 +30,24 @@ class DevCtrHelloApiWsV1WsBroadcastReq {
   String? room;
 
   @override
-  bool operator ==(Object other) => identical(this, other) || other is DevCtrHelloApiWsV1WsBroadcastReq &&
-    other.message == message &&
-    other.room == room;
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DevCtrHelloApiWsV1WsBroadcastReq &&
+          other.message == message &&
+          other.room == room;
 
   @override
   int get hashCode =>
-    // ignore: unnecessary_parenthesis
-    (message.hashCode) +
-    (room == null ? 0 : room!.hashCode);
+      // ignore: unnecessary_parenthesis
+      (message.hashCode) + (room == null ? 0 : room!.hashCode);
 
   @override
-  String toString() => 'DevCtrHelloApiWsV1WsBroadcastReq[message=$message, room=$room]';
+  String toString() =>
+      'DevCtrHelloApiWsV1WsBroadcastReq[message=$message, room=$room]';
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
-      json[r'message'] = this.message;
+    json[r'message'] = this.message;
     if (this.room != null) {
       json[r'room'] = this.room;
     } else {
@@ -66,8 +68,10 @@ class DevCtrHelloApiWsV1WsBroadcastReq {
       // Note 2: this code is stripped in release mode!
       assert(() {
         requiredKeys.forEach((key) {
-          assert(json.containsKey(key), 'Required key "DevCtrHelloApiWsV1WsBroadcastReq[$key]" is missing from JSON.');
-          assert(json[key] != null, 'Required key "DevCtrHelloApiWsV1WsBroadcastReq[$key]" has a null value in JSON.');
+          assert(json.containsKey(key),
+              'Required key "DevCtrHelloApiWsV1WsBroadcastReq[$key]" is missing from JSON.');
+          assert(json[key] != null,
+              'Required key "DevCtrHelloApiWsV1WsBroadcastReq[$key]" has a null value in JSON.');
         });
         return true;
       }());
@@ -80,7 +84,10 @@ class DevCtrHelloApiWsV1WsBroadcastReq {
     return null;
   }
 
-  static List<DevCtrHelloApiWsV1WsBroadcastReq> listFromJson(dynamic json, {bool growable = false,}) {
+  static List<DevCtrHelloApiWsV1WsBroadcastReq> listFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final result = <DevCtrHelloApiWsV1WsBroadcastReq>[];
     if (json is List && json.isNotEmpty) {
       for (final row in json) {
@@ -93,7 +100,8 @@ class DevCtrHelloApiWsV1WsBroadcastReq {
     return result.toList(growable: growable);
   }
 
-  static Map<String, DevCtrHelloApiWsV1WsBroadcastReq> mapFromJson(dynamic json) {
+  static Map<String, DevCtrHelloApiWsV1WsBroadcastReq> mapFromJson(
+      dynamic json) {
     final map = <String, DevCtrHelloApiWsV1WsBroadcastReq>{};
     if (json is Map && json.isNotEmpty) {
       json = json.cast<String, dynamic>(); // ignore: parameter_assignments
@@ -108,13 +116,19 @@ class DevCtrHelloApiWsV1WsBroadcastReq {
   }
 
   // maps a json object with a list of DevCtrHelloApiWsV1WsBroadcastReq-objects as value to a dart map
-  static Map<String, List<DevCtrHelloApiWsV1WsBroadcastReq>> mapListFromJson(dynamic json, {bool growable = false,}) {
+  static Map<String, List<DevCtrHelloApiWsV1WsBroadcastReq>> mapListFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final map = <String, List<DevCtrHelloApiWsV1WsBroadcastReq>>{};
     if (json is Map && json.isNotEmpty) {
       // ignore: parameter_assignments
       json = json.cast<String, dynamic>();
       for (final entry in json.entries) {
-        map[entry.key] = DevCtrHelloApiWsV1WsBroadcastReq.listFromJson(entry.value, growable: growable,);
+        map[entry.key] = DevCtrHelloApiWsV1WsBroadcastReq.listFromJson(
+          entry.value,
+          growable: growable,
+        );
       }
     }
     return map;
@@ -125,4 +139,3 @@ class DevCtrHelloApiWsV1WsBroadcastReq {
     'message',
   };
 }
-

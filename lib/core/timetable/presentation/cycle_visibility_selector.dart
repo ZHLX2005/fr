@@ -15,7 +15,8 @@ class CycleVisibilitySelector extends StatefulWidget {
   final ValueChanged<List<int>> onChanged;
 
   @override
-  State<CycleVisibilitySelector> createState() => _CycleVisibilitySelectorState();
+  State<CycleVisibilitySelector> createState() =>
+      _CycleVisibilitySelectorState();
 }
 
 class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
@@ -153,7 +154,8 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
             runSpacing: 8,
             children: List.generate(widget.cycleCount, (index) {
               final cycleIndex = index;
-              final isSelected = _isAllMode || widget.selectedCycles.contains(cycleIndex);
+              final isSelected =
+                  _isAllMode || widget.selectedCycles.contains(cycleIndex);
               return _CycleChip(
                 label: '${cycleIndex + 1}',
                 isSelected: isSelected,
@@ -211,7 +213,9 @@ class _QuickActionChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? theme.colorScheme.outline : theme.colorScheme.outline.withValues(alpha: 0.3),
+              color: isSelected
+                  ? theme.colorScheme.outline
+                  : theme.colorScheme.outline.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -220,7 +224,9 @@ class _QuickActionChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: isSelected ? theme.colorScheme.outline : TimetableColors.textPrimary,
+              color: isSelected
+                  ? theme.colorScheme.outline
+                  : TimetableColors.textPrimary,
             ),
           ),
         ),
@@ -256,7 +262,9 @@ class _CycleChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? theme.colorScheme.outline : theme.colorScheme.outline.withValues(alpha: 0.3),
+              color: isSelected
+                  ? theme.colorScheme.outline
+                  : theme.colorScheme.outline.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -265,7 +273,9 @@ class _CycleChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected ? theme.colorScheme.outline : TimetableColors.textPrimary,
+              color: isSelected
+                  ? theme.colorScheme.outline
+                  : TimetableColors.textPrimary,
             ),
           ),
         ),

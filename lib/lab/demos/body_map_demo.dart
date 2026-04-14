@@ -15,10 +15,7 @@ class BodyMapDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    return BodyMapPage(
-      title: '全身',
-      regions: fullBodyRegions,
-    );
+    return BodyMapPage(title: '全身', regions: fullBodyRegions);
   }
 }
 

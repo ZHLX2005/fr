@@ -96,7 +96,10 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                     if (startDate != null && endDate != null)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('→', style: TextStyle(color: colorScheme.onSurfaceVariant)),
+                        child: Text(
+                          '→',
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
+                        ),
                       ),
                     if (endDate != null)
                       Text(
@@ -110,7 +113,10 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                     if (startDate != null && endDate != null)
                       Text(
                         ' (${endDate!.difference(startDate!).inDays + 1}天)',
-                        style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                   ],
                 ),
@@ -122,7 +128,12 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                   children: <Widget>[
                     // 月份导航
                     Padding(
-                      padding: const EdgeInsets.only(left: 8.0, right: 8.0, top: 4, bottom: 4),
+                      padding: const EdgeInsets.only(
+                        left: 8.0,
+                        right: 8.0,
+                        top: 4,
+                        bottom: 4,
+                      ),
                       child: Row(
                         children: <Widget>[
                           // 上一月按钮
@@ -132,20 +143,31 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                               height: 38,
                               width: 38,
                               decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.all(Radius.circular(24.0)),
+                                borderRadius: const BorderRadius.all(
+                                  Radius.circular(24.0),
+                                ),
                                 border: Border.all(color: colorScheme.outline),
                               ),
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  borderRadius: const BorderRadius.all(Radius.circular(24.0)),
+                                  borderRadius: const BorderRadius.all(
+                                    Radius.circular(24.0),
+                                  ),
                                   onTap: () {
                                     setState(() {
-                                      currentMonthDate = DateTime(currentMonthDate.year, currentMonthDate.month, 0);
+                                      currentMonthDate = DateTime(
+                                        currentMonthDate.year,
+                                        currentMonthDate.month,
+                                        0,
+                                      );
                                       setListOfDate(currentMonthDate);
                                     });
                                   },
-                                  child: Icon(Icons.keyboard_arrow_left, color: colorScheme.onSurfaceVariant),
+                                  child: Icon(
+                                    Icons.keyboard_arrow_left,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ),
@@ -154,7 +176,9 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                           Expanded(
                             child: Center(
                               child: Text(
-                                DateFormat('MMMM, yyyy').format(currentMonthDate),
+                                DateFormat(
+                                  'MMMM, yyyy',
+                                ).format(currentMonthDate),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w500,
                                   fontSize: 20,
@@ -170,20 +194,31 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                               height: 38,
                               width: 38,
                               decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.all(Radius.circular(24.0)),
+                                borderRadius: const BorderRadius.all(
+                                  Radius.circular(24.0),
+                                ),
                                 border: Border.all(color: colorScheme.outline),
                               ),
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
-                                  borderRadius: const BorderRadius.all(Radius.circular(24.0)),
+                                  borderRadius: const BorderRadius.all(
+                                    Radius.circular(24.0),
+                                  ),
                                   onTap: () {
                                     setState(() {
-                                      currentMonthDate = DateTime(currentMonthDate.year, currentMonthDate.month + 2, 0);
+                                      currentMonthDate = DateTime(
+                                        currentMonthDate.year,
+                                        currentMonthDate.month + 2,
+                                        0,
+                                      );
                                       setListOfDate(currentMonthDate);
                                     });
                                   },
-                                  child: Icon(Icons.keyboard_arrow_right, color: colorScheme.onSurfaceVariant),
+                                  child: Icon(
+                                    Icons.keyboard_arrow_right,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                             ),
@@ -193,17 +228,17 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                     ),
                     // 星期名称
                     Padding(
-                      padding: const EdgeInsets.only(right: 8, left: 8, bottom: 8),
-                      child: Row(
-                        children: getDaysNameUI(),
+                      padding: const EdgeInsets.only(
+                        right: 8,
+                        left: 8,
+                        bottom: 8,
                       ),
+                      child: Row(children: getDaysNameUI()),
                     ),
                     // 日期网格
                     Padding(
                       padding: const EdgeInsets.only(right: 8, left: 8),
-                      child: Column(
-                        children: getDaysNoUI(),
-                      ),
+                      child: Column(children: getDaysNoUI()),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -269,15 +304,24 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                         child: Container(
                           decoration: BoxDecoration(
                             color: startDate != null && endDate != null
-                                ? getIsItStartAndEndDate(date) || getIsInRange(date)
-                                    ? colorScheme.primary.withOpacity(0.3)
-                                    : Colors.transparent
+                                ? getIsItStartAndEndDate(date) ||
+                                          getIsInRange(date)
+                                      ? colorScheme.primary.withOpacity(0.3)
+                                      : Colors.transparent
                                 : Colors.transparent,
                             borderRadius: BorderRadius.only(
-                              bottomLeft: isStartDateRadius(date) ? const Radius.circular(24.0) : const Radius.circular(0.0),
-                              topLeft: isStartDateRadius(date) ? const Radius.circular(24.0) : const Radius.circular(0.0),
-                              topRight: isEndDateRadius(date) ? const Radius.circular(24.0) : const Radius.circular(0.0),
-                              bottomRight: isEndDateRadius(date) ? const Radius.circular(24.0) : const Radius.circular(0.0),
+                              bottomLeft: isStartDateRadius(date)
+                                  ? const Radius.circular(24.0)
+                                  : const Radius.circular(0.0),
+                              topLeft: isStartDateRadius(date)
+                                  ? const Radius.circular(24.0)
+                                  : const Radius.circular(0.0),
+                              topRight: isEndDateRadius(date)
+                                  ? const Radius.circular(24.0)
+                                  : const Radius.circular(0.0),
+                              bottomRight: isEndDateRadius(date)
+                                  ? const Radius.circular(24.0)
+                                  : const Radius.circular(0.0),
                             ),
                           ),
                         ),
@@ -288,22 +332,32 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      borderRadius: const BorderRadius.all(Radius.circular(32.0)),
+                      borderRadius: const BorderRadius.all(
+                        Radius.circular(32.0),
+                      ),
                       onTap: () => onDateClick(date),
                       child: Padding(
                         padding: const EdgeInsets.all(2),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: getIsItStartAndEndDate(date) ? colorScheme.primary : Colors.transparent,
-                            borderRadius: const BorderRadius.all(Radius.circular(32.0)),
+                            color: getIsItStartAndEndDate(date)
+                                ? colorScheme.primary
+                                : Colors.transparent,
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(32.0),
+                            ),
                             border: Border.all(
-                              color: getIsItStartAndEndDate(date) ? colorScheme.onPrimary : Colors.transparent,
+                              color: getIsItStartAndEndDate(date)
+                                  ? colorScheme.onPrimary
+                                  : Colors.transparent,
                               width: 2,
                             ),
                             boxShadow: getIsItStartAndEndDate(date)
                                 ? <BoxShadow>[
                                     BoxShadow(
-                                      color: colorScheme.primary.withOpacity(0.4),
+                                      color: colorScheme.primary.withOpacity(
+                                        0.4,
+                                      ),
                                       blurRadius: 4,
                                       offset: const Offset(0, 0),
                                     ),
@@ -317,10 +371,15 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                                 color: getIsItStartAndEndDate(date)
                                     ? colorScheme.onPrimary
                                     : currentMonthDate.month == date.month
-                                        ? colorScheme.onSurface
-                                        : colorScheme.onSurface.withOpacity(0.4),
-                                fontSize: MediaQuery.of(context).size.width > 360 ? 18 : 16,
-                                fontWeight: getIsItStartAndEndDate(date) ? FontWeight.bold : FontWeight.normal,
+                                    ? colorScheme.onSurface
+                                    : colorScheme.onSurface.withOpacity(0.4),
+                                fontSize:
+                                    MediaQuery.of(context).size.width > 360
+                                    ? 18
+                                    : 16,
+                                fontWeight: getIsItStartAndEndDate(date)
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
                           ),
@@ -337,12 +396,13 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                       height: 6,
                       width: 6,
                       decoration: BoxDecoration(
-                        color: DateTime.now().day == date.day &&
+                        color:
+                            DateTime.now().day == date.day &&
                                 DateTime.now().month == date.month &&
                                 DateTime.now().year == date.year
                             ? getIsInRange(date)
-                                ? colorScheme.onPrimary
-                                : colorScheme.primary
+                                  ? colorScheme.onPrimary
+                                  : colorScheme.primary
                             : Colors.transparent,
                         shape: BoxShape.circle,
                       ),
@@ -355,12 +415,14 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
         );
         count += 1;
       }
-      noList.add(Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: listUI,
-      ));
+      noList.add(
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: listUI,
+        ),
+      );
     }
     return noList;
   }
@@ -419,7 +481,9 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
       endDate = date;
     } else if (startDate!.day == date.day && startDate!.month == date.month) {
       startDate = null;
-    } else if (endDate != null && endDate!.day == date.day && endDate!.month == date.month) {
+    } else if (endDate != null &&
+        endDate!.day == date.day &&
+        endDate!.month == date.month) {
       endDate = null;
     }
 
