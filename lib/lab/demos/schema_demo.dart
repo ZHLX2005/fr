@@ -10,8 +10,8 @@ class SchemaDemo extends DemoPage {
   @override
   String get description => '内部链接协议，支持文本内嵌可跳转链接';
 
-  @override
-  bool get preferFullScreen => false;
+@override
+  bool get preferFullScreen => true;
 
   @override
   Widget buildPage(BuildContext context) {

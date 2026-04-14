@@ -11,7 +11,7 @@ class BodyMapDemo extends DemoPage {
   String get description => '色块人体图 + 点击热区 + 感受记录';
 
   @override
-  bool get preferFullScreen => false;
+  bool get preferFullScreen => true;
 
   @override
   Widget buildPage(BuildContext context) {

@@ -10,8 +10,10 @@ class LocalnetDemo extends DemoPage {
   @override
   String get description => '局域网设备发现与实时通讯';
 
-  @override
-  bool get preferFullScreen => false;
+
+@override
+  bool get preferFullScreen => true;
+
 
   @override
   Widget buildPage(BuildContext context) {
