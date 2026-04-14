@@ -22,8 +22,9 @@ class TissueLegend extends StatelessWidget {
                 shape: t == TissueType.joint
                     ? BoxShape.circle
                     : BoxShape.rectangle,
-                borderRadius:
-                    t != TissueType.joint ? BorderRadius.circular(3) : null,
+                borderRadius: t != TissueType.joint
+                    ? BorderRadius.circular(3)
+                    : null,
                 border: Border.all(color: tissueDarkColors[t]!, width: 1.5),
               ),
             ),

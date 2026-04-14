@@ -6,7 +6,8 @@ class LocalnetConfig {
   static const String _keyDeviceAlias = 'localnet_device_alias';
   static const String _keyHttpEnabled = 'localnet_http_enabled';
   static const String _keyMulticastEnabled = 'localnet_multicast_enabled';
-  static const String _keyUdpBroadcastEnabled = 'localnet_udp_broadcast_enabled';
+  static const String _keyUdpBroadcastEnabled =
+      'localnet_udp_broadcast_enabled';
   static const String _keyUdpListenerEnabled = 'localnet_udp_listener_enabled';
   static const String _keyHttpServerEnabled = 'localnet_http_server_enabled';
   static const String _keyPort = 'localnet_port';
@@ -61,7 +62,9 @@ class LocalnetConfig {
 
   factory LocalnetConfig.fromJson(Map<String, dynamic> json) {
     return LocalnetConfig(
-      deviceAlias: json['deviceAlias'] as String? ?? LocalnetConstants.defaultDeviceAlias,
+      deviceAlias:
+          json['deviceAlias'] as String? ??
+          LocalnetConstants.defaultDeviceAlias,
       httpEnabled: json['httpEnabled'] as bool? ?? true,
       multicastEnabled: json['multicastEnabled'] as bool? ?? true,
       udpBroadcastEnabled: json['udpBroadcastEnabled'] as bool? ?? true,
@@ -74,7 +77,9 @@ class LocalnetConfig {
   static Future<LocalnetConfig> load() async {
     final prefs = await SharedPreferences.getInstance();
     return LocalnetConfig(
-      deviceAlias: prefs.getString(_keyDeviceAlias) ?? LocalnetConstants.defaultDeviceAlias,
+      deviceAlias:
+          prefs.getString(_keyDeviceAlias) ??
+          LocalnetConstants.defaultDeviceAlias,
       httpEnabled: prefs.getBool(_keyHttpEnabled) ?? true,
       multicastEnabled: prefs.getBool(_keyMulticastEnabled) ?? true,
       udpBroadcastEnabled: prefs.getBool(_keyUdpBroadcastEnabled) ?? true,

@@ -9,10 +9,7 @@ import 'ai_chat_settings_page.dart';
 class AIChatPage extends StatefulWidget {
   final String title;
 
-  const AIChatPage({
-    super.key,
-    this.title = 'AI 聊天',
-  });
+  const AIChatPage({super.key, this.title = 'AI 聊天'});
 
   @override
   State<AIChatPage> createState() => _AIChatPageState();
@@ -111,26 +108,22 @@ class _AIChatPageState extends State<AIChatPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                  Text(widget.title, style: const TextStyle(fontSize: 16)),
                   Consumer<AIChatProvider>(
                     builder: (context, provider, _) {
                       if (provider.isLoading) {
                         return const Text(
                           '思考中...',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue,
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.blue),
                         );
                       }
                       return Text(
                         provider.isConfigured ? '已连接' : '未配置',
                         style: TextStyle(
                           fontSize: 12,
-                          color: provider.isConfigured ? Colors.green : Colors.orange,
+                          color: provider.isConfigured
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                       );
                     },
@@ -180,7 +173,10 @@ class _AIChatPageState extends State<AIChatPage> {
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   itemCount: messages.length + (aiProvider.isLoading ? 1 : 0),
                   itemBuilder: (context, index) {
                     // 如果正在加载，显示加载指示器
@@ -219,21 +215,13 @@ class _AIChatPageState extends State<AIChatPage> {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            'AI 聊天助手',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('AI 聊天助手', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(
-            provider.isConfigured
-                ? '开始你的对话吧'
-                : '请先配置 API Key',
+            provider.isConfigured ? '开始你的对话吧' : '请先配置 API Key',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withOpacity(0.5),
-                ),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
           ),
           if (!provider.isConfigured) ...[
             const SizedBox(height: 24),
@@ -250,10 +238,7 @@ class _AIChatPageState extends State<AIChatPage> {
             runSpacing: 8,
             alignment: WrapAlignment.center,
             children: [
-              _QuickReply(
-                text: '你好',
-                onTap: () => _handleSend('你好'),
-              ),
+              _QuickReply(text: '你好', onTap: () => _handleSend('你好')),
               _QuickReply(
                 text: '帮我写首诗',
                 onTap: () => _handleSend('帮我写一首关于春天的诗'),
@@ -295,7 +280,9 @@ class _AIChatPageState extends State<AIChatPage> {
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  fillColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
@@ -363,10 +350,7 @@ class _MessageBubble extends StatelessWidget {
   final AIChatMessage message;
   final bool isMe;
 
-  const _MessageBubble({
-    required this.message,
-    required this.isMe,
-  });
+  const _MessageBubble({required this.message, required this.isMe});
 
   @override
   Widget build(BuildContext context) {
@@ -421,15 +405,11 @@ class _MessageBubble extends StatelessWidget {
               Text(
                 message.content,
                 style: TextStyle(
-                  color: isMe
-                      ? Colors.white
-                      : theme.colorScheme.onSurface,
+                  color: isMe ? Colors.white : theme.colorScheme.onSurface,
                 ),
               )
             else
-              MarkdownRendererWidget(
-                data: message.content,
-              ),
+              MarkdownRendererWidget(data: message.content),
           ],
         ),
       ),
@@ -467,10 +447,7 @@ class _QuickReply extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
 
-  const _QuickReply({
-    required this.text,
-    required this.onTap,
-  });
+  const _QuickReply({required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

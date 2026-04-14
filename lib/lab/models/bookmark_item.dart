@@ -152,7 +152,8 @@ class BookmarkFolder implements BookmarkItem {
     return BookmarkFolder(
       id: json['id'] as String,
       name: json['name'] as String,
-      children: (json['children'] as List<dynamic>?)
+      children:
+          (json['children'] as List<dynamic>?)
               ?.map((e) => SingleBookmark.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

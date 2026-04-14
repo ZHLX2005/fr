@@ -39,9 +39,9 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
     setState(() => _isSending = false);
 
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('发送失败')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('发送失败')));
     }
 
     _scrollToBottom();
@@ -77,9 +77,7 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
       body: Column(
         children: [
           // 消息列表
-          Expanded(
-            child: _buildMessageList(),
-          ),
+          Expanded(child: _buildMessageList()),
           // 输入区域
           _buildInputArea(),
         ],
@@ -108,8 +106,8 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
                 Text(
                   '开始发送消息',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
               ],
             ),
@@ -123,10 +121,7 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
           itemBuilder: (context, index) {
             final msg = messages[index];
             final isMine = msg.senderId == _service.deviceId;
-            return _MessageBubble(
-              message: msg,
-              isMine: isMine,
-            );
+            return _MessageBubble(message: msg, isMine: isMine);
           },
         );
       },
@@ -144,9 +139,7 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
-          top: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
       ),
       child: Row(
@@ -157,7 +150,10 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
               decoration: const InputDecoration(
                 hintText: '输入消息...',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _sendMessage(),
@@ -206,8 +202,9 @@ class _MessageBubble extends StatelessWidget {
           ),
         ),
         child: Column(
-          crossAxisAlignment:
-              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             if (!isMine)
               Padding(
@@ -235,7 +232,9 @@ class _MessageBubble extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 color: isMine
-                    ? Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.onPrimary.withValues(alpha: 0.7)
                     : Theme.of(context).colorScheme.outline,
               ),
             ),

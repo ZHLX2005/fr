@@ -94,12 +94,15 @@ class HtmlRendererStyle {
     final styles = <String, String>{};
 
     if (linkColor != null) {
-      final hex = '#${linkColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
+      final hex =
+          '#${linkColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
       styles['a'] = 'color: $hex;';
     }
     if (blockquoteColor != null) {
-      final hex = '#${blockquoteColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
-      styles['blockquote'] = 'border-left: 4px solid $hex; padding-left: 16px; font-style: italic;';
+      final hex =
+          '#${blockquoteColor!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
+      styles['blockquote'] =
+          'border-left: 4px solid $hex; padding-left: 16px; font-style: italic;';
     }
     if (pStyle != null) {
       styles['p'] = 'margin: 8px 0;';

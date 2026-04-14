@@ -29,13 +29,20 @@ class _NetworkDemoPage extends StatefulWidget {
   State<_NetworkDemoPage> createState() => _NetworkDemoPageState();
 }
 
-class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerProviderStateMixin {
+class _NetworkDemoPageState extends State<_NetworkDemoPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final _httpUrlController = TextEditingController(text: 'https://jsonplaceholder.typicode.com/posts/1');
+  final _httpUrlController = TextEditingController(
+    text: 'https://jsonplaceholder.typicode.com/posts/1',
+  );
   final _httpMethodController = TextEditingController(text: 'GET');
-  final _httpHeadersController = TextEditingController(text: 'Content-Type: application/json');
+  final _httpHeadersController = TextEditingController(
+    text: 'Content-Type: application/json',
+  );
   final _httpBodyController = TextEditingController();
-  final _wsUrlController = TextEditingController(text: 'wss://echo.websocket.org');
+  final _wsUrlController = TextEditingController(
+    text: 'wss://echo.websocket.org',
+  );
   final _wsMessageController = TextEditingController(text: 'Hello WebSocket');
 
   String _httpResult = '';
@@ -102,13 +109,25 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
       if (method == 'GET') {
         response = await client.get(uri, headers: headers);
       } else if (method == 'POST') {
-        response = await client.post(uri, headers: headers, body: _httpBodyController.text);
+        response = await client.post(
+          uri,
+          headers: headers,
+          body: _httpBodyController.text,
+        );
       } else if (method == 'PUT') {
-        response = await client.put(uri, headers: headers, body: _httpBodyController.text);
+        response = await client.put(
+          uri,
+          headers: headers,
+          body: _httpBodyController.text,
+        );
       } else if (method == 'DELETE') {
         response = await client.delete(uri, headers: headers);
       } else if (method == 'PATCH') {
-        response = await client.patch(uri, headers: headers, body: _httpBodyController.text);
+        response = await client.patch(
+          uri,
+          headers: headers,
+          body: _httpBodyController.text,
+        );
       } else {
         response = await client.get(uri, headers: headers);
       }
@@ -142,34 +161,44 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
         _wsConnectionStatus = '连接中...';
       });
 
-      _wsChannel!.ready.then((_) {
-        setState(() {
-          _wsConnected = true;
-          _wsConnectionStatus = '已连接';
-          _wsMessages.add('[${DateTime.now().toIso8601String().substring(11, 19)}] 连接成功');
-        });
-      }).catchError((e) {
-        setState(() {
-          _wsConnected = false;
-          _wsConnectionStatus = '连接失败: $e';
-        });
-      });
+      _wsChannel!.ready
+          .then((_) {
+            setState(() {
+              _wsConnected = true;
+              _wsConnectionStatus = '已连接';
+              _wsMessages.add(
+                '[${DateTime.now().toIso8601String().substring(11, 19)}] 连接成功',
+              );
+            });
+          })
+          .catchError((e) {
+            setState(() {
+              _wsConnected = false;
+              _wsConnectionStatus = '连接失败: $e';
+            });
+          });
 
-      _wsChannel!.stream.listen((message) {
-        setState(() {
-          _wsMessages.add('[${DateTime.now().toIso8601String().substring(11, 19)}] 收到: $message');
-        });
-      }, onError: (error) {
-        setState(() {
-          _wsConnected = false;
-          _wsConnectionStatus = '连接断开: $error';
-        });
-      }, onDone: () {
-        setState(() {
-          _wsConnected = false;
-          _wsConnectionStatus = '连接已关闭';
-        });
-      });
+      _wsChannel!.stream.listen(
+        (message) {
+          setState(() {
+            _wsMessages.add(
+              '[${DateTime.now().toIso8601String().substring(11, 19)}] 收到: $message',
+            );
+          });
+        },
+        onError: (error) {
+          setState(() {
+            _wsConnected = false;
+            _wsConnectionStatus = '连接断开: $error';
+          });
+        },
+        onDone: () {
+          setState(() {
+            _wsConnected = false;
+            _wsConnectionStatus = '连接已关闭';
+          });
+        },
+      );
     } catch (e) {
       setState(() {
         _wsConnectionStatus = '连接失败: $e';
@@ -183,7 +212,9 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
       final message = _wsMessageController.text;
       _wsChannel!.sink.add(message);
       setState(() {
-        _wsMessages.add('[${DateTime.now().toIso8601String().substring(11, 19)}] 发送: $message');
+        _wsMessages.add(
+          '[${DateTime.now().toIso8601String().substring(11, 19)}] 发送: $message',
+        );
       });
     }
   }
@@ -194,7 +225,9 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
     setState(() {
       _wsConnected = false;
       _wsConnectionStatus = '已断开';
-      _wsMessages.add('[${DateTime.now().toIso8601String().substring(11, 19)}] 连接已断开');
+      _wsMessages.add(
+        '[${DateTime.now().toIso8601String().substring(11, 19)}] 连接已断开',
+      );
     });
   }
 
@@ -211,11 +244,7 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildHttpTab(),
-          _buildWebSocketTab(),
-          _buildBluetoothTab(),
-        ],
+        children: [_buildHttpTab(), _buildWebSocketTab(), _buildBluetoothTab()],
       ),
     );
   }
@@ -384,9 +413,14 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: _wsConnected ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+                        color: _wsConnected
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : Colors.red.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: _wsConnected ? Colors.green : Colors.red,
@@ -421,7 +455,9 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
                   else
                     ElevatedButton.icon(
                       onPressed: _disconnectWebSocket,
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
                       icon: const Icon(Icons.link_off),
                       label: const Text('断开'),
                     ),
@@ -460,7 +496,9 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
               ? Center(
                   child: Text(
                     '暂无消息',
-                    style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
                   ),
                 )
               : ListView.builder(
@@ -471,7 +509,10 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
                     final isSent = msg.contains('发送:');
                     return Container(
                       margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: isSent
                             ? Colors.blue.withValues(alpha: 0.1)
@@ -527,7 +568,9 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
     ];
 
     final statuses = await permissions.request();
-    final denied = statuses.values.any((s) => s.isDenied || s.isPermanentlyDenied);
+    final denied = statuses.values.any(
+      (s) => s.isDenied || s.isPermanentlyDenied,
+    );
 
     if (denied) {
       setState(() {
@@ -622,11 +665,14 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
       }
 
       // 监听数据
-      _characteristicSubscription = _selectedCharacteristic?.lastValueStream.listen((value) {
-        setState(() {
-          _bleLogs.add('[${_time()}] 收到: ${_formatBytes(Uint8List.fromList(value))}');
-        });
-      });
+      _characteristicSubscription = _selectedCharacteristic?.lastValueStream
+          .listen((value) {
+            setState(() {
+              _bleLogs.add(
+                '[${_time()}] 收到: ${_formatBytes(Uint8List.fromList(value))}',
+              );
+            });
+          });
     } catch (e) {
       setState(() {
         _bleLogs.add('[${_time()}] 连接失败: $e');
@@ -754,7 +800,9 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: _stopScan,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
                   icon: const Icon(Icons.stop),
                   label: const Text('停止'),
                 ),
@@ -784,7 +832,10 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
                   prefixIcon: Icon(Icons.filter_list),
                   isDense: true,
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -827,7 +878,10 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
                             },
                           ),
                         ),
-                        Text('${_minRssi}dBm', style: const TextStyle(fontSize: 12)),
+                        Text(
+                          '${_minRssi}dBm',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
@@ -847,7 +901,9 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
                 ? Center(
                     child: Text(
                       _isScanning ? '正在扫描附近设备...' : '点击"扫描设备"开始搜索',
-                      style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -952,7 +1008,9 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
               ? Center(
                   child: Text(
                     '暂无日志',
-                    style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
                   ),
                 )
               : ListView.builder(
@@ -970,11 +1028,18 @@ class _NetworkDemoPageState extends State<_NetworkDemoPage> with SingleTickerPro
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSent ? Colors.blue.withValues(alpha: 0.1) :
-                               isRecv ? Colors.green.withValues(alpha: 0.1) :
-                               isError ? Colors.red.withValues(alpha: 0.1) : null,
+                        color: isSent
+                            ? Colors.blue.withValues(alpha: 0.1)
+                            : isRecv
+                            ? Colors.green.withValues(alpha: 0.1)
+                            : isError
+                            ? Colors.red.withValues(alpha: 0.1)
+                            : null,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(

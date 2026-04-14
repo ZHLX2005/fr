@@ -86,15 +86,14 @@ class _ChatInputFieldState extends State<ChatInputField> {
   void _onEmojiSelected(String emoji) {
     final text = _controller.text;
     final cursorPosition = _controller.selection.baseOffset;
-    final newText = text.substring(0, cursorPosition) +
+    final newText =
+        text.substring(0, cursorPosition) +
         emoji +
         text.substring(cursorPosition);
 
     _controller.value = TextEditingValue(
       text: newText,
-      selection: TextSelection.collapsed(
-        offset: cursorPosition + emoji.length,
-      ),
+      selection: TextSelection.collapsed(offset: cursorPosition + emoji.length),
     );
 
     HapticFeedback.lightImpact();
@@ -114,13 +113,6 @@ class _ChatInputFieldState extends State<ChatInputField> {
     });
   }
 
-  // 清空所有预览
-  void _clearPreviews() {
-    setState(() {
-      _previews.clear();
-    });
-  }
-
   // 发送预览内容
   Future<void> _sendPreview(int index) async {
     final preview = _previews[index];
@@ -130,16 +122,28 @@ class _ChatInputFieldState extends State<ChatInputField> {
         _controller.text = preview.content;
         break;
       case PreviewType.image:
-        await widget.onImageSend?.call(preview.filePath, type: MessageType.image);
+        await widget.onImageSend?.call(
+          preview.filePath,
+          type: MessageType.image,
+        );
         break;
       case PreviewType.video:
-        await widget.onImageSend?.call(preview.filePath, type: MessageType.video);
+        await widget.onImageSend?.call(
+          preview.filePath,
+          type: MessageType.video,
+        );
         break;
       case PreviewType.audio:
-        await widget.onImageSend?.call(preview.filePath, type: MessageType.audio);
+        await widget.onImageSend?.call(
+          preview.filePath,
+          type: MessageType.audio,
+        );
         break;
       case PreviewType.file:
-        await widget.onImageSend?.call(preview.filePath, type: MessageType.file);
+        await widget.onImageSend?.call(
+          preview.filePath,
+          type: MessageType.file,
+        );
         break;
     }
     _removePreview(index);
@@ -251,10 +255,7 @@ class _ChatInputFieldState extends State<ChatInputField> {
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11),
-          ),
+          Text(label, style: const TextStyle(fontSize: 11)),
         ],
       ),
     );
@@ -263,22 +264,26 @@ class _ChatInputFieldState extends State<ChatInputField> {
   Future<void> _pickImageFromGallery() async {
     final imagePath = await MediaService.pickImageFromGallery();
     if (imagePath != null) {
-      _addPreview(PreviewMessage(
-        type: PreviewType.image,
-        content: '图片',
-        filePath: imagePath,
-      ));
+      _addPreview(
+        PreviewMessage(
+          type: PreviewType.image,
+          content: '图片',
+          filePath: imagePath,
+        ),
+      );
     }
   }
 
   Future<void> _takePicture() async {
     final imagePath = await MediaService.takePicture();
     if (imagePath != null) {
-      _addPreview(PreviewMessage(
-        type: PreviewType.image,
-        content: '照片',
-        filePath: imagePath,
-      ));
+      _addPreview(
+        PreviewMessage(
+          type: PreviewType.image,
+          content: '照片',
+          filePath: imagePath,
+        ),
+      );
     }
   }
 
@@ -295,13 +300,15 @@ class _ChatInputFieldState extends State<ChatInputField> {
         }
       }
 
-      _addPreview(PreviewMessage(
-        type: PreviewType.video,
-        content: '视频',
-        filePath: videoPath,
-        fileName: fileName,
-        fileSize: fileSize,
-      ));
+      _addPreview(
+        PreviewMessage(
+          type: PreviewType.video,
+          content: '视频',
+          filePath: videoPath,
+          fileName: fileName,
+          fileSize: fileSize,
+        ),
+      );
     }
   }
 
@@ -316,23 +323,27 @@ class _ChatInputFieldState extends State<ChatInputField> {
           file.extension?.toLowerCase() == 'jpeg' ||
           file.extension?.toLowerCase() == 'gif') {
         if (file.path != null) {
-          _addPreview(PreviewMessage(
-            type: PreviewType.image,
-            content: '图片',
-            filePath: file.path,
-            fileName: file.name,
-            fileSize: file.size,
-          ));
+          _addPreview(
+            PreviewMessage(
+              type: PreviewType.image,
+              content: '图片',
+              filePath: file.path,
+              fileName: file.name,
+              fileSize: file.size,
+            ),
+          );
         }
       } else {
         // 其他文件
-        _addPreview(PreviewMessage(
-          type: PreviewType.file,
-          content: '文件',
-          filePath: file.path,
-          fileName: file.name,
-          fileSize: file.size,
-        ));
+        _addPreview(
+          PreviewMessage(
+            type: PreviewType.file,
+            content: '文件',
+            filePath: file.path,
+            fileName: file.name,
+            fileSize: file.size,
+          ),
+        );
       }
     }
   }
@@ -341,15 +352,18 @@ class _ChatInputFieldState extends State<ChatInputField> {
   Future<void> _handleAudioRecording() async {
     if (_isRecording) {
       // 停止录音，获取时长
-      final (path, durationSeconds) = await _audioService.stopRecordingWithDuration();
+      final (path, durationSeconds) = await _audioService
+          .stopRecordingWithDuration();
       if (path != null) {
         final duration = Duration(seconds: durationSeconds);
-        _addPreview(PreviewMessage(
-          type: PreviewType.audio,
-          content: '语音',
-          filePath: path,
-          duration: duration,
-        ));
+        _addPreview(
+          PreviewMessage(
+            type: PreviewType.audio,
+            content: '语音',
+            filePath: path,
+            duration: duration,
+          ),
+        );
       }
       setState(() {
         _isRecording = false;
@@ -370,9 +384,9 @@ class _ChatInputFieldState extends State<ChatInputField> {
         ),
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('录音启动失败，请检查麦克风权限')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('录音启动失败，请检查麦克风权限')));
     }
   }
 
@@ -416,9 +430,7 @@ class _ChatInputFieldState extends State<ChatInputField> {
         if (_isRecording)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.1),
-            ),
+            decoration: BoxDecoration(color: Colors.red.withOpacity(0.1)),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -431,8 +443,7 @@ class _ChatInputFieldState extends State<ChatInputField> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('正在录音...',
-                  style: TextStyle(color: Colors.red)),
+                const Text('正在录音...', style: TextStyle(color: Colors.red)),
                 IconButton(
                   icon: const Icon(Icons.stop, color: Colors.red),
                   iconSize: 20,
@@ -445,9 +456,7 @@ class _ChatInputFieldState extends State<ChatInputField> {
           ),
 
         if (_showEmojiPicker)
-          InlineEmojiPicker(
-            onEmojiSelected: _onEmojiSelected,
-          ),
+          InlineEmojiPicker(onEmojiSelected: _onEmojiSelected),
         Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
@@ -550,7 +559,9 @@ class _ChatInputFieldState extends State<ChatInputField> {
                                 : theme.colorScheme.onSurface.withOpacity(0.6),
                             size: 24,
                           ),
-                    onPressed: _isComposing && !widget.isLoading ? _handleSend : null,
+                    onPressed: _isComposing && !widget.isLoading
+                        ? _handleSend
+                        : null,
                   ),
                 ],
               ),

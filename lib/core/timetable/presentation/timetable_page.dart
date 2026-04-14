@@ -53,7 +53,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         title: '选择背景图',
       );
       if (path != null) {
-        await ref.read(TimetableStore.provider.notifier).updateBackgroundImage(path);
+        await ref
+            .read(TimetableStore.provider.notifier)
+            .updateBackgroundImage(path);
       }
     }
   }
@@ -78,7 +80,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                   title: '选择背景图',
                 );
                 if (path != null) {
-                  await ref.read(TimetableStore.provider.notifier).updateBackgroundImage(path);
+                  await ref
+                      .read(TimetableStore.provider.notifier)
+                      .updateBackgroundImage(path);
                 }
               },
             ),
@@ -87,7 +91,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               title: const Text('移除背景图', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(sheetContext);
-                ref.read(TimetableStore.provider.notifier).updateBackgroundImage(null);
+                ref
+                    .read(TimetableStore.provider.notifier)
+                    .updateBackgroundImage(null);
               },
             ),
           ],
@@ -114,7 +120,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         ),
         title: Text(
           '时间课表',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: [
           IconButton(
@@ -224,7 +232,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                           ),
                         ),
                         Text(
-                          TimetableMappers.formatDate(config.startDateIso, globalDayIndex),
+                          TimetableMappers.formatDate(
+                            config.startDateIso,
+                            globalDayIndex,
+                          ),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: TimetableColors.textTertiary,
                             fontSize: 10,
@@ -243,7 +254,11 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 
   /// 课表网格 - 使用 cycleGridProvider 获取课程（按周期过滤）
-  Widget _buildTimetableGrid(ThemeData theme, TimetableConfig config, int cycleIndex) {
+  Widget _buildTimetableGrid(
+    ThemeData theme,
+    TimetableConfig config,
+    int cycleIndex,
+  ) {
     // 使用 cycleGridProvider 获取课程（会根据 visibleInCycles 过滤）
     final cycleGrid = ref.watch(TimetableStore.cycleGridProvider(cycleIndex));
     // 获取原始课程数据（用于编辑）
@@ -264,10 +279,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               child: Row(
                 children: [
                   // 时间列
-                  _SlotLabel(
-                    slotIndex: slotIndex,
-                    height: rowHeight,
-                  ),
+                  _SlotLabel(slotIndex: slotIndex, height: rowHeight),
                   // 课程网格列
                   ...List.generate(config.daysPerCycle, (dayOfCycle) {
                     final course = cycleGrid[dayOfCycle][slotIndex];
@@ -281,11 +293,21 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                         state: isSelected
                             ? TimetableCellState.selected
                             : (course != null
-                                ? TimetableCellState.filled
-                                : TimetableCellState.empty),
+                                  ? TimetableCellState.filled
+                                  : TimetableCellState.empty),
                         course: course,
-                        onTap: () => _handleCellTap(cycleIndex, dayOfCycle, slotIndex, originalCourse),
-                        onLongPress: () => _handleCellLongPress(cycleIndex, dayOfCycle, slotIndex, originalCourse),
+                        onTap: () => _handleCellTap(
+                          cycleIndex,
+                          dayOfCycle,
+                          slotIndex,
+                          originalCourse,
+                        ),
+                        onLongPress: () => _handleCellLongPress(
+                          cycleIndex,
+                          dayOfCycle,
+                          slotIndex,
+                          originalCourse,
+                        ),
                       ),
                     );
                   }),
@@ -299,9 +321,15 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 
   /// 处理单元格点击
-  void _handleCellTap(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem? originalCourse) {
+  void _handleCellTap(
+    int cycleIndex,
+    int dayOfCycle,
+    int slotIndex,
+    CourseItem? originalCourse,
+  ) {
     final cellKeyValue = _cellKey(cycleIndex, dayOfCycle, slotIndex);
-    final hasVisibleCourse = originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex);
+    final hasVisibleCourse =
+        originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex);
 
     if (_selectedCellKey == cellKeyValue) {
       // 点击已选中的单元格
@@ -325,7 +353,12 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 
   /// 显示课程预览抽屉
-  void _showCoursePreview(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem course) {
+  void _showCoursePreview(
+    int cycleIndex,
+    int dayOfCycle,
+    int slotIndex,
+    CourseItem course,
+  ) {
     // 清除选中状态
     setState(() => _selectedCellKey = null);
 
@@ -347,15 +380,26 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 
   /// 处理单元格长按
-  void _handleCellLongPress(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem? originalCourse) {
+  void _handleCellLongPress(
+    int cycleIndex,
+    int dayOfCycle,
+    int slotIndex,
+    CourseItem? originalCourse,
+  ) {
     // 长按直接打开编辑器
     _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
   }
 
   /// 打开编辑器（居中对话框）
-  void _openEditor(int cycleIndex, int dayOfCycle, int slotIndex, CourseItem? originalCourse) {
+  void _openEditor(
+    int cycleIndex,
+    int dayOfCycle,
+    int slotIndex,
+    CourseItem? originalCourse,
+  ) {
     // 检查课程是否在指定周期可见
-    final visibleCourse = originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex)
+    final visibleCourse =
+        originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex)
         ? originalCourse
         : null;
 
@@ -382,7 +426,8 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
 
   @override
-  ConsumerState<TimetableSettingsPage> createState() => _TimetableSettingsPageState();
+  ConsumerState<TimetableSettingsPage> createState() =>
+      _TimetableSettingsPageState();
 }
 
 class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
@@ -417,9 +462,13 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     );
 
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('设置已保存')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('设置已保存')));
       Navigator.pop(context);
     }
   }
@@ -444,7 +493,10 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             decoration: InputDecoration(
               labelText: '起始日期',
               labelStyle: const TextStyle(color: TimetableColors.textSecondary),
-              prefixIcon: const Icon(Icons.calendar_today, color: TimetableColors.accent),
+              prefixIcon: const Icon(
+                Icons.calendar_today,
+                color: TimetableColors.accent,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -455,13 +507,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             onTap: () async {
               final date = await showDatePicker(
                 context: context,
-                initialDate: DateTime.tryParse(_startDateController.text) ?? DateTime.now(),
+                initialDate:
+                    DateTime.tryParse(_startDateController.text) ??
+                    DateTime.now(),
                 firstDate: DateTime(2024),
                 lastDate: DateTime(2030),
               );
               if (date != null) {
                 setState(() {
-                  _startDateController.text = date.toIso8601String().split('T')[0];
+                  _startDateController.text = date.toIso8601String().split(
+                    'T',
+                  )[0];
                 });
               }
             },
@@ -482,7 +538,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             value: _daysPerCycle.toDouble(),
             min: TimetableConfig.minDaysPerCycle.toDouble(),
             max: TimetableConfig.maxDaysPerCycle.toDouble(),
-            divisions: TimetableConfig.maxDaysPerCycle - TimetableConfig.minDaysPerCycle,
+            divisions:
+                TimetableConfig.maxDaysPerCycle -
+                TimetableConfig.minDaysPerCycle,
             onChanged: (v) => setState(() => _daysPerCycle = v.round()),
           ),
           // 每天节数
@@ -491,7 +549,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             value: _slotsPerDay.toDouble(),
             min: TimetableConfig.minSlotsPerDay.toDouble(),
             max: TimetableConfig.maxSlotsPerDay.toDouble(),
-            divisions: TimetableConfig.maxSlotsPerDay - TimetableConfig.minSlotsPerDay,
+            divisions:
+                TimetableConfig.maxSlotsPerDay - TimetableConfig.minSlotsPerDay,
             onChanged: (v) => setState(() => _slotsPerDay = v.round()),
           ),
           const SizedBox(height: 24),
@@ -499,10 +558,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             onPressed: _save,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              side: const BorderSide(
-                color: TimetableColors.accent,
-                width: 1.5,
-              ),
+              side: const BorderSide(color: TimetableColors.accent, width: 1.5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -597,10 +653,7 @@ class _ConfigSlider extends StatelessWidget {
 
 /// 左侧节数标签组件
 class _SlotLabel extends StatelessWidget {
-  const _SlotLabel({
-    required this.slotIndex,
-    required this.height,
-  });
+  const _SlotLabel({required this.slotIndex, required this.height});
 
   final int slotIndex;
   final double height;
@@ -616,10 +669,7 @@ class _SlotLabel extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline,
-          width: 1.5,
-        ),
+        border: Border.all(color: theme.colorScheme.outline, width: 1.5),
       ),
       child: Center(
         child: Text(
@@ -727,21 +777,22 @@ class _CoursePreviewSheet extends StatelessWidget {
                         color: TimetableColors.textTertiary,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        course.location!,
-                        style: theme.textTheme.bodyMedium,
-                      ),
+                      Text(course.location!, style: theme.textTheme.bodyMedium),
                     ],
                   ),
                 ],
                 // 可见周期
-                if (course.visibleInCycles != null && course.visibleInCycles!.isNotEmpty) ...[
+                if (course.visibleInCycles != null &&
+                    course.visibleInCycles!.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 8,
                     children: course.visibleInCycles!.map((cycle) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           border: const Border(
                             left: BorderSide(
@@ -768,13 +819,22 @@ class _CoursePreviewSheet extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onEdit,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: theme.colorScheme.outline, width: 1.5),
+                      side: BorderSide(
+                        color: theme.colorScheme.outline,
+                        width: 1.5,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    icon: Icon(Icons.edit_outlined, color: theme.colorScheme.outline),
-                    label: Text('编辑课程', style: TextStyle(color: theme.colorScheme.outline)),
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      color: theme.colorScheme.outline,
+                    ),
+                    label: Text(
+                      '编辑课程',
+                      style: TextStyle(color: theme.colorScheme.outline),
+                    ),
                   ),
                 ),
               ],

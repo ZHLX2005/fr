@@ -35,8 +35,9 @@ class _RecordSheetState extends State<RecordSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: DraggableScrollableSheet(
         initialChildSize: 0.55,
         minChildSize: 0.3,
@@ -63,11 +64,15 @@ class _RecordSheetState extends State<RecordSheet> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(widget.bodyPart.label,
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  widget.bodyPart.label,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(width: 8),
-                Text(tissueLabels[widget.bodyPart.tissue]!,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                Text(
+                  tissueLabels[widget.bodyPart.tissue]!,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -126,36 +131,43 @@ class _RecordSheetState extends State<RecordSheet> {
               },
             ),
             const Divider(height: 32),
-            Text('历史记录 (${_history.length})',
-                style: Theme.of(context).textTheme.titleMedium),
-            ..._history.map((r) => Dismissible(
-                  key: ValueKey(r.key),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    color: Colors.red,
-                    child: const Icon(Icons.delete, color: Colors.white),
+            Text(
+              '历史记录 (${_history.length})',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            ..._history.map(
+              (r) => Dismissible(
+                key: ValueKey(r.key),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 16),
+                  color: Colors.red,
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (_) async {
+                  await bodyRecordRepo.remove(r);
+                  _load();
+                },
+                child: ListTile(
+                  title: Text(r.content),
+                  subtitle: Text(
+                    '${r.createdAt.toLocal().toString().substring(0, 16)}'
+                    ' · 不适: ${r.painLevel ?? "-"}/10',
                   ),
-                  onDismissed: (_) async {
-                    await bodyRecordRepo.remove(r);
-                    _load();
-                  },
-                  child: ListTile(
-                    title: Text(r.content),
-                    subtitle: Text(
-                      '${r.createdAt.toLocal().toString().substring(0, 16)}'
-                      ' · 不适: ${r.painLevel ?? "-"}/10',
-                    ),
-                    dense: true,
-                    leading: Icon(
-                      Icons.circle,
-                      size: 10,
-                      color: Color.lerp(
-                          Colors.green, Colors.red, (r.painLevel ?? 0) / 10),
+                  dense: true,
+                  leading: Icon(
+                    Icons.circle,
+                    size: 10,
+                    color: Color.lerp(
+                      Colors.green,
+                      Colors.red,
+                      (r.painLevel ?? 0) / 10,
                     ),
                   ),
-                )),
+                ),
+              ),
+            ),
           ],
         ),
       ),

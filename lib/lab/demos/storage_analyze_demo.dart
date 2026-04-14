@@ -36,9 +36,23 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   final Set<String> _expandedKeys = {};
 
   static const _mediaExtensions = {
-    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
-    'mp4', 'mov', 'avi', 'mkv', 'webm',
-    'mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac',
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+    'bmp',
+    'mp4',
+    'mov',
+    'avi',
+    'mkv',
+    'webm',
+    'mp3',
+    'wav',
+    'aac',
+    'm4a',
+    'ogg',
+    'flac',
   };
 
   @override
@@ -78,9 +92,9 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     }
   }
@@ -106,18 +120,23 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     try {
       if (!await dir.exists()) return;
 
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File) {
           final ext = entity.path.split('.').last.toLowerCase();
           if (_mediaExtensions.contains(ext)) {
             try {
               final size = await entity.length();
-              files.add(FileItem(
-                path: entity.path,
-                name: entity.path.split(Platform.pathSeparator).last,
-                size: size,
-                type: _getMediaType(ext),
-              ));
+              files.add(
+                FileItem(
+                  path: entity.path,
+                  name: entity.path.split(Platform.pathSeparator).last,
+                  size: size,
+                  type: _getMediaType(ext),
+                ),
+              );
             } catch (e) {
               // 忽略
             }
@@ -178,7 +197,9 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                 ),
                 _StatItem(
                   label: '总数据量',
-                  value: _formatSize(_storageList.fold(0, (sum, info) => sum + info.size)),
+                  value: _formatSize(
+                    _storageList.fold(0, (sum, info) => sum + info.size),
+                  ),
                   icon: Icons.data_usage,
                 ),
                 _StatItem(
@@ -201,10 +222,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                 ? const Center(child: CircularProgressIndicator())
                 : TabBarView(
                     controller: _tabController,
-                    children: [
-                      _buildStorageTab(),
-                      _buildMediaTab(),
-                    ],
+                    children: [_buildStorageTab(), _buildMediaTab()],
                   ),
           ),
         ],
@@ -253,7 +271,8 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                       expandedKeys: _expandedKeys,
                       formatSize: _formatSize,
                       getSizeColor: _getSizeColor,
-                      onKeyTap: (detail) => _showKeyDetail(context, info, detail),
+                      onKeyTap: (detail) =>
+                          _showKeyDetail(context, info, detail),
                       onDeleteKey: (key) => _deleteKey(info, key),
                       onClear: () => _clearStorage(info),
                       onToggleExpand: (key) {
@@ -327,9 +346,9 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(ext);
 
     if (!isImage) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('不支持预览: ${file.type}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('不支持预览: ${file.type}')));
       return;
     }
 
@@ -349,10 +368,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                     icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  Text(
-                    file.name,
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  Text(file.name, style: const TextStyle(color: Colors.white)),
                   const SizedBox(width: 48),
                 ],
               ),
@@ -366,7 +382,11 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                        const Icon(
+                          Icons.broken_image,
+                          color: Colors.white54,
+                          size: 64,
+                        ),
                         const SizedBox(height: 16),
                         Text('图片加载失败', style: TextStyle(color: Colors.white54)),
                       ],
@@ -390,8 +410,15 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                         Navigator.pop(context);
                         _deleteFile(file);
                       },
-                      icon: const Icon(Icons.delete, color: Colors.redAccent, size: 18),
-                      label: const Text('删除', style: TextStyle(color: Colors.redAccent)),
+                      icon: const Icon(
+                        Icons.delete,
+                        color: Colors.redAccent,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        '删除',
+                        style: TextStyle(color: Colors.redAccent),
+                      ),
                     ),
                   ],
                 ),
@@ -403,7 +430,11 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     );
   }
 
-  void _showKeyDetail(BuildContext context, StorageInfo info, KeyDetail detail) {
+  void _showKeyDetail(
+    BuildContext context,
+    StorageInfo info,
+    KeyDetail detail,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -445,9 +476,9 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       if (success) {
         await _loadStorageData();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已删除: $key')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('已删除: $key')));
         }
       }
     }
@@ -478,15 +509,15 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
         await f.delete();
         await _loadStorageData();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已删除: ${file.name}')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('已删除: ${file.name}')));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除失败: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
         }
       }
     }
@@ -520,9 +551,9 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
 
       await _loadStorageData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已清空: ${info.displayName}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已清空: ${info.displayName}')));
       }
     }
   }
@@ -545,7 +576,10 @@ class _StatItem extends StatelessWidget {
       children: [
         Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
     );
@@ -599,7 +633,9 @@ class _StorageCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      info.type == StorageType.hive ? Icons.table_chart : Icons.settings,
+                      info.type == StorageType.hive
+                          ? Icons.table_chart
+                          : Icons.settings,
                       color: theme.colorScheme.primary,
                     ),
                   ),
@@ -616,20 +652,30 @@ class _StorageCard extends StatelessWidget {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerHighest,
+                                color:
+                                    theme.colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 info.typeLabel,
-                                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               '${info.keyCount} 个键',
-                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           ],
                         ),
@@ -660,7 +706,10 @@ class _StorageCard extends StatelessWidget {
                             onPressed: onClear,
                             tooltip: '清空',
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
                           ),
                         ],
                       ),
@@ -727,7 +776,11 @@ class _KeyListTile extends StatelessWidget {
                   color: Colors.purple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Icon(Icons.data_object, size: 14, color: Colors.purple),
+                child: const Icon(
+                  Icons.data_object,
+                  size: 14,
+                  color: Colors.purple,
+                ),
               ),
             Expanded(
               child: Column(
@@ -735,7 +788,10 @@ class _KeyListTile extends StatelessWidget {
                 children: [
                   Text(
                     detail.key,
-                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -818,31 +874,46 @@ class _KeyDetailSheet extends StatelessWidget {
                         children: [
                           Text(
                             detail.key,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Row(
                             children: [
                               Text(
                                 info.displayName,
-                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Text(
                                 formatSize(detail.size),
-                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
                               ),
                               if (detail.isJson) ...[
                                 const SizedBox(width: 12),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.purple.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text(
                                     'JSON',
-                                    style: TextStyle(fontSize: 10, color: Colors.purple),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.purple,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -885,9 +956,7 @@ class _KeyDetailSheet extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
-                  border: Border(
-                    top: BorderSide(color: Colors.grey[300]!),
-                  ),
+                  border: Border(top: BorderSide(color: Colors.grey[300]!)),
                 ),
                 child: SizedBox(
                   width: double.infinity,
@@ -1010,7 +1079,11 @@ class _MediaFileCard extends StatelessWidget {
                 ],
               ),
               IconButton(
-                icon: Icon(Icons.delete_outline, color: Colors.red[400], size: 20),
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: Colors.red[400],
+                  size: 20,
+                ),
                 onPressed: onDelete,
                 tooltip: '删除',
               ),

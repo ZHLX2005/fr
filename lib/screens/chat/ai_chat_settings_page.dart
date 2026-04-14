@@ -313,7 +313,10 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                     Text('1. 点击右上角保存或底部按钮保存设置', style: TextStyle(fontSize: 13)),
                     Text('2. 模型类型默认为 Claude', style: TextStyle(fontSize: 13)),
                     Text('3. 数据库配置用于 Agent 功能', style: TextStyle(fontSize: 13)),
-                    Text('4. 保存后返回 Agent 页面即可使用', style: TextStyle(fontSize: 13)),
+                    Text(
+                      '4. 保存后返回 Agent 页面即可使用',
+                      style: TextStyle(fontSize: 13),
+                    ),
                   ],
                 ),
               ),

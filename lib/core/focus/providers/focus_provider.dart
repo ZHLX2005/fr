@@ -41,12 +41,14 @@ class FocusProvider extends ChangeNotifier {
         // 找到对应的科目
         final subject = _subjects.firstWhere(
           (s) => s.id == savedSubjectId,
-          orElse: () => _subjects.isNotEmpty ? _subjects.first : FocusSubject(
-            id: 'default',
-            name: '默认',
-            color: const Color(0xFF9CAF88),
-            iconIndex: 0,
-          ),
+          orElse: () => _subjects.isNotEmpty
+              ? _subjects.first
+              : FocusSubject(
+                  id: 'default',
+                  name: '默认',
+                  color: const Color(0xFF9CAF88),
+                  iconIndex: 0,
+                ),
         );
         timerProvider.restoreSubject(subject);
       }
@@ -144,10 +146,12 @@ class FocusProvider extends ChangeNotifier {
   int getTodayMinutes() {
     final today = DateTime.now();
     return _sessions
-        .where((session) =>
-            session.startTime.year == today.year &&
-            session.startTime.month == today.month &&
-            session.startTime.day == today.day)
+        .where(
+          (session) =>
+              session.startTime.year == today.year &&
+              session.startTime.month == today.month &&
+              session.startTime.day == today.day,
+        )
         .fold<int>(0, (sum, session) => sum + session.durationMinutes);
   }
 
@@ -161,7 +165,11 @@ class FocusProvider extends ChangeNotifier {
     );
 
     return _sessions
-        .where((session) => session.startTime.isAfter(weekStart) || session.startTime.isAtSameMomentAs(weekStart))
+        .where(
+          (session) =>
+              session.startTime.isAfter(weekStart) ||
+              session.startTime.isAtSameMomentAs(weekStart),
+        )
         .fold<int>(0, (sum, session) => sum + session.durationMinutes);
   }
 
@@ -180,10 +188,12 @@ class FocusProvider extends ChangeNotifier {
     for (int i = 6; i >= 0; i--) {
       final date = DateTime(now.year, now.month, now.day - i);
       final dayMinutes = _sessions
-          .where((session) =>
-              session.startTime.year == date.year &&
-              session.startTime.month == date.month &&
-              session.startTime.day == date.day)
+          .where(
+            (session) =>
+                session.startTime.year == date.year &&
+                session.startTime.month == date.month &&
+                session.startTime.day == date.day,
+          )
           .fold<int>(0, (sum, session) => sum + session.durationMinutes);
 
       data.add({

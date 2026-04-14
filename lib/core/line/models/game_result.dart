@@ -28,7 +28,8 @@ class GameResult {
   double get accuracy {
     if (totalNotes == 0) return 0.0;
     return (perfectCount * 3 + greatCount * 2 + goodCount) /
-           (totalNotes * 3) * 100;
+        (totalNotes * 3) *
+        100;
   }
 
   /// 等级字母

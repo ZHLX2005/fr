@@ -29,7 +29,8 @@ class _NetworkEnvPage extends StatefulWidget {
   State<_NetworkEnvPage> createState() => _NetworkEnvPageState();
 }
 
-class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProviderStateMixin {
+class _NetworkEnvPageState extends State<_NetworkEnvPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   // WiFi 信息
@@ -109,7 +110,10 @@ class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProvi
 
   Future<void> _loadNetworkInterfaces() async {
     try {
-      _interfaces = await NetworkInterface.list(includeLoopback: true, includeLinkLocal: true);
+      _interfaces = await NetworkInterface.list(
+        includeLoopback: true,
+        includeLinkLocal: true,
+      );
     } catch (e) {
       debugPrint('Network interfaces error: $e');
     }
@@ -160,16 +164,21 @@ class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProvi
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text('错误: $_error', style: const TextStyle(color: Colors.red)))
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildWifiTab(),
-                    _buildInterfacesTab(),
-                    _buildDnsTab(),
-                    _buildConnectionsTab(),
-                  ],
-                ),
+          ? Center(
+              child: Text(
+                '错误: $_error',
+                style: const TextStyle(color: Colors.red),
+              ),
+            )
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildWifiTab(),
+                _buildInterfacesTab(),
+                _buildDnsTab(),
+                _buildConnectionsTab(),
+              ],
+            ),
     );
   }
 
@@ -269,9 +278,14 @@ class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProvi
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: isLoopback ? Colors.grey.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
+                    color: isLoopback
+                        ? Colors.grey.withValues(alpha: 0.2)
+                        : Colors.green.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -414,7 +428,12 @@ class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProvi
     );
   }
 
-  Widget _buildInfoCard(String title, List<Widget> children, {IconData? icon, Color? color}) {
+  Widget _buildInfoCard(
+    String title,
+    List<Widget> children, {
+    IconData? icon,
+    Color? color,
+  }) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -455,19 +474,13 @@ class _NetworkEnvPageState extends State<_NetworkEnvPage> with SingleTickerProvi
             width: 100,
             child: Text(
               label,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 13,
-              ),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             ),
           ),
         ],

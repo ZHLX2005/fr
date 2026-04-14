@@ -21,7 +21,9 @@ class HiveTimetableRepository extends TimetableRepository {
       _itemsBox = await Hive.openBox(_itemsBoxName);
       _isInitialized = true;
       debugPrint('HiveTimetableRepository: 初始化成功');
-      debugPrint('HiveTimetableRepository: _itemsBox.length = ${_itemsBox.length}');
+      debugPrint(
+        'HiveTimetableRepository: _itemsBox.length = ${_itemsBox.length}',
+      );
     } catch (e, st) {
       debugPrint('HiveTimetableRepository: 初始化失败 $e\n$st');
       rethrow;
@@ -45,10 +47,17 @@ class HiveTimetableRepository extends TimetableRepository {
 
     final map = json as Map<String, dynamic>;
     return TimetableConfig(
-      startDateIso: map['startDateIso'] as String? ?? TimetableConfig.defaultConfig.startDateIso,
-      cycleCount: map['cycleCount'] as int? ?? TimetableConfig.defaultConfig.cycleCount,
-      daysPerCycle: map['daysPerCycle'] as int? ?? TimetableConfig.defaultConfig.daysPerCycle,
-      slotsPerDay: map['slotsPerDay'] as int? ?? TimetableConfig.defaultConfig.slotsPerDay,
+      startDateIso:
+          map['startDateIso'] as String? ??
+          TimetableConfig.defaultConfig.startDateIso,
+      cycleCount:
+          map['cycleCount'] as int? ?? TimetableConfig.defaultConfig.cycleCount,
+      daysPerCycle:
+          map['daysPerCycle'] as int? ??
+          TimetableConfig.defaultConfig.daysPerCycle,
+      slotsPerDay:
+          map['slotsPerDay'] as int? ??
+          TimetableConfig.defaultConfig.slotsPerDay,
       id: map['id'] as String? ?? 'default',
       updatedAt: map['updatedAt'] as int?,
       backgroundImagePath: map['backgroundImagePath'] as String?,
@@ -110,7 +119,9 @@ class HiveTimetableRepository extends TimetableRepository {
       return;
     }
     await _itemsBox.put(item.cellKey, _courseItemToJson(item));
-    debugPrint('HiveTimetableRepository.upsertItem: 保存课程 ${item.cellKey} 成功，Box长度=${_itemsBox.length}');
+    debugPrint(
+      'HiveTimetableRepository.upsertItem: 保存课程 ${item.cellKey} 成功，Box长度=${_itemsBox.length}',
+    );
   }
 
   @override
@@ -120,7 +131,9 @@ class HiveTimetableRepository extends TimetableRepository {
       return;
     }
     await _itemsBox.delete(cellKey);
-    debugPrint('HiveTimetableRepository.deleteItem: 删除课程 $cellKey 成功，Box长度=${_itemsBox.length}');
+    debugPrint(
+      'HiveTimetableRepository.deleteItem: 删除课程 $cellKey 成功，Box长度=${_itemsBox.length}',
+    );
   }
 
   Map<String, dynamic> _courseItemToJson(CourseItem item) {
@@ -141,7 +154,8 @@ class HiveTimetableRepository extends TimetableRepository {
 
   CourseItem _courseItemFromJson(Map<String, dynamic> json) {
     // 兼容旧数据：如果有 dayIndex 但没有 dayOfCycle，迁移时使用 dayIndex
-    final dayOfCycle = json['dayOfCycle'] as int? ?? json['dayIndex'] as int? ?? 0;
+    final dayOfCycle =
+        json['dayOfCycle'] as int? ?? json['dayIndex'] as int? ?? 0;
     // visibleInCycles: 兼容旧数据（没有该字段时为 null）
     final visibleInCyclesRaw = json['visibleInCycles'];
     List<int>? visibleInCycles;

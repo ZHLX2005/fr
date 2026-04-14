@@ -48,7 +48,9 @@ class FocusTimerProvider extends ChangeNotifier {
       if (savedState == TimerState.running.index && savedStartTimeStr != null) {
         // 恢复运行中的计时器
         final savedStartTime = DateTime.parse(savedStartTimeStr);
-        final elapsedSinceSave = DateTime.now().difference(savedStartTime).inSeconds;
+        final elapsedSinceSave = DateTime.now()
+            .difference(savedStartTime)
+            .inSeconds;
 
         _totalSeconds = savedSeconds + elapsedSinceSave;
         _state = TimerState.running;
@@ -84,7 +86,10 @@ class FocusTimerProvider extends ChangeNotifier {
         await prefs.remove(_timerSubjectKey);
       }
       if (_sessionStartTime != null) {
-        await prefs.setString(_timerStartTimeKey, _sessionStartTime!.toIso8601String());
+        await prefs.setString(
+          _timerStartTimeKey,
+          _sessionStartTime!.toIso8601String(),
+        );
       } else {
         await prefs.remove(_timerStartTimeKey);
       }

@@ -53,10 +53,7 @@ class WordDragNotifier extends ChangeNotifier {
 
   /// 退出分类桶模式
   void exitFolderMode() {
-    _state = _state.copyWith(
-      isFolderMode: false,
-      activeCategoryBucketId: null,
-    );
+    _state = _state.copyWith(isFolderMode: false, activeCategoryBucketId: null);
     _resetZoneAndHints();
     notifyListeners();
   }
@@ -70,10 +67,7 @@ class WordDragNotifier extends ChangeNotifier {
   /// 选择分类桶
   void selectBucket(String bucketId) {
     _recordAction('↓ 下滑(分类:$bucketId)', bucketId: bucketId);
-    _state = _state.copyWith(
-      isFolderMode: false,
-      activeCategoryBucketId: null,
-    );
+    _state = _state.copyWith(isFolderMode: false, activeCategoryBucketId: null);
     _moveToNextWord();
   }
 
@@ -104,8 +98,14 @@ class WordDragNotifier extends ChangeNotifier {
   }
 
   /// 计算区域透明度
-  double _calculateZoneOpacity(Offset offset, Size screenSize, {bool isDeleteZone = false}) {
-    final zone = isDeleteZone ? _getDeleteZone(screenSize) : _getMarkZone(screenSize);
+  double _calculateZoneOpacity(
+    Offset offset,
+    Size screenSize, {
+    bool isDeleteZone = false,
+  }) {
+    final zone = isDeleteZone
+        ? _getDeleteZone(screenSize)
+        : _getMarkZone(screenSize);
 
     // 计算距离
     final distance = (offset - zone.center).distance;
@@ -357,10 +357,7 @@ class WordDragNotifier extends ChangeNotifier {
     );
     final newLog = List<ActionLogEntry>.from(_state.actionLog);
     newLog.insert(0, entry); // 最新在前面
-    _state = _state.copyWith(
-      currentAction: entry,
-      actionLog: newLog,
-    );
+    _state = _state.copyWith(currentAction: entry, actionLog: newLog);
     notifyListeners();
   }
 }

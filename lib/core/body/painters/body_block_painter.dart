@@ -40,8 +40,7 @@ class BodyBlockPainter extends CustomPainter {
           break;
         case BlockShape.roundedRect:
         case BlockShape.stadium:
-          final rr = RRect.fromRectAndRadius(
-              r.rect, Radius.circular(r.radius));
+          final rr = RRect.fromRectAndRadius(r.rect, Radius.circular(r.radius));
           canvas.drawRRect(rr, fillPaint);
           canvas.drawRRect(rr, borderPaint);
           break;
@@ -59,19 +58,17 @@ class BodyBlockPainter extends CustomPainter {
             color: Colors.white,
             fontSize: r.w < 40 ? 9 : 11,
             fontWeight: FontWeight.w600,
-            shadows: const [
-              Shadow(blurRadius: 2, color: Colors.black54),
-            ],
+            shadows: const [Shadow(blurRadius: 2, color: Colors.black54)],
           ),
         ),
         textDirection: TextDirection.ltr,
         maxLines: 2,
       )..layout(maxWidth: r.w - 4);
 
-      tp.paint(canvas, Offset(
-        r.x + (r.w - tp.width) / 2,
-        r.y + (r.h - tp.height) / 2,
-      ));
+      tp.paint(
+        canvas,
+        Offset(r.x + (r.w - tp.width) / 2, r.y + (r.h - tp.height) / 2),
+      );
 
       // 有子图标记
       if (r.hasChildren) {

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -136,7 +135,8 @@ class MediaService {
 
   /// Base64编码
   static String base64Encode(List<int> bytes) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     var result = '';
     for (var i = 0; i < bytes.length; i += 3) {
       final a = bytes[i];
@@ -203,7 +203,7 @@ class MediaService {
   static Future<bool> _checkWebCameraSupport() async {
     try {
       // 尝试获取媒体设备
-      final devices = await _imagePicker.retrieveLostData();
+      await _imagePicker.retrieveLostData();
       return true;
     } catch (e) {
       // 如果出错，尝试其他方式检测

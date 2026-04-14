@@ -75,13 +75,16 @@ class DebugLogService {
   static const int maxLogs = 500;
 
   final _logsController = StreamController<List<LogEntry>>.broadcast();
-  final _stateMachineController = StreamController<List<StateMachineEntry>>.broadcast();
+  final _stateMachineController =
+      StreamController<List<StateMachineEntry>>.broadcast();
 
   Stream<List<LogEntry>> get logsStream => _logsController.stream;
-  Stream<List<StateMachineEntry>> get stateMachineStream => _stateMachineController.stream;
+  Stream<List<StateMachineEntry>> get stateMachineStream =>
+      _stateMachineController.stream;
 
   List<LogEntry> get logs => List.unmodifiable(_logs);
-  List<StateMachineEntry> get stateMachineLogs => List.unmodifiable(_stateMachineLogs);
+  List<StateMachineEntry> get stateMachineLogs =>
+      List.unmodifiable(_stateMachineLogs);
 
   void log(LogLevel level, String tag, String message) {
     final entry = LogEntry(

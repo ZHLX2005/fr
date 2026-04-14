@@ -93,13 +93,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// 导航到 Lab 页面
-  static void navigateToLab() {
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => const LabPage()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return classic_provider.MultiProvider(
@@ -243,22 +236,15 @@ class _PlaceholderPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 80,
-              color: Theme.of(context).colorScheme.outline,
-            ),
+            Icon(icon, size: 80, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 24),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text(
               desc,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
           ],
         ),

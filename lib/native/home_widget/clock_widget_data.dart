@@ -53,7 +53,8 @@ class ClockWidgetData {
       durationSeconds: durationSeconds,
       isRunning: isRunning,
       color: color,
-      formattedTime: '$sign${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}',
+      formattedTime:
+          '$sign${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}',
       isOvertime: isOvertime,
     );
   }

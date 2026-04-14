@@ -65,7 +65,9 @@ class _SongSelectPageState extends State<SongSelectPage> {
       MaterialPageRoute(
         builder: (context) => LineDemo(
           chart: chart,
-          audioPath: _selectedSong!.audioPath.isNotEmpty ? _selectedSong!.audioPath : null,
+          audioPath: _selectedSong!.audioPath.isNotEmpty
+              ? _selectedSong!.audioPath
+              : null,
         ).buildPage(context),
       ),
     );
@@ -80,9 +82,7 @@ class _SongSelectPageState extends State<SongSelectPage> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: theme.colorScheme.surface,
-        body: Center(
-          child: CircularProgressIndicator(color: color),
-        ),
+        body: Center(child: CircularProgressIndicator(color: color)),
       );
     }
 
@@ -93,7 +93,11 @@ class _SongSelectPageState extends State<SongSelectPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.music_off, size: 64, color: color.withValues(alpha: 0.3)),
+              Icon(
+                Icons.music_off,
+                size: 64,
+                color: color.withValues(alpha: 0.3),
+              ),
               const SizedBox(height: 16),
               Text(
                 'No songs found',
@@ -115,21 +119,32 @@ class _SongSelectPageState extends State<SongSelectPage> {
             child: Row(
               children: [
                 Padding(
-                  padding: EdgeInsets.only(left: 16, top: MediaQuery.of(context).padding.top),
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    top: MediaQuery.of(context).padding.top,
+                  ),
                   child: IconButton(
-                    icon: Icon(Icons.arrow_back_ios_new, color: color, size: 24),
+                    icon: Icon(
+                      Icons.arrow_back_ios_new,
+                      color: color,
+                      size: 24,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
                 const Spacer(),
                 Padding(
-                  padding: EdgeInsets.only(right: 16, top: MediaQuery.of(context).padding.top),
+                  padding: EdgeInsets.only(
+                    right: 16,
+                    top: MediaQuery.of(context).padding.top,
+                  ),
                   child: IconButton(
                     icon: Icon(Icons.settings_outlined, color: color, size: 24),
                     onPressed: () {
                       Navigator.of(context).push<void>(
                         MaterialPageRoute(
-                          builder: (context) => SpeedSettingsPage(primaryColor: color),
+                          builder: (context) =>
+                              SpeedSettingsPage(primaryColor: color),
                         ),
                       );
                     },
@@ -164,7 +179,9 @@ class _SongSelectPageState extends State<SongSelectPage> {
                           builder: (context, virtualIndex) {
                             final realIndex = virtualIndex % _songs.length;
                             final song = _songs[realIndex];
-                            final selectedIndex = _songs.indexWhere((s) => s.id == _selectedSong?.id);
+                            final selectedIndex = _songs.indexWhere(
+                              (s) => s.id == _selectedSong?.id,
+                            );
                             final distance = (selectedIndex - realIndex).abs();
                             final minDistance = distance > _songs.length / 2
                                 ? _songs.length - distance
@@ -178,13 +195,15 @@ class _SongSelectPageState extends State<SongSelectPage> {
                                 child: Text(
                                   song.name,
                                   style: TextStyle(
-                                    fontSize: isSelected ? 22 : (isNeighbor ? 16 : 12),
+                                    fontSize: isSelected
+                                        ? 22
+                                        : (isNeighbor ? 16 : 12),
                                     fontWeight: FontWeight.w200,
                                     color: isSelected
                                         ? color
                                         : (isNeighbor
-                                            ? color.withValues(alpha: 0.5)
-                                            : color.withValues(alpha: 0.25)),
+                                              ? color.withValues(alpha: 0.5)
+                                              : color.withValues(alpha: 0.25)),
                                     letterSpacing: isSelected ? 4 : 2,
                                   ),
                                   textAlign: TextAlign.right,

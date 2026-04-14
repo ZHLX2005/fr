@@ -55,9 +55,9 @@ class _ProfilePageState extends State<ProfilePage> {
       _bannerPath = null;
     });
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Banner已移除')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Banner已移除')));
     }
   }
 
@@ -79,7 +79,10 @@ class _ProfilePageState extends State<ProfilePage> {
             if (_bannerPath != null)
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('移除Banner', style: TextStyle(color: Colors.red)),
+                title: const Text(
+                  '移除Banner',
+                  style: TextStyle(color: Colors.red),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _removeBanner();
@@ -107,9 +110,7 @@ class _ProfilePageState extends State<ProfilePage> {
               snap: false,
               flexibleSpace: FlexibleSpaceBar(
                 // 标题只在收起状态显示
-                title: _bannerPath == null
-                    ? const Text('小豆子')
-                    : null,
+                title: _bannerPath == null ? const Text('小豆子') : null,
                 titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
                 background: GestureDetector(
                   onTap: _showBannerOptions,
@@ -118,7 +119,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           File(_bannerPath!),
                           fit: BoxFit.cover,
                           width: double.infinity,
-                          errorBuilder: (_, __, ___) => _buildDefaultBanner(context),
+                          errorBuilder: (_, __, ___) =>
+                              _buildDefaultBanner(context),
                         )
                       : _buildDefaultBanner(context),
                 ),
@@ -141,7 +143,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const NativeControllerPage()),
+                            builder: (context) => const NativeControllerPage(),
+                          ),
                         );
                       },
                     ),
@@ -156,7 +159,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const ThemePage()),
+                            builder: (context) => const ThemePage(),
+                          ),
                         );
                       },
                     ),
@@ -171,7 +175,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const LabPage()),
+                            builder: (context) => const LabPage(),
+                          ),
                         );
                       },
                     ),
@@ -180,11 +185,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     Text(
                       '小豆子 - 为了满足好奇心而生',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withOpacity(0.4),
-                          ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.4),
+                      ),
                     ),
                   ],
                 ),
@@ -272,26 +276,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withOpacity(0.6),
-                          ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
+                      ),
                     ),
                   ],
                 ),
               ),
               Icon(
                 Icons.chevron_right,
-                color:
-                    Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
               ),
             ],
           ),

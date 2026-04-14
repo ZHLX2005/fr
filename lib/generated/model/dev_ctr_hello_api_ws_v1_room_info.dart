@@ -36,18 +36,21 @@ class DevCtrHelloApiWsV1RoomInfo {
   int? clientCount;
 
   @override
-  bool operator ==(Object other) => identical(this, other) || other is DevCtrHelloApiWsV1RoomInfo &&
-    other.roomId == roomId &&
-    other.clientCount == clientCount;
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DevCtrHelloApiWsV1RoomInfo &&
+          other.roomId == roomId &&
+          other.clientCount == clientCount;
 
   @override
   int get hashCode =>
-    // ignore: unnecessary_parenthesis
-    (roomId == null ? 0 : roomId!.hashCode) +
-    (clientCount == null ? 0 : clientCount!.hashCode);
+      // ignore: unnecessary_parenthesis
+      (roomId == null ? 0 : roomId!.hashCode) +
+      (clientCount == null ? 0 : clientCount!.hashCode);
 
   @override
-  String toString() => 'DevCtrHelloApiWsV1RoomInfo[roomId=$roomId, clientCount=$clientCount]';
+  String toString() =>
+      'DevCtrHelloApiWsV1RoomInfo[roomId=$roomId, clientCount=$clientCount]';
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
@@ -76,8 +79,10 @@ class DevCtrHelloApiWsV1RoomInfo {
       // Note 2: this code is stripped in release mode!
       assert(() {
         requiredKeys.forEach((key) {
-          assert(json.containsKey(key), 'Required key "DevCtrHelloApiWsV1RoomInfo[$key]" is missing from JSON.');
-          assert(json[key] != null, 'Required key "DevCtrHelloApiWsV1RoomInfo[$key]" has a null value in JSON.');
+          assert(json.containsKey(key),
+              'Required key "DevCtrHelloApiWsV1RoomInfo[$key]" is missing from JSON.');
+          assert(json[key] != null,
+              'Required key "DevCtrHelloApiWsV1RoomInfo[$key]" has a null value in JSON.');
         });
         return true;
       }());
@@ -90,7 +95,10 @@ class DevCtrHelloApiWsV1RoomInfo {
     return null;
   }
 
-  static List<DevCtrHelloApiWsV1RoomInfo> listFromJson(dynamic json, {bool growable = false,}) {
+  static List<DevCtrHelloApiWsV1RoomInfo> listFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final result = <DevCtrHelloApiWsV1RoomInfo>[];
     if (json is List && json.isNotEmpty) {
       for (final row in json) {
@@ -118,20 +126,24 @@ class DevCtrHelloApiWsV1RoomInfo {
   }
 
   // maps a json object with a list of DevCtrHelloApiWsV1RoomInfo-objects as value to a dart map
-  static Map<String, List<DevCtrHelloApiWsV1RoomInfo>> mapListFromJson(dynamic json, {bool growable = false,}) {
+  static Map<String, List<DevCtrHelloApiWsV1RoomInfo>> mapListFromJson(
+    dynamic json, {
+    bool growable = false,
+  }) {
     final map = <String, List<DevCtrHelloApiWsV1RoomInfo>>{};
     if (json is Map && json.isNotEmpty) {
       // ignore: parameter_assignments
       json = json.cast<String, dynamic>();
       for (final entry in json.entries) {
-        map[entry.key] = DevCtrHelloApiWsV1RoomInfo.listFromJson(entry.value, growable: growable,);
+        map[entry.key] = DevCtrHelloApiWsV1RoomInfo.listFromJson(
+          entry.value,
+          growable: growable,
+        );
       }
     }
     return map;
   }
 
   /// The list of required keys that must be present in a JSON.
-  static const requiredKeys = <String>{
-  };
+  static const requiredKeys = <String>{};
 }
-

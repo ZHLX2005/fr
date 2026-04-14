@@ -188,9 +188,9 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('操作失败: $e')));
       }
     }
   }
@@ -276,7 +276,10 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final displayPath = _croppedPath ?? _selectedPath;
-    final hasChanges = _hasUnsavedChanges || (widget.initialImagePath != null && widget.initialImagePath != displayPath);
+    final hasChanges =
+        _hasUnsavedChanges ||
+        (widget.initialImagePath != null &&
+            widget.initialImagePath != displayPath);
 
     return Column(
       children: [
@@ -297,12 +300,16 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                   children: [
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: _isLoading ? null : () => _confirmSelection(displayPath),
+                        onPressed: _isLoading
+                            ? null
+                            : () => _confirmSelection(displayPath),
                         icon: _isLoading
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.check),
                         label: const Text('确认使用'),
@@ -333,9 +340,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                 child: FilledButton.icon(
                   onPressed: _isLoading ? null : _pickAndCropImage,
                   icon: const Icon(Icons.photo_library),
-                  label: Text(
-                    displayPath != null ? '重新选择' : '选择图片',
-                  ),
+                  label: Text(displayPath != null ? '重新选择' : '选择图片'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -416,7 +421,9 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
               child: Row(
                 children: [
                   Icon(
-                    _croppedPath != null ? Icons.check_circle : Icons.info_outline,
+                    _croppedPath != null
+                        ? Icons.check_circle
+                        : Icons.info_outline,
                     size: 16,
                     color: _croppedPath != null
                         ? Colors.green
@@ -516,10 +523,7 @@ class ImagePickerPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(title), centerTitle: true),
       body: ImagePickerWidget(
         config: config,
         initialImagePath: initialImagePath,

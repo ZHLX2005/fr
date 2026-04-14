@@ -201,12 +201,11 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : _images.isEmpty
-                          ? _buildEmptyState()
-                          : _buildImageGrid(theme),
+                      ? _buildEmptyState()
+                      : _buildImageGrid(theme),
                 ),
                 // 选择状态栏
-                if (_isSelectMode)
-                  _buildSelectBar(theme),
+                if (_isSelectMode) _buildSelectBar(theme),
               ],
             )
           : _buildPermissionRequired(),
@@ -218,18 +217,11 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.photo_library_outlined,
-            size: 64,
-            color: Colors.grey[400],
-          ),
+          Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           const Text('需要图库权限'),
           const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: _initGallery,
-            child: const Text('请求权限'),
-          ),
+          ElevatedButton(onPressed: _initGallery, child: const Text('请求权限')),
         ],
       ),
     );
@@ -241,12 +233,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: theme.dividerColor,
-            width: 1,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: Row(
         children: [
@@ -300,10 +287,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
         children: [
           Icon(Icons.photo_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text(
-            '此相册为空',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
+          Text('此相册为空', style: TextStyle(color: Colors.grey[600])),
         ],
       ),
     );
@@ -324,9 +308,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
         if (index == _images.length) {
           return Container(
             color: theme.colorScheme.surfaceContainerHighest,
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            child: const Center(child: CircularProgressIndicator()),
           );
         }
         final image = _images[index];
@@ -334,7 +316,9 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
         final thumbnail = _thumbnails[image.id];
 
         return GestureDetector(
-          onTap: () => _isSelectMode ? _toggleImageSelection(image) : _previewImage(image),
+          onTap: () => _isSelectMode
+              ? _toggleImageSelection(image)
+              : _previewImage(image),
           onLongPress: () {
             if (!_isSelectMode) {
               _enterSelectMode();
@@ -347,15 +331,14 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
                     width: 2,
                   ),
                 ),
                 child: thumbnail != null
-                    ? Image.memory(
-                        thumbnail,
-                        fit: BoxFit.cover,
-                      )
+                    ? Image.memory(thumbnail, fit: BoxFit.cover)
                     : Container(
                         color: theme.colorScheme.surfaceContainerHighest,
                         child: const Center(child: CircularProgressIndicator()),
@@ -391,12 +374,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        border: Border(
-          top: BorderSide(
-            color: theme.dividerColor,
-            width: 1,
-          ),
-        ),
+        border: Border(top: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: Row(
         children: [
@@ -497,7 +475,8 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
             continue;
           }
 
-          final title = image.title ?? 'image_${DateTime.now().millisecondsSinceEpoch}';
+          final title =
+              image.title ?? 'image_${DateTime.now().millisecondsSinceEpoch}';
 
           // 保存图片到系统图库（会进入"最近添加"）
           final result = await PhotoManager.editor.saveImage(
@@ -506,6 +485,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
             filename: title,
           );
 
+          // ignore: unnecessary_null_comparison, dead_code
           if (result == null) {
             debugPrint('保存图片失败: ${image.title}');
             failCount++;
@@ -606,9 +586,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   void _previewImage(AssetEntity image) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => _ImagePreviewPage(image: image),
-      ),
+      MaterialPageRoute(builder: (context) => _ImagePreviewPage(image: image)),
     );
   }
 }
@@ -672,7 +650,8 @@ class _MoveImageDialogState extends State<_MoveImageDialog> {
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed: _selectedAlbum != null && _selectedAlbum != widget.currentAlbum
+          onPressed:
+              _selectedAlbum != null && _selectedAlbum != widget.currentAlbum
               ? () => widget.onMove(_selectedAlbum!)
               : null,
           child: const Text('移动'),
@@ -728,10 +707,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
           Expanded(
             child: Center(
               child: _imageData != null
-                  ? Image.memory(
-                      _imageData!,
-                      fit: BoxFit.contain,
-                    )
+                  ? Image.memory(_imageData!, fit: BoxFit.contain)
                   : const CircularProgressIndicator(),
             ),
           ),
@@ -747,9 +723,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: theme.dividerColor),
-        ),
+        border: Border(top: BorderSide(color: theme.dividerColor)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -781,11 +755,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
                   Icons.location_on,
                   '${image.latitude!.toStringAsFixed(4)}, ${image.longitude!.toStringAsFixed(4)}',
                 ),
-              _buildInfoChip(
-                theme,
-                Icons.image,
-                image.mimeType ?? 'image',
-              ),
+              _buildInfoChip(theme, Icons.image, image.mimeType ?? 'image'),
             ],
           ),
         ],
@@ -801,7 +771,11 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
     );
   }
 
-  void _showMetadataSheet(BuildContext context, ThemeData theme, AssetEntity image) {
+  void _showMetadataSheet(
+    BuildContext context,
+    ThemeData theme,
+    AssetEntity image,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -822,12 +796,17 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     const Icon(Icons.info_outline),
@@ -853,18 +832,35 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
                     ]),
                     const SizedBox(height: 16),
                     _buildMetadataSection('时间信息', [
-                      _buildMetadataItem('创建时间', _formatDate(image.createDateTime)),
-                      _buildMetadataItem('修改时间', _formatDate(image.modifiedDateTime)),
+                      _buildMetadataItem(
+                        '创建时间',
+                        _formatDate(image.createDateTime),
+                      ),
+                      _buildMetadataItem(
+                        '修改时间',
+                        _formatDate(image.modifiedDateTime),
+                      ),
                     ]),
                     const SizedBox(height: 16),
                     _buildMetadataSection('地理信息', [
-                      _buildMetadataItem('纬度', image.latitude?.toStringAsFixed(8) ?? '无'),
-                      _buildMetadataItem('经度', image.longitude?.toStringAsFixed(8) ?? '无'),
+                      _buildMetadataItem(
+                        '纬度',
+                        image.latitude?.toStringAsFixed(8) ?? '无',
+                      ),
+                      _buildMetadataItem(
+                        '经度',
+                        image.longitude?.toStringAsFixed(8) ?? '无',
+                      ),
                     ]),
                     const SizedBox(height: 16),
                     _buildMetadataSection('相册信息', [
                       _buildMetadataItem('相对路径', image.relativePath ?? '未知'),
-                      _buildMetadataItem('视频时长', image.type == AssetType.video ? '${image.duration} ms' : '不适用'),
+                      _buildMetadataItem(
+                        '视频时长',
+                        image.type == AssetType.video
+                            ? '${image.duration} ms'
+                            : '不适用',
+                      ),
                     ]),
                   ],
                 ),
@@ -882,10 +878,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         ...children,
@@ -903,10 +896,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
             width: 80,
             child: Text(
               label,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 13,
-              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
           ),
           Expanded(

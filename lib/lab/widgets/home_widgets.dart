@@ -17,10 +17,7 @@ class HomeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: _buildContent(context),
-    );
+    return GestureDetector(onTap: onTap, child: _buildContent(context));
   }
 
   Widget _buildContent(BuildContext context) {
@@ -106,9 +103,7 @@ class HomeTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // 文件夹内容网格（显示前9个小图标）
-            Expanded(
-              child: _buildFolderPreviewGrid(children),
-            ),
+            Expanded(child: _buildFolderPreviewGrid(children)),
             const SizedBox(height: 4),
             Text(
               folder.title,
@@ -123,10 +118,7 @@ class HomeTile extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               '${folder.children.length}',
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.grey[500],
-              ),
+              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
             ),
           ],
         ),
@@ -243,7 +235,8 @@ class ItemMergeTarget extends StatelessWidget {
     return DragTarget<HomeItem>(
       onWillAcceptWithDetails: (details) {
         if (details.data.id == targetItem.id) return false;
-        final canMerge = (targetItem is AppItem || targetItem is FolderItem) &&
+        final canMerge =
+            (targetItem is AppItem || targetItem is FolderItem) &&
             (details.data is AppItem);
         controller.updateHoverOverItem(targetItem.id, folderHover: canMerge);
         return canMerge;
@@ -255,7 +248,8 @@ class ItemMergeTarget extends StatelessWidget {
         controller.commitMergeToFolder(targetItem.id);
       },
       builder: (context, candidateData, rejectedData) {
-        final isHover = controller.drag.hoverOverItemId == targetItem.id &&
+        final isHover =
+            controller.drag.hoverOverItemId == targetItem.id &&
             controller.drag.isFolderHover;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 120),

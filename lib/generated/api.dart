@@ -56,7 +56,6 @@ part 'model/dev_ctr_hello_api_ws_v1_ws_connect_res.dart';
 part 'model/dev_ctr_hello_api_ws_v1_ws_rooms_res.dart';
 part 'model/dev_ctr_hello_api_ws_v1_ws_stats_res.dart';
 
-
 /// An [ApiClient] instance that uses the default values obtained from
 /// the OpenAPI specification file.
 var defaultApiClient = ApiClient();
@@ -69,4 +68,5 @@ final _regList = RegExp(r'^List<(.*)>$');
 final _regSet = RegExp(r'^Set<(.*)>$');
 final _regMap = RegExp(r'^Map<String,(.*)>$');
 
-bool _isEpochMarker(String? pattern) => pattern == _dateEpochMarker || pattern == '/$_dateEpochMarker/';
+bool _isEpochMarker(String? pattern) =>
+    pattern == _dateEpochMarker || pattern == '/$_dateEpochMarker/';

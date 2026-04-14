@@ -29,12 +29,7 @@ class AppItem implements HomeItem {
   @override
   HomeItemType get type => HomeItemType.app;
 
-  AppItem copyWith({
-    String? id,
-    String? title,
-    IconData? icon,
-    Color? color,
-  }) {
+  AppItem copyWith({String? id, String? title, IconData? icon, Color? color}) {
     return AppItem(
       id: id ?? this.id,
       title: title ?? this.title,
@@ -52,20 +47,12 @@ class FolderItem implements HomeItem {
   final String title;
   final List<AppItem> children;
 
-  FolderItem({
-    required this.id,
-    required this.title,
-    required this.children,
-  });
+  FolderItem({required this.id, required this.title, required this.children});
 
   @override
   HomeItemType get type => HomeItemType.folder;
 
-  FolderItem copyWith({
-    String? id,
-    String? title,
-    List<AppItem>? children,
-  }) {
+  FolderItem copyWith({String? id, String? title, List<AppItem>? children}) {
     return FolderItem(
       id: id ?? this.id,
       title: title ?? this.title,

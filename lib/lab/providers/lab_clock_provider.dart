@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:audioplayers/audioplayers.dart';
-import '../../home_widget/clock_widget_data.dart';
-import '../../home_widget/clock_widget_service.dart';
+import '../../native/home_widget/clock_widget_data.dart';
+import '../../native/home_widget/clock_widget_service.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 
@@ -42,14 +42,15 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       final clock = _clocks[i];
       if (clock.isRunning && clock.startTime != null) {
         // 使用startRemainingSeconds（如果有），否则兼容旧数据用durationSeconds
-        final baseSeconds = clock.startRemainingSeconds ?? clock.durationSeconds ?? clock.remainingSeconds;
+        final baseSeconds =
+            clock.startRemainingSeconds ??
+            clock.durationSeconds ??
+            clock.remainingSeconds;
         final elapsed = DateTime.now().difference(clock.startTime!).inSeconds;
         final newRemaining = baseSeconds - elapsed;
 
         if (newRemaining != clock.remainingSeconds) {
-          _clocks[i] = clock.copyWith(
-            remainingSeconds: newRemaining,
-          );
+          _clocks[i] = clock.copyWith(remainingSeconds: newRemaining);
           changed = true;
         }
       }
@@ -67,7 +68,10 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
         final clock = _clocks[i];
         if (clock.isRunning && clock.startTime != null) {
           // 使用startRemainingSeconds（如果有），否则兼容旧数据用durationSeconds
-          final baseSeconds = clock.startRemainingSeconds ?? clock.durationSeconds ?? clock.remainingSeconds;
+          final baseSeconds =
+              clock.startRemainingSeconds ??
+              clock.durationSeconds ??
+              clock.remainingSeconds;
           final elapsed = DateTime.now().difference(clock.startTime!).inSeconds;
           final newRemaining = baseSeconds - elapsed;
 
@@ -78,9 +82,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
           }
 
           if (newRemaining != clock.remainingSeconds) {
-            _clocks[i] = clock.copyWith(
-              remainingSeconds: newRemaining,
-            );
+            _clocks[i] = clock.copyWith(remainingSeconds: newRemaining);
             changed = true;
           }
         }
@@ -103,7 +105,9 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   // 播放系统通知铃声
-  static const _soundChannel = MethodChannel('com.example.flutter_application_1/clock');
+  static const _soundChannel = MethodChannel(
+    'com.example.flutter_application_1/clock',
+  );
 
   Future<void> _playNotificationSound() async {
     try {
@@ -178,12 +182,18 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _saveClocks() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_storageKey, json.encode(_clocks.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _storageKey,
+      json.encode(_clocks.map((e) => e.toJson()).toList()),
+    );
   }
 
   Future<void> _saveRecords() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_recordsKey, json.encode(_records.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _recordsKey,
+      json.encode(_records.map((e) => e.toJson()).toList()),
+    );
   }
 
   /// 创建时钟
@@ -226,7 +236,9 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       title: title ?? c.title,
       description: description ?? c.description,
       durationSeconds: durationSeconds ?? c.durationSeconds,
-      remainingSeconds: c.isRunning ? c.remainingSeconds : (durationSeconds ?? c.remainingSeconds),
+      remainingSeconds: c.isRunning
+          ? c.remainingSeconds
+          : (durationSeconds ?? c.remainingSeconds),
       color: color ?? c.color,
     );
     await _saveClocks();
@@ -245,7 +257,9 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     final now = DateTime.now();
 
     // 查找或创建记录（只创建，不累加）
-    int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
+    int recordIdx = _records.indexWhere(
+      (r) => r.clockId == id && r.endTime == null,
+    );
 
     if (recordIdx == -1) {
       final record = LabClockRecord(
@@ -294,7 +308,9 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     final consumed = (c.durationSeconds ?? 0) - c.remainingSeconds;
 
     // 查找或更新记录
-    int recordIdx = _records.indexWhere((r) => r.clockId == id && r.endTime == null);
+    int recordIdx = _records.indexWhere(
+      (r) => r.clockId == id && r.endTime == null,
+    );
 
     if (recordIdx != -1) {
       _records[recordIdx] = _records[recordIdx].copyWith(
@@ -305,7 +321,10 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     }
 
     // 重置时钟
-    _clocks[i] = c.copyWith(isRunning: false, remainingSeconds: c.durationSeconds ?? 0);
+    _clocks[i] = c.copyWith(
+      isRunning: false,
+      remainingSeconds: c.durationSeconds ?? 0,
+    );
 
     await _saveRecords();
     await _saveClocks();
