@@ -10,111 +10,114 @@ class DragBlendDemo extends DemoPage {
   String get description => 'collapsing header 效果';
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) => const _DragBlendPage();
 }
 
 const double _kExpandedHeight = 240.0;
+const double _kCollapsedHeight = kToolbarHeight;
 const double _kMaxRadius = 60.0;
 const double _kExpandedFontSize = 32.0;
 const double _kCollapsedFontSize = 18.0;
 
-class _DragBlendPage extends StatelessWidget {
+class _DragBlendPage extends StatefulWidget {
   const _DragBlendPage();
+
+  @override
+  State<_DragBlendPage> createState() => _DragBlendPageState();
+}
+
+class _DragBlendPageState extends State<_DragBlendPage> {
+  final ScrollController _scrollController = ScrollController();
+  double _scrollOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    setState(() {
+      _scrollOffset = _scrollController.offset;
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final themeColor = Theme.of(context).colorScheme.primary;
+    final t = (_scrollOffset / (_kExpandedHeight - _kCollapsedHeight)).clamp(0.0, 1.0);
+    final radius = _kMaxRadius * (1 - t);
+    final fontSize = _kExpandedFontSize - (_kExpandedFontSize - _kCollapsedFontSize) * t;
+    final headerHeight = (_kExpandedHeight - _scrollOffset).clamp(_kCollapsedHeight, _kExpandedHeight);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          SliverPersistentHeader(
-            pinned: false,
-            delegate: _CollapsingHeaderDelegate(
-              expandedHeight: _kExpandedHeight,
-              maxRadius: _kMaxRadius,
-              expandedFontSize: _kExpandedFontSize,
-              collapsedFontSize: _kCollapsedFontSize,
-              themeColor: themeColor,
-            ),
-          ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => Container(
-                color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: themeColor.withAlpha(31),
-                      child: Text(
-                        '${index + 1}',
-                        style: TextStyle(color: themeColor, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('列表项 ${index + 1}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 4),
-                          Text('这是第 ${index + 1} 条内容的描述信息', style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right, color: Colors.grey[400]),
-                  ],
-                ),
-              ),
-              childCount: 30,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final double expandedHeight;
-  final double maxRadius;
-  final double expandedFontSize;
-  final double collapsedFontSize;
-  final Color themeColor;
-
-  _CollapsingHeaderDelegate({
-    required this.expandedHeight,
-    required this.maxRadius,
-    required this.expandedFontSize,
-    required this.collapsedFontSize,
-    required this.themeColor,
-  });
-
-  @override
-  double get maxExtent => expandedHeight;
-
-  @override
-  double get minExtent => 0;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final t = (shrinkOffset / maxExtent).clamp(0.0, 1.0);
-    final radius = maxRadius * (1 - t);
-    final fontSize = expandedFontSize - (expandedFontSize - collapsedFontSize) * t;
-
-    return SizedBox(
-      height: expandedHeight - shrinkOffset,
-      child: Stack(
+      body: Stack(
         children: [
-          // 主题色背景块 - 只有渐变，没有 color
+          // 列表
+          ListView.builder(
+            controller: _scrollController,
+            padding: EdgeInsets.only(top: headerHeight),
+            itemCount: 30,
+            itemBuilder: (context, index) => Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(13),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: themeColor.withAlpha(31),
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(color: themeColor, fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('列表项 ${index + 1}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 4),
+                        Text('这是第 ${index + 1} 条内容的描述信息', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+                ],
+              ),
+            ),
+          ),
+          // 主题色头部 - 固定在顶部
           Positioned(
             left: 0,
             right: 0,
             top: 0,
-            height: expandedHeight - shrinkOffset,
             child: Container(
+              height: (_kExpandedHeight - _scrollOffset).clamp(_kCollapsedHeight, _kExpandedHeight),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -126,28 +129,28 @@ class _CollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
                   bottomRight: Radius.circular(radius),
                 ),
               ),
-            ),
-          ),
-          // 标题内容
-          SafeArea(
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 24,
-                  right: 24,
-                  bottom: 24,
-                  top: 24 + 40 * (1 - t),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Opacity(
-                      opacity: (1 - t * 2.5).clamp(0.0, 1.0),
-                      child: const Text('欢迎回来 👋', style: TextStyle(color: Colors.white70, fontSize: 14)),
+              child: SafeArea(
+                bottom: false,
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      bottom: 24,
+                      top: 24 + 40 * (1 - t),
                     ),
-                    const SizedBox(height: 4),
-                    Text('我的主页', style: TextStyle(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.bold)),
-                  ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Opacity(
+                          opacity: (1 - t * 2.5).clamp(0.0, 1.0),
+                          child: const Text('欢迎回来 👋', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text('我的主页', style: TextStyle(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -156,9 +159,6 @@ class _CollapsingHeaderDelegate extends SliverPersistentHeaderDelegate {
       ),
     );
   }
-
-  @override
-  bool shouldRebuild(covariant _CollapsingHeaderDelegate oldDelegate) => true;
 }
 
 void registerDragBlendDemo() {
