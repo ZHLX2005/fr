@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:audioplayers/audioplayers.dart';
-import '../../home_widget/clock_widget_data.dart';
-import '../../home_widget/clock_widget_service.dart';
+import '../../native/home_widget/clock_widget_data.dart';
+import '../../native/home_widget/clock_widget_service.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 
