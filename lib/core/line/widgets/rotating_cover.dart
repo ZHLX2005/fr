@@ -67,21 +67,36 @@ class _RotatingCoverState extends State<RotatingCover>
           ],
         ),
         child: ClipOval(
-          child: Image.asset(
-            widget.imagePath,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: color.withValues(alpha: 0.1),
-                child: Icon(
-                  Icons.music_note,
-                  color: color.withValues(alpha: 0.5),
-                  size: widget.size * 0.4,
-                ),
-              );
-            },
-          ),
+          child: _buildImage(),
         ),
+      ),
+    );
+  }
+
+  Widget _buildImage() {
+    // 判断是远程 URL 还是本地 assets
+    if (widget.imagePath.startsWith('http://') || widget.imagePath.startsWith('https://')) {
+      return Image.network(
+        widget.imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _placeholder(),
+      );
+    }
+    return Image.asset(
+      widget.imagePath,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _placeholder(),
+    );
+  }
+
+  Widget _placeholder() {
+    final color = Theme.of(context).colorScheme.primary;
+    return Container(
+      color: color.withValues(alpha: 0.1),
+      child: Icon(
+        Icons.music_note,
+        color: color.withValues(alpha: 0.5),
+        size: widget.size * 0.4,
       ),
     );
   }
