@@ -70,31 +70,7 @@ class LabPage extends StatelessWidget {
     List<MapEntry<String, DemoPage>> demos,
     ThemeData theme,
   ) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 1.1,
-      ),
-      itemCount: demos.length,
-      itemBuilder: (context, index) {
-        final demo = demos[index].value;
-        return _DemoCard(
-          title: demo.title,
-          description: demo.description,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => _DemoDetailPage(demo: demo),
-              ),
-            );
-          },
-        );
-      },
-    );
+    return _ScrollRevealGrid(demos: demos);
   }
 
   void _showLabInfo(BuildContext context) {
@@ -687,6 +663,124 @@ class _DemoDetailPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 滑动渐入 Grid
+class _ScrollRevealGrid extends StatefulWidget {
+  const _ScrollRevealGrid({required this.demos});
+
+  final List<MapEntry<String, DemoPage>> demos;
+
+  @override
+  State<_ScrollRevealGrid> createState() => _ScrollRevealGridState();
+}
+
+class _ScrollRevealGridState extends State<_ScrollRevealGrid>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  final Map<int, bool> _revealed = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 1.1,
+      ),
+      itemCount: widget.demos.length,
+      itemBuilder: (context, index) {
+        final demo = widget.demos[index].value;
+        return _ScrollRevealItem(
+          index: index,
+          controller: _controller,
+          child: _DemoCard(
+            title: demo.title,
+            description: demo.description,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => _DemoDetailPage(demo: demo),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 单个卡片的渐入动画
+class _ScrollRevealItem extends StatefulWidget {
+  const _ScrollRevealItem({
+    required this.index,
+    required this.controller,
+    required this.child,
+  });
+
+  final int index;
+  final AnimationController controller;
+  final Widget child;
+
+  @override
+  State<_ScrollRevealItem> createState() => _ScrollRevealItemState();
+}
+
+class _ScrollRevealItemState extends State<_ScrollRevealItem> {
+  @override
+  void initState() {
+    super.initState();
+    final delay = (widget.index * 0.08).clamp(0.0, 0.6);
+    Future.delayed(Duration(milliseconds: (delay * 1000).toInt()), () {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 交错动画延迟
+    final delay = (widget.index * 0.08).clamp(0.0, 0.6);
+    final start = delay;
+    final end = (delay + 0.25).clamp(0.0, 1.0);
+
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, child) {
+        final progress = Curves.easeOutCubic.transform(
+          ((widget.controller.value - start) / (end - start)).clamp(0.0, 1.0),
+        );
+
+        return Opacity(
+          opacity: progress,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - progress)),
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
     );
   }
 }
