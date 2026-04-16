@@ -214,7 +214,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
     // 初始化音频播放
     if (widget.audioPath != null) {
       _audioPlayer = AudioPlayer();
-      _audioPlayer!.setAsset(widget.audioPath!);
+      final path = widget.audioPath!;
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        _audioPlayer!.setUrl(path);
+      } else {
+        _audioPlayer!.setAsset(path);
+      }
     }
 
     _enterController.value = 1.0;
