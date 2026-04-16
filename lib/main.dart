@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
 import 'lab/lab_bootstrap.dart';
@@ -16,6 +17,7 @@ import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'providers/agent_chat_provider.dart';
 import 'core/body/models/body_record_repo.dart';
+import 'core/line/repository/chart_repository.dart';
 
 void main() async {
   // 确保 Flutter 绑定初始化
@@ -25,6 +27,16 @@ void main() async {
   final hiveRepo = HiveTimetableRepository();
   await hiveRepo.init();
   await bodyRecordRepo.init();
+
+  // 初始化 Supabase
+  await Supabase.initialize(
+    url: 'https://kklrbynhqpwwhtfanqwt.supabase.co',
+    anonKey: 'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P', // TODO: 替换为实际 anon key
+  );
+  ChartRepository.initSupabase(
+    'https://kklrbynhqpwwhtfanqwt.supabase.co',
+    'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P',
+  );
 
   // 初始化 Lab 模块（注册所有 Demo + Schema）
   bootstrapLab();

@@ -1,14 +1,27 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/line_models.dart';
+import 'line_cache_manager.dart';
+import 'song_record.dart';
 
-/// 乐谱数据仓库
+/// 乐谱数据仓库（远程 Supabase + 本地文件缓存）
 class ChartRepository {
-  static const String _chartsPath = 'assets/charts/';
-  static const String _indexFile = 'songs_index.json';
+  // 本地缓存子目录常量
+  static const String _chartsDir = 'charts';
+  static const String _audioDir = 'audio';
+  static const String _coversDir = 'covers';
 
-  static final Map<String, SongData> _cache = {};
+  static final Map<String, SongData> _memoryCache = {};
+  static final LineCacheManager _cache = LineCacheManager();
+
+  static SupabaseClient? _supabaseClient;
+
+  /// 初始化 Supabase 客户端（需在 main() 中调用一次）
+  static void initSupabase(String url, String anonKey) {
+    _supabaseClient = SupabaseClient(url, anonKey);
+  }
 
   static List<NoteEvent> _parseNotes(Map<String, dynamic> chartData) {
     final notesRaw = chartData['notes'] as List? ?? [];
@@ -18,46 +31,152 @@ class ChartRepository {
         .toList();
   }
 
-  /// 加载歌曲索引
+  /// 加载歌曲列表（从 Supabase songs 表）
   static Future<List<SongData>> loadAllSongs() async {
+    if (_supabaseClient == null) {
+      debugPrint('[ChartRepository] Supabase not initialized');
+      return [];
+    }
     try {
-      final indexJson = await rootBundle.loadString('$_chartsPath$_indexFile');
-      final indexData = jsonDecode(indexJson) as Map<String, dynamic>;
-      final songsList = indexData['songs'] as List? ?? [];
-
-      final songs = <SongData>[];
-      for (final songInfo in songsList) {
-        final songId = songInfo['id'] as String;
-        final chartJson = await rootBundle.loadString(
-          '$_chartsPath$songId.json',
-        );
-        final chartData = jsonDecode(chartJson) as Map<String, dynamic>;
-        final notes = _parseNotes(chartData);
-
-        songs.add(SongData.fromJson(chartData, notes));
-      }
-      return songs;
+      return await _loadFromSupabase();
     } catch (e) {
-      debugPrint('Failed to load songs: $e');
+      debugPrint('[ChartRepository] Failed to load songs: $e');
       return [];
     }
   }
 
-  /// 根据ID加载单个歌曲
-  static Future<SongData?> loadSong(String id) async {
-    if (_cache.containsKey(id)) {
-      return _cache[id];
-    }
-    try {
-      final chartJson = await rootBundle.loadString('$_chartsPath$id.json');
+  /// 从 Supabase songs 表加载
+  static Future<List<SongData>> _loadFromSupabase() async {
+    final client = _supabaseClient!;
+    final response = await client.from('music').select();
+
+    final List<dynamic> rows = response as List<dynamic>;
+    final songRecords = rows.map((r) => SongRecord.fromJson(r as Map<String, dynamic>)).toList();
+
+    final songs = <SongData>[];
+    for (final record in songRecords) {
+      final chartJson = await _getChartJson(record.id, record.chartUrl);
+      if (chartJson == null) continue;
+
       final chartData = jsonDecode(chartJson) as Map<String, dynamic>;
       final notes = _parseNotes(chartData);
 
-      final song = SongData.fromJson(chartData, notes);
-      _cache[id] = song;
+      songs.add(SongData(
+        id: record.id,
+        name: chartData['name'] as String? ?? record.name,
+        artist: chartData['artist'] as String? ?? record.artist,
+        intro: chartData['intro'] as String? ?? record.intro,
+        audioPath: record.audioUrl,
+        coverPath: record.coverUrl,
+        bpm: chartData['bpm'] as int? ?? 120,
+        duration: chartData['duration'] as int? ?? 180,
+        difficulty: chartData['difficulty'] as int? ?? 1,
+        dropDuration: chartData['dropDuration'] as int? ?? 2500,
+        notes: notes,
+      ));
+    }
+    return songs;
+  }
+
+  /// 获取 chart JSON：优先缓存文件，其次从 Supabase Storage 下载
+  static Future<String?> _getChartJson(String songId, String chartUrl) async {
+    // 1. 尝试读取缓存文件
+    final cached = await _cache.getCachedPath(_chartsDir, '$songId.json');
+    if (cached != null) {
+      return File(cached).readAsString();
+    }
+
+    // 2. 下载并缓存
+    try {
+      final localPath = await _cache.cacheFile(chartUrl, _chartsDir, '$songId.json');
+      return File(localPath).readAsString();
+    } catch (e) {
+      debugPrint('[ChartRepository] Failed to load chart $songId: $e');
+      return null;
+    }
+  }
+
+  /// 根据 ID 加载单个歌曲
+  static Future<SongData?> loadSong(String id) async {
+    if (_memoryCache.containsKey(id)) {
+      return _memoryCache[id];
+    }
+
+    if (_supabaseClient == null) {
+      debugPrint('[ChartRepository] Supabase not initialized');
+      return null;
+    }
+
+    try {
+      final response = await _supabaseClient!.from('music').select().eq('id', id).single();
+      final record = SongRecord.fromJson(Map<String, dynamic>.from(response));
+      final chartJson = await _getChartJson(record.id, record.chartUrl);
+      if (chartJson == null) return null;
+
+      final chartData = jsonDecode(chartJson) as Map<String, dynamic>;
+      final notes = _parseNotes(chartData);
+
+      final song = SongData(
+        id: record.id,
+        name: chartData['name'] as String? ?? record.name,
+        artist: chartData['artist'] as String? ?? record.artist,
+        intro: chartData['intro'] as String? ?? record.intro,
+        audioPath: record.audioUrl,
+        coverPath: record.coverUrl,
+        bpm: chartData['bpm'] as int? ?? 120,
+        duration: chartData['duration'] as int? ?? 180,
+        difficulty: chartData['difficulty'] as int? ?? 1,
+        dropDuration: chartData['dropDuration'] as int? ?? 2500,
+        notes: notes,
+      );
+      _memoryCache[id] = song;
       return song;
     } catch (e) {
-      debugPrint('Failed to load song $id: $e');
+      debugPrint('[ChartRepository] loadSong failed: $e');
+      return null;
+    }
+  }
+
+  /// 预下载歌曲资源到本地缓存
+  static Future<void> precacheSong(String songId, String audioUrl, String coverUrl, String chartUrl) async {
+    try {
+      final audioFile = audioUrl.split('/').last;
+      await _cache.cacheFile(audioUrl, _audioDir, audioFile);
+    } catch (e) {
+      debugPrint('[ChartRepository] precache audio failed: $e');
+    }
+    try {
+      final coverFile = coverUrl.split('/').last;
+      await _cache.cacheFile(coverUrl, _coversDir, coverFile);
+    } catch (e) {
+      debugPrint('[ChartRepository] precache cover failed: $e');
+    }
+    try {
+      await _cache.cacheFile(chartUrl, _chartsDir, '$songId.json');
+    } catch (e) {
+      debugPrint('[ChartRepository] precache chart failed: $e');
+    }
+  }
+
+  /// 检查歌曲资源是否已缓存本地
+  static Future<bool> isSongCached(String songId) async {
+    final audioFile = '$songId.m4a';
+    final chartFile = '$songId.json';
+
+    final audioCached = await _cache.getCachedPath(_audioDir, audioFile);
+    final chartCached = await _cache.getCachedPath(_chartsDir, chartFile);
+
+    return audioCached != null && chartCached != null;
+  }
+
+  /// 获取单个歌曲的 SongRecord（不加载 chart JSON）
+  static Future<SongRecord?> loadSongRecord(String id) async {
+    if (_supabaseClient == null) return null;
+    try {
+      final response = await _supabaseClient!.from('music').select().eq('id', id).single();
+      return SongRecord.fromJson(Map<String, dynamic>.from(response));
+    } catch (e) {
+      debugPrint('[ChartRepository] loadSongRecord failed: $e');
       return null;
     }
   }
