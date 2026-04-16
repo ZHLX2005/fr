@@ -111,12 +111,6 @@ class _AIChatPageState extends State<AIChatPage> {
                   Text(widget.title, style: const TextStyle(fontSize: 16)),
                   Consumer<AIChatProvider>(
                     builder: (context, provider, _) {
-                      if (provider.isLoading) {
-                        return const Text(
-                          '思考中...',
-                          style: TextStyle(fontSize: 12, color: Colors.blue),
-                        );
-                      }
                       return Text(
                         provider.isConfigured ? '已连接' : '未配置',
                         style: TextStyle(
@@ -220,7 +214,7 @@ class _AIChatPageState extends State<AIChatPage> {
           Text(
             provider.isConfigured ? '开始你的对话吧' : '请先配置 API Key',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
           if (!provider.isConfigured) ...[
@@ -261,7 +255,7 @@ class _AIChatPageState extends State<AIChatPage> {
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -396,7 +390,7 @@ class _MessageBubble extends StatelessWidget {
                     style: TextStyle(
                       color: isMe
                           ? Colors.white70
-                          : theme.colorScheme.onSurface.withOpacity(0.7),
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
