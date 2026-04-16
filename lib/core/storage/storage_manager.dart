@@ -19,7 +19,7 @@ class StorageManager {
     try {
       final box = await Hive.openBox(_registryBoxName);
       final raw = box.get(_registryKey);
-      final registered = raw is List ? (raw as List).cast<String>() : <String>[];
+      final registered = raw is List ? raw.cast<String>() : <String>[];
       if (!registered.contains(boxName)) {
         registered.add(boxName);
         await box.put(_registryKey, registered);
@@ -34,7 +34,7 @@ class StorageManager {
       final box = Hive.box(_registryBoxName);
       final raw = box.get(_registryKey);
       if (raw is! List) return _fallbackBoxNames;
-      return (raw as List).cast<String>();
+      return raw.cast<String>();
     } catch (_) {
       return _fallbackBoxNames;
     }
