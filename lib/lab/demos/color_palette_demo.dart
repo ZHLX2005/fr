@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../lab_container.dart';
@@ -208,10 +207,10 @@ class ColorUtils {
         (a + (b - a) * t).round().clamp(0, 255);
     const t = 0.10;
     return Color.fromARGB(
-      c.alpha,
-      mix(c.red, 255, t),
-      mix(c.green, 255, t),
-      mix(c.blue, 255, t),
+      (c.a * 255).round(),
+      mix((c.r * 255).round(), 255, t),
+      mix((c.g * 255).round(), 255, t),
+      mix((c.b * 255).round(), 255, t),
     );
   }
 }
@@ -409,7 +408,7 @@ class _PairSelector extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.15),
+            color: Colors.grey.withValues(alpha: 0.15),
             offset: const Offset(0, 2),
             blurRadius: 8,
           ),
@@ -471,7 +470,7 @@ class _InfoPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.12),
+            color: Colors.grey.withValues(alpha: 0.12),
             offset: const Offset(0, 2),
             blurRadius: 8,
           ),
@@ -545,7 +544,7 @@ class _ColorDetailCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: ColorUtils.fromHex(model.hex),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
                 ),
               ),
               const SizedBox(width: 8),
