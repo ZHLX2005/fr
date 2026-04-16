@@ -48,7 +48,7 @@ class ChartRepository {
   /// 从 Supabase songs 表加载
   static Future<List<SongData>> _loadFromSupabase() async {
     final client = _supabaseClient!;
-    final response = await client.from('songs').select();
+    final response = await client.from('music').select();
 
     final List<dynamic> rows = response as List<dynamic>;
     final songRecords = rows.map((r) => SongRecord.fromJson(r as Map<String, dynamic>)).toList();
@@ -108,7 +108,7 @@ class ChartRepository {
     }
 
     try {
-      final response = await _supabaseClient!.from('songs').select().eq('id', id).single();
+      final response = await _supabaseClient!.from('music').select().eq('id', id).single();
       final record = SongRecord.fromJson(Map<String, dynamic>.from(response));
       final chartJson = await _getChartJson(record.id, record.chartUrl);
       if (chartJson == null) return null;
