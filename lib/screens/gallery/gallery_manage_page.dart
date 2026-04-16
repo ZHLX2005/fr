@@ -383,9 +383,16 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
             style: theme.textTheme.titleSmall,
           ),
           const Spacer(),
-          TextButton(
+          TextButton.icon(
             onPressed: _selectedImages.isEmpty ? null : _selectAll,
-            child: const Text('全选'),
+            icon: const Icon(Icons.select_all, size: 18),
+            label: const Text('全选'),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed: _selectedImages.isEmpty ? null : _showDeleteConfirm,
+            icon: Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
+            label: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
           ),
         ],
       ),
@@ -418,6 +425,136 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       _selectedImages.clear();
       _selectedImages.addAll(_images);
     });
+  }
+
+  void _showDeleteConfirm() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text(
+          '确定要删除选中的 ${_selectedImages.length} 张图片吗？\n\n此操作不可恢复。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteImages();
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteImages() async {
+    if (_selectedImages.isEmpty) return;
+
+    // 显示加载对话框
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('正在删除 ${_selectedImages.length} 张图片...'),
+          ],
+        ),
+      ),
+    );
+
+    int successCount = 0;
+    int failCount = 0;
+    final List<String> errorMessages = [];
+
+    try {
+      final idsToDelete = _selectedImages.map((e) => e.id).toList();
+      final result = await PhotoManager.editor.deleteWithIds(idsToDelete);
+
+      successCount = result.length;
+      failCount = _selectedImages.length - result.length;
+
+      if (failCount > 0) {
+        errorMessages.add('$failCount 张图片删除失败');
+      }
+    } catch (e) {
+      debugPrint('批量删除图片失败: $e');
+      failCount = _selectedImages.length;
+      errorMessages.add('删除出错: $e');
+    }
+
+    if (mounted) {
+      Navigator.pop(context); // 关闭加载对话框
+
+      // 显示结果
+      String message;
+      if (failCount == 0) {
+        message = '✅ 已删除 $successCount 张图片';
+      } else {
+        message = '⚠️ 部分成功：$successCount 张已删除，$failCount 张失败';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+          action: failCount > 0
+              ? SnackBarAction(
+                  label: '查看详情',
+                  textColor: Theme.of(context).colorScheme.inverseSurface,
+                  onPressed: () => _showDeleteErrors(context, errorMessages),
+                )
+              : null,
+        ),
+      );
+
+      // 重新加载当前相册
+      if (_selectedAlbum != null) {
+        await _loadImages(_selectedAlbum!, reset: true);
+      }
+    }
+
+    _exitSelectMode();
+  }
+
+  void _showDeleteErrors(BuildContext context, List<String> errors) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除错误详情'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: errors.length,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text('• ${errors[index]}'),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showMoveDialog() {
