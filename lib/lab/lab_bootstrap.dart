@@ -30,6 +30,7 @@ import 'demos/body_map_demo.dart';
 import 'demos/localnet_demo.dart';
 import 'demos/gallery_demo.dart';
 import 'demos/schema_demo.dart';
+import 'demos/color_palette_demo.dart';
 
 /// 注册所有 Demo 页面
 void registerAllDemos() {
@@ -60,6 +61,7 @@ void registerAllDemos() {
   registerLocalnetDemo();
   registerGalleryDemo();
   registerSchemaDemo();
+  registerColorPaletteDemo();
 }
 
 /// 初始化 Schema 注册表
