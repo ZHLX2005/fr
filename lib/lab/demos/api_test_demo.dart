@@ -294,30 +294,29 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         });
       } else if (mounted) {
         setState(() {
-          _downloadStatus = '内部下载失败，请重试或使用浏览器下载';
+          _downloadStatus = '下载失败，回退到浏览器下载';
           _isDownloading = false;
         });
+        await _downloadApkWithBrowser();
       }
     } catch (e) {
       if (_isAborted) return;
       if (mounted) {
         setState(() {
-          _downloadStatus = '下载出错: $e';
+          _downloadStatus = '下载出错: $e，回退到浏览器下载';
           _isDownloading = false;
         });
+        // 回退到浏览器下载
+        await _downloadApkWithBrowser();
       }
     }
   }
 
-  // 重置 HTTP 下载状态（清除下载缓存）
+  // 重置 HTTP 下载状态
   Future<void> _resetHttpState() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kDownloadedApkPathKey);
     await prefs.remove(_kDownloadedApkSizeKey);
-
-    // 清除APK下载缓存（ApiService内部处理平台判断）
-    await ApiService.clearApkDownloadCache();
-
     setState(() {
       _downloadStatus = null;
       _downloadProgress = 0.0;
