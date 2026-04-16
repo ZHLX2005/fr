@@ -215,6 +215,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
   // 检查APK更新
   Future<void> _checkApkUpdate() async {
+    // 先清除旧的下载状态，避免残留进度信息
+    await _resetHttpState();
     setState(() {
       _isCheckingUpdate = true;
       _downloadStatus = '正在检查更新...';
