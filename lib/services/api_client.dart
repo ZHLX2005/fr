@@ -349,6 +349,20 @@ class ApiService {
     }
   }
 
+  // 清除APK下载缓存（删除.tmp和.apk文件）
+  static Future<void> clearApkDownloadCache() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final tmpFile = File('${dir.path}/download_fr_latest_apk.tmp');
+      final apkFile = File('${dir.path}/fr_latest_apk.apk');
+      if (await tmpFile.exists()) await tmpFile.delete();
+      if (await apkFile.exists()) await apkFile.delete();
+    } catch (e) {
+      print('[APK缓存] 清除失败: $e');
+    }
+  }
+
   // 文件元数据
   static Future<gen.DevCtrHelloApiFileV1FileMetadataRes?> getFileMetadata(
     String id,
