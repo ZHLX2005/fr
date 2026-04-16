@@ -65,6 +65,9 @@ dependencies:
   # UUID Generation
   uuid: ^4.5.1
 
+  # Supabase
+  supabase_flutter: ^2.5.0
+
   # Network Info
   network_info_plus: ^6.1.1
 
@@ -96,7 +99,7 @@ dependencies:
 
   # Audio Recording
   record: ^6.0.0
-  path_provider: ^2.1.4
+  path_provider: ^2.1.0
 
   # File Opener (打开APK安装)
   open_filex: ^4.5.0
