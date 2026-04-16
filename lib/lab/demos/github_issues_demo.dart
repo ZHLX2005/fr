@@ -28,7 +28,7 @@ class _GithubIssuesDemoShell extends StatefulWidget {
 
 class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
   static const String _owner = 'ZHLX2005';
-  static const String _repo = 'fr';
+  static const String _repo = 'is';
   static const String _tokenKey = 'github_pat_token';
 
   final _tokenController = TextEditingController();
