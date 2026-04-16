@@ -294,20 +294,17 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         });
       } else if (mounted) {
         setState(() {
-          _downloadStatus = '下载失败，回退到浏览器下载';
+          _downloadStatus = '内部下载失败，请重试或使用浏览器下载';
           _isDownloading = false;
         });
-        await _downloadApkWithBrowser();
       }
     } catch (e) {
       if (_isAborted) return;
       if (mounted) {
         setState(() {
-          _downloadStatus = '下载出错: $e，回退到浏览器下载';
+          _downloadStatus = '下载出错: $e';
           _isDownloading = false;
         });
-        // 回退到浏览器下载
-        await _downloadApkWithBrowser();
       }
     }
   }
