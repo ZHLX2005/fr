@@ -315,6 +315,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   // ── 游戏开始 ──
 
   void _startGame() {
+    debugPrint('[START_GAME] _chart=${_chart == null ? "NULL" : "ok notes=${_chart!.notes.length}"}');
     _nextNoteIndex = 0;
     _gameStopwatch.reset();
     _gameStopwatch.start();
@@ -354,7 +355,10 @@ class _LineDemoPageState extends State<_LineDemoPage>
   }
 
   void _spawnPendingNotes() {
-    if (_chart == null || _isExiting) return;
+    if (_chart == null || _isExiting) {
+      debugPrint('[SPAWN] skipped: _chart=${_chart == null ? "null" : "not null, notes=${_chart!.notes.length}"} _isExiting=$_isExiting');
+      return;
+    }
     final elapsed = _gameStopwatch.elapsedMilliseconds;
     final dropMs = _chart!.dropDuration;
 
