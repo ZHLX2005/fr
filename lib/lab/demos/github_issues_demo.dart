@@ -2,6 +2,7 @@
 // lab 层只做 token 状态管理 + 页面组装，CRUD 逻辑在 core
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/github/github.dart';
 import '../lab_container.dart';
 
@@ -27,11 +28,39 @@ class _GithubIssuesDemoShell extends StatefulWidget {
 
 class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
   static const String _owner = 'ZHLX2005';
-  static const String _repo = 'fr';
+  static const String _repo = 'is';
+  static const String _tokenKey = 'github_pat_token';
 
   final _tokenController = TextEditingController();
   bool _tokenConfirmed = false;
   String _inputToken = '';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedToken();
+  }
+
+  Future<void> _loadSavedToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_tokenKey);
+    if (saved != null && saved.isNotEmpty) {
+      _inputToken = saved;
+      _tokenController.text = saved;
+      setState(() => _tokenConfirmed = true);
+    }
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _saveToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (token.isNotEmpty) {
+      await prefs.setString(_tokenKey, token);
+    } else {
+      await prefs.remove(_tokenKey);
+    }
+  }
 
   @override
   void dispose() {
@@ -41,6 +70,11 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     if (!_tokenConfirmed) {
       return _buildTokenInput();
     }
@@ -101,8 +135,9 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
                 onPressed: () {
                   _inputToken = _tokenController.text.trim();
                   if (_inputToken.isNotEmpty) {
-                    setState(() => _tokenConfirmed = true);
+                    _saveToken(_inputToken);
                   }
+                  setState(() => _tokenConfirmed = true);
                 },
                 child: const Text('使用空 Token（只读 public）'),
               ),
@@ -122,6 +157,7 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
       return;
     }
     _inputToken = token;
+    _saveToken(token);
     setState(() => _tokenConfirmed = true);
   }
 }

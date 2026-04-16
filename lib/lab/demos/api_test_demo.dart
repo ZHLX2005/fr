@@ -215,6 +215,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
   // 检查APK更新
   Future<void> _checkApkUpdate() async {
+    // 先清除旧的下载状态，避免残留进度信息
+    await _resetHttpState();
     setState(() {
       _isCheckingUpdate = true;
       _downloadStatus = '正在检查更新...';
@@ -302,6 +304,22 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
+  // 重置 HTTP 下载状态
+  Future<void> _resetHttpState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kDownloadedApkPathKey);
+    await prefs.remove(_kDownloadedApkSizeKey);
+    setState(() {
+      _downloadStatus = null;
+      _downloadProgress = 0.0;
+      _isDownloading = false;
+      _downloadedApkPath = null;
+      _downloadedApkSize = null;
+      _apkMetadata = null;
+      _apkUpdateTime = null;
+    });
+  }
+
   // 用系统方式打开文件（分享兜底）
   Future<void> _openApk() async {
     if (_downloadedApkPath == null) return;
@@ -323,10 +341,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
     final file = File(_downloadedApkPath!);
     if (!await file.exists()) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('APK 文件不存在')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('APK 文件不存在')));
+      }
       return;
     }
 
@@ -347,10 +364,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         }
       }
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('唤起异常: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('唤起异常: $e')));
+      }
     }
   }
 
@@ -358,8 +374,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -677,13 +694,25 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             : Colors.blue[50],
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        _downloadStatus!,
-                        style: TextStyle(
-                          color: _downloadStatus!.contains('完成')
-                              ? Colors.green[700]
-                              : Colors.blue[700],
-                        ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _downloadStatus!,
+                              style: TextStyle(
+                                color: _downloadStatus!.contains('完成')
+                                    ? Colors.green[700]
+                                    : Colors.blue[700],
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _resetHttpState,
+                            icon: const Icon(Icons.restart_alt, size: 20),
+                            tooltip: '重置HTTP状态',
+                            color: Colors.orange,
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),

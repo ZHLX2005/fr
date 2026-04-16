@@ -33,6 +33,7 @@ class _GithubIssuesPageState extends State<GithubIssuesPage>
   List<IssueModel> _issues = [];
   bool _loading = false;
   String _error = '';
+  String _stateFilter = 'open'; // 'all' | 'open' | 'closed'
 
   @override
   void initState() {
@@ -62,7 +63,7 @@ class _GithubIssuesPageState extends State<GithubIssuesPage>
   Future<void> _fetchIssues() async {
     setState(() => _loading = true);
     try {
-      final list = await _service.listIssues();
+      final list = await _service.listIssues(state: _stateFilter);
       setState(() {
         _issues = list;
         _loading = false;
@@ -148,7 +149,7 @@ class _GithubIssuesPageState extends State<GithubIssuesPage>
                 isLabelVisible: _issues.isNotEmpty,
                 child: const Icon(Icons.list),
               ),
-              text: '列表',
+              text: _stateFilter == 'all' ? '全部' : _stateFilter == 'open' ? '打开' : '已关闭',
             ),
             const Tab(icon: Icon(Icons.add), text: '创建'),
           ],
@@ -195,41 +196,75 @@ class _GithubIssuesPageState extends State<GithubIssuesPage>
         ),
       );
     }
-    if (_issues.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.bug_report_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '暂无 Open Issues',
-              style: TextStyle(color: Theme.of(context).colorScheme.outline),
-            ),
-          ],
-        ),
-      );
-    }
 
-    return RefreshIndicator(
-      onRefresh: _fetchIssues,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(8),
-        itemCount: _issues.length,
-        itemBuilder: (context, index) {
-          final issue = _issues[index];
-          return _IssueCard(
-            issue: issue,
-            onTap: () => _showDetail(issue),
-            onClose: () => _closeIssue(issue),
-            onReopen: () => _reopenIssue(issue),
-          );
-        },
-      ),
+    return Column(
+      children: [
+        // 状态筛选器
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'all', label: Text('全部')),
+                    ButtonSegment(value: 'open', label: Text('打开')),
+                    ButtonSegment(value: 'closed', label: Text('已关闭')),
+                  ],
+                  selected: {_stateFilter},
+                  onSelectionChanged: (s) {
+                    setState(() => _stateFilter = s.first);
+                    _fetchIssues();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        // 列表
+        Expanded(
+          child: _issues.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.bug_report_outlined,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _stateFilter == 'all'
+                            ? '暂无 Issues'
+                            : _stateFilter == 'open'
+                                ? '暂无 Open Issues'
+                                : '暂无已关闭的 Issues',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _fetchIssues,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: _issues.length,
+                    itemBuilder: (context, index) {
+                      final issue = _issues[index];
+                      return _IssueCard(
+                        issue: issue,
+                        onTap: () => _showDetail(issue),
+                        onClose: () => _closeIssue(issue),
+                        onReopen: () => _reopenIssue(issue),
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
