@@ -152,4 +152,27 @@ class ChartRepository {
       debugPrint('[ChartRepository] precache cover failed: $e');
     }
   }
+
+  /// 检查歌曲资源是否已缓存本地
+  static Future<bool> isSongCached(String songId) async {
+    final audioFile = '$songId.m4a';
+    final chartFile = '$songId.json';
+
+    final audioCached = await _cache.getCachedPath(_audioDir, audioFile);
+    final chartCached = await _cache.getCachedPath(_chartsDir, chartFile);
+
+    return audioCached != null && chartCached != null;
+  }
+
+  /// 获取单个歌曲的 SongRecord（不加载 chart JSON）
+  static Future<SongRecord?> loadSongRecord(String id) async {
+    if (_supabaseClient == null) return null;
+    try {
+      final response = await _supabaseClient!.from('music').select().eq('id', id).single();
+      return SongRecord.fromJson(Map<String, dynamic>.from(response));
+    } catch (e) {
+      debugPrint('[ChartRepository] loadSongRecord failed: $e');
+      return null;
+    }
+  }
 }
