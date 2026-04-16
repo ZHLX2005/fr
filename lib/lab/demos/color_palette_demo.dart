@@ -8,78 +8,467 @@ class ColorPaletteDemo extends DemoPage {
   String get title => '撞色色卡';
 
   @override
-  String get description => '两两一组展示配色方案，支持 CMYK/RGB/Hex 显示';
+  String get description => '两两一组展示配色方案，左右滑切换沉浸全屏';
 
   @override
   Widget buildPage(BuildContext context) {
-    return const _ColorPalettePage();
+    final pairs = PaletteRepository.buildPairs(PaletteRepository.swatches);
+    return _HomePage(pairs: pairs);
   }
 }
 
-class _ColorPalettePage extends StatefulWidget {
-  const _ColorPalettePage();
+// ==================== HomePage ====================
+
+class _HomePage extends StatefulWidget {
+  const _HomePage({required this.pairs});
+
+  final List<ColorPairModel> pairs;
 
   @override
-  State<_ColorPalettePage> createState() => _ColorPalettePageState();
+  State<_HomePage> createState() => _HomePageState();
 }
 
-class _ColorPalettePageState extends State<_ColorPalettePage> {
-  final List<ColorSwatchModel> _swatches = PaletteRepository.swatches;
-  late final List<ColorPairModel> _pairs;
-  int _selectedIndex = 0;
+class _HomePageState extends State<_HomePage> {
+  late final ValueNotifier<int> _selected;
 
   @override
   void initState() {
     super.initState();
-    _pairs = PaletteRepository.buildPairs(_swatches);
+    _selected = ValueNotifier<int>(0);
   }
 
-  void _copyToClipboard(String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label 已复制: $text'),
-        duration: const Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  @override
+  void dispose() {
+    _selected.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final pair = _pairs[_selectedIndex];
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F3F8),
+      backgroundColor: const Color(0xFFF6F6F8),
       body: SafeArea(
-        child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: ValueListenableBuilder<int>(
+              valueListenable: _selected,
+              builder: (context, idx, _) {
+                final pair = widget.pairs[idx];
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // 极简预览条
+                    SizedBox(
+                      height: 140,
+                      child: _PairPreviewStrip(pair: pair),
+                    ),
+                    const SizedBox(height: 18),
+                    // 圆点选择器
+                    _PairDots(
+                      count: widget.pairs.length,
+                      index: idx,
+                      onTap: (i) => _selected.value = i,
+                    ),
+                    const SizedBox(height: 24),
+                    // 进入全屏按钮
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => _PairDetailPage(
+                              allPairs: widget.pairs,
+                              initialIndex: idx,
+                            ),
+                          ),
+                        );
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A1A1D),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        '进入全屏色卡',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== 详情页 ====================
+
+class _PairDetailPage extends StatefulWidget {
+  const _PairDetailPage({
+    required this.allPairs,
+    required this.initialIndex,
+  });
+
+  final List<ColorPairModel> allPairs;
+  final int initialIndex;
+
+  @override
+  State<_PairDetailPage> createState() => _PairDetailPageState();
+}
+
+class _PairDetailPageState extends State<_PairDetailPage> {
+  late final PageController _pc;
+
+  @override
+  void initState() {
+    super.initState();
+    _pc = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pc.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: PageView.builder(
+        controller: _pc,
+        itemCount: widget.allPairs.length,
+        itemBuilder: (context, index) {
+          return _FullscreenPair(pair: widget.allPairs[index]);
+        },
+      ),
+    );
+  }
+}
+
+class _FullscreenPair extends StatelessWidget {
+  const _FullscreenPair({required this.pair});
+
+  final ColorPairModel pair;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = ColorUtils.fromHex(pair.a.hex);
+    final b = ColorUtils.fromHex(pair.b.hex);
+
+    return Stack(
+      children: [
+        // 左右大色块
+        Row(
           children: [
-            // 顶部选择器
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: _PairSelector(
-                pairs: _pairs,
-                selectedIndex: _selectedIndex,
-                onChanged: (i) => setState(() => _selectedIndex = i),
-              ),
-            ),
-            // 色卡主体
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: PairCard(
-                  pair: pair,
-                  onCopy: _copyToClipboard,
-                ),
+              child: _ColorHalfFullscreen(
+                mainName: pair.a.name,
+                mainHex: pair.a.hex,
+                main: a,
+                accent: b,
+                accentLabel: pair.b.name,
+                accentAlign: Alignment.bottomRight,
               ),
             ),
-            // 底部信息面板
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: _InfoPanel(pair: pair, onCopy: _copyToClipboard),
+            Expanded(
+              child: _ColorHalfFullscreen(
+                mainName: pair.b.name,
+                mainHex: pair.b.hex,
+                main: b,
+                accent: a,
+                accentLabel: pair.a.name,
+                accentAlign: Alignment.bottomLeft,
+              ),
             ),
           ],
         ),
+        // 返回按钮
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: _GlassIconButton(
+              icon: Icons.arrow_back,
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+        // 中间+锚点
+        Align(
+          alignment: Alignment.center,
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.92),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+            ),
+            child: const Center(
+              child: Text(
+                '+',
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ColorHalfFullscreen extends StatelessWidget {
+  const _ColorHalfFullscreen({
+    required this.mainName,
+    required this.mainHex,
+    required this.main,
+    required this.accent,
+    required this.accentLabel,
+    required this.accentAlign,
+  });
+
+  final String mainName;
+  final String mainHex;
+  final Color main;
+  final Color accent;
+  final String accentLabel;
+  final Alignment accentAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = ColorUtils.bestOnColor(main);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [ColorUtils.highlight(main, t: 0.12), main],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // 少文字：颜色名 + hex
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: DefaultTextStyle(
+                style: TextStyle(color: fg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mainName,
+                      style: TextStyle(
+                        color: fg.withValues(alpha: 0.90),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: mainHex.toUpperCase()));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('已复制 $mainHex'),
+                            duration: const Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      child: Text(
+                        mainHex.toUpperCase(),
+                        style: TextStyle(
+                          color: fg.withValues(alpha: 0.78),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // 嵌入搭配色小色块
+          Align(
+            alignment: accentAlign,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: _InsetAccentBlock(color: accent, label: accentLabel),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsetAccentBlock extends StatelessWidget {
+  const _InsetAccentBlock({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = ColorUtils.bestOnColor(color);
+    return Container(
+      width: 92,
+      height: 92,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.22),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: fg,
+              fontWeight: FontWeight.w900,
+              fontSize: 12,
+              height: 1.1,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassIconButton extends StatelessWidget {
+  const _GlassIconButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+          ),
+          child: Icon(icon, color: Colors.black.withValues(alpha: 0.75)),
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== 极简选择器 ====================
+
+class _PairDots extends StatelessWidget {
+  const _PairDots({
+    required this.count,
+    required this.index,
+    required this.onTap,
+  });
+
+  final int count;
+  final int index;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (i) {
+        final active = i == index;
+        return GestureDetector(
+          onTap: () => onTap(i),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.symmetric(horizontal: 6),
+            width: active ? 18 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: active
+                  ? Colors.black.withValues(alpha: 0.78)
+                  : Colors.black.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _PairPreviewStrip extends StatelessWidget {
+  const _PairPreviewStrip({required this.pair});
+
+  final ColorPairModel pair;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = ColorUtils.fromHex(pair.a.hex);
+    final b = ColorUtils.fromHex(pair.b.hex);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: Stack(
+        children: [
+          Row(
+            children: [
+              Expanded(child: Container(color: a)),
+              Expanded(child: Container(color: b)),
+            ],
+          ),
+          Align(
+            alignment: Alignment.center,
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.92),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+              ),
+              child: const Center(
+                child: Text(
+                  '+',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -116,11 +505,7 @@ class ColorPairModel {
   final ColorSwatchModel b;
 
   const ColorPairModel({required this.a, required this.b});
-
-  String get label => '${a.name} + ${b.name}';
 }
-
-// ==================== 仓库 ====================
 
 class PaletteRepository {
   static const List<ColorSwatchModel> swatches = [
@@ -202,386 +587,14 @@ class ColorUtils {
     return l > 0.55 ? Colors.black : Colors.white;
   }
 
-  static Color highlight(Color c) {
+  static Color highlight(Color c, {double t = 0.10}) {
     int mix(int a, int b, double t) =>
         (a + (b - a) * t).round().clamp(0, 255);
-    const t = 0.10;
     return Color.fromARGB(
       (c.a * 255).round(),
       mix((c.r * 255).round(), 255, t),
       mix((c.g * 255).round(), 255, t),
       mix((c.b * 255).round(), 255, t),
-    );
-  }
-}
-
-// ==================== UI 组件 ====================
-
-class PairCard extends StatelessWidget {
-  const PairCard({
-    super.key,
-    required this.pair,
-    required this.onCopy,
-  });
-
-  final ColorPairModel pair;
-  final void Function(String text, String label) onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    final a = ColorUtils.fromHex(pair.a.hex);
-    final b = ColorUtils.fromHex(pair.b.hex);
-
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            Row(
-              children: [
-                Expanded(child: _ColorHalf(model: pair.a, baseColor: a, onCopy: onCopy)),
-                Expanded(child: _ColorHalf(model: pair.b, baseColor: b, onCopy: onCopy)),
-              ],
-            ),
-            Align(
-              alignment: Alignment.center,
-              child: Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
-                ),
-                child: const Center(
-                  child: Text(
-                    '+',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ColorHalf extends StatelessWidget {
-  const _ColorHalf({
-    required this.model,
-    required this.baseColor,
-    required this.onCopy,
-  });
-
-  final ColorSwatchModel model;
-  final Color baseColor;
-  final void Function(String text, String label) onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = ColorUtils.bestOnColor(baseColor);
-
-    return GestureDetector(
-      onTap: () => onCopy(model.hex, 'HEX'),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              ColorUtils.highlight(baseColor),
-              baseColor,
-            ],
-          ),
-        ),
-        padding: const EdgeInsets.all(18),
-        child: DefaultTextStyle(
-          style: TextStyle(color: fg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                model.name,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: fg,
-                ),
-              ),
-              const Spacer(),
-              _ColorValue(
-                label: 'C${model.cmyk.c} M${model.cmyk.m} Y${model.cmyk.y} K${model.cmyk.k}',
-                color: fg,
-                onTap: () => onCopy(
-                  'C${model.cmyk.c} M${model.cmyk.m} Y${model.cmyk.y} K${model.cmyk.k}',
-                  'CMYK',
-                ),
-              ),
-              const SizedBox(height: 6),
-              _ColorValue(
-                label: 'R${model.rgb.r} G${model.rgb.g} B${model.rgb.b}',
-                color: fg,
-                onTap: () => onCopy(
-                  '${model.rgb.r}, ${model.rgb.g}, ${model.rgb.b}',
-                  'RGB',
-                ),
-              ),
-              const SizedBox(height: 6),
-              _ColorValue(
-                label: model.hex.toUpperCase(),
-                color: fg,
-                onTap: () => onCopy(model.hex.toUpperCase(), 'HEX'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ColorValue extends StatelessWidget {
-  const _ColorValue({
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.copy,
-              size: 14,
-              color: color.withValues(alpha: 0.7),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PairSelector extends StatelessWidget {
-  const _PairSelector({
-    required this.pairs,
-    required this.selectedIndex,
-    required this.onChanged,
-  });
-
-  final List<ColorPairModel> pairs;
-  final int selectedIndex;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.15),
-            offset: const Offset(0, 2),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: DropdownButton<int>(
-        value: selectedIndex,
-        underline: const SizedBox.shrink(),
-        isExpanded: true,
-        borderRadius: BorderRadius.circular(14),
-        icon: const Icon(Icons.keyboard_arrow_down),
-        items: List.generate(pairs.length, (i) {
-          final pair = pairs[i];
-          return DropdownMenuItem(
-            value: i,
-            child: Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        ColorUtils.fromHex(pair.a.hex),
-                        ColorUtils.fromHex(pair.b.hex),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(pair.label),
-              ],
-            ),
-          );
-        }),
-        onChanged: (v) {
-          if (v != null) onChanged(v);
-        },
-      ),
-    );
-  }
-}
-
-class _InfoPanel extends StatelessWidget {
-  const _InfoPanel({required this.pair, required this.onCopy});
-
-  final ColorPairModel pair;
-  final void Function(String text, String label) onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.12),
-            offset: const Offset(0, 2),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '配色详情',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _ColorDetailCard(
-                  label: 'A色',
-                  model: pair.a,
-                  onCopy: onCopy,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ColorDetailCard(
-                  label: 'B色',
-                  model: pair.b,
-                  onCopy: onCopy,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ColorDetailCard extends StatelessWidget {
-  const _ColorDetailCard({
-    required this.label,
-    required this.model,
-    required this.onCopy,
-  });
-
-  final String label;
-  final ColorSwatchModel model;
-  final void Function(String text, String label) onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F3F8),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: ColorUtils.fromHex(model.hex),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  model.name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'HEX: ${model.hex.toUpperCase()}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'RGB: ${model.rgb.r}, ${model.rgb.g}, ${model.rgb.b}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'CMYK: ${model.cmyk.c}, ${model.cmyk.m}, ${model.cmyk.y}, ${model.cmyk.k}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
