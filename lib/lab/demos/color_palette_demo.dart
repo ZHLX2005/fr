@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/color/color.dart';
 import '../lab_container.dart';
 
 /// 撞色色卡 Demo
@@ -12,7 +13,7 @@ class ColorPaletteDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    final pairs = PaletteRepository.buildPairs(PaletteRepository.swatches);
+    final pairs = ColorPaletteRepository.buildPairs(ColorPaletteRepository.swatches);
     return _HomePage(pairs: pairs);
   }
 }
@@ -334,7 +335,6 @@ class _FullscreenPair extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // 颜色名（对方颜色）
                     Positioned(
                       top: MediaQuery.of(context).padding.top + 60,
                       left: 20,
@@ -349,7 +349,6 @@ class _FullscreenPair extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // hex（对方颜色）
                     Positioned(
                       bottom: MediaQuery.of(context).padding.bottom + 80,
                       left: 20,
@@ -383,7 +382,6 @@ class _FullscreenPair extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // 嵌入搭配色小色块
                     Positioned(
                       bottom: MediaQuery.of(context).padding.bottom + 60,
                       right: 20,
@@ -615,131 +613,6 @@ class _GlassIconButton extends StatelessWidget {
           child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
-    );
-  }
-}
-
-// ==================== 数据模型 ====================
-
-class Cmyk {
-  final int c, m, y, k;
-  const Cmyk({required this.c, required this.m, required this.y, required this.k});
-}
-
-class Rgb {
-  final int r, g, b;
-  const Rgb({required this.r, required this.g, required this.b});
-}
-
-class ColorSwatchModel {
-  final String name;
-  final Cmyk cmyk;
-  final Rgb rgb;
-  final String hex;
-
-  const ColorSwatchModel({
-    required this.name,
-    required this.cmyk,
-    required this.rgb,
-    required this.hex,
-  });
-}
-
-class ColorPairModel {
-  final ColorSwatchModel a;
-  final ColorSwatchModel b;
-
-  const ColorPairModel({required this.a, required this.b});
-}
-
-class PaletteRepository {
-  static const List<ColorSwatchModel> swatches = [
-    ColorSwatchModel(
-      name: '炭黑色',
-      cmyk: Cmyk(c: 85, m: 81, y: 76, k: 64),
-      rgb: Rgb(r: 26, g: 26, b: 29),
-      hex: '#1A1A1D',
-    ),
-    ColorSwatchModel(
-      name: '甜酷粉',
-      cmyk: Cmyk(c: 12, m: 88, y: 26, k: 0),
-      rgb: Rgb(r: 230, g: 57, b: 124),
-      hex: '#E6397C',
-    ),
-    ColorSwatchModel(
-      name: '深海蓝',
-      cmyk: Cmyk(c: 100, m: 93, y: 20, k: 0),
-      rgb: Rgb(r: 18, g: 46, b: 138),
-      hex: '#122E8A',
-    ),
-    ColorSwatchModel(
-      name: '柔奶白',
-      cmyk: Cmyk(c: 5, m: 7, y: 9, k: 0),
-      rgb: Rgb(r: 245, g: 239, b: 234),
-      hex: '#F5EFEA',
-    ),
-    ColorSwatchModel(
-      name: '无白色',
-      cmyk: Cmyk(c: 7, m: 17, y: 9, k: 0),
-      rgb: Rgb(r: 241, g: 221, b: 223),
-      hex: '#F1DDDF',
-    ),
-    ColorSwatchModel(
-      name: '茶花红',
-      cmyk: Cmyk(c: 10, m: 92, y: 63, k: 0),
-      rgb: Rgb(r: 231, g: 45, b: 72),
-      hex: '#E72D48',
-    ),
-    ColorSwatchModel(
-      name: '鸦蓝色',
-      cmyk: Cmyk(c: 99, m: 90, y: 51, k: 20),
-      rgb: Rgb(r: 17, g: 48, b: 86),
-      hex: '#113056',
-    ),
-    ColorSwatchModel(
-      name: '清水蓝',
-      cmyk: Cmyk(c: 47, m: 6, y: 20, k: 0),
-      rgb: Rgb(r: 145, g: 207, b: 213),
-      hex: '#91CFD5',
-    ),
-  ];
-
-  static List<ColorPairModel> buildPairs(List<ColorSwatchModel> list) {
-    final result = <ColorPairModel>[];
-    for (var i = 0; i + 1 < list.length; i += 2) {
-      result.add(ColorPairModel(a: list[i], b: list[i + 1]));
-    }
-    return result;
-  }
-}
-
-// ==================== 工具类 ====================
-
-class ColorUtils {
-  static Color fromHex(String hex) {
-    final cleaned = hex.replaceAll('#', '').toUpperCase();
-    if (cleaned.length == 6) {
-      return Color(int.parse('FF$cleaned', radix: 16));
-    }
-    if (cleaned.length == 8) {
-      return Color(int.parse(cleaned, radix: 16));
-    }
-    throw ArgumentError('Invalid hex: $hex');
-  }
-
-  static Color bestOnColor(Color bg) {
-    final l = bg.computeLuminance();
-    return l > 0.55 ? Colors.black : Colors.white;
-  }
-
-  static Color highlight(Color c, {double t = 0.10}) {
-    int mix(int a, int b, double t) =>
-        (a + (b - a) * t).round().clamp(0, 255);
-    return Color.fromARGB(
-      (c.a * 255).round(),
-      mix((c.r * 255).round(), 255, t),
-      mix((c.g * 255).round(), 255, t),
-      mix((c.b * 255).round(), 255, t),
     );
   }
 }
