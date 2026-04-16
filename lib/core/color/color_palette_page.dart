@@ -288,117 +288,277 @@ class _FullscreenPair extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = ColorUtils.fromHex(pair.a.hex);
     final b = ColorUtils.fromHex(pair.b.hex);
-    // 字色用对方颜色，形成撞色
-    final aOnB = ColorUtils.bestOnColor(b);
-    final bOnA = ColorUtils.bestOnColor(a);
+    // 字色直接用对方颜色（不是黑白），形成撞色
+    final aOnB = b; // 右色块里的文字用a
+    final bOnA = a; // 左色块里的文字用b
 
     return Stack(
       children: [
-        Row(
+        Column(
           children: [
-            // 左色块 — 字色为 b（对方色）
+            // 主色块区：左色块 | 右色块
             Expanded(
-              child: Container(
-                color: a,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: _BackButton(color: a, iconColor: bOnA),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      bottom: 20,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+              child: Row(
+                children: [
+                  // 左色块 — 字色为 b（对方色）
+                  Expanded(
+                    child: Container(
+                      color: a,
+                      child: Stack(
                         children: [
-                          Text(
-                            pair.a.name,
-                            style: TextStyle(
-                              color: bOnA,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.3,
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            child: SafeArea(
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: _BackButton(color: a, iconColor: ColorUtils.bestOnColor(a)),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () => _copy(context, pair.a.hex),
-                            child: Row(
+                          Positioned(
+                            left: 20,
+                            bottom: 20,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  pair.a.hex.toUpperCase(),
+                                  pair.a.name,
                                   style: TextStyle(
-                                    color: bOnA.withValues(alpha: 0.8),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 1,
+                                    color: bOnA,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.3,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                Icon(Icons.copy,
-                                    size: 14,
-                                    color: bOnA.withValues(alpha: 0.6)),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => _copy(context, pair.a.hex),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        pair.a.hex.toUpperCase(),
+                                        style: TextStyle(
+                                          color: bOnA.withValues(alpha: 0.8),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Icon(Icons.copy,
+                                          size: 14,
+                                          color: bOnA.withValues(alpha: 0.6)),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  // 右色块 — 字色为 a（对方色）
+                  Expanded(
+                    child: Container(
+                      color: b,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            right: 20,
+                            bottom: 20,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  pair.b.name,
+                                  style: TextStyle(
+                                    color: aOnB,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => _copy(context, pair.b.hex),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.copy,
+                                          size: 14,
+                                          color: aOnB.withValues(alpha: 0.6)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        pair.b.hex.toUpperCase(),
+                                        style: TextStyle(
+                                          color: aOnB.withValues(alpha: 0.8),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            // 右色块 — 字色为 a（对方色）
-            Expanded(
-              child: Container(
-                color: b,
-                child: Stack(
+            // 撞色演示区
+            Container(
+              color: const Color(0xFF1A1A1E),
+              padding: const EdgeInsets.all(20),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Positioned(
-                      right: 20,
-                      bottom: 20,
+                    // 标题
+                    Text(
+                      '撞色演示',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // 对色小方块
+                    Row(
+                      children: [
+                        // A 色方块（带 B 色文字）
+                        _ColorSwatchChip(
+                          color: a,
+                          label: pair.a.name,
+                          textColor: b,
+                          hex: pair.a.hex,
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.add,
+                          color: Colors.white.withValues(alpha: 0.3),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 12),
+                        // B 色方块（带 A 色文字）
+                        _ColorSwatchChip(
+                          color: b,
+                          label: pair.b.name,
+                          textColor: a,
+                          hex: pair.b.hex,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // 撞色文字排版示例
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: a,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            pair.a.name,
+                            style: TextStyle(
+                              color: b,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '在 ${pair.a.name} 上使用 ${pair.b.name} 文字',
+                            style: TextStyle(
+                              color: b.withValues(alpha: 0.7),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: b.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: b.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Text(
+                              '示例文字 — ${pair.b.name}',
+                              style: TextStyle(
+                                color: b,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: b,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             pair.b.name,
                             style: TextStyle(
-                              color: aOnB,
-                              fontSize: 24,
+                              color: a,
+                              fontSize: 18,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 0.3,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () => _copy(context, pair.b.hex),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.copy,
-                                    size: 14,
-                                    color: aOnB.withValues(alpha: 0.6)),
-                                const SizedBox(width: 6),
-                                Text(
-                                  pair.b.hex.toUpperCase(),
-                                  style: TextStyle(
-                                    color: aOnB.withValues(alpha: 0.8),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(height: 4),
+                          Text(
+                            '在 ${pair.b.name} 上使用 ${pair.a.name} 文字',
+                            style: TextStyle(
+                              color: a.withValues(alpha: 0.7),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: a.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: a.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Text(
+                              '示例文字 — ${pair.a.name}',
+                              style: TextStyle(
+                                color: a,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -449,6 +609,74 @@ class _BackButton extends StatelessWidget {
           ),
           child: Icon(Icons.arrow_back,
               color: iconColor.withValues(alpha: 0.85)),
+        ),
+      ),
+    );
+  }
+}
+
+/// 对色小方块：底色 + 对方色文字
+class _ColorSwatchChip extends StatelessWidget {
+  const _ColorSwatchChip({
+    required this.color,
+    required this.label,
+    required this.textColor,
+    required this.hex,
+  });
+
+  final Color color;
+  final String label;
+  final Color textColor;
+  final String hex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: textColor.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    hex.toUpperCase(),
+                    style: TextStyle(
+                      color: textColor.withValues(alpha: 0.65),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.lens,
+              color: textColor.withValues(alpha: 0.5),
+              size: 12,
+            ),
+          ],
         ),
       ),
     );
