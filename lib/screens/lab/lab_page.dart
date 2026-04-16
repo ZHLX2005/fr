@@ -668,6 +668,7 @@ class _DemoDetailPage extends StatelessWidget {
 }
 
 /// 滑动渐入 Grid
+/// 零定时器、零 setState —— 所有进度由单一 AnimationController 驱动
 class _ScrollRevealGrid extends StatefulWidget {
   const _ScrollRevealGrid({required this.demos});
 
@@ -680,14 +681,13 @@ class _ScrollRevealGrid extends StatefulWidget {
 class _ScrollRevealGridState extends State<_ScrollRevealGrid>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  final Map<int, bool> _revealed = {};
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1200),
     );
     _controller.forward();
   }
@@ -711,7 +711,7 @@ class _ScrollRevealGridState extends State<_ScrollRevealGrid>
       itemCount: widget.demos.length,
       itemBuilder: (context, index) {
         final demo = widget.demos[index].value;
-        return _ScrollRevealItem(
+        return _RevealItem(
           index: index,
           controller: _controller,
           child: _DemoCard(
@@ -732,9 +732,9 @@ class _ScrollRevealGridState extends State<_ScrollRevealGrid>
   }
 }
 
-/// 单个卡片的渐入动画
-class _ScrollRevealItem extends StatefulWidget {
-  const _ScrollRevealItem({
+/// 纯 AnimatedBuilder 计算，无 setState、无定时器
+class _RevealItem extends StatelessWidget {
+  const _RevealItem({
     required this.index,
     required this.controller,
     required this.child,
@@ -744,43 +744,33 @@ class _ScrollRevealItem extends StatefulWidget {
   final AnimationController controller;
   final Widget child;
 
-  @override
-  State<_ScrollRevealItem> createState() => _ScrollRevealItemState();
-}
+  // 交错间隔：每卡片 60ms
+  static const double _interval = 0.06;
+  // 每卡片动画时长
+  static const double _duration = 0.28;
 
-class _ScrollRevealItemState extends State<_ScrollRevealItem> {
-  @override
-  void initState() {
-    super.initState();
-    final delay = (widget.index * 0.08).clamp(0.0, 0.6);
-    Future.delayed(Duration(milliseconds: (delay * 1000).toInt()), () {
-      if (mounted) setState(() {});
-    });
+  double _progress(double t) {
+    final start = (index * _interval).clamp(0.0, 1.0 - _duration);
+    final end = start + _duration;
+    if (t < start) return 0.0;
+    if (t >= end) return 1.0;
+    return Curves.easeOutCubic.transform((t - start) / (end - start));
   }
 
   @override
   Widget build(BuildContext context) {
-    // 交错动画延迟
-    final delay = (widget.index * 0.08).clamp(0.0, 0.6);
-    final start = delay;
-    final end = (delay + 0.25).clamp(0.0, 1.0);
-
     return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, child) {
-        final progress = Curves.easeOutCubic.transform(
-          ((widget.controller.value - start) / (end - start)).clamp(0.0, 1.0),
-        );
-
+      animation: controller,
+      builder: (context, _) {
+        final p = _progress(controller.value);
         return Opacity(
-          opacity: progress,
+          opacity: p,
           child: Transform.translate(
-            offset: Offset(0, 20 * (1 - progress)),
+            offset: Offset(0, 24 * (1 - p)),
             child: child,
           ),
         );
       },
-      child: widget.child,
     );
   }
 }
