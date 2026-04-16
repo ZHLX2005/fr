@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,74 +9,16 @@ class StorageManager {
   static final StorageManager instance = StorageManager._();
 
   bool _isInitialized = false;
-  static const String _registryBoxName = '_hive_registry';
-  static const String _registryKey = 'registered_boxes';
-
-  /// 注册一个 Hive Box（自动加入存储管理列表）
-  /// 各模块在 openBox 后调用此方法
-  Future<void> registerBox(String boxName) async {
-    if (!_isInitialized) await init();
-    try {
-      final box = await Hive.openBox(_registryBoxName);
-      final raw = box.get(_registryKey);
-      final registered = raw is List ? raw.cast<String>() : <String>[];
-      if (!registered.contains(boxName)) {
-        registered.add(boxName);
-        await box.put(_registryKey, registered);
-      }
-    } catch (_) {}
-  }
-
-  /// 获取所有已注册的 Hive Box 名称
-  List<String> _getRegisteredBoxes() {
-    try {
-      if (!Hive.isBoxOpen(_registryBoxName)) return [];
-      final box = Hive.box(_registryBoxName);
-      final raw = box.get(_registryKey);
-      if (raw is! List) return _fallbackBoxNames;
-      return raw.cast<String>();
-    } catch (_) {
-      return _fallbackBoxNames;
-    }
-  }
 
   /// 初始化所有存储
   Future<void> init() async {
     if (_isInitialized) return;
 
     // 初始化 Hive
-    try {
-      await Hive.initFlutter();
-    } catch (e) {
-      debugPrint('Hive init failed: $e');
-    }
-    // 打开注册表盒子（提前打开，避免后续操作触发创建）
-    try {
-      await Hive.openBox<dynamic>(_registryBoxName);
-    } catch (e) {
-      debugPrint('Hive openBox failed: $e');
-    }
-    // 注册默认 Box
-    for (final name in _fallbackBoxNames) {
-      try {
-        await registerBox(name);
-      } catch (e) {
-        debugPrint('registerBox $name failed: $e');
-      }
-    }
+    await Hive.initFlutter();
 
     _isInitialized = true;
   }
-
-  /// 默认 Box 名称（fallback + 预注册）
-  static const _fallbackBoxNames = [
-    'timetable_config',
-    'timetable_items',
-    'focus_sessions',
-    'focus_subjects',
-    'clock_records',
-    'notes',
-  ];
 
   /// 获取所有存储信息
   Future<List<StorageInfo>> getAllStorageInfo() async {
@@ -142,8 +83,17 @@ class StorageManager {
             // Box 不存在或已删除
           }
         } else {
-          // 获取所有已注册 Hive Box 的所有键
-          for (final name in _getRegisteredBoxes()) {
+          // 获取所有 Hive Box 的所有键
+          final boxNames = [
+            'timetable_config',
+            'timetable_items',
+            'focus_sessions',
+            'focus_subjects',
+            'clock_records',
+            'notes',
+          ];
+
+          for (final name in boxNames) {
             try {
               if (Hive.isBoxOpen(name)) {
                 final box = Hive.box(name);
@@ -352,8 +302,16 @@ class StorageManager {
             await box.clear();
             return true;
           }
-          // 清空所有已注册的 Hive Box
-          for (final name in _getRegisteredBoxes()) {
+          // 清空所有 Hive Box
+          final boxNames = [
+            'timetable_config',
+            'timetable_items',
+            'focus_sessions',
+            'focus_subjects',
+            'clock_records',
+            'notes',
+          ];
+          for (final name in boxNames) {
             try {
               if (Hive.isBoxOpen(name)) {
                 await Hive.box(name).clear();
@@ -386,7 +344,15 @@ class StorageManager {
 
   /// 删除所有 Hive 数据
   Future<void> deleteAllHive() async {
-    for (final name in _getRegisteredBoxes()) {
+    final boxNames = [
+      'timetable_config',
+      'timetable_items',
+      'focus_sessions',
+      'focus_subjects',
+      'clock_records',
+      'notes',
+    ];
+    for (final name in boxNames) {
       try {
         await Hive.deleteBoxFromDisk(name);
       } catch (e) {
@@ -399,8 +365,16 @@ class StorageManager {
   Future<StorageInfo> _getHiveInfo() async {
     int totalSize = 0;
     int totalKeys = 0;
+    final boxNames = [
+      'timetable_config',
+      'timetable_items',
+      'focus_sessions',
+      'focus_subjects',
+      'clock_records',
+      'notes',
+    ];
 
-    for (final name in _getRegisteredBoxes()) {
+    for (final name in boxNames) {
       try {
         if (Hive.isBoxOpen(name)) {
           final box = Hive.box(name);
