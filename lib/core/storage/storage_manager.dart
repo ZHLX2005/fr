@@ -45,14 +45,24 @@ class StorageManager {
     if (_isInitialized) return;
 
     // 初始化 Hive
-    await Hive.initFlutter();
+    try {
+      await Hive.initFlutter();
+    } catch (e) {
+      debugPrint('Hive init failed: $e');
+    }
     // 打开注册表盒子（提前打开，避免后续操作触发创建）
     try {
-      await Hive.openBox<List>(_registryBoxName);
-    } catch (_) {}
+      await Hive.openBox<dynamic>(_registryBoxName);
+    } catch (e) {
+      debugPrint('Hive openBox failed: $e');
+    }
     // 注册默认 Box
     for (final name in _fallbackBoxNames) {
-      await registerBox(name);
+      try {
+        await registerBox(name);
+      } catch (e) {
+        debugPrint('registerBox $name failed: $e');
+      }
     }
 
     _isInitialized = true;
