@@ -245,8 +245,10 @@ class ApiService {
   }) async {
     // Web 平台不支持文件操作，返回 null 让调用方回退到浏览器下载
     if (!Platform.isAndroid && !Platform.isIOS) {
+      print('[APK下载] 非Android/iOS平台(isAndroid=${Platform.isAndroid}, isIOS=${Platform.isIOS})，不支持内部下载');
       return null;
     }
+    print('[APK下载] 开始下载，平台: ${Platform.operatingSystem}');
 
     const fileKey = 'fr_latest_apk';
     final url = '$baseUrl/api/v1/file/$fileKey';
@@ -275,6 +277,7 @@ class ApiService {
         final response = await request.close();
 
         if (response.statusCode != 200 && response.statusCode != 206) {
+          print('[APK下载] 响应状态码错误: ${response.statusCode}');
           return null;
         }
 
@@ -322,6 +325,7 @@ class ApiService {
         _activeHttpClient = null;
       }
     } catch (e) {
+      print('[APK下载] 下载异常: $e');
       return null;
     }
   }
