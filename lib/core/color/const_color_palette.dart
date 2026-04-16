@@ -4,57 +4,53 @@ import 'color_models.dart';
 
 class ColorPaletteConst {
   static const List<ColorSwatchModel> swatches = [
-    // 奶茶色系
     ColorSwatchModel(
-      name: '杏仁白',
-      cmyk: Cmyk(c: 5, m: 8, y: 12, k: 0),
-      rgb: Rgb(r: 243, g: 237, b: 227),
-      hex: '#F3EDE3',
+      name: '炭黑色',
+      cmyk: Cmyk(c: 85, m: 81, y: 76, k: 64),
+      rgb: Rgb(r: 26, g: 26, b: 29),
+      hex: '#1A1A1D',
     ),
     ColorSwatchModel(
-      name: '玫瑰褐',
-      cmyk: Cmyk(c: 20, m: 45, y: 35, k: 0),
-      rgb: Rgb(r: 199, g: 152, b: 147),
-      hex: '#C79893',
-    ),
-    // 薄荷系
-    ColorSwatchModel(
-      name: '抹茶绿',
-      cmyk: Cmyk(c: 45, m: 5, y: 60, k: 0),
-      rgb: Rgb(r: 136, g: 184, b: 139),
-      hex: '#88B88B',
+      name: '甜酷粉',
+      cmyk: Cmyk(c: 12, m: 88, y: 26, k: 0),
+      rgb: Rgb(r: 230, g: 57, b: 124),
+      hex: '#E6397C',
     ),
     ColorSwatchModel(
-      name: '海沫蓝',
-      cmyk: Cmyk(c: 25, m: 10, y: 5, k: 0),
-      rgb: Rgb(r: 168, g: 213, b: 226),
-      hex: '#A8D5E2',
-    ),
-    // 暖阳系
-    ColorSwatchModel(
-      name: '蜜瓜绿',
-      cmyk: Cmyk(c: 20, m: 0, y: 50, k: 0),
-      rgb: Rgb(r: 189, g: 221, b: 149),
-      hex: '#BDDD95',
+      name: '深海蓝',
+      cmyk: Cmyk(c: 100, m: 93, y: 20, k: 0),
+      rgb: Rgb(r: 18, g: 46, b: 138),
+      hex: '#122E8A',
     ),
     ColorSwatchModel(
-      name: '珊瑚粉',
-      cmyk: Cmyk(c: 5, m: 35, y: 20, k: 0),
-      rgb: Rgb(r: 245, g: 194, b: 199),
-      hex: '#F5C2C7',
-    ),
-    // 薰衣草系
-    ColorSwatchModel(
-      name: '雾紫',
-      cmyk: Cmyk(c: 15, m: 25, y: 0, k: 0),
-      rgb: Rgb(r: 203, g: 187, b: 221),
-      hex: '#CBBBDD',
+      name: '柔奶白',
+      cmyk: Cmyk(c: 5, m: 7, y: 9, k: 0),
+      rgb: Rgb(r: 245, g: 239, b: 234),
+      hex: '#F5EFEA',
     ),
     ColorSwatchModel(
-      name: '深茄紫',
-      cmyk: Cmyk(c: 45, m: 60, y: 0, k: 0),
-      rgb: Rgb(r: 137, g: 109, b: 167),
-      hex: '#896DA7',
+      name: '无白色',
+      cmyk: Cmyk(c: 7, m: 17, y: 9, k: 0),
+      rgb: Rgb(r: 241, g: 221, b: 223),
+      hex: '#F1DDDF',
+    ),
+    ColorSwatchModel(
+      name: '茶花红',
+      cmyk: Cmyk(c: 10, m: 92, y: 63, k: 0),
+      rgb: Rgb(r: 231, g: 45, b: 72),
+      hex: '#E72D48',
+    ),
+    ColorSwatchModel(
+      name: '鸦蓝色',
+      cmyk: Cmyk(c: 99, m: 90, y: 51, k: 20),
+      rgb: Rgb(r: 17, g: 48, b: 86),
+      hex: '#113056',
+    ),
+    ColorSwatchModel(
+      name: '清水蓝',
+      cmyk: Cmyk(c: 47, m: 6, y: 20, k: 0),
+      rgb: Rgb(r: 145, g: 207, b: 213),
+      hex: '#91CFD5',
     ),
   ];
 }
