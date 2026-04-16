@@ -288,9 +288,9 @@ class _FullscreenPair extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = ColorUtils.fromHex(pair.a.hex);
     final b = ColorUtils.fromHex(pair.b.hex);
-    // 字色用对方颜色，形成撞色
-    final aOnB = ColorUtils.bestOnColor(b);
-    final bOnA = ColorUtils.bestOnColor(a);
+    // 字色直接用对方颜色（不是黑白），形成撞色
+    final aOnB = b; // 右色块里的文字用a
+    final bOnA = a; // 左色块里的文字用b
 
     return Stack(
       children: [
@@ -308,7 +308,7 @@ class _FullscreenPair extends StatelessWidget {
                       child: SafeArea(
                         child: Padding(
                           padding: const EdgeInsets.all(12),
-                          child: _BackButton(color: a, iconColor: bOnA),
+                          child: _BackButton(color: a, iconColor: ColorUtils.bestOnColor(a)),
                         ),
                       ),
                     ),
