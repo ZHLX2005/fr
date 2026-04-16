@@ -20,13 +20,24 @@ class ColorUtils {
   }
 
   static Color highlight(Color c, {double t = 0.10}) {
-    int mix(int a, int b, double t) =>
-        (a + (b - a) * t).round().clamp(0, 255);
+    int mix(int a, int b, double u) =>
+        (a + (b - a) * u).round().clamp(0, 255);
     return Color.fromARGB(
       (c.a * 255).round(),
       mix((c.r * 255).round(), 255, t),
       mix((c.g * 255).round(), 255, t),
       mix((c.b * 255).round(), 255, t),
+    );
+  }
+
+  static Color mix(Color a, Color b, double t) {
+    int blend(int va, int vb) =>
+        (va + (vb - va) * t).round().clamp(0, 255);
+    return Color.fromARGB(
+      (a.a * 255).round(),
+      blend((a.r * 255).round(), (b.r * 255).round()),
+      blend((a.g * 255).round(), (b.g * 255).round()),
+      blend((a.b * 255).round(), (b.b * 255).round()),
     );
   }
 }
