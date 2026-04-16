@@ -4,9 +4,6 @@ import 'package:http/http.dart' as http;
 
 class LineCacheManager {
   static const String _cacheDir = 'line_cache';
-  static const String _audioDir = 'audio';
-  static const String _coversDir = 'covers';
-  static const String _chartsDir = 'charts';
 
   String? _basePath;
 
