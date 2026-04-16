@@ -668,7 +668,7 @@ class _DemoDetailPage extends StatelessWidget {
 }
 
 /// 滑动渐入 Grid
-/// 零定时器、零 setState —— 所有进度由单一 AnimationController 驱动
+/// 一次性动画：控制器用完即销毁，零持续重建
 class _ScrollRevealGrid extends StatefulWidget {
   const _ScrollRevealGrid({required this.demos});
 
@@ -732,8 +732,8 @@ class _ScrollRevealGridState extends State<_ScrollRevealGrid>
   }
 }
 
-/// 纯 AnimatedBuilder 计算，无 setState、无定时器
-class _RevealItem extends StatelessWidget {
+/// 一次性渐入动画：动画完成后完全退出，不占帧率
+class _RevealItem extends StatefulWidget {
   const _RevealItem({
     required this.index,
     required this.controller,
@@ -744,14 +744,20 @@ class _RevealItem extends StatelessWidget {
   final AnimationController controller;
   final Widget child;
 
-  // 交错间隔：每卡片 60ms
-  static const double _interval = 0.06;
-  // 每卡片动画时长
-  static const double _duration = 0.28;
+  @override
+  State<_RevealItem> createState() => _RevealItemState();
+}
 
+class _RevealItemState extends State<_RevealItem> {
+  /// 交错延迟（秒）
+  double get _delay => (widget.index * 0.06).clamp(0.0, 0.72);
+  /// 动画时长（秒）
+  double get _dur => 0.28;
+
+  /// 纯计算进度，不 rebuild
   double _progress(double t) {
-    final start = (index * _interval).clamp(0.0, 1.0 - _duration);
-    final end = start + _duration;
+    final start = _delay;
+    final end = start + _dur;
     if (t < start) return 0.0;
     if (t >= end) return 1.0;
     return Curves.easeOutCubic.transform((t - start) / (end - start));
@@ -759,15 +765,21 @@ class _RevealItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 用 AnimatedBuilder 只在 value 变化时 rebuild
+    // 动画完成后：opacity=1 + translate=0，控件直接返回 child，不再触发任何 rebuild
     return AnimatedBuilder(
-      animation: controller,
+      animation: widget.controller,
       builder: (context, _) {
-        final p = _progress(controller.value);
+        final p = _progress(widget.controller.value);
+        if (p >= 1.0) {
+          // 动画完成：直接返回 child，后续不再 rebuild
+          return widget.child;
+        }
         return Opacity(
           opacity: p,
           child: Transform.translate(
             offset: Offset(0, 24 * (1 - p)),
-            child: child,
+            child: widget.child,
           ),
         );
       },
