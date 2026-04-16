@@ -72,10 +72,10 @@ class ChartRepository {
         intro: record.intro,
         audioPath: record.audioUrl,
         coverPath: record.coverUrl,
-        bpm: record.bpm,
-        duration: record.durationMs ~/ 1000,
-        difficulty: record.difficulty,
-        dropDuration: record.dropDurationMs,
+        bpm: chartData['bpm'] as int? ?? 120,
+        duration: chartData['duration'] as int? ?? 180,
+        difficulty: chartData['difficulty'] as int? ?? 1,
+        dropDuration: chartData['dropDuration'] as int? ?? 2500,
         notes: notes,
       ));
     }
@@ -127,10 +127,10 @@ class ChartRepository {
         intro: record.intro,
         audioPath: record.audioUrl,
         coverPath: record.coverUrl,
-        bpm: record.bpm,
-        duration: record.durationMs ~/ 1000,
-        difficulty: record.difficulty,
-        dropDuration: record.dropDurationMs,
+        bpm: chartData['bpm'] as int? ?? 120,
+        duration: chartData['duration'] as int? ?? 180,
+        difficulty: chartData['difficulty'] as int? ?? 1,
+        dropDuration: chartData['dropDuration'] as int? ?? 2500,
         notes: notes,
       );
       _memoryCache[id] = song;
