@@ -67,9 +67,9 @@ class ChartRepository {
 
       songs.add(SongData(
         id: record.id,
-        name: record.name,
-        artist: record.artist,
-        intro: record.intro,
+        name: chartData['name'] as String? ?? record.name,
+        artist: chartData['artist'] as String? ?? record.artist,
+        intro: chartData['intro'] as String? ?? record.intro,
         audioPath: record.audioUrl,
         coverPath: record.coverUrl,
         bpm: chartData['bpm'] as int? ?? 120,
@@ -122,9 +122,9 @@ class ChartRepository {
 
       final song = SongData(
         id: record.id,
-        name: record.name,
-        artist: record.artist,
-        intro: record.intro,
+        name: chartData['name'] as String? ?? record.name,
+        artist: chartData['artist'] as String? ?? record.artist,
+        intro: chartData['intro'] as String? ?? record.intro,
         audioPath: record.audioUrl,
         coverPath: record.coverUrl,
         bpm: chartData['bpm'] as int? ?? 120,
