@@ -21,6 +21,43 @@ class LineCacheManager {
     }
   }
 
+  /// 下载文件（带进度回调），返回本地缓存路径
+  Future<String> downloadFile(
+    String url,
+    String subDir,
+    String filename, {
+    void Function(double progress)? onProgress,
+  }) async {
+    final base = await basePath;
+    final dirPath = '$base/$subDir';
+    await _ensureDir(dirPath);
+    final filePath = '$dirPath/$filename';
+
+    final file = File(filePath);
+    if (await file.exists()) {
+      onProgress?.call(1.0);
+      return filePath;
+    }
+
+    final request = http.Request('GET', Uri.parse(url));
+    final streamedResponse = await http.Client().send(request);
+    final contentLength = streamedResponse.contentLength ?? 0;
+    final sink = file.openWrite();
+    var received = 0;
+
+    await for (final chunk in streamedResponse.stream) {
+      sink.add(chunk);
+      received += chunk.length;
+      if (contentLength > 0) {
+        onProgress?.call(received / contentLength);
+      }
+    }
+
+    await sink.close();
+    onProgress?.call(1.0);
+    return filePath;
+  }
+
   /// 下载并缓存文件，返回本地缓存路径
   Future<String> cacheFile(String url, String subDir, String filename) async {
     final base = await basePath;
