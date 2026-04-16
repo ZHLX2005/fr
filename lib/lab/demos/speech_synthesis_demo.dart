@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
 
 /// 由 WebSocket 音频数据驱动的流式 AudioSource
@@ -146,6 +147,8 @@ class _SpeechSynthesisPage extends StatefulWidget {
 }
 
 class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
+  static const String _kMinimaxiApiKey = 'minimaxi_api_key';
+
   final _apiKeyController = TextEditingController();
   final _textController = TextEditingController();
   final _customModelController = TextEditingController();
@@ -226,6 +229,55 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
     super.initState();
     _customModelController.text = _selectedModel;
     _setupPlayer();
+    _loadSavedApiKey();
+  }
+
+  Future<void> _loadSavedApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_kMinimaxiApiKey);
+    if (saved != null && saved.isNotEmpty) {
+      _apiKeyController.text = saved;
+    }
+  }
+
+  Future<void> _saveApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _apiKeyController.text.trim();
+    if (key.isNotEmpty) {
+      await prefs.setString(_kMinimaxiApiKey, key);
+    } else {
+      await prefs.remove(_kMinimaxiApiKey);
+    }
+  }
+
+  Future<void> _clearApiKey() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空 API Key'),
+        content: const Text('确定要清除已保存的 API Key 吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清空', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kMinimaxiApiKey);
+      _apiKeyController.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('API Key 已清除')),
+        );
+      }
+    }
   }
 
   void _setupPlayer() {
@@ -258,6 +310,9 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
       setState(() => _statusMessage = '请输入 API Key');
       return;
     }
+
+    // 自动保存 API Key
+    await _saveApiKey();
     if (_selectedVoiceId == null) {
       setState(() => _statusMessage = '请选择音色');
       return;
@@ -728,12 +783,20 @@ class _SpeechSynthesisPageState extends State<_SpeechSynthesisPage> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _apiKeyController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: '输入您的 API Key',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                         isDense: true,
+                        suffixIcon: _apiKeyController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: _clearApiKey,
+                                tooltip: '清除已保存的 Key',
+                              )
+                            : null,
                       ),
                       obscureText: true,
+                      onChanged: (_) => setState(() {}),
                     ),
                   ],
                 ),
