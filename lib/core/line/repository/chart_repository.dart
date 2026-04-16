@@ -38,11 +38,7 @@ class ChartRepository {
       return [];
     }
     try {
-      final songs = await _loadFromSupabase();
-      for (final s in songs) {
-        debugPrint('[ChartRepository] loaded song: ${s.name}, notes count: ${s.notes.length}, first note time: ${s.notes.isNotEmpty ? s.notes.first.time : "none"}');
-      }
-      return songs;
+      return await _loadFromSupabase();
     } catch (e) {
       debugPrint('[ChartRepository] Failed to load songs: $e');
       return [];
@@ -154,6 +150,11 @@ class ChartRepository {
       await _cache.cacheFile(coverUrl, _coversDir, coverFile);
     } catch (e) {
       debugPrint('[ChartRepository] precache cover failed: $e');
+    }
+    try {
+      await _cache.cacheFile(chartUrl, _chartsDir, '$songId.json');
+    } catch (e) {
+      debugPrint('[ChartRepository] precache chart failed: $e');
     }
   }
 
