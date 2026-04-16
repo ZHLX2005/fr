@@ -39,6 +39,9 @@ api_spec.json
 /build/
 /coverage/
 
+# Test files (local API testing - never commit)
+test/
+
 # Symbolication related
 app.*.symbols
 
