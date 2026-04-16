@@ -31,11 +31,11 @@ void main() async {
   // 初始化 Supabase
   await Supabase.initialize(
     url: 'https://kklrbynhqpwwhtfanqwt.supabase.co',
-    anonKey: 'YOUR_ANON_KEY', // TODO: 替换为实际 anon key
+    anonKey: 'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P', // TODO: 替换为实际 anon key
   );
   ChartRepository.initSupabase(
     'https://kklrbynhqpwwhtfanqwt.supabase.co',
-    'YOUR_ANON_KEY',
+    'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P',
   );
 
   // 初始化 Lab 模块（注册所有 Demo + Schema）
