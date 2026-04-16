@@ -49,6 +49,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   String? _downloadStatus;
   double _downloadProgress = 0.0; // 下载进度 0.0-1.0
   bool _isDownloading = false;
+  bool _isAborted = false; // 下载是否被中断
 
   // 已下载的 APK 文件信息
   String? _downloadedApkPath;
@@ -252,12 +253,13 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 内部下载APK（支持断点续传）
+  // 内部下载APK（支持断点续传+中断）
   Future<void> _downloadApkInternal() async {
     if (_isDownloading) return;
 
     setState(() {
       _isDownloading = true;
+      _isAborted = false;
       _downloadProgress = 0.0;
       _downloadStatus = '开始下载...';
     });
@@ -265,7 +267,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     try {
       final filePath = await ApiService.downloadApkToLocal(
         onProgress: (received, total) {
-          if (mounted && total > 0) {
+          if (!mounted) return;
+          if (_isAborted) return; // 已中断则不再更新进度
+          if (total > 0) {
             setState(() {
               _downloadProgress = received / total;
               _downloadStatus =
@@ -274,6 +278,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           }
         },
       );
+
+      // 如果被中断，不处理结果
+      if (_isAborted) return;
 
       if (filePath != null && mounted) {
         final file = File(filePath);
@@ -293,6 +300,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         await _downloadApkWithBrowser();
       }
     } catch (e) {
+      if (_isAborted) return;
       if (mounted) {
         setState(() {
           _downloadStatus = '下载出错: $e，回退到浏览器下载';
@@ -313,10 +321,21 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       _downloadStatus = null;
       _downloadProgress = 0.0;
       _isDownloading = false;
+      _isAborted = false;
       _downloadedApkPath = null;
       _downloadedApkSize = null;
       _apkMetadata = null;
       _apkUpdateTime = null;
+    });
+  }
+
+  // 中断正在进行的下载
+  void _abortDownload() {
+    ApiService.abortDownload();
+    setState(() {
+      _isAborted = true;
+      _downloadStatus = '下载已中断';
+      _isDownloading = false;
     });
   }
 
@@ -707,10 +726,13 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             ),
                           ),
                           IconButton(
-                            onPressed: _resetHttpState,
-                            icon: const Icon(Icons.restart_alt, size: 20),
-                            tooltip: '重置HTTP状态',
-                            color: Colors.orange,
+                            onPressed: _isDownloading ? _abortDownload : _resetHttpState,
+                            icon: Icon(
+                              _isDownloading ? Icons.cancel : Icons.restart_alt,
+                              size: 20,
+                            ),
+                            tooltip: _isDownloading ? '中断下载' : '重置HTTP状态',
+                            color: _isDownloading ? Colors.red : Colors.orange,
                           ),
                         ],
                       ),
