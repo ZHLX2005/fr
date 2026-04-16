@@ -309,11 +309,15 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 重置 HTTP 下载状态
+  // 重置 HTTP 下载状态（清除下载缓存）
   Future<void> _resetHttpState() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kDownloadedApkPathKey);
     await prefs.remove(_kDownloadedApkSizeKey);
+
+    // 清除APK下载缓存（ApiService内部处理平台判断）
+    await ApiService.clearApkDownloadCache();
+
     setState(() {
       _downloadStatus = null;
       _downloadProgress = 0.0;
