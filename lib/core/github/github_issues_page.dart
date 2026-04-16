@@ -588,12 +588,94 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                     label: Text(isOpen ? '关闭 Issue' : '重新打开'),
                   ),
                 ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: _loading ? null : () => _showCloneDialog(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.secondary,
+                  ),
+                  icon: const Icon(Icons.copy),
+                  label: const Text('克隆'),
+                ),
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _showCloneDialog() {
+    final titleController = TextEditingController(text: _issue.title);
+    final bodyController = TextEditingController(text: _issue.body ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('克隆 Issue'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: '标题',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: bodyController,
+                decoration: const InputDecoration(
+                  labelText: '内容',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 5,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final title = titleController.text.trim();
+              if (title.isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('标题不能为空')),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              await _cloneIssue(title, bodyController.text.trim());
+            },
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cloneIssue(String title, String body) async {
+    setState(() => _loading = true);
+    try {
+      final newIssue = await widget.service.createIssue(
+        CreateIssueRequest(title: title, body: body),
+      );
+      if (mounted) {
+        _showMsg('已克隆为 #${newIssue.number}');
+        Navigator.pop(context); // 关闭详情 sheet
+      }
+    } on GithubApiException catch (e) {
+      _showMsg(e.message);
+    } finally {
+      setState(() => _loading = false);
+    }
   }
 
   void _launchUrl(String url) {
