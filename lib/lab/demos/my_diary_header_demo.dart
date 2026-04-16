@@ -254,14 +254,18 @@ class _MyDiaryHeaderPageState extends State<_MyDiaryHeaderPage>
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            'My Diary',
-                            textAlign: TextAlign.left,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 22 + 6 - 6 * _topBarOpacity,
-                              letterSpacing: 1.2,
-                              color: const Color(0xFF17262A),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'My Diary',
+                              textAlign: TextAlign.left,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 22 + 6 - 6 * _topBarOpacity,
+                                letterSpacing: 1.2,
+                                color: const Color(0xFF17262A),
+                              ),
                             ),
                           ),
                         ),
