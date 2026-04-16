@@ -280,13 +280,13 @@ class ApiService {
 
         // 从 Content-Length 或 Content-Range 获取总大小
         int totalSize = existingLength;
-        final contentLength = response.headers['content-length'];
-        if (contentLength != null && contentLength.isNotEmpty) {
-          totalSize = existingLength + int.parse(contentLength);
+        final contentLengthList = response.headers['content-length'];
+        if (contentLengthList != null && contentLengthList.isNotEmpty) {
+          totalSize = existingLength + int.parse(contentLengthList.first);
         } else {
-          final contentRange = response.headers['content-range'];
-          if (contentRange != null) {
-            final match = RegExp(r'/(\d+)$').firstMatch(contentRange);
+          final contentRangeList = response.headers['content-range'];
+          if (contentRangeList != null && contentRangeList.isNotEmpty) {
+            final match = RegExp(r'/(\d+)$').firstMatch(contentRangeList.first);
             if (match != null) {
               totalSize = int.parse(match.group(1)!);
             }
