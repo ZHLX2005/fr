@@ -38,7 +38,11 @@ class ChartRepository {
       return [];
     }
     try {
-      return await _loadFromSupabase();
+      final songs = await _loadFromSupabase();
+      for (final s in songs) {
+        debugPrint('[ChartRepository] loaded song: ${s.name}, notes count: ${s.notes.length}, first note time: ${s.notes.isNotEmpty ? s.notes.first.time : "none"}');
+      }
+      return songs;
     } catch (e) {
       debugPrint('[ChartRepository] Failed to load songs: $e');
       return [];
