@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/line_models.dart';
+import '../repository/chart_repository.dart';
+import '../repository/line_cache_manager.dart';
 import 'rotating_cover.dart';
 import 'song_list_tile.dart';
 
@@ -142,6 +144,8 @@ class _SongDetailPanelState extends State<SongDetailPanel>
   int _highScore = 0;
   double _highAccuracy = 0;
   bool _isStarting = false;
+  double _downloadProgress = 0.0;
+  String? _downloadError;
   late AnimationController _fillController;
 
   @override
@@ -179,12 +183,59 @@ class _SongDetailPanelState extends State<SongDetailPanel>
     }
   }
 
-  void _onStartTap() {
+  Future<void> _onStartTap() async {
     if (_isStarting) return;
-    _isStarting = true;
-    _fillController.forward().then((_) {
-      if (mounted) widget.onStart();
+
+    setState(() {
+      _isStarting = true;
+      _downloadProgress = 0.0;
+      _downloadError = null;
     });
+
+    try {
+      // 检查是否已缓存
+      final cached = await ChartRepository.isSongCached(widget.song.id);
+
+      if (!cached) {
+        // 未缓存，先下载
+        final record = await ChartRepository.loadSongRecord(widget.song.id);
+        if (record != null) {
+          // 下载音频
+          final audioFile = record.audioUrl.split('/').last;
+          await LineCacheManager().downloadFile(
+            record.audioUrl,
+            'audio',
+            audioFile,
+            onProgress: (p) {
+              if (!mounted) return;
+              setState(() => _downloadProgress = p * 0.8);
+            },
+          );
+
+          // 下载谱面
+          if (!mounted) return;
+          await LineCacheManager().downloadFile(
+            record.chartUrl,
+            'charts',
+            '${widget.song.id}.json',
+            onProgress: (p) {
+              if (!mounted) return;
+              setState(() => _downloadProgress = 0.8 + p * 0.2);
+            },
+          );
+        }
+      }
+
+      if (!mounted) return;
+      setState(() => _downloadProgress = 1.0);
+      widget.onStart();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isStarting = false;
+        _downloadError = '下载失败';
+      });
+    }
   }
 
   String _calculateGrade(double accuracy) {
@@ -389,6 +440,7 @@ class _SongDetailPanelState extends State<SongDetailPanel>
                               height: 48,
                               decoration: BoxDecoration(
                                 border: Border.all(color: color, width: 2),
+                                color: _isStarting ? color.withValues(alpha: 0.3) : null,
                               ),
                               child: ClipRRect(
                                 child: Stack(
@@ -408,11 +460,11 @@ class _SongDetailPanelState extends State<SongDetailPanel>
                                     // 文字
                                     FittedBox(
                                       child: Text(
-                                        'START',
+                                        _getStartButtonText(),
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w200,
-                                          color: color,
+                                          color: _isStarting ? color.withValues(alpha: 0.5) : color,
                                           letterSpacing: 2,
                                         ),
                                       ),
@@ -462,5 +514,13 @@ class _SongDetailPanelState extends State<SongDetailPanel>
         ),
       ],
     );
+  }
+
+  String _getStartButtonText() {
+    if (_downloadError != null) return '点击重试';
+    if (_isStarting && _downloadProgress < 1.0) {
+      return '下载中 ${(_downloadProgress * 100).toInt()}%';
+    }
+    return 'START';
   }
 }
