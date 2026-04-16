@@ -241,6 +241,8 @@ class AIChatProvider with ChangeNotifier {
 
   // 发送消息并获取 AI 响应
   Future<void> sendMessage(String content) async {
+    if (_isLoading) return; // 防止重复发送
+
     if (!_settings.isConfigured) {
       _error = '请先配置 API Key';
       notifyListeners();
