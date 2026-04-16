@@ -32,15 +32,6 @@ class ApiService {
 
   static final gen.ApiClient _client = gen.ApiClient(basePath: baseUrl);
 
-  // 活跃的 HTTP 客户端（用于支持下载中断）
-  static HttpClient? _activeHttpClient;
-
-  // 中断正在进行的下载，强制关闭 HTTP 连接
-  static void abortDownload() {
-    _activeHttpClient?.close(force: true);
-    _activeHttpClient = null;
-  }
-
   static gen.KVApi get kvApi => gen.KVApi(_client);
   static gen.FileApi get fileApi => gen.FileApi(_client);
 
@@ -262,31 +253,31 @@ class ApiService {
         existingLength = await tempFile.length();
       }
 
-      // 使用 dart:io HttpClient（支持 abort）
-      final ioClient = HttpClient();
-      _activeHttpClient = ioClient;
+      final client = http.Client();
 
       try {
-        final request = await ioClient.getUrl(Uri.parse(url));
+        // 使用 StreamedResponse 实现真正的流式下载
+        final request = http.Request('GET', Uri.parse(url));
         if (existingLength > 0) {
-          request.headers.set('Range', 'bytes=$existingLength-');
+          request.headers['Range'] = 'bytes=$existingLength-';
         }
 
-        final response = await request.close();
+        final streamedResponse = await client.send(request);
 
-        if (response.statusCode != 200 && response.statusCode != 206) {
+        if (streamedResponse.statusCode != 200 &&
+            streamedResponse.statusCode != 206) {
           return null;
         }
 
         // 从 Content-Length 或 Content-Range 获取总大小
         int totalSize = existingLength;
-        final contentLengthList = response.headers['content-length'];
-        if (contentLengthList != null && contentLengthList.isNotEmpty) {
-          totalSize = existingLength + int.parse(contentLengthList.first);
+        final contentLength = streamedResponse.headers['content-length'];
+        if (contentLength != null && contentLength.isNotEmpty) {
+          totalSize = existingLength + int.parse(contentLength);
         } else {
-          final contentRangeList = response.headers['content-range'];
-          if (contentRangeList != null && contentRangeList.isNotEmpty) {
-            final match = RegExp(r'/(\d+)$').firstMatch(contentRangeList.first);
+          final contentRange = streamedResponse.headers['content-range'];
+          if (contentRange != null) {
+            final match = RegExp(r'/(\d+)$').firstMatch(contentRange);
             if (match != null) {
               totalSize = int.parse(match.group(1)!);
             }
@@ -299,7 +290,7 @@ class ApiService {
         );
         int received = existingLength;
 
-        await for (final chunk in response) {
+        await for (final chunk in streamedResponse.stream) {
           await raf.writeFrom(chunk);
           received += chunk.length;
           if (onProgress != null && totalSize > 0) {
@@ -318,8 +309,7 @@ class ApiService {
 
         return outputFile.path;
       } finally {
-        ioClient.close(force: true);
-        _activeHttpClient = null;
+        client.close();
       }
     } catch (e) {
       return null;

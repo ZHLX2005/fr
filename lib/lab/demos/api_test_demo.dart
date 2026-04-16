@@ -49,7 +49,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   String? _downloadStatus;
   double _downloadProgress = 0.0; // 下载进度 0.0-1.0
   bool _isDownloading = false;
-  bool _isAborted = false; // 下载是否被中断
 
   // 已下载的 APK 文件信息
   String? _downloadedApkPath;
@@ -216,8 +215,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
   // 检查APK更新
   Future<void> _checkApkUpdate() async {
-    // 先清除旧的下载状态，避免残留进度信息
-    await _resetHttpState();
     setState(() {
       _isCheckingUpdate = true;
       _downloadStatus = '正在检查更新...';
@@ -253,13 +250,12 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 内部下载APK（支持断点续传+中断）
+  // 内部下载APK（支持断点续传）
   Future<void> _downloadApkInternal() async {
     if (_isDownloading) return;
 
     setState(() {
       _isDownloading = true;
-      _isAborted = false;
       _downloadProgress = 0.0;
       _downloadStatus = '开始下载...';
     });
@@ -267,9 +263,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     try {
       final filePath = await ApiService.downloadApkToLocal(
         onProgress: (received, total) {
-          if (!mounted) return;
-          if (_isAborted) return; // 已中断则不再更新进度
-          if (total > 0) {
+          if (mounted && total > 0) {
             setState(() {
               _downloadProgress = received / total;
               _downloadStatus =
@@ -278,9 +272,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           }
         },
       );
-
-      // 如果被中断，不处理结果
-      if (_isAborted) return;
 
       if (filePath != null && mounted) {
         final file = File(filePath);
@@ -300,7 +291,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         await _downloadApkWithBrowser();
       }
     } catch (e) {
-      if (_isAborted) return;
       if (mounted) {
         setState(() {
           _downloadStatus = '下载出错: $e，回退到浏览器下载';
@@ -310,33 +300,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         await _downloadApkWithBrowser();
       }
     }
-  }
-
-  // 重置 HTTP 下载状态
-  Future<void> _resetHttpState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kDownloadedApkPathKey);
-    await prefs.remove(_kDownloadedApkSizeKey);
-    setState(() {
-      _downloadStatus = null;
-      _downloadProgress = 0.0;
-      _isDownloading = false;
-      _isAborted = false;
-      _downloadedApkPath = null;
-      _downloadedApkSize = null;
-      _apkMetadata = null;
-      _apkUpdateTime = null;
-    });
-  }
-
-  // 中断正在进行的下载
-  void _abortDownload() {
-    ApiService.abortDownload();
-    setState(() {
-      _isAborted = true;
-      _downloadStatus = '下载已中断';
-      _isDownloading = false;
-    });
   }
 
   // 用系统方式打开文件（分享兜底）
@@ -360,9 +323,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
     final file = File(_downloadedApkPath!);
     if (!await file.exists()) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('APK 文件不存在')));
-      }
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('APK 文件不存在')));
       return;
     }
 
@@ -383,9 +347,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('唤起异常: $e')));
-      }
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('唤起异常: $e')));
     }
   }
 
@@ -393,9 +358,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
+    if (bytes < 1024 * 1024 * 1024)
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -713,28 +677,13 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             : Colors.blue[50],
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _downloadStatus!,
-                              style: TextStyle(
-                                color: _downloadStatus!.contains('完成')
-                                    ? Colors.green[700]
-                                    : Colors.blue[700],
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _isDownloading ? _abortDownload : _resetHttpState,
-                            icon: Icon(
-                              _isDownloading ? Icons.cancel : Icons.restart_alt,
-                              size: 20,
-                            ),
-                            tooltip: _isDownloading ? '中断下载' : '重置HTTP状态',
-                            color: _isDownloading ? Colors.red : Colors.orange,
-                          ),
-                        ],
+                      child: Text(
+                        _downloadStatus!,
+                        style: TextStyle(
+                          color: _downloadStatus!.contains('完成')
+                              ? Colors.green[700]
+                              : Colors.blue[700],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
