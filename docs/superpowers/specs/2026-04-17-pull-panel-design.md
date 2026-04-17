@@ -26,18 +26,15 @@ IDLE
 PullPanelDemoPage (Scaffold, backgroundColor: #F5EFEA)
 └── Stack
     ├── _MainContent
-    │   └── 居中图标(Icons.swipe_down) + 文字 + 打开面板按钮
+    │   └── 居中图标(Icons.swipe_down) + 文字说明
     │
-    ├── DraggableScrollableSheet
-    │   ├── initialChildSize: 0.0
-    │   ├── minChildSize: 0.0
-    │   ├── maxChildSize: 0.9
-    │   ├── snap: true
-    │   ├── snapSizes: [0.0, 0.5, 0.9]  ← 0.5 = 50%阈值, 0.9 = 最大展开
-    │   └── builder → _PullPanel
-    │       └── Container (#122E8A 深海蓝)
-    │           ├── _OceanWaveDivider (拖拽指示条 + 波浪动画)
-    │           └── Expanded → ListView (面板内容)
+    ├── Positioned (top: 0)
+    │   └── GestureDetector (下拉手势)
+    │       └── AnimatedContainer / Transform.translate
+    │           └── _PullDownPanel (#122E8A 深海蓝)
+    │               ├── 拖拽指示条
+    │               ├── 状态提示文字
+    │               └── Expanded → ListView (面板内容)
     │
     └── _RefreshOverlay (刷新时遮罩 + spinner)
         └── OverlayEntry → 半透明遮罩 + Center(CircularProgressIndicator)
@@ -55,61 +52,51 @@ PullPanelDemoPage (Scaffold, backgroundColor: #F5EFEA)
 
 ## 实现要点
 
-### 1. 阈值判定
+### 1. 下拉手势检测
 
-使用 `NotificationListener<DraggableScrollableNotification>` 监听 sheet 位置：
+使用 `GestureDetector` 监听 `onVerticalDragStart/Update/End`：
 
 ```dart
-// 0.0 ~ 1.0 代表屏幕高度比例
-// 20% 刷新阈值 → sheet 显示 20% 时触发刷新
-// 50% 面板阈值 → sheet 显示 50% 时进入面板展开模式
+GestureDetector(
+  onVerticalDragStart: _onDragStart,
+  onVerticalDragUpdate: _onDragUpdate,
+  onVerticalDragEnd: _onDragEnd,
+  child: AnimatedContainer(height: _dragOffset, ...),
+)
 ```
+
+- `_dragOffset` 记录下拉距离
+- `pullRatio = _dragOffset / screenHeight` 计算下拉比例
+
+### 2. 阈值判定
 
 状态切换逻辑：
-- `sheetSize < 0.2`: 无操作
-- `0.2 <= sheetSize < 0.5`: 刷新区 (REFRESHING)
-- `sheetSize >= 0.5`: 面板展开区 (PANEL_EXPANDED)
-
-### 2. 海洋波浪分界线
-
-```dart
-class _OceanWaveDivider extends StatefulWidget {
-  final bool isActive;  // 下拉时激活波浪动画
-}
-
-class _OceanWavePainter extends CustomPainter {
-  // 贝塞尔曲线绘制波浪
-  // phase 用于动画偏移
-}
-```
-
-- 静止时：轻微波浪或静态线条
-- 拉动时：波浪幅度增大 + 动画
-- 刷新时：大波浪动画
-- 收起后：波浪逐渐平息
+- `pullRatio < 0.2`: 无操作，回弹
+- `0.2 <= pullRatio < 0.5`: 刷新区 (REFRESHING)
+- `pullRatio >= 0.5`: 面板展开区 (PANEL_EXPANDED)
 
 ### 3. 刷新流程
 
 ```
-用户下拉 → 超过20% → 显示遮罩 + spinner
-        → 进入刷新区 → 执行刷新 (模拟3秒延迟)
+用户下拉 → 超过20% → 进入刷新区
+        → 松开 → 显示遮罩 + spinner
+        → 执行刷新 (模拟3秒延迟)
         → 刷新完成 → 隐藏遮罩 + 收起面板 → IDLE
 ```
 
-### 4. DraggableScrollableSheet 配置
+### 4. 动画回弹
+
+使用 `AnimationController` 实现平滑回弹：
 
 ```dart
-DraggableScrollableSheet(
-  initialChildSize: 0.0,
-  minChildSize: 0.0,
-  maxChildSize: 0.9,
-  snap: true,
-  snapSizes: const [0.0, 0.5, 0.9],
-  builder: (context, scrollController) => _PullPanel(...),
-)
+_snapTo(target) {
+  _snapController.stop();
+  _snapAnimation = _snapController.drive(
+    Tween<double>(begin: _dragOffset, end: target),
+  );
+  _snapController.animateTo(1.0, duration: 300ms);
+}
 ```
-
-注意：`DraggableScrollableSheet` 的 `sheetSize` 是相对于 `maxChildSize` 的比例，需要转换计算实际屏幕占比。
 
 ## 文件清单
 
@@ -121,7 +108,7 @@ DraggableScrollableSheet(
 
 1. 主页背景为柔奶白 `#F5EFEA`
 2. 面板背景为深海蓝 `#122E8A`
-3. 分界线为海洋波浪效果，下拉时波浪动画激活
+3. 从顶部下拉时面板向下展开
 4. 下拉 < 20% 松开后回弹
 5. 下拉 20% ~ 50% 显示白色 spinner，3秒后自动收起
 6. 下拉 > 50% 展开面板，显示 ListView 内容
