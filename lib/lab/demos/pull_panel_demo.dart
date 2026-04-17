@@ -223,7 +223,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
 
           // 波浪分界线：跟随主页面下移（粘在分界线上）
           // 保证波浪永远贴在边界上，不会因 panelHeight/mainPush 差异产生间隙
-          const waveH = 20.0; // 波浪高度
+          final double waveH = 20.0; // 波浪高度
           final boundaryY = math.min(mainPush, panelHeight);
 
           Positioned(
