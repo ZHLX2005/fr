@@ -318,7 +318,7 @@ class ApiService {
           }
           await raf.writeFrom(chunk);
           received += chunk.length;
-          if (onProgress != null && totalSize > 0) {
+          if (onProgress != null && totalSize > 0 && (controller == null || !controller.isCancelled)) {
             onProgress(received, totalSize);
           }
         }
