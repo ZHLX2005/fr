@@ -44,6 +44,12 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
     duration: const Duration(milliseconds: 260),
   );
 
+  // 波浪动画
+  late final AnimationController _waveController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  )..repeat();
+
   Animation<double>? _progressAnim;
 
   // 刷新 overlay
@@ -65,6 +71,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
     _refreshOverlay?.remove();
     _panelScrollController.dispose();
     _anim.dispose();
+    _waveController.dispose();
     super.dispose();
   }
 
@@ -193,12 +200,26 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
       backgroundColor: _kBackgroundColor,
       body: Stack(
         children: [
-          // 主页面
+          // 主页面（波浪作为伪元素附着在顶部边界）
           Transform.translate(
             offset: Offset(0, mainPush),
             child: IgnorePointer(
               ignoring: !_mainInteractive,
-              child: _buildMainContent(),
+              child: AnimatedBuilder(
+                animation: _waveController,
+                builder: (_, child) {
+                  final amp = _progress > 0.15 ? 6.0 : 2.0;
+                  return CustomPaint(
+                    foregroundPainter: _WaveBeforePainter(
+                      phase: _waveController.value,
+                      amplitude: amp,
+                      color: _kWaveColor,
+                    ),
+                    child: child,
+                  );
+                },
+                child: _buildMainContent(),
+              ),
             ),
           ),
 
@@ -208,32 +229,14 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
             left: 0,
             right: 0,
             height: panelHeight,
-              child: DecoratedBox(
-                decoration: const BoxDecoration(color: _kPanelColor),
-                child: _PanelContent(
-                  progress: _progress,
-                  scrollController: _panelScrollController,
-                  scrollable: panelScrollable,
-                  hint: hint,
-                  onTopOverscroll: _onPanelTopOverscroll,
-                ),
-              ),
-            ),
-   
-
-          // 波浪分界线：跟随主页面下移（粘在分界线上）
-          // 保证波浪永远贴在边界上，不会因 panelHeight/mainPush 差异产生间隙
-          final double waveH = 20.0; // 波浪高度
-          final boundaryY = math.min(mainPush, panelHeight);
-
-          Positioned(
-            top: (boundaryY - waveH / 2).clamp(0.0, h),
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              ignoring: true,
-              child: _OceanWaveDivider(
-                isActive: _progress > 0.15,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(color: _kPanelColor),
+              child: _PanelContent(
+                progress: _progress,
+                scrollController: _panelScrollController,
+                scrollable: panelScrollable,
+                hint: hint,
+                onTopOverscroll: _onPanelTopOverscroll,
               ),
             ),
           ),
@@ -452,13 +455,13 @@ class _MiniAppTile extends StatelessWidget {
   }
 }
 
-// ========== 海洋波浪分界线 ==========
-class _OceanWavePainter extends CustomPainter {
+// 波浪伪元素 painter：画在主页面顶部边界
+class _WaveBeforePainter extends CustomPainter {
   final double phase; // 0~1
   final double amplitude;
   final Color color;
 
-  _OceanWavePainter({
+  _WaveBeforePainter({
     required this.phase,
     required this.amplitude,
     required this.color,
@@ -466,84 +469,35 @@ class _OceanWavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
 
-    final path = Path();
-    final midY = size.height / 2;
+    const waveH = 20.0;
     final omega = 2 * math.pi;
 
-    path.moveTo(0, midY);
+    // 画在"容器顶部边界"附近
+    final path = Path()..moveTo(0, 0);
+
     for (double x = 0; x <= size.width; x += 1) {
-      final y = midY + amplitude * math.sin(x * 0.04 + phase * omega);
+      final y = amplitude * math.sin(x * 0.04 + phase * omega);
       path.lineTo(x, y);
     }
-    path..lineTo(size.width, size.height)..lineTo(0, size.height)..close();
+
+    // 封闭成一条带子
+    path
+      ..lineTo(size.width, waveH)
+      ..lineTo(0, waveH)
+      ..close();
 
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _OceanWavePainter oldDelegate) {
+  bool shouldRepaint(covariant _WaveBeforePainter oldDelegate) {
     return phase != oldDelegate.phase ||
         amplitude != oldDelegate.amplitude ||
         color != oldDelegate.color;
-  }
-}
-
-class _OceanWaveDivider extends StatefulWidget {
-  final bool isActive;
-  const _OceanWaveDivider({required this.isActive});
-
-  @override
-  State<_OceanWaveDivider> createState() => _OceanWaveDividerState();
-}
-
-class _OceanWaveDividerState extends State<_OceanWaveDivider>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2));
-    if (widget.isActive) _controller.repeat();
-  }
-
-  @override
-  void didUpdateWidget(covariant _OceanWaveDivider oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActive && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!widget.isActive && _controller.isAnimating) {
-      _controller.stop();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final h = widget.isActive ? 20.0 : 10.0;
-    final amp = widget.isActive ? 6.0 : 2.0;
-
-    return SizedBox(
-      height: h,
-      width: double.infinity,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, __) => CustomPaint(
-          painter: _OceanWavePainter(
-            phase: _controller.value,
-            amplitude: amp,
-            color: _kWaveColor,
-          ),
-        ),
-      ),
-    );
   }
 }
 
