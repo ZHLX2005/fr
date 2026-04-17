@@ -33,6 +33,7 @@ class PullPanelDemoPage extends StatefulWidget {
 class _PullPanelDemoPageState extends State<PullPanelDemoPage> {
   _PullState _state = _PullState.idle;
   OverlayEntry? _refreshOverlay;
+  bool _isRefreshing = false;
 
   @override
   void dispose() {
@@ -59,9 +60,15 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage> {
   }
 
   Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
     _showRefreshOverlay();
-    await Future.delayed(const Duration(seconds: 3)); // 模拟刷新
-    _hideRefreshOverlay();
+    try {
+      await Future.delayed(const Duration(seconds: 3));
+    } finally {
+      _isRefreshing = false;
+      _hideRefreshOverlay();
+    }
   }
 
   @override
