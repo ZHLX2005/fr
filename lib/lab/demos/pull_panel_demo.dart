@@ -166,7 +166,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final pullRatio = _dragOffset / screenHeight;
+    final pullRatio = screenHeight > 0 ? _dragOffset / screenHeight : 0.0;
 
     return Scaffold(
       backgroundColor: _kBackgroundColor,
@@ -176,26 +176,37 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
           _buildMainContent(),
 
           // 下拉面板（从顶部展开）
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: GestureDetector(
-              onVerticalDragStart: _onDragStart,
-              onVerticalDragUpdate: _onDragUpdate,
-              onVerticalDragEnd: _onDragEnd,
+          if (_dragOffset > 0)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
               child: AnimatedContainer(
                 duration: _isDragging
                     ? Duration.zero
                     : const Duration(milliseconds: 300),
                 height: _dragOffset,
-                child: _dragOffset > 0
-                    ? _PullDownPanel(
-                        pullRatio: pullRatio,
-                        state: _state,
-                      )
-                    : const SizedBox.shrink(),
+                decoration: BoxDecoration(
+                  color: _kPanelColor,
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(20),
+                  ),
+                ),
+                child: _PullDownPanel(
+                  pullRatio: pullRatio,
+                  state: _state,
+                ),
               ),
+            ),
+
+          // 全屏透明手势检测层
+          Positioned.fill(
+            child: GestureDetector(
+              onVerticalDragStart: _onDragStart,
+              onVerticalDragUpdate: _onDragUpdate,
+              onVerticalDragEnd: _onDragEnd,
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(), // 透明但可触摸
             ),
           ),
         ],
