@@ -248,6 +248,7 @@ class ApiService {
   // 注意：仅在 Android/iOS 平台可用，Web 平台返回 null
   static Future<String?> downloadApkToLocal({
     void Function(int received, int total)? onProgress,
+    DownloadController? controller,
   }) async {
     // Web 平台不支持文件操作，返回 null 让调用方回退到浏览器下载
     if (!Platform.isAndroid && !Platform.isIOS) {
@@ -306,6 +307,15 @@ class ApiService {
         int received = existingLength;
 
         await for (final chunk in streamedResponse.stream) {
+          // 检查是否已取消
+          if (controller != null && controller.isCancelled) {
+            await raf.close();
+            // 清理临时文件
+            if (await tempFile.exists()) {
+              await tempFile.delete();
+            }
+            return null;
+          }
           await raf.writeFrom(chunk);
           received += chunk.length;
           if (onProgress != null && totalSize > 0) {
