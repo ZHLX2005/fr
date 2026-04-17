@@ -40,18 +40,38 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage> {
       body: Stack(
         children: [
           _buildMainContent(),
-          DraggableScrollableSheet(
-            initialChildSize: 0.0,
-            minChildSize: 0.0,
-            maxChildSize: 0.9,
-            snap: true,
-            snapSizes: const [0.0, 0.5, 0.9],
-            builder: (context, scrollController) {
-              return _PullPanel(
-                scrollController: scrollController,
-                onStateChange: (state) => setState(() => _state = state),
-              );
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (notification) {
+              final sheetSize = notification.extent / 0.9; // 转换为实际屏幕占比 0.0~1.0
+              final prevState = _state;
+
+              if (sheetSize < 0.2) {
+                _state = _PullState.idle;
+              } else if (sheetSize < 0.5) {
+                _state = _PullState.refreshing;
+              } else {
+                _state = _PullState.panelExpanded;
+              }
+
+              if (prevState != _state) {
+                setState(() {});
+              }
+              return true;
             },
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.0,
+              minChildSize: 0.0,
+              maxChildSize: 0.9,
+              snap: true,
+              snapSizes: const [0.0, 0.5, 0.9],
+              builder: (context, scrollController) {
+                return _PullPanel(
+                  scrollController: scrollController,
+                  state: _state,
+                  onStateChange: (state) => setState(() => _state = state),
+                );
+              },
+            ),
           ),
         ],
       ),
