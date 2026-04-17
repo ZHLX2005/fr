@@ -26,6 +26,21 @@ class ApiResponse<T> {
   }
 }
 
+// 下载控制器，用于支持取消/中断下载
+class DownloadController {
+  bool _isCancelled = false;
+
+  bool get isCancelled => _isCancelled;
+
+  void cancel() {
+    _isCancelled = true;
+  }
+
+  void reset() {
+    _isCancelled = false;
+  }
+}
+
 // 创建配置好basePath的API客户端
 class ApiService {
   static const String baseUrl = 'http://47.110.80.47:8988';
