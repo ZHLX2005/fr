@@ -4,7 +4,6 @@ import '../lab_container.dart';
 // 颜色定义
 const _kBackgroundColor = Color(0xFFF5EFEA); // 柔奶白
 const _kPanelColor = Color(0xFF122E8A);     // 深海蓝
-const _kWaveColor = Colors.white70;
 const _kOverlayColor = Colors.black38;
 
 // 状态枚举
@@ -15,7 +14,7 @@ class PullPanelDemo extends DemoPage {
   String get title => '上拉面板';
 
   @override
-  String get description => 'DraggableScrollableSheet上拉展开面板演示';
+  String get description => '下拉触发刷新/展开面板演示';
 
   @override
   Widget buildPage(BuildContext context) {
@@ -30,14 +29,33 @@ class PullPanelDemoPage extends StatefulWidget {
   State<PullPanelDemoPage> createState() => _PullPanelDemoPageState();
 }
 
-class _PullPanelDemoPageState extends State<PullPanelDemoPage> {
+class _PullPanelDemoPageState extends State<PullPanelDemoPage>
+    with SingleTickerProviderStateMixin {
   _PullState _state = _PullState.idle;
   OverlayEntry? _refreshOverlay;
   bool _isRefreshing = false;
 
+  // 下拉相关状态
+  double _dragOffset = 0.0;
+  bool _isDragging = false;
+  late AnimationController _snapController;
+  late Animation<double> _snapAnimation;
+
+  // 阈值
+  static const double _refreshThreshold = 0.2; // 20% 刷新
+  static const double _expandThreshold = 0.5; // 50% 展开
+
+  @override
+  void initState() {
+    super.initState();
+    _snapController = AnimationController(vsync: this);
+    _snapAnimation = _snapController.drive(Tween<double>(begin: 0, end: 0));
+  }
+
   @override
   void dispose() {
     _refreshOverlay?.remove();
+    _snapController.dispose();
     super.dispose();
   }
 
@@ -68,50 +86,116 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage> {
     } finally {
       _isRefreshing = false;
       _hideRefreshOverlay();
+      _snapTo(0.0);
+    }
+  }
+
+  void _snapTo(double target) {
+    _snapController.stop();
+    _snapAnimation.removeListener(_onSnapUpdate);
+
+    _snapAnimation = _snapController.drive(
+      Tween<double>(begin: _dragOffset, end: target),
+    );
+    _snapController.value = 0.0;
+    _snapAnimation.addListener(_onSnapUpdate);
+    _snapController.animateTo(
+      1.0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _onSnapUpdate() {
+    setState(() {
+      _dragOffset = _snapAnimation.value;
+    });
+  }
+
+  void _onDragStart(DragStartDetails details) {
+    _isDragging = true;
+    _snapController.stop();
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    if (!_isDragging) return;
+    setState(() {
+      _dragOffset += details.delta.dy;
+      _dragOffset = _dragOffset.clamp(0.0, 500.0); // 最大下拉距离
+    });
+
+    // 计算下拉比例（相对于屏幕高度）
+    final screenHeight = MediaQuery.of(context).size.height;
+    final pullRatio = _dragOffset / screenHeight;
+
+    // 状态判定
+    _PullState newState;
+    if (pullRatio < _refreshThreshold) {
+      newState = _PullState.idle;
+    } else if (pullRatio < _expandThreshold) {
+      newState = _PullState.refreshing;
+    } else {
+      newState = _PullState.panelExpanded;
+    }
+
+    if (newState != _state) {
+      setState(() {
+        _state = newState;
+      });
+    }
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    _isDragging = false;
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final pullRatio = _dragOffset / screenHeight;
+
+    if (_state == _PullState.refreshing && !_isRefreshing) {
+      // 触发刷新
+      _handleRefresh();
+    } else if (_state == _PullState.panelExpanded) {
+      // 展开面板
+      _snapTo(screenHeight * _expandThreshold);
+    } else {
+      // 回弹
+      _snapTo(0.0);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final pullRatio = _dragOffset / screenHeight;
+
     return Scaffold(
       backgroundColor: _kBackgroundColor,
       body: Stack(
         children: [
+          // 主内容
           _buildMainContent(),
-          NotificationListener<DraggableScrollableNotification>(
-            onNotification: (notification) {
-              final sheetSize = notification.extent / 0.9; // 转换为实际屏幕占比 0.0~1.0
-              final prevState = _state;
 
-              if (sheetSize < 0.2) {
-                _state = _PullState.idle;
-              } else if (sheetSize < 0.5) {
-                if (_state != _PullState.refreshing) {
-                  _state = _PullState.refreshing;
-                  _handleRefresh(); // 触发刷新
-                }
-              } else {
-                _state = _PullState.panelExpanded;
-              }
-
-              if (prevState != _state) {
-                setState(() {});
-              }
-              return true;
-            },
-            child: DraggableScrollableSheet(
-              initialChildSize: 0.0,
-              minChildSize: 0.0,
-              maxChildSize: 0.9,
-              snap: true,
-              snapSizes: const [0.0, 0.5, 0.9],
-              builder: (context, scrollController) {
-                return _PullPanel(
-                  scrollController: scrollController,
-                  state: _state,
-                  onStateChange: (state) => setState(() => _state = state),
-                );
-              },
+          // 下拉面板（从顶部展开）
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: GestureDetector(
+              onVerticalDragStart: _onDragStart,
+              onVerticalDragUpdate: _onDragUpdate,
+              onVerticalDragEnd: _onDragEnd,
+              child: AnimatedContainer(
+                duration: _isDragging
+                    ? Duration.zero
+                    : const Duration(milliseconds: 300),
+                height: _dragOffset,
+                child: _dragOffset > 0
+                    ? _PullDownPanel(
+                        pullRatio: pullRatio,
+                        state: _state,
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ),
           ),
         ],
@@ -126,24 +210,34 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage> {
         children: [
           Icon(Icons.swipe_down, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
-          Text('从底部向上拖拽', style: TextStyle(fontSize: 18, color: Colors.grey.shade600)),
+          Text('下拉触发刷新或展开面板',
+              style: TextStyle(fontSize: 18, color: Colors.grey.shade600)),
           const SizedBox(height: 8),
-          Text('或点击按钮展开面板', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
+          Text(
+            '下拉 < 20% 回弹',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+          ),
+          Text(
+            '下拉 20% ~ 50% 刷新',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+          ),
+          Text(
+            '下拉 > 50% 展开面板',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+          ),
         ],
       ),
     );
   }
 }
 
-class _PullPanel extends StatelessWidget {
-  final ScrollController scrollController;
+class _PullDownPanel extends StatelessWidget {
+  final double pullRatio;
   final _PullState state;
-  final ValueChanged<_PullState> onStateChange;
 
-  const _PullPanel({
-    required this.scrollController,
+  const _PullDownPanel({
+    required this.pullRatio,
     required this.state,
-    required this.onStateChange,
   });
 
   @override
@@ -151,21 +245,43 @@ class _PullPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: _kPanelColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
-            offset: const Offset(0, -2),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
-          _OceanWaveDivider(isActive: state != _PullState.idle),
+          // 拖拽指示器
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // 状态提示
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              state == _PullState.refreshing ? '正在刷新...' : '下拉展开面板',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 14,
+              ),
+            ),
+          ),
+          // 面板内容
           Expanded(
             child: ListView.builder(
-              controller: scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: 30,
               itemBuilder: (context, index) => _buildListItem(index),
@@ -186,93 +302,10 @@ class _PullPanel extends StatelessWidget {
           child: Text('${index + 1}', style: const TextStyle(color: Colors.white)),
         ),
         title: Text('列表项 ${index + 1}', style: const TextStyle(color: Colors.white)),
-        subtitle: Text('这是第 ${index + 1} 项的描述内容', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+        subtitle: Text('这是第 ${index + 1} 项的描述内容',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
         trailing: const Icon(Icons.chevron_right, color: Colors.white),
       ),
-    );
-  }
-}
-
-class _OceanWavePainter extends CustomPainter {
-  final double phase;      // 动画相位 0.0~1.0
-  final double amplitude;  // 波浪幅度
-  final bool isActive;     // 是否激活动画
-
-  _OceanWavePainter({
-    required this.phase,
-    required this.amplitude,
-    required this.isActive,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = _kWaveColor
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    path.moveTo(0, size.height / 2);
-
-    for (double x = 0; x <= size.width; x += 1) {
-      final waveY = isActive
-          ? size.height / 2 + amplitude * _sin(x * 0.04 + phase * 2 * 3.14159)
-          : size.height / 2;
-      path.lineTo(x, waveY);
-    }
-
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  double _sin(double x) => (x - (x * x * x) / 6 + (x * x * x * x * x) / 120).clamp(-1.0, 1.0);
-
-  @override
-  bool shouldRepaint(_OceanWavePainter oldDelegate) =>
-      phase != oldDelegate.phase || amplitude != oldDelegate.amplitude || isActive != oldDelegate.isActive;
-}
-
-class _OceanWaveDivider extends StatefulWidget {
-  final bool isActive;
-
-  const _OceanWaveDivider({required this.isActive});
-
-  @override
-  State<_OceanWaveDivider> createState() => _OceanWaveDividerState();
-}
-
-class _OceanWaveDividerState extends State<_OceanWaveDivider> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))
-      ..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, child) {
-        return CustomPaint(
-          size: Size(double.infinity, widget.isActive ? 20 : 8),
-          painter: _OceanWavePainter(
-            phase: _controller.value,
-            amplitude: widget.isActive ? 6.0 : 2.0,
-            isActive: widget.isActive,
-          ),
-        );
-      },
     );
   }
 }
