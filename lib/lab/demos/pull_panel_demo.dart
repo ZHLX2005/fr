@@ -223,6 +223,19 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
             ),
           ),
 
+          // 波浪分界线：跟随主页面下移（粘在分界线上）
+          Positioned(
+            top: mainPush - 10, // 波浪中心对齐边界
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: true,
+              child: _OceanWaveDivider(
+                isActive: _progress > 0.15,
+              ),
+            ),
+          ),
+
           // 全屏手势层
           Positioned.fill(
             child: GestureDetector(
@@ -317,8 +330,6 @@ class _PanelContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _OceanWaveDivider(isActive: progress > 0.15),
-
         // 顶部 handle + 标题区
         Padding(
           padding: const EdgeInsets.fromLTRB(0, 8, 0, 10),
