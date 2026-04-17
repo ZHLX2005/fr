@@ -2,21 +2,17 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 
-// 颜色定义
-const _kBackgroundColor = Color(0xFFF5EFEA); // 柔奶白
-const _kPanelColor = Color(0xFF122E8A);     // 深海蓝
+const _kBackgroundColor = Color(0xFFF5EFEA);
+const _kPanelColor = Color(0xFF122E8A);
 const _kWaveColor = Colors.white70;
 const _kOverlayColor = Colors.black38;
-
-// 状态枚举
-enum _PullState { idle, refreshing, panelExpanded }
 
 class PullPanelDemo extends DemoPage {
   @override
   String get title => '上拉面板';
 
   @override
-  String get description => '下拉触发刷新/展开面板演示';
+  String get description => '微信式下拉面板：丝滑展开/全屏/上滑返回';
 
   @override
   Widget buildPage(BuildContext context) {
@@ -33,46 +29,107 @@ class PullPanelDemoPage extends StatefulWidget {
 
 class _PullPanelDemoPageState extends State<PullPanelDemoPage>
     with SingleTickerProviderStateMixin {
-  _PullState _state = _PullState.idle;
+  // 0~1：0=收起，1=全屏面板
+  double _progress = 0.0;
+
+  // drag 过程：用于计算 velocity / 保持连续
+  bool _isDragging = false;
+
+  // 面板内部滚动控制器（全屏后用于检测是否在顶部）
+  final ScrollController _panelScrollController = ScrollController();
+
+  // snap 动画
+  late final AnimationController _anim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  );
+
+  Animation<double>? _progressAnim;
+
+  // 刷新 overlay
   OverlayEntry? _refreshOverlay;
   bool _isRefreshing = false;
 
-  // 下拉相关状态
-  double _dragOffset = 0.0;
-  bool _isDragging = false;
-  late AnimationController _snapController;
-  late Animation<double> _snapAnimation;
+  // 参数：你可以微调以接近"微信手感"
+  static const double _kMainMaxPushRatio = 0.50; // 主页面最多下移 50% 屏高
+  static const double _kSnapOpenThreshold = 0.60; // 松手后超过 60% 吸附到全屏
+  static const double _kVelocityOpen = 900; // 向下甩开阈值
+  static const double _kVelocityClose = -900; // 向上甩回阈值
 
-  // 阈值
-  static const double _refreshThreshold = 0.2; // 20% 刷新
-  static const double _expandThreshold = 0.5; // 50% 展开
-  static const double _hysteresis = 0.02;    // 2% 滞回，避免阈值抖动
-
-  @override
-  void initState() {
-    super.initState();
-    _snapController = AnimationController(vsync: this);
-    _snapAnimation = _snapController.drive(Tween<double>(begin: 0, end: 0));
-  }
+  // 双阈值刷新参数
+  static const double _kRefreshThreshold = 0.2; // 20% 刷新阈值
+  static const double _kExpandThreshold = 0.5; // 50% 展开阈值
 
   @override
   void dispose() {
     _refreshOverlay?.remove();
-    _snapController.dispose();
+    _panelScrollController.dispose();
+    _anim.dispose();
     super.dispose();
   }
 
+  // 将像素 drag 映射为 progress（带阻尼）
+  double _applyDragToProgress({
+    required double currentProgress,
+    required double deltaDy,
+    required double fullHeight,
+  }) {
+    // 目标：deltaDy >0 下拉打开；deltaDy <0 上拉关闭
+    final thresholdPx = fullHeight * 0.90; // 90% 拉到全屏
+    final raw = currentProgress * thresholdPx + deltaDy;
+
+    // 阻尼：越接近全开越费劲，越接近关闭越顺滑
+    double resisted = raw;
+    if (raw > thresholdPx) {
+      resisted = thresholdPx + (raw - thresholdPx) * 0.25;
+    }
+    if (raw < 0) {
+      resisted = raw * 0.25;
+    }
+
+    final next = (resisted / thresholdPx).clamp(0.0, 1.0);
+    return next;
+  }
+
+  void _animateTo(double target) {
+    _anim.stop();
+    _progressAnim?.removeListener(_onAnimTick);
+
+    _progressAnim = Tween<double>(begin: _progress, end: target).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
+    )..addListener(_onAnimTick);
+
+    _anim
+      ..value = 0
+      ..forward();
+  }
+
+  void _onAnimTick() {
+    setState(() {
+      _progress = _progressAnim!.value;
+    });
+  }
+
+  // 是否认为"面板已全屏展开"
+  bool get _isExpanded => _progress >= 0.999;
+
+  // 主页是否可交互
+  bool get _mainInteractive => !_isExpanded && !_isRefreshing;
+
+  // —— 刷新 overlay —— //
   void _showRefreshOverlay() {
     _refreshOverlay?.remove();
     _refreshOverlay = OverlayEntry(
-      builder: (context) => Container(
-        color: _kOverlayColor,
-        child: const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+      builder: (_) => Stack(
+        children: const [
+          Positioned.fill(
+            child: ModalBarrier(dismissible: false, color: _kOverlayColor),
+          ),
+          Center(child: CircularProgressIndicator(color: Colors.white)),
+        ],
       ),
     );
-    Overlay.of(context).insert(_refreshOverlay!);
+    Overlay.of(context, rootOverlay: true).insert(_refreshOverlay!);
   }
 
   void _hideRefreshOverlay() {
@@ -84,153 +141,132 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
     if (_isRefreshing) return;
     _isRefreshing = true;
     _showRefreshOverlay();
+
     try {
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(seconds: 2));
     } finally {
-      _isRefreshing = false;
       _hideRefreshOverlay();
-      _snapTo(0.0);
+      _isRefreshing = false;
+      _animateTo(0);
     }
   }
 
-  void _snapTo(double target) {
-    _snapController.stop();
-    _snapAnimation.removeListener(_onSnapUpdate);
-
-    _snapAnimation = _snapController.drive(
-      Tween<double>(begin: _dragOffset, end: target),
-    );
-    _snapController.value = 0.0;
-    _snapAnimation.addListener(_onSnapUpdate);
-    _snapController.animateTo(
-      1.0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void _onSnapUpdate() {
+  // 上滑返回：滚到顶继续上滑时带走面板
+  void _onPanelTopOverscroll(double overscroll) {
+    if (!_isExpanded) return;
+    final h = MediaQuery.of(context).size.height;
     setState(() {
-      _dragOffset = _snapAnimation.value;
+      _progress = _applyDragToProgress(
+        currentProgress: _progress,
+        deltaDy: overscroll,
+        fullHeight: h,
+      );
     });
-  }
-
-  void _onDragStart(DragStartDetails details) {
-    // 只允许从屏幕顶部区域开始拖动
-    final y = details.globalPosition.dy;
-    if (y > 120) return;
-
-    _isDragging = true;
-    _snapController.stop();
-  }
-
-  void _onDragUpdate(DragUpdateDetails details) {
-    if (!_isDragging) return;
-
-    final screenHeight = MediaQuery.of(context).size.height;
-    final maxDrag = screenHeight * 0.9; // 最多拖到90%屏幕高度
-
-    setState(() {
-      _dragOffset += details.delta.dy;
-      _dragOffset = _dragOffset.clamp(0.0, maxDrag);
-    });
-
-    // 计算下拉比例（相对于屏幕高度）
-    final pullRatio = screenHeight > 0 ? _dragOffset / screenHeight : 0.0;
-
-    // 状态判定（带滞回）
-    _PullState newState;
-    if (pullRatio < _refreshThreshold - _hysteresis) {
-      newState = _PullState.idle;
-    } else if (pullRatio < _expandThreshold - _hysteresis) {
-      newState = _PullState.refreshing;
-    } else {
-      newState = _PullState.panelExpanded;
-    }
-
-    if (newState != _state) {
-      setState(() {
-        _state = newState;
-      });
-    }
-  }
-
-  void _onDragEnd(DragEndDetails details) {
-    _isDragging = false;
-
-    final screenHeight = MediaQuery.of(context).size.height;
-    final pullRatio = _dragOffset / screenHeight;
-
-    if (_state == _PullState.refreshing && !_isRefreshing) {
-      // 触发刷新
-      _handleRefresh();
-    } else if (_state == _PullState.panelExpanded) {
-      // 展开面板
-      _snapTo(screenHeight * _expandThreshold);
-    } else {
-      // 回弹
-      _snapTo(0.0);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final pullRatio = screenHeight > 0 ? _dragOffset / screenHeight : 0.0;
+    final h = MediaQuery.of(context).size.height;
 
-    // 两段式位移：前50%推主页面，后面只展开面板
-    final maxPush = screenHeight * _expandThreshold;
-    final pushOffset = _dragOffset.clamp(0.0, maxPush);
+    // 主页面下移：0~50%（跟 progress 走一条 ease 曲线）
+    final mainPush = (h * _kMainMaxPushRatio) * Curves.easeOut.transform(_progress);
+
+    // 面板高度：0~全屏
+    final panelHeight = h * Curves.easeOut.transform(_progress);
+
+    // 面板内容是否开始可滚动：接近全屏才让它滚
+    final panelScrollable = _isExpanded;
+
+    // 文案提示
+    String hint;
+    if (_progress < _kRefreshThreshold) {
+      hint = '继续下拉';
+    } else if (_progress < _kExpandThreshold) {
+      hint = '松手刷新';
+    } else if (_progress < 0.6) {
+      hint = '继续下拉打开';
+    } else {
+      hint = '松手打开面板';
+    }
 
     return Scaffold(
       backgroundColor: _kBackgroundColor,
       body: Stack(
         children: [
-          // 主内容：跟随下拉位移向下移动（最多推50%）
+          // 主页面
           Transform.translate(
-            offset: Offset(0, pushOffset),
-            child: _buildMainContent(),
+            offset: Offset(0, mainPush),
+            child: IgnorePointer(
+              ignoring: !_mainInteractive,
+              child: _buildMainContent(),
+            ),
           ),
 
-          // 下拉面板（从顶部展开）
-          if (_dragOffset > 0)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: AnimatedContainer(
-                duration: _isDragging
-                    ? Duration.zero
-                    : const Duration(milliseconds: 300),
-                height: _dragOffset,
-                decoration: BoxDecoration(
-                  color: _kPanelColor,
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(20),
-                  ),
-                ),
-                child: _PullDownPanel(
-                  pullRatio: pullRatio,
-                  state: _state,
+          // 顶部面板（一直存在，只是高度变化）
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: panelHeight,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+              child: DecoratedBox(
+                decoration: const BoxDecoration(color: _kPanelColor),
+                child: _PanelContent(
+                  progress: _progress,
+                  scrollController: _panelScrollController,
+                  scrollable: panelScrollable,
+                  hint: hint,
+                  onTopOverscroll: _onPanelTopOverscroll,
                 ),
               ),
             ),
+          ),
 
-          // 仅顶部120px区域接管手势（避免挡住面板内部网格滚动）
-          if (_state != _PullState.panelExpanded && !_isRefreshing)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 120,
-              child: GestureDetector(
-                onVerticalDragStart: _onDragStart,
-                onVerticalDragUpdate: _onDragUpdate,
-                onVerticalDragEnd: _onDragEnd,
-                behavior: HitTestBehavior.translucent,
-                child: const SizedBox.expand(),
-              ),
+          // 全屏手势层
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+
+              onPanStart: (_) {
+                _isDragging = true;
+                _anim.stop();
+              },
+
+              onPanUpdate: (d) {
+                // 面板全屏时：正常让内部滚动，不处理
+                if (_isExpanded) return;
+
+                setState(() {
+                  _progress = _applyDragToProgress(
+                    currentProgress: _progress,
+                    deltaDy: d.delta.dy,
+                    fullHeight: h,
+                  );
+                });
+              },
+
+              onPanEnd: (d) {
+                _isDragging = false;
+
+                if (_isExpanded) return;
+
+                final vy = d.velocity.pixelsPerSecond.dy;
+
+                // 双阈值判定
+                if (_progress >= _kExpandThreshold || vy > _kVelocityOpen) {
+                  // 展开面板
+                  _animateTo(1.0);
+                } else if (_progress >= _kRefreshThreshold) {
+                  // 刷新区域：触发刷新后收回
+                  _handleRefresh();
+                } else {
+                  // 回弹
+                  _animateTo(0.0);
+                }
+              },
             ),
+          ),
         ],
       ),
     );
@@ -243,19 +279,17 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
         children: [
           Icon(Icons.swipe_down, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
-          Text('下拉触发刷新或展开面板',
-              style: TextStyle(fontSize: 18, color: Colors.grey.shade600)),
+          Text(
+            '任意位置下拉',
+            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+          ),
           const SizedBox(height: 8),
           Text(
-            '下拉 < 20% 回弹',
+            '面板逐渐展开 → 松手自动全屏',
             style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
           ),
           Text(
-            '下拉 20% ~ 50% 刷新',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-          ),
-          Text(
-            '下拉 > 50% 展开面板',
+            '全屏后：滚到顶继续上滑可返回',
             style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
           ),
         ],
@@ -264,66 +298,84 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   }
 }
 
-class _PullDownPanel extends StatelessWidget {
-  final double pullRatio;
-  final _PullState state;
+class _PanelContent extends StatelessWidget {
+  final double progress;
+  final ScrollController scrollController;
+  final bool scrollable;
+  final String hint;
+  final void Function(double overscroll) onTopOverscroll;
 
-  const _PullDownPanel({
-    required this.pullRatio,
-    required this.state,
+  const _PanelContent({
+    required this.progress,
+    required this.scrollController,
+    required this.scrollable,
+    required this.hint,
+    required this.onTopOverscroll,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // 波浪分界线（下拉时激活）
-        _OceanWaveDivider(isActive: pullRatio >= 0.2),
+        _OceanWaveDivider(isActive: progress > 0.15),
 
-        // 拖拽指示器（纯UI，无手势）
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-        ),
-
-        // 状态提示
+        // 顶部 handle + 标题区
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            state == _PullState.refreshing
-                ? '松手刷新...'
-                : '松手打开面板',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 14,
-            ),
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 10),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                hint,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
 
-        // 微信小程序风格网格
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.85,
-            ),
-            itemCount: _miniApps.length,
-            itemBuilder: (context, index) {
-              final item = _miniApps[index];
-              return _MiniAppTile(item: item);
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              // 全屏后，内容滚到顶继续上滑 -> 关闭面板
+              if (!scrollable) return false;
+
+              if (n is OverscrollNotification) {
+                if (n.overscroll < 0 && scrollController.position.pixels <= 0) {
+                  onTopOverscroll(n.overscroll);
+                  return true; // 吃掉，避免内容 bounce
+                }
+              }
+              return false;
             },
+            child: GridView.builder(
+              controller: scrollController,
+              physics: scrollable
+                  ? const BouncingScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: _miniApps.length,
+              itemBuilder: (context, index) {
+                final item = _miniApps[index];
+                return _MiniAppTile(item: item);
+              },
+            ),
           ),
         ),
       ],
@@ -350,7 +402,6 @@ const _miniApps = <_MiniAppItem>[
   _MiniAppItem(Icons.favorite, '健康', Color(0xFFF44336)),
 ];
 
-// 微信小程序风格Tile
 class _MiniAppTile extends StatelessWidget {
   final _MiniAppItem item;
   const _MiniAppTile({required this.item});
@@ -388,15 +439,10 @@ class _MiniAppTile extends StatelessWidget {
   }
 }
 
-void registerPullPanelDemo() {
-  demoRegistry.register(PullPanelDemo());
-}
-
 // ========== 海洋波浪分界线 ==========
-
 class _OceanWavePainter extends CustomPainter {
-  final double phase;      // 0~1
-  final double amplitude;  // px
+  final double phase; // 0~1
+  final double amplitude;
   final Color color;
 
   _OceanWavePainter({
@@ -407,34 +453,27 @@ class _OceanWavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
 
     final path = Path();
     final midY = size.height / 2;
     final omega = 2 * math.pi;
 
     path.moveTo(0, midY);
-
     for (double x = 0; x <= size.width; x += 1) {
       final y = midY + amplitude * math.sin(x * 0.04 + phase * omega);
       path.lineTo(x, y);
     }
-
-    path
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
+    path..lineTo(size.width, size.height)..lineTo(0, size.height)..close();
 
     canvas.drawPath(path, paint);
   }
 
   @override
   bool shouldRepaint(covariant _OceanWavePainter oldDelegate) {
-    return oldDelegate.phase != phase ||
-        oldDelegate.amplitude != amplitude ||
-        oldDelegate.color != color;
+    return phase != oldDelegate.phase ||
+        amplitude != oldDelegate.amplitude ||
+        color != oldDelegate.color;
   }
 }
 
@@ -453,10 +492,7 @@ class _OceanWaveDividerState extends State<_OceanWaveDivider>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2));
     if (widget.isActive) _controller.repeat();
   }
 
@@ -496,4 +532,8 @@ class _OceanWaveDividerState extends State<_OceanWaveDivider>
       ),
     );
   }
+}
+
+void registerPullPanelDemo() {
+  demoRegistry.register(PullPanelDemo());
 }
