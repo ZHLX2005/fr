@@ -32,6 +32,37 @@ class PullPanelDemoPage extends StatefulWidget {
 
 class _PullPanelDemoPageState extends State<PullPanelDemoPage> {
   _PullState _state = _PullState.idle;
+  OverlayEntry? _refreshOverlay;
+
+  @override
+  void dispose() {
+    _refreshOverlay?.remove();
+    super.dispose();
+  }
+
+  void _showRefreshOverlay() {
+    _refreshOverlay?.remove();
+    _refreshOverlay = OverlayEntry(
+      builder: (context) => Container(
+        color: _kOverlayColor,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_refreshOverlay!);
+  }
+
+  void _hideRefreshOverlay() {
+    _refreshOverlay?.remove();
+    _refreshOverlay = null;
+  }
+
+  Future<void> _handleRefresh() async {
+    _showRefreshOverlay();
+    await Future.delayed(const Duration(seconds: 3)); // 模拟刷新
+    _hideRefreshOverlay();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +79,10 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage> {
               if (sheetSize < 0.2) {
                 _state = _PullState.idle;
               } else if (sheetSize < 0.5) {
-                _state = _PullState.refreshing;
+                if (_state != _PullState.refreshing) {
+                  _state = _PullState.refreshing;
+                  _handleRefresh(); // 触发刷新
+                }
               } else {
                 _state = _PullState.panelExpanded;
               }
