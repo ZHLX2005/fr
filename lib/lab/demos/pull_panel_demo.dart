@@ -1,9 +1,11 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 
 // 颜色定义
 const _kBackgroundColor = Color(0xFFF5EFEA); // 柔奶白
 const _kPanelColor = Color(0xFF122E8A);     // 深海蓝
+const _kWaveColor = Colors.white70;
 const _kOverlayColor = Colors.black38;
 
 // 状态枚举
@@ -168,12 +170,19 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
     final screenHeight = MediaQuery.of(context).size.height;
     final pullRatio = screenHeight > 0 ? _dragOffset / screenHeight : 0.0;
 
+    // 两段式位移：前50%推主页面，后面只展开面板
+    final maxPush = screenHeight * _expandThreshold;
+    final pushOffset = _dragOffset.clamp(0.0, maxPush);
+
     return Scaffold(
       backgroundColor: _kBackgroundColor,
       body: Stack(
         children: [
-          // 主内容
-          _buildMainContent(),
+          // 主内容：跟随下拉位移向下移动（最多推50%）
+          Transform.translate(
+            offset: Offset(0, pushOffset),
+            child: _buildMainContent(),
+          ),
 
           // 下拉面板（从顶部展开）
           if (_dragOffset > 0)
@@ -199,16 +208,17 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
               ),
             ),
 
-          // 全屏透明手势检测层
-          Positioned.fill(
-            child: GestureDetector(
-              onVerticalDragStart: _onDragStart,
-              onVerticalDragUpdate: _onDragUpdate,
-              onVerticalDragEnd: _onDragEnd,
-              behavior: HitTestBehavior.translucent,
-              child: const SizedBox.expand(), // 透明但可触摸
+          // 全屏透明手势检测层（面板展开时禁用，避免挡住ListView滚动）
+          if (_state != _PullState.panelExpanded)
+            Positioned.fill(
+              child: GestureDetector(
+                onVerticalDragStart: _onDragStart,
+                onVerticalDragUpdate: _onDragUpdate,
+                onVerticalDragEnd: _onDragEnd,
+                behavior: HitTestBehavior.translucent,
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -253,53 +263,42 @@ class _PullDownPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _kPanelColor,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // 拖拽指示器
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(2),
-              ),
+    return Column(
+      children: [
+        // 波浪分界线（下拉时激活）
+        _OceanWaveDivider(isActive: pullRatio >= 0.2),
+        // 拖拽指示器
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // 状态提示
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              state == _PullState.refreshing ? '正在刷新...' : '下拉展开面板',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 14,
-              ),
+        ),
+        // 状态提示
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            state == _PullState.refreshing ? '正在刷新...' : '下拉展开面板',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 14,
             ),
           ),
-          // 面板内容
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: 30,
-              itemBuilder: (context, index) => _buildListItem(index),
-            ),
+        ),
+        // 面板内容
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: 30,
+            itemBuilder: (context, index) => _buildListItem(index),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -323,4 +322,110 @@ class _PullDownPanel extends StatelessWidget {
 
 void registerPullPanelDemo() {
   demoRegistry.register(PullPanelDemo());
+}
+
+// ========== 海洋波浪分界线 ==========
+
+class _OceanWavePainter extends CustomPainter {
+  final double phase;      // 0~1
+  final double amplitude;  // px
+  final Color color;
+
+  _OceanWavePainter({
+    required this.phase,
+    required this.amplitude,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final midY = size.height / 2;
+    final omega = 2 * math.pi;
+
+    path.moveTo(0, midY);
+
+    for (double x = 0; x <= size.width; x += 1) {
+      final y = midY + amplitude * math.sin(x * 0.04 + phase * omega);
+      path.lineTo(x, y);
+    }
+
+    path
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OceanWavePainter oldDelegate) {
+    return oldDelegate.phase != phase ||
+        oldDelegate.amplitude != amplitude ||
+        oldDelegate.color != color;
+  }
+}
+
+class _OceanWaveDivider extends StatefulWidget {
+  final bool isActive;
+  const _OceanWaveDivider({required this.isActive});
+
+  @override
+  State<_OceanWaveDivider> createState() => _OceanWaveDividerState();
+}
+
+class _OceanWaveDividerState extends State<_OceanWaveDivider>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    if (widget.isActive) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OceanWaveDivider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isActive && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = widget.isActive ? 20.0 : 10.0;
+    final amp = widget.isActive ? 6.0 : 2.0;
+
+    return SizedBox(
+      height: h,
+      width: double.infinity,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, __) => CustomPaint(
+          painter: _OceanWavePainter(
+            phase: _controller.value,
+            amplitude: amp,
+            color: _kWaveColor,
+          ),
+        ),
+      ),
+    );
+  }
 }
