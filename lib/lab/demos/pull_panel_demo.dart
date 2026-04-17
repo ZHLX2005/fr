@@ -91,6 +91,90 @@ class _PullPanel extends StatelessWidget {
   }
 }
 
+class _OceanWavePainter extends CustomPainter {
+  final double phase;      // 动画相位 0.0~1.0
+  final double amplitude;  // 波浪幅度
+  final bool isActive;     // 是否激活动画
+
+  _OceanWavePainter({
+    required this.phase,
+    required this.amplitude,
+    required this.isActive,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _kWaveColor
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(0, size.height / 2);
+
+    for (double x = 0; x <= size.width; x += 1) {
+      final waveY = isActive
+          ? size.height / 2 + amplitude * _sin(x * 0.04 + phase * 2 * 3.14159)
+          : size.height / 2;
+      path.lineTo(x, waveY);
+    }
+
+    path.lineTo(size.width, size.height);
+    path.lineTo(0, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  double _sin(double x) => (x - (x * x * x) / 6 + (x * x * x * x * x) / 120).clamp(-1.0, 1.0);
+
+  @override
+  bool shouldRepaint(_OceanWavePainter oldDelegate) =>
+      phase != oldDelegate.phase || amplitude != oldDelegate.amplitude || isActive != oldDelegate.isActive;
+}
+
+class _OceanWaveDivider extends StatefulWidget {
+  final bool isActive;
+
+  const _OceanWaveDivider({required this.isActive});
+
+  @override
+  State<_OceanWaveDivider> createState() => _OceanWaveDividerState();
+}
+
+class _OceanWaveDividerState extends State<_OceanWaveDivider> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, child) {
+        return CustomPaint(
+          size: Size(double.infinity, widget.isActive ? 20 : 8),
+          painter: _OceanWavePainter(
+            phase: _controller.value,
+            amplitude: widget.isActive ? 6.0 : 2.0,
+            isActive: widget.isActive,
+          ),
+        );
+      },
+    );
+  }
+}
+
 void registerPullPanelDemo() {
   demoRegistry.register(PullPanelDemo());
 }
