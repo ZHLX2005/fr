@@ -136,6 +136,10 @@ dependencies:
   # Image Cropper (图片裁剪)
   image_cropper: ^8.0.2
 
+  # QR Code (二维码扫描和生成)
+  mobile_scanner: ^6.0.2
+  qr_flutter: ^4.1.0
+
   # Drag and Drop Reordering
   flutter_reorderable_grid_view: ^5.1.3
 
