@@ -46,6 +46,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   // 阈值
   static const double _refreshThreshold = 0.2; // 20% 刷新
   static const double _expandThreshold = 0.5; // 50% 展开
+  static const double _hysteresis = 0.02;    // 2% 滞回，避免阈值抖动
 
   @override
   void initState() {
@@ -115,26 +116,33 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   }
 
   void _onDragStart(DragStartDetails details) {
+    // 只允许从屏幕顶部区域开始拖动
+    final y = details.globalPosition.dy;
+    if (y > 120) return;
+
     _isDragging = true;
     _snapController.stop();
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
     if (!_isDragging) return;
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxDrag = screenHeight * 0.9; // 最多拖到90%屏幕高度
+
     setState(() {
       _dragOffset += details.delta.dy;
-      _dragOffset = _dragOffset.clamp(0.0, 500.0); // 最大下拉距离
+      _dragOffset = _dragOffset.clamp(0.0, maxDrag);
     });
 
     // 计算下拉比例（相对于屏幕高度）
-    final screenHeight = MediaQuery.of(context).size.height;
-    final pullRatio = _dragOffset / screenHeight;
+    final pullRatio = screenHeight > 0 ? _dragOffset / screenHeight : 0.0;
 
-    // 状态判定
+    // 状态判定（带滞回）
     _PullState newState;
-    if (pullRatio < _refreshThreshold) {
+    if (pullRatio < _refreshThreshold - _hysteresis) {
       newState = _PullState.idle;
-    } else if (pullRatio < _expandThreshold) {
+    } else if (pullRatio < _expandThreshold - _hysteresis) {
       newState = _PullState.refreshing;
     } else {
       newState = _PullState.panelExpanded;
@@ -204,19 +212,23 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
                 child: _PullDownPanel(
                   pullRatio: pullRatio,
                   state: _state,
+                  onClose: () => _snapTo(0.0),
                 ),
               ),
             ),
 
-          // 全屏透明手势检测层（面板展开时禁用，避免挡住ListView滚动）
-          if (_state != _PullState.panelExpanded)
-            Positioned.fill(
+          // 仅顶部120px区域接管手势（避免挡住面板内部网格滚动）
+          if (_state != _PullState.panelExpanded && !_isRefreshing)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 120,
               child: GestureDetector(
                 onVerticalDragStart: _onDragStart,
                 onVerticalDragUpdate: _onDragUpdate,
                 onVerticalDragEnd: _onDragEnd,
                 behavior: HitTestBehavior.translucent,
-                child: const SizedBox.expand(),
               ),
             ),
         ],
@@ -255,10 +267,12 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
 class _PullDownPanel extends StatelessWidget {
   final double pullRatio;
   final _PullState state;
+  final VoidCallback? onClose;
 
   const _PullDownPanel({
     required this.pullRatio,
     required this.state,
+    this.onClose,
   });
 
   @override
@@ -267,54 +281,117 @@ class _PullDownPanel extends StatelessWidget {
       children: [
         // 波浪分界线（下拉时激活）
         _OceanWaveDivider(isActive: pullRatio >= 0.2),
-        // 拖拽指示器
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+
+        // 可拖拽关闭的指示器区域
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragUpdate: (details) {
+            // 允许向上推动关闭面板
+            onClose?.call();
+          },
           child: Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(2),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
           ),
         ),
+
         // 状态提示
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            state == _PullState.refreshing ? '正在刷新...' : '下拉展开面板',
+            state == _PullState.refreshing
+                ? '松手刷新...'
+                : '松手打开面板',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.8),
               fontSize: 14,
             ),
           ),
         ),
-        // 面板内容
+
+        // 微信小程序风格网格
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: 30,
-            itemBuilder: (context, index) => _buildListItem(index),
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.85,
+            ),
+            itemCount: _miniApps.length,
+            itemBuilder: (context, index) {
+              final item = _miniApps[index];
+              return _MiniAppTile(item: item);
+            },
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildListItem(int index) {
-    return Card(
-      color: Colors.white.withValues(alpha: 0.1),
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.white.withValues(alpha: 0.2),
-          child: Text('${index + 1}', style: const TextStyle(color: Colors.white)),
-        ),
-        title: Text('列表项 ${index + 1}', style: const TextStyle(color: Colors.white)),
-        subtitle: Text('这是第 ${index + 1} 项的描述内容',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
-        trailing: const Icon(Icons.chevron_right, color: Colors.white),
+// 微信小程序数据模型
+class _MiniAppItem {
+  final IconData icon;
+  final String title;
+  final Color color;
+  const _MiniAppItem(this.icon, this.title, this.color);
+}
+
+const _miniApps = <_MiniAppItem>[
+  _MiniAppItem(Icons.qr_code_scanner, '扫一扫', Color(0xFF4CAF50)),
+  _MiniAppItem(Icons.payment, '收付款', Color(0xFF2196F3)),
+  _MiniAppItem(Icons.directions_bus, '出行', Color(0xFFFF9800)),
+  _MiniAppItem(Icons.shopping_bag, '购物', Color(0xFFE91E63)),
+  _MiniAppItem(Icons.movie, '电影', Color(0xFF9C27B0)),
+  _MiniAppItem(Icons.fastfood, '外卖', Color(0xFF00BCD4)),
+  _MiniAppItem(Icons.sports_esports, '游戏', Color(0xFF795548)),
+  _MiniAppItem(Icons.favorite, '健康', Color(0xFFF44336)),
+];
+
+// 微信小程序风格Tile
+class _MiniAppTile extends StatelessWidget {
+  final _MiniAppItem item;
+  const _MiniAppTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () {},
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(item.icon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item.title,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 12,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
