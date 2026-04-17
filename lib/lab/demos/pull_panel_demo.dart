@@ -212,7 +212,6 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
                 child: _PullDownPanel(
                   pullRatio: pullRatio,
                   state: _state,
-                  onClose: () => _snapTo(0.0),
                 ),
               ),
             ),
@@ -229,6 +228,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
                 onVerticalDragUpdate: _onDragUpdate,
                 onVerticalDragEnd: _onDragEnd,
                 behavior: HitTestBehavior.translucent,
+                child: const SizedBox.expand(),
               ),
             ),
         ],
@@ -267,12 +267,10 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
 class _PullDownPanel extends StatelessWidget {
   final double pullRatio;
   final _PullState state;
-  final VoidCallback? onClose;
 
   const _PullDownPanel({
     required this.pullRatio,
     required this.state,
-    this.onClose,
   });
 
   @override
@@ -282,23 +280,16 @@ class _PullDownPanel extends StatelessWidget {
         // 波浪分界线（下拉时激活）
         _OceanWaveDivider(isActive: pullRatio >= 0.2),
 
-        // 可拖拽关闭的指示器区域
-        GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onVerticalDragUpdate: (details) {
-            // 允许向上推动关闭面板
-            onClose?.call();
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        // 拖拽指示器（纯UI，无手势）
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
