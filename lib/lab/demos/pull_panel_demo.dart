@@ -28,7 +28,7 @@ class PullPanelDemoPage extends StatefulWidget {
 }
 
 class _PullPanelDemoPageState extends State<PullPanelDemoPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // 0~1：0=收起，1=全屏面板
   double _progress = 0.0;
 
@@ -103,9 +103,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
       CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
     )..addListener(_onAnimTick);
 
-    _anim
-      ..value = 0
-      ..forward();
+    _anim.forward(from: 0.0);
   }
 
   void _onAnimTick() {
@@ -124,14 +122,25 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   Future<void> _handleRefresh() async {
     if (_isRefreshing) return;
     _isRefreshing = true;
-    setState(() {}); // 让面板显示"虚化+三点"
+    setState(() {}); // 显示虚化+三点
 
     try {
       await Future.delayed(const Duration(seconds: 2));
     } finally {
       _isRefreshing = false;
-      if (mounted) setState(() {});
-      _animateTo(0.0); // 刷新后自动回弹
+      if (mounted) setState(() {}); // 先让 overlay 消失/physics 恢复
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        // 1) 面板内容复位到顶部
+        if (_panelScrollController.hasClients) {
+          _panelScrollController.jumpTo(0.0);
+        }
+
+        // 2) 面板整体回弹收起
+        _animateTo(0.0);
+      });
     }
   }
 
@@ -255,6 +264,8 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
               onPanUpdate: (d) {
                 // 面板全屏或刷新中：正常让内部滚动，不处理
                 if (_isExpanded || _isRefreshing) return;
+                // 动画回弹过程中不处理拖拽，避免冲突
+                if (_anim.isAnimating) return;
 
                 setState(() {
                   _progress = _applyDragToProgress(
@@ -358,36 +369,37 @@ class _PanelContent extends StatelessWidget {
         ),
 
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (n) {
-              // 全屏后，内容滚到顶继续上滑 -> 关闭面板
-              if (!scrollable) return false;
+          child: IgnorePointer(
+            ignoring: !scrollable,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                // 全屏后，内容滚到顶继续上滑 -> 关闭面板
+                if (!scrollable) return false;
 
-              if (n is OverscrollNotification) {
-                if (n.overscroll < 0 && scrollController.position.pixels <= 0) {
-                  onTopOverscroll(n.overscroll);
-                  return true; // 吃掉，避免内容 bounce
+                if (n is OverscrollNotification) {
+                  if (n.overscroll < 0 && scrollController.position.pixels <= 0) {
+                    onTopOverscroll(n.overscroll);
+                    return true; // 吃掉，避免内容 bounce
+                  }
                 }
-              }
-              return false;
-            },
-            child: GridView.builder(
-              controller: scrollController,
-              physics: scrollable
-                  ? const BouncingScrollPhysics()
-                  : const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: _miniApps.length,
-              itemBuilder: (context, index) {
-                final item = _miniApps[index];
-                return _MiniAppTile(item: item);
+                return false;
               },
+              child: GridView.builder(
+                controller: scrollController,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.85,
+                ),
+                itemCount: _miniApps.length,
+                itemBuilder: (context, index) {
+                  final item = _miniApps[index];
+                  return _MiniAppTile(item: item);
+                },
+              ),
             ),
           ),
         ),
