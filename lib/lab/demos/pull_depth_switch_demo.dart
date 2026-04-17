@@ -10,7 +10,7 @@ class PullDepthSwitchDemo extends DemoPage {
   String get title => '二段下拉';
 
   @override
-  String get description => '轻下拉触发刷新，深下拉直接进入小程序页';
+  String get description => '轻下拉触发刷新，深下拉真实展开一个小程序页';
 
   @override
   bool get preferFullScreen => true;
@@ -25,7 +25,8 @@ class _PullDepthSwitchDemoPage extends StatefulWidget {
   const _PullDepthSwitchDemoPage();
 
   @override
-  State<_PullDepthSwitchDemoPage> createState() => _PullDepthSwitchDemoPageState();
+  State<_PullDepthSwitchDemoPage> createState() =>
+      _PullDepthSwitchDemoPageState();
 }
 
 class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
@@ -33,7 +34,8 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
 
   double _pullExtent = 0;
   bool _isRefreshing = false;
-  bool _isLaunching = false;
+  bool _isAnimatingSheet = false;
+  bool _isMiniProgramOpen = false;
   int _refreshCount = 0;
   DateTime _lastRefreshAt = DateTime.now();
 
@@ -72,7 +74,8 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
 
   bool get _canTrackPull =>
       !_isRefreshing &&
-      !_isLaunching &&
+      !_isAnimatingSheet &&
+      !_isMiniProgramOpen &&
       _scrollController.hasClients &&
       _scrollController.position.pixels <=
           _scrollController.position.minScrollExtent + 0.5;
@@ -85,14 +88,30 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
               (kPullLaunchThreshold - kPullRefreshThreshold))
           .clamp(0.0, 1.0);
 
+  double get _sheetExtent {
+    if (_isMiniProgramOpen) {
+      return kMiniProgramOpenedExtent;
+    }
+    if (_pullExtent <= kPullRefreshThreshold) {
+      return 0;
+    }
+    return ((_pullExtent - kPullRefreshThreshold) * 3.1).clamp(
+      0.0,
+      kMiniProgramOpenedExtent,
+    );
+  }
+
   Future<void> _handleRelease() async {
-    if (_isRefreshing || _isLaunching || _pullExtent <= 0) {
+    if (_isRefreshing ||
+        _isAnimatingSheet ||
+        _isMiniProgramOpen ||
+        _pullExtent <= 0) {
       await _resetPullExtent();
       return;
     }
 
     if (_pullExtent >= kPullLaunchThreshold) {
-      await _launchMiniProgram();
+      await _openMiniProgram();
       return;
     }
 
@@ -111,8 +130,9 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
     });
 
     await Future<void>.delayed(kPullActionDuration);
-
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       _refreshCount += 1;
@@ -123,27 +143,42 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
     await _resetPullExtent();
   }
 
-  Future<void> _launchMiniProgram() async {
+  Future<void> _openMiniProgram() async {
     setState(() {
-      _isLaunching = true;
-      _pullExtent = kPullLaunchThreshold;
+      _isAnimatingSheet = true;
+      _isMiniProgramOpen = true;
+      _pullExtent = 0;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 180));
-    if (!mounted) return;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => const _MiniProgramPage(),
-      ),
-    );
-
-    if (!mounted) return;
+    await Future<void>.delayed(kPullActionDuration);
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
-      _isLaunching = false;
+      _isAnimatingSheet = false;
     });
-    await _resetPullExtent();
+  }
+
+  Future<void> _closeMiniProgram() async {
+    if (_isAnimatingSheet || !_isMiniProgramOpen) {
+      return;
+    }
+
+    setState(() {
+      _isAnimatingSheet = true;
+      _isMiniProgramOpen = false;
+      _pullExtent = 0;
+    });
+
+    await Future<void>.delayed(kPullResetDuration);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isAnimatingSheet = false;
+    });
   }
 
   Future<void> _resetPullExtent() async {
@@ -167,7 +202,8 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
         notification.metrics.extentBefore == 0 &&
         notification.metrics.pixels <= 0 &&
         !_isRefreshing &&
-        !_isLaunching) {
+        !_isAnimatingSheet &&
+        !_isMiniProgramOpen) {
       final nextExtent =
           (-notification.metrics.pixels * 0.92).clamp(0.0, kPullIndicatorMaxExtent);
       if ((nextExtent - _pullExtent).abs() > 0.5) {
@@ -199,40 +235,59 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
+    final animationDuration = _isRefreshing || _isAnimatingSheet
+        ? kPullActionDuration
+        : kPullResetDuration;
 
     return DecoratedBox(
       decoration: const BoxDecoration(color: kPullDemoBackground),
       child: Stack(
         children: [
+          Positioned.fill(
+            child: _MiniProgramSurface(
+              topInset: topInset,
+              revealExtent: _sheetExtent,
+              isOpen: _isMiniProgramOpen,
+              onClose: _closeMiniProgram,
+            ),
+          ),
           NotificationListener<ScrollNotification>(
             onNotification: _handleScrollNotification,
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
+            child: AnimatedContainer(
+              duration: animationDuration,
+              curve: Curves.easeOutCubic,
+              transform: Matrix4.translationValues(0, _sheetExtent, 0),
+              decoration: const BoxDecoration(color: kPullDemoBackground),
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: _isMiniProgramOpen
+                    ? const NeverScrollableScrollPhysics()
+                    : const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
+                      ),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: SizedBox(height: topInset + 12),
+                  ),
+                  SliverToBoxAdapter(
+                    child: _HeroCard(
+                      refreshCount: _refreshCount,
+                      lastRefreshAt: _lastRefreshAt,
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                    sliver: SliverList.separated(
+                      itemBuilder: (context, index) {
+                        final item = _cards[index];
+                        return _FeatureCard(item: item);
+                      },
+                      separatorBuilder: (_, __) => const SizedBox(height: 14),
+                      itemCount: _cards.length,
+                    ),
+                  ),
+                ],
               ),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: SizedBox(height: topInset + 12),
-                ),
-                SliverToBoxAdapter(
-                  child: _HeroCard(
-                    refreshCount: _refreshCount,
-                    lastRefreshAt: _lastRefreshAt,
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-                  sliver: SliverList.separated(
-                    itemBuilder: (context, index) {
-                      final item = _cards[index];
-                      return _FeatureCard(item: item);
-                    },
-                    separatorBuilder: (_, __) => const SizedBox(height: 14),
-                    itemCount: _cards.length,
-                  ),
-                ),
-              ],
             ),
           ),
           IgnorePointer(
@@ -251,7 +306,7 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
                 child: _PullStatusPanel(
                   pullExtent: _pullExtent,
                   isRefreshing: _isRefreshing,
-                  isLaunching: _isLaunching,
+                  isLaunching: _isAnimatingSheet || _isMiniProgramOpen,
                   refreshProgress: _refreshProgress,
                   launchProgress: _launchProgress,
                 ),
@@ -290,9 +345,9 @@ class _PullStatusPanel extends StatelessWidget {
     final Color color;
 
     if (isLaunching) {
-      title = '正在进入小程序';
-      subtitle = '释放成功，页面即将展开';
-      icon = Icons.open_in_new_rounded;
+      title = '小程序页已展开';
+      subtitle = '当前是底层页面被真实拉出';
+      icon = Icons.open_in_full_rounded;
       color = kPullDemoAccent;
     } else if (isRefreshing) {
       title = '正在刷新';
@@ -300,18 +355,18 @@ class _PullStatusPanel extends StatelessWidget {
       icon = Icons.sync_rounded;
       color = kPullDemoSecondary;
     } else if (reachedLaunch) {
-      title = '松手进入小程序页';
-      subtitle = '这是第二段阈值，释放后直接进入';
+      title = '松手展开小程序页';
+      subtitle = '主页面会被整体下推，露出底层页面';
       icon = Icons.rocket_launch_rounded;
       color = kPullDemoAccent;
     } else if (reachedRefresh) {
       title = '松手立即刷新';
-      subtitle = '继续下拉可以进入小程序页';
+      subtitle = '继续下拉可以展开底层小程序页';
       icon = Icons.refresh_rounded;
       color = kPullDemoSecondary;
     } else {
       title = '轻下拉刷新，深下拉展开';
-      subtitle = '先到刷新阈值，再到小程序阈值';
+      subtitle = '同一个手势，按深度命中不同结果';
       icon = Icons.south_rounded;
       color = kPullDemoPrimary;
     }
@@ -384,7 +439,7 @@ class _PullStatusPanel extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               _ProgressRail(
-                label: '小程序阈值',
+                label: '展开阈值',
                 color: kPullDemoAccent,
                 value: launchProgress,
               ),
@@ -515,8 +570,8 @@ class _HeroCard extends StatelessWidget {
                   value: _formatTime(lastRefreshAt),
                 ),
                 const _MetricChip(
-                  label: '动作说明',
-                  value: '轻拉刷新 / 深拉展开',
+                  label: '当前能力',
+                  value: '轻拉刷新 / 深拉揭页',
                 ),
               ],
             ),
@@ -644,70 +699,149 @@ class _FeatureCard extends StatelessWidget {
   }
 }
 
-class _MiniProgramPage extends StatelessWidget {
-  const _MiniProgramPage();
+class _MiniProgramSurface extends StatelessWidget {
+  const _MiniProgramSurface({
+    required this.topInset,
+    required this.revealExtent,
+    required this.isOpen,
+    required this.onClose,
+  });
+
+  final double topInset;
+  final double revealExtent;
+  final bool isOpen;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEEF4FF),
-      appBar: AppBar(
-        title: const Text('小程序页'),
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF59E0B), Color(0xFFFB7185)],
+    final double revealFactor = revealExtent <= 0
+        ? 0
+        : (revealExtent / kMiniProgramOpenedExtent).clamp(0.0, 1.0);
+
+    return ClipRect(
+      child: Align(
+        alignment: Alignment.topCenter,
+        heightFactor: revealFactor,
+        child: Container(
+          height: kMiniProgramOpenedExtent,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFEAF2FF), Color(0xFFF9FBFF)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: ListView(
+            physics: isOpen
+                ? const BouncingScrollPhysics()
+                : const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(20, topInset + 20, 20, 24),
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEDD5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.widgets_rounded,
+                      color: kPullDemoAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '下拉展开的小程序页',
+                          style: TextStyle(
+                            color: kPullDemoText,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '深拉后直接把底层页面揭出来，不再是 release 后跳转。',
+                          style: TextStyle(
+                            color: kPullDemoSubtleText,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: isOpen ? onClose : null,
+                    icon: const Icon(Icons.keyboard_arrow_up_rounded),
+                    tooltip: '收起',
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '深下拉已命中',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFF59E0B), Color(0xFFFB7185)],
                   ),
+                  borderRadius: BorderRadius.circular(28),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  '这里可以替换成任何小程序式的轻量页面，比如快捷支付、打卡、表单或临时任务。',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '深拉已命中',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '这里可以替换成任何小程序式的轻量页面，比如快捷支付、打卡、表单或临时任务。',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 18),
+              const _MiniProgramEntry(
+                title: '快捷收款',
+                subtitle: '一屏输入金额并生成付款码',
+                icon: Icons.qr_code_2_rounded,
+              ),
+              const SizedBox(height: 12),
+              const _MiniProgramEntry(
+                title: '临时登记',
+                subtitle: '像小程序一样用完即走',
+                icon: Icons.edit_note_rounded,
+              ),
+              const SizedBox(height: 12),
+              const _MiniProgramEntry(
+                title: '附近服务',
+                subtitle: '展示当前位置相关的快捷入口',
+                icon: Icons.place_rounded,
+              ),
+              const SizedBox(height: 12),
+              const _MiniProgramEntry(
+                title: '审批代办',
+                subtitle: '点开就是一个独立的小功能流',
+                icon: Icons.fact_check_rounded,
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          const _MiniProgramEntry(
-            title: '快捷收款',
-            subtitle: '一屏输入金额并生成付款码',
-            icon: Icons.qr_code_2_rounded,
-          ),
-          const SizedBox(height: 12),
-          const _MiniProgramEntry(
-            title: '临时登记',
-            subtitle: '像小程序一样用完即走',
-            icon: Icons.edit_note_rounded,
-          ),
-          const SizedBox(height: 12),
-          const _MiniProgramEntry(
-            title: '附近服务',
-            subtitle: '展示当前位置相关的快捷入口',
-            icon: Icons.place_rounded,
-          ),
-        ],
+        ),
       ),
     );
   }
