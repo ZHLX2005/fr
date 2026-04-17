@@ -1,11 +1,11 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 
 const _kBackgroundColor = Color(0xFFF5EFEA);
 const _kPanelColor = Color(0xFF122E8A);
 const _kWaveColor = Colors.white70;
-const _kOverlayColor = Colors.black38;
 
 class PullPanelDemo extends DemoPage {
   @override
@@ -52,8 +52,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
 
   Animation<double>? _progressAnim;
 
-  // 刷新 overlay
-  OverlayEntry? _refreshOverlay;
+  // 刷新状态
   bool _isRefreshing = false;
 
   // 参数：你可以微调以接近"微信手感"
@@ -63,12 +62,10 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   static const double _kVelocityClose = -900; // 向上甩回阈值
 
   // 双阈值刷新参数
-  static const double _kRefreshThreshold = 0.2; // 20% 刷新阈值
   static const double _kExpandThreshold = 0.5; // 50% 展开阈值
 
   @override
   void dispose() {
-    _refreshOverlay?.remove();
     _panelScrollController.dispose();
     _anim.dispose();
     _waveController.dispose();
@@ -123,38 +120,18 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   // 主页是否可交互
   bool get _mainInteractive => !_isExpanded && !_isRefreshing;
 
-  // —— 刷新 overlay —— //
-  void _showRefreshOverlay() {
-    _refreshOverlay?.remove();
-    _refreshOverlay = OverlayEntry(
-      builder: (_) => Stack(
-        children: const [
-          Positioned.fill(
-            child: ModalBarrier(dismissible: false, color: _kOverlayColor),
-          ),
-          Center(child: CircularProgressIndicator(color: Colors.white)),
-        ],
-      ),
-    );
-    Overlay.of(context, rootOverlay: true).insert(_refreshOverlay!);
-  }
-
-  void _hideRefreshOverlay() {
-    _refreshOverlay?.remove();
-    _refreshOverlay = null;
-  }
-
+  // 刷新处理（无全屏遮罩）
   Future<void> _handleRefresh() async {
     if (_isRefreshing) return;
     _isRefreshing = true;
-    _showRefreshOverlay();
+    setState(() {}); // 让面板显示"虚化+三点"
 
     try {
       await Future.delayed(const Duration(seconds: 2));
     } finally {
-      _hideRefreshOverlay();
       _isRefreshing = false;
-      _animateTo(0);
+      if (mounted) setState(() {});
+      _animateTo(0.0); // 刷新后自动回弹
     }
   }
 
@@ -186,8 +163,8 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
 
     // 文案提示
     String hint;
-    if (_progress < _kRefreshThreshold) {
-      hint = '继续下拉';
+    if (_isRefreshing) {
+      hint = '刷新中…';
     } else if (_progress < _kExpandThreshold) {
       hint = '松手刷新';
     } else if (_progress < 0.6) {
@@ -243,15 +220,24 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
             left: 0,
             right: 0,
             height: panelHeight,
-            child: DecoratedBox(
-              decoration: const BoxDecoration(color: _kPanelColor),
-              child: _PanelContent(
-                progress: _progress,
-                scrollController: _panelScrollController,
-                scrollable: panelScrollable,
-                hint: hint,
-                onTopOverscroll: _onPanelTopOverscroll,
-              ),
+            child: Stack(
+              children: [
+                DecoratedBox(
+                  decoration: const BoxDecoration(color: _kPanelColor),
+                  child: _PanelContent(
+                    progress: _progress,
+                    scrollController: _panelScrollController,
+                    scrollable: panelScrollable && !_isRefreshing,
+                    hint: hint,
+                    onTopOverscroll: _onPanelTopOverscroll,
+                  ),
+                ),
+                // 刷新态 overlay：只覆盖面板区域
+                if (_isRefreshing && _progress < _kExpandThreshold)
+                  const Positioned.fill(
+                    child: _PanelRefreshingOverlay(),
+                  ),
+              ],
             ),
           ),
 
@@ -261,13 +247,14 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
               behavior: HitTestBehavior.translucent,
 
               onPanStart: (_) {
+                if (_isRefreshing) return;
                 _isDragging = true;
                 _anim.stop();
               },
 
               onPanUpdate: (d) {
-                // 面板全屏时：正常让内部滚动，不处理
-                if (_isExpanded) return;
+                // 面板全屏或刷新中：正常让内部滚动，不处理
+                if (_isExpanded || _isRefreshing) return;
 
                 setState(() {
                   _progress = _applyDragToProgress(
@@ -279,22 +266,18 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
               },
 
               onPanEnd: (d) {
+                if (_isRefreshing) return;
                 _isDragging = false;
 
                 if (_isExpanded) return;
 
                 final vy = d.velocity.pixelsPerSecond.dy;
 
-                // 双阈值判定
+                // >50%：展开，<50%：刷新
                 if (_progress >= _kExpandThreshold || vy > _kVelocityOpen) {
-                  // 展开面板
                   _animateTo(1.0);
-                } else if (_progress >= _kRefreshThreshold) {
-                  // 刷新区域：触发刷新后收回
-                  _handleRefresh();
                 } else {
-                  // 回弹
-                  _animateTo(0.0);
+                  _handleRefresh();
                 }
               },
             ),
@@ -514,6 +497,85 @@ class _WaveBeforePainter extends CustomPainter {
     return phase != oldDelegate.phase ||
         amplitude != oldDelegate.amplitude ||
         color != oldDelegate.color;
+  }
+}
+
+class _PanelRefreshingOverlay extends StatelessWidget {
+  const _PanelRefreshingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.10),
+          alignment: Alignment.topCenter,
+          padding: const EdgeInsets.only(top: 56),
+          child: const _TypingDots(),
+        ),
+      ),
+    );
+  }
+}
+
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot(double phase) {
+      return AnimatedBuilder(
+        animation: _c,
+        builder: (_, __) {
+          final t = (_c.value + phase) % 1.0;
+          final y = -6 * math.sin(t * math.pi);
+          final a = 0.35 + 0.65 * math.sin(t * math.pi);
+          return Opacity(
+            opacity: a.clamp(0.0, 1.0),
+            child: Transform.translate(
+              offset: Offset(0, y),
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        dot(0.0),
+        const SizedBox(width: 8),
+        dot(0.2),
+        const SizedBox(width: 8),
+        dot(0.4),
+      ],
+    );
   }
 }
 
