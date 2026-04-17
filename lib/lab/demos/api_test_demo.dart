@@ -335,11 +335,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   Future<void> _cancelDownload() async {
     if (_downloadController != null) {
       _downloadController!.cancel();
-      setState(() {
-        _downloadStatus = '已取消下载';
-        _isDownloading = false;
-      });
-      _downloadController = null;
+      // 注意：不在这里设置状态，由 _downloadApkInternal 的 finally 块统一处理
     }
   }
 
