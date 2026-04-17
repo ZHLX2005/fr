@@ -200,25 +200,39 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
       backgroundColor: _kBackgroundColor,
       body: Stack(
         children: [
-          // 主页面（波浪作为伪元素附着在顶部边界）
+          // 主页面（波浪在主页面上方的Stack中）
           Transform.translate(
             offset: Offset(0, mainPush),
             child: IgnorePointer(
               ignoring: !_mainInteractive,
-              child: AnimatedBuilder(
-                animation: _waveController,
-                builder: (_, child) {
-                  final amp = _progress > 0.15 ? 6.0 : 2.0;
-                  return CustomPaint(
-                    foregroundPainter: _WaveBeforePainter(
-                      phase: _waveController.value,
-                      amplitude: amp,
-                      color: _kWaveColor,
-                    ),
-                    child: child,
-                  );
-                },
-                child: _buildMainContent(),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // 波浪：在主页面上方 (top: -waveH)
+                  AnimatedBuilder(
+                    animation: _waveController,
+                    builder: (_, __) {
+                      final amp = _progress > 0.15 ? 6.0 : 2.0;
+                      return Positioned(
+                        top: -20, // waveH = 20, 波浪在主页面上方
+                        left: 0,
+                        right: 0,
+                        child: SizedBox(
+                          height: 20,
+                          child: CustomPaint(
+                            painter: _WaveBeforePainter(
+                              phase: _waveController.value,
+                              amplitude: amp,
+                              color: _kWaveColor,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // 主页面内容
+                  _buildMainContent(),
+                ],
               ),
             ),
           ),
@@ -455,7 +469,7 @@ class _MiniAppTile extends StatelessWidget {
   }
 }
 
-// 波浪伪元素 painter：画在主页面顶部边界
+// 波浪 painter：画在分配区域的顶部，波浪线在底部
 class _WaveBeforePainter extends CustomPainter {
   final double phase; // 0~1
   final double amplitude;
@@ -473,18 +487,20 @@ class _WaveBeforePainter extends CustomPainter {
       ..color = color
       ..style = PaintingStyle.fill;
 
-    const waveH = 20.0;
+    final waveH = size.height; // 20px
     final omega = 2 * math.pi;
 
-    // 画在"容器顶部边界"附近
-    final path = Path()..moveTo(0, 0);
+    // 波浪线画在区域底部 (size.height - amplitude 附近)
+    final baseY = waveH - amplitude - 2;
+
+    final path = Path()..moveTo(0, waveH);
 
     for (double x = 0; x <= size.width; x += 1) {
-      final y = amplitude * math.sin(x * 0.04 + phase * omega);
+      final y = baseY + amplitude * math.sin(x * 0.04 + phase * omega);
       path.lineTo(x, y);
     }
 
-    // 封闭成一条带子
+    // 封闭成一条带子填充到底部
     path
       ..lineTo(size.width, waveH)
       ..lineTo(0, waveH)
