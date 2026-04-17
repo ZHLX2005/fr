@@ -251,7 +251,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 内部下载APK（支持断点续传）
+  // 内部下载APK（支持断点续传和取消）
   Future<void> _downloadApkInternal() async {
     if (_isDownloading) return;
 
@@ -261,6 +261,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       _downloadStatus = '开始下载...';
     });
 
+    // 创建下载控制器
     _downloadController = DownloadController();
 
     try {
@@ -269,16 +270,21 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           if (mounted && total > 0 && _downloadController != null && !_downloadController!.isCancelled) {
             setState(() {
               _downloadProgress = received / total;
-              _downloadStatus =
-                  '下载中: ${(_downloadProgress * 100).toStringAsFixed(1)}%';
+              _downloadStatus = '下载中: ${(_downloadProgress * 100).toStringAsFixed(1)}%';
             });
           }
         },
         controller: _downloadController,
       );
 
-      // 如果用户取消，直接返回
       if (_downloadController != null && _downloadController!.isCancelled) {
+        // 用户取消，不显示错误
+        if (mounted) {
+          setState(() {
+            _downloadStatus = '已取消下载';
+            _isDownloading = false;
+          });
+        }
         return;
       }
 
@@ -294,20 +300,19 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         });
       } else if (mounted) {
         setState(() {
-          _downloadStatus = '下载失败，回退到浏览器下载';
+          _downloadStatus = '下载失败，请重试';
           _isDownloading = false;
         });
-        await _downloadApkWithBrowser();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _downloadStatus = '下载出错: $e，回退到浏览器下载';
+          _downloadStatus = '下载出错: $e';
           _isDownloading = false;
         });
-        // 回退到浏览器下载
-        await _downloadApkWithBrowser();
       }
+    } finally {
+      _downloadController = null;
     }
   }
 
