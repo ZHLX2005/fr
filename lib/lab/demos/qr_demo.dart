@@ -32,7 +32,7 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
 
   // 扫描结果
   String? _scanResult;
-  bool _isScanning = false;
+  bool _showScanner = false;
 
   // 相机权限状态
   bool _cameraPermissionGranted = false;
@@ -74,10 +74,27 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
       if (barcode.rawValue != null && _scanResult == null) {
         setState(() {
           _scanResult = barcode.rawValue;
-          _isScanning = false;
+          _showScanner = false;
         });
       }
     }
+  }
+
+  void _startScan() {
+    if (!_cameraPermissionGranted) {
+      _requestCameraPermission();
+      return;
+    }
+    setState(() {
+      _scanResult = null;
+      _showScanner = true;
+    });
+  }
+
+  void _stopScan() {
+    setState(() {
+      _showScanner = false;
+    });
   }
 
   Future<void> _launchUrl(String url) async {
@@ -112,8 +129,8 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
   void _clearScanResult() {
     setState(() {
       _scanResult = null;
-      _isScanning = true;
     });
+    _startScan();
   }
 
   @override
@@ -198,10 +215,18 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
       return _buildPermissionRequest();
     }
 
+    if (_showScanner) {
+      return _buildScannerView();
+    }
+
     if (_scanResult != null) {
       return _buildScanResult();
     }
 
+    return _buildScanPrompt();
+  }
+
+  Widget _buildScannerView() {
     return Stack(
       children: [
         MobileScanner(
@@ -215,6 +240,14 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
               border: Border.all(color: const Color(0xFF0A84FF), width: 2),
               borderRadius: BorderRadius.circular(16),
             ),
+          ),
+        ),
+        Positioned(
+          top: 16,
+          left: 16,
+          child: IconButton(
+            onPressed: _stopScan,
+            icon: const Icon(Icons.close, color: Colors.white, size: 32),
           ),
         ),
         Positioned(
@@ -236,6 +269,60 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildScanPrompt() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2C2C2E),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.qr_code_scanner,
+                size: 64,
+                color: Color(0xFF0A84FF),
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              '二维码扫描',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '点击按钮开始扫描二维码',
+              style: TextStyle(
+                color: Color(0xFF8E8E93),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton.icon(
+              onPressed: _startScan,
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('开始扫描'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0A84FF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -462,7 +549,6 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
                   child: ElevatedButton.icon(
                     onPressed: () {
                       _tabController.animateTo(0);
-                      _inputController.text = _inputController.text;
                     },
                     icon: const Icon(Icons.qr_code_scanner),
                     label: const Text('去扫描'),
