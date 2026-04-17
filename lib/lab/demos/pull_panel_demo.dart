@@ -148,7 +148,48 @@ class _PullPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: _kPanelColor);
+    return Container(
+      decoration: BoxDecoration(
+        color: _kPanelColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _OceanWaveDivider(isActive: state != _PullState.idle),
+          Expanded(
+            child: ListView.builder(
+              controller: scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: 30,
+              itemBuilder: (context, index) => _buildListItem(index),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListItem(int index) {
+    return Card(
+      color: Colors.white.withValues(alpha: 0.1),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.white.withValues(alpha: 0.2),
+          child: Text('${index + 1}', style: const TextStyle(color: Colors.white)),
+        ),
+        title: Text('列表项 ${index + 1}', style: const TextStyle(color: Colors.white)),
+        subtitle: Text('这是第 ${index + 1} 项的描述内容', style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+        trailing: const Icon(Icons.chevron_right, color: Colors.white),
+      ),
+    );
   }
 }
 
