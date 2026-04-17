@@ -49,6 +49,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   String? _downloadStatus;
   double _downloadProgress = 0.0; // 下载进度 0.0-1.0
   bool _isDownloading = false;
+  DownloadController? _downloadController;
 
   // 已下载的 APK 文件信息
   String? _downloadedApkPath;
@@ -260,10 +261,12 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       _downloadStatus = '开始下载...';
     });
 
+    _downloadController = DownloadController();
+
     try {
       final filePath = await ApiService.downloadApkToLocal(
         onProgress: (received, total) {
-          if (mounted && total > 0) {
+          if (mounted && total > 0 && _downloadController != null && !_downloadController!.isCancelled) {
             setState(() {
               _downloadProgress = received / total;
               _downloadStatus =
@@ -271,7 +274,13 @@ class _ApiTestPageState extends State<_ApiTestPage> {
             });
           }
         },
+        controller: _downloadController,
       );
+
+      // 如果用户取消，直接返回
+      if (_downloadController != null && _downloadController!.isCancelled) {
+        return;
+      }
 
       if (filePath != null && mounted) {
         final file = File(filePath);
@@ -314,6 +323,18 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           context,
         ).showSnackBar(SnackBar(content: Text('打开失败: $e')));
       }
+    }
+  }
+
+  // 取消下载
+  Future<void> _cancelDownload() async {
+    if (_downloadController != null) {
+      _downloadController!.cancel();
+      setState(() {
+        _downloadStatus = '已取消下载';
+        _isDownloading = false;
+      });
+      _downloadController = null;
     }
   }
 
@@ -722,7 +743,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _isDownloading
-                              ? null
+                              ? _cancelDownload
                               : _downloadApkInternal,
                           icon: _isDownloading
                               ? SizedBox(
@@ -736,7 +757,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                                   ),
                                 )
                               : const Icon(Icons.download_for_offline),
-                          label: Text(_isDownloading ? '下载中...' : '内部下载'),
+                          label: Text(_isDownloading ? '取消' : '内部下载'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
