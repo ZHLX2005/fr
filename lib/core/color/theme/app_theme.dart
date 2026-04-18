@@ -73,6 +73,10 @@ class AppTheme {
     const secondaryColor = Color(0xFF00BCD4); // 青色
     const tertiaryColor = Color(0xFF7C4DFF); // 紫色
 
+    // 柔和的浅灰白背景色 - 不刺眼
+    const surfaceColor = Color(0xFFF5F6F8);
+    const backgroundColor = Color(0xFFF0F2F5);
+
     return ThemeData(
       colorScheme: ColorScheme.light(
         // 主色系 - 鲜艳明亮
@@ -93,14 +97,14 @@ class AppTheme {
         tertiaryContainer: const Color(0xFFEDE7F6),
         onTertiaryContainer: const Color(0xFF311B92),
 
-        // 表面色 - 干净明亮的底色
-        surface: Colors.white,
+        // 表面色 - 柔和的浅灰白
+        surface: surfaceColor,
         onSurface: const Color(0xFF1A1A1A),
-        surfaceVariant: const Color(0xFFF5F5F5), // 非常浅的灰色
+        surfaceVariant: const Color(0xFFE8E9EB),
         onSurfaceVariant: const Color(0xFF757575),
 
-        // 背景色 - 纯净的浅色
-        background: const Color(0xFFFAFAFA), // 接近白色但不刺眼
+        // 背景色 - 柔和的浅灰
+        background: backgroundColor,
         onBackground: const Color(0xFF1A1A1A),
 
         // 错误色
@@ -110,8 +114,8 @@ class AppTheme {
         onErrorContainer: const Color(0xFFB71C1C),
 
         // 轮廓和分割线
-        outline: const Color(0xFFE0E0E0),
-        outlineVariant: const Color(0xFFF0F0F0),
+        outline: const Color(0xFFD0D0D0),
+        outlineVariant: const Color(0xFFE8E8E8),
 
         // 容器色调
         surfaceTint: primaryColor,
@@ -122,15 +126,15 @@ class AppTheme {
       // 自定义组件样式
       cardTheme: CardThemeData(
         elevation: 2,
-        color: Colors.white,
-        shadowColor: Colors.black.withOpacity(0.08),
+        color: surfaceColor,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: surfaceColor,
         foregroundColor: Color(0xFF1A1A1A),
         surfaceTintColor: Color(0xFF2196F3),
       ),
@@ -166,7 +170,7 @@ class AppTheme {
       ),
 
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: surfaceColor,
         selectedItemColor: primaryColor,
         unselectedItemColor: const Color(0xFF9E9E9E),
         type: BottomNavigationBarType.fixed,
