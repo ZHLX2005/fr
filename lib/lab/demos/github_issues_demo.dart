@@ -29,6 +29,7 @@ class _GithubIssuesDemoShell extends StatefulWidget {
 class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
   static const String _owner = 'ZHLX2005';
   static const String _repo = 'is';
+  static const String _actionsRepo = 'fr';
   static const String _tokenKey = 'github_pat_token';
 
   final _tokenController = TextEditingController();
@@ -71,16 +72,16 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (!_tokenConfirmed) {
       return _buildTokenInput();
     }
-    return GithubIssuesPage(
-      owner: _owner,
-      repo: _repo,
+    return GithubPage(
+      issuesOwner: _owner,
+      issuesRepo: _repo,
+      actionsOwner: _owner,
+      actionsRepo: _actionsRepo,
       token: _inputToken,
     );
   }
@@ -107,9 +108,7 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
               const SizedBox(height: 8),
               Text(
                 '访问 $_owner/$_repo 的 Issues 需要认证',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
+                style: TextStyle(color: Theme.of(context).colorScheme.outline),
               ),
               const SizedBox(height: 32),
               TextField(
@@ -151,9 +150,9 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
   void _confirm() {
     final token = _tokenController.text.trim();
     if (token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入 PAT Token')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入 PAT Token')));
       return;
     }
     _inputToken = token;
