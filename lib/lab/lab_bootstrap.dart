@@ -33,7 +33,6 @@ import 'demos/schema_demo.dart';
 import 'demos/color_palette_demo.dart';
 import 'demos/github_issues_demo.dart';
 import 'demos/qr_demo.dart';
-import 'demos/pull_depth_switch_demo.dart';
 
 /// 注册所有 Demo 页面
 void registerAllDemos() {
@@ -67,7 +66,6 @@ void registerAllDemos() {
   registerColorPaletteDemo();
   registerGithubIssuesDemo();
   registerQrDemo();
-  registerPullDepthSwitchDemo();
 }
 
 /// 初始化 Schema 注册表
