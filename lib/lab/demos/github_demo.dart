@@ -1,32 +1,33 @@
-// GitHub Issues LabDemo
-// lab 层只做 token 状态管理 + 页面组装，CRUD 逻辑在 core
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/github/github.dart';
 import '../lab_container.dart';
 
-class GithubIssuesDemo extends DemoPage {
+class GithubDemo extends DemoPage {
   @override
-  String get title => 'GitHub Issues';
+  String get title => 'GitHub';
 
   @override
-  String get description => 'CRUD · 列表 / 创建 / 关闭 / 重新打开';
+  String get description => 'GitHub Issues 和 Actions';
+
+  @override
+  bool get preferFullScreen => true;
 
   @override
   Widget buildPage(BuildContext context) {
-    return const _GithubIssuesDemoShell();
+    return const _GithubDemoShell();
   }
 }
 
-class _GithubIssuesDemoShell extends StatefulWidget {
-  const _GithubIssuesDemoShell();
+class _GithubDemoShell extends StatefulWidget {
+  const _GithubDemoShell();
 
   @override
-  State<_GithubIssuesDemoShell> createState() => _GithubIssuesDemoShellState();
+  State<_GithubDemoShell> createState() => _GithubDemoShellState();
 }
 
-class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
+class _GithubDemoShellState extends State<_GithubDemoShell> {
   static const String _owner = 'ZHLX2005';
   static const String _repo = 'is';
   static const String _actionsRepo = 'fr';
@@ -107,8 +108,9 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
               ),
               const SizedBox(height: 8),
               Text(
-                '访问 $_owner/$_repo 的 Issues 需要认证',
+                '访问 $_owner/$_repo 的 Issues 与 $_owner/$_actionsRepo 的 Actions 需要认证',
                 style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               TextField(
@@ -138,7 +140,7 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
                   }
                   setState(() => _tokenConfirmed = true);
                 },
-                child: const Text('使用空 Token（只读 public）'),
+                child: const Text('使用空 Token（仅 public）'),
               ),
             ],
           ),
@@ -161,6 +163,6 @@ class _GithubIssuesDemoShellState extends State<_GithubIssuesDemoShell> {
   }
 }
 
-void registerGithubIssuesDemo() {
-  demoRegistry.register(GithubIssuesDemo());
+void registerGithubDemo() {
+  demoRegistry.register(GithubDemo());
 }
