@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
 const double kPullRefreshThreshold = 72;
-const double kPullLaunchThreshold = 156;
+const double kPullLaunchThreshold = 132;
 const double kPullIndicatorMaxExtent = 220;
-const double kMiniProgramOpenedExtent = 430;
 const Duration kPullResetDuration = Duration(milliseconds: 240);
 const Duration kPullActionDuration = Duration(milliseconds: 520);
 

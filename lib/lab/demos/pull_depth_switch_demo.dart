@@ -33,6 +33,7 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
   final ScrollController _scrollController = ScrollController();
 
   double _pullExtent = 0;
+  double _pullPeakExtent = 0;
   bool _isRefreshing = false;
   bool _isAnimatingSheet = false;
   bool _isMiniProgramOpen = false;
@@ -88,34 +89,39 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
               (kPullLaunchThreshold - kPullRefreshThreshold))
           .clamp(0.0, 1.0);
 
-  double get _sheetExtent {
+  double _pageOffset(double viewportHeight) {
     if (_isMiniProgramOpen) {
-      return kMiniProgramOpenedExtent;
+      return viewportHeight;
     }
     if (_pullExtent <= kPullRefreshThreshold) {
       return 0;
     }
-    return ((_pullExtent - kPullRefreshThreshold) * 3.1).clamp(
-      0.0,
-      kMiniProgramOpenedExtent,
-    );
+    final progress =
+        ((_pullExtent - kPullRefreshThreshold) /
+                (kPullLaunchThreshold - kPullRefreshThreshold))
+            .clamp(0.0, 1.0);
+    return Curves.easeOutCubic.transform(progress) * viewportHeight;
   }
 
   Future<void> _handleRelease() async {
+    final double releaseExtent = _pullPeakExtent > 0
+        ? _pullPeakExtent
+        : _pullExtent;
+
     if (_isRefreshing ||
         _isAnimatingSheet ||
         _isMiniProgramOpen ||
-        _pullExtent <= 0) {
+        releaseExtent <= 0) {
       await _resetPullExtent();
       return;
     }
 
-    if (_pullExtent >= kPullLaunchThreshold) {
+    if (releaseExtent >= kPullLaunchThreshold) {
       await _openMiniProgram();
       return;
     }
 
-    if (_pullExtent >= kPullRefreshThreshold) {
+    if (releaseExtent >= kPullRefreshThreshold) {
       await _refreshContent();
       return;
     }
@@ -127,6 +133,7 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
     setState(() {
       _isRefreshing = true;
       _pullExtent = kPullRefreshThreshold;
+      _pullPeakExtent = kPullRefreshThreshold;
     });
 
     await Future<void>.delayed(kPullActionDuration);
@@ -148,6 +155,7 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
       _isAnimatingSheet = true;
       _isMiniProgramOpen = true;
       _pullExtent = 0;
+      _pullPeakExtent = 0;
     });
 
     await Future<void>.delayed(kPullActionDuration);
@@ -169,6 +177,7 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
       _isAnimatingSheet = true;
       _isMiniProgramOpen = false;
       _pullExtent = 0;
+      _pullPeakExtent = 0;
     });
 
     await Future<void>.delayed(kPullResetDuration);
@@ -188,6 +197,7 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
 
     setState(() {
       _pullExtent = 0;
+      _pullPeakExtent = 0;
     });
 
     await Future<void>.delayed(kPullResetDuration);
@@ -204,11 +214,16 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
         !_isRefreshing &&
         !_isAnimatingSheet &&
         !_isMiniProgramOpen) {
-      final nextExtent =
-          (-notification.metrics.pixels * 0.92).clamp(0.0, kPullIndicatorMaxExtent);
+      final nextExtent = (-notification.metrics.pixels * 0.92).clamp(
+        0.0,
+        kPullIndicatorMaxExtent,
+      );
       if ((nextExtent - _pullExtent).abs() > 0.5) {
         setState(() {
           _pullExtent = nextExtent;
+          _pullPeakExtent = _pullPeakExtent > nextExtent
+              ? _pullPeakExtent
+              : nextExtent;
         });
       }
     }
@@ -221,6 +236,9 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
             0.0,
             kPullIndicatorMaxExtent,
           );
+          _pullPeakExtent = _pullPeakExtent > _pullExtent
+              ? _pullPeakExtent
+              : _pullExtent;
         });
       }
     }
@@ -235,6 +253,8 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
+    final viewportHeight = MediaQuery.of(context).size.height;
+    final pageOffset = _pageOffset(viewportHeight);
     final animationDuration = _isRefreshing || _isAnimatingSheet
         ? kPullActionDuration
         : kPullResetDuration;
@@ -246,7 +266,8 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
           Positioned.fill(
             child: _MiniProgramSurface(
               topInset: topInset,
-              revealExtent: _sheetExtent,
+              revealExtent: pageOffset,
+              pageHeight: viewportHeight,
               isOpen: _isMiniProgramOpen,
               onClose: _closeMiniProgram,
             ),
@@ -256,7 +277,7 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
             child: AnimatedContainer(
               duration: animationDuration,
               curve: Curves.easeOutCubic,
-              transform: Matrix4.translationValues(0, _sheetExtent, 0),
+              transform: Matrix4.translationValues(0, pageOffset, 0),
               decoration: const BoxDecoration(color: kPullDemoBackground),
               child: CustomScrollView(
                 controller: _scrollController,
@@ -266,9 +287,7 @@ class _PullDepthSwitchDemoPageState extends State<_PullDepthSwitchDemoPage> {
                         parent: AlwaysScrollableScrollPhysics(),
                       ),
                 slivers: [
-                  SliverToBoxAdapter(
-                    child: SizedBox(height: topInset + 12),
-                  ),
+                  SliverToBoxAdapter(child: SizedBox(height: topInset + 12)),
                   SliverToBoxAdapter(
                     child: _HeroCard(
                       refreshCount: _refreshCount,
@@ -491,10 +510,7 @@ class _ProgressRail extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.refreshCount,
-    required this.lastRefreshAt,
-  });
+  const _HeroCard({required this.refreshCount, required this.lastRefreshAt});
 
   final int refreshCount;
   final DateTime lastRefreshAt;
@@ -546,10 +562,7 @@ class _HeroCard extends StatelessWidget {
                       SizedBox(height: 4),
                       Text(
                         '同一个手势，根据下拉深度进入不同结果',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                     ],
                   ),
@@ -561,18 +574,9 @@ class _HeroCard extends StatelessWidget {
               spacing: 10,
               runSpacing: 10,
               children: [
-                _MetricChip(
-                  label: '刷新次数',
-                  value: '$refreshCount 次',
-                ),
-                _MetricChip(
-                  label: '最近刷新',
-                  value: _formatTime(lastRefreshAt),
-                ),
-                const _MetricChip(
-                  label: '当前能力',
-                  value: '轻拉刷新 / 深拉揭页',
-                ),
+                _MetricChip(label: '刷新次数', value: '$refreshCount 次'),
+                _MetricChip(label: '最近刷新', value: _formatTime(lastRefreshAt)),
+                const _MetricChip(label: '当前能力', value: '轻拉刷新 / 深拉揭页'),
               ],
             ),
           ],
@@ -590,10 +594,7 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _MetricChip extends StatelessWidget {
-  const _MetricChip({
-    required this.label,
-    required this.value,
-  });
+  const _MetricChip({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -612,10 +613,7 @@ class _MetricChip extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 11,
-              ),
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
             const SizedBox(height: 3),
             Text(
@@ -689,10 +687,7 @@ class _FeatureCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Color(0xFF94A3B8),
-          ),
+          const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
         ],
       ),
     );
@@ -703,12 +698,14 @@ class _MiniProgramSurface extends StatelessWidget {
   const _MiniProgramSurface({
     required this.topInset,
     required this.revealExtent,
+    required this.pageHeight,
     required this.isOpen,
     required this.onClose,
   });
 
   final double topInset;
   final double revealExtent;
+  final double pageHeight;
   final bool isOpen;
   final VoidCallback onClose;
 
@@ -716,14 +713,14 @@ class _MiniProgramSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final double revealFactor = revealExtent <= 0
         ? 0
-        : (revealExtent / kMiniProgramOpenedExtent).clamp(0.0, 1.0);
+        : (revealExtent / pageHeight).clamp(0.0, 1.0);
 
     return ClipRect(
       child: Align(
         alignment: Alignment.topCenter,
         heightFactor: revealFactor,
         child: Container(
-          height: kMiniProgramOpenedExtent,
+          height: pageHeight,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [Color(0xFFEAF2FF), Color(0xFFF9FBFF)],
