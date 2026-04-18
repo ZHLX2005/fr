@@ -35,6 +35,11 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   // drag 过程：用于计算 velocity / 保持连续
   bool _isDragging = false;
 
+  // 上滑关闭状态
+  bool _closingFromPanelScroll = false;
+  static const double _kCloseSnapThreshold = 0.90; // 越大越"轻推就关"
+  double _lastOverscrollDy = 0.0;
+
   // 面板内部滚动控制器（全屏后用于检测是否在顶部）
   final ScrollController _panelScrollController = ScrollController();
 
@@ -113,7 +118,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   }
 
   // 是否认为"面板已全屏展开"
-  bool get _isExpanded => _progress >= 0.999;
+  bool get _isExpanded => _progress >= 0.98;
 
   // 主页是否可交互
   bool get _mainInteractive => !_isExpanded && !_isRefreshing;
@@ -146,8 +151,14 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
 
   // 上滑返回：滚到顶继续上滑时带走面板
   void _onPanelTopOverscroll(double overscroll) {
+    debugPrint('onTopOverscroll=$overscroll progress=$_progress top=${_panelScrollController.hasClients ? _panelScrollController.position.pixels : -1}');
     if (!_isExpanded) return;
+    if (_isRefreshing) return;
+
     final h = MediaQuery.of(context).size.height;
+    _closingFromPanelScroll = true;
+    _lastOverscrollDy = overscroll;
+
     setState(() {
       _progress = _applyDragToProgress(
         currentProgress: _progress,
@@ -155,6 +166,15 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
         fullHeight: h,
       );
     });
+  }
+
+  void _onPanelScrollEnd() {
+    if (!_closingFromPanelScroll) return;
+    _closingFromPanelScroll = false;
+
+    // progress 低于阈值就收起，否则弹回全屏
+    final shouldClose = _progress < _kCloseSnapThreshold;
+    _animateTo(shouldClose ? 0.0 : 1.0);
   }
 
   @override
@@ -239,6 +259,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
                     scrollable: panelScrollable && !_isRefreshing,
                     hint: hint,
                     onTopOverscroll: _onPanelTopOverscroll,
+                    onPanelScrollEnd: _onPanelScrollEnd,
                   ),
                 ),
                 // 刷新态 overlay：只覆盖面板区域
@@ -330,6 +351,7 @@ class _PanelContent extends StatelessWidget {
   final bool scrollable;
   final String hint;
   final void Function(double overscroll) onTopOverscroll;
+  final VoidCallback onPanelScrollEnd;
 
   const _PanelContent({
     required this.progress,
@@ -337,6 +359,7 @@ class _PanelContent extends StatelessWidget {
     required this.scrollable,
     required this.hint,
     required this.onTopOverscroll,
+    required this.onPanelScrollEnd,
   });
 
   @override
@@ -373,15 +396,44 @@ class _PanelContent extends StatelessWidget {
             ignoring: !scrollable,
             child: NotificationListener<ScrollNotification>(
               onNotification: (n) {
-                // 全屏后，内容滚到顶继续上滑 -> 关闭面板
                 if (!scrollable) return false;
 
-                if (n is OverscrollNotification) {
-                  if (n.overscroll < 0 && scrollController.position.pixels <= 0) {
-                    onTopOverscroll(n.overscroll);
-                    return true; // 吃掉，避免内容 bounce
+                debugPrint('notify=${n.runtimeType} delta=${n is ScrollUpdateNotification ? n.scrollDelta : ''}');
+
+                final pos = scrollController.position;
+                final atTop = pos.pixels <= 0;
+
+                // 0) UserScrollNotification：用户在主动拖拽，方向是"向下"（内容往下）
+                if (n is UserScrollNotification) {
+                  // ScrollDirection.forward.index == 1（向下）
+                  if (atTop && n.direction.index == 1) {
+                    // 标记进入关闭模式，让后续 Overscroll/ScrollUpdate 提供位移
+                    return false;
                   }
                 }
+
+                // 1) 主通道：Overscroll（最符合下拉关闭）
+                if (n is OverscrollNotification) {
+                  if (atTop && n.overscroll < 0) {
+                    onTopOverscroll(n.overscroll); // 负数 -> progress 下降
+                    return true;
+                  }
+                }
+
+                // 2) 兜底：某些机型 overscroll 不给，用 ScrollUpdate
+                if (n is ScrollUpdateNotification) {
+                  final delta = n.scrollDelta ?? 0.0;
+                  if (atTop && delta < 0) {
+                    onTopOverscroll(delta); // 负数 -> progress 下降
+                    return true;
+                  }
+                }
+
+                // 3) 松手吸附
+                if (n is ScrollEndNotification) {
+                  onPanelScrollEnd();
+                }
+
                 return false;
               },
               child: GridView.builder(
@@ -394,9 +446,9 @@ class _PanelContent extends StatelessWidget {
                   crossAxisSpacing: 12,
                   childAspectRatio: 0.85,
                 ),
-                itemCount: _miniApps.length,
+                itemCount: 40,
                 itemBuilder: (context, index) {
-                  final item = _miniApps[index];
+                  final item = _miniApps[index % _miniApps.length];
                   return _MiniAppTile(item: item);
                 },
               ),
