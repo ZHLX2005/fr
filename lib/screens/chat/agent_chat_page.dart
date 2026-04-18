@@ -112,12 +112,6 @@ class _AgentChatPageState extends State<AgentChatPage> {
                   Text(widget.title, style: const TextStyle(fontSize: 16)),
                   Consumer<AgentChatProvider>(
                     builder: (context, provider, _) {
-                      if (provider.isLoading) {
-                        return const Text(
-                          '处理中...',
-                          style: TextStyle(fontSize: 12, color: Colors.blue),
-                        );
-                      }
                       return Text(
                         provider.isConfigured ? '已连接' : '未配置',
                         style: TextStyle(
