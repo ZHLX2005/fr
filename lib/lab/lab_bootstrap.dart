@@ -33,6 +33,7 @@ import 'demos/schema_demo.dart';
 import 'demos/color_palette_demo.dart';
 import 'demos/github_demo.dart';
 import 'demos/qr_demo.dart';
+import 'demos/doubletime_demo.dart';
 
 /// 注册所有 Demo 页面
 void registerAllDemos() {
@@ -66,6 +67,7 @@ void registerAllDemos() {
   registerColorPaletteDemo();
   registerGithubDemo();
   registerQrDemo();
+  registerDoubleTimeDemo();
 }
 
 /// 初始化 Schema 注册表
