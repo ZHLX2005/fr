@@ -32,11 +32,10 @@ class PullPanelAction {
 }
 
 class PullPanelMetrics {
-  static const double expandThreshold = 0.50;
-  static const double hintOpenThreshold = 0.60;
+  static const double refreshThreshold = 0.125;
+  static const double hintOpenThreshold = 0.15;
   static const double closeSnapThreshold = 0.90;
   static const double velocityOpen = 900;
-  static const double dragTravelRatio = 0.25;
   static const double dragDamping = 0.18;
   static const double overdragResistance = 0.04;
   static const double mainPushRatio = 0.50;
@@ -48,18 +47,18 @@ class PullPanelMetrics {
     required double deltaDy,
     required double fullHeight,
   }) {
-    final travelPx = fullHeight * dragTravelRatio;
+    final panelRangePx = fullHeight;
     final dampedDelta = deltaDy * dragDamping;
-    final raw = currentProgress * travelPx + dampedDelta;
+    final raw = currentProgress * panelRangePx + dampedDelta;
 
     double resisted = raw;
-    if (raw > travelPx) {
-      resisted = travelPx + (raw - travelPx) * overdragResistance;
+    if (raw > panelRangePx) {
+      resisted = panelRangePx + (raw - panelRangePx) * overdragResistance;
     } else if (raw < 0) {
       resisted = raw * overdragResistance;
     }
 
-    return (resisted / travelPx).clamp(0.0, 1.0);
+    return (resisted / panelRangePx).clamp(0.0, 1.0);
   }
 }
 
@@ -80,11 +79,11 @@ class PullPanelStateMachine {
 
   bool get showRefreshOverlay =>
       _state == PullPanelState.refreshing &&
-      _progress < PullPanelMetrics.expandThreshold;
+      _progress < PullPanelMetrics.refreshThreshold;
 
   String get hintText {
     if (_state == PullPanelState.refreshing) return 'Refreshing...';
-    if (_progress < PullPanelMetrics.expandThreshold) {
+    if (_progress < PullPanelMetrics.refreshThreshold) {
       return 'Pull down to refresh';
     }
     if (_progress < PullPanelMetrics.hintOpenThreshold) {
@@ -117,7 +116,7 @@ class PullPanelStateMachine {
     }
 
     final shouldOpen =
-        _progress >= PullPanelMetrics.expandThreshold ||
+        _progress >= PullPanelMetrics.refreshThreshold ||
         velocityDy > PullPanelMetrics.velocityOpen;
     if (shouldOpen) {
       _state = PullPanelState.settling;
