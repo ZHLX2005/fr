@@ -180,25 +180,40 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                           ),
                           const SizedBox(height: 20),
 
-                          // 开始时间滚动选择
-                          _SectionLabel('开始时间'),
-                          const SizedBox(height: 8),
-                          _TimeScrollPicker(
-                            initialMinutes: startMinutes,
-                            onChanged: (v) =>
-                                setSheetState(() => startMinutes = v),
+                          // 开始时间 + 结束时间（双列）
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const _SectionLabel('开始时间'),
+                                    const SizedBox(height: 8),
+                                    _TimeScrollPicker(
+                                      initialMinutes: startMinutes,
+                                      onChanged: (v) =>
+                                          setSheetState(() => startMinutes = v),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const _SectionLabel('结束时间'),
+                                    const SizedBox(height: 8),
+                                    _TimeScrollPicker(
+                                      initialMinutes: endMinutes,
+                                      onChanged: (v) =>
+                                          setSheetState(() => endMinutes = v),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 20),
-
-                          // 结束时间滚动选择
-                          _SectionLabel('结束时间'),
-                          const SizedBox(height: 8),
-                          _TimeScrollPicker(
-                            initialMinutes: endMinutes,
-                            onChanged: (v) =>
-                                setSheetState(() => endMinutes = v),
-                          ),
-                          const SizedBox(height: 20),
 
                           // 颜色选择
                           _SectionLabel('色块颜色'),
@@ -420,25 +435,40 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                           ),
                           const SizedBox(height: 20),
 
-                          // 开始时间
-                          const _SectionLabel('开始时间'),
-                          const SizedBox(height: 8),
-                          _TimeScrollPicker(
-                            initialMinutes: startMinutes,
-                            onChanged: (v) =>
-                                setSheetState(() => startMinutes = v),
+                          // 开始时间 + 结束时间（双列）
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const _SectionLabel('开始时间'),
+                                    const SizedBox(height: 8),
+                                    _TimeScrollPicker(
+                                      initialMinutes: startMinutes,
+                                      onChanged: (v) =>
+                                          setSheetState(() => startMinutes = v),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const _SectionLabel('结束时间'),
+                                    const SizedBox(height: 8),
+                                    _TimeScrollPicker(
+                                      initialMinutes: endMinutes,
+                                      onChanged: (v) =>
+                                          setSheetState(() => endMinutes = v),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 20),
-
-                          // 结束时间
-                          const _SectionLabel('结束时间'),
-                          const SizedBox(height: 8),
-                          _TimeScrollPicker(
-                            initialMinutes: endMinutes,
-                            onChanged: (v) =>
-                                setSheetState(() => endMinutes = v),
-                          ),
-                          const SizedBox(height: 20),
 
                           // 颜色选择
                           const _SectionLabel('色块颜色'),
