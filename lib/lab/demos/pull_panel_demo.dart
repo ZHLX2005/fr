@@ -235,8 +235,17 @@ class PullPanelStateMachine {
 }
 
 const _kBackgroundColor = Color(0xFFF5EFEA);
-const _kPanelColor = Color(0xFF122E8A);
-const _kWaveColor = Colors.white70;
+const _kPanelGradientTop = Color(0xFFF8F3EE);
+const _kPanelGradientMiddle = Color(0xFFEFE6DD);
+const _kPanelGradientBottom = Color(0xFFE4D6C8);
+const _kPanelBorderColor = Color(0x59FFFFFF);
+const _kWaveColor = Color(0xE6FFF9F4);
+const _kAccentColor = Color(0xFFC88A5A);
+const _kAccentSoftColor = Color(0xFFD9A97C);
+const _kAccentDeepColor = Color(0xFF8B5E3C);
+const _kPanelTextColor = Color(0xFF5E4735);
+const _kPanelMutedTextColor = Color(0xFF8E7561);
+const _kCardBaseColor = Color(0xF2FFFCF8);
 const _kAnimationDuration = Duration(milliseconds: 260);
 const _kRefreshDuration = Duration(seconds: 2);
 const _kWaveDuration = Duration(seconds: 2);
@@ -452,22 +461,45 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
             height: panelHeight,
             child: Stack(
               children: [
-                DecoratedBox(
-                  decoration: const BoxDecoration(color: _kPanelColor),
-                  child: _PanelContent(
-                    scrollController: _panelScrollController,
-                    scrollable: _sm.panelScrollable && !_isRefreshing,
-                    progress: _progress,
-                    refreshProgress: _sm.refreshProgress,
-                    readyToRefresh: _sm.readyToRefresh,
-                    readyToOpen: _sm.readyToOpen,
-                    refreshing: _isRefreshing,
-                    closeProgress: _sm.closeProgress,
-                    showCloseCue: _sm.showCloseCue,
-                    onTopOverscroll: (overscroll) {
-                      _onPanelTopOverscroll(overscroll, screenHeight);
-                    },
-                    onPanelScrollEnd: _onPanelScrollEnd,
+                ClipRect(
+                  child: Stack(
+                    children: [
+                      const Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                _kPanelGradientTop,
+                                _kPanelGradientMiddle,
+                                _kPanelGradientBottom,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _PanelSurfacePainter(progress: _progress),
+                        ),
+                      ),
+                      _PanelContent(
+                        scrollController: _panelScrollController,
+                        scrollable: _sm.panelScrollable && !_isRefreshing,
+                        progress: _progress,
+                        refreshProgress: _sm.refreshProgress,
+                        readyToRefresh: _sm.readyToRefresh,
+                        readyToOpen: _sm.readyToOpen,
+                        refreshing: _isRefreshing,
+                        closeProgress: _sm.closeProgress,
+                        showCloseCue: _sm.showCloseCue,
+                        onTopOverscroll: (overscroll) {
+                          _onPanelTopOverscroll(overscroll, screenHeight);
+                        },
+                        onPanelScrollEnd: _onPanelScrollEnd,
+                      ),
+                    ],
                   ),
                 ),
                 if (_sm.showRefreshOverlay)
@@ -538,13 +570,14 @@ class _PanelContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final contentBlur = ((1.0 - progress) * 18.0).clamp(0.0, 18.0);
-    final contentOverlayOpacity = ((1.0 - progress) * 0.22).clamp(0.0, 0.22);
+    final contentBlur = ((1.0 - progress) * 16.0).clamp(0.0, 16.0);
+    final contentOverlayOpacity = ((1.0 - progress) * 0.18).clamp(0.0, 0.18);
+    final contentOffset = (1.0 - progress) * 16.0;
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 10),
+          padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
           child: _PanelHandle(
             progress: progress,
             refreshProgress: refreshProgress,
@@ -589,22 +622,38 @@ class _PanelContent extends StatelessWidget {
 
                         return false;
                       },
-                      child: GridView.builder(
-                        controller: scrollController,
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              childAspectRatio: 0.85,
+                      child: Transform.translate(
+                        offset: Offset(0, contentOffset),
+                        child: ListView(
+                          controller: scrollController,
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
+                          children: const [
+                            _PanelHeroSection(),
+                            SizedBox(height: 18),
+                            _PanelSectionHeader(
+                              eyebrow: 'CURATED',
+                              title: 'Soft focus essentials',
                             ),
-                        itemCount: 40,
-                        itemBuilder: (context, index) {
-                          final item = _miniApps[index % _miniApps.length];
-                          return _MiniAppTile(item: item);
-                        },
+                            SizedBox(height: 12),
+                            _PanelFeatureGrid(),
+                            SizedBox(height: 18),
+                            _PanelSectionHeader(
+                              eyebrow: 'QUICK STRIPS',
+                              title: 'Small actions, warm materials',
+                            ),
+                            SizedBox(height: 12),
+                            _PanelActionChips(),
+                            SizedBox(height: 18),
+                            _PanelSectionHeader(
+                              eyebrow: 'AMBIENCE',
+                              title: 'A few slower, richer cards',
+                            ),
+                            SizedBox(height: 12),
+                            _PanelStoryRail(),
+                            SizedBox(height: 24),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -635,56 +684,387 @@ class _PanelContent extends StatelessWidget {
   }
 }
 
-class _MiniAppItem {
-  final IconData icon;
+class _PanelSectionHeader extends StatelessWidget {
+  final String eyebrow;
   final String title;
-  final Color color;
 
-  const _MiniAppItem(this.icon, this.title, this.color);
-}
-
-const _miniApps = <_MiniAppItem>[
-  _MiniAppItem(Icons.qr_code_scanner, 'Scan', Color(0xFF4CAF50)),
-  _MiniAppItem(Icons.payment, 'Pay', Color(0xFF2196F3)),
-  _MiniAppItem(Icons.directions_bus, 'Travel', Color(0xFFFF9800)),
-  _MiniAppItem(Icons.shopping_bag, 'Shop', Color(0xFFE91E63)),
-  _MiniAppItem(Icons.movie, 'Movie', Color(0xFF9C27B0)),
-  _MiniAppItem(Icons.fastfood, 'Food', Color(0xFF00BCD4)),
-  _MiniAppItem(Icons.sports_esports, 'Games', Color(0xFF795548)),
-  _MiniAppItem(Icons.favorite, 'Health', Color(0xFFF44336)),
-];
-
-class _MiniAppTile extends StatelessWidget {
-  final _MiniAppItem item;
-
-  const _MiniAppTile({required this.item});
+  const _PanelSectionHeader({required this.eyebrow, required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () {},
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            eyebrow,
+            style: const TextStyle(
+              color: _kAccentDeepColor,
+              fontSize: 11,
+              letterSpacing: 1.6,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              color: _kPanelTextColor,
+              fontSize: 22,
+              height: 1.05,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PanelHeroSection extends StatelessWidget {
+  const _PanelHeroSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        Expanded(
+          flex: 6,
+          child: _FeatureCard(
+            icon: Icons.wb_twilight_rounded,
+            title: 'Morning glow',
+            subtitle:
+                'Soft lighting, calm surfaces, a sheet that feels poured.',
+            accent: Color(0xFFD9A97C),
+            height: 208,
+            large: true,
+          ),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          flex: 4,
+          child: Column(
+            children: [
+              _FeatureCard(
+                icon: Icons.spa_rounded,
+                title: 'Ritual',
+                subtitle: 'Gentle pace',
+                accent: Color(0xFFC8A7A1),
+                height: 98,
+              ),
+              SizedBox(height: 12),
+              _FeatureCard(
+                icon: Icons.auto_awesome_rounded,
+                title: 'Polish',
+                subtitle: 'Warm glass',
+                accent: Color(0xFFC9AE7B),
+                height: 98,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PanelFeatureGrid extends StatelessWidget {
+  const _PanelFeatureGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _FeatureCard(
+                icon: Icons.self_improvement_rounded,
+                title: 'Quiet Mode',
+                subtitle: 'Lower contrast and ease every edge.',
+                accent: Color(0xFF9CAF88),
+                height: 132,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: _FeatureCard(
+                icon: Icons.local_cafe_rounded,
+                title: 'Pause',
+                subtitle: 'Cream, cinnamon, daylight.',
+                accent: Color(0xFFD79B74),
+                height: 132,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              flex: 5,
+              child: _FeatureCard(
+                icon: Icons.texture_rounded,
+                title: 'Materials',
+                subtitle: 'Paper grain, frosted glass and quiet highlights.',
+                accent: Color(0xFF9AA8B5),
+                height: 120,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              flex: 4,
+              child: _FeatureCard(
+                icon: Icons.favorite_outline_rounded,
+                title: 'Care',
+                subtitle: 'Low-saturation warmth.',
+                accent: Color(0xFFC8A7A1),
+                height: 120,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PanelActionChips extends StatelessWidget {
+  const _PanelActionChips();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: const [
+        _ActionChip(icon: Icons.tune_rounded, label: 'Filter'),
+        _ActionChip(icon: Icons.palette_outlined, label: 'Palette'),
+        _ActionChip(icon: Icons.air_rounded, label: 'Mist'),
+        _ActionChip(icon: Icons.waves_rounded, label: 'Flow'),
+        _ActionChip(icon: Icons.brightness_5_outlined, label: 'Glow'),
+        _ActionChip(icon: Icons.view_quilt_outlined, label: 'Layout'),
+      ],
+    );
+  }
+}
+
+class _PanelStoryRail extends StatelessWidget {
+  const _PanelStoryRail();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        _StoryCard(
+          icon: Icons.layers_outlined,
+          title: 'Layered sheet',
+          body:
+              'The surface reads as one continuous cream-glass plane, not a hard drawer.',
+        ),
+        SizedBox(height: 12),
+        _StoryCard(
+          icon: Icons.blur_on_rounded,
+          title: 'Blur to focus',
+          body:
+              'Content enters as haze, then sharpens as the panel settles into place.',
+        ),
+      ],
+    );
+  }
+}
+
+class _FeatureCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color accent;
+  final double height;
+  final bool large;
+
+  const _FeatureCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.height,
+    this.large = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      padding: EdgeInsets.all(large ? 18 : 16),
+      decoration: BoxDecoration(
+        color: _kCardBaseColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _kPanelBorderColor),
+        boxShadow: [
+          BoxShadow(
+            color: _kAccentDeepColor.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.84),
+            accent.withValues(alpha: 0.16),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -12,
+            top: -10,
+            child: Container(
+              width: large ? 94 : 68,
+              height: large ? 94 : 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.12),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: large ? 56 : 46,
+                height: large ? 56 : 46,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.20),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  icon,
+                  color: _kAccentDeepColor,
+                  size: large ? 28 : 24,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                title,
+                style: TextStyle(
+                  color: _kPanelTextColor,
+                  fontSize: large ? 26 : 18,
+                  height: 1.0,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: _kPanelMutedTextColor,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _ActionChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.50)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: _kAccentDeepColor),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: _kPanelTextColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+
+  const _StoryCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.44)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: item.color.withValues(alpha: 0.25),
+              color: _kAccentSoftColor.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(item.icon, color: Colors.white, size: 26),
+            child: Icon(icon, color: _kAccentDeepColor, size: 22),
           ),
-          const SizedBox(height: 8),
-          Text(
-            item.title,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 12,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: _kPanelTextColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    color: _kPanelMutedTextColor,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -726,7 +1106,7 @@ class _MainPullCue extends StatelessWidget {
                   painter: _PullCuePainter(
                     ringSweep: ringSweep,
                     chevronSpread: chevronSpread,
-                    color: Colors.grey.shade500,
+                    color: _kAccentColor,
                   ),
                 ),
               ),
@@ -735,11 +1115,11 @@ class _MainPullCue extends StatelessWidget {
                 width: 68 - progress * 16,
                 height: 8 + progress * 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Colors.white.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(999),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
+                      color: _kAccentDeepColor.withValues(alpha: 0.10),
                       blurRadius: 22,
                       offset: const Offset(0, 10),
                     ),
@@ -777,8 +1157,8 @@ class _PanelHandle extends StatelessWidget {
   Widget build(BuildContext context) {
     final handleWidth = 40 + progress * 18 - closeProgress * 8;
     final handleHeight = 4 + progress * 2;
-    final strokeColor = Colors.white.withValues(alpha: 0.92);
-    final bgColor = Colors.white.withValues(alpha: 0.12);
+    final strokeColor = _kAccentDeepColor;
+    final bgColor = _kAccentColor.withValues(alpha: 0.12);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -789,8 +1169,20 @@ class _PanelHandle extends StatelessWidget {
           width: handleWidth.clamp(30.0, 58.0),
           height: handleHeight.clamp(4.0, 6.0),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.45 + progress * 0.35),
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.88),
+                _kAccentSoftColor.withValues(alpha: 0.68),
+              ],
+            ),
             borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: _kAccentDeepColor.withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
@@ -857,6 +1249,78 @@ class _WaveBeforePainter extends CustomPainter {
     return phase != oldDelegate.phase ||
         amplitude != oldDelegate.amplitude ||
         color != oldDelegate.color;
+  }
+}
+
+class _PanelSurfacePainter extends CustomPainter {
+  final double progress;
+
+  _PanelSurfacePainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final topGlowPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.72),
+          Colors.white.withValues(alpha: 0.10),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.28, 1.0],
+      ).createShader(Offset.zero & size);
+
+    final glowHeight = math.min(size.height, 180.0);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, glowHeight), topGlowPaint);
+
+    final waveDepth = (24.0 - progress * 12.0).clamp(10.0, 24.0);
+    final path = Path()..moveTo(0, 0);
+    path.quadraticBezierTo(
+      size.width * 0.22,
+      waveDepth,
+      size.width * 0.5,
+      waveDepth * 0.78,
+    );
+    path.quadraticBezierTo(size.width * 0.78, waveDepth * 0.52, size.width, 0);
+
+    final edgePaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          Colors.white.withValues(alpha: 0.95),
+          _kAccentSoftColor.withValues(alpha: 0.38),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, waveDepth));
+    canvas.drawPath(
+      path,
+      edgePaint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
+
+    final highlightPaint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.42),
+              Colors.white.withValues(alpha: 0.0),
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.5, glowHeight * 0.14),
+              radius: size.width * 0.48,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(size.width * 0.5, glowHeight * 0.14),
+      size.width * 0.48,
+      highlightPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PanelSurfacePainter oldDelegate) {
+    return progress != oldDelegate.progress;
   }
 }
 
@@ -1023,7 +1487,7 @@ class _PanelRefreshingOverlay extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
         child: Container(
-          color: Colors.black.withValues(alpha: 0.10),
+          color: Colors.white.withValues(alpha: 0.18),
           alignment: Alignment.topCenter,
           padding: const EdgeInsets.only(top: 56),
           child: const _RefreshOrbitIndicator(),
@@ -1079,13 +1543,13 @@ class _RefreshOrbitPainter extends CustomPainter {
     final radius = size.width / 2 - 5;
 
     final ringPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.18)
+      ..color = _kAccentColor.withValues(alpha: 0.20)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawCircle(center, radius, ringPaint);
 
     final arcPaint = Paint()
-      ..color = Colors.white
+      ..color = _kAccentDeepColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
@@ -1106,7 +1570,9 @@ class _RefreshOrbitPainter extends CustomPainter {
         center.dy + math.sin(angle) * orbitRadius,
       );
       final dotPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.4 + 0.5 * (1 - phase));
+        ..color = _kAccentSoftColor.withValues(
+          alpha: 0.45 + 0.35 * (1 - phase),
+        );
       canvas.drawCircle(dotCenter, 2.5 + (1 - phase), dotPaint);
     }
   }
