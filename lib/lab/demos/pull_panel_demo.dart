@@ -398,33 +398,39 @@ class _PanelContent extends StatelessWidget {
               onNotification: (n) {
                 if (!scrollable) return false;
 
-                debugPrint('notify=${n.runtimeType} delta=${n is ScrollUpdateNotification ? n.scrollDelta : ''}');
-
                 final pos = scrollController.position;
                 final atTop = pos.pixels <= 0;
+                final atBottom = pos.pixels >= pos.maxScrollExtent;
 
-                // 0) UserScrollNotification：用户在主动拖拽，方向是"向下"（内容往下）
+                debugPrint('notify=${n.runtimeType} delta=${n is ScrollUpdateNotification ? n.scrollDelta : ''} atTop=$atTop atBottom=$atBottom');
+
+                // 0) UserScrollNotification：用户在主动拖拽
                 if (n is UserScrollNotification) {
                   // ScrollDirection.forward.index == 1（向下）
                   if (atTop && n.direction.index == 1) {
-                    // 标记进入关闭模式，让后续 Overscroll/ScrollUpdate 提供位移
-                    return false;
+                    return false; // 让后续 Overscroll/ScrollUpdate 提供位移
                   }
                 }
 
-                // 1) 主通道：Overscroll（最符合下拉关闭）
+                // 1) 顶部下拉关闭：atTop + delta < 0
                 if (n is OverscrollNotification) {
                   if (atTop && n.overscroll < 0) {
-                    onTopOverscroll(n.overscroll); // 负数 -> progress 下降
+                    onTopOverscroll(n.overscroll);
                     return true;
                   }
                 }
 
-                // 2) 兜底：某些机型 overscroll 不给，用 ScrollUpdate
+                // 2) 兜底：ScrollUpdate
                 if (n is ScrollUpdateNotification) {
                   final delta = n.scrollDelta ?? 0.0;
+                  // 顶部上拉关闭
                   if (atTop && delta < 0) {
-                    onTopOverscroll(delta); // 负数 -> progress 下降
+                    onTopOverscroll(delta);
+                    return true;
+                  }
+                  // 底部上拉关闭（delta < 0 表示手指往上推，内容被往下拽）
+                  if (atBottom && delta < 0) {
+                    onTopOverscroll(delta);
                     return true;
                   }
                 }
