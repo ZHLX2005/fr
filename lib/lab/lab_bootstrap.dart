@@ -1,5 +1,6 @@
-// Lab 模块引导文件
-// 集中注册所有 Demo 页面
+/// Lab 模块引导文件
+/// 集中注册所有 Demo 页面
+library lab_bootstrap;
 
 import '../core/schema/schema.dart' show initSchemaRegistry;
 import 'demos/grid_dashboard_demo.dart';
