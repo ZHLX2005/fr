@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/body_region.dart';
+import '../models/body_record_repo.dart';
 
 class BodyBlockPainter extends CustomPainter {
   final List<BlockRegion> regions;
@@ -69,6 +70,42 @@ class BodyBlockPainter extends CustomPainter {
         canvas,
         Offset(r.x + (r.w - tp.width) / 2, r.y + (r.h - tp.height) / 2),
       );
+
+      // 记录数量角标
+      final recordCount = bodyRecordRepo.getRecords(r.id).length;
+      if (recordCount > 0) {
+        final badgeRadius = r.w < 40 ? 7.0 : 9.0;
+        final badgeX = r.x + r.w - badgeRadius;
+        final badgeY = r.y + badgeRadius;
+        final badgeCenter = Offset(badgeX, badgeY);
+
+        final badgePaint = Paint()
+          ..color = Colors.redAccent
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(badgeCenter, badgeRadius, badgePaint);
+
+        final badgeBorder = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2;
+        canvas.drawCircle(badgeCenter, badgeRadius, badgeBorder);
+
+        final badgeTp = TextPainter(
+          text: TextSpan(
+            text: recordCount > 9 ? '9+' : '$recordCount',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        badgeTp.paint(
+          canvas,
+          Offset(badgeX - badgeTp.width / 2, badgeY - badgeTp.height / 2),
+        );
+      }
 
       // 有子图标记
       if (r.hasChildren) {

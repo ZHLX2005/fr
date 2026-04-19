@@ -292,135 +292,125 @@ class _FullscreenPair extends StatelessWidget {
     final aOnB = b; // 右色块里的文字用a
     final bOnA = a; // 左色块里的文字用b
 
+    // 两个色块通行铺满全屏，撞色演示内容叠在色块上方
     return Stack(
+      fit: StackFit.expand,
       children: [
+        // 底层：左色块 | 右色块 通行铺满整个屏幕
+        Row(
+          children: [
+            Expanded(child: Container(color: a)),
+            Expanded(child: Container(color: b)),
+          ],
+        ),
+        // 内容层：叠在色块上方
         Column(
           children: [
-            // 主色块区：左色块 | 右色块
-            Expanded(
+            // 返回按钮区
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    _BackButton(color: a, iconColor: ColorUtils.bestOnColor(a)),
+                  ],
+                ),
+              ),
+            ),
+            // 色卡名称 + Hex 区
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // 左色块 — 字色为 b（对方色）
+                  // 左侧：A 色信息
                   Expanded(
-                    child: Container(
-                      color: a,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            top: 0,
-                            left: 0,
-                            child: SafeArea(
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: _BackButton(color: a, iconColor: ColorUtils.bestOnColor(a)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          pair.a.name,
+                          style: TextStyle(
+                            color: bOnA,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () => _copy(context, pair.a.hex),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                pair.a.hex.toUpperCase(),
+                                style: TextStyle(
+                                  color: bOnA.withValues(alpha: 0.8),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1,
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 6),
+                              Icon(Icons.copy,
+                                  size: 14,
+                                  color: bOnA.withValues(alpha: 0.6)),
+                            ],
                           ),
-                          Positioned(
-                            left: 20,
-                            bottom: 20,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  pair.a.name,
-                                  style: TextStyle(
-                                    color: bOnA,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () => _copy(context, pair.a.hex),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        pair.a.hex.toUpperCase(),
-                                        style: TextStyle(
-                                          color: bOnA.withValues(alpha: 0.8),
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Icon(Icons.copy,
-                                          size: 14,
-                                          color: bOnA.withValues(alpha: 0.6)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  // 右色块 — 字色为 a（对方色）
+                  // 右侧：B 色信息
                   Expanded(
-                    child: Container(
-                      color: b,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            right: 20,
-                            bottom: 20,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  pair.b.name,
-                                  style: TextStyle(
-                                    color: aOnB,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () => _copy(context, pair.b.hex),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.copy,
-                                          size: 14,
-                                          color: aOnB.withValues(alpha: 0.6)),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        pair.b.hex.toUpperCase(),
-                                        style: TextStyle(
-                                          color: aOnB.withValues(alpha: 0.8),
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          pair.b.name,
+                          style: TextStyle(
+                            color: aOnB,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () => _copy(context, pair.b.hex),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.copy,
+                                  size: 14,
+                                  color: aOnB.withValues(alpha: 0.6)),
+                              const SizedBox(width: 6),
+                              Text(
+                                pair.b.hex.toUpperCase(),
+                                style: TextStyle(
+                                  color: aOnB.withValues(alpha: 0.8),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            // 撞色演示区
-            Container(
-              color: const Color(0xFF1A1A1E),
-              padding: const EdgeInsets.all(20),
-              child: SafeArea(
-                top: false,
+            const SizedBox(height: 24),
+            // 撞色演示区 — 叠在色块上，半透明底色保持撞色可读性
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -428,17 +418,16 @@ class _FullscreenPair extends StatelessWidget {
                     Text(
                       '撞色演示',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.5,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     // 对色小方块
                     Row(
                       children: [
-                        // A 色方块（带 B 色文字）
                         _ColorSwatchChip(
                           color: a,
                           label: pair.a.name,
@@ -448,11 +437,10 @@ class _FullscreenPair extends StatelessWidget {
                         const SizedBox(width: 12),
                         Icon(
                           Icons.add,
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: Colors.white.withValues(alpha: 0.5),
                           size: 16,
                         ),
                         const SizedBox(width: 12),
-                        // B 色方块（带 A 色文字）
                         _ColorSwatchChip(
                           color: b,
                           label: pair.b.name,
@@ -461,8 +449,8 @@ class _FullscreenPair extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    // 撞色文字排版示例
+                    const SizedBox(height: 16),
+                    // 撞色文字排版示例：A 底色 + B 文字
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -514,6 +502,7 @@ class _FullscreenPair extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    // 撞色文字排版示例：B 底色 + A 文字
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -567,6 +556,11 @@ class _FullscreenPair extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+            // 底部安全区
+            SafeArea(
+              top: false,
+              child: const SizedBox(height: 0),
             ),
           ],
         ),

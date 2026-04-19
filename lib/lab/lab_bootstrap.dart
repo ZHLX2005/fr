@@ -1,5 +1,6 @@
-// Lab 模块引导文件
-// 集中注册所有 Demo 页面
+/// Lab 模块引导文件
+/// 集中注册所有 Demo 页面
+library lab_bootstrap;
 
 import '../core/schema/schema.dart' show initSchemaRegistry;
 import 'demos/grid_dashboard_demo.dart';
@@ -30,9 +31,10 @@ import 'demos/localnet_demo.dart';
 import 'demos/gallery_demo.dart';
 import 'demos/schema_demo.dart';
 import 'demos/color_palette_demo.dart';
-import 'demos/github_issues_demo.dart';
+import 'demos/github_demo.dart';
 import 'demos/qr_demo.dart';
 import 'demos/pull_panel_demo.dart';
+import 'demos/doubletime_demo.dart';
 
 /// 注册所有 Demo 页面
 void registerAllDemos() {
@@ -64,8 +66,9 @@ void registerAllDemos() {
   registerGalleryDemo();
   registerSchemaDemo();
   registerColorPaletteDemo();
-  registerGithubIssuesDemo();
+  registerGithubDemo();
   registerQrDemo();
+  registerDoubleTimeDemo();
   registerPullPanelDemo();
 }
 

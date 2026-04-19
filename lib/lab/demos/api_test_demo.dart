@@ -290,14 +290,33 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
       if (filePath != null && mounted) {
         final file = File(filePath);
-        final size = await file.length();
-        await _saveDownloadedApk(filePath, size);
-        setState(() {
-          _downloadStatus = '下载完成';
-          _isDownloading = false;
-          _downloadedApkPath = filePath;
-          _downloadedApkSize = size;
-        });
+        try {
+          // 验证文件存在并获取大小
+          if (!await file.exists()) {
+            throw Exception('文件不存在');
+          }
+          final size = await file.length();
+          await _saveDownloadedApk(filePath, size);
+          setState(() {
+            _downloadStatus = '下载完成';
+            _isDownloading = false;
+            _downloadedApkPath = filePath;
+            _downloadedApkSize = size;
+          });
+        } catch (e) {
+          // 文件访问出错，尝试清理并重新下载
+          try {
+            if (await file.exists()) {
+              await file.delete();
+            }
+          } catch (_) {}
+          setState(() {
+            _downloadStatus = '文件访问出错，请重新下载';
+            _isDownloading = false;
+            _downloadedApkPath = null;
+            _downloadedApkSize = null;
+          });
+        }
       } else if (mounted) {
         setState(() {
           _downloadStatus = '下载失败，请重试';

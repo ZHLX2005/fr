@@ -14,23 +14,94 @@ class RecordSheet extends StatefulWidget {
 
 class _RecordSheetState extends State<RecordSheet> {
   final _ctrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
   double _pain = 0;
   List<BodyRecord> _history = [];
+  List<BodyRecord> _filtered = [];
+  String _searchQuery = '';
+  BodyRecord? _editing;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _searchCtrl.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchCtrl.text.trim().toLowerCase();
+      _applyFilter();
+    });
   }
 
   void _load() {
     setState(() {
       _history = bodyRecordRepo.getRecords(widget.bodyPart.id);
+      _applyFilter();
     });
+  }
+
+  void _applyFilter() {
+    if (_searchQuery.isEmpty) {
+      _filtered = _history;
+    } else {
+      _filtered = _history
+          .where((r) => r.content.toLowerCase().contains(_searchQuery))
+          .toList();
+    }
   }
 
   Color get _painColor =>
       Color.lerp(Colors.green, Colors.red, _pain / 10) ?? Colors.grey;
+
+  void _startEdit(BodyRecord record) {
+    setState(() {
+      _editing = record;
+      _ctrl.text = record.content;
+      _pain = (record.painLevel ?? 0).toDouble();
+    });
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _editing = null;
+      _ctrl.clear();
+      _pain = 0;
+    });
+  }
+
+  Future<void> _save() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+
+    if (_editing != null) {
+      // 编辑模式：删旧的，加新的
+      await bodyRecordRepo.remove(_editing!);
+      await bodyRecordRepo.add(
+        widget.bodyPart.id,
+        text,
+        _pain.round(),
+      );
+      setState(() => _editing = null);
+    } else {
+      await bodyRecordRepo.add(
+        widget.bodyPart.id,
+        text,
+        _pain.round(),
+      );
+    }
+    _ctrl.clear();
+    _pain = 0;
+    _load();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,66 +181,129 @@ class _RecordSheetState extends State<RecordSheet> {
             TextField(
               controller: _ctrl,
               maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: '描述你的感受...',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: _editing != null ? '编辑记录...' : '描述你的感受...',
+                border: const OutlineInputBorder(),
+                suffixIcon: _editing != null
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: _cancelEdit,
+                        tooltip: '取消编辑',
+                      )
+                    : null,
               ),
             ),
             const SizedBox(height: 8),
             FilledButton.icon(
-              icon: const Icon(Icons.save),
-              label: const Text('保存'),
-              onPressed: () async {
-                if (_ctrl.text.trim().isEmpty) return;
-                await bodyRecordRepo.add(
-                  widget.bodyPart.id,
-                  _ctrl.text.trim(),
-                  _pain.round(),
-                );
-                _ctrl.clear();
-                _load();
-              },
+              icon: Icon(_editing != null ? Icons.check : Icons.save),
+              label: Text(_editing != null ? '更新' : '保存'),
+              onPressed: _save,
             ),
             const Divider(height: 32),
-            Text(
-              '历史记录 (${_history.length})',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            ..._history.map(
-              (r) => Dismissible(
-                key: ValueKey(r.key),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 16),
-                  color: Colors.red,
-                  child: const Icon(Icons.delete, color: Colors.white),
+            // 搜索 + 历史记录
+            Row(
+              children: [
+                Text(
+                  '历史记录 (${_history.length})',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                onDismissed: (_) async {
-                  await bodyRecordRepo.remove(r);
-                  _load();
-                },
-                child: ListTile(
-                  title: Text(r.content),
-                  subtitle: Text(
-                    '${r.createdAt.toLocal().toString().substring(0, 16)}'
-                    ' · 不适: ${r.painLevel ?? "-"}/10',
+              ],
+            ),
+            if (_history.length > 3) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: '搜索记录...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  dense: true,
-                  leading: Icon(
-                    Icons.circle,
-                    size: 10,
-                    color: Color.lerp(
-                      Colors.green,
-                      Colors.red,
-                      (r.painLevel ?? 0) / 10,
-                    ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
               ),
+            ],
+            const SizedBox(height: 8),
+            ..._filtered.map(
+              (r) => _RecordTile(
+                record: r,
+                isEditing: _editing?.key == r.key,
+                onEdit: () => _startEdit(r),
+                onDelete: () async {
+                  await bodyRecordRepo.remove(r);
+                  if (_editing?.key == r.key) _cancelEdit();
+                  _load();
+                },
+              ),
             ),
+            if (_filtered.isEmpty && _searchQuery.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '没有找到匹配的记录',
+                  style: TextStyle(color: Colors.grey[500]),
+                  textAlign: TextAlign.center,
+                ),
+              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RecordTile extends StatelessWidget {
+  final BodyRecord record;
+  final bool isEditing;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _RecordTile({
+    required this.record,
+    required this.isEditing,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final painColor = Color.lerp(
+      Colors.green,
+      Colors.red,
+      (record.painLevel ?? 0) / 10,
+    );
+
+    return Dismissible(
+      key: ValueKey(record.key),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        color: Colors.red,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) => onDelete(),
+      child: ListTile(
+        title: Text(record.content),
+        subtitle: Text(
+          '${record.createdAt.toLocal().toString().substring(0, 16)}'
+          ' · 不适: ${record.painLevel ?? "-"}/10',
+        ),
+        dense: true,
+        leading: Icon(Icons.circle, size: 10, color: painColor),
+        trailing: isEditing
+            ? const Icon(Icons.edit, size: 16, color: Colors.blue)
+            : IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: onEdit,
+                tooltip: '编辑',
+                visualDensity: VisualDensity.compact,
+              ),
+        onTap: onEdit,
       ),
     );
   }
