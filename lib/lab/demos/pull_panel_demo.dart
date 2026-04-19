@@ -32,11 +32,13 @@ class PullPanelAction {
 }
 
 class PullPanelMetrics {
+  static const double mainDragDeadZone = 8.0;
+  static const double collapsedEpsilon = 0.001;
   static const double refreshThreshold = 0.125;
   static const double hintOpenThreshold = 0.15;
   static const double closeSnapThreshold = 0.90;
   static const double velocityOpen = 900;
-  static const double dragDamping = 0.18;
+  static const double dragDamping = 0.25;
   static const double overdragResistance = 0.04;
   static const double mainPushRatio = 0.50;
 
@@ -65,6 +67,7 @@ class PullPanelMetrics {
 class PullPanelStateMachine {
   PullPanelState _state = PullPanelState.collapsed;
   double _progress = 0.0;
+  double _pendingMainDragDy = 0.0;
 
   PullPanelState get state => _state;
   double get progress => _progress;
@@ -94,24 +97,65 @@ class PullPanelStateMachine {
 
   void syncProgress(double value) {
     _progress = value.clamp(0.0, 1.0);
+    if (_progress <= 0.0 &&
+        _state != PullPanelState.refreshing &&
+        _state != PullPanelState.settling) {
+      _state = PullPanelState.collapsed;
+    }
   }
 
   void beginMainDrag() {
-    if (_state == PullPanelState.refreshing) return;
-    _state = PullPanelState.draggingMain;
+    if (_state == PullPanelState.refreshing ||
+        _state == PullPanelState.settling ||
+        _state == PullPanelState.expanded ||
+        _state == PullPanelState.draggingPanel) {
+      return;
+    }
+    _pendingMainDragDy = 0.0;
   }
 
   void updateMainDrag({required double deltaDy, required double fullHeight}) {
-    if (_state != PullPanelState.draggingMain) return;
+    var effectiveDeltaDy = deltaDy;
+
+    if (_state != PullPanelState.draggingMain) {
+      _pendingMainDragDy += effectiveDeltaDy;
+
+      final passedDeadZone =
+          _pendingMainDragDy.abs() >= PullPanelMetrics.mainDragDeadZone;
+      if (!passedDeadZone) return;
+
+      if (_pendingMainDragDy <= 0) {
+        _pendingMainDragDy = 0.0;
+        return;
+      }
+
+      _state = PullPanelState.draggingMain;
+      effectiveDeltaDy = _pendingMainDragDy;
+      _pendingMainDragDy = 0.0;
+    }
+
     _progress = PullPanelMetrics.applyDrag(
       currentProgress: _progress,
-      deltaDy: deltaDy,
+      deltaDy: effectiveDeltaDy,
       fullHeight: fullHeight,
     );
   }
 
   PullPanelAction endMainDrag({required double velocityDy}) {
     if (_state != PullPanelState.draggingMain) {
+      _pendingMainDragDy = 0.0;
+      if (_progress <= PullPanelMetrics.collapsedEpsilon) {
+        _progress = 0.0;
+        _state = PullPanelState.collapsed;
+      }
+      return const PullPanelAction.none();
+    }
+
+    _pendingMainDragDy = 0.0;
+
+    if (_progress <= PullPanelMetrics.collapsedEpsilon) {
+      _progress = 0.0;
+      _state = PullPanelState.collapsed;
       return const PullPanelAction.none();
     }
 
@@ -155,10 +199,12 @@ class PullPanelStateMachine {
   }
 
   void onAnimationStarted() {
+    _pendingMainDragDy = 0.0;
     _state = PullPanelState.settling;
   }
 
   void onAnimationCompleted(double targetProgress) {
+    _pendingMainDragDy = 0.0;
     _progress = targetProgress.clamp(0.0, 1.0);
     if (_progress <= 0.0) {
       _state = PullPanelState.collapsed;
@@ -170,6 +216,7 @@ class PullPanelStateMachine {
   }
 
   void onRefreshFinished() {
+    _pendingMainDragDy = 0.0;
     if (_state == PullPanelState.refreshing) {
       _state = PullPanelState.collapsed;
     }
@@ -221,6 +268,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
 
   Animation<double>? _progressAnim;
   double? _pendingAnimationTarget;
+  bool _refreshInFlight = false;
 
   double get _progress => _sm.progress;
   bool get _isRefreshing => _sm.state == PullPanelState.refreshing;
@@ -282,12 +330,14 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   }
 
   Future<void> _handleRefresh() async {
-    if (_isRefreshing) return;
+    if (_refreshInFlight) return;
 
+    _refreshInFlight = true;
     setState(() {});
     try {
       await Future.delayed(_kRefreshDuration);
     } finally {
+      _refreshInFlight = false;
       if (mounted) {
         if (_panelScrollController.hasClients) {
           _panelScrollController.jumpTo(0.0);
