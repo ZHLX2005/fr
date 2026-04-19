@@ -395,10 +395,13 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
     _runAction(_sm.endMainDrag(velocityDy: velocityDy));
   }
 
-  void _onPanelTopOverscroll(double overscroll, double fullHeight) {
+  void _onPanelBottomOverscroll(double overscroll, double fullHeight) {
     if (_isRefreshing) return;
 
-    _sm.absorbPanelOverscroll(overscrollDy: overscroll, fullHeight: fullHeight);
+    _sm.absorbPanelOverscroll(
+      overscrollDy: -overscroll,
+      fullHeight: fullHeight,
+    );
     setState(() {});
   }
 
@@ -494,8 +497,8 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
                         refreshing: _isRefreshing,
                         closeProgress: _sm.closeProgress,
                         showCloseCue: _sm.showCloseCue,
-                        onTopOverscroll: (overscroll) {
-                          _onPanelTopOverscroll(overscroll, screenHeight);
+                        onBottomOverscroll: (overscroll) {
+                          _onPanelBottomOverscroll(overscroll, screenHeight);
                         },
                         onPanelScrollEnd: _onPanelScrollEnd,
                       ),
@@ -551,7 +554,7 @@ class _PanelContent extends StatelessWidget {
   final bool refreshing;
   final double closeProgress;
   final bool showCloseCue;
-  final ValueChanged<double> onTopOverscroll;
+  final ValueChanged<double> onBottomOverscroll;
   final VoidCallback onPanelScrollEnd;
 
   const _PanelContent({
@@ -564,7 +567,7 @@ class _PanelContent extends StatelessWidget {
     required this.refreshing,
     required this.closeProgress,
     required this.showCloseCue,
-    required this.onTopOverscroll,
+    required this.onBottomOverscroll,
     required this.onPanelScrollEnd,
   });
 
@@ -606,13 +609,32 @@ class _PanelContent extends StatelessWidget {
                         if (!scrollController.hasClients) return false;
 
                         final position = scrollController.position;
-                        final atTop =
-                            position.pixels <= position.minScrollExtent;
+                        final nearBottom = position.extentAfter <= 0.5;
+
+                        if (notification is ScrollUpdateNotification &&
+                            nearBottom &&
+                            notification.dragDetails != null) {
+                          final dragDy = notification.dragDetails!.delta.dy;
+                          if (dragDy < 0) {
+                            onBottomOverscroll(-dragDy);
+                            return true;
+                          }
+                        }
 
                         if (notification is OverscrollNotification &&
-                            atTop &&
-                            notification.overscroll < 0) {
-                          onTopOverscroll(notification.overscroll);
+                            nearBottom &&
+                            notification.dragDetails != null) {
+                          final dragDy = notification.dragDetails!.delta.dy;
+                          if (dragDy < 0) {
+                            onBottomOverscroll(-dragDy);
+                            return true;
+                          }
+                        }
+
+                        if (notification is OverscrollNotification &&
+                            nearBottom &&
+                            notification.overscroll > 0) {
+                          onBottomOverscroll(notification.overscroll * 0.5);
                           return true;
                         }
 
