@@ -391,43 +391,14 @@ class _MessageBubble extends StatelessWidget {
             bottomRight: isMe ? Radius.zero : const Radius.circular(16),
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (message.isLoading)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: isMe ? Colors.white : theme.colorScheme.secondary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '处理中...',
-                    style: TextStyle(
-                      color: isMe
-                          ? Colors.white70
-                          : theme.colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                ],
-              )
-            else if (isMe)
-              Text(
+        child: isMe
+            ? Text(
                 message.content,
                 style: TextStyle(
                   color: isMe ? Colors.white : theme.colorScheme.onSurface,
                 ),
               )
-            else
-              MarkdownRendererWidget(data: message.content),
-          ],
-        ),
+            : MarkdownRendererWidget(data: message.content),
       ),
     );
   }

@@ -324,12 +324,27 @@ class ApiService {
         }
         await raf.close();
 
-        // 重命名为正式文件
-        if (await outputFile.exists()) {
-          await outputFile.delete();
-        }
+        // 重命名为正式文件（使用 copy 而不是 rename，更可靠）
         if (await tempFile.exists()) {
-          await tempFile.rename(outputFile.path);
+          try {
+            // 先删除已存在的输出文件
+            if (await outputFile.exists()) {
+              await outputFile.delete();
+            }
+            // 复制临时文件内容到目标文件
+            final bytes = await tempFile.readAsBytes();
+            await outputFile.writeAsBytes(bytes);
+            // 删除临时文件
+            await tempFile.delete();
+          } catch (e) {
+            // 如果复制失败，尝试直接返回临时文件路径
+            return tempFile.path;
+          }
+        }
+
+        // 验证输出文件存在
+        if (!await outputFile.exists()) {
+          return null;
         }
 
         return outputFile.path;
