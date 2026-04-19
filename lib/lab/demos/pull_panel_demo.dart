@@ -538,6 +538,9 @@ class _PanelContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final contentBlur = ((1.0 - progress) * 18.0).clamp(0.0, 18.0);
+    final contentOverlayOpacity = ((1.0 - progress) * 0.22).clamp(0.0, 0.22);
+
     return Column(
       children: [
         Padding(
@@ -553,46 +556,78 @@ class _PanelContent extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: IgnorePointer(
-            ignoring: !scrollable,
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (!scrollable) return false;
-                if (!scrollController.hasClients) return false;
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRect(
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(
+                    sigmaX: contentBlur,
+                    sigmaY: contentBlur,
+                  ),
+                  child: IgnorePointer(
+                    ignoring: !scrollable,
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (!scrollable) return false;
+                        if (!scrollController.hasClients) return false;
 
-                final position = scrollController.position;
-                final atTop = position.pixels <= position.minScrollExtent;
+                        final position = scrollController.position;
+                        final atTop =
+                            position.pixels <= position.minScrollExtent;
 
-                if (notification is OverscrollNotification &&
-                    atTop &&
-                    notification.overscroll < 0) {
-                  onTopOverscroll(notification.overscroll);
-                  return true;
-                }
+                        if (notification is OverscrollNotification &&
+                            atTop &&
+                            notification.overscroll < 0) {
+                          onTopOverscroll(notification.overscroll);
+                          return true;
+                        }
 
-                if (notification is ScrollEndNotification) {
-                  onPanelScrollEnd();
-                }
+                        if (notification is ScrollEndNotification) {
+                          onPanelScrollEnd();
+                        }
 
-                return false;
-              },
-              child: GridView.builder(
-                controller: scrollController,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.85,
+                        return false;
+                      },
+                      child: GridView.builder(
+                        controller: scrollController,
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              childAspectRatio: 0.85,
+                            ),
+                        itemCount: 40,
+                        itemBuilder: (context, index) {
+                          final item = _miniApps[index % _miniApps.length];
+                          return _MiniAppTile(item: item);
+                        },
+                      ),
+                    ),
+                  ),
                 ),
-                itemCount: 40,
-                itemBuilder: (context, index) {
-                  final item = _miniApps[index % _miniApps.length];
-                  return _MiniAppTile(item: item);
-                },
               ),
-            ),
+              IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: contentOverlayOpacity),
+                        Colors.white.withValues(
+                          alpha: contentOverlayOpacity * 0.35,
+                        ),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
