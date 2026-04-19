@@ -272,6 +272,43 @@ class DualTimelinePainter extends CustomPainter {
   bool shouldRepaint(covariant DualTimelinePainter oldDelegate) {
     return oldDelegate.day != day ||
         oldDelegate.allocations != allocations ||
-        oldDelegate.hidePlanLane != hidePlanLane;
+        oldDelegate.hidePlanLane != hidePlanLane ||
+        oldDelegate.onEventTap != onEventTap;
+  }
+
+  /// 检测色块点击
+  String? hitTestEvent(Offset position, Size size) {
+    final blocksPlan = _buildContinuousBlocks(DoubleTimeLane.plan);
+    final blocksActual = _buildContinuousBlocks(DoubleTimeLane.actual);
+
+    final actualX = hidePlanLane ? 56.0 : 56.0 + laneWidth + gutter;
+
+    // 检测plan色块
+    if (!hidePlanLane) {
+      for (final block in blocksPlan) {
+        final blockTop = 28.0 + (block.startHour + block.startRatio) * hourRowHeight + 4;
+        final blockBottom = 28.0 + (block.endHour + block.endRatio) * hourRowHeight - 4;
+        if (position.dx >= 56.0 + 8 &&
+            position.dx <= 56.0 + laneWidth - 8 &&
+            position.dy >= blockTop &&
+            position.dy <= math.max(blockTop + 12, blockBottom - 2)) {
+          return block.eventId;
+        }
+      }
+    }
+
+    // 检测actual色块
+    for (final block in blocksActual) {
+      final blockTop = 28.0 + (block.startHour + block.startRatio) * hourRowHeight + 4;
+      final blockBottom = 28.0 + (block.endHour + block.endRatio) * hourRowHeight - 4;
+      if (position.dx >= actualX + 8 &&
+          position.dx <= actualX + laneWidth - 8 &&
+          position.dy >= blockTop &&
+          position.dy <= math.max(blockTop + 12, blockBottom - 2)) {
+        return block.eventId;
+      }
+    }
+
+    return null;
   }
 }
