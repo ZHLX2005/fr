@@ -316,6 +316,275 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
     );
   }
 
+  void _showEventDetailSheet(DoubleTimeEvent event) {
+    final titleController = TextEditingController(text: event.title);
+    var selectedLane = event.lane;
+    var selectedColor = event.colorArgb;
+    var startMinutes = event.start.hour * 60 + event.start.minute;
+    var endMinutes = event.end.hour * 60 + event.end.minute;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 顶部拖拽条
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // 标题栏
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: Row(
+                      children: [
+                        const Text(
+                          '编辑事件',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          child: const Text('取消'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 标题输入
+                          const _SectionLabel('事件名称'),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: titleController,
+                            decoration: InputDecoration(
+                              hintText: '输入事件名称',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 车道选择
+                          const _SectionLabel('时间轴'),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              _LaneChip(
+                                label: 'Plan',
+                                color: const Color(0xFF6366F1),
+                                selected: selectedLane == DoubleTimeLane.plan,
+                                onTap: () =>
+                                    setSheetState(() => selectedLane = DoubleTimeLane.plan),
+                              ),
+                              const SizedBox(width: 12),
+                              _LaneChip(
+                                label: 'Actual',
+                                color: const Color(0xFFF97316),
+                                selected:
+                                    selectedLane == DoubleTimeLane.actual,
+                                onTap: () => setSheetState(
+                                    () => selectedLane = DoubleTimeLane.actual),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 开始时间
+                          const _SectionLabel('开始时间'),
+                          const SizedBox(height: 8),
+                          _TimeScrollPicker(
+                            initialMinutes: startMinutes,
+                            onChanged: (v) =>
+                                setSheetState(() => startMinutes = v),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 结束时间
+                          const _SectionLabel('结束时间'),
+                          const SizedBox(height: 8),
+                          _TimeScrollPicker(
+                            initialMinutes: endMinutes,
+                            onChanged: (v) =>
+                                setSheetState(() => endMinutes = v),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 颜色选择
+                          const _SectionLabel('色块颜色'),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: _presetColors.map((c) {
+                              final isSelected = c == selectedColor;
+                              return GestureDetector(
+                                onTap: () =>
+                                    setSheetState(() => selectedColor = c),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Color(c),
+                                    shape: BoxShape.circle,
+                                    border: isSelected
+                                        ? Border.all(
+                                            color: Colors.black, width: 3)
+                                        : null,
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: Color(c)
+                                                  .withValues(alpha: 0.4),
+                                              blurRadius: 8,
+                                              spreadRadius: 2,
+                                            )
+                                          ]
+                                        : null,
+                                  ),
+                                  child: isSelected
+                                      ? const Icon(Icons.check,
+                                          color: Colors.white, size: 18)
+                                      : null,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 28),
+
+                          // 按钮组：保存 + 删除
+                          Row(
+                            children: [
+                              // 删除按钮
+                              SizedBox(
+                                width: 60,
+                                height: 52,
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    Navigator.pop(sheetContext);
+                                    _confirmDeleteEvent(event);
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.red,
+                                    side: const BorderSide(color: Colors.red),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: const Icon(Icons.delete_outline),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // 保存按钮
+                              Expanded(
+                                child: SizedBox(
+                                  height: 52,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      if (endMinutes <= startMinutes) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                              content: Text('结束时间必须大于开始时间')),
+                                        );
+                                        return;
+                                      }
+
+                                      final updatedEvent = DoubleTimeEvent(
+                                        id: event.id,
+                                        lane: selectedLane,
+                                        start: DateTime(
+                                          _day.year,
+                                          _day.month,
+                                          _day.day,
+                                          startMinutes ~/ 60,
+                                          startMinutes % 60,
+                                        ),
+                                        end: DateTime(
+                                          _day.year,
+                                          _day.month,
+                                          _day.day,
+                                          endMinutes ~/ 60,
+                                          endMinutes % 60,
+                                        ),
+                                        colorArgb: selectedColor,
+                                        title: titleController.text.isEmpty
+                                            ? 'Untitled'
+                                            : titleController.text,
+                                      );
+
+                                      setState(() {
+                                        final index = _events.indexWhere((e) => e.id == event.id);
+                                        if (index != -1) {
+                                          _events[index] = updatedEvent;
+                                        }
+                                      });
+                                      Navigator.pop(sheetContext);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Color(selectedColor),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: const Text(
+                                      '保存',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(
+                              height: MediaQuery.of(context).padding.bottom),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _confirmDeleteEvent(DoubleTimeEvent event) {
     showDialog(
       context: context,
@@ -391,30 +660,38 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
               ],
             ),
           ),
-          // 事件列表（可点击删除）
-          if (_events.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Column(
-                children: _events.map((evt) {
-                  return _EventListTile(
-                    event: evt,
-                    onTap: () => _confirmDeleteEvent(evt),
-                  );
-                }).toList(),
-              ),
-            ),
-          // 时间轴
+          // 时间轴（可点击色块查看详情）
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              child: CustomPaint(
-                size: Size(size.width - 24, 24 * 56 + 40),
-                painter: DualTimelinePainter(
-                  day: _day,
-                  allocations: allocations,
-                  laneWidth: laneWidth,
-                  hidePlanLane: _focusActual,
+              child: GestureDetector(
+                onTapUp: (details) {
+                  final painter = DualTimelinePainter(
+                    day: _day,
+                    allocations: allocations,
+                    laneWidth: laneWidth,
+                    hidePlanLane: _focusActual,
+                  );
+                  final eventId = painter.hitTestEvent(
+                    details.localPosition,
+                    Size(size.width - 24, 24 * 56 + 40),
+                  );
+                  if (eventId != null) {
+                    final event = _events.firstWhere(
+                      (e) => e.id == eventId,
+                      orElse: () => _events.first,
+                    );
+                    _showEventDetailSheet(event);
+                  }
+                },
+                child: CustomPaint(
+                  size: Size(size.width - 24, 24 * 56 + 40),
+                  painter: DualTimelinePainter(
+                    day: _day,
+                    allocations: allocations,
+                    laneWidth: laneWidth,
+                    hidePlanLane: _focusActual,
+                  ),
                 ),
               ),
             ),
@@ -426,79 +703,6 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
         onPressed: _showAddEventSheet,
         backgroundColor: const Color(0xFF6366F1),
         child: const Icon(Icons.add, color: Colors.white),
-      ),
-    );
-  }
-}
-
-// ─── 事件列表条目（点击删除）──────────────────────────
-
-class _EventListTile extends StatelessWidget {
-  final DoubleTimeEvent event;
-  final VoidCallback onTap;
-
-  const _EventListTile({required this.event, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final startStr =
-        '${event.start.hour.toString().padLeft(2, '0')}:${event.start.minute.toString().padLeft(2, '0')}';
-    final endStr =
-        '${event.end.hour.toString().padLeft(2, '0')}:${event.end.minute.toString().padLeft(2, '0')}';
-    final duration = event.end.difference(event.start).inMinutes;
-    final laneLabel = event.lane == DoubleTimeLane.plan ? 'Plan' : 'Actual';
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Color(event.colorArgb).withValues(alpha: 0.3),
-          ),
-        ),
-        child: Row(
-          children: [
-            // 色块圆点
-            Container(
-              width: 8,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Color(event.colorArgb),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // 信息
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$laneLabel · $startStr – $endStr · ${duration}min',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 删除提示
-            Icon(Icons.close, size: 16, color: Colors.grey[400]),
-          ],
-        ),
       ),
     );
   }
