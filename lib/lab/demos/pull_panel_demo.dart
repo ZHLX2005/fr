@@ -205,6 +205,9 @@ class PullPanelStateMachine {
   }
 
   void beginPanelDrag() {
+    if (_state == PullPanelState.draggingPanel) {
+      return;
+    }
     if (_state == PullPanelState.refreshing ||
         _state == PullPanelState.settling ||
         _state == PullPanelState.collapsed ||
@@ -506,7 +509,9 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
 
   void _onPanelContentOverscroll(double overscroll, double fullHeight) {
     if (_isRefreshing) return;
-    _sm.beginPanelDrag();
+    if (_sm.state == PullPanelState.expanded) {
+      _sm.beginPanelDrag();
+    }
     _sm.updatePanelDrag(deltaDy: -overscroll, fullHeight: fullHeight);
     setState(() {});
   }
