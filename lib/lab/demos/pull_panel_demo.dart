@@ -40,7 +40,7 @@ class PullPanelMetrics {
   static const double closeThresholdPx = 96.0;
   static const double velocityOpen = 500;
   static const double velocityClose = -500;
-  static const double dragDamping = 0.25;
+  static const double dragDamping = 0.4;
   static const double overdragResistance = 0.04;
   static const double mainPushRatio = 0.50;
 
@@ -700,6 +700,8 @@ class _PanelContent extends StatelessWidget {
     final contentBlur = ((1.0 - progress) * 16.0).clamp(0.0, 16.0);
     final contentOverlayOpacity = ((1.0 - progress) * 0.18).clamp(0.0, 0.18);
     final contentOffset = (1.0 - progress) * 16.0;
+    final contentScale = 0.5 + (progress * 0.5);
+    final contentOpacity = progress.clamp(0.0, 1.0);
 
     return Column(
       children: [
@@ -758,35 +760,42 @@ class _PanelContent extends StatelessWidget {
                       },
                       child: Transform.translate(
                         offset: Offset(0, contentOffset),
-                        child: ListView(
-                          controller: scrollController,
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
-                          children: const [
-                            _PanelHeroSection(),
-                            SizedBox(height: 18),
-                            _PanelSectionHeader(
-                              eyebrow: 'CURATED',
-                              title: 'Soft focus essentials',
+                        child: Opacity(
+                          opacity: contentOpacity,
+                          child: Transform.scale(
+                            scale: contentScale.clamp(0.5, 1.0),
+                            alignment: Alignment.topCenter,
+                            child: ListView(
+                              controller: scrollController,
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
+                              children: const [
+                                _PanelHeroSection(),
+                                SizedBox(height: 18),
+                                _PanelSectionHeader(
+                                  eyebrow: 'CURATED',
+                                  title: 'Soft focus essentials',
+                                ),
+                                SizedBox(height: 12),
+                                _PanelFeatureGrid(),
+                                SizedBox(height: 18),
+                                _PanelSectionHeader(
+                                  eyebrow: 'QUICK STRIPS',
+                                  title: 'Small actions, warm materials',
+                                ),
+                                SizedBox(height: 12),
+                                _PanelActionChips(),
+                                SizedBox(height: 18),
+                                _PanelSectionHeader(
+                                  eyebrow: 'AMBIENCE',
+                                  title: 'A few slower, richer cards',
+                                ),
+                                SizedBox(height: 12),
+                                _PanelStoryRail(),
+                                SizedBox(height: 24),
+                              ],
                             ),
-                            SizedBox(height: 12),
-                            _PanelFeatureGrid(),
-                            SizedBox(height: 18),
-                            _PanelSectionHeader(
-                              eyebrow: 'QUICK STRIPS',
-                              title: 'Small actions, warm materials',
-                            ),
-                            SizedBox(height: 12),
-                            _PanelActionChips(),
-                            SizedBox(height: 18),
-                            _PanelSectionHeader(
-                              eyebrow: 'AMBIENCE',
-                              title: 'A few slower, richer cards',
-                            ),
-                            SizedBox(height: 12),
-                            _PanelStoryRail(),
-                            SizedBox(height: 24),
-                          ],
+                          ),
                         ),
                       ),
                     ),
