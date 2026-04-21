@@ -263,8 +263,8 @@ class NovelCanvasReaderController extends ChangeNotifier {
   });
 
   static const EdgeInsets _contentPadding = EdgeInsets.fromLTRB(24, 28, 24, 28);
-  static const int _fontSize = 18;
-  static const int _lineHeight = 31;
+  static const int _defaultFontSize = 18;
+  static const int _defaultLineHeight = 31;
   static const int _paragraphSpacing = 8;
   static const int _titleHeight = 28;
   static const int _titleFontSize = 20;
@@ -291,6 +291,9 @@ class NovelCanvasReaderController extends ChangeNotifier {
   List<NovelCanvasPageConfig> _pageConfigs = <NovelCanvasPageConfig>[];
   Size _pageSize = Size.zero;
   int _currentPageIndex = 0;
+  int _fontSize = _defaultFontSize;
+  int _lineHeight = _defaultLineHeight;
+  NovelReaderTheme _theme = NovelReaderTheme.paper;
   int? _savedPageIndex;
   int? _savedPageOffset;
   bool _loopRunning = false;
@@ -305,6 +308,10 @@ class NovelCanvasReaderController extends ChangeNotifier {
   bool get isReady => _initialised;
   bool get isRepaginating => _repaginating;
   List<NovelCanvasPageConfig> get pageConfigs => List.unmodifiable(_pageConfigs);
+  int get fontSize => _fontSize;
+  int get lineHeight => _lineHeight;
+  NovelReaderTheme get theme => _theme;
+  List<NovelReaderTheme> get themes => NovelReaderTheme.values;
 
   NovelCanvasPageData? get currentPageData => _pageDataMap[_currentPageIndex];
   NovelCanvasPageData? get prePageData =>
@@ -370,6 +377,32 @@ class NovelCanvasReaderController extends ChangeNotifier {
     _queuePagesAroundCurrent();
     notifyListeners();
     await _persistProgress();
+  }
+
+  Future<void> setFontSize(int value) async {
+    final clamped = value.clamp(14, 30);
+    if (clamped == _fontSize) return;
+    _fontSize = clamped;
+    if (_lineHeight < _fontSize + 8) {
+      _lineHeight = _fontSize + 8;
+    }
+    await _repaginate();
+  }
+
+  Future<void> setLineHeight(int value) async {
+    final clamped = value.clamp(_fontSize + 6, 46);
+    if (clamped == _lineHeight) return;
+    _lineHeight = clamped;
+    await _repaginate();
+  }
+
+  void setTheme(NovelReaderTheme value) {
+    if (value == _theme) return;
+    _theme = value;
+    bgPaint.color = value.pageColor;
+    _pageDataMap.clear();
+    _queuePagesAroundCurrent();
+    notifyListeners();
   }
 
   Future<void> _repaginate() async {
@@ -564,11 +597,11 @@ class NovelCanvasReaderController extends ChangeNotifier {
     );
     _titlePainter.text = TextSpan(
       text: title,
-      style: TextStyle(
-        color: Color(0xFF634B38),
-        fontWeight: FontWeight.w700,
-        fontSize: _titleFontSize.toDouble(),
-        height: _titleHeight / _titleFontSize,
+        style: TextStyle(
+          color: _theme.titleColor,
+          fontWeight: FontWeight.w700,
+          fontSize: _titleFontSize.toDouble(),
+          height: _titleHeight / _titleFontSize,
       ),
     );
     _titlePainter.layout(maxWidth: _pageSize.width - _contentPadding.horizontal);
@@ -583,7 +616,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
       _contentPainter.text = TextSpan(
         text: paragraph,
         style: TextStyle(
-          color: Color(0xFF2E231B),
+          color: _theme.textColor,
           fontSize: _fontSize.toDouble(),
           height: _lineHeight / _fontSize,
           letterSpacing: 0.15,
@@ -604,7 +637,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
     _footerPainter.text = TextSpan(
       text: '${index + 1}/${_pageConfigs.length}',
       style: TextStyle(
-        color: Color(0xFF634B38),
+        color: _theme.titleColor,
         fontSize: _bottomTipFontSize.toDouble(),
         height: _bottomTipHeight / _bottomTipFontSize,
       ),
@@ -633,6 +666,39 @@ class NovelCanvasReaderController extends ChangeNotifier {
     _disposed = true;
     super.dispose();
   }
+}
+
+enum NovelReaderTheme {
+  paper(
+    'Paper',
+    Color(0xFFF9F1E4),
+    Color(0xFF2E231B),
+    Color(0xFF634B38),
+  ),
+  mist(
+    'Mist',
+    Color(0xFFF2F4EF),
+    Color(0xFF243028),
+    Color(0xFF4C5A52),
+  ),
+  night(
+    'Night',
+    Color(0xFF23211E),
+    Color(0xFFE7DDCF),
+    Color(0xFFC9BBA8),
+  );
+
+  const NovelReaderTheme(
+    this.label,
+    this.pageColor,
+    this.textColor,
+    this.titleColor,
+  );
+
+  final String label;
+  final Color pageColor;
+  final Color textColor;
+  final Color titleColor;
 }
 
 class NovelCanvasReaderView extends StatefulWidget {

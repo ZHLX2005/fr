@@ -11,4 +11,7 @@ class NovelReaderConstants {
   static const String localFileName = 'sevenDay.txt';
   static const String progressKey = 'lab.novel_reader.last_page_index';
   static const String progressOffsetKey = 'lab.novel_reader.last_page_offset';
+  static const String fontSizeKey = 'lab.novel_reader.font_size';
+  static const String lineHeightKey = 'lab.novel_reader.line_height';
+  static const String themeKey = 'lab.novel_reader.theme';
 }
