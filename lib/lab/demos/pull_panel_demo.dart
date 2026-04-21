@@ -32,17 +32,28 @@ class PullPanelAction {
 }
 
 class PullPanelMetrics {
+  // 主内容区下拉的手势死区，避免轻微抖动就进入拖拽。
   static const double mainDragDeadZone = 8.0;
+  // 面板关闭手势的死区，避免展开态下误触发回收。
   static const double panelDragDeadZone = 8.0;
+  // 用于吸附到完全折叠态的浮点误差容忍值。
   static const double collapsedEpsilon = 0.001;
+  // 达到该进度后，松手会进入刷新而不是直接回弹。
   static const double refreshThreshold = 0.08;
+  // 达到该进度后，松手会展开为全屏面板。
   static const double openThreshold = 0.22;
+  // 展开态下向上拖动超过该像素值，松手后关闭面板。
   static const double closeThresholdPx = 96.0;
+  // 向下松手速度超过该阈值时，直接判定为打开面板。
   static const double velocityOpen = 500;
+  // 向上松手速度超过该阈值时，直接判定为关闭面板。
   static const double velocityClose = -500;
-  static const double dragDamping = 0.4;
-  static const double overdragResistance = 0.04;
-  static const double mainPushRatio = 0.50;
+  // 拖拽位移阻尼系数，值越小面板跟手越“重”。
+  static const double dragDamping = 0.8;
+  // 超出边界后的额外阻力系数，用来制造橡皮筋感。
+  static const double overdragResistance = 0.10;
+  // 面板展开时主内容被向下推开的比例，用于形成轻微视差。
+  static const double mainPushRatio = 0.60;
 
   const PullPanelMetrics._();
 
@@ -710,11 +721,6 @@ class _PanelContent extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               ClipRect(
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(
-                    sigmaX: contentBlur,
-                    sigmaY: contentBlur,
-                  ),
                   child: IgnorePointer(
                     ignoring: !scrollable,
                       child: NotificationListener<ScrollNotification>(
@@ -800,7 +806,7 @@ class _PanelContent extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
+            
               ),
               IgnorePointer(
                 child: DecoratedBox(
