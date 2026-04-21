@@ -6,6 +6,8 @@ enum PageTurnDirection { next, previous }
 
 enum PageCurlPhase { idle, dragging, settling }
 
+enum _GestureStartMode { corner, edge }
+
 class PageTurnRequest {
   const PageTurnRequest({required this.direction, required this.completed});
 
@@ -49,6 +51,8 @@ class _PageCurlViewState extends State<PageCurlView>
   bool _completeOnRelease = false;
   double _progress = 0;
   Size _viewport = Size.zero;
+  Offset? _dragPosition;
+  _GestureStartMode? _gestureStartMode;
 
   @override
   void dispose() {
@@ -69,6 +73,32 @@ class _PageCurlViewState extends State<PageCurlView>
     return localPosition.dx <= _cornerHotZone;
   }
 
+  bool _isInEdgeZone(
+    Offset localPosition,
+    Size size,
+    PageTurnDirection direction,
+  ) {
+    final edgeWidth = math.max(72.0, size.width * 0.22);
+    if (direction == PageTurnDirection.next) {
+      return localPosition.dx >= size.width - edgeWidth;
+    }
+    return localPosition.dx <= edgeWidth;
+  }
+
+  Offset _normalizeStartPosition(
+    Offset localPosition,
+    _GestureStartMode mode,
+    Size size,
+  ) {
+    final targetY = mode == _GestureStartMode.corner
+        ? localPosition.dy
+        : size.height * 0.84;
+    return Offset(
+      localPosition.dx.clamp(0.0, size.width).toDouble(),
+      targetY.clamp(24.0, size.height - 12).toDouble(),
+    );
+  }
+
   void _handlePanStart(DragStartDetails details) {
     if (_phase == PageCurlPhase.settling || _viewport == Size.zero) return;
 
@@ -79,25 +109,47 @@ class _PageCurlViewState extends State<PageCurlView>
       _viewport,
       PageTurnDirection.previous,
     );
+    final edgeNext = _isInEdgeZone(local, _viewport, PageTurnDirection.next);
+    final edgePrevious = _isInEdgeZone(
+      local,
+      _viewport,
+      PageTurnDirection.previous,
+    );
+    _GestureStartMode? startMode;
 
     if (wantNext && widget.canTurnNext) {
       _direction = PageTurnDirection.next;
+      startMode = _GestureStartMode.corner;
     } else if (wantPrevious && widget.canTurnPrevious) {
       _direction = PageTurnDirection.previous;
+      startMode = _GestureStartMode.corner;
+    } else if (edgeNext && widget.canTurnNext) {
+      _direction = PageTurnDirection.next;
+      startMode = _GestureStartMode.edge;
+    } else if (edgePrevious && widget.canTurnPrevious) {
+      _direction = PageTurnDirection.previous;
+      startMode = _GestureStartMode.edge;
     } else {
       _direction = null;
       return;
     }
 
+    final normalizedLocal = _normalizeStartPosition(local, startMode, _viewport);
     setState(() {
       _phase = PageCurlPhase.dragging;
       _progress = 0.02;
+      _dragPosition = normalizedLocal;
+      _gestureStartMode = startMode;
     });
   }
 
   void _handlePanUpdate(DragUpdateDetails details) {
     if (_phase != PageCurlPhase.dragging || _direction == null) return;
-    final local = details.localPosition;
+    final local = _normalizeStartPosition(
+      details.localPosition,
+      _gestureStartMode ?? _GestureStartMode.corner,
+      _viewport,
+    );
     final progress = switch (_direction!) {
       PageTurnDirection.next =>
         ((1 - (local.dx / _viewport.width)) * 1.08).clamp(0.0, 1.0),
@@ -108,6 +160,7 @@ class _PageCurlViewState extends State<PageCurlView>
     };
     setState(() {
       _progress = progress;
+      _dragPosition = local;
     });
   }
 
@@ -149,6 +202,8 @@ class _PageCurlViewState extends State<PageCurlView>
       _phase = PageCurlPhase.idle;
       _progress = 0;
       _direction = null;
+      _dragPosition = null;
+      _gestureStartMode = null;
     });
     widget.onTurnFinished(
       PageTurnRequest(direction: direction, completed: completed),
@@ -177,6 +232,54 @@ class _PageCurlViewState extends State<PageCurlView>
               children: [
                 widget.currentPage,
                 Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: math.max(56.0, _viewport.width * 0.18),
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Colors.transparent,
+                            Colors.transparent,
+                            widget.canTurnNext
+                                ? Colors.black.withValues(alpha: 0.03)
+                                : Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.72, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: math.max(56.0, _viewport.width * 0.18),
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerRight,
+                          end: Alignment.centerLeft,
+                          colors: [
+                            Colors.transparent,
+                            Colors.transparent,
+                            widget.canTurnPrevious
+                                ? Colors.black.withValues(alpha: 0.03)
+                                : Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.72, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
                   right: 16,
                   bottom: 16,
                   child: _CornerHint(
@@ -198,6 +301,7 @@ class _PageCurlViewState extends State<PageCurlView>
         }
 
         final isNext = direction == PageTurnDirection.next;
+        final dragPosition = _resolveDragPosition(isNext);
         final foldStrength = Curves.easeOut.transform(
           _progress.clamp(0.0, 1.0),
         );
@@ -205,16 +309,33 @@ class _PageCurlViewState extends State<PageCurlView>
           32.0,
           _viewport.width * (0.10 + 0.36 * foldStrength),
         );
-        final foldX = isNext
-            ? _viewport.width * (1 - _progress)
-            : _viewport.width * _progress;
-        final visibleCurrentWidth = isNext
-            ? foldX.clamp(0.0, _viewport.width)
-            : (_viewport.width - foldX).clamp(0.0, _viewport.width);
-        final flapLeft = isNext ? math.max(0.0, foldX - foldWidth) : foldX;
-        final flapWidth = isNext
-            ? (_viewport.width - flapLeft).clamp(0.0, _viewport.width)
-            : math.min(_viewport.width, foldWidth + foldX);
+        final tipX = dragPosition.dx;
+        final tipY = dragPosition.dy;
+        final liftBias = (0.5 - (tipY / _viewport.height)).clamp(-0.45, 0.45);
+        final topFoldX = isNext
+            ? (tipX + foldWidth * (0.24 + liftBias * 0.34)).clamp(
+                0.0,
+                _viewport.width,
+              )
+            : (tipX - foldWidth * (0.24 - liftBias * 0.34)).clamp(
+                0.0,
+                _viewport.width,
+              );
+        final bottomFoldX = isNext
+            ? (tipX - foldWidth * (0.12 - liftBias * 0.18)).clamp(
+                0.0,
+                _viewport.width,
+              )
+            : (tipX + foldWidth * (0.12 + liftBias * 0.18)).clamp(
+                0.0,
+                _viewport.width,
+              );
+        final flapLeft = math.min(math.min(topFoldX, bottomFoldX), tipX);
+        final flapRight = math.max(math.max(topFoldX, bottomFoldX), tipX);
+        final flapWidth = math.max(
+          1.0,
+          isNext ? _viewport.width - flapLeft : flapRight,
+        );
         final skew = (1 - _progress) * 0.06 * (isNext ? -1 : 1);
         final scaleX = 1 - 0.12 * _progress;
 
@@ -234,10 +355,45 @@ class _PageCurlViewState extends State<PageCurlView>
             children: [
               target,
               Positioned.fill(
-                child: ClipRect(
-                  clipper: _VisiblePageClipper(
+                child: IgnorePointer(
+                  child: ClipPath(
+                    clipper: _PageBedShadowClipper(
+                      direction: direction,
+                      topFoldX: topFoldX,
+                      bottomFoldX: bottomFoldX,
+                      tip: Offset(tipX, tipY),
+                      shadowDepth: math.max(18.0, foldWidth * 0.52),
+                    ),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: isNext
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          end: isNext
+                              ? Alignment.centerLeft
+                              : Alignment.centerRight,
+                          colors: [
+                            Colors.black.withValues(
+                              alpha: 0.05 + 0.16 * _progress,
+                            ),
+                            Colors.black.withValues(alpha: 0.03),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.42, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: ClipPath(
+                  clipper: _CurrentPageClipper(
                     direction: direction,
-                    visibleExtent: visibleCurrentWidth,
+                    topFoldX: topFoldX,
+                    bottomFoldX: bottomFoldX,
+                    tip: Offset(tipX, tipY),
                   ),
                   child: widget.currentPage,
                 ),
@@ -250,7 +406,10 @@ class _PageCurlViewState extends State<PageCurlView>
                 child: ClipPath(
                   clipper: _PageFlapClipper(
                     direction: direction,
-                    foldWidth: foldWidth,
+                    topFoldX: topFoldX,
+                    bottomFoldX: bottomFoldX,
+                    tip: Offset(tipX, tipY),
+                    anchorLeft: flapLeft,
                   ),
                   child: Transform(
                     alignment: isNext
@@ -262,7 +421,25 @@ class _PageCurlViewState extends State<PageCurlView>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        target,
+                        widget.currentPage,
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: isNext
+                                  ? Alignment.centerLeft
+                                  : Alignment.centerRight,
+                              end: isNext
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              colors: [
+                                const Color(0xFFFDF6EA).withValues(alpha: 0.96),
+                                const Color(0xFFF1E1CA).withValues(alpha: 0.90),
+                                const Color(0xFFD2B699).withValues(alpha: 0.48),
+                              ],
+                              stops: const [0.0, 0.68, 1.0],
+                            ),
+                          ),
+                        ),
                         DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -303,8 +480,8 @@ class _PageCurlViewState extends State<PageCurlView>
               Positioned(
                 left:
                     (isNext
-                            ? foldX - foldWidth * 0.18
-                            : foldX - foldWidth * 0.72)
+                            ? tipX - foldWidth * 0.16
+                            : tipX - foldWidth * 0.70)
                         .clamp(0.0, _viewport.width),
                 top: 0,
                 bottom: 0,
@@ -332,7 +509,7 @@ class _PageCurlViewState extends State<PageCurlView>
                 ),
               ),
               Positioned(
-                left: (isNext ? foldX - 2 : foldX - 6).clamp(
+                left: (isNext ? tipX - 2 : tipX - 6).clamp(
                   0.0,
                   _viewport.width,
                 ),
@@ -364,55 +541,101 @@ class _PageCurlViewState extends State<PageCurlView>
       },
     );
   }
+
+  Offset _resolveDragPosition(bool isNext) {
+    final lastPosition = _dragPosition;
+    final defaultY = _viewport.height * 0.84;
+    if (lastPosition == null) {
+      return Offset(
+        isNext ? _viewport.width : 0,
+        defaultY.clamp(24.0, _viewport.height - 12).toDouble(),
+      );
+    }
+    final targetX = switch (_phase) {
+      PageCurlPhase.dragging => lastPosition.dx,
+      PageCurlPhase.settling => isNext
+          ? _viewport.width * (1 - _progress)
+          : _viewport.width * _progress,
+      PageCurlPhase.idle => isNext ? _viewport.width : 0,
+    };
+    return Offset(
+      targetX.clamp(0.0, _viewport.width).toDouble(),
+      lastPosition.dy.clamp(24.0, _viewport.height - 12).toDouble(),
+    );
+  }
 }
 
-class _VisiblePageClipper extends CustomClipper<Rect> {
-  const _VisiblePageClipper({
+class _CurrentPageClipper extends CustomClipper<Path> {
+  const _CurrentPageClipper({
     required this.direction,
-    required this.visibleExtent,
+    required this.topFoldX,
+    required this.bottomFoldX,
+    required this.tip,
   });
 
   final PageTurnDirection direction;
-  final double visibleExtent;
-
-  @override
-  Rect getClip(Size size) {
-    if (direction == PageTurnDirection.next) {
-      return Rect.fromLTWH(0, 0, visibleExtent, size.height);
-    }
-    return Rect.fromLTWH(
-      size.width - visibleExtent,
-      0,
-      visibleExtent,
-      size.height,
-    );
-  }
-
-  @override
-  bool shouldReclip(covariant _VisiblePageClipper oldClipper) {
-    return direction != oldClipper.direction ||
-        visibleExtent != oldClipper.visibleExtent;
-  }
-}
-
-class _PageFlapClipper extends CustomClipper<Path> {
-  const _PageFlapClipper({required this.direction, required this.foldWidth});
-
-  final PageTurnDirection direction;
-  final double foldWidth;
+  final double topFoldX;
+  final double bottomFoldX;
+  final Offset tip;
 
   @override
   Path getClip(Size size) {
     final path = Path();
     if (direction == PageTurnDirection.next) {
       path.moveTo(0, 0);
+      path.lineTo(topFoldX, 0);
+      path.lineTo(tip.dx, tip.dy);
+      path.lineTo(bottomFoldX, size.height);
+      path.lineTo(0, size.height);
+    } else {
+      path.moveTo(size.width, 0);
+      path.lineTo(topFoldX, 0);
+      path.lineTo(tip.dx, tip.dy);
+      path.lineTo(bottomFoldX, size.height);
+      path.lineTo(size.width, size.height);
+    }
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _CurrentPageClipper oldClipper) {
+    return direction != oldClipper.direction ||
+        topFoldX != oldClipper.topFoldX ||
+        bottomFoldX != oldClipper.bottomFoldX ||
+        tip != oldClipper.tip;
+  }
+}
+
+class _PageFlapClipper extends CustomClipper<Path> {
+  const _PageFlapClipper({
+    required this.direction,
+    required this.topFoldX,
+    required this.bottomFoldX,
+    required this.tip,
+    required this.anchorLeft,
+  });
+
+  final PageTurnDirection direction;
+  final double topFoldX;
+  final double bottomFoldX;
+  final Offset tip;
+  final double anchorLeft;
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    if (direction == PageTurnDirection.next) {
+      path.moveTo(topFoldX - anchorLeft, 0);
       path.lineTo(size.width, 0);
       path.lineTo(size.width, size.height);
-      path.lineTo(foldWidth * 0.12, size.height);
+      path.lineTo(bottomFoldX - anchorLeft, size.height);
+      path.lineTo(tip.dx - anchorLeft, tip.dy);
     } else {
       path.moveTo(0, 0);
-      path.lineTo(size.width, 0);
-      path.lineTo(size.width - foldWidth * 0.12, size.height);
+      path.lineTo(topFoldX - anchorLeft, 0);
+      path.lineTo(tip.dx - anchorLeft, tip.dy);
+      path.lineTo(bottomFoldX - anchorLeft, size.height);
       path.lineTo(0, size.height);
     }
     path.close();
@@ -422,7 +645,63 @@ class _PageFlapClipper extends CustomClipper<Path> {
   @override
   bool shouldReclip(covariant _PageFlapClipper oldClipper) {
     return direction != oldClipper.direction ||
-        foldWidth != oldClipper.foldWidth;
+        topFoldX != oldClipper.topFoldX ||
+        bottomFoldX != oldClipper.bottomFoldX ||
+        tip != oldClipper.tip ||
+        anchorLeft != oldClipper.anchorLeft;
+  }
+}
+
+class _PageBedShadowClipper extends CustomClipper<Path> {
+  const _PageBedShadowClipper({
+    required this.direction,
+    required this.topFoldX,
+    required this.bottomFoldX,
+    required this.tip,
+    required this.shadowDepth,
+  });
+
+  final PageTurnDirection direction;
+  final double topFoldX;
+  final double bottomFoldX;
+  final Offset tip;
+  final double shadowDepth;
+
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    if (direction == PageTurnDirection.next) {
+      final topOuter = math.max(0.0, topFoldX - shadowDepth);
+      final midOuter = math.max(0.0, tip.dx - shadowDepth * 0.38);
+      final bottomOuter = math.max(0.0, bottomFoldX - shadowDepth);
+      path.moveTo(topOuter, 0);
+      path.lineTo(topFoldX, 0);
+      path.lineTo(tip.dx, tip.dy);
+      path.lineTo(bottomFoldX, size.height);
+      path.lineTo(bottomOuter, size.height);
+      path.lineTo(midOuter, tip.dy);
+    } else {
+      final topOuter = math.min(size.width, topFoldX + shadowDepth);
+      final midOuter = math.min(size.width, tip.dx + shadowDepth * 0.38);
+      final bottomOuter = math.min(size.width, bottomFoldX + shadowDepth);
+      path.moveTo(topFoldX, 0);
+      path.lineTo(topOuter, 0);
+      path.lineTo(midOuter, tip.dy);
+      path.lineTo(bottomOuter, size.height);
+      path.lineTo(bottomFoldX, size.height);
+      path.lineTo(tip.dx, tip.dy);
+    }
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _PageBedShadowClipper oldClipper) {
+    return direction != oldClipper.direction ||
+        topFoldX != oldClipper.topFoldX ||
+        bottomFoldX != oldClipper.bottomFoldX ||
+        tip != oldClipper.tip ||
+        shadowDepth != oldClipper.shadowDepth;
   }
 }
 
