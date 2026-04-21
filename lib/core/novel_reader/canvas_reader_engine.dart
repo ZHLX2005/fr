@@ -53,6 +53,105 @@ class _ParagraphChunk {
   int startOffset;
 }
 
+class _IncrementalPaginationSession {
+  _IncrementalPaginationSession({
+    required String text,
+    required this.height,
+    required this.width,
+    required this.fontSize,
+    required this.lineHeight,
+    required this.paragraphSpacing,
+  }) : _painter = TextPainter(textDirection: TextDirection.ltr) {
+    final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    var cursor = 0;
+    for (final paragraph in normalized.split('\n')) {
+      _chunks.add(_ParagraphChunk(text: paragraph, startOffset: cursor));
+      cursor += paragraph.length + 1;
+    }
+  }
+
+  final double height;
+  final double width;
+  final int fontSize;
+  final int lineHeight;
+  final int paragraphSpacing;
+  final TextPainter _painter;
+  final List<_ParagraphChunk> _chunks = <_ParagraphChunk>[];
+  int _pageIndex = 0;
+
+  bool get isComplete => _chunks.isEmpty;
+
+  NovelCanvasPageConfig? nextPage() {
+    if (_chunks.isEmpty) return null;
+
+    final pageParagraphs = <String>[];
+    int? pageStartOffset;
+    var pageEndOffset = 0;
+    var currentHeight = 0.0;
+
+    while (currentHeight < height && _chunks.isNotEmpty) {
+      if (currentHeight + lineHeight >= height) {
+        break;
+      }
+
+      final currentChunk = _chunks.first;
+      pageStartOffset ??= currentChunk.startOffset;
+
+      if (currentChunk.text.isEmpty) {
+        pageParagraphs.add('');
+        pageEndOffset = currentChunk.startOffset;
+        _chunks.removeAt(0);
+        currentHeight += lineHeight + paragraphSpacing;
+        continue;
+      }
+
+      _painter.text = TextSpan(
+        text: currentChunk.text,
+        style: TextStyle(
+          fontSize: fontSize.toDouble(),
+          height: lineHeight / fontSize,
+        ),
+      );
+      _painter.layout(maxWidth: width);
+
+      var endOffset = _painter
+          .getPositionForOffset(Offset(width, height - currentHeight - lineHeight))
+          .offset;
+      if (endOffset <= 0) {
+        endOffset = math.min(currentChunk.text.length, 1);
+      }
+
+      var pageText = currentChunk.text;
+      final lineMetrics = _painter.computeLineMetrics();
+      if (endOffset < currentChunk.text.length) {
+        pageText = currentChunk.text.substring(0, endOffset);
+        currentChunk.text = currentChunk.text.substring(endOffset);
+        pageEndOffset = currentChunk.startOffset + endOffset;
+        currentChunk.startOffset = pageEndOffset;
+        currentHeight = height;
+      } else {
+        _chunks.removeAt(0);
+        pageEndOffset = currentChunk.startOffset + pageText.length;
+        currentHeight += lineHeight * lineMetrics.length;
+        currentHeight += paragraphSpacing;
+      }
+
+      pageParagraphs.add(pageText);
+    }
+
+    if (pageParagraphs.isEmpty) return null;
+
+    final page = NovelCanvasPageConfig(
+      pageIndex: _pageIndex,
+      startOffset: pageStartOffset ?? 0,
+      endOffset: pageEndOffset,
+      paragraphContents: pageParagraphs,
+    );
+    _pageIndex += 1;
+    return page;
+  }
+}
+
 class NovelCanvasPaginator {
   const NovelCanvasPaginator();
 
@@ -174,7 +273,6 @@ class NovelCanvasReaderController extends ChangeNotifier {
 
   final String title;
   final NovelCanvasProgressChanged? onProgressChanged;
-  final NovelCanvasPaginator _paginator = const NovelCanvasPaginator();
 
   final Paint bgPaint = Paint()
     ..isAntiAlias = true
@@ -199,6 +297,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
   bool _disposed = false;
   bool _initialised = false;
   bool _repaginating = false;
+  int _paginationGeneration = 0;
 
   int get currentPageIndex => _currentPageIndex;
   int get currentDisplayPage => _pageConfigs.isEmpty ? 0 : _currentPageIndex + 1;
@@ -267,8 +366,10 @@ class NovelCanvasReaderController extends ChangeNotifier {
     final text = _bookText;
     if (text == null || _pageSize == Size.zero) return;
 
+    final generation = ++_paginationGeneration;
     _repaginating = true;
     _pageDataMap.clear();
+    _pageConfigs = <NovelCanvasPageConfig>[];
     _microParseQueue.clear();
     _parseQueue.clear();
     notifyListeners();
@@ -279,7 +380,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
         _titleHeight;
     final contentWidth = _pageSize.width - _contentPadding.horizontal;
 
-    _pageConfigs = _paginator.paginate(
+    final session = _IncrementalPaginationSession(
       text: text,
       height: contentHeight,
       width: contentWidth,
@@ -288,37 +389,66 @@ class NovelCanvasReaderController extends ChangeNotifier {
       paragraphSpacing: _paragraphSpacing,
     );
 
-    if (_pageConfigs.isEmpty) {
-      _currentPageIndex = 0;
-      _repaginating = false;
-      notifyListeners();
+    var initialPageResolved = false;
+    while (!_disposed && generation == _paginationGeneration) {
+      final nextPage = session.nextPage();
+      if (nextPage == null) {
+        break;
+      }
+      _pageConfigs.add(nextPage);
+
+      if (!initialPageResolved && _shouldUseAsInitialPage(nextPage)) {
+        _currentPageIndex = nextPage.pageIndex;
+        _savedPageIndex = null;
+        _savedPageOffset = null;
+        initialPageResolved = true;
+      }
+
+      if (_pageConfigs.length == 1 && !initialPageResolved) {
+        _currentPageIndex = 0;
+      }
+
+      if (!initialPageResolved && _savedPageIndex != null) {
+        if (_savedPageIndex! >= 0 && _savedPageIndex! < _pageConfigs.length) {
+          _currentPageIndex = _savedPageIndex!;
+          _savedPageIndex = null;
+          _savedPageOffset = null;
+          initialPageResolved = true;
+        }
+      }
+
+      if (nextPage.pageIndex <= _currentPageIndex + 3) {
+        _queuePagesAroundCurrent();
+        notifyListeners();
+      }
+
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    if (_disposed || generation != _paginationGeneration) {
       return;
     }
 
-    _currentPageIndex = _resolveInitialPageIndex();
-    _savedPageIndex = null;
-    _savedPageOffset = null;
+    if (_pageConfigs.isEmpty) {
+      _currentPageIndex = 0;
+    } else {
+      _currentPageIndex = math.min(_currentPageIndex, _pageConfigs.length - 1);
+      _queuePagesAroundCurrent();
+    }
     _repaginating = false;
-    _queuePagesAroundCurrent();
     notifyListeners();
     unawaited(_persistProgress());
   }
 
-  int _resolveInitialPageIndex() {
+  bool _shouldUseAsInitialPage(NovelCanvasPageConfig config) {
     if (_savedPageOffset != null) {
-      final index = _pageConfigs.indexWhere(
-        (config) =>
-            _savedPageOffset! >= config.startOffset &&
-            _savedPageOffset! <= config.endOffset,
-      );
-      if (index >= 0) return index;
+      return _savedPageOffset! >= config.startOffset &&
+          _savedPageOffset! <= config.endOffset;
     }
-    if (_savedPageIndex != null &&
-        _savedPageIndex! >= 0 &&
-        _savedPageIndex! < _pageConfigs.length) {
-      return _savedPageIndex!;
+    if (_savedPageIndex != null) {
+      return config.pageIndex == _savedPageIndex;
     }
-    return math.min(_currentPageIndex, math.max(0, _pageConfigs.length - 1));
+    return config.pageIndex == 0;
   }
 
   void _queuePagesAroundCurrent() {
@@ -647,6 +777,7 @@ class CanvasPageManager {
   CanvasPageManagerState currentState = CanvasPageManagerState.idle;
   GlobalKey? canvasKey;
   AnimationController? animationController;
+  Animation<Offset>? _boundAnimation;
 
   void setCurrentTouchEvent(CanvasTouchEvent event) {
     if (currentState == CanvasPageManagerState.animating) {
@@ -721,39 +852,42 @@ class CanvasPageManager {
     if (animationController!.isCompleted) {
       animationController!.reset();
     }
-    animation
-      ..addListener(() {
-        currentState = CanvasPageManagerState.animating;
-        final renderObject = canvasKey?.currentContext?.findRenderObject();
-        if (renderObject is RenderObject) {
-          renderObject.markNeedsPaint();
-        }
-        currentAnimationPage?.onTouchEvent(
-          CanvasTouchEvent(
-            CanvasTouchEvent.actionMove,
-            animation.value,
-          ),
-        );
-      })
-      ..addStatusListener((status) {
-        switch (status) {
-          case AnimationStatus.completed:
-            currentState = CanvasPageManagerState.idle;
-            currentAnimationPage?.onTouchEvent(
-              CanvasTouchEvent(CanvasTouchEvent.actionUp, Offset.zero),
-            );
-            currentTouchData =
-                CanvasTouchEvent(CanvasTouchEvent.actionUp, Offset.zero);
-            animationController?.stop();
-            break;
-          case AnimationStatus.dismissed:
-            break;
-          case AnimationStatus.forward:
-          case AnimationStatus.reverse:
-            currentState = CanvasPageManagerState.animating;
-            break;
-        }
-      });
+    if (!identical(_boundAnimation, animation)) {
+      _boundAnimation = animation;
+      animation
+        ..addListener(() {
+          currentState = CanvasPageManagerState.animating;
+          final renderObject = canvasKey?.currentContext?.findRenderObject();
+          if (renderObject is RenderObject) {
+            renderObject.markNeedsPaint();
+          }
+          currentAnimationPage?.onTouchEvent(
+            CanvasTouchEvent(
+              CanvasTouchEvent.actionMove,
+              animation.value,
+            ),
+          );
+        })
+        ..addStatusListener((status) {
+          switch (status) {
+            case AnimationStatus.completed:
+              currentState = CanvasPageManagerState.idle;
+              currentAnimationPage?.onTouchEvent(
+                CanvasTouchEvent(CanvasTouchEvent.actionUp, Offset.zero),
+              );
+              currentTouchData =
+                  CanvasTouchEvent(CanvasTouchEvent.actionUp, Offset.zero);
+              animationController?.stop();
+              break;
+            case AnimationStatus.dismissed:
+              break;
+            case AnimationStatus.forward:
+            case AnimationStatus.reverse:
+              currentState = CanvasPageManagerState.animating;
+              break;
+          }
+        });
+    }
   }
 
   void interruptCancelAnimation() {
@@ -1286,7 +1420,10 @@ class SimulationTurnCanvasAnimation extends BaseCanvasAnimationPage {
         }
       }
     };
-    currentAnimation!.addStatusListener(statusListener!);
+    if (controller is AnimationControllerWithListenerNumber &&
+        !controller.statusListeners.contains(statusListener)) {
+      currentAnimation!.addStatusListener(statusListener!);
+    }
 
     currentAnimationTween!
       ..begin = mTouch
