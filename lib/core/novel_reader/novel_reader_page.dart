@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'canvas_reader_engine.dart';
@@ -276,6 +278,9 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
       final text = await _storage.readLocalText();
       final lastPageIndex = await _storage.getLastPageIndex();
       final lastPageOffset = await _storage.getLastPageOffset();
+      final savedFontSize = await _storage.getFontSize();
+      final savedLineHeight = await _storage.getLineHeight();
+      final savedTheme = await _storage.getTheme();
 
       final controller = NovelCanvasReaderController(
         title: NovelReaderConstants.bookTitle,
@@ -289,6 +294,16 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
         initialPageIndex: lastPageIndex,
         initialPageOffset: lastPageOffset,
       );
+      if (savedFontSize != null) {
+        await controller.setFontSize(savedFontSize);
+      }
+      if (savedLineHeight != null) {
+        await controller.setLineHeight(savedLineHeight);
+      }
+      final restoredTheme = _themeFromStorage(savedTheme);
+      if (restoredTheme != null) {
+        controller.setTheme(restoredTheme);
+      }
       controller.addListener(_handleControllerUpdate);
 
       if (!mounted) {
@@ -320,6 +335,16 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     setState(() {
       _chromeVisible = !_chromeVisible;
     });
+  }
+
+  NovelReaderTheme? _themeFromStorage(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    for (final theme in NovelReaderTheme.values) {
+      if (theme.name == raw) {
+        return theme;
+      }
+    }
+    return null;
   }
 
   Future<void> _openCatalog(NovelCanvasReaderController controller) async {
@@ -392,45 +417,97 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     );
   }
 
-  Future<void> _openSettings() async {
+  Future<void> _openSettings(NovelCanvasReaderController controller) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: const Color(0xFFF8F1E6),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Settings',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF4B3728),
-                  ),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Settings',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF4B3728),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _ReaderSettingSlider(
+                      title: 'Font Size',
+                      valueLabel: '${controller.fontSize}',
+                      value: controller.fontSize.toDouble(),
+                      min: 14,
+                      max: 30,
+                      divisions: 16,
+                      onChanged: (value) async {
+                        final nextValue = value.round();
+                        await controller.setFontSize(nextValue);
+                        await _storage.setFontSize(controller.fontSize);
+                        await _storage.setLineHeight(controller.lineHeight);
+                        setSheetState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _ReaderSettingSlider(
+                      title: 'Line Height',
+                      valueLabel: '${controller.lineHeight}',
+                      value: controller.lineHeight.toDouble(),
+                      min: (controller.fontSize + 6).toDouble(),
+                      max: 46,
+                      divisions: math.max(1, 46 - (controller.fontSize + 6)),
+                      onChanged: (value) async {
+                        final nextValue = value.round();
+                        await controller.setLineHeight(nextValue);
+                        await _storage.setLineHeight(nextValue);
+                        setSheetState(() {});
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Theme',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF4B3728),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: controller.themes.map((theme) {
+                        final selected = controller.theme == theme;
+                        return ChoiceChip(
+                          label: Text(theme.label),
+                          selected: selected,
+                          selectedColor: const Color(0xFFE8D4BE),
+                          backgroundColor: const Color(0xFFFFFBF5),
+                          side: BorderSide(
+                            color: selected
+                                ? const Color(0xFF8A6246)
+                                : const Color(0xFFD7C3AE),
+                          ),
+                          onSelected: (_) async {
+                            controller.setTheme(theme);
+                            await _storage.setTheme(theme.name);
+                            setSheetState(() {});
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 16),
-                _ReaderSettingStub(
-                  title: 'Font Size',
-                  value: '18',
-                ),
-                SizedBox(height: 10),
-                _ReaderSettingStub(
-                  title: 'Line Height',
-                  value: '31',
-                ),
-                SizedBox(height: 10),
-                _ReaderSettingStub(
-                  title: 'Theme',
-                  value: 'Paper',
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -555,7 +632,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                         pageLabel:
                             '${controller.currentDisplayPage} / ${controller.totalDisplayPages}',
                         onCatalog: () => _openCatalog(controller),
-                        onSettings: _openSettings,
+                        onSettings: () => _openSettings(controller),
                         onSeek: (page) => controller.goToPage(page),
                         onPrevious: controller.isCanGoPre()
                             ? () async => controller.prePage()
@@ -756,14 +833,24 @@ class _ReaderBottomBar extends StatelessWidget {
   }
 }
 
-class _ReaderSettingStub extends StatelessWidget {
-  const _ReaderSettingStub({
+class _ReaderSettingSlider extends StatelessWidget {
+  const _ReaderSettingSlider({
     required this.title,
+    required this.valueLabel,
     required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
   });
 
   final String title;
-  final String value;
+  final String valueLabel;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -774,22 +861,41 @@ class _ReaderSettingStub extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        child: Row(
+        child: Column(
           children: [
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF4B3728),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF4B3728),
+                    ),
+                  ),
                 ),
-              ),
+                Text(
+                  valueLabel,
+                  style: const TextStyle(
+                    color: Color(0xFF7A5D47),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Color(0xFF7A5D47),
-                fontWeight: FontWeight.w600,
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: const Color(0xFF7A5339),
+                thumbColor: const Color(0xFF7A5339),
+                inactiveTrackColor: const Color(0xFFD8C5B1),
+                overlayColor: const Color(0x337A5339),
+              ),
+              child: Slider(
+                value: value.clamp(min, max),
+                min: min,
+                max: max,
+                divisions: divisions,
+                onChanged: onChanged,
               ),
             ),
           ],

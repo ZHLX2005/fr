@@ -139,6 +139,36 @@ class NovelReaderStorage {
     await prefs.setInt(NovelReaderConstants.progressOffsetKey, offset);
   }
 
+  Future<int?> getFontSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(NovelReaderConstants.fontSizeKey);
+  }
+
+  Future<int?> getLineHeight() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(NovelReaderConstants.lineHeightKey);
+  }
+
+  Future<String?> getTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(NovelReaderConstants.themeKey);
+  }
+
+  Future<void> setFontSize(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(NovelReaderConstants.fontSizeKey, value);
+  }
+
+  Future<void> setLineHeight(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(NovelReaderConstants.lineHeightKey, value);
+  }
+
+  Future<void> setTheme(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(NovelReaderConstants.themeKey, value);
+  }
+
   Future<void> clearProgress() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(NovelReaderConstants.progressKey);
