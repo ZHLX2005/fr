@@ -36,6 +36,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   String _apiKey = '';
   String _selectedModel = 'glm-4v-flash';
   String _systemPrompt = '你是一个专业的AI助手，请根据图片回答用户问题。';
+  bool _directScreenshot = false;
 
   final List<String> _availableModels = [
     'glm-4v-flash',
@@ -64,6 +65,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
         _apiKey = config['apiKey'] ?? _apiKey;
         _selectedModel = config['model'] ?? _selectedModel;
         _systemPrompt = config['systemPrompt'] ?? _systemPrompt;
+        _directScreenshot = config['directScreenshot'] ?? false;
       });
     }
   }
@@ -137,6 +139,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
       apiKey: _apiKey,
       model: _selectedModel,
       systemPrompt: _systemPrompt,
+      directScreenshot: _directScreenshot,
     );
     if (mounted) {
       ScaffoldMessenger.of(
@@ -327,6 +330,14 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               controller: TextEditingController(text: _systemPrompt),
               onChanged: (v) => _systemPrompt = v,
               maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              title: const Text('点击直接全屏截图'),
+              subtitle: const Text('启用后点击悬浮窗直接截取全图，无需框选'),
+              value: _directScreenshot,
+              onChanged: (v) => setState(() => _directScreenshot = v),
+              contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 12),
             SizedBox(

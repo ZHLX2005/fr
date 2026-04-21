@@ -102,7 +102,8 @@ class MainActivity : FlutterActivity() {
                         "apiUrl" to (prefs.getString("api_url", null) ?: defaultApiUrl),
                         "apiKey" to (prefs.getString("api_key", null) ?: ""),
                         "model" to (prefs.getString("model", null) ?: defaultModel),
-                        "systemPrompt" to (prefs.getString("system_prompt", null) ?: defaultSystemPrompt)
+                        "systemPrompt" to (prefs.getString("system_prompt", null) ?: defaultSystemPrompt),
+                        "directScreenshot" to (prefs.getBoolean("direct_screenshot", false))
                     )
                     result.success(config)
                 }
@@ -172,6 +173,7 @@ class MainActivity : FlutterActivity() {
                     val apiKey = call.argument<String>("apiKey") ?: ""
                     val model = call.argument<String>("model") ?: "glm-4v-flash"
                     val systemPrompt = call.argument<String>("systemPrompt") ?: ""
+                    val directScreenshot = call.argument<Boolean>("directScreenshot") ?: false
 
                     // 使用 applicationContext 确保与 Service 中 loadAiConfig 使用相同的 SharedPreferences
                     val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
@@ -180,6 +182,7 @@ class MainActivity : FlutterActivity() {
                         .putString("api_key", apiKey)
                         .putString("model", model)
                         .putString("system_prompt", systemPrompt)
+                        .putBoolean("direct_screenshot", directScreenshot)
                         .apply()
 
                     // 同时更新 FloatingWindowManager 实例的配置
@@ -188,6 +191,7 @@ class MainActivity : FlutterActivity() {
                         this.apiKey = apiKey
                         this.model = model
                         this.systemPrompt = systemPrompt
+                        this.directScreenshotMode = directScreenshot
                     }
 
                     result.success(true)
