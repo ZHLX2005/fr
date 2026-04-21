@@ -304,6 +304,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
   int get totalDisplayPages => _pageConfigs.length;
   bool get isReady => _initialised;
   bool get isRepaginating => _repaginating;
+  List<NovelCanvasPageConfig> get pageConfigs => List.unmodifiable(_pageConfigs);
 
   NovelCanvasPageData? get currentPageData => _pageDataMap[_currentPageIndex];
   NovelCanvasPageData? get prePageData =>
@@ -360,6 +361,15 @@ class NovelCanvasReaderController extends ChangeNotifier {
     final config = _safePageConfig(_currentPageIndex);
     if (config == null || onProgressChanged == null) return;
     await onProgressChanged!.call(_currentPageIndex, config.startOffset);
+  }
+
+  Future<void> goToPage(int pageIndex) async {
+    if (pageIndex < 0 || pageIndex >= _pageConfigs.length) return;
+    if (pageIndex == _currentPageIndex) return;
+    _currentPageIndex = pageIndex;
+    _queuePagesAroundCurrent();
+    notifyListeners();
+    await _persistProgress();
   }
 
   Future<void> _repaginate() async {
@@ -629,9 +639,11 @@ class NovelCanvasReaderView extends StatefulWidget {
   const NovelCanvasReaderView({
     super.key,
     required this.controller,
+    required this.onToggleChrome,
   });
 
   final NovelCanvasReaderController controller;
+  final VoidCallback onToggleChrome;
 
   @override
   State<NovelCanvasReaderView> createState() => _NovelCanvasReaderViewState();
@@ -688,6 +700,7 @@ class _NovelCanvasReaderViewState extends State<NovelCanvasReaderView>
 
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
+              onTap: widget.onToggleChrome,
               onPanDown: (details) {
                 _painter.setCurrentTouchEvent(
                   CanvasTouchEvent(

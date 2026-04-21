@@ -251,6 +251,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   final NovelReaderStorage _storage = NovelReaderStorage();
 
   bool _loadingBook = true;
+  bool _chromeVisible = false;
   String? _error;
   NovelCanvasReaderController? _readerController;
 
@@ -315,6 +316,126 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     setState(() {});
   }
 
+  void _toggleChrome() {
+    setState(() {
+      _chromeVisible = !_chromeVisible;
+    });
+  }
+
+  Future<void> _openCatalog(NovelCanvasReaderController controller) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFFF8F1E6),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Row(
+                  children: [
+                    Text(
+                      'Pages',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF4B3728),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: controller.pageConfigs.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final config = controller.pageConfigs[index];
+                    final selected = index == controller.currentPageIndex;
+                    return Material(
+                      color: selected
+                          ? const Color(0xFFE8D4BE)
+                          : const Color(0xFFFFFBF5),
+                      borderRadius: BorderRadius.circular(16),
+                      child: ListTile(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        title: Text(
+                          'Page ${index + 1}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: selected
+                                ? const Color(0xFF5F402B)
+                                : const Color(0xFF4B3728),
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Offset ${config.startOffset}-${config.endOffset}',
+                          style: const TextStyle(color: Color(0xFF7A5D47)),
+                        ),
+                        onTap: () async {
+                          Navigator.of(context).pop();
+                          await controller.goToPage(index);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFFF8F1E6),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Settings',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4B3728),
+                  ),
+                ),
+                SizedBox(height: 16),
+                _ReaderSettingStub(
+                  title: 'Font Size',
+                  value: '18',
+                ),
+                SizedBox(height: 10),
+                _ReaderSettingStub(
+                  title: 'Line Height',
+                  value: '31',
+                ),
+                SizedBox(height: 10),
+                _ReaderSettingStub(
+                  title: 'Theme',
+                  value: 'Paper',
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loadingBook) {
@@ -360,58 +481,318 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFEBE2D4),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          NovelReaderConstants.bookTitle,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        centerTitle: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Text(
-                '${controller.currentDisplayPage} / ${controller.totalDisplayPages}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF634B38),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFF8F1E6), Color(0xFFE4D5C0)],
+                  ),
                 ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.10),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: NovelCanvasReaderView(
+                      controller: controller,
+                      onToggleChrome: _toggleChrome,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: IgnorePointer(
+              ignoring: !_chromeVisible,
+              child: Stack(
+                children: [
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    left: 0,
+                    right: 0,
+                    top: _chromeVisible ? 0 : -96,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity: _chromeVisible ? 1 : 0,
+                      child: _ReaderTopBar(
+                        title: NovelReaderConstants.bookTitle,
+                        pageLabel:
+                            '${controller.currentDisplayPage} / ${controller.totalDisplayPages}',
+                      ),
+                    ),
+                  ),
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    left: 16,
+                    right: 16,
+                    bottom: _chromeVisible ? 16 : -120,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity: _chromeVisible ? 1 : 0,
+                      child: _ReaderBottomBar(
+                        canGoPrevious: controller.isCanGoPre(),
+                        canGoNext: controller.isCanGoNext(),
+                        currentPage: controller.currentDisplayPage,
+                        totalPages: controller.totalDisplayPages,
+                        pageLabel:
+                            '${controller.currentDisplayPage} / ${controller.totalDisplayPages}',
+                        onCatalog: () => _openCatalog(controller),
+                        onSettings: _openSettings,
+                        onSeek: (page) => controller.goToPage(page),
+                        onPrevious: controller.isCanGoPre()
+                            ? () async => controller.prePage()
+                            : null,
+                        onNext: controller.isCanGoNext()
+                            ? () async => controller.nextPage()
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ],
       ),
-      body: SafeArea(
+    );
+  }
+}
+
+class _ReaderTopBar extends StatelessWidget {
+  const _ReaderTopBar({
+    required this.title,
+    required this.pageLabel,
+  });
+
+  final String title;
+  final String pageLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6EEE1).withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFF8F1E6), Color(0xFFE4D5C0)],
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back_rounded),
               ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.10),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4B3728),
+                  ),
                 ),
-                child: NovelCanvasReaderView(controller: controller),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                pageLabel,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF7A5D47),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReaderBottomBar extends StatelessWidget {
+  const _ReaderBottomBar({
+    required this.canGoPrevious,
+    required this.canGoNext,
+    required this.currentPage,
+    required this.totalPages,
+    required this.pageLabel,
+    required this.onCatalog,
+    required this.onSettings,
+    required this.onSeek,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final bool canGoPrevious;
+  final bool canGoNext;
+  final int currentPage;
+  final int totalPages;
+  final String pageLabel;
+  final VoidCallback onCatalog;
+  final VoidCallback onSettings;
+  final ValueChanged<int> onSeek;
+  final Future<void> Function()? onPrevious;
+  final Future<void> Function()? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBF5EA).withValues(alpha: 0.97),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                IconButton.filledTonal(
+                  onPressed: onCatalog,
+                  icon: const Icon(Icons.list_alt_rounded),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    pageLabel,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF6C523F),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  onPressed: onSettings,
+                  icon: const Icon(Icons.tune_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: const Color(0xFF7A5339),
+                thumbColor: const Color(0xFF7A5339),
+                inactiveTrackColor: const Color(0xFFD8C5B1),
+                overlayColor: const Color(0x337A5339),
+              ),
+              child: Slider(
+                value: totalPages <= 1
+                    ? 0
+                    : (currentPage - 1).clamp(0, totalPages - 1).toDouble(),
+                min: 0,
+                max: totalPages <= 1 ? 1 : (totalPages - 1).toDouble(),
+                divisions: totalPages <= 1 ? 1 : totalPages - 1,
+                onChanged: totalPages <= 1
+                    ? null
+                    : (value) => onSeek(value.round()),
               ),
             ),
-          ),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: canGoPrevious ? () => onPrevious?.call() : null,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Previous'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: canGoNext ? () => onNext?.call() : null,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      backgroundColor: const Color(0xFF7A5339),
+                    ),
+                    child: const Text('Next'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReaderSettingStub extends StatelessWidget {
+  const _ReaderSettingStub({
+    required this.title,
+    required this.value,
+  });
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF4B3728),
+                ),
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Color(0xFF7A5D47),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
