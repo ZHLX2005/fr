@@ -33,12 +33,14 @@ class PullPanelAction {
 
 class PullPanelMetrics {
   static const double mainDragDeadZone = 8.0;
+  static const double panelDragDeadZone = 8.0;
   static const double collapsedEpsilon = 0.001;
-  static const double refreshThreshold = 0.125;
-  static const double hintOpenThreshold = 0.15;
-  static const double closeSnapThreshold = 0.90;
-  static const double velocityOpen = 900;
-  static const double dragDamping = 0.25;
+  static const double refreshThreshold = 0.08;
+  static const double openThreshold = 0.22;
+  static const double closeThresholdPx = 96.0;
+  static const double velocityOpen = 500;
+  static const double velocityClose = -500;
+  static const double dragDamping = 0.4;
   static const double overdragResistance = 0.04;
   static const double mainPushRatio = 0.50;
 
@@ -68,6 +70,12 @@ class PullPanelStateMachine {
   PullPanelState _state = PullPanelState.collapsed;
   double _progress = 0.0;
   double _pendingMainDragDy = 0.0;
+  double _pendingPanelDragDy = 0.0;
+  double _panelDragDistancePx = 0.0;
+
+  void _log(String message) {
+    debugPrint('[PullPanel] $message');
+  }
 
   PullPanelState get state => _state;
   double get progress => _progress;
@@ -87,10 +95,11 @@ class PullPanelStateMachine {
   double get refreshProgress =>
       (_progress / PullPanelMetrics.refreshThreshold).clamp(0.0, 1.0);
 
-  bool get readyToOpen => _progress >= PullPanelMetrics.hintOpenThreshold;
+  bool get readyToOpen => _progress >= PullPanelMetrics.openThreshold;
 
   bool get readyToRefresh =>
-      _progress >= PullPanelMetrics.refreshThreshold && !readyToOpen;
+      _progress >= PullPanelMetrics.refreshThreshold &&
+      _progress < PullPanelMetrics.openThreshold;
 
   bool get showMainCue =>
       _state == PullPanelState.collapsed ||
@@ -102,7 +111,7 @@ class PullPanelStateMachine {
 
   double get closeProgress {
     if (_progress >= 1.0) return 0.0;
-    return ((1.0 - _progress) / (1.0 - PullPanelMetrics.closeSnapThreshold))
+    return ((1.0 - _progress) / PullPanelMetrics.openThreshold)
         .clamp(0.0, 1.0);
   }
 
@@ -120,9 +129,11 @@ class PullPanelStateMachine {
         _state == PullPanelState.settling ||
         _state == PullPanelState.expanded ||
         _state == PullPanelState.draggingPanel) {
+      _log('beginMainDrag ignored state=$_state progress=${_progress.toStringAsFixed(3)}');
       return;
     }
     _pendingMainDragDy = 0.0;
+    _log('beginMainDrag state=$_state');
   }
 
   void updateMainDrag({required double deltaDy, required double fullHeight}) {
@@ -136,6 +147,7 @@ class PullPanelStateMachine {
       if (!passedDeadZone) return;
 
       if (_pendingMainDragDy <= 0) {
+        _log('updateMainDrag rejected pendingDy=${_pendingMainDragDy.toStringAsFixed(1)}');
         _pendingMainDragDy = 0.0;
         return;
       }
@@ -143,6 +155,7 @@ class PullPanelStateMachine {
       _state = PullPanelState.draggingMain;
       effectiveDeltaDy = _pendingMainDragDy;
       _pendingMainDragDy = 0.0;
+      _log('updateMainDrag entered draggingMain effectiveDy=${effectiveDeltaDy.toStringAsFixed(1)}');
     }
 
     _progress = PullPanelMetrics.applyDrag(
@@ -150,6 +163,7 @@ class PullPanelStateMachine {
       deltaDy: effectiveDeltaDy,
       fullHeight: fullHeight,
     );
+    _log('updateMainDrag progress=${_progress.toStringAsFixed(3)} deltaDy=${effectiveDeltaDy.toStringAsFixed(1)}');
   }
 
   PullPanelAction endMainDrag({required double velocityDy}) {
@@ -171,19 +185,43 @@ class PullPanelStateMachine {
     }
 
     final shouldOpen =
-        _progress >= PullPanelMetrics.refreshThreshold ||
+        _progress >= PullPanelMetrics.openThreshold ||
         velocityDy > PullPanelMetrics.velocityOpen;
     if (shouldOpen) {
       _state = PullPanelState.settling;
+      _log('endMainDrag -> open progress=${_progress.toStringAsFixed(3)} velocity=${velocityDy.toStringAsFixed(1)}');
       return const PullPanelAction.animateTo(1.0);
     }
 
+    if (_progress < PullPanelMetrics.refreshThreshold) {
+      _state = PullPanelState.settling;
+      _log('endMainDrag -> collapse progress=${_progress.toStringAsFixed(3)} velocity=${velocityDy.toStringAsFixed(1)}');
+      return const PullPanelAction.animateTo(0.0);
+    }
+
     _state = PullPanelState.refreshing;
+    _log('endMainDrag -> refresh progress=${_progress.toStringAsFixed(3)} velocity=${velocityDy.toStringAsFixed(1)}');
     return const PullPanelAction.startRefresh();
   }
 
-  void absorbPanelOverscroll({
-    required double overscrollDy,
+  void beginPanelDrag() {
+    if (_state == PullPanelState.draggingPanel) {
+      return;
+    }
+    if (_state == PullPanelState.refreshing ||
+        _state == PullPanelState.settling ||
+        _state == PullPanelState.collapsed ||
+        _state == PullPanelState.draggingMain) {
+      _log('beginPanelDrag ignored state=$_state progress=${_progress.toStringAsFixed(3)}');
+      return;
+    }
+    _pendingPanelDragDy = 0.0;
+    _panelDragDistancePx = 0.0;
+    _log('beginPanelDrag state=$_state');
+  }
+
+  void updatePanelDrag({
+    required double deltaDy,
     required double fullHeight,
   }) {
     if (_state != PullPanelState.expanded &&
@@ -191,31 +229,80 @@ class PullPanelStateMachine {
       return;
     }
 
+    var effectiveDeltaDy = deltaDy;
+
+    if (_state != PullPanelState.draggingPanel) {
+      _pendingPanelDragDy += effectiveDeltaDy;
+
+      final passedDeadZone =
+          _pendingPanelDragDy.abs() >= PullPanelMetrics.panelDragDeadZone;
+      if (!passedDeadZone) return;
+
+      if (_pendingPanelDragDy >= 0) {
+        _log('updatePanelDrag rejected pendingDy=${_pendingPanelDragDy.toStringAsFixed(1)}');
+        _pendingPanelDragDy = 0.0;
+        return;
+      }
+
+      _state = PullPanelState.draggingPanel;
+      effectiveDeltaDy = _pendingPanelDragDy;
+      _pendingPanelDragDy = 0.0;
+      _log('updatePanelDrag entered draggingPanel effectiveDy=${effectiveDeltaDy.toStringAsFixed(1)}');
+    }
+
     _state = PullPanelState.draggingPanel;
+    if (effectiveDeltaDy < 0) {
+      _panelDragDistancePx += -effectiveDeltaDy;
+    }
     _progress = PullPanelMetrics.applyDrag(
       currentProgress: _progress,
-      deltaDy: overscrollDy,
+      deltaDy: effectiveDeltaDy,
       fullHeight: fullHeight,
+    );
+    _log(
+      'updatePanelDrag progress=${_progress.toStringAsFixed(3)} '
+      'deltaDy=${effectiveDeltaDy.toStringAsFixed(1)} '
+      'dragDistance=${_panelDragDistancePx.toStringAsFixed(1)}',
     );
   }
 
-  PullPanelAction endPanelDrag() {
+  PullPanelAction endPanelDrag({
+    required double velocityDy,
+  }) {
     if (_state != PullPanelState.draggingPanel) {
+      _pendingPanelDragDy = 0.0;
+      _panelDragDistancePx = 0.0;
       return const PullPanelAction.none();
     }
 
+    _pendingPanelDragDy = 0.0;
     _state = PullPanelState.settling;
-    final shouldClose = _progress < PullPanelMetrics.closeSnapThreshold;
+    final shouldClose =
+        _panelDragDistancePx >= PullPanelMetrics.closeThresholdPx ||
+        velocityDy < PullPanelMetrics.velocityClose;
+    _log(
+      'endPanelDrag action=${shouldClose ? 'close' : 'reopen'} '
+      'dragDistance=${_panelDragDistancePx.toStringAsFixed(1)} '
+      'threshold=${PullPanelMetrics.closeThresholdPx.toStringAsFixed(1)} '
+      'velocity=${velocityDy.toStringAsFixed(1)} '
+      'progress=${_progress.toStringAsFixed(3)}',
+    );
+    _panelDragDistancePx = 0.0;
     return PullPanelAction.animateTo(shouldClose ? 0.0 : 1.0);
   }
 
   void onAnimationStarted() {
     _pendingMainDragDy = 0.0;
+    _pendingPanelDragDy = 0.0;
+    _panelDragDistancePx = 0.0;
     _state = PullPanelState.settling;
+    _log('onAnimationStarted progress=${_progress.toStringAsFixed(3)}');
   }
 
   void onAnimationCompleted(double targetProgress) {
     _pendingMainDragDy = 0.0;
+    _pendingPanelDragDy = 0.0;
+    _panelDragDistancePx = 0.0;
     _progress = targetProgress.clamp(0.0, 1.0);
     if (_progress <= 0.0) {
       _state = PullPanelState.collapsed;
@@ -224,13 +311,17 @@ class PullPanelStateMachine {
     } else {
       _state = PullPanelState.collapsed;
     }
+    _log('onAnimationCompleted target=${targetProgress.toStringAsFixed(3)} state=$_state');
   }
 
   void onRefreshFinished() {
     _pendingMainDragDy = 0.0;
+    _pendingPanelDragDy = 0.0;
+    _panelDragDistancePx = 0.0;
     if (_state == PullPanelState.refreshing) {
       _state = PullPanelState.collapsed;
     }
+    _log('onRefreshFinished state=$_state');
   }
 }
 
@@ -257,6 +348,9 @@ class PullPanelDemo extends DemoPage {
   @override
   String get description =>
       'Deterministic pull-to-refresh and full-screen panel demo';
+
+  @override
+  bool get preferFullScreen => true;
 
   @override
   Widget buildPage(BuildContext context) {
@@ -369,6 +463,7 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
   }
 
   void _runAction(PullPanelAction action) {
+    debugPrint('[PullPanel] runAction type=${action.type} target=${action.targetProgress}');
     switch (action.type) {
       case PullPanelActionType.none:
         setState(() {});
@@ -395,18 +490,34 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
     _runAction(_sm.endMainDrag(velocityDy: velocityDy));
   }
 
-  void _onPanelBottomOverscroll(double overscroll, double fullHeight) {
-    if (_isRefreshing) return;
-
-    _sm.absorbPanelOverscroll(
-      overscrollDy: -overscroll,
-      fullHeight: fullHeight,
-    );
+  void _onPanelHandleDragStart() {
+    _stopCurrentAnimation();
+    _sm.beginPanelDrag();
     setState(() {});
   }
 
-  void _onPanelScrollEnd() {
-    _runAction(_sm.endPanelDrag());
+  void _onPanelHandleDragUpdate(double deltaDy, double fullHeight) {
+    if (_isRefreshing || deltaDy >= 0) return;
+
+    _sm.updatePanelDrag(deltaDy: deltaDy, fullHeight: fullHeight);
+    setState(() {});
+  }
+
+  void _onPanelHandleDragEnd(double velocityDy) {
+    _runAction(_sm.endPanelDrag(velocityDy: velocityDy));
+  }
+
+  void _onPanelContentOverscroll(double overscroll, double fullHeight) {
+    if (_isRefreshing) return;
+    if (_sm.state == PullPanelState.expanded) {
+      _sm.beginPanelDrag();
+    }
+    _sm.updatePanelDrag(deltaDy: -overscroll, fullHeight: fullHeight);
+    setState(() {});
+  }
+
+  void _onPanelContentDragEnd() {
+    _runAction(_sm.endPanelDrag(velocityDy: 0.0));
   }
 
   @override
@@ -497,10 +608,17 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
                         refreshing: _isRefreshing,
                         closeProgress: _sm.closeProgress,
                         showCloseCue: _sm.showCloseCue,
-                        onBottomOverscroll: (overscroll) {
-                          _onPanelBottomOverscroll(overscroll, screenHeight);
+                        onHandleDragStart: _onPanelHandleDragStart,
+                        onHandleDragUpdate: (deltaDy) {
+                          _onPanelHandleDragUpdate(deltaDy, screenHeight);
                         },
-                        onPanelScrollEnd: _onPanelScrollEnd,
+                        onHandleDragEnd: (velocityDy) {
+                          _onPanelHandleDragEnd(velocityDy);
+                        },
+                        onBottomOverscroll: (overscroll) {
+                          _onPanelContentOverscroll(overscroll, screenHeight);
+                        },
+                        onPanelScrollEnd: _onPanelContentDragEnd,
                       ),
                     ],
                   ),
@@ -554,6 +672,9 @@ class _PanelContent extends StatelessWidget {
   final bool refreshing;
   final double closeProgress;
   final bool showCloseCue;
+  final VoidCallback onHandleDragStart;
+  final ValueChanged<double> onHandleDragUpdate;
+  final ValueChanged<double> onHandleDragEnd;
   final ValueChanged<double> onBottomOverscroll;
   final VoidCallback onPanelScrollEnd;
 
@@ -567,6 +688,9 @@ class _PanelContent extends StatelessWidget {
     required this.refreshing,
     required this.closeProgress,
     required this.showCloseCue,
+    required this.onHandleDragStart,
+    required this.onHandleDragUpdate,
+    required this.onHandleDragEnd,
     required this.onBottomOverscroll,
     required this.onPanelScrollEnd,
   });
@@ -576,21 +700,11 @@ class _PanelContent extends StatelessWidget {
     final contentBlur = ((1.0 - progress) * 16.0).clamp(0.0, 16.0);
     final contentOverlayOpacity = ((1.0 - progress) * 0.18).clamp(0.0, 0.18);
     final contentOffset = (1.0 - progress) * 16.0;
+    final contentScale = 0.5 + (progress * 0.5);
+    final contentOpacity = progress.clamp(0.0, 1.0);
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
-          child: _PanelHandle(
-            progress: progress,
-            refreshProgress: refreshProgress,
-            readyToRefresh: readyToRefresh,
-            readyToOpen: readyToOpen,
-            refreshing: refreshing,
-            closeProgress: closeProgress,
-            showCloseCue: showCloseCue,
-          ),
-        ),
         Expanded(
           child: Stack(
             fit: StackFit.expand,
@@ -603,7 +717,7 @@ class _PanelContent extends StatelessWidget {
                   ),
                   child: IgnorePointer(
                     ignoring: !scrollable,
-                    child: NotificationListener<ScrollNotification>(
+                      child: NotificationListener<ScrollNotification>(
                       onNotification: (notification) {
                         if (!scrollable) return false;
                         if (!scrollController.hasClients) return false;
@@ -634,7 +748,7 @@ class _PanelContent extends StatelessWidget {
                         if (notification is OverscrollNotification &&
                             nearBottom &&
                             notification.overscroll > 0) {
-                          onBottomOverscroll(notification.overscroll * 0.5);
+                          onBottomOverscroll(notification.overscroll);
                           return true;
                         }
 
@@ -646,35 +760,42 @@ class _PanelContent extends StatelessWidget {
                       },
                       child: Transform.translate(
                         offset: Offset(0, contentOffset),
-                        child: ListView(
-                          controller: scrollController,
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
-                          children: const [
-                            _PanelHeroSection(),
-                            SizedBox(height: 18),
-                            _PanelSectionHeader(
-                              eyebrow: 'CURATED',
-                              title: 'Soft focus essentials',
+                        child: Opacity(
+                          opacity: contentOpacity,
+                          child: Transform.scale(
+                            scale: contentScale.clamp(0.5, 1.0),
+                            alignment: Alignment.topCenter,
+                            child: ListView(
+                              controller: scrollController,
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
+                              children: const [
+                                _PanelHeroSection(),
+                                SizedBox(height: 18),
+                                _PanelSectionHeader(
+                                  eyebrow: 'CURATED',
+                                  title: 'Soft focus essentials',
+                                ),
+                                SizedBox(height: 12),
+                                _PanelFeatureGrid(),
+                                SizedBox(height: 18),
+                                _PanelSectionHeader(
+                                  eyebrow: 'QUICK STRIPS',
+                                  title: 'Small actions, warm materials',
+                                ),
+                                SizedBox(height: 12),
+                                _PanelActionChips(),
+                                SizedBox(height: 18),
+                                _PanelSectionHeader(
+                                  eyebrow: 'AMBIENCE',
+                                  title: 'A few slower, richer cards',
+                                ),
+                                SizedBox(height: 12),
+                                _PanelStoryRail(),
+                                SizedBox(height: 24),
+                              ],
                             ),
-                            SizedBox(height: 12),
-                            _PanelFeatureGrid(),
-                            SizedBox(height: 18),
-                            _PanelSectionHeader(
-                              eyebrow: 'QUICK STRIPS',
-                              title: 'Small actions, warm materials',
-                            ),
-                            SizedBox(height: 12),
-                            _PanelActionChips(),
-                            SizedBox(height: 18),
-                            _PanelSectionHeader(
-                              eyebrow: 'AMBIENCE',
-                              title: 'A few slower, richer cards',
-                            ),
-                            SizedBox(height: 12),
-                            _PanelStoryRail(),
-                            SizedBox(height: 24),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -699,6 +820,32 @@ class _PanelContent extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragStart: (_) => onHandleDragStart(),
+            onVerticalDragUpdate: (details) {
+              onHandleDragUpdate(details.delta.dy);
+            },
+            onVerticalDragEnd: (details) {
+              onHandleDragEnd(details.velocity.pixelsPerSecond.dy);
+            },
+            onVerticalDragCancel: () => onHandleDragEnd(0.0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: _PanelHandle(
+                progress: progress,
+                refreshProgress: refreshProgress,
+                readyToRefresh: readyToRefresh,
+                readyToOpen: readyToOpen,
+                refreshing: refreshing,
+                closeProgress: closeProgress,
+                showCloseCue: showCloseCue,
+              ),
+            ),
           ),
         ),
       ],
