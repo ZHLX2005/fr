@@ -1,5 +1,7 @@
+import 'dart:ui' as ui;
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum PageTurnDirection { next, previous }
@@ -18,15 +20,21 @@ class PageTurnRequest {
 class PageCurlView extends StatefulWidget {
   const PageCurlView({
     super.key,
-    required this.currentPage,
-    required this.targetPage,
+    required this.currentPageBuilder,
+    required this.targetPageBuilder,
+    this.currentPagePicture,
+    this.currentPageImage,
+    this.targetPagePicture,
     required this.canTurnNext,
     required this.canTurnPrevious,
     required this.onTurnFinished,
   });
 
-  final Widget currentPage;
-  final Widget? targetPage;
+  final WidgetBuilder currentPageBuilder;
+  final WidgetBuilder? targetPageBuilder;
+  final ui.Picture? currentPagePicture;
+  final ui.Image? currentPageImage;
+  final ui.Picture? targetPagePicture;
   final bool canTurnNext;
   final bool canTurnPrevious;
   final ValueChanged<PageTurnRequest> onTurnFinished;
@@ -53,11 +61,18 @@ class _PageCurlViewState extends State<PageCurlView>
   Size _viewport = Size.zero;
   Offset? _dragPosition;
   _GestureStartMode? _gestureStartMode;
+  final Stopwatch _curlStopwatch = Stopwatch()..start();
 
   @override
   void dispose() {
     _settleController.dispose();
     super.dispose();
+  }
+
+  void _log(String message) {
+    if (!kDebugMode) return;
+    final elapsed = _curlStopwatch.elapsedMilliseconds.toString().padLeft(5);
+    debugPrint('[PageCurl +${elapsed}ms] $message');
   }
 
   bool _isInHotZone(
@@ -100,7 +115,13 @@ class _PageCurlViewState extends State<PageCurlView>
   }
 
   void _handlePanStart(DragStartDetails details) {
-    if (_phase == PageCurlPhase.settling || _viewport == Size.zero) return;
+    _log(
+      '_handlePanStart:local=${details.localPosition} viewport=$_viewport phase=$_phase canNext=${widget.canTurnNext} canPrevious=${widget.canTurnPrevious}',
+    );
+    if (_phase == PageCurlPhase.settling || _viewport == Size.zero) {
+      _log('_handlePanStart:ignored settlingOrZeroViewport');
+      return;
+    }
 
     final local = details.localPosition;
     final wantNext = _isInHotZone(local, _viewport, PageTurnDirection.next);
@@ -131,6 +152,7 @@ class _PageCurlViewState extends State<PageCurlView>
       startMode = _GestureStartMode.edge;
     } else {
       _direction = null;
+      _log('_handlePanStart:ignored no eligible hot zone');
       return;
     }
 
@@ -141,10 +163,18 @@ class _PageCurlViewState extends State<PageCurlView>
       _dragPosition = normalizedLocal;
       _gestureStartMode = startMode;
     });
+    _log(
+      '_handlePanStart:accepted direction=$_direction startMode=$startMode normalized=$normalizedLocal',
+    );
   }
 
   void _handlePanUpdate(DragUpdateDetails details) {
-    if (_phase != PageCurlPhase.dragging || _direction == null) return;
+    if (_phase != PageCurlPhase.dragging || _direction == null) {
+      _log(
+        '_handlePanUpdate:ignored phase=$_phase direction=$_direction local=${details.localPosition}',
+      );
+      return;
+    }
     final local = _normalizeStartPosition(
       details.localPosition,
       _gestureStartMode ?? _GestureStartMode.corner,
@@ -162,19 +192,33 @@ class _PageCurlViewState extends State<PageCurlView>
       _progress = progress;
       _dragPosition = local;
     });
+    _log(
+      '_handlePanUpdate:direction=$_direction local=$local progress=${progress.toStringAsFixed(3)}',
+    );
   }
 
   void _handlePanEnd(DragEndDetails details) {
-    if (_phase != PageCurlPhase.dragging || _direction == null) return;
+    if (_phase != PageCurlPhase.dragging || _direction == null) {
+      _log(
+        '_handlePanEnd:ignored phase=$_phase direction=$_direction velocity=${details.velocity.pixelsPerSecond}',
+      );
+      return;
+    }
     final velocity = details.velocity.pixelsPerSecond.dx;
     final fastForward = _direction == PageTurnDirection.next
         ? velocity < -900
         : velocity > 900;
     _completeOnRelease = _progress > 0.5 || fastForward;
+    _log(
+      '_handlePanEnd:direction=$_direction progress=${_progress.toStringAsFixed(3)} velocity=${velocity.toStringAsFixed(1)} fastForward=$fastForward complete=$_completeOnRelease',
+    );
     _animateSettle(_completeOnRelease ? 1 : 0);
   }
 
   void _animateSettle(double target) {
+    _log(
+      '_animateSettle:begin from=${_progress.toStringAsFixed(3)} to=${target.toStringAsFixed(3)} direction=$_direction',
+    );
     _progressAnimation = Tween<double>(begin: _progress, end: target).animate(
       CurvedAnimation(parent: _settleController, curve: Curves.easeOutCubic),
     );
@@ -193,6 +237,7 @@ class _PageCurlViewState extends State<PageCurlView>
   }
 
   void _onAnimationStatusChanged(AnimationStatus status) {
+    _log('_onAnimationStatusChanged:status=$status direction=$_direction');
     if (status != AnimationStatus.completed || _direction == null) return;
     final completed = _completeOnRelease;
     final direction = _direction!;
@@ -208,6 +253,9 @@ class _PageCurlViewState extends State<PageCurlView>
     widget.onTurnFinished(
       PageTurnRequest(direction: direction, completed: completed),
     );
+    _log(
+      '_onAnimationStatusChanged:finished direction=$direction completed=$completed',
+    );
   }
 
   @override
@@ -219,15 +267,19 @@ class _PageCurlViewState extends State<PageCurlView>
             _phase == PageCurlPhase.dragging ||
             _phase == PageCurlPhase.settling;
         final direction = _direction;
-        final target = widget.targetPage;
+        final targetBuilder = widget.targetPageBuilder;
 
-        if (!interactive || direction == null || target == null) {
+        if (!interactive || direction == null || targetBuilder == null) {
           return GestureDetector(
             behavior: HitTestBehavior.translucent,
             onPanStart: _handlePanStart,
             onPanUpdate: _handlePanUpdate,
             onPanEnd: _handlePanEnd,
-            child: widget.currentPage,
+            child: _buildPageLayer(
+              context: context,
+              picture: widget.currentPagePicture,
+              fallbackBuilder: widget.currentPageBuilder,
+            ),
           );
         }
 
@@ -284,7 +336,11 @@ class _PageCurlViewState extends State<PageCurlView>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              target,
+              _buildPageLayer(
+                context: context,
+                picture: widget.targetPagePicture,
+                fallbackBuilder: targetBuilder,
+              ),
               Positioned.fill(
                 child: IgnorePointer(
                   child: ClipPath(
@@ -326,7 +382,11 @@ class _PageCurlViewState extends State<PageCurlView>
                     bottomFoldX: bottomFoldX,
                     tip: Offset(tipX, tipY),
                   ),
-                  child: widget.currentPage,
+                  child: _buildPageLayer(
+                    context: context,
+                    picture: widget.currentPagePicture,
+                    fallbackBuilder: widget.currentPageBuilder,
+                  ),
                 ),
               ),
               Positioned(
@@ -352,7 +412,29 @@ class _PageCurlViewState extends State<PageCurlView>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        widget.currentPage,
+                        _buildBackPageLayer(
+                          context: context,
+                          image: widget.currentPageImage,
+                          fallbackBuilder: widget.currentPageBuilder,
+                        ),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: isNext
+                                  ? Alignment.centerLeft
+                                  : Alignment.centerRight,
+                              end: isNext
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.18),
+                                Colors.black.withValues(alpha: 0.06),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.24, 0.72],
+                            ),
+                          ),
+                        ),
                         DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -400,6 +482,62 @@ class _PageCurlViewState extends State<PageCurlView>
                                 Colors.black.withValues(alpha: 0.08),
                               ],
                               stops: const [0.0, 0.35, 1.0],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: isNext ? 0 : null,
+                          right: isNext ? null : 0,
+                          top: 0,
+                          bottom: 0,
+                          width: math.min(18.0, flapWidth * 0.20),
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: isNext
+                                      ? Alignment.centerLeft
+                                      : Alignment.centerRight,
+                                  end: isNext
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
+                                  colors: [
+                                    const Color(0xFFB48E6C).withValues(
+                                      alpha: 0.62,
+                                    ),
+                                    const Color(0xFFE6D1BB).withValues(
+                                      alpha: 0.72,
+                                    ),
+                                    Colors.white.withValues(alpha: 0.18),
+                                  ],
+                                  stops: const [0.0, 0.46, 1.0],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: isNext ? 1 : null,
+                          right: isNext ? null : 1,
+                          top: 0,
+                          bottom: 0,
+                          width: math.min(6.0, flapWidth * 0.08),
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: isNext
+                                      ? Alignment.centerLeft
+                                      : Alignment.centerRight,
+                                  end: isNext
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.30),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -494,6 +632,79 @@ class _PageCurlViewState extends State<PageCurlView>
       lastPosition.dy.clamp(24.0, _viewport.height - 12).toDouble(),
     );
   }
+
+  Widget _buildPageLayer({
+    required BuildContext context,
+    required ui.Picture? picture,
+    required WidgetBuilder fallbackBuilder,
+  }) {
+    if (picture == null) return fallbackBuilder(context);
+    return SizedBox.expand(
+      child: RepaintBoundary(child: CustomPaint(painter: _PicturePainter(picture))),
+    );
+  }
+
+  Widget _buildBackPageLayer({
+    required BuildContext context,
+    required ui.Image? image,
+    required WidgetBuilder fallbackBuilder,
+  }) {
+    if (image == null) {
+      return _buildPageLayer(
+        context: context,
+        picture: widget.currentPagePicture,
+        fallbackBuilder: fallbackBuilder,
+      );
+    }
+    return SizedBox.expand(
+      child: RepaintBoundary(
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0),
+          child: CustomPaint(painter: _ImagePainter(image)),
+        ),
+      ),
+    );
+  }
+}
+
+class _PicturePainter extends CustomPainter {
+  const _PicturePainter(this.picture);
+
+  final ui.Picture picture;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawPicture(picture);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PicturePainter oldDelegate) {
+    return oldDelegate.picture != picture;
+  }
+}
+
+class _ImagePainter extends CustomPainter {
+  const _ImagePainter(this.image);
+
+  final ui.Image image;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      image.width.toDouble(),
+      image.height.toDouble(),
+    );
+    final dst = Offset.zero & size;
+    canvas.drawImageRect(image, src, dst, Paint()..filterQuality = FilterQuality.medium);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ImagePainter oldDelegate) {
+    return oldDelegate.image != image;
+  }
 }
 
 class _CurrentPageClipper extends CustomClipper<Path> {
@@ -511,18 +722,32 @@ class _CurrentPageClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
+    final upperCurveY = tip.dy * 0.42;
+    final lowerCurveY = tip.dy + (size.height - tip.dy) * 0.58;
+    final upperControlX = (topFoldX + tip.dx) / 2;
+    final lowerControlX = (bottomFoldX + tip.dx) / 2;
     final path = Path();
     if (direction == PageTurnDirection.next) {
       path.moveTo(0, 0);
       path.lineTo(topFoldX, 0);
-      path.lineTo(tip.dx, tip.dy);
-      path.lineTo(bottomFoldX, size.height);
+      path.quadraticBezierTo(upperControlX, upperCurveY, tip.dx, tip.dy);
+      path.quadraticBezierTo(
+        lowerControlX,
+        lowerCurveY,
+        bottomFoldX,
+        size.height,
+      );
       path.lineTo(0, size.height);
     } else {
       path.moveTo(size.width, 0);
       path.lineTo(topFoldX, 0);
-      path.lineTo(tip.dx, tip.dy);
-      path.lineTo(bottomFoldX, size.height);
+      path.quadraticBezierTo(upperControlX, upperCurveY, tip.dx, tip.dy);
+      path.quadraticBezierTo(
+        lowerControlX,
+        lowerCurveY,
+        bottomFoldX,
+        size.height,
+      );
       path.lineTo(size.width, size.height);
     }
     path.close();
@@ -555,18 +780,43 @@ class _PageFlapClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
+    final upperCurveY = tip.dy * 0.42;
+    final lowerCurveY = tip.dy + (size.height - tip.dy) * 0.58;
+    final upperControlX = (topFoldX + tip.dx) / 2;
+    final lowerControlX = (bottomFoldX + tip.dx) / 2;
     final path = Path();
     if (direction == PageTurnDirection.next) {
       path.moveTo(topFoldX - anchorLeft, 0);
       path.lineTo(size.width, 0);
       path.lineTo(size.width, size.height);
       path.lineTo(bottomFoldX - anchorLeft, size.height);
-      path.lineTo(tip.dx - anchorLeft, tip.dy);
+      path.quadraticBezierTo(
+        lowerControlX - anchorLeft,
+        lowerCurveY,
+        tip.dx - anchorLeft,
+        tip.dy,
+      );
+      path.quadraticBezierTo(
+        upperControlX - anchorLeft,
+        upperCurveY,
+        topFoldX - anchorLeft,
+        0,
+      );
     } else {
       path.moveTo(0, 0);
       path.lineTo(topFoldX - anchorLeft, 0);
-      path.lineTo(tip.dx - anchorLeft, tip.dy);
-      path.lineTo(bottomFoldX - anchorLeft, size.height);
+      path.quadraticBezierTo(
+        upperControlX - anchorLeft,
+        upperCurveY,
+        tip.dx - anchorLeft,
+        tip.dy,
+      );
+      path.quadraticBezierTo(
+        lowerControlX - anchorLeft,
+        lowerCurveY,
+        bottomFoldX - anchorLeft,
+        size.height,
+      );
       path.lineTo(0, size.height);
     }
     path.close();
@@ -601,26 +851,78 @@ class _PageBedShadowClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
+    final upperCurveY = tip.dy * 0.42;
+    final lowerCurveY = tip.dy + (size.height - tip.dy) * 0.58;
     if (direction == PageTurnDirection.next) {
       final topOuter = math.max(0.0, topFoldX - shadowDepth);
       final midOuter = math.max(0.0, tip.dx - shadowDepth * 0.38);
       final bottomOuter = math.max(0.0, bottomFoldX - shadowDepth);
+      final outerUpperControlX = (topOuter + midOuter) / 2;
+      final outerLowerControlX = (bottomOuter + midOuter) / 2;
+      final innerUpperControlX = (topFoldX + tip.dx) / 2;
+      final innerLowerControlX = (bottomFoldX + tip.dx) / 2;
       path.moveTo(topOuter, 0);
       path.lineTo(topFoldX, 0);
-      path.lineTo(tip.dx, tip.dy);
-      path.lineTo(bottomFoldX, size.height);
+      path.quadraticBezierTo(
+        innerUpperControlX,
+        upperCurveY,
+        tip.dx,
+        tip.dy,
+      );
+      path.quadraticBezierTo(
+        innerLowerControlX,
+        lowerCurveY,
+        bottomFoldX,
+        size.height,
+      );
       path.lineTo(bottomOuter, size.height);
-      path.lineTo(midOuter, tip.dy);
+      path.quadraticBezierTo(
+        outerLowerControlX,
+        lowerCurveY,
+        midOuter,
+        tip.dy,
+      );
+      path.quadraticBezierTo(
+        outerUpperControlX,
+        upperCurveY,
+        topOuter,
+        0,
+      );
     } else {
       final topOuter = math.min(size.width, topFoldX + shadowDepth);
       final midOuter = math.min(size.width, tip.dx + shadowDepth * 0.38);
       final bottomOuter = math.min(size.width, bottomFoldX + shadowDepth);
+      final outerUpperControlX = (topOuter + midOuter) / 2;
+      final outerLowerControlX = (bottomOuter + midOuter) / 2;
+      final innerUpperControlX = (topFoldX + tip.dx) / 2;
+      final innerLowerControlX = (bottomFoldX + tip.dx) / 2;
       path.moveTo(topFoldX, 0);
       path.lineTo(topOuter, 0);
-      path.lineTo(midOuter, tip.dy);
-      path.lineTo(bottomOuter, size.height);
+      path.quadraticBezierTo(
+        outerUpperControlX,
+        upperCurveY,
+        midOuter,
+        tip.dy,
+      );
+      path.quadraticBezierTo(
+        outerLowerControlX,
+        lowerCurveY,
+        bottomOuter,
+        size.height,
+      );
       path.lineTo(bottomFoldX, size.height);
-      path.lineTo(tip.dx, tip.dy);
+      path.quadraticBezierTo(
+        innerLowerControlX,
+        lowerCurveY,
+        tip.dx,
+        tip.dy,
+      );
+      path.quadraticBezierTo(
+        innerUpperControlX,
+        upperCurveY,
+        topFoldX,
+        0,
+      );
     }
     path.close();
     return path;
