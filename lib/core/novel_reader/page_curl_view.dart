@@ -227,76 +227,7 @@ class _PageCurlViewState extends State<PageCurlView>
             onPanStart: _handlePanStart,
             onPanUpdate: _handlePanUpdate,
             onPanEnd: _handlePanEnd,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                widget.currentPage,
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: math.max(56.0, _viewport.width * 0.18),
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            Colors.transparent,
-                            Colors.transparent,
-                            widget.canTurnNext
-                                ? Colors.black.withValues(alpha: 0.03)
-                                : Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.72, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: math.max(56.0, _viewport.width * 0.18),
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerRight,
-                          end: Alignment.centerLeft,
-                          colors: [
-                            Colors.transparent,
-                            Colors.transparent,
-                            widget.canTurnPrevious
-                                ? Colors.black.withValues(alpha: 0.03)
-                                : Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.72, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: _CornerHint(
-                    alignment: Alignment.bottomRight,
-                    active: widget.canTurnNext,
-                  ),
-                ),
-                Positioned(
-                  left: 16,
-                  bottom: 16,
-                  child: _CornerHint(
-                    alignment: Alignment.bottomLeft,
-                    active: widget.canTurnPrevious,
-                  ),
-                ),
-              ],
-            ),
+            child: widget.currentPage,
           );
         }
 
@@ -702,47 +633,5 @@ class _PageBedShadowClipper extends CustomClipper<Path> {
         bottomFoldX != oldClipper.bottomFoldX ||
         tip != oldClipper.tip ||
         shadowDepth != oldClipper.shadowDepth;
-  }
-}
-
-class _CornerHint extends StatelessWidget {
-  const _CornerHint({required this.alignment, required this.active});
-
-  final Alignment alignment;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final isRight = alignment == Alignment.bottomRight;
-    return IgnorePointer(
-      child: AnimatedOpacity(
-        opacity: active ? 1 : 0,
-        duration: const Duration(milliseconds: 160),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(isRight ? 24 : 8),
-              topRight: Radius.circular(isRight ? 8 : 24),
-              bottomLeft: const Radius.circular(24),
-              bottomRight: const Radius.circular(24),
-            ),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white.withValues(alpha: 0.12),
-                Colors.black.withValues(alpha: 0.08),
-              ],
-            ),
-          ),
-          child: Icon(
-            isRight ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
-            color: Colors.black45,
-          ),
-        ),
-      ),
-    );
   }
 }
