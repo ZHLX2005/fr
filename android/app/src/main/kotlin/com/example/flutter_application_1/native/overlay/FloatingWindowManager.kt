@@ -206,6 +206,7 @@ class FloatingWindowManager : Service() {
     var apiKey: String = ""
     var model: String = "glm-4v-flash"
     var systemPrompt: String = "你是一个专业的AI助手，请根据图片回答用户问题。"
+    var directScreenshotMode: Boolean = false
 
     companion object {
         const val CHANNEL_ID = "FloatingWindowChannel"
@@ -255,6 +256,7 @@ class FloatingWindowManager : Service() {
             apiKey = prefs.getString("api_key", apiKey) ?: apiKey
             model = prefs.getString("model", model) ?: model
             systemPrompt = prefs.getString("system_prompt", systemPrompt) ?: systemPrompt
+            directScreenshotMode = prefs.getBoolean("direct_screenshot", false)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -466,7 +468,11 @@ class FloatingWindowManager : Service() {
                         // 防抖：距离上次点击超过 300ms
                         if (currentTime - lastTapTime > 300) {
                             lastTapTime = currentTime
-                            showSelectionOverlay()
+                            if (directScreenshotMode) {
+                                captureScreen()
+                            } else {
+                                showSelectionOverlay()
+                            }
                         }
                     }
                     true
