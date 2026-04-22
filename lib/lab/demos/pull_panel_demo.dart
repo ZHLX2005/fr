@@ -775,16 +775,24 @@ class _PanelContent extends StatelessWidget {
               onHandleDragEnd(details.velocity.pixelsPerSecond.dy);
             },
             onVerticalDragCancel: () => onHandleDragEnd(0.0),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              child: _PanelHandle(
-                progress: progress,
-                refreshProgress: refreshProgress,
-                readyToRefresh: readyToRefresh,
-                readyToOpen: readyToOpen,
-                refreshing: refreshing,
-                closeProgress: closeProgress,
-                showCloseCue: showCloseCue,
+            child: SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                child: Center(
+                  child: _PanelHandle(
+                    progress: progress,
+                    refreshProgress: refreshProgress,
+                    readyToRefresh: readyToRefresh,
+                    readyToOpen: readyToOpen,
+                    refreshing: refreshing,
+                    closeProgress: closeProgress,
+                    showCloseCue: showCloseCue,
+                  ),
+                ),
               ),
             ),
           ),
