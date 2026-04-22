@@ -176,8 +176,6 @@ class FloatingWindowManager : Service() {
     private var floatingView: View? = null
     private var params: WindowManager.LayoutParams? = null
     private var mediaProjection: MediaProjection? = null
-    private var virtualDisplay: VirtualDisplay? = null
-    private var imageReader: ImageReader? = null
     private lateinit var handler: Handler
     private val thread = HandlerThread("FloatingWindowThread").apply { start() }
 
@@ -523,9 +521,10 @@ class FloatingWindowManager : Service() {
 
     /**
      * ★ 全屏截图（使用常驻截屏资源）
+     * 根据 directScreenshotMode 决定是保存到图库还是触发 AI 问答
      */
     private fun startScreenCaptureForFullScreen() {
-        android.util.Log.d("FloatingWindow", ">>> startScreenCaptureForFullScreen, captureInitialized=$captureInitialized")
+        android.util.Log.d("FloatingWindow", ">>> startScreenCaptureForFullScreen, captureInitialized=$captureInitialized, directScreenshotMode=$directScreenshotMode")
 
         if (!captureInitialized) {
             handler.post {
@@ -545,11 +544,21 @@ class FloatingWindowManager : Service() {
             return
         }
 
-        // 保存截图
-        saveBitmap(bitmap)
-
-        // 重新显示悬浮窗
-        showFloatingWindow()
+        if (directScreenshotMode) {
+            // 直接截图模式：触发 AI 问答流程（不保存到图库）
+            pendingBitmap = bitmap
+            // 使用全屏坐标（全0，即完整图片）
+            selectionStartX = 0
+            selectionStartY = 0
+            selectionEndX = bitmap.width
+            selectionEndY = bitmap.height
+            cropAndSendBitmap(bitmap.width, bitmap.height)
+        } else {
+            // 非直接截图模式：保存到图库
+            saveBitmap(bitmap)
+            // 重新显示悬浮窗
+            showFloatingWindow()
+        }
     }
 
     private fun saveBitmap(bitmap: android.graphics.Bitmap) {
@@ -798,19 +807,6 @@ class FloatingWindowManager : Service() {
         captureImageReader = null
         captureInitialized = false
 
-        // 旧的兼容资源也清理
-        try {
-            virtualDisplay?.release()
-        } catch (e: Exception) {
-            // 忽略
-        }
-        try {
-            imageReader?.close()
-        } catch (e: Exception) {
-            // 忽略
-        }
-        virtualDisplay = null
-        imageReader = null
     }
 
     fun hideFloatingWindow() {
@@ -1288,24 +1284,6 @@ class FloatingWindowManager : Service() {
         }
     }
 
-    /**
-     * 发送区域截图数据给 Flutter
-     */
-    private fun notifyFlutterRegionCaptured(byteArray: ByteArray) {
-        try {
-            val intent = Intent("com.example.flutter_application_1.REGION_CAPTURED").apply {
-                putExtra("data", byteArray)
-                putExtra("left", minOf(selectionStartX, selectionEndX))
-                putExtra("top", minOf(selectionStartY, selectionEndY))
-                putExtra("right", maxOf(selectionStartX, selectionEndX))
-                putExtra("bottom", maxOf(selectionStartY, selectionEndY))
-                setPackage(packageName)
-            }
-            sendBroadcast(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
 
     /**
      * 保存截图到图库（供 Flutter 调用）
