@@ -36,6 +36,7 @@ class FloatingWindowManager : Service() {
     private var windowManager: WindowManager? = null
     private var floatingView: View? = null
     private var selectionOverlay: View? = null
+    private var chatOverlayView: View? = null
     private var params: WindowManager.LayoutParams? = null
     private var mediaProjection: MediaProjection? = null
 
@@ -448,6 +449,7 @@ class FloatingWindowManager : Service() {
                 showFloatingWindow()
             }
         }
+        chatOverlayView = chatView
         ai.setChatOverlay(chatView)
 
         val params = WindowManager.LayoutParams(
@@ -467,6 +469,12 @@ class FloatingWindowManager : Service() {
     }
 
     private fun hideChatOverlay() {
+        chatOverlayView?.let {
+            try {
+                windowManager?.removeView(it)
+            } catch (e: Exception) { /* 忽略 */ }
+            chatOverlayView = null
+        }
         ai.setChatOverlay(null)
     }
 
