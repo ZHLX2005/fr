@@ -518,19 +518,6 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
     _runAction(_sm.endPanelDrag(velocityDy: velocityDy));
   }
 
-  void _onPanelContentOverscroll(double overscroll, double fullHeight) {
-    if (_isRefreshing) return;
-    if (_sm.state == PullPanelState.expanded) {
-      _sm.beginPanelDrag();
-    }
-    _sm.updatePanelDrag(deltaDy: -overscroll, fullHeight: fullHeight);
-    setState(() {});
-  }
-
-  void _onPanelContentDragEnd() {
-    _runAction(_sm.endPanelDrag(velocityDy: 0.0));
-  }
-
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -626,10 +613,6 @@ class _PullPanelDemoPageState extends State<PullPanelDemoPage>
                         onHandleDragEnd: (velocityDy) {
                           _onPanelHandleDragEnd(velocityDy);
                         },
-                        onBottomOverscroll: (overscroll) {
-                          _onPanelContentOverscroll(overscroll, screenHeight);
-                        },
-                        onPanelScrollEnd: _onPanelContentDragEnd,
                       ),
                     ],
                   ),
@@ -686,8 +669,6 @@ class _PanelContent extends StatelessWidget {
   final VoidCallback onHandleDragStart;
   final ValueChanged<double> onHandleDragUpdate;
   final ValueChanged<double> onHandleDragEnd;
-  final ValueChanged<double> onBottomOverscroll;
-  final VoidCallback onPanelScrollEnd;
 
   const _PanelContent({
     required this.scrollController,
@@ -702,13 +683,10 @@ class _PanelContent extends StatelessWidget {
     required this.onHandleDragStart,
     required this.onHandleDragUpdate,
     required this.onHandleDragEnd,
-    required this.onBottomOverscroll,
-    required this.onPanelScrollEnd,
   });
 
   @override
   Widget build(BuildContext context) {
-    final contentBlur = ((1.0 - progress) * 16.0).clamp(0.0, 16.0);
     final contentOverlayOpacity = ((1.0 - progress) * 0.18).clamp(0.0, 0.18);
     final contentOffset = (1.0 - progress) * 16.0;
     final contentScale = 0.5 + (progress * 0.5);
@@ -721,92 +699,49 @@ class _PanelContent extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               ClipRect(
-                  child: IgnorePointer(
-                    ignoring: !scrollable,
-                      child: NotificationListener<ScrollNotification>(
-                      onNotification: (notification) {
-                        if (!scrollable) return false;
-                        if (!scrollController.hasClients) return false;
-
-                        final position = scrollController.position;
-                        final nearBottom = position.extentAfter <= 0.5;
-
-                        if (notification is ScrollUpdateNotification &&
-                            nearBottom &&
-                            notification.dragDetails != null) {
-                          final dragDy = notification.dragDetails!.delta.dy;
-                          if (dragDy < 0) {
-                            onBottomOverscroll(-dragDy);
-                            return true;
-                          }
-                        }
-
-                        if (notification is OverscrollNotification &&
-                            nearBottom &&
-                            notification.dragDetails != null) {
-                          final dragDy = notification.dragDetails!.delta.dy;
-                          if (dragDy < 0) {
-                            onBottomOverscroll(-dragDy);
-                            return true;
-                          }
-                        }
-
-                        if (notification is OverscrollNotification &&
-                            nearBottom &&
-                            notification.overscroll > 0) {
-                          onBottomOverscroll(notification.overscroll);
-                          return true;
-                        }
-
-                        if (notification is ScrollEndNotification) {
-                          onPanelScrollEnd();
-                        }
-
-                        return false;
-                      },
-                      child: Transform.translate(
-                        offset: Offset(0, contentOffset),
-                        child: Opacity(
-                          opacity: contentOpacity,
-                          child: Transform.scale(
-                            scale: contentScale.clamp(0.5, 1.0),
-                            alignment: Alignment.topCenter,
-                            child: ListView(
-                              controller: scrollController,
-                              physics: const BouncingScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
-                              children: const [
-                                _PanelHeroSection(),
-                                SizedBox(height: 18),
-                                _PanelSectionHeader(
-                                  eyebrow: 'CURATED',
-                                  title: 'Soft focus essentials',
-                                ),
-                                SizedBox(height: 12),
-                                _PanelFeatureGrid(),
-                                SizedBox(height: 18),
-                                _PanelSectionHeader(
-                                  eyebrow: 'QUICK STRIPS',
-                                  title: 'Small actions, warm materials',
-                                ),
-                                SizedBox(height: 12),
-                                _PanelActionChips(),
-                                SizedBox(height: 18),
-                                _PanelSectionHeader(
-                                  eyebrow: 'AMBIENCE',
-                                  title: 'A few slower, richer cards',
-                                ),
-                                SizedBox(height: 12),
-                                _PanelStoryRail(),
-                                SizedBox(height: 24),
-                              ],
+                child: IgnorePointer(
+                  ignoring: !scrollable,
+                  child: Transform.translate(
+                    offset: Offset(0, contentOffset),
+                    child: Opacity(
+                      opacity: contentOpacity,
+                      child: Transform.scale(
+                        scale: contentScale.clamp(0.5, 1.0),
+                        alignment: Alignment.topCenter,
+                        child: ListView(
+                          controller: scrollController,
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
+                          children: const [
+                            _PanelHeroSection(),
+                            SizedBox(height: 18),
+                            _PanelSectionHeader(
+                              eyebrow: 'CURATED',
+                              title: 'Soft focus essentials',
                             ),
-                          ),
+                            SizedBox(height: 12),
+                            _PanelFeatureGrid(),
+                            SizedBox(height: 18),
+                            _PanelSectionHeader(
+                              eyebrow: 'QUICK STRIPS',
+                              title: 'Small actions, warm materials',
+                            ),
+                            SizedBox(height: 12),
+                            _PanelActionChips(),
+                            SizedBox(height: 18),
+                            _PanelSectionHeader(
+                              eyebrow: 'AMBIENCE',
+                              title: 'A few slower, richer cards',
+                            ),
+                            SizedBox(height: 12),
+                            _PanelStoryRail(),
+                            SizedBox(height: 24),
+                          ],
                         ),
                       ),
                     ),
                   ),
-            
+                ),
               ),
               IgnorePointer(
                 child: DecoratedBox(
