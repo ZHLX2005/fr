@@ -67,6 +67,7 @@ class OverlayService {
     required String apiKey,
     required String model,
     required String systemPrompt,
+    bool directScreenshot = false,
   }) async {
     try {
       await _channel.invokeMethod('saveAiConfig', {
@@ -74,6 +75,7 @@ class OverlayService {
         'apiKey': apiKey,
         'model': model,
         'systemPrompt': systemPrompt,
+        'directScreenshot': directScreenshot,
       });
     } on PlatformException catch (e) {
       debugPrint('保存配置失败: ${e.message}');
@@ -81,7 +83,7 @@ class OverlayService {
   }
 
   /// 加载 AI 配置（用于回填表单）
-  Future<Map<String, String>> loadAiConfig() async {
+  Future<Map<String, dynamic>> loadAiConfig() async {
     const defaultApiUrl =
         'https://open.bigmodel.cn/api/paas/v4/chat/completions';
     const defaultModel = 'glm-4v-flash';
@@ -96,6 +98,7 @@ class OverlayService {
         final apiKey = result['apiKey'] as String?;
         final model = result['model'] as String?;
         final systemPrompt = result['systemPrompt'] as String?;
+        final directScreenshot = result['directScreenshot'] as bool? ?? false;
 
         return {
           'apiUrl': (apiUrl != null && apiUrl.isNotEmpty)
@@ -104,6 +107,7 @@ class OverlayService {
           'apiKey': apiKey ?? '',
           'model': (model != null && model.isNotEmpty) ? model : defaultModel,
           'systemPrompt': systemPrompt ?? defaultSystemPrompt,
+          'directScreenshot': directScreenshot,
         };
       }
     } on PlatformException catch (e) {
@@ -114,6 +118,7 @@ class OverlayService {
       'apiKey': '',
       'model': defaultModel,
       'systemPrompt': defaultSystemPrompt,
+      'directScreenshot': false,
     };
   }
 
