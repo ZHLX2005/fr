@@ -187,11 +187,11 @@ class MainActivity : FlutterActivity() {
 
                     // 同时更新 FloatingWindowManager 实例的配置
                     FloatingWindowManager.getInstance()?.apply {
-                        this.apiUrl = apiUrl
-                        this.apiKey = apiKey
-                        this.model = model
-                        this.systemPrompt = systemPrompt
-                        this.directScreenshotMode = directScreenshot
+                        ai.apiUrl = apiUrl
+                        ai.apiKey = apiKey
+                        ai.model = model
+                        ai.systemPrompt = systemPrompt
+                        directScreenshotMode = directScreenshot
                     }
 
                     result.success(true)
