@@ -253,7 +253,6 @@ class LabPullPanelStateMachine {
   }
 }
 
-const _kBackgroundColor = Color(0xFFF5EFEA);
 const _kPanelGradientTop = Color(0xFFF8F3EE);
 const _kPanelGradientMiddle = Color(0xFFEFE6DD);
 const _kPanelGradientBottom = Color(0xFFE4D6C8);
@@ -474,9 +473,10 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final demos = demoRegistry.getAll();
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: _kBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Lab'),
         actions: [
