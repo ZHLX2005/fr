@@ -119,7 +119,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          '时间课表',
+          '时间周期',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
@@ -478,7 +478,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('课表设置'),
+        title: const Text('时间配置'),
         backgroundColor: TimetableColors.surface,
         foregroundColor: TimetableColors.textPrimary,
       ),
@@ -832,7 +832,7 @@ class _CoursePreviewSheet extends StatelessWidget {
                       color: theme.colorScheme.outline,
                     ),
                     label: Text(
-                      '编辑课程',
+                      '编辑ITEM',
                       style: TextStyle(color: theme.colorScheme.outline),
                     ),
                   ),

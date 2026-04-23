@@ -1,6 +1,6 @@
 import '../domain/models.dart';
 
-/// 课表仓储接口
+/// 时间周期仓储接口
 abstract class TimetableRepository {
   /// 加载配置
   Future<TimetableConfig> loadConfig();

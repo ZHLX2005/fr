@@ -150,7 +150,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isEditing ? '编辑课程' : '添加课程',
+                            isEditing ? '编辑ITEM' : '添加ITEM',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: TimetableColors.textPrimary,
@@ -217,7 +217,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           controller: _locationController,
                           style: const TextStyle(fontSize: 14),
                           decoration: InputDecoration(
-                            labelText: '上课地点',
+                            labelText: '地点',
                             hintText: '例如：教学楼A101',
                             prefixIcon: const Icon(
                               Icons.location_on_outlined,
@@ -233,8 +233,8 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                           controller: _teacherController,
                           style: const TextStyle(fontSize: 14),
                           decoration: InputDecoration(
-                            labelText: '授课教师',
-                            hintText: '例如：张老师',
+                            labelText: '老师',
+                            hintText: 'xx',
                             prefixIcon: const Icon(
                               Icons.person_outline,
                               size: 18,
