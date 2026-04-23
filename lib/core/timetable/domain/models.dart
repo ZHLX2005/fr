@@ -11,6 +11,7 @@ class TimetableConfig {
     this.id = 'default',
     this.updatedAt,
     this.backgroundImagePath,
+    this.isSchoolMode = false,
   });
 
   /// ISO 8601 日期字符串 (YYYY-MM-DD)
@@ -30,6 +31,9 @@ class TimetableConfig {
   /// 背景图路径
   final String? backgroundImagePath;
 
+  /// 学校模式（约束：固定7天，周一起始）
+  final bool isSchoolMode;
+
   TimetableConfig copyWith({
     String? startDateIso,
     int? cycleCount,
@@ -39,6 +43,7 @@ class TimetableConfig {
     int? updatedAt,
     String? backgroundImagePath,
     bool clearBackgroundImage = false,
+    bool? isSchoolMode,
   }) {
     return TimetableConfig(
       startDateIso: startDateIso ?? this.startDateIso,
@@ -50,6 +55,7 @@ class TimetableConfig {
       backgroundImagePath: clearBackgroundImage
           ? null
           : (backgroundImagePath ?? this.backgroundImagePath),
+      isSchoolMode: isSchoolMode ?? this.isSchoolMode,
     );
   }
 
@@ -62,6 +68,7 @@ class TimetableConfig {
     cycleCount: 4,
     daysPerCycle: 7,
     slotsPerDay: 6,
+    isSchoolMode: false,
   );
 
   /// 约束
