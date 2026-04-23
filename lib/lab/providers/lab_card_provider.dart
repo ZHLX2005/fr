@@ -1,10 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Lab 卡片背景图片管理器
-/// 负责管理每个 demo 卡片的背景图片配置
 class LabCardProvider with ChangeNotifier {
   static const String _storageKey = 'lab_card_backgrounds';
+  static const String _favoritesKey = 'lab_card_favorites';
   static LabCardProvider? _instance;
 
   factory LabCardProvider() {
@@ -13,37 +12,39 @@ class LabCardProvider with ChangeNotifier {
   }
 
   LabCardProvider._internal() : _isLoaded = false {
-    _loadBackgrounds();
+    _loadData();
   }
 
-  /// 数据是否已从持久化加载完成
   bool _isLoaded;
   bool get isLoaded => _isLoaded;
 
-  /// 数据加载完成后触发（用于外部 await）
   Future<void> get onLoaded async {
     while (!_isLoaded) {
       await Future.delayed(const Duration(milliseconds: 50));
     }
   }
 
-  // 存储 demo 标题 -> 背景图片 URL 的映射
   final Map<String, String> _backgrounds = {};
+  final Set<String> _favorites = <String>{};
 
-  /// 获取指定卡片的背景图片 URL 或本地路径
   String? getBackground(String demoTitle) {
     return _backgrounds[demoTitle];
   }
 
-  /// 判断背景是否为本地文件
+  bool isFavorite(String demoTitle) {
+    return _favorites.contains(demoTitle);
+  }
+
+  List<String> getFavorites() {
+    return _favorites.toList()..sort();
+  }
+
   bool isLocalFile(String demoTitle) {
     final path = _backgrounds[demoTitle];
     if (path == null) return false;
-    // 本地文件路径通常以 / 开头或包含应用目录
     return path.startsWith('/') || path.contains('applicationDocuments');
   }
 
-  /// 设置指定卡片的背景图片 URL
   Future<void> setBackground(String demoTitle, String? imageUrl) async {
     if (imageUrl == null || imageUrl.isEmpty) {
       _backgrounds.remove(demoTitle);
@@ -54,24 +55,35 @@ class LabCardProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 移除指定卡片的背景图片
   Future<void> removeBackground(String demoTitle) async {
     _backgrounds.remove(demoTitle);
     await _saveBackgrounds();
     notifyListeners();
   }
 
-  /// 清除所有背景图片
-  Future<void> clearAll() async {
-    _backgrounds.clear();
-    await _saveBackgrounds();
+  Future<void> setFavorite(String demoTitle, bool value) async {
+    if (value) {
+      _favorites.add(demoTitle);
+    } else {
+      _favorites.remove(demoTitle);
+    }
+    await _saveFavorites();
     notifyListeners();
   }
 
-  /// 从持久化存储加载背景配置
-  Future<void> _loadBackgrounds() async {
+  Future<void> clearAll() async {
+    _backgrounds.clear();
+    _favorites.clear();
+    await _saveBackgrounds();
+    await _saveFavorites();
+    notifyListeners();
+  }
+
+  Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString(_storageKey);
+    final favorites = prefs.getStringList(_favoritesKey);
+
     if (data != null && data.isNotEmpty) {
       try {
         final Map<String, dynamic> json = {};
@@ -82,20 +94,23 @@ class LabCardProvider with ChangeNotifier {
             json[parts[0]] = parts[1];
           }
         }
-        _backgrounds.clear();
-        json.forEach((key, value) {
-          _backgrounds[key] = value as String;
-        });
+        _backgrounds
+          ..clear()
+          ..addAll(json.map((key, value) => MapEntry(key, value as String)));
       } catch (e) {
         if (kDebugMode) {
-          print('加载背景配置失败: $e');
+          print('Failed to load lab card backgrounds: $e');
         }
       }
     }
+
+    _favorites
+      ..clear()
+      ..addAll(favorites ?? const <String>[]);
+
     _isLoaded = true;
   }
 
-  /// 保存背景配置到持久化存储
   Future<void> _saveBackgrounds() async {
     final prefs = await SharedPreferences.getInstance();
     final data = _backgrounds.entries
@@ -104,7 +119,11 @@ class LabCardProvider with ChangeNotifier {
     await prefs.setString(_storageKey, data);
   }
 
-  /// 预设的背景图片列表
+  Future<void> _saveFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_favoritesKey, getFavorites());
+  }
+
   static const List<String> presetImages = [
     'https://picsum.photos/seed/demo1/400/300',
     'https://picsum.photos/seed/demo2/400/300',
