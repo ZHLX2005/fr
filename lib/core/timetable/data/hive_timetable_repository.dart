@@ -61,6 +61,7 @@ class HiveTimetableRepository extends TimetableRepository {
       id: map['id'] as String? ?? 'default',
       updatedAt: map['updatedAt'] as int?,
       backgroundImagePath: map['backgroundImagePath'] as String?,
+      isSchoolMode: map['isSchoolMode'] as bool? ?? false,
     );
   }
 
@@ -78,6 +79,7 @@ class HiveTimetableRepository extends TimetableRepository {
       'id': config.id,
       'updatedAt': config.updatedAt,
       'backgroundImagePath': config.backgroundImagePath,
+      'isSchoolMode': config.isSchoolMode,
     });
     debugPrint('HiveTimetableRepository.saveConfig: 配置已保存');
   }

@@ -100,12 +100,51 @@ class TimetableStore extends StateNotifier<TimetableState> {
     }
   }
 
+  /// 清空所有课程
+  Future<void> clearAllItems() async {
+    final newItems = <String, CourseItem>{};
+    state = state.copyWith(items: newItems);
+    try {
+      await _repo.saveItems([]);
+    } catch (e) {
+      // 失败时恢复（简化处理：不做回滚）
+    }
+  }
+
+  /// 导出所有课程为 DSL 文本
+  String exportToDsl() {
+    final buffer = StringBuffer();
+
+    for (final item in state.items.values) {
+      final dayOfCycle = item.dayOfCycle + 1; // 1-based
+      final slotStart = item.slotIndex + 1;
+      final slotEnd = item.slotIndex + 1;
+      final slotStr = slotStart == slotEnd ? '$slotStart' : '$slotStart-$slotEnd';
+
+      final weeks = item.visibleInCycles != null && item.visibleInCycles!.isNotEmpty
+          ? 'w${item.visibleInCycles!.map((i) => i + 1).join(",")}'
+          : '';
+
+      final location = item.location ?? '';
+      final teacher = item.teacher ?? '';
+
+      final parts = [item.title, '@', '$dayOfCycle', slotStr, weeks, location, teacher]
+          .where((p) => p.isNotEmpty)
+          .toList();
+
+      buffer.writeln(parts.join(' '));
+    }
+
+    return buffer.toString();
+  }
+
   /// 更新配置
   Future<String?> updateConfig({
     String? startDateIso,
     int? cycleCount,
     int? daysPerCycle,
     int? slotsPerDay,
+    bool? isSchoolMode,
   }) async {
     final oldConfig = state.config;
 
@@ -157,6 +196,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
       ),
       daysPerCycle: newDaysPerCycle,
       slotsPerDay: newSlotsPerDay,
+      isSchoolMode: isSchoolMode,
     );
 
     // 保存配置
