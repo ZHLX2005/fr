@@ -55,3 +55,5 @@ app.*.map.json
 
 # Generated chart files (need manual adjustment) - but committed charts are in git
 # assets/charts/*.json
+PROJECT_INDEX.json
+PROJECT_INDEX.md
