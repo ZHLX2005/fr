@@ -1,28 +1,481 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+
 import '../../lab/lab_container.dart';
 import '../../lab/providers/lab_card_provider.dart';
-import '../../widgets/image_picker_widget.dart';
 import '../../services/lab_image_cache_service.dart';
+import '../../widgets/image_picker_widget.dart';
 
-/// 实验室页面 - 开发者验证 Demo 入口
-class LabPage extends StatelessWidget {
+enum LabPullPanelState {
+  collapsed,
+  draggingMain,
+  draggingPanel,
+  settling,
+  expanded,
+}
+
+enum LabPullPanelActionType { none, animateTo }
+
+class LabPullPanelAction {
+  final LabPullPanelActionType type;
+  final double? targetProgress;
+
+  const LabPullPanelAction._(this.type, {this.targetProgress});
+
+  const LabPullPanelAction.none() : this._(LabPullPanelActionType.none);
+
+  const LabPullPanelAction.animateTo(double target)
+    : this._(LabPullPanelActionType.animateTo, targetProgress: target);
+}
+
+class LabPullPanelMetrics {
+  static const double topEpsilon = 0.5;
+  static const double mainDragDeadZone = 8.0;
+  static const double panelDragDeadZone = 8.0;
+  static const double collapsedEpsilon = 0.001;
+  static const double openThreshold = 0.22;
+  static const double closeThresholdPx = 96.0;
+  static const double velocityOpen = 500;
+  static const double velocityClose = -500;
+  static const double dragDamping = 0.8;
+  static const double overdragResistance = 0.10;
+  static const double mainPushRatio = 0.60;
+
+  const LabPullPanelMetrics._();
+
+  static double applyDrag({
+    required double currentProgress,
+    required double deltaDy,
+    required double fullHeight,
+  }) {
+    final panelRangePx = fullHeight;
+    final dampedDelta = deltaDy * dragDamping;
+    final raw = currentProgress * panelRangePx + dampedDelta;
+
+    double resisted = raw;
+    if (raw > panelRangePx) {
+      resisted = panelRangePx + (raw - panelRangePx) * overdragResistance;
+    } else if (raw < 0) {
+      resisted = raw * overdragResistance;
+    }
+
+    return (resisted / panelRangePx).clamp(0.0, 1.0);
+  }
+}
+
+class LabPullPanelStateMachine {
+  LabPullPanelState _state = LabPullPanelState.collapsed;
+  double _progress = 0.0;
+  double _pendingMainDragDy = 0.0;
+  double _pendingPanelDragDy = 0.0;
+  double _panelDragDistancePx = 0.0;
+
+  LabPullPanelState get state => _state;
+  double get progress => _progress;
+
+  bool get mainInteractive =>
+      _state == LabPullPanelState.collapsed ||
+      _state == LabPullPanelState.draggingMain;
+
+  bool get panelScrollable =>
+      _state == LabPullPanelState.expanded ||
+      _state == LabPullPanelState.draggingPanel;
+
+  bool get showMainCue =>
+      _state == LabPullPanelState.collapsed ||
+      _state == LabPullPanelState.draggingMain;
+
+  bool get showCloseCue =>
+      _state == LabPullPanelState.expanded ||
+      _state == LabPullPanelState.draggingPanel;
+
+  bool get readyToOpen => _progress >= LabPullPanelMetrics.openThreshold;
+
+  double get closeProgress {
+    if (_progress >= 1.0) return 0.0;
+    return ((1.0 - _progress) / LabPullPanelMetrics.openThreshold)
+        .clamp(0.0, 1.0);
+  }
+
+  void syncProgress(double value) {
+    _progress = value.clamp(0.0, 1.0);
+    if (_progress <= 0.0 && _state != LabPullPanelState.settling) {
+      _state = LabPullPanelState.collapsed;
+    }
+  }
+
+  void beginMainDrag() {
+    if (_state == LabPullPanelState.settling ||
+        _state == LabPullPanelState.expanded ||
+        _state == LabPullPanelState.draggingPanel) {
+      return;
+    }
+    _pendingMainDragDy = 0.0;
+  }
+
+  void updateMainDrag({required double deltaDy, required double fullHeight}) {
+    var effectiveDeltaDy = deltaDy;
+
+    if (_state != LabPullPanelState.draggingMain) {
+      _pendingMainDragDy += effectiveDeltaDy;
+      final passedDeadZone =
+          _pendingMainDragDy.abs() >= LabPullPanelMetrics.mainDragDeadZone;
+      if (!passedDeadZone) return;
+
+      if (_pendingMainDragDy <= 0) {
+        _pendingMainDragDy = 0.0;
+        return;
+      }
+
+      _state = LabPullPanelState.draggingMain;
+      effectiveDeltaDy = _pendingMainDragDy;
+      _pendingMainDragDy = 0.0;
+    }
+
+    _progress = LabPullPanelMetrics.applyDrag(
+      currentProgress: _progress,
+      deltaDy: effectiveDeltaDy,
+      fullHeight: fullHeight,
+    );
+  }
+
+  LabPullPanelAction endMainDrag({required double velocityDy}) {
+    if (_state != LabPullPanelState.draggingMain) {
+      _pendingMainDragDy = 0.0;
+      if (_progress <= LabPullPanelMetrics.collapsedEpsilon) {
+        _progress = 0.0;
+        _state = LabPullPanelState.collapsed;
+      }
+      return const LabPullPanelAction.none();
+    }
+
+    _pendingMainDragDy = 0.0;
+
+    if (_progress <= LabPullPanelMetrics.collapsedEpsilon) {
+      _progress = 0.0;
+      _state = LabPullPanelState.collapsed;
+      return const LabPullPanelAction.none();
+    }
+
+    final shouldOpen =
+        _progress >= LabPullPanelMetrics.openThreshold ||
+        velocityDy > LabPullPanelMetrics.velocityOpen;
+
+    _state = LabPullPanelState.settling;
+    return LabPullPanelAction.animateTo(shouldOpen ? 1.0 : 0.0);
+  }
+
+  void beginPanelDrag() {
+    if (_state == LabPullPanelState.draggingPanel) return;
+    if (_state == LabPullPanelState.settling ||
+        _state == LabPullPanelState.collapsed ||
+        _state == LabPullPanelState.draggingMain) {
+      return;
+    }
+    _pendingPanelDragDy = 0.0;
+    _panelDragDistancePx = 0.0;
+  }
+
+  void updatePanelDrag({
+    required double deltaDy,
+    required double fullHeight,
+  }) {
+    if (_state != LabPullPanelState.expanded &&
+        _state != LabPullPanelState.draggingPanel) {
+      return;
+    }
+
+    var effectiveDeltaDy = deltaDy;
+
+    if (_state != LabPullPanelState.draggingPanel) {
+      _pendingPanelDragDy += effectiveDeltaDy;
+      final passedDeadZone =
+          _pendingPanelDragDy.abs() >= LabPullPanelMetrics.panelDragDeadZone;
+      if (!passedDeadZone) return;
+
+      if (_pendingPanelDragDy >= 0) {
+        _pendingPanelDragDy = 0.0;
+        return;
+      }
+
+      _state = LabPullPanelState.draggingPanel;
+      effectiveDeltaDy = _pendingPanelDragDy;
+      _pendingPanelDragDy = 0.0;
+    }
+
+    _state = LabPullPanelState.draggingPanel;
+    if (effectiveDeltaDy < 0) {
+      _panelDragDistancePx += -effectiveDeltaDy;
+    }
+    _progress = LabPullPanelMetrics.applyDrag(
+      currentProgress: _progress,
+      deltaDy: effectiveDeltaDy,
+      fullHeight: fullHeight,
+    );
+  }
+
+  LabPullPanelAction endPanelDrag({required double velocityDy}) {
+    if (_state != LabPullPanelState.draggingPanel) {
+      _pendingPanelDragDy = 0.0;
+      _panelDragDistancePx = 0.0;
+      return const LabPullPanelAction.none();
+    }
+
+    _pendingPanelDragDy = 0.0;
+    _state = LabPullPanelState.settling;
+    final shouldClose =
+        _panelDragDistancePx >= LabPullPanelMetrics.closeThresholdPx ||
+        velocityDy < LabPullPanelMetrics.velocityClose;
+    _panelDragDistancePx = 0.0;
+    return LabPullPanelAction.animateTo(shouldClose ? 0.0 : 1.0);
+  }
+
+  void onAnimationStarted() {
+    _pendingMainDragDy = 0.0;
+    _pendingPanelDragDy = 0.0;
+    _panelDragDistancePx = 0.0;
+    _state = LabPullPanelState.settling;
+  }
+
+  void onAnimationCompleted(double targetProgress) {
+    _pendingMainDragDy = 0.0;
+    _pendingPanelDragDy = 0.0;
+    _panelDragDistancePx = 0.0;
+    _progress = targetProgress.clamp(0.0, 1.0);
+    if (_progress <= 0.0) {
+      _state = LabPullPanelState.collapsed;
+    } else if (_progress >= 1.0) {
+      _state = LabPullPanelState.expanded;
+    } else {
+      _state = LabPullPanelState.collapsed;
+    }
+  }
+}
+
+const _kBackgroundColor = Color(0xFFF5EFEA);
+const _kPanelGradientTop = Color(0xFFF8F3EE);
+const _kPanelGradientMiddle = Color(0xFFEFE6DD);
+const _kPanelGradientBottom = Color(0xFFE4D6C8);
+const _kPanelBorderColor = Color(0x59FFFFFF);
+const _kAccentColor = Color(0xFFC88A5A);
+const _kAccentSoftColor = Color(0xFFD9A97C);
+const _kAccentDeepColor = Color(0xFF8B5E3C);
+const _kPanelTextColor = Color(0xFF5E4735);
+const _kPanelMutedTextColor = Color(0xFF8E7561);
+const _kCardBaseColor = Color(0xF2FFFCF8);
+const _kAnimationDuration = Duration(milliseconds: 260);
+const _kWaveDuration = Duration(seconds: 2);
+
+class LabPage extends StatefulWidget {
   const LabPage({super.key});
 
   @override
+  State<LabPage> createState() => _LabPageState();
+}
+
+class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
+  final LabPullPanelStateMachine _sm = LabPullPanelStateMachine();
+  final ScrollController _gridScrollController = ScrollController();
+  final ScrollController _panelScrollController = ScrollController();
+
+  late final AnimationController _anim = AnimationController(
+    vsync: this,
+    duration: _kAnimationDuration,
+  )..addStatusListener(_onAnimationStatusChanged);
+
+  late final AnimationController _waveController = AnimationController(
+    vsync: this,
+    duration: _kWaveDuration,
+  )..repeat();
+
+  Animation<double>? _progressAnim;
+  double? _pendingAnimationTarget;
+  double _estimatedVelocityDy = 0.0;
+  double _lastPointerY = 0.0;
+  DateTime? _lastPointerTime;
+
+  double get _progress => _sm.progress;
+
+  @override
+  void dispose() {
+    _progressAnim?.removeListener(_onAnimTick);
+    _anim.dispose();
+    _waveController.dispose();
+    _gridScrollController.dispose();
+    _panelScrollController.dispose();
+    super.dispose();
+  }
+
+  void _stopCurrentAnimation() {
+    if (_anim.isAnimating) {
+      _anim.stop();
+    }
+    _progressAnim?.removeListener(_onAnimTick);
+    _progressAnim = null;
+    _pendingAnimationTarget = null;
+    _sm.syncProgress(_progress);
+  }
+
+  void _animateTo(double target) {
+    _stopCurrentAnimation();
+    _pendingAnimationTarget = target;
+    _sm.onAnimationStarted();
+
+    _progressAnim = Tween<double>(
+      begin: _progress,
+      end: target,
+    ).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
+    )..addListener(_onAnimTick);
+
+    setState(() {});
+    _anim.forward(from: 0.0);
+  }
+
+  void _onAnimTick() {
+    final animation = _progressAnim;
+    if (animation == null) return;
+    _sm.syncProgress(animation.value);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onAnimationStatusChanged(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    final target = _pendingAnimationTarget;
+    if (target == null) return;
+
+    _progressAnim?.removeListener(_onAnimTick);
+    _progressAnim = null;
+    _pendingAnimationTarget = null;
+    _sm.onAnimationCompleted(target);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _runAction(LabPullPanelAction action) {
+    switch (action.type) {
+      case LabPullPanelActionType.none:
+        setState(() {});
+      case LabPullPanelActionType.animateTo:
+        _animateTo(action.targetProgress!);
+    }
+  }
+
+  void _trackVelocity(double currentY) {
+    final now = DateTime.now();
+    final lastTime = _lastPointerTime;
+    if (lastTime != null) {
+      final dtMs = now.difference(lastTime).inMilliseconds;
+      if (dtMs > 0) {
+        final dy = currentY - _lastPointerY;
+        _estimatedVelocityDy = dy / dtMs * 1000;
+      }
+    }
+    _lastPointerY = currentY;
+    _lastPointerTime = now;
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    _lastPointerY = event.position.dy;
+    _lastPointerTime = DateTime.now();
+    _estimatedVelocityDy = 0.0;
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    _trackVelocity(event.position.dy);
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    if (_sm.state == LabPullPanelState.draggingMain) {
+      _runAction(_sm.endMainDrag(velocityDy: _estimatedVelocityDy));
+    }
+  }
+
+  bool _onMainContentNotification(
+    ScrollNotification notification,
+    double fullHeight,
+  ) {
+    if (!_gridScrollController.hasClients) return false;
+    if (!_sm.mainInteractive) return false;
+
+    final atTop =
+        _gridScrollController.position.extentBefore <=
+        LabPullPanelMetrics.topEpsilon;
+
+    if (!atTop) return false;
+
+    if (notification is ScrollStartNotification) {
+      _stopCurrentAnimation();
+      _sm.beginMainDrag();
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null) {
+      final dy = notification.dragDetails!.delta.dy;
+      if (dy > 0) {
+        _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
+        setState(() {});
+        return true;
+      }
+    }
+
+    if (notification is OverscrollNotification &&
+        notification.dragDetails != null) {
+      final dy = notification.dragDetails!.delta.dy;
+      if (dy > 0) {
+        _stopCurrentAnimation();
+        _sm.beginMainDrag();
+        _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
+        setState(() {});
+        return true;
+      }
+    }
+
+    if (notification is ScrollEndNotification &&
+        _sm.state == LabPullPanelState.draggingMain) {
+      _runAction(_sm.endMainDrag(velocityDy: _estimatedVelocityDy));
+      return true;
+    }
+
+    return false;
+  }
+
+  void _onPanelHandleDragStart() {
+    _stopCurrentAnimation();
+    _sm.beginPanelDrag();
+    setState(() {});
+  }
+
+  void _onPanelHandleDragUpdate(double deltaDy, double fullHeight) {
+    if (deltaDy >= 0) return;
+    _sm.updatePanelDrag(deltaDy: deltaDy, fullHeight: fullHeight);
+    setState(() {});
+  }
+
+  void _onPanelHandleDragEnd(double velocityDy) {
+    _runAction(_sm.endPanelDrag(velocityDy: velocityDy));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final demos = demoRegistry.getAll();
 
     return Scaffold(
+      backgroundColor: _kBackgroundColor,
       appBar: AppBar(
-        title: const Text('实验室'),
+        title: const Text('Lab'),
         actions: [
           IconButton(
             icon: const Icon(Icons.cleaning_services_outlined),
             onPressed: () => _showCacheInfo(context),
-            tooltip: '缓存管理',
+            tooltip: 'Cache',
           ),
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -30,9 +483,106 @@ class LabPage extends StatelessWidget {
           ),
         ],
       ),
-      body: demos.isEmpty
-          ? _buildEmptyState(theme)
-          : _buildDemoGrid(context, demos, theme),
+      body: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _onPointerUp,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final fullHeight = constraints.maxHeight;
+            final mainPush =
+                fullHeight * LabPullPanelMetrics.mainPushRatio * _progress;
+            final panelHeight = fullHeight * _progress;
+            final mainScale = 1.0 - (_progress * 0.02);
+
+            return Stack(
+              children: [
+                Transform.translate(
+                  offset: Offset(0, mainPush),
+                  child: Transform.scale(
+                    scale: mainScale,
+                    alignment: Alignment.topCenter,
+                    child: IgnorePointer(
+                      ignoring: !_sm.mainInteractive,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          return _onMainContentNotification(
+                            notification,
+                            fullHeight,
+                          );
+                        },
+                        child: Stack(
+                          children: [
+                            if (demos.isEmpty)
+                              _buildEmptyState(Theme.of(context))
+                            else
+                              _buildDemoGrid(demos),
+                            Positioned.fill(
+                              child: Center(
+                                child: _MainPullCue(
+                                  progress: _progress,
+                                  phase: _waveController.value,
+                                  visible: _sm.showMainCue,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: panelHeight,
+                  child: ClipRect(
+                    child: Stack(
+                      children: [
+                        const Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  _kPanelGradientTop,
+                                  _kPanelGradientMiddle,
+                                  _kPanelGradientBottom,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _PanelSurfacePainter(progress: _progress),
+                          ),
+                        ),
+                        _LabPanelContent(
+                          scrollController: _panelScrollController,
+                          demos: demos,
+                          scrollable: _sm.panelScrollable,
+                          progress: _progress,
+                          readyToOpen: _sm.readyToOpen,
+                          closeProgress: _sm.closeProgress,
+                          showCloseCue: _sm.showCloseCue,
+                          onHandleDragStart: _onPanelHandleDragStart,
+                          onHandleDragUpdate: (deltaDy) {
+                            _onPanelHandleDragUpdate(deltaDy, fullHeight);
+                          },
+                          onHandleDragEnd: _onPanelHandleDragEnd,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -48,14 +598,14 @@ class LabPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '暂无可用 Demo',
+            'No demos available',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.outline,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '请在 main.dart 中注册 Demo',
+            'Register demos in main.dart first.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.outline,
             ),
@@ -65,12 +615,14 @@ class LabPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDemoGrid(
-    BuildContext context,
-    List<MapEntry<String, DemoPage>> demos,
-    ThemeData theme,
-  ) {
-    return _ScrollRevealGrid(demos: demos);
+  Widget _buildDemoGrid(List<MapEntry<String, DemoPage>> demos) {
+    return _ScrollRevealGrid(
+      demos: demos,
+      controller: _gridScrollController,
+      physics: _sm.mainInteractive
+          ? const BouncingScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+    );
   }
 
   void _showLabInfo(BuildContext context) {
@@ -78,23 +630,23 @@ class LabPage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Row(
-          children: [Icon(Icons.science), SizedBox(width: 8), Text('开发者实验室')],
+          children: [Icon(Icons.science), SizedBox(width: 8), Text('Lab Info')],
         ),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('这是一个用于验证和测试新功能的开发者工具。'),
+            Text('This page hosts demos and experimental features.'),
             SizedBox(height: 12),
-            Text('• 所有 Demo 页面独立运行'),
-            Text('• 使用 IoC 容器管理'),
-            Text('• 不会影响主应用'),
+            Text('- Each demo runs independently'),
+            Text('- Managed by the lab registry'),
+            Text('- Safe to iterate without touching the main flow'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('知道了'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -115,36 +667,36 @@ class LabPage extends StatelessWidget {
           children: [
             Icon(Icons.cleaning_services),
             SizedBox(width: 8),
-            Text('图片缓存'),
+            Text('Image Cache'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('缓存大小: ${_formatBytes(cacheSize)}'),
+            Text('Cache size: ${_formatBytes(cacheSize)}'),
             const SizedBox(height: 8),
-            const Text('缩略图可显著提升大图片加载性能'),
+            const Text('Thumbnails improve large-image loading performance.'),
             const SizedBox(height: 12),
-            const Text('清除缓存后，图片将重新生成缩略图'),
+            const Text('Clearing cache will regenerate preview images.'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () async {
               await cacheService.clearCache();
               if (context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('缓存已清除')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Cache cleared')),
+                );
               }
             },
-            child: const Text('清除缓存'),
+            child: const Text('Clear Cache'),
           ),
         ],
       ),
@@ -154,13 +706,371 @@ class LabPage extends StatelessWidget {
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
 
-/// Demo 卡片组件
+class _LabPanelContent extends StatelessWidget {
+  final ScrollController scrollController;
+  final List<MapEntry<String, DemoPage>> demos;
+  final bool scrollable;
+  final double progress;
+  final bool readyToOpen;
+  final double closeProgress;
+  final bool showCloseCue;
+  final VoidCallback onHandleDragStart;
+  final ValueChanged<double> onHandleDragUpdate;
+  final ValueChanged<double> onHandleDragEnd;
+
+  const _LabPanelContent({
+    required this.scrollController,
+    required this.demos,
+    required this.scrollable,
+    required this.progress,
+    required this.readyToOpen,
+    required this.closeProgress,
+    required this.showCloseCue,
+    required this.onHandleDragStart,
+    required this.onHandleDragUpdate,
+    required this.onHandleDragEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final contentOffset = (1.0 - progress) * 16.0;
+    final contentScale = 0.5 + (progress * 0.5);
+    final contentOpacity = progress.clamp(0.0, 1.0);
+    final topTitles = demos.take(5).map((entry) => entry.value.title).toList();
+
+    return Column(
+      children: [
+        Expanded(
+          child: IgnorePointer(
+            ignoring: !scrollable,
+            child: Transform.translate(
+              offset: Offset(0, contentOffset),
+              child: Opacity(
+                opacity: contentOpacity,
+                child: Transform.scale(
+                  scale: contentScale.clamp(0.5, 1.0),
+                  alignment: Alignment.topCenter,
+                  child: ListView(
+                    controller: scrollController,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(18, 24, 18, 20),
+                    children: [
+                      _LabPanelHeroCard(
+                        demoCount: demos.length,
+                        topLabel: topTitles.isNotEmpty
+                            ? topTitles.first
+                            : 'No demos',
+                      ),
+                      const SizedBox(height: 18),
+                      const _PanelSectionHeader(
+                        eyebrow: 'REGISTRY',
+                        title: 'Quick read of the lab space',
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _ActionChip(
+                            icon: Icons.widgets_outlined,
+                            label: '${demos.length} demos',
+                          ),
+                          const _ActionChip(
+                            icon: Icons.vertical_align_top,
+                            label: 'Top overscroll opens',
+                          ),
+                          const _ActionChip(
+                            icon: Icons.pan_tool_alt_outlined,
+                            label: 'Handle drag closes',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      const _PanelSectionHeader(
+                        eyebrow: 'RECENT',
+                        title: 'Registered demo entries',
+                      ),
+                      const SizedBox(height: 12),
+                      for (final demo in topTitles)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _StoryCard(
+                            icon: Icons.chevron_right,
+                            title: demo,
+                            body:
+                                'Registry entry available from the Lab grid and this pull panel.',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragStart: (_) => onHandleDragStart(),
+            onVerticalDragUpdate: (details) {
+              onHandleDragUpdate(details.delta.dy);
+            },
+            onVerticalDragEnd: (details) {
+              onHandleDragEnd(details.velocity.pixelsPerSecond.dy);
+            },
+            onVerticalDragCancel: () => onHandleDragEnd(0.0),
+            child: SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                child: Center(
+                  child: _PanelHandle(
+                    progress: progress,
+                    readyToOpen: readyToOpen,
+                    closeProgress: closeProgress,
+                    showCloseCue: showCloseCue,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LabPanelHeroCard extends StatelessWidget {
+  final int demoCount;
+  final String topLabel;
+
+  const _LabPanelHeroCard({
+    required this.demoCount,
+    required this.topLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.44)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Lab Overview',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: _kPanelTextColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'The panel opens with the same threshold, damping and close handle feel as the pull panel demo.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: _kPanelMutedTextColor,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              _MetricPill(label: 'Demos', value: '$demoCount'),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetricPill(label: 'First', value: topLabel),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _MetricPill({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: _kCardBaseColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _kPanelBorderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: _kPanelMutedTextColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: _kPanelTextColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PanelSectionHeader extends StatelessWidget {
+  final String eyebrow;
+  final String title;
+
+  const _PanelSectionHeader({required this.eyebrow, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          eyebrow,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: _kPanelMutedTextColor,
+            letterSpacing: 1.4,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: _kPanelTextColor,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _ActionChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.50)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: _kAccentDeepColor),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: _kPanelTextColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+
+  const _StoryCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.44)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: _kAccentSoftColor.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: _kAccentDeepColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: _kPanelTextColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    color: _kPanelMutedTextColor,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DemoCard extends StatefulWidget {
   final String title;
   final String description;
@@ -211,7 +1121,6 @@ class _DemoCardState extends State<_DemoCard> {
     }
   }
 
-  /// 预加载背景图片
   Future<void> _preloadImage() async {
     final backgroundUrl = _provider.getBackground(widget.title);
     if (backgroundUrl != null && _provider.isLocalFile(widget.title)) {
@@ -247,14 +1156,12 @@ class _DemoCardState extends State<_DemoCard> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // 背景图片
               if (backgroundUrl != null && backgroundUrl.isNotEmpty)
                 Positioned.fill(
                   child: isLocalFile
                       ? _buildLocalImage(backgroundUrl, theme)
                       : _buildNetworkImage(backgroundUrl, theme),
                 ),
-              // 渐变遮罩（确保文字可读）
               if (backgroundUrl != null && backgroundUrl.isNotEmpty)
                 Positioned.fill(
                   child: Container(
@@ -263,14 +1170,13 @@ class _DemoCardState extends State<_DemoCard> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.3),
-                          Colors.black.withOpacity(0.6),
+                          Colors.black.withValues(alpha: 0.3),
+                          Colors.black.withValues(alpha: 0.6),
                         ],
                       ),
                     ),
                   ),
                 ),
-              // 内容
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -300,7 +1206,9 @@ class _DemoCardState extends State<_DemoCard> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: backgroundUrl != null
                               ? Colors.white70
-                              : theme.colorScheme.onSurface.withOpacity(0.7),
+                              : theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                ),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -323,18 +1231,17 @@ class _DemoCardState extends State<_DemoCard> {
       errorBuilder: (context, error, stackTrace) => Container(),
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
-        return Container(color: theme.colorScheme.surfaceVariant);
+        return Container(color: theme.colorScheme.surfaceContainerHighest);
       },
     );
   }
 
   Widget _buildLocalImage(String path, ThemeData theme) {
-    // 如果有缓存的缩略图，使用缩略图
     if (_cachedImageBytes != null) {
       return Image.memory(
         _cachedImageBytes!,
         fit: BoxFit.cover,
-        gaplessPlayback: true, // 防止图片切换时闪烁
+        gaplessPlayback: true,
         errorBuilder: (context, error, stackTrace) => Container(
           color: theme.colorScheme.surfaceContainerHighest,
           child: const Icon(Icons.broken_image),
@@ -342,7 +1249,6 @@ class _DemoCardState extends State<_DemoCard> {
       );
     }
 
-    // 降级到原图（首次加载）
     return Image.file(
       File(path),
       fit: BoxFit.cover,
@@ -363,7 +1269,6 @@ class _DemoCardState extends State<_DemoCard> {
     );
   }
 
-  /// 显示背景设置对话框
   void _showBackgroundDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -384,7 +1289,6 @@ class _DemoCardState extends State<_DemoCard> {
   }
 }
 
-/// 背景图片设置底部面板
 class _BackgroundSettingSheet extends StatefulWidget {
   final String? currentUrl;
   final bool isLocalFile;
@@ -418,18 +1322,17 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 标题栏
           Row(
             children: [
               const Icon(Icons.image, size: 24),
               const SizedBox(width: 8),
-              Text('设置背景图片', style: theme.textTheme.titleLarge),
+              Text('Set Background Image', style: theme.textTheme.titleLarge),
               const Spacer(),
               if (widget.currentUrl != null)
                 TextButton.icon(
                   onPressed: widget.onRemove,
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('移除'),
+                  label: const Text('Remove'),
                 ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
@@ -439,8 +1342,6 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           ),
           const Divider(),
           const SizedBox(height: 12),
-
-          // 本地图片选择和裁剪按钮
           Row(
             children: [
               Expanded(
@@ -453,7 +1354,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.crop),
-                  label: const Text('选择并裁剪'),
+                  label: const Text('Pick And Crop'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -464,7 +1365,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                 child: OutlinedButton.icon(
                   onPressed: _isLoading ? null : _pickLocalImage,
                   icon: const Icon(Icons.photo_library),
-                  label: const Text('仅选择'),
+                  label: const Text('Pick Only'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -473,9 +1374,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
             ],
           ),
           const SizedBox(height: 16),
-
-          // 自定义 URL 输入
-          Text('自定义图片 URL', style: theme.textTheme.titleSmall),
+          Text('Custom Image URL', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -503,14 +1402,12 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('应用'),
+                    : const Text('Apply'),
               ),
             ],
           ),
           const SizedBox(height: 16),
-
-          // 预设图片
-          Text('预设图片', style: theme.textTheme.titleSmall),
+          Text('Preset Images', style: theme.textTheme.titleSmall),
           const SizedBox(height: 12),
           Expanded(
             child: GridView.builder(
@@ -537,7 +1434,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               Container(
-                                color: theme.colorScheme.surfaceVariant,
+                                color: theme.colorScheme.surfaceContainerHighest,
                                 child: const Icon(Icons.broken_image),
                               ),
                         ),
@@ -545,7 +1442,9 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                       if (isSelected)
                         Container(
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withOpacity(0.5),
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.5,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
@@ -565,7 +1464,6 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
     );
   }
 
-  /// 选择并裁剪图片
   Future<void> _pickAndCropImage() async {
     setState(() => _isLoading = true);
     try {
@@ -577,9 +1475,9 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           lockAspectRatio: false,
         ),
         initialImagePath: widget.isLocalFile ? widget.currentUrl : null,
-        title: '设置卡片背景',
-        emptyStateHint: '选择背景图片',
-        emptyStateSubHint: '可自由调整裁剪区域',
+        title: 'Set Card Background',
+        emptyStateHint: 'Select a background image',
+        emptyStateSubHint: 'Freely adjust the crop area',
       );
       if (imagePath != null) {
         await widget.onImageSelected(imagePath);
@@ -589,7 +1487,6 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
     }
   }
 
-  /// 仅选择图片（不裁剪）
   Future<void> _pickLocalImage() async {
     setState(() => _isLoading = true);
     try {
@@ -597,8 +1494,8 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
         context,
         config: const ImagePickerConfig(enableCrop: false),
         initialImagePath: widget.isLocalFile ? widget.currentUrl : null,
-        title: '选择背景图片',
-        emptyStateHint: '选择背景图片',
+        title: 'Select Background Image',
+        emptyStateHint: 'Select a background image',
         emptyStateSubHint: '',
       );
       if (imagePath != null) {
@@ -619,7 +1516,6 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
   }
 }
 
-/// Demo 详情页面
 class _DemoDetailPage extends StatelessWidget {
   final DemoPage demo;
 
@@ -659,7 +1555,7 @@ class _DemoDetailPage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -667,12 +1563,16 @@ class _DemoDetailPage extends StatelessWidget {
   }
 }
 
-/// 滑动渐入 Grid
-/// 一次性动画：控制器用完即销毁，零持续重建
 class _ScrollRevealGrid extends StatefulWidget {
-  const _ScrollRevealGrid({required this.demos});
+  const _ScrollRevealGrid({
+    required this.demos,
+    required this.controller,
+    required this.physics,
+  });
 
   final List<MapEntry<String, DemoPage>> demos;
+  final ScrollController controller;
+  final ScrollPhysics physics;
 
   @override
   State<_ScrollRevealGrid> createState() => _ScrollRevealGridState();
@@ -701,6 +1601,8 @@ class _ScrollRevealGridState extends State<_ScrollRevealGrid>
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
+      controller: widget.controller,
+      physics: widget.physics,
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -732,7 +1634,6 @@ class _ScrollRevealGridState extends State<_ScrollRevealGrid>
   }
 }
 
-/// 一次性渐入动画：动画完成后完全退出，不占帧率
 class _RevealItem extends StatefulWidget {
   const _RevealItem({
     required this.index,
@@ -749,12 +1650,9 @@ class _RevealItem extends StatefulWidget {
 }
 
 class _RevealItemState extends State<_RevealItem> {
-  /// 交错延迟（秒）
   double get _delay => (widget.index * 0.06).clamp(0.0, 0.72);
-  /// 动画时长（秒）
   double get _dur => 0.28;
 
-  /// 纯计算进度，不 rebuild
   double _progress(double t) {
     final start = _delay;
     final end = start + _dur;
@@ -765,14 +1663,11 @@ class _RevealItemState extends State<_RevealItem> {
 
   @override
   Widget build(BuildContext context) {
-    // 用 AnimatedBuilder 只在 value 变化时 rebuild
-    // 动画完成后：opacity=1 + translate=0，控件直接返回 child，不再触发任何 rebuild
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
         final p = _progress(widget.controller.value);
         if (p >= 1.0) {
-          // 动画完成：直接返回 child，后续不再 rebuild
           return widget.child;
         }
         return Opacity(
@@ -784,5 +1679,348 @@ class _RevealItemState extends State<_RevealItem> {
         );
       },
     );
+  }
+}
+
+class _MainPullCue extends StatelessWidget {
+  final double progress;
+  final double phase;
+  final bool visible;
+
+  const _MainPullCue({
+    required this.progress,
+    required this.phase,
+    required this.visible,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final opacity = visible ? (1.0 - progress * 1.8).clamp(0.0, 1.0) : 0.0;
+    final bob = math.sin(phase * 2 * math.pi) * 6.0;
+    final ringSweep = (0.18 + progress * 0.72).clamp(0.18, 0.9);
+    final chevronSpread = 10 + progress * 18;
+
+    return IgnorePointer(
+      child: AnimatedOpacity(
+        opacity: opacity,
+        duration: const Duration(milliseconds: 160),
+        child: Transform.translate(
+          offset: Offset(0, bob),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 116,
+                height: 116,
+                child: CustomPaint(
+                  painter: _PullCuePainter(
+                    ringSweep: ringSweep,
+                    chevronSpread: chevronSpread,
+                    color: _kAccentColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: 68 - progress * 16,
+                height: 8 + progress * 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _kAccentDeepColor.withValues(alpha: 0.10),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PanelHandle extends StatelessWidget {
+  final double progress;
+  final bool readyToOpen;
+  final double closeProgress;
+  final bool showCloseCue;
+
+  const _PanelHandle({
+    required this.progress,
+    required this.readyToOpen,
+    required this.closeProgress,
+    required this.showCloseCue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final handleWidth = 40 + progress * 18 - closeProgress * 8;
+    final handleHeight = 4 + progress * 2;
+    final strokeColor = _kAccentDeepColor;
+    final bgColor = _kAccentColor.withValues(alpha: 0.12);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          width: handleWidth.clamp(30.0, 58.0),
+          height: handleHeight.clamp(4.0, 6.0),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.88),
+                _kAccentSoftColor.withValues(alpha: 0.68),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: _kAccentDeepColor.withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: 42,
+          height: 42,
+          child: CustomPaint(
+            painter: _HandleStatePainter(
+              progress: readyToOpen ? 1.0 : progress.clamp(0.0, 1.0),
+              closeProgress: closeProgress,
+              strokeColor: strokeColor,
+              bgColor: bgColor,
+              readyToOpen: readyToOpen,
+              showCloseCue: showCloseCue,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PanelSurfacePainter extends CustomPainter {
+  final double progress;
+
+  _PanelSurfacePainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final topGlowPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.72),
+          Colors.white.withValues(alpha: 0.10),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.28, 1.0],
+      ).createShader(Offset.zero & size);
+
+    final glowHeight = math.min(size.height, 180.0);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, glowHeight), topGlowPaint);
+
+    final waveDepth = (24.0 - progress * 12.0).clamp(10.0, 24.0);
+    final path = Path()..moveTo(0, 0);
+    path.quadraticBezierTo(
+      size.width * 0.22,
+      waveDepth,
+      size.width * 0.5,
+      waveDepth * 0.78,
+    );
+    path.quadraticBezierTo(size.width * 0.78, waveDepth * 0.52, size.width, 0);
+
+    final edgePaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          Colors.white.withValues(alpha: 0.95),
+          _kAccentSoftColor.withValues(alpha: 0.38),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, waveDepth));
+    canvas.drawPath(
+      path,
+      edgePaint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
+
+    final highlightPaint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.42),
+              Colors.white.withValues(alpha: 0.0),
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.5, glowHeight * 0.14),
+              radius: size.width * 0.48,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(size.width * 0.5, glowHeight * 0.14),
+      size.width * 0.48,
+      highlightPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PanelSurfacePainter oldDelegate) {
+    return progress != oldDelegate.progress;
+  }
+}
+
+class _PullCuePainter extends CustomPainter {
+  final double ringSweep;
+  final double chevronSpread;
+  final Color color;
+
+  _PullCuePainter({
+    required this.ringSweep,
+    required this.chevronSpread,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width * 0.28;
+
+    final ringPaint = Paint()
+      ..color = color.withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    final activePaint = Paint()
+      ..color = color.withValues(alpha: 0.72)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 4;
+
+    canvas.drawCircle(center, radius, ringPaint);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      math.pi * 2 * ringSweep,
+      false,
+      activePaint,
+    );
+
+    final chevronPaint = Paint()
+      ..color = color.withValues(alpha: 0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 4;
+
+    final topY = center.dy - chevronSpread * 0.7;
+    final midY = center.dy + chevronSpread * 0.15;
+    final bottomY = center.dy + chevronSpread;
+
+    final path = Path()
+      ..moveTo(center.dx - 14, topY)
+      ..lineTo(center.dx, midY)
+      ..lineTo(center.dx + 14, topY)
+      ..moveTo(center.dx - 10, midY)
+      ..lineTo(center.dx, bottomY)
+      ..lineTo(center.dx + 10, midY);
+
+    canvas.drawPath(path, chevronPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PullCuePainter oldDelegate) {
+    return ringSweep != oldDelegate.ringSweep ||
+        chevronSpread != oldDelegate.chevronSpread ||
+        color != oldDelegate.color;
+  }
+}
+
+class _HandleStatePainter extends CustomPainter {
+  final double progress;
+  final double closeProgress;
+  final Color strokeColor;
+  final Color bgColor;
+  final bool readyToOpen;
+  final bool showCloseCue;
+
+  _HandleStatePainter({
+    required this.progress,
+    required this.closeProgress,
+    required this.strokeColor,
+    required this.bgColor,
+    required this.readyToOpen,
+    required this.showCloseCue,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width / 2 - 3;
+
+    final basePaint = Paint()
+      ..color = bgColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawCircle(center, radius, basePaint);
+
+    final activePaint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = readyToOpen ? 4 : 3;
+
+    final sweep = readyToOpen ? 2 * math.pi : math.pi * 2 * progress;
+    if (sweep > 0.01) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        sweep,
+        false,
+        activePaint,
+      );
+    }
+
+    if (readyToOpen) {
+      final dotPaint = Paint()..color = strokeColor;
+      canvas.drawCircle(center, 4.5, dotPaint);
+      return;
+    }
+
+    final cuePaint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 2.8;
+
+    final direction = showCloseCue ? -1.0 : 1.0;
+    final spread = 7 + closeProgress * 4;
+    final path = Path()
+      ..moveTo(center.dx - 7, center.dy - spread * direction * 0.2)
+      ..lineTo(center.dx, center.dy + spread * direction * 0.45)
+      ..lineTo(center.dx + 7, center.dy - spread * direction * 0.2);
+    canvas.drawPath(path, cuePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HandleStatePainter oldDelegate) {
+    return progress != oldDelegate.progress ||
+        closeProgress != oldDelegate.closeProgress ||
+        strokeColor != oldDelegate.strokeColor ||
+        bgColor != oldDelegate.bgColor ||
+        readyToOpen != oldDelegate.readyToOpen ||
+        showCloseCue != oldDelegate.showCloseCue;
   }
 }
