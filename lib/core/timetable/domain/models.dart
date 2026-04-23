@@ -62,6 +62,28 @@ class TimetableConfig {
   /// 总天数
   int get totalDays => cycleCount * daysPerCycle;
 
+  /// 起始日期 DateTime
+  DateTime get startDate => DateTime.parse(startDateIso);
+
+  /// 截止日期（最后一天）
+  DateTime get endDate => startDate.add(Duration(days: totalDays - 1));
+
+  /// 今天所在周期索引（不在范围内返回 null）
+  int? get todayCycleIndex {
+    final now = DateTime.now();
+    final start = startDate;
+    final end = endDate;
+    if (now.isBefore(start) || now.isAfter(end)) return null;
+    final dayOffset = now.difference(start).inDays; // 0-based
+    return dayOffset ~/ daysPerCycle;
+  }
+
+  /// 今天是否在课表范围内
+  bool get isTodayInRange {
+    final now = DateTime.now();
+    return !now.isBefore(startDate) && !now.isAfter(endDate);
+  }
+
   /// 默认配置
   static const TimetableConfig defaultConfig = TimetableConfig(
     startDateIso: '2025-01-01',
