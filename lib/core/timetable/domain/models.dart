@@ -68,7 +68,7 @@ class TimetableConfig {
     cycleCount: 4,
     daysPerCycle: 7,
     slotsPerDay: 6,
-    isSchoolMode: false,
+    isSchoolMode: true,
   );
 
   /// 约束

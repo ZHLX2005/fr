@@ -5,6 +5,7 @@ import '../domain/models.dart';
 import 'timetable_store.dart';
 import 'timetable_colors.dart';
 import 'timetable_import_dialog.dart';
+import 'timetable_week_calculator.dart';
 
 /// 设置页面
 class TimetableSettingsPage extends ConsumerStatefulWidget {
@@ -355,6 +356,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   }
 
   Widget _buildDatePicker(ThemeData theme) {
+    if (_isSchoolMode) {
+      return _WeekCalculatorField(
+        controller: _startDateController,
+        onDateApplied: (date) {
+          setState(() {
+            _startDateController.text = date;
+          });
+        },
+      );
+    }
+
     return TextField(
       controller: _startDateController,
       style: const TextStyle(color: TimetableColors.textPrimary),
@@ -507,6 +519,71 @@ class _FixedLabel extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 学校模式：周数推算起始日期的入口字段
+class _WeekCalculatorField extends StatelessWidget {
+  const _WeekCalculatorField({
+    required this.controller,
+    required this.onDateApplied,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onDateApplied;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: () async {
+        final date = await showDialog<String>(
+          context: context,
+          builder: (_) => const WeekCalculatorDialog(),
+        );
+        if (date != null) {
+          onDateApplied(date);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: TimetableColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_month, color: TimetableColors.accent, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '起始日期（周一）',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: TimetableColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    controller.text,
+                    style: const TextStyle(
+                      color: TimetableColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: TimetableColors.textTertiary),
+          ],
+        ),
       ),
     );
   }
