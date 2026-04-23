@@ -80,16 +80,30 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                     padding: const EdgeInsets.fromLTRB(18, 24, 18, 20),
                     children: [
                       if (favoriteDemos.isNotEmpty)
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            for (final demo in favoriteDemos)
-                              _FavoriteDemoShortcut(
-                                demo: demo,
-                                onTap: () => widget.onDemoTap(demo),
-                              ),
-                          ],
+                        Builder(
+                          builder: (context) {
+                            debugPrint('Lab favorites grid forced columns=4');
+
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 4,
+                                    mainAxisSpacing: 8,
+                                    crossAxisSpacing: 8,
+                                    childAspectRatio: 0.92,
+                                  ),
+                              itemCount: favoriteDemos.length,
+                              itemBuilder: (context, index) {
+                                final demo = favoriteDemos[index];
+                                return _FavoriteDemoShortcut(
+                                  demo: demo,
+                                  onTap: () => widget.onDemoTap(demo),
+                                );
+                              },
+                            );
+                          },
                         )
                       else
                         const _PanelEmptyFavorites(),
@@ -150,40 +164,45 @@ class _FavoriteDemoShortcut extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Ink(
-            width: 88,
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+            width: double.infinity,
+            height: double.infinity,
+            padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
             decoration: BoxDecoration(
               color: Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
                     color: _kAccentSoftColor.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
                     Icons.star_rounded,
                     color: _kAccentDeepColor,
-                    size: 24,
+                    size: 18,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  demo.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: _kPanelTextColor,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1),
+                  child: Text(
+                    demo.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: _kPanelTextColor,
+                      fontWeight: FontWeight.w700,
+                      height: 1.0,
+                    ),
                   ),
                 ),
               ],
