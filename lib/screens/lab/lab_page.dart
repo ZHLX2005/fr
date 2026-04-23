@@ -1,28 +1,240 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+
 import '../../lab/lab_container.dart';
 import '../../lab/providers/lab_card_provider.dart';
-import '../../widgets/image_picker_widget.dart';
 import '../../services/lab_image_cache_service.dart';
+import '../../widgets/image_picker_widget.dart';
 
-/// 实验室页面 - 开发者验证 Demo 入口
-class LabPage extends StatelessWidget {
+part '../../lab/lab_page/components.dart';
+part '../../lab/lab_page/panel_content.dart';
+part '../../lab/lab_page/panel_state.dart';
+
+class LabPage extends StatefulWidget {
   const LabPage({super.key});
 
   @override
+  State<LabPage> createState() => _LabPageState();
+}
+
+class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
+  final LabPullPanelStateMachine _sm = LabPullPanelStateMachine();
+  final ScrollController _gridScrollController = ScrollController();
+  final ScrollController _panelScrollController = ScrollController();
+
+  late final AnimationController _anim = AnimationController(
+    vsync: this,
+    duration: _kAnimationDuration,
+  )..addStatusListener(_onAnimationStatusChanged);
+
+  late final AnimationController _waveController = AnimationController(
+    vsync: this,
+    duration: _kWaveDuration,
+  )..repeat();
+
+  Animation<double>? _progressAnim;
+  double? _pendingAnimationTarget;
+  double _estimatedVelocityDy = 0.0;
+  double _lastPointerY = 0.0;
+  DateTime? _lastPointerTime;
+  double _lastViewportHeight = 0.0;
+
+  double get _progress => _sm.progress;
+
+  @override
+  void dispose() {
+    _progressAnim?.removeListener(_onAnimTick);
+    _anim.dispose();
+    _waveController.dispose();
+    _gridScrollController.dispose();
+    _panelScrollController.dispose();
+    super.dispose();
+  }
+
+  void _stopCurrentAnimation() {
+    if (_anim.isAnimating) {
+      _anim.stop();
+    }
+    _progressAnim?.removeListener(_onAnimTick);
+    _progressAnim = null;
+    _pendingAnimationTarget = null;
+    _sm.syncProgress(_progress);
+  }
+
+  void _animateTo(double target) {
+    _stopCurrentAnimation();
+    _pendingAnimationTarget = target;
+    _sm.onAnimationStarted();
+
+    _progressAnim = Tween<double>(begin: _progress, end: target).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
+    )..addListener(_onAnimTick);
+
+    setState(() {});
+    _anim.forward(from: 0.0);
+  }
+
+  void _onAnimTick() {
+    final animation = _progressAnim;
+    if (animation == null) return;
+    _sm.syncProgress(animation.value);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onAnimationStatusChanged(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    final target = _pendingAnimationTarget;
+    if (target == null) return;
+
+    _progressAnim?.removeListener(_onAnimTick);
+    _progressAnim = null;
+    _pendingAnimationTarget = null;
+    _sm.onAnimationCompleted(target);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _runAction(LabPullPanelAction action) {
+    switch (action.type) {
+      case LabPullPanelActionType.none:
+        setState(() {});
+      case LabPullPanelActionType.animateTo:
+        _animateTo(action.targetProgress!);
+    }
+  }
+
+  void _trackVelocity(double currentY) {
+    final now = DateTime.now();
+    final lastTime = _lastPointerTime;
+    if (lastTime != null) {
+      final dtMs = now.difference(lastTime).inMilliseconds;
+      if (dtMs > 0) {
+        final dy = currentY - _lastPointerY;
+        _estimatedVelocityDy = dy / dtMs * 1000;
+      }
+    }
+    _lastPointerY = currentY;
+    _lastPointerTime = now;
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    _lastPointerY = event.position.dy;
+    _lastPointerTime = DateTime.now();
+    _estimatedVelocityDy = 0.0;
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    _trackVelocity(event.position.dy);
+
+    if (_sm.state == LabPullPanelState.draggingMain &&
+        _lastViewportHeight > 0) {
+      _sm.updateMainDrag(
+        deltaDy: event.delta.dy,
+        fullHeight: _lastViewportHeight,
+      );
+      setState(() {});
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    if (_sm.state == LabPullPanelState.draggingMain) {
+      _runAction(_sm.endMainDrag(velocityDy: _estimatedVelocityDy));
+    }
+  }
+
+  bool _onMainContentNotification(
+    ScrollNotification notification,
+    double fullHeight,
+  ) {
+    if (!_gridScrollController.hasClients) return false;
+    if (!_sm.mainContentInteractive) return false;
+
+    final atTop =
+        _gridScrollController.position.extentBefore <=
+        LabPullPanelMetrics.topEpsilon;
+
+    if (!atTop) return false;
+
+    if (notification is ScrollStartNotification) {
+      _stopCurrentAnimation();
+      _sm.beginMainDrag();
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null) {
+      final dy = notification.dragDetails!.delta.dy;
+      if (dy > 0) {
+        _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
+        setState(() {});
+        return true;
+      }
+    }
+
+    if (notification is OverscrollNotification &&
+        notification.dragDetails != null) {
+      final dy = notification.dragDetails!.delta.dy;
+      if (dy > 0) {
+        _stopCurrentAnimation();
+        _sm.beginMainDrag();
+        _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
+        setState(() {});
+        return true;
+      }
+    }
+
+    if (notification is ScrollEndNotification &&
+        _sm.state == LabPullPanelState.draggingMain) {
+      _runAction(_sm.endMainDrag(velocityDy: _estimatedVelocityDy));
+      return true;
+    }
+
+    return false;
+  }
+
+  void _onPanelHandleDragStart() {
+    _stopCurrentAnimation();
+    _sm.beginPanelDrag();
+    setState(() {});
+  }
+
+  void _onPanelHandleDragUpdate(double deltaDy, double fullHeight) {
+    if (deltaDy >= 0) return;
+    _sm.updatePanelDrag(deltaDy: deltaDy, fullHeight: fullHeight);
+    setState(() {});
+  }
+
+  void _onPanelHandleDragEnd(double velocityDy) {
+    _runAction(_sm.endPanelDrag(velocityDy: velocityDy));
+  }
+
+  void _openDemoPage(BuildContext context, DemoPage demo) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => _DemoDetailPage(demo: demo)),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final demos = demoRegistry.getAll();
+    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('实验室'),
+        title: const Text('Lab'),
         actions: [
           IconButton(
             icon: const Icon(Icons.cleaning_services_outlined),
             onPressed: () => _showCacheInfo(context),
-            tooltip: '缓存管理',
+            tooltip: 'Cache',
           ),
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -30,9 +242,94 @@ class LabPage extends StatelessWidget {
           ),
         ],
       ),
-      body: demos.isEmpty
-          ? _buildEmptyState(theme)
-          : _buildDemoGrid(context, demos, theme),
+      body: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _onPointerUp,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final fullHeight = constraints.maxHeight;
+            _lastViewportHeight = fullHeight;
+            final mainPush =
+                fullHeight * LabPullPanelMetrics.mainPushRatio * _progress;
+            final panelHeight = fullHeight * _progress;
+
+            return Stack(
+              children: [
+                Transform.translate(
+                  offset: Offset(0, mainPush),
+                  child: IgnorePointer(
+                    ignoring: !_sm.mainContentInteractive,
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        return _onMainContentNotification(
+                          notification,
+                          fullHeight,
+                        );
+                      },
+                      child: Stack(
+                        children: [
+                          if (demos.isEmpty)
+                            _buildEmptyState(Theme.of(context))
+                          else
+                            _buildDemoGrid(demos),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: panelHeight,
+                  child: ClipRect(
+                    child: Stack(
+                      children: [
+                        const Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  _kPanelGradientTop,
+                                  _kPanelGradientMiddle,
+                                  _kPanelGradientBottom,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _PanelSurfacePainter(progress: _progress),
+                          ),
+                        ),
+                        _LabPanelContent(
+                          scrollController: _panelScrollController,
+                          demos: demos,
+                          scrollable: _sm.panelScrollable,
+                          progress: _progress,
+                          readyToOpen: _sm.readyToOpen,
+                          closeProgress: _sm.closeProgress,
+                          showCloseCue: _sm.showCloseCue,
+                          onHandleDragStart: _onPanelHandleDragStart,
+                          onHandleDragUpdate: (deltaDy) {
+                            _onPanelHandleDragUpdate(deltaDy, fullHeight);
+                          },
+                          onHandleDragEnd: _onPanelHandleDragEnd,
+                          onDemoTap: (demo) => _openDemoPage(context, demo),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -48,14 +345,14 @@ class LabPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '暂无可用 Demo',
+            'No demos available',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.outline,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '请在 main.dart 中注册 Demo',
+            'Register demos in main.dart first.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.outline,
             ),
@@ -65,12 +362,15 @@ class LabPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDemoGrid(
-    BuildContext context,
-    List<MapEntry<String, DemoPage>> demos,
-    ThemeData theme,
-  ) {
-    return _ScrollRevealGrid(demos: demos);
+  Widget _buildDemoGrid(List<MapEntry<String, DemoPage>> demos) {
+    return _ScrollRevealGrid(
+      demos: demos,
+      controller: _gridScrollController,
+      onDemoTap: (demo) => _openDemoPage(context, demo),
+      physics: _sm.mainContentInteractive
+          ? const BouncingScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+    );
   }
 
   void _showLabInfo(BuildContext context) {
@@ -78,23 +378,23 @@ class LabPage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Row(
-          children: [Icon(Icons.science), SizedBox(width: 8), Text('开发者实验室')],
+          children: [Icon(Icons.science), SizedBox(width: 8), Text('Lab Info')],
         ),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('这是一个用于验证和测试新功能的开发者工具。'),
+            Text('This page hosts demos and experimental features.'),
             SizedBox(height: 12),
-            Text('• 所有 Demo 页面独立运行'),
-            Text('• 使用 IoC 容器管理'),
-            Text('• 不会影响主应用'),
+            Text('- Each demo runs independently'),
+            Text('- Managed by the lab registry'),
+            Text('- Safe to iterate without touching the main flow'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('知道了'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -115,24 +415,24 @@ class LabPage extends StatelessWidget {
           children: [
             Icon(Icons.cleaning_services),
             SizedBox(width: 8),
-            Text('图片缓存'),
+            Text('Image Cache'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('缓存大小: ${_formatBytes(cacheSize)}'),
+            Text('Cache size: ${_formatBytes(cacheSize)}'),
             const SizedBox(height: 8),
-            const Text('缩略图可显著提升大图片加载性能'),
+            const Text('Thumbnails improve large-image loading performance.'),
             const SizedBox(height: 12),
-            const Text('清除缓存后，图片将重新生成缩略图'),
+            const Text('Clearing cache will regenerate preview images.'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () async {
@@ -141,10 +441,10 @@ class LabPage extends StatelessWidget {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(const SnackBar(content: Text('缓存已清除')));
+                ).showSnackBar(const SnackBar(content: Text('Cache cleared')));
               }
             },
-            child: const Text('清除缓存'),
+            child: const Text('Clear Cache'),
           ),
         ],
       ),
@@ -154,635 +454,9 @@ class LabPage extends StatelessWidget {
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-}
-
-/// Demo 卡片组件
-class _DemoCard extends StatefulWidget {
-  final String title;
-  final String description;
-  final VoidCallback onTap;
-
-  const _DemoCard({
-    required this.title,
-    required this.description,
-    required this.onTap,
-  });
-
-  @override
-  State<_DemoCard> createState() => _DemoCardState();
-}
-
-class _DemoCardState extends State<_DemoCard> {
-  final _provider = LabCardProvider();
-  final _cacheService = LabImageCacheService();
-  bool _isPressed = false;
-  Uint8List? _cachedImageBytes;
-
-  @override
-  void initState() {
-    super.initState();
-    _provider.addListener(_onProviderChanged);
-    _cacheService.init();
-    _initAndPreload();
-  }
-
-  Future<void> _initAndPreload() async {
-    await _provider.onLoaded;
-    if (mounted) _preloadImage();
-  }
-
-  @override
-  void dispose() {
-    _provider.removeListener(_onProviderChanged);
-    super.dispose();
-  }
-
-  void _onProviderChanged() async {
-    if (mounted) {
-      await _provider.onLoaded;
-      if (mounted) {
-        _preloadImage();
-        setState(() {});
-      }
-    }
-  }
-
-  /// 预加载背景图片
-  Future<void> _preloadImage() async {
-    final backgroundUrl = _provider.getBackground(widget.title);
-    if (backgroundUrl != null && _provider.isLocalFile(widget.title)) {
-      final bytes = await _cacheService.getThumbnailBytes(backgroundUrl);
-      if (bytes != null && mounted) {
-        setState(() {
-          _cachedImageBytes = bytes;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final backgroundUrl = _provider.getBackground(widget.title);
-    final isLocalFile =
-        backgroundUrl != null && _provider.isLocalFile(widget.title);
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        onLongPress: () => _showBackgroundDialog(context),
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
-        child: AnimatedScale(
-          scale: _isPressed ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeInOut,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 背景图片
-              if (backgroundUrl != null && backgroundUrl.isNotEmpty)
-                Positioned.fill(
-                  child: isLocalFile
-                      ? _buildLocalImage(backgroundUrl, theme)
-                      : _buildNetworkImage(backgroundUrl, theme),
-                ),
-              // 渐变遮罩（确保文字可读）
-              if (backgroundUrl != null && backgroundUrl.isNotEmpty)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.3),
-                          Colors.black.withOpacity(0.6),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              // 内容
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.widgets,
-                      color: backgroundUrl != null
-                          ? Colors.white
-                          : theme.colorScheme.primary,
-                      size: 32,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: backgroundUrl != null ? Colors.white : null,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Expanded(
-                      child: Text(
-                        widget.description,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: backgroundUrl != null
-                              ? Colors.white70
-                              : theme.colorScheme.onSurface.withOpacity(0.7),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNetworkImage(String url, ThemeData theme) {
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(),
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(color: theme.colorScheme.surfaceVariant);
-      },
-    );
-  }
-
-  Widget _buildLocalImage(String path, ThemeData theme) {
-    // 如果有缓存的缩略图，使用缩略图
-    if (_cachedImageBytes != null) {
-      return Image.memory(
-        _cachedImageBytes!,
-        fit: BoxFit.cover,
-        gaplessPlayback: true, // 防止图片切换时闪烁
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: theme.colorScheme.surfaceContainerHighest,
-          child: const Icon(Icons.broken_image),
-        ),
-      );
-    }
-
-    // 降级到原图（首次加载）
-    return Image.file(
-      File(path),
-      fit: BoxFit.cover,
-      gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) => Container(
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: const Icon(Icons.broken_image),
-      ),
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded) return child;
-        return AnimatedOpacity(
-          opacity: frame == null ? 0 : 1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          child: child,
-        );
-      },
-    );
-  }
-
-  /// 显示背景设置对话框
-  void _showBackgroundDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _BackgroundSettingSheet(
-        currentUrl: _provider.getBackground(widget.title),
-        isLocalFile: _provider.isLocalFile(widget.title),
-        onImageSelected: (url) async {
-          await _provider.setBackground(widget.title, url);
-          if (context.mounted) Navigator.pop(context);
-        },
-        onRemove: () async {
-          await _provider.removeBackground(widget.title);
-          if (context.mounted) Navigator.pop(context);
-        },
-      ),
-    );
-  }
-}
-
-/// 背景图片设置底部面板
-class _BackgroundSettingSheet extends StatefulWidget {
-  final String? currentUrl;
-  final bool isLocalFile;
-  final Future<void> Function(String) onImageSelected;
-  final VoidCallback onRemove;
-
-  const _BackgroundSettingSheet({
-    required this.currentUrl,
-    this.isLocalFile = false,
-    required this.onImageSelected,
-    required this.onRemove,
-  });
-
-  @override
-  State<_BackgroundSettingSheet> createState() =>
-      _BackgroundSettingSheetState();
-}
-
-class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
-  String _customUrl = '';
-  bool _isLoading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final size = MediaQuery.of(context).size;
-
-    return Container(
-      height: size.height * 0.75,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 标题栏
-          Row(
-            children: [
-              const Icon(Icons.image, size: 24),
-              const SizedBox(width: 8),
-              Text('设置背景图片', style: theme.textTheme.titleLarge),
-              const Spacer(),
-              if (widget.currentUrl != null)
-                TextButton.icon(
-                  onPressed: widget.onRemove,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('移除'),
-                ),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
-              ),
-            ],
-          ),
-          const Divider(),
-          const SizedBox(height: 12),
-
-          // 本地图片选择和裁剪按钮
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _isLoading ? null : _pickAndCropImage,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.crop),
-                  label: const Text('选择并裁剪'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _isLoading ? null : _pickLocalImage,
-                  icon: const Icon(Icons.photo_library),
-                  label: const Text('仅选择'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // 自定义 URL 输入
-          Text('自定义图片 URL', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'https://example.com/image.jpg',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  onChanged: (value) => _customUrl = value,
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.tonal(
-                onPressed: _isLoading || _customUrl.isEmpty
-                    ? null
-                    : () => _selectImage(_customUrl),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('应用'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // 预设图片
-          Text('预设图片', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 12),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 4 / 3,
-              ),
-              itemCount: LabCardProvider.presetImages.length,
-              itemBuilder: (context, index) {
-                final url = LabCardProvider.presetImages[index];
-                final isSelected = widget.currentUrl == url;
-
-                return GestureDetector(
-                  onTap: () => _selectImage(url),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          url,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                color: theme.colorScheme.surfaceVariant,
-                                child: const Icon(Icons.broken_image),
-                              ),
-                        ),
-                      ),
-                      if (isSelected)
-                        Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 选择并裁剪图片
-  Future<void> _pickAndCropImage() async {
-    setState(() => _isLoading = true);
-    try {
-      final imagePath = await ImagePickerPage.navigate(
-        context,
-        config: const ImagePickerConfig(
-          aspectRatioX: 1,
-          aspectRatioY: 1,
-          lockAspectRatio: false,
-        ),
-        initialImagePath: widget.isLocalFile ? widget.currentUrl : null,
-        title: '设置卡片背景',
-        emptyStateHint: '选择背景图片',
-        emptyStateSubHint: '可自由调整裁剪区域',
-      );
-      if (imagePath != null) {
-        await widget.onImageSelected(imagePath);
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  /// 仅选择图片（不裁剪）
-  Future<void> _pickLocalImage() async {
-    setState(() => _isLoading = true);
-    try {
-      final imagePath = await ImagePickerPage.navigate(
-        context,
-        config: const ImagePickerConfig(enableCrop: false),
-        initialImagePath: widget.isLocalFile ? widget.currentUrl : null,
-        title: '选择背景图片',
-        emptyStateHint: '选择背景图片',
-        emptyStateSubHint: '',
-      );
-      if (imagePath != null) {
-        await widget.onImageSelected(imagePath);
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _selectImage(String url) async {
-    setState(() => _isLoading = true);
-    try {
-      await widget.onImageSelected(url);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-}
-
-/// Demo 详情页面
-class _DemoDetailPage extends StatelessWidget {
-  final DemoPage demo;
-
-  const _DemoDetailPage({required this.demo});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: demo.preferFullScreen
-          ? null
-          : AppBar(
-              title: GestureDetector(
-                onTap: () => _showDemoDesc(context),
-                behavior: HitTestBehavior.opaque,
-                child: Text(demo.title),
-              ),
-              centerTitle: true,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-            ),
-      body: demo.buildPage(context),
-    );
-  }
-
-  void _showDemoDesc(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.widgets),
-            const SizedBox(width: 8),
-            Flexible(child: Text(demo.title)),
-          ],
-        ),
-        content: Text(demo.description),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 滑动渐入 Grid
-/// 一次性动画：控制器用完即销毁，零持续重建
-class _ScrollRevealGrid extends StatefulWidget {
-  const _ScrollRevealGrid({required this.demos});
-
-  final List<MapEntry<String, DemoPage>> demos;
-
-  @override
-  State<_ScrollRevealGrid> createState() => _ScrollRevealGridState();
-}
-
-class _ScrollRevealGridState extends State<_ScrollRevealGrid>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 1.1,
-      ),
-      itemCount: widget.demos.length,
-      itemBuilder: (context, index) {
-        final demo = widget.demos[index].value;
-        return _RevealItem(
-          index: index,
-          controller: _controller,
-          child: _DemoCard(
-            title: demo.title,
-            description: demo.description,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => _DemoDetailPage(demo: demo),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// 一次性渐入动画：动画完成后完全退出，不占帧率
-class _RevealItem extends StatefulWidget {
-  const _RevealItem({
-    required this.index,
-    required this.controller,
-    required this.child,
-  });
-
-  final int index;
-  final AnimationController controller;
-  final Widget child;
-
-  @override
-  State<_RevealItem> createState() => _RevealItemState();
-}
-
-class _RevealItemState extends State<_RevealItem> {
-  /// 交错延迟（秒）
-  double get _delay => (widget.index * 0.06).clamp(0.0, 0.72);
-  /// 动画时长（秒）
-  double get _dur => 0.28;
-
-  /// 纯计算进度，不 rebuild
-  double _progress(double t) {
-    final start = _delay;
-    final end = start + _dur;
-    if (t < start) return 0.0;
-    if (t >= end) return 1.0;
-    return Curves.easeOutCubic.transform((t - start) / (end - start));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 用 AnimatedBuilder 只在 value 变化时 rebuild
-    // 动画完成后：opacity=1 + translate=0，控件直接返回 child，不再触发任何 rebuild
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        final p = _progress(widget.controller.value);
-        if (p >= 1.0) {
-          // 动画完成：直接返回 child，后续不再 rebuild
-          return widget.child;
-        }
-        return Opacity(
-          opacity: p,
-          child: Transform.translate(
-            offset: Offset(0, 24 * (1 - p)),
-            child: widget.child,
-          ),
-        );
-      },
-    );
   }
 }
