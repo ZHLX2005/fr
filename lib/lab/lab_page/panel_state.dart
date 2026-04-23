@@ -246,12 +246,10 @@ class LabPullPanelStateMachine {
 const _kPanelGradientTop = Color(0xFFF8F3EE);
 const _kPanelGradientMiddle = Color(0xFFEFE6DD);
 const _kPanelGradientBottom = Color(0xFFE4D6C8);
-const _kPanelBorderColor = Color(0x59FFFFFF);
 const _kAccentColor = Color(0xFFC88A5A);
 const _kAccentSoftColor = Color(0xFFD9A97C);
 const _kAccentDeepColor = Color(0xFF8B5E3C);
 const _kPanelTextColor = Color(0xFF5E4735);
 const _kPanelMutedTextColor = Color(0xFF8E7561);
-const _kCardBaseColor = Color(0xF2FFFCF8);
 const _kAnimationDuration = Duration(milliseconds: 260);
 const _kWaveDuration = Duration(seconds: 2);
