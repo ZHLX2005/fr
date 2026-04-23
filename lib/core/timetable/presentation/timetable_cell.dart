@@ -14,7 +14,7 @@ enum TimetableCellState {
   filled,
 }
 
-/// 3态课表单元格组件
+/// 3态ITEM单元格组件
 class TimetableCell extends StatelessWidget {
   const TimetableCell({
     super.key,
