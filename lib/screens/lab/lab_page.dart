@@ -253,32 +253,27 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
             final mainPush =
                 fullHeight * LabPullPanelMetrics.mainPushRatio * _progress;
             final panelHeight = fullHeight * _progress;
-            final mainScale = 1.0 - (_progress * 0.02);
 
             return Stack(
               children: [
                 Transform.translate(
                   offset: Offset(0, mainPush),
-                  child: Transform.scale(
-                    scale: mainScale,
-                    alignment: Alignment.topCenter,
-                    child: IgnorePointer(
-                      ignoring: !_sm.mainContentInteractive,
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: (notification) {
-                          return _onMainContentNotification(
-                            notification,
-                            fullHeight,
-                          );
-                        },
-                        child: Stack(
-                          children: [
-                            if (demos.isEmpty)
-                              _buildEmptyState(Theme.of(context))
-                            else
-                              _buildDemoGrid(demos),
-                          ],
-                        ),
+                  child: IgnorePointer(
+                    ignoring: !_sm.mainContentInteractive,
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        return _onMainContentNotification(
+                          notification,
+                          fullHeight,
+                        );
+                      },
+                      child: Stack(
+                        children: [
+                          if (demos.isEmpty)
+                            _buildEmptyState(Theme.of(context))
+                          else
+                            _buildDemoGrid(demos),
+                        ],
                       ),
                     ),
                   ),
