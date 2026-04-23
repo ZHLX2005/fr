@@ -45,7 +45,8 @@ class HiveTimetableRepository extends TimetableRepository {
       return TimetableConfig.defaultConfig;
     }
 
-    final map = json as Map<String, dynamic>;
+    // Hive returns _Map<dynamic, dynamic>, must convert keys to String
+    final map = (json as Map).map((k, v) => MapEntry(k.toString(), v));
     return TimetableConfig(
       startDateIso:
           map['startDateIso'] as String? ??
