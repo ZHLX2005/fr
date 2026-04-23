@@ -172,9 +172,9 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
     if (book == null) return;
     await _storage.clearProgress(book.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${book.title} progress cleared.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${book.title} progress cleared.')));
   }
 
   Future<void> _removeCurrentBook() async {
@@ -189,9 +189,9 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
     if (book == null) return;
     await _storage.setSelectedBookId(book.id);
     if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NovelReaderPage(book: book)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => NovelReaderPage(book: book)));
     await _refreshState();
   }
 
@@ -229,7 +229,8 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
     return FutureBuilder<bool>(
       future: _storage.isDownloaded(book),
       builder: (context, snapshot) {
-        final isDownloaded = snapshot.data ?? book.source == NovelBookSource.imported;
+        final isDownloaded =
+            snapshot.data ?? book.source == NovelBookSource.imported;
         return Scaffold(
           backgroundColor: const Color(0xFFF4EDE3),
           appBar: AppBar(
@@ -264,7 +265,9 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                       onSwipeToNext: _nextBook == null
                           ? null
                           : () => _selectBook(_currentIndex + 1),
-                      onImportFromLeft: _previousBook == null ? _importTxt : null,
+                      onImportFromLeft: _previousBook == null
+                          ? _importTxt
+                          : null,
                       onImportFromRight: _nextBook == null ? _importTxt : null,
                     ),
                   ),
@@ -312,25 +315,33 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                       SizedBox(
                         width: 160,
                         child: OutlinedButton(
-                          onPressed: _isImporting || _isDownloading ? null : _importTxt,
-                          child: Text(_isImporting ? 'Importing...' : 'Import TXT'),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 160,
-                    child: OutlinedButton(
-                          onPressed: _isDownloading || _isImporting
+                          onPressed: _isImporting || _isDownloading
                               ? null
-                              : book.isBuiltIn
-                              ? () => _downloadCurrentBook(redownload: true)
-                              : _removeCurrentBook,
-                          child: Text(book.isBuiltIn ? 'Redownload' : 'Remove Book'),
+                              : _importTxt,
+                          child: Text(
+                            _isImporting ? 'Importing...' : 'Import TXT',
+                          ),
                         ),
                       ),
                       SizedBox(
                         width: 160,
                         child: OutlinedButton(
-                          onPressed: _isDownloading || _isImporting ? null : _clearProgress,
+                          onPressed: _isDownloading || _isImporting
+                              ? null
+                              : book.isBuiltIn
+                              ? () => _downloadCurrentBook(redownload: true)
+                              : _removeCurrentBook,
+                          child: Text(
+                            book.isBuiltIn ? 'Redownload' : 'Remove Book',
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 160,
+                        child: OutlinedButton(
+                          onPressed: _isDownloading || _isImporting
+                              ? null
+                              : _clearProgress,
                           child: const Text('Clear progress'),
                         ),
                       ),
@@ -855,11 +866,7 @@ class _BookshelfSwipeDeckState extends State<_BookshelfSwipeDeck>
 
   Future<void> _animateSpringBack() async {
     _animating = true;
-    final spring = SpringDescription(
-      mass: 1,
-      stiffness: 320,
-      damping: 26,
-    );
+    final spring = SpringDescription(mass: 1, stiffness: 320, damping: 26);
     await _offsetController.animateWith(
       SpringSimulation(spring, _offsetController.value, 0, 0),
     );
@@ -881,59 +888,42 @@ class _BookshelfSwipeDeckState extends State<_BookshelfSwipeDeck>
         final leftCard = widget.previousBook;
         final rightCard = widget.nextBook;
 
+        final cardWidth = math.min(width - 48, 320.0);
+        final cardHeight = math.min(constraints.maxHeight - 12, 420.0);
+        final sideBottomInset = math.max(
+          8.0,
+          (constraints.maxHeight - cardHeight) * 0.45,
+        );
+
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            Positioned.fill(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _SideBookCard(
-                        alignment: Alignment.centerLeft,
-                        visibleProgress: movingRight ? progress : 0,
-                        title: leftCard?.title ?? 'Import TXT',
-                        subtitle: leftCard == null
-                            ? 'No book on the left'
-                            : leftCard.isBuiltIn
-                            ? 'Built-in novel'
-                            : 'Imported TXT',
-                        accent: leftCard == null
-                            ? const Color(0xFF2F6A55)
-                            : const Color(0xFF83553A),
-                        icon: leftCard == null
-                            ? Icons.upload_file_rounded
-                            : Icons.menu_book_rounded,
-                        isPlaceholder: leftCard == null,
-                        onTap: leftCard == null ? widget.onImportFromLeft : null,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _SideBookCard(
-                        alignment: Alignment.centerRight,
-                        visibleProgress: movingRight ? 0 : progress,
-                        title: rightCard?.title ?? 'Import TXT',
-                        subtitle: rightCard == null
-                            ? 'No book on the right'
-                            : rightCard.isBuiltIn
-                            ? 'Built-in novel'
-                            : 'Imported TXT',
-                        accent: rightCard == null
-                            ? const Color(0xFF2F6A55)
-                            : const Color(0xFF83553A),
-                        icon: rightCard == null
-                            ? Icons.upload_file_rounded
-                            : Icons.menu_book_rounded,
-                        isPlaceholder: rightCard == null,
-                        onTap: rightCard == null ? widget.onImportFromRight : null,
-                      ),
-                    ),
-                  ),
-                ],
+            Positioned(
+              left: 0,
+              bottom: sideBottomInset,
+              child: _SideBookCard(
+                alignment: Alignment.centerLeft,
+                visibleProgress: movingRight ? progress : 0,
+                cardWidth: cardWidth,
+                cardHeight: cardHeight,
+                book: leftCard,
+                isDownloaded: true,
+                isPlaceholder: leftCard == null,
+                onTap: leftCard == null ? widget.onImportFromLeft : null,
+              ),
+            ),
+            Positioned(
+              right: 0,
+              bottom: sideBottomInset,
+              child: _SideBookCard(
+                alignment: Alignment.centerRight,
+                visibleProgress: movingRight ? 0 : progress,
+                cardWidth: cardWidth,
+                cardHeight: cardHeight,
+                book: rightCard,
+                isDownloaded: true,
+                isPlaceholder: rightCard == null,
+                onTap: rightCard == null ? widget.onImportFromRight : null,
               ),
             ),
             Center(
@@ -956,9 +946,13 @@ class _BookshelfSwipeDeckState extends State<_BookshelfSwipeDeck>
                     angle: (_offsetX / width) * 0.12,
                     child: Transform.scale(
                       scale: 1 - (progress * 0.04),
-                      child: _CurrentBookCard(
-                        book: widget.currentBook,
-                        isDownloaded: widget.isCurrentDownloaded,
+                      child: SizedBox(
+                        width: cardWidth,
+                        height: cardHeight,
+                        child: _CurrentBookCard(
+                          book: widget.currentBook,
+                          isDownloaded: widget.isCurrentDownloaded,
+                        ),
                       ),
                     ),
                   ),
@@ -976,26 +970,28 @@ class _CurrentBookCard extends StatelessWidget {
   const _CurrentBookCard({
     required this.book,
     required this.isDownloaded,
+    this.description,
   });
 
   final NovelBookEntry book;
   final bool isDownloaded;
+  final String? description;
 
   @override
   Widget build(BuildContext context) {
+    final cardDescription =
+        description ??
+        (isDownloaded
+            ? 'Ready to read. Swipe sideways to move across your shelf.'
+            : 'This book is on the shelf but still needs downloading.');
+
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFDFB982),
-            Color(0xFFB96F42),
-            Color(0xFF6E3D27),
-          ],
+          colors: [Color(0xFFDFB982), Color(0xFFB96F42), Color(0xFF6E3D27)],
         ),
         boxShadow: [
           BoxShadow(
@@ -1006,7 +1002,7 @@ class _CurrentBookCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1061,9 +1057,7 @@ class _CurrentBookCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              isDownloaded
-                  ? 'Ready to read. Swipe sideways to move across your shelf.'
-                  : 'This book is on the shelf but still needs downloading.',
+              cardDescription,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.86),
                 fontSize: 15,
@@ -1081,79 +1075,100 @@ class _SideBookCard extends StatelessWidget {
   const _SideBookCard({
     required this.alignment,
     required this.visibleProgress,
-    required this.title,
-    required this.subtitle,
-    required this.accent,
-    required this.icon,
+    required this.cardWidth,
+    required this.cardHeight,
+    required this.book,
+    required this.isDownloaded,
     required this.isPlaceholder,
     required this.onTap,
   });
 
   final Alignment alignment;
   final double visibleProgress;
-  final String title;
-  final String subtitle;
-  final Color accent;
-  final IconData icon;
+  final double cardWidth;
+  final double cardHeight;
+  final NovelBookEntry? book;
+  final bool isDownloaded;
   final bool isPlaceholder;
   final Future<void> Function()? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final opacity = (0.25 + (visibleProgress * 0.75)).clamp(0.25, 1.0);
+    final opacity = (0.18 + (visibleProgress * 0.82)).clamp(0.18, 1.0);
     final translateX = alignment == Alignment.centerLeft
-        ? 20 - (visibleProgress * 20)
-        : -20 + (visibleProgress * 20);
+        ? 54 - (visibleProgress * 54)
+        : -54 + (visibleProgress * 54);
+    final translateY = 24 - (visibleProgress * 24);
+    final scale = 0.74 + (visibleProgress * 0.26);
 
     return Opacity(
       opacity: opacity,
       child: Transform.translate(
-        offset: Offset(translateX, 0),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 170),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(24),
-              onTap: onTap == null ? null : () => onTap!.call(),
-              child: Ink(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: isPlaceholder
-                      ? const Color(0xFFD7E5DC)
-                      : const Color(0xFFE9D7C5),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: accent.withValues(alpha: 0.30),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(icon, color: accent, size: 28),
-                    const SizedBox(height: 12),
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: accent,
+        offset: Offset(translateX, translateY),
+        child: Transform.scale(
+          scale: scale,
+          alignment: alignment,
+          child: SizedBox(
+            width: cardWidth,
+            height: cardHeight,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: onTap == null ? null : () => onTap!.call(),
+                child: isPlaceholder
+                    ? Ink(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD7E5DC),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: const Color(
+                              0xFF2F6A55,
+                            ).withValues(alpha: 0.30),
+                          ),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [_ImportPlaceholderIcon(), Spacer()],
+                              ),
+                              Spacer(),
+                              Text(
+                                'Import TXT',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF2F6A55),
+                                  fontSize: 30,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                'No book here yet. Swipe further or tap to import a TXT file.',
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Color(0xDD2F6A55),
+                                  fontSize: 15,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _CurrentBookCard(
+                        book: book!,
+                        isDownloaded: isDownloaded,
+                        description: book!.isBuiltIn
+                            ? 'Built-in novel. Swipe further to bring it to the center.'
+                            : 'Imported TXT. Swipe further to bring it to the center.',
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: accent.withValues(alpha: 0.86),
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
@@ -1163,11 +1178,29 @@ class _SideBookCard extends StatelessWidget {
   }
 }
 
+class _ImportPlaceholderIcon extends StatelessWidget {
+  const _ImportPlaceholderIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2F6A55).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Icon(
+        Icons.upload_file_rounded,
+        color: Color(0xFF2F6A55),
+        size: 28,
+      ),
+    );
+  }
+}
+
 class _ReaderTopBar extends StatelessWidget {
-  const _ReaderTopBar({
-    required this.title,
-    required this.pageLabel,
-  });
+  const _ReaderTopBar({required this.title, required this.pageLabel});
 
   final String title;
   final String pageLabel;
