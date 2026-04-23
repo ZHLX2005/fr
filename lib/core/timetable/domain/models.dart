@@ -65,9 +65,9 @@ class TimetableConfig {
   /// 默认配置
   static const TimetableConfig defaultConfig = TimetableConfig(
     startDateIso: '2025-01-01',
-    cycleCount: 4,
+    cycleCount: 16,
     daysPerCycle: 7,
-    slotsPerDay: 6,
+    slotsPerDay: 5,
     isSchoolMode: true,
   );
 
