@@ -317,21 +317,6 @@ class _PanelSurfacePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final topGlowPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.white.withValues(alpha: 0.72),
-          Colors.white.withValues(alpha: 0.10),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.28, 1.0],
-      ).createShader(Offset.zero & size);
-
-    final glowHeight = math.min(size.height, 180.0);
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, glowHeight), topGlowPaint);
-
     final waveDepth = (24.0 - progress * 12.0).clamp(10.0, 24.0);
     final path = Path()..moveTo(0, 0);
     path.quadraticBezierTo(
@@ -365,12 +350,12 @@ class _PanelSurfacePainter extends CustomPainter {
             ],
           ).createShader(
             Rect.fromCircle(
-              center: Offset(size.width * 0.5, glowHeight * 0.14),
+              center: Offset(size.width * 0.5, size.height * 0.08),
               radius: size.width * 0.48,
             ),
           );
     canvas.drawCircle(
-      Offset(size.width * 0.5, glowHeight * 0.14),
+      Offset(size.width * 0.5, size.height * 0.08),
       size.width * 0.48,
       highlightPaint,
     );
