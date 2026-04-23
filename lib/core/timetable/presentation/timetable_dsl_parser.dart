@@ -102,8 +102,8 @@ _DslLineResult _parseLine(String line, int defaultSlotCount, int now, int index)
       }
     } else if (location == null) {
       location = part;
-    } else if (teacher == null) {
-      teacher = part;
+    } else {
+      teacher ??= part;
     }
     i++;
   }
