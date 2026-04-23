@@ -57,10 +57,6 @@ class _LabPanelContentState extends State<_LabPanelContent> {
     final contentOffset = (1.0 - widget.progress) * 16.0;
     final contentScale = 0.5 + (widget.progress * 0.5);
     final contentOpacity = widget.progress.clamp(0.0, 1.0);
-    final topTitles = widget.demos
-        .take(5)
-        .map((entry) => entry.value.title)
-        .toList();
     final favoriteDemos = widget.demos
         .where((entry) => _provider.isFavorite(entry.value.title))
         .map((entry) => entry.value)
@@ -83,43 +79,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(18, 24, 18, 20),
                     children: [
-                      _LabPanelHeroCard(
-                        demoCount: widget.demos.length,
-                        topLabel: topTitles.isNotEmpty
-                            ? topTitles.first
-                            : 'No demos',
-                      ),
-                      const SizedBox(height: 18),
-                      const _PanelSectionHeader(
-                        eyebrow: 'REGISTRY',
-                        title: 'Quick read of the lab space',
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          _ActionChip(
-                            icon: Icons.widgets_outlined,
-                            label: '${widget.demos.length} demos',
-                          ),
-                          const _ActionChip(
-                            icon: Icons.vertical_align_top,
-                            label: 'Top overscroll opens',
-                          ),
-                          const _ActionChip(
-                            icon: Icons.pan_tool_alt_outlined,
-                            label: 'Handle drag closes',
-                          ),
-                        ],
-                      ),
-                      if (favoriteDemos.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        const _PanelSectionHeader(
-                          eyebrow: 'FAVORITES',
-                          title: 'Quick launch your saved demos',
-                        ),
-                        const SizedBox(height: 12),
+                      if (favoriteDemos.isNotEmpty)
                         Wrap(
                           spacing: 12,
                           runSpacing: 12,
@@ -130,24 +90,9 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                 onTap: () => widget.onDemoTap(demo),
                               ),
                           ],
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                      const _PanelSectionHeader(
-                        eyebrow: 'RECENT',
-                        title: 'Registered demo entries',
-                      ),
-                      const SizedBox(height: 12),
-                      for (final demo in topTitles)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _StoryCard(
-                            icon: Icons.chevron_right,
-                            title: demo,
-                            body:
-                                'Registry entry available from the Lab grid and this pull panel.',
-                          ),
-                        ),
+                        )
+                      else
+                        const _PanelEmptyFavorites(),
                     ],
                   ),
                 ),
@@ -199,47 +144,51 @@ class _FavoriteDemoShortcut extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          width: 96,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.62),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.50)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: _kAccentSoftColor.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
+    return Tooltip(
+      message: demo.title,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Ink(
+            width: 88,
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.50)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _kAccentSoftColor.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.star_rounded,
+                    color: _kAccentDeepColor,
+                    size: 24,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.star_rounded,
-                  color: _kAccentDeepColor,
-                  size: 22,
+                const SizedBox(height: 8),
+                Text(
+                  demo.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: _kPanelTextColor,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                demo.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: _kPanelTextColor,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -247,216 +196,48 @@ class _FavoriteDemoShortcut extends StatelessWidget {
   }
 }
 
-class _LabPanelHeroCard extends StatelessWidget {
-  final int demoCount;
-  final String topLabel;
-
-  const _LabPanelHeroCard({required this.demoCount, required this.topLabel});
+class _PanelEmptyFavorites extends StatelessWidget {
+  const _PanelEmptyFavorites();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.52),
+        color: Colors.white.withValues(alpha: 0.48),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.44)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Lab Overview',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: _kPanelTextColor,
-              fontWeight: FontWeight.w700,
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: _kAccentSoftColor.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.star_border_rounded,
+              color: _kAccentDeepColor,
+              size: 26,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
-            'The panel opens with the same threshold, damping and close handle feel as the pull panel demo.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: _kPanelMutedTextColor),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              _MetricPill(label: 'Demos', value: '$demoCount'),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MetricPill(label: 'First', value: topLabel),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricPill extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _MetricPill({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: _kCardBaseColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _kPanelBorderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: _kPanelMutedTextColor),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            'No favorite demos yet',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: _kPanelTextColor,
               fontWeight: FontWeight.w700,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PanelSectionHeader extends StatelessWidget {
-  final String eyebrow;
-  final String title;
-
-  const _PanelSectionHeader({required this.eyebrow, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          eyebrow,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: _kPanelMutedTextColor,
-            letterSpacing: 1.4,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: _kPanelTextColor,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _ActionChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.50)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: _kAccentDeepColor),
-          const SizedBox(width: 8),
+          const SizedBox(height: 6),
           Text(
-            label,
-            style: const TextStyle(
-              color: _kPanelTextColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StoryCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String body;
-
-  const _StoryCard({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.56),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.44)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: _kAccentSoftColor.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: _kAccentDeepColor, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: _kPanelTextColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  body,
-                  style: const TextStyle(
-                    color: _kPanelMutedTextColor,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
+            'Long press a demo card and tap Favorite Demo.',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: _kPanelMutedTextColor),
           ),
         ],
       ),
