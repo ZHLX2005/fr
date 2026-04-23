@@ -27,6 +27,16 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 1.0);
+    // 默认定位到今天所在周期
+    final config = ref.read(TimetableStore.configProvider);
+    final todayIdx = config.todayCycleIndex;
+    if (todayIdx != null) {
+      _currentCycleIndex = todayIdx;
+      // 让 PageView 一开始就显示该周期
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pageController.jumpToPage(todayIdx);
+      });
+    }
   }
 
   @override
@@ -158,18 +168,71 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               const Divider(height: 1),
               // 课表网格（可左右滑动）
               Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentCycleIndex = index;
-                      _selectedCellKey = null; // 切换周期时清除选中
-                    });
-                  },
-                  itemCount: config.cycleCount,
-                  itemBuilder: (context, cycleIndex) {
-                    return _buildTimetableGrid(theme, config, cycleIndex);
-                  },
+                child: Stack(
+                  children: [
+                    PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentCycleIndex = index;
+                          _selectedCellKey = null; // 切换周期时清除选中
+                        });
+                      },
+                      itemCount: config.cycleCount,
+                      itemBuilder: (context, cycleIndex) {
+                        return _buildTimetableGrid(theme, config, cycleIndex);
+                      },
+                    ),
+                    // 右上角 - 回到今天按钮
+                    if (config.todayCycleIndex != null &&
+                        config.todayCycleIndex != _currentCycleIndex)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () {
+                            _pageController.animateToPage(
+                              config.todayCycleIndex!,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: TimetableColors.accent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: TimetableColors.accent.withValues(alpha: 0.5),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.today,
+                                  size: 14,
+                                  color: TimetableColors.accent,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '今天',
+                                  style: TextStyle(
+                                    color: TimetableColors.accent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
