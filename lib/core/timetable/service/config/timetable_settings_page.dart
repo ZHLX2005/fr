@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import '../../presentation/timetable_colors.dart';
-import '../../presentation/timetable_import_dialog.dart';
+import 'timetable_import_dialog.dart';
 import 'timetable_week_calculator.dart';
 
 /// 设置页面
