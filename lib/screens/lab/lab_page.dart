@@ -517,15 +517,6 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                               _buildEmptyState(Theme.of(context))
                             else
                               _buildDemoGrid(demos),
-                            Positioned.fill(
-                              child: Center(
-                                child: _MainPullCue(
-                                  progress: _progress,
-                                  phase: _waveController.value,
-                                  visible: _sm.showMainCue,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -1682,68 +1673,6 @@ class _RevealItemState extends State<_RevealItem> {
   }
 }
 
-class _MainPullCue extends StatelessWidget {
-  final double progress;
-  final double phase;
-  final bool visible;
-
-  const _MainPullCue({
-    required this.progress,
-    required this.phase,
-    required this.visible,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final opacity = visible ? (1.0 - progress * 1.8).clamp(0.0, 1.0) : 0.0;
-    final bob = math.sin(phase * 2 * math.pi) * 6.0;
-    final ringSweep = (0.18 + progress * 0.72).clamp(0.18, 0.9);
-    final chevronSpread = 10 + progress * 18;
-
-    return IgnorePointer(
-      child: AnimatedOpacity(
-        opacity: opacity,
-        duration: const Duration(milliseconds: 160),
-        child: Transform.translate(
-          offset: Offset(0, bob),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 116,
-                height: 116,
-                child: CustomPaint(
-                  painter: _PullCuePainter(
-                    ringSweep: ringSweep,
-                    chevronSpread: chevronSpread,
-                    color: _kAccentColor,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                width: 68 - progress * 16,
-                height: 8 + progress * 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _kAccentDeepColor.withValues(alpha: 0.10),
-                      blurRadius: 22,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _PanelHandle extends StatelessWidget {
   final double progress;
   final bool readyToOpen;
@@ -1878,72 +1807,6 @@ class _PanelSurfacePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PanelSurfacePainter oldDelegate) {
     return progress != oldDelegate.progress;
-  }
-}
-
-class _PullCuePainter extends CustomPainter {
-  final double ringSweep;
-  final double chevronSpread;
-  final Color color;
-
-  _PullCuePainter({
-    required this.ringSweep,
-    required this.chevronSpread,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width * 0.28;
-
-    final ringPaint = Paint()
-      ..color = color.withValues(alpha: 0.22)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    final activePaint = Paint()
-      ..color = color.withValues(alpha: 0.72)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 4;
-
-    canvas.drawCircle(center, radius, ringPaint);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      math.pi * 2 * ringSweep,
-      false,
-      activePaint,
-    );
-
-    final chevronPaint = Paint()
-      ..color = color.withValues(alpha: 0.9)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 4;
-
-    final topY = center.dy - chevronSpread * 0.7;
-    final midY = center.dy + chevronSpread * 0.15;
-    final bottomY = center.dy + chevronSpread;
-
-    final path = Path()
-      ..moveTo(center.dx - 14, topY)
-      ..lineTo(center.dx, midY)
-      ..lineTo(center.dx + 14, topY)
-      ..moveTo(center.dx - 10, midY)
-      ..lineTo(center.dx, bottomY)
-      ..lineTo(center.dx + 10, midY);
-
-    canvas.drawPath(path, chevronPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _PullCuePainter oldDelegate) {
-    return ringSweep != oldDelegate.ringSweep ||
-        chevronSpread != oldDelegate.chevronSpread ||
-        color != oldDelegate.color;
   }
 }
 
