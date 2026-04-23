@@ -14,7 +14,7 @@ enum TimetableCellState {
   filled,
 }
 
-/// 3态ITEM单元格组件
+/// 3态课程单元格组件
 class TimetableCell extends StatelessWidget {
   const TimetableCell({
     super.key,
@@ -38,13 +38,13 @@ class TimetableCell extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        margin: const EdgeInsets.all(2),
+        margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: _backgroundColor(theme),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
           child: _buildContent(theme),
         ),
       ),
@@ -59,33 +59,21 @@ class TimetableCell extends StatelessWidget {
         return TimetableColors.selectedBg;
       case TimetableCellState.filled:
         final seed = course?.colorSeed ?? 0;
-        return _getCourseColor(seed).withValues(alpha: 0.88);
+        return TimetableColors.getCourseColor(seed).withValues(alpha: 0.88);
     }
-  }
-
-  Color _getCourseColor(int seed) {
-    // 柔和色系 - 中等饱和度
-    final colors = [
-      const Color(0xFF7B9FCC), // 柔蓝
-      const Color(0xFF9B8FC4), // 柔紫
-      const Color(0xFFC49AB0), // 柔粉
-      const Color(0xFFD4AA96), // 柔橘
-      const Color(0xFF98C49A), // 柔绿
-      const Color(0xFF7EAAAA), // 柔青
-      const Color(0xFF96B5C4), // 雾蓝
-      const Color(0xFFD4B59A), // 柔棕
-    ];
-    return colors[seed % colors.length];
   }
 
   Widget _buildContent(ThemeData theme) {
     switch (state) {
       case TimetableCellState.empty:
-        // 空白：透明但有点击区域
         return Container(color: Colors.transparent);
       case TimetableCellState.selected:
         return Center(
-          child: Icon(Icons.add, size: 22, color: TimetableColors.accentLight),
+          child: Icon(
+            Icons.add,
+            size: 18,
+            color: TimetableColors.accentLight,
+          ),
         );
       case TimetableCellState.filled:
         if (course == null) return const SizedBox.shrink();
@@ -94,80 +82,50 @@ class TimetableCell extends StatelessWidget {
   }
 
   Widget _buildCourseContent(ThemeData theme) {
-    final color = _getCourseColor(course!.colorSeed ?? 0);
+    final color = TimetableColors.getCourseColor(course!.colorSeed ?? 0);
     final isLight = color.computeLuminance() > 0.55;
     final textColor = isLight ? const Color(0xFF3D3D3D) : Colors.white;
     final subTextColor = isLight ? const Color(0xFF5D5D5D) : Colors.white70;
 
-    return Stack(
-      children: [
-        // 顶部微光
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 20,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(10),
-              ),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: 0.15),
-                  Colors.white.withValues(alpha: 0.0),
-                ],
+    final location = course!.location;
+    final title = course!.title;
+
+    // 紧凑布局：标题单行 + 位置单行（或合并一行）
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // 课程名：单行，超长省略
+          Text(
+            title,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              height: 1.1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          // 位置/地点：省略号
+          if (location != null && location.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Text(
+                location,
+                style: TextStyle(
+                  color: subTextColor,
+                  fontSize: 9,
+                  height: 1.0,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-        ),
-        // 内容
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(
-                  course!.title,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (course!.location != null && course!.location!.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.location_on, size: 10, color: subTextColor),
-                    const SizedBox(width: 2),
-                    Expanded(
-                      child: Text(
-                        course!.location!,
-                        style: TextStyle(
-                          color: subTextColor,
-                          fontSize: 10,
-                          height: 1.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
