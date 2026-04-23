@@ -155,9 +155,8 @@ class _FavoriteDemoShortcut extends StatelessWidget {
             width: 88,
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.62),
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.50)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
