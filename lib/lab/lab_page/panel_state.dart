@@ -33,7 +33,7 @@ class LabPullPanelMetrics {
   static const double velocityClose = -500;
   static const double dragDamping = 0.8;
   static const double overdragResistance = 0.10;
-  static const double mainPushRatio = 0.60;
+  static const double mainPushRatio = 1.0;
 
   const LabPullPanelMetrics._();
 
