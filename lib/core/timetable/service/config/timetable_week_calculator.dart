@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'timetable_colors.dart';
+import '../../presentation/timetable_colors.dart';
 
 /// 学校模式：输入当前周数 → 计算起始日期
 class WeekCalculatorDialog extends StatefulWidget {
