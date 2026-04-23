@@ -76,9 +76,7 @@ class LabPullPanelStateMachine {
   LabPullPanelState get state => _state;
   double get progress => _progress;
 
-  bool get mainInteractive =>
-      _state == LabPullPanelState.collapsed ||
-      _state == LabPullPanelState.draggingMain;
+  bool get mainContentInteractive => _state == LabPullPanelState.collapsed;
 
   bool get panelScrollable =>
       _state == LabPullPanelState.expanded ||
@@ -296,6 +294,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   double _estimatedVelocityDy = 0.0;
   double _lastPointerY = 0.0;
   DateTime? _lastPointerTime;
+  double _lastViewportHeight = 0.0;
 
   double get _progress => _sm.progress;
 
@@ -389,6 +388,15 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   void _onPointerMove(PointerMoveEvent event) {
     _trackVelocity(event.position.dy);
+
+    if (_sm.state == LabPullPanelState.draggingMain &&
+        _lastViewportHeight > 0) {
+      _sm.updateMainDrag(
+        deltaDy: event.delta.dy,
+        fullHeight: _lastViewportHeight,
+      );
+      setState(() {});
+    }
   }
 
   void _onPointerUp(PointerUpEvent event) {
@@ -402,7 +410,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     double fullHeight,
   ) {
     if (!_gridScrollController.hasClients) return false;
-    if (!_sm.mainInteractive) return false;
+    if (!_sm.mainContentInteractive) return false;
 
     final atTop =
         _gridScrollController.position.extentBefore <=
@@ -490,6 +498,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final fullHeight = constraints.maxHeight;
+            _lastViewportHeight = fullHeight;
             final mainPush =
                 fullHeight * LabPullPanelMetrics.mainPushRatio * _progress;
             final panelHeight = fullHeight * _progress;
@@ -503,7 +512,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                     scale: mainScale,
                     alignment: Alignment.topCenter,
                     child: IgnorePointer(
-                      ignoring: !_sm.mainInteractive,
+                      ignoring: !_sm.mainContentInteractive,
                       child: NotificationListener<ScrollNotification>(
                         onNotification: (notification) {
                           return _onMainContentNotification(
@@ -610,7 +619,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     return _ScrollRevealGrid(
       demos: demos,
       controller: _gridScrollController,
-      physics: _sm.mainInteractive
+      physics: _sm.mainContentInteractive
           ? const BouncingScrollPhysics()
           : const NeverScrollableScrollPhysics(),
     );
