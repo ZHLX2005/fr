@@ -6,6 +6,7 @@ import 'timetable_store.dart';
 import 'timetable_cell.dart';
 import 'timetable_editor_dialog.dart';
 import 'timetable_colors.dart';
+import 'timetable_settings_page.dart';
 import '../../../widgets/image_picker_widget.dart';
 
 /// 简洁日历风格课表页面
@@ -26,6 +27,16 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 1.0);
+    // 默认定位到今天所在周期
+    final config = ref.read(TimetableStore.configProvider);
+    final todayIdx = config.todayCycleIndex;
+    if (todayIdx != null) {
+      _currentCycleIndex = todayIdx;
+      // 让 PageView 一开始就显示该周期
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pageController.jumpToPage(todayIdx);
+      });
+    }
   }
 
   @override
@@ -119,7 +130,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          '时间课表',
+          '时间周期',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
@@ -157,18 +168,71 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               const Divider(height: 1),
               // 课表网格（可左右滑动）
               Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentCycleIndex = index;
-                      _selectedCellKey = null; // 切换周期时清除选中
-                    });
-                  },
-                  itemCount: config.cycleCount,
-                  itemBuilder: (context, cycleIndex) {
-                    return _buildTimetableGrid(theme, config, cycleIndex);
-                  },
+                child: Stack(
+                  children: [
+                    PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentCycleIndex = index;
+                          _selectedCellKey = null; // 切换周期时清除选中
+                        });
+                      },
+                      itemCount: config.cycleCount,
+                      itemBuilder: (context, cycleIndex) {
+                        return _buildTimetableGrid(theme, config, cycleIndex);
+                      },
+                    ),
+                    // 右上角 - 回到今天按钮
+                    if (config.todayCycleIndex != null &&
+                        config.todayCycleIndex != _currentCycleIndex)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () {
+                            _pageController.animateToPage(
+                              config.todayCycleIndex!,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: TimetableColors.accent.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: TimetableColors.accent.withValues(alpha: 0.5),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.today,
+                                  size: 14,
+                                  color: TimetableColors.accent,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '今天',
+                                  style: TextStyle(
+                                    color: TimetableColors.accent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -421,236 +485,6 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 }
 
-/// 设置页面
-class TimetableSettingsPage extends ConsumerStatefulWidget {
-  const TimetableSettingsPage({super.key});
-
-  @override
-  ConsumerState<TimetableSettingsPage> createState() =>
-      _TimetableSettingsPageState();
-}
-
-class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
-  late final TextEditingController _startDateController;
-  late int _cycleCount;
-  late int _daysPerCycle;
-  late int _slotsPerDay;
-
-  @override
-  void initState() {
-    super.initState();
-    final config = ref.read(TimetableStore.provider).config;
-    _startDateController = TextEditingController(text: config.startDateIso);
-    _cycleCount = config.cycleCount;
-    _daysPerCycle = config.daysPerCycle;
-    _slotsPerDay = config.slotsPerDay;
-  }
-
-  @override
-  void dispose() {
-    _startDateController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final store = ref.read(TimetableStore.provider.notifier);
-    final error = await store.updateConfig(
-      startDateIso: _startDateController.text.trim(),
-      cycleCount: _cycleCount,
-      daysPerCycle: _daysPerCycle,
-      slotsPerDay: _slotsPerDay,
-    );
-
-    if (error != null && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
-    } else if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('设置已保存')));
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('课表设置'),
-        backgroundColor: TimetableColors.surface,
-        foregroundColor: TimetableColors.textPrimary,
-      ),
-      backgroundColor: TimetableColors.surfaceVariant,
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // 起始日期
-          TextField(
-            controller: _startDateController,
-            style: const TextStyle(color: TimetableColors.textPrimary),
-            decoration: InputDecoration(
-              labelText: '起始日期',
-              labelStyle: const TextStyle(color: TimetableColors.textSecondary),
-              prefixIcon: const Icon(
-                Icons.calendar_today,
-                color: TimetableColors.accent,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest,
-            ),
-            readOnly: true,
-            onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate:
-                    DateTime.tryParse(_startDateController.text) ??
-                    DateTime.now(),
-                firstDate: DateTime(2024),
-                lastDate: DateTime(2030),
-              );
-              if (date != null) {
-                setState(() {
-                  _startDateController.text = date.toIso8601String().split(
-                    'T',
-                  )[0];
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 24),
-          // 周期数
-          _ConfigSlider(
-            label: '周期数',
-            value: _cycleCount.toDouble(),
-            min: TimetableConfig.minCycles.toDouble(),
-            max: TimetableConfig.maxCycles.toDouble(),
-            divisions: TimetableConfig.maxCycles - TimetableConfig.minCycles,
-            onChanged: (v) => setState(() => _cycleCount = v.round()),
-          ),
-          // 每周期天数
-          _ConfigSlider(
-            label: '每周期天数 (1-7)',
-            value: _daysPerCycle.toDouble(),
-            min: TimetableConfig.minDaysPerCycle.toDouble(),
-            max: TimetableConfig.maxDaysPerCycle.toDouble(),
-            divisions:
-                TimetableConfig.maxDaysPerCycle -
-                TimetableConfig.minDaysPerCycle,
-            onChanged: (v) => setState(() => _daysPerCycle = v.round()),
-          ),
-          // 每天节数
-          _ConfigSlider(
-            label: '每天节数 (1-6)',
-            value: _slotsPerDay.toDouble(),
-            min: TimetableConfig.minSlotsPerDay.toDouble(),
-            max: TimetableConfig.maxSlotsPerDay.toDouble(),
-            divisions:
-                TimetableConfig.maxSlotsPerDay - TimetableConfig.minSlotsPerDay,
-            onChanged: (v) => setState(() => _slotsPerDay = v.round()),
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: _save,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              side: const BorderSide(color: TimetableColors.accent, width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.save, color: TimetableColors.accent),
-            label: const Text(
-              '保存设置',
-              style: TextStyle(
-                color: TimetableColors.accent,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ConfigSlider extends StatelessWidget {
-  const _ConfigSlider({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: TimetableColors.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                border: const Border(
-                  left: BorderSide(
-                    color: TimetableColors.textPrimary,
-                    width: 3,
-                  ),
-                ),
-                color: TimetableColors.selectedBg,
-              ),
-              child: Text(
-                value.round().toString(),
-                style: const TextStyle(
-                  color: TimetableColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        SliderTheme(
-          data: SliderThemeData(
-            activeTrackColor: TimetableColors.accent,
-            inactiveTrackColor: TimetableColors.border,
-            thumbColor: TimetableColors.accent,
-            overlayColor: TimetableColors.accent.withValues(alpha: 0.2),
-          ),
-          child: Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// 左侧节数标签组件
 class _SlotLabel extends StatelessWidget {
   const _SlotLabel({required this.slotIndex, required this.height});
@@ -832,7 +666,7 @@ class _CoursePreviewSheet extends StatelessWidget {
                       color: theme.colorScheme.outline,
                     ),
                     label: Text(
-                      '编辑课程',
+                      '编辑',
                       style: TextStyle(color: theme.colorScheme.outline),
                     ),
                   ),
