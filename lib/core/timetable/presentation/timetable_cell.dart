@@ -32,37 +32,92 @@ class TimetableCell extends StatelessWidget {
       onLongPress: onLongPress,
       child: Container(
         margin: const EdgeInsets.all(1),
-        decoration: BoxDecoration(
-          color: _backgroundColor(),
-          borderRadius: BorderRadius.circular(6),
-        ),
+        decoration: _buildDecoration(),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           child: _buildContent(),
         ),
       ),
     );
   }
 
-  Color _backgroundColor() {
+  BoxDecoration _buildDecoration() {
     switch (state) {
       case TimetableCellState.empty:
-        return Colors.transparent;
+        return BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: TimetableColors.border.withValues(alpha: 0.4),
+            width: 0.5,
+          ),
+        );
       case TimetableCellState.selected:
-        return TimetableColors.selectedBg;
+        return BoxDecoration(
+          color: TimetableColors.selectedBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: TimetableColors.accent.withValues(alpha: 0.25),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: TimetableColors.accent.withValues(alpha: 0.08),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        );
       case TimetableCellState.filled:
-        return TimetableColors.getCourseColor(course?.colorSeed ?? 0)
-            .withValues(alpha: 0.88);
+        final baseColor = TimetableColors.getCourseColor(course?.colorSeed ?? 0);
+        return BoxDecoration(
+          color: baseColor.withValues(alpha: 0.82),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: baseColor.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: baseColor.withValues(alpha: 0.2),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        );
     }
   }
 
   Widget _buildContent() {
     switch (state) {
       case TimetableCellState.empty:
-        return const SizedBox.shrink();
+        return Container(color: Colors.transparent);
       case TimetableCellState.selected:
-        return Center(
-          child: Icon(Icons.add, size: 16, color: TimetableColors.accentLight),
+        return Stack(
+          children: [
+            // 柔和内阴影
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.4),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Center(
+              child: Icon(
+                Icons.add,
+                size: 18,
+                color: TimetableColors.accent.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
         );
       case TimetableCellState.filled:
         if (course == null) return const SizedBox.shrink();
@@ -82,29 +137,58 @@ class _CourseContent extends StatelessWidget {
     final color = TimetableColors.getCourseColor(course.colorSeed ?? 0);
     final isLight = color.computeLuminance() > 0.55;
     final textColor = isLight ? const Color(0xFF3D3D3D) : Colors.white;
-    final subTextColor = isLight ? const Color(0xFF5D5D5D) : Colors.white70;
+    final subTextColor = isLight
+        ? const Color(0xFF5D5D5D).withValues(alpha: 0.8)
+        : Colors.white.withValues(alpha: 0.75);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 课程名：按长度分行
-          ..._buildTitleLines(course.title, textColor),
-          // 地点：完整显示，不截断
-          if (course.location != null && course.location!.isNotEmpty)
-            Text(
-              course.location!,
-              style: TextStyle(
-                color: subTextColor,
-                fontSize: 8,
-                height: 1.1,
+    return Stack(
+      children: [
+        // 顶部微光
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 16,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withValues(alpha: 0.18),
+                  Colors.white.withValues(alpha: 0.0),
+                ],
               ),
-              maxLines: 2,
             ),
-        ],
-      ),
+          ),
+        ),
+        // 内容
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ..._buildTitleLines(course.title, textColor),
+              if (course.location != null && course.location!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    course.location!,
+                    style: TextStyle(
+                      color: subTextColor,
+                      fontSize: 8,
+                      height: 1.1,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -114,92 +198,45 @@ class _CourseContent extends StatelessWidget {
     final len = title.length;
 
     if (len <= 3) {
-      // 1-3字：单行
       lines.add(Text(
         title,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          height: 1.1,
-        ),
+        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ));
     } else if (len == 4) {
-      // 4字：2+2
       lines.add(Text(
         title.substring(0, 2),
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          height: 1.1,
-        ),
+        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ));
       lines.add(Text(
         title.substring(2),
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          height: 1.1,
-        ),
+        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ));
     } else if (len == 5) {
-      // 5字：3+2
       lines.add(Text(
         title.substring(0, 3),
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          height: 1.1,
-        ),
+        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ));
       lines.add(Text(
         title.substring(3),
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          height: 1.1,
-        ),
+        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ));
     } else {
-      // 6字及以上：最多2行，超长省略
       lines.add(Text(
         title,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          height: 1.1,
-        ),
+        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ));
-      if (title.length > 6) {
-        lines.add(Text(
-          title.substring(6),
-          style: TextStyle(
-            color: textColor,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            height: 1.1,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ));
-      }
     }
 
     return lines;
