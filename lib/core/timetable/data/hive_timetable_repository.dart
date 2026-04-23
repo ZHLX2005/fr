@@ -45,7 +45,8 @@ class HiveTimetableRepository extends TimetableRepository {
       return TimetableConfig.defaultConfig;
     }
 
-    final map = json as Map<String, dynamic>;
+    // Hive returns _Map<dynamic, dynamic>, must convert keys to String
+    final map = (json as Map).map((k, v) => MapEntry(k.toString(), v));
     return TimetableConfig(
       startDateIso:
           map['startDateIso'] as String? ??
@@ -61,6 +62,7 @@ class HiveTimetableRepository extends TimetableRepository {
       id: map['id'] as String? ?? 'default',
       updatedAt: map['updatedAt'] as int?,
       backgroundImagePath: map['backgroundImagePath'] as String?,
+      isSchoolMode: map['isSchoolMode'] as bool? ?? false,
     );
   }
 
@@ -78,6 +80,7 @@ class HiveTimetableRepository extends TimetableRepository {
       'id': config.id,
       'updatedAt': config.updatedAt,
       'backgroundImagePath': config.backgroundImagePath,
+      'isSchoolMode': config.isSchoolMode,
     });
     debugPrint('HiveTimetableRepository.saveConfig: 配置已保存');
   }
