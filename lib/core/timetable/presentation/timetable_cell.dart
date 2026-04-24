@@ -44,14 +44,7 @@ class TimetableCell extends StatelessWidget {
   BoxDecoration _buildDecoration() {
     switch (state) {
       case TimetableCellState.empty:
-        return BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: TimetableColors.border.withValues(alpha: 0.4),
-            width: 0.5,
-          ),
-        );
+        return const BoxDecoration();
       case TimetableCellState.selected:
         return BoxDecoration(
           color: TimetableColors.selectedBg,
@@ -181,8 +174,6 @@ class _CourseContent extends StatelessWidget {
                       fontSize: 8,
                       height: 1.1,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
             ],
@@ -192,51 +183,19 @@ class _CourseContent extends StatelessWidget {
     );
   }
 
-  /// 按长度自动分行
+  /// 按长度自动分行，每行最多3字
   List<Widget> _buildTitleLines(String title, Color textColor) {
-    final lines = <Widget>[];
     final len = title.length;
+    if (len == 0) return [];
 
-    if (len <= 3) {
-      lines.add(Text(
-        title,
-        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ));
-    } else if (len == 4) {
-      lines.add(Text(
-        title.substring(0, 2),
-        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ));
-      lines.add(Text(
-        title.substring(2),
-        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ));
-    } else if (len == 5) {
-      lines.add(Text(
-        title.substring(0, 3),
-        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ));
-      lines.add(Text(
-        title.substring(3),
-        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ));
-    } else {
-      lines.add(Text(
-        title,
-        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ));
+    final textStyle = TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1);
+    final lines = <Widget>[];
+
+    // 每行最多3字，最多2行
+    lines.add(Text(title.substring(0, len.clamp(0, 3)), style: textStyle, maxLines: 1, overflow: TextOverflow.ellipsis));
+
+    if (len > 3) {
+      lines.add(Text(title.substring(3, len.clamp(3, 6)), style: textStyle, maxLines: 1, overflow: TextOverflow.ellipsis));
     }
 
     return lines;

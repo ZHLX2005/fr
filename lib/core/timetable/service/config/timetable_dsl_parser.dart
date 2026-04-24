@@ -1,4 +1,4 @@
-import '../domain/models.dart';
+import '../../domain/models.dart';
 
 /// DSL 解析结果
 class DslParseResult {
