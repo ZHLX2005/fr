@@ -195,9 +195,8 @@ class LabPullPanelStateMachine {
     }
 
     _state = LabPullPanelState.draggingPanel;
-    if (effectiveDeltaDy < 0) {
-      _panelDragDistancePx += -effectiveDeltaDy;
-    }
+    // Track net close distance so an immediate reverse drag can cancel closing.
+    _panelDragDistancePx = math.max(0.0, _panelDragDistancePx - effectiveDeltaDy);
     _progress = LabPullPanelMetrics.applyDrag(
       currentProgress: _progress,
       deltaDy: effectiveDeltaDy,

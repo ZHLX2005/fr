@@ -205,7 +205,6 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   }
 
   void _onPanelHandleDragUpdate(double deltaDy, double fullHeight) {
-    if (deltaDy >= 0) return;
     _sm.updatePanelDrag(deltaDy: deltaDy, fullHeight: fullHeight);
     setState(() {});
   }
