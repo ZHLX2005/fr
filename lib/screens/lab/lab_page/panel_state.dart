@@ -1,4 +1,4 @@
-part of '../../screens/lab/lab_page.dart';
+part of '../lab_page.dart';
 
 enum LabPullPanelState {
   collapsed,

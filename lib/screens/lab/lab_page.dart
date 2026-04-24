@@ -9,9 +9,9 @@ import '../../lab/providers/lab_card_provider.dart';
 import '../../services/lab_image_cache_service.dart';
 import '../../widgets/image_picker_widget.dart';
 
-part '../../lab/lab_page/components.dart';
-part '../../lab/lab_page/panel_content.dart';
-part '../../lab/lab_page/panel_state.dart';
+part 'lab_page/components.dart';
+part 'lab_page/panel_content.dart';
+part 'lab_page/panel_state.dart';
 
 class LabPage extends StatefulWidget {
   const LabPage({super.key});
