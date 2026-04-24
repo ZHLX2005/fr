@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'timetable_store.dart';
+import '../../presentation/timetable_store.dart';
 import 'timetable_dsl_parser.dart';
-import 'timetable_colors.dart';
+import '../../presentation/timetable_colors.dart';
 
 /// 课程批量导入对话框
 class TimetableImportDialog extends ConsumerStatefulWidget {

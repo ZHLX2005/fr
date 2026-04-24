@@ -6,7 +6,7 @@ import 'timetable_store.dart';
 import 'timetable_cell.dart';
 import 'timetable_editor_dialog.dart';
 import 'timetable_colors.dart';
-import 'timetable_settings_page.dart';
+import '../service/config/timetable_settings_page.dart';
 import '../../../widgets/image_picker_widget.dart';
 
 /// 简洁日历风格课表页面
