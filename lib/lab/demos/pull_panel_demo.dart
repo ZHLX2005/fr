@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../lab_container.dart';
@@ -83,6 +84,41 @@ class PullPanelStateMachine {
   double _pendingMainDragDy = 0.0;
   double _pendingPanelDragDy = 0.0;
   double _panelDragDistancePx = 0.0;
+
+  // Test helpers / compatibility layer for older tests.
+  @visibleForTesting
+  void debugSetProgressForTest(double value) => _progress = value;
+
+  @visibleForTesting
+  void debugSetStateForTest(PullPanelState state) => _state = state;
+
+  PullPanelAction onMainDragEnd({required double velocityDy}) {
+    return endMainDrag(velocityDy: velocityDy);
+  }
+
+  void onPanelTopOverscroll({
+    required double overscrollDy,
+    required double fullHeight,
+  }) {
+    // In our interaction model, panel close drag feeds into updatePanelDrag.
+    // The tests pass overscrollDy < 0 to represent pulling upward past top.
+    beginPanelDrag();
+    updatePanelDrag(deltaDy: overscrollDy, fullHeight: fullHeight);
+  }
+
+  PullPanelAction onPanelScrollEnd({double velocityDy = 0.0}) {
+    return endPanelDrag(velocityDy: velocityDy);
+  }
+
+  String get hintText {
+    if (_state == PullPanelState.refreshing) return '刷新中…';
+    if (_state == PullPanelState.draggingMain) {
+      if (_progress >= PullPanelMetrics.openThreshold) return '松手打开面板';
+      if (_progress >= PullPanelMetrics.refreshThreshold) return '松手刷新';
+      return '继续下拉刷新';
+    }
+    return '';
+  }
 
   void _log(String message) {
     debugPrint('[PullPanel] $message');
