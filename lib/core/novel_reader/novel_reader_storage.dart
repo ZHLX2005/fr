@@ -357,6 +357,16 @@ class NovelReaderStorage {
     await prefs.setString(NovelReaderConstants.themeKey, value);
   }
 
+  Future<bool?> getVolumeKeyTurnEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(NovelReaderConstants.volumeKeyTurnKey);
+  }
+
+  Future<void> setVolumeKeyTurnEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(NovelReaderConstants.volumeKeyTurnKey, value);
+  }
+
   String _normalize(String text) {
     return text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   }

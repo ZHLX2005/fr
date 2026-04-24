@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
@@ -7,6 +9,7 @@ import 'package:flutter/physics.dart';
 import 'canvas_reader_engine.dart';
 import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';
+import 'novel_volume_key_turn.dart';
 
 class NovelReaderBookshelfPage extends StatefulWidget {
   const NovelReaderBookshelfPage({super.key});
@@ -374,14 +377,41 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   String? _error;
   NovelCanvasReaderController? _readerController;
 
+  late final NovelVolumeKeyTurnBridge _volumeKeyTurnBridge =
+      NovelVolumeKeyTurnBridge(
+    onNext: () {
+      final controller = _readerController;
+      if (controller == null) return;
+      unawaited(controller.nextPage());
+    },
+    onPrevious: () {
+      final controller = _readerController;
+      if (controller == null) return;
+      unawaited(controller.prePage());
+    },
+  );
+
+  bool _volumeKeyTurnEnabled = false;
+
   @override
   void initState() {
     super.initState();
+    unawaited(_initVolumeKeyTurn());
     _loadBook();
+  }
+
+  Future<void> _initVolumeKeyTurn() async {
+    final enabled = await _storage.getVolumeKeyTurnEnabled();
+    if (!mounted) return;
+    setState(() {
+      _volumeKeyTurnEnabled = enabled ?? false;
+    });
+    await _volumeKeyTurnBridge.activate(enabled: _volumeKeyTurnEnabled);
   }
 
   @override
   void dispose() {
+    unawaited(_volumeKeyTurnBridge.deactivate());
     _readerController?.dispose();
     super.dispose();
   }
@@ -587,6 +617,47 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                         await _storage.setLineHeight(nextValue);
                         setSheetState(() {});
                       },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Controls',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF4B3728),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Material(
+                      color: const Color(0xFFFFFBF5),
+                      borderRadius: BorderRadius.circular(16),
+                      child: SwitchListTile.adaptive(
+                        title: const Text(
+                          'Volume keys to turn pages',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF4B3728),
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Use Volume Down/Up as Next/Previous page.',
+                          style: TextStyle(color: Color(0xFF7A5D47)),
+                        ),
+                        value: _volumeKeyTurnEnabled,
+                        onChanged: (value) async {
+                          setSheetState(() {
+                            _volumeKeyTurnEnabled = value;
+                          });
+                          await _storage.setVolumeKeyTurnEnabled(value);
+                          await _volumeKeyTurnBridge.activate(enabled: value);
+                        },
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 4,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     const Text(

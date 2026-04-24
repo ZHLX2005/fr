@@ -17,6 +17,7 @@ class NovelReaderConstants {
   static const String fontSizeKey = 'lab.novel_reader.font_size';
   static const String lineHeightKey = 'lab.novel_reader.line_height';
   static const String themeKey = 'lab.novel_reader.theme';
+  static const String volumeKeyTurnKey = 'lab.novel_reader.volume_key_turn';
 
   static String progressKey(String bookId) => '$progressKeyPrefix.$bookId';
 
