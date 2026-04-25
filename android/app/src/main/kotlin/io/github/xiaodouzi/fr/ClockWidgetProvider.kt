@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
-import io.github.xiaodouzi.fr.R
 
 class ClockWidgetProvider : AppWidgetProvider() {
 
