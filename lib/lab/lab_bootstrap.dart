@@ -33,7 +33,6 @@ import 'demos/schema_demo.dart';
 import 'demos/color_palette_demo.dart';
 import 'demos/github_demo.dart';
 import 'demos/qr_demo.dart';
-import 'demos/pull_panel_demo.dart';
 import 'demos/doubletime_demo.dart';
 import 'demos/novel_reader_demo.dart';
 import 'demos/volume_decay_demo.dart';
@@ -72,7 +71,6 @@ void registerAllDemos() {
   registerGithubDemo();
   registerQrDemo();
   registerDoubleTimeDemo();
-  registerPullPanelDemo();
   registerNovelReaderDemo();
   registerVolumeDecayDemo();
   registerArcSelectorDemo();
