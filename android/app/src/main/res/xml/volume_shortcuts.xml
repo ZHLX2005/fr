@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:id="@+id/sc_turn_on"
+        android:shortcutShortLabel="开启衰减"
+        android:shortcutLongLabel="一键开启全局响度衰减"
+        android:icon="@android:drawable/ic_dialog_info">
+        <intent
+            android:action="com.example.flutter_application_1.ACTION_TURN_ON"
+            android:targetPackage="com.example.flutter_application_1"
+            android:targetClass="com.example.flutter_application_1.native.volume.ShortcutActivity" />
+    </shortcut>
+
+    <shortcut
+        android:id="@+id/sc_turn_off"
+        android:shortcutShortLabel="关闭衰减"
+        android:shortcutLongLabel="一键恢复原音量"
+        android:icon="@android:drawable/ic_menu_close_clear_cancel">
+        <intent
+            android:action="com.example.flutter_application_1.ACTION_TURN_OFF"
+            android:targetPackage="com.example.flutter_application_1"
+            android:targetClass="com.example.flutter_application_1.native.volume.ShortcutActivity" />
+    </shortcut>
+</shortcuts>
