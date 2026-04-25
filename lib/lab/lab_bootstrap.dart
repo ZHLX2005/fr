@@ -67,6 +67,7 @@ void registerAllDemos() {
   registerColorPaletteDemo();
   registerGithubDemo();
   registerQrDemo();
+  registerWebBookmarkDemo();
   registerDoubleTimeDemo();
   registerNovelReaderDemo();
   registerVolumeDecayDemo();
