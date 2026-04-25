@@ -233,8 +233,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     final demos = demoRegistry.getAll();
     final theme = Theme.of(context);
     final appBarReveal = (1.0 - _progress).clamp(0.0, 1.0);
-    final appBarHeight =
-        (kToolbarHeight + MediaQuery.of(context).padding.top) * appBarReveal;
+    final appBarHeight = kToolbarHeight * appBarReveal;
 
     return PopScope(
       canPop: !_panelConsumesBack,
@@ -257,19 +256,19 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                   ignoring: appBarReveal <= 0.0,
                   child: AppBar(
                     title: const Text('Lab'),
-                    actions: [
-                      IconButton(
-                        icon: const Icon(Icons.cleaning_services_outlined),
-                        onPressed: () => _showCacheInfo(context),
-                        tooltip: 'Cache',
+                        actions: [
+                          IconButton(
+                            icon: const Icon(Icons.cleaning_services_outlined),
+                            onPressed: () => _showCacheInfo(context),
+                            tooltip: 'Cache',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.info_outline),
+                            onPressed: () => _showLabInfo(context),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.info_outline),
-                        onPressed: () => _showLabInfo(context),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
               ),
             ),
           ),
