@@ -9,8 +9,8 @@ import android.util.Log
 /**
  * 音量衰减服务
  *
- * 使用虚拟音量曲线实现"比系统音量更低"的感知响度控制
- * 核心: x^n 非线性映射
+ * 通过 Shizuku 执行 shell 命令控制全局音量
+ * Shizuku 让 App 拥有 ADB 级别的音频控制权限
  */
 class VolumeDecayService : Service() {
 
@@ -19,27 +19,24 @@ class VolumeDecayService : Service() {
         const val ACTION_TURN_OFF = "io.github.xiaodouzi.fr.ACTION_TURN_OFF"
         const val ACTION_SET_GAIN = "io.github.xiaodouzi.fr.ACTION_SET_GAIN"
         const val ACTION_SET_VOLUME = "io.github.xiaodouzi.fr.ACTION_SET_VOLUME"
-        const val ACTION_SET_EXPONENT = "io.github.xiaodouzi.fr.ACTION_SET_EXPONENT"
 
         var currentGain: Int = 40
             private set
 
         var isRunning: Boolean = false
             private set
+
+        var isShizukuAvailable: Boolean = false
+            private set
     }
 
-    private lateinit var controller: VirtualVolumeController
-    private lateinit var keyInterceptor: VolumeKeyInterceptor
+    private lateinit var shizukuController: ShizukuVolumeController
 
     override fun onCreate() {
         super.onCreate()
-        controller = VirtualVolumeController(this)
-        controller.init()
-        keyInterceptor = VolumeKeyInterceptor(this)
-
-        currentGain = loadSavedGain()
-        isRunning = controller.isEnabled
-        Log.d("VolumeDecayService", "onCreate isRunning=$isRunning currentGain=$currentGain")
+        shizukuController = ShizukuVolumeController(this)
+        isShizukuAvailable = shizukuController.isShizukuAvailable()
+        Log.d("VolumeDecayService", "onCreate Shizuku可用=$isShizukuAvailable")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -52,10 +49,6 @@ class VolumeDecayService : Service() {
             ACTION_SET_GAIN -> {
                 val gain = intent.getIntExtra("gain", currentGain)
                 setGain(gain)
-            }
-            ACTION_SET_EXPONENT -> {
-                val exponent = intent.getFloatExtra("exponent", 3.5f)
-                setExponent(exponent)
             }
             ACTION_SET_VOLUME -> {
                 val volume = intent.getIntExtra("volume", -1)
@@ -73,28 +66,15 @@ class VolumeDecayService : Service() {
 
     private fun turnOn(gain: Int) {
         currentGain = gain.coerceIn(0, 100)
-        controller.setVirtualVolume(currentGain / 100f)
-        controller.enable()
-
-        keyInterceptor.start(object : VolumeKeyInterceptor.VolumeKeyCallback {
-            override fun onVolumeKeyDown(): Float {
-                val step = 0.05f
-                val current = controller.virtualVolume
-                val newVolume = (current + step).coerceIn(0f, 1f)
-                controller.setVirtualVolume(newVolume)
-                currentGain = (newVolume * 100).toInt()
-                return newVolume
-            }
-        })
-
+        shizukuController.enable()
+        shizukuController.setVolume(currentGain)
         isRunning = true
         saveGain(currentGain)
-        Log.d("VolumeDecayService", "turnOn gain=$currentGain")
+        Log.d("VolumeDecayService", "turnOn gain=$currentGain Shizuku=$isShizukuAvailable")
     }
 
     private fun turnOff() {
-        keyInterceptor.stop()
-        controller.disable()
+        shizukuController.disable()
         isRunning = false
         saveGain(currentGain)
         Log.d("VolumeDecayService", "turnOff")
@@ -102,22 +82,19 @@ class VolumeDecayService : Service() {
 
     private fun setGain(gain: Int) {
         currentGain = gain.coerceIn(0, 100)
-        controller.setVirtualVolume(currentGain / 100f)
+        shizukuController.setVolume(currentGain)
         saveGain(currentGain)
     }
 
-    private fun setExponent(exponent: Float) {
-        // EQ 方案不需要 exponent 参数，保留兼容
-    }
-
     private fun setVolume(volume: Int) {
-        // EQ 方案不支持直接设置系统音量，忽略
+        val maxVol = shizukuController.getMaxSystemVolume()
+        val gain = if (maxVol > 0) (volume * 100 / maxVol) else 100
+        currentGain = gain.coerceIn(0, 100)
+        shizukuController.setVolume(currentGain)
     }
 
     override fun onDestroy() {
-        keyInterceptor.stop()
-        controller.disable()
-        controller.release()
+        shizukuController.disable()
         super.onDestroy()
     }
 

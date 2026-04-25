@@ -89,7 +89,13 @@ flutter {
     source = "../.."
 }
 
-// 依赖配置
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+
 dependencies {
     // 核心库脱糖
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
@@ -106,4 +112,8 @@ dependencies {
     // 其他必要的AndroidX库
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.activity:activity:1.8.0")
+
+    // Shizuku SDK
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
 }
