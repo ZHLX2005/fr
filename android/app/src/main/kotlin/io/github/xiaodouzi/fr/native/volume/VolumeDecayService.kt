@@ -1,138 +1,141 @@
 package io.github.xiaodouzi.fr.native.volume
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
-import android.os.Build
 import android.os.IBinder
-import androidx.core.app.NotificationCompat
+import android.util.Log
 
+/**
+ * 音量衰减服务
+ *
+ * 使用虚拟音量曲线实现"比系统音量更低"的感知响度控制
+ * 核心: x^n 非线性映射
+ */
 class VolumeDecayService : Service() {
+
     companion object {
-        const val CHANNEL_ID = "volume_decay_channel"
-        const val NOTIFY_ID = 9528
         const val ACTION_TURN_ON = "io.github.xiaodouzi.fr.ACTION_TURN_ON"
         const val ACTION_TURN_OFF = "io.github.xiaodouzi.fr.ACTION_TURN_OFF"
         const val ACTION_SET_GAIN = "io.github.xiaodouzi.fr.ACTION_SET_GAIN"
         const val ACTION_SET_VOLUME = "io.github.xiaodouzi.fr.ACTION_SET_VOLUME"
-
-        private const val DEFAULT_STREAM = AudioManager.STREAM_MUSIC
+        const val ACTION_SET_EXPONENT = "io.github.xiaodouzi.fr.ACTION_SET_EXPONENT"
 
         var currentGain: Int = 40
-        var isRunning: Boolean = false
             private set
 
-        private var savedVolume: Int = -1
+        var isRunning: Boolean = false
+            private set
     }
 
-    private lateinit var audioManager: AudioManager
+    private lateinit var controller: VirtualVolumeController
+    private lateinit var keyInterceptor: VolumeKeyInterceptor
 
     override fun onCreate() {
         super.onCreate()
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        createNotificationChannel()
+        controller = VirtualVolumeController(this)
+        controller.init()
+        keyInterceptor = VolumeKeyInterceptor(this)
+
+        currentGain = loadSavedGain()
+        isRunning = controller.isEnabled
+        Log.d("VolumeDecayService", "onCreate isRunning=$isRunning currentGain=$currentGain")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_TURN_OFF -> {
-                restoreOriginalVolume()
+                turnOff()
                 stopSelf()
                 return START_NOT_STICKY
             }
             ACTION_SET_GAIN -> {
-                val gain = intent.getIntExtra("gain", 40)
-                setDecayGain(gain)
+                val gain = intent.getIntExtra("gain", currentGain)
+                setGain(gain)
+            }
+            ACTION_SET_EXPONENT -> {
+                val exponent = intent.getFloatExtra("exponent", 3.5f)
+                setExponent(exponent)
             }
             ACTION_SET_VOLUME -> {
                 val volume = intent.getIntExtra("volume", -1)
                 if (volume >= 0) {
-                    setMediaVolume(volume)
+                    setVolume(volume)
                 }
             }
             ACTION_TURN_ON -> {
-                val gain = intent.getIntExtra("gain", 40)
-                startForeground(NOTIFY_ID, buildNotification())
-                setDecayGain(gain)
-            }
-            else -> {
-                startForeground(NOTIFY_ID, buildNotification())
+                val gain = intent.getIntExtra("gain", currentGain)
+                turnOn(gain)
             }
         }
         return START_STICKY
     }
 
-    private fun setDecayGain(gain: Int) {
+    private fun turnOn(gain: Int) {
         currentGain = gain.coerceIn(0, 100)
+        controller.saveOriginalVolume()
+        controller.setVirtualVolume(currentGain / 100f)
+        controller.enable()
 
-        // 保存原始音量
-        if (savedVolume < 0) {
-            savedVolume = audioManager.getStreamVolume(DEFAULT_STREAM)
-        }
-
-        // 计算衰减后的音量: 原始音量 * (gain / 100)
-        if (savedVolume > 0) {
-            val maxVolume = audioManager.getStreamMaxVolume(DEFAULT_STREAM)
-            val targetVolume = (savedVolume * currentGain / 100f).toInt().coerceIn(0, maxVolume)
-            audioManager.setStreamVolume(DEFAULT_STREAM, targetVolume, 0)
-        }
+        keyInterceptor.start(object : VolumeKeyInterceptor.VolumeKeyCallback {
+            override fun onVolumeKeyDown(): Float {
+                val step = 0.05f
+                val current = controller.virtualVolume
+                val newVolume = (current + step).coerceIn(0f, 1f)
+                controller.setVirtualVolume(newVolume)
+                currentGain = (newVolume * 100).toInt()
+                return newVolume
+            }
+        })
 
         isRunning = true
-        updateNotification()
+        saveGain(currentGain)
+        Log.d("VolumeDecayService", "turnOn gain=$currentGain")
     }
 
-    private fun setMediaVolume(volume: Int) {
-        val maxVolume = audioManager.getStreamMaxVolume(DEFAULT_STREAM)
-        val safeVolume = volume.coerceIn(0, maxVolume)
-        audioManager.setStreamVolume(DEFAULT_STREAM, safeVolume, 0)
-    }
-
-    private fun restoreOriginalVolume() {
-        if (savedVolume >= 0) {
-            audioManager.setStreamVolume(DEFAULT_STREAM, savedVolume, 0)
-            savedVolume = -1
-        }
+    private fun turnOff() {
+        keyInterceptor.stop()
+        controller.disable()
         isRunning = false
+        saveGain(currentGain)
+        Log.d("VolumeDecayService", "turnOff")
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "响度衰减服务",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "全局音频响度衰减控制"
-                setShowBadge(false)
-            }
-            val nm = getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(channel)
-        }
+    private fun setGain(gain: Int) {
+        currentGain = gain.coerceIn(0, 100)
+        controller.setVirtualVolume(currentGain / 100f)
+        saveGain(currentGain)
     }
 
-    private fun buildNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
-            .setContentTitle("响度衰减已开启")
-            .setContentText("当前增益: $currentGain%")
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
+    private fun setExponent(exponent: Float) {
+        // EQ 方案不需要 exponent 参数，保留兼容
     }
 
-    private fun updateNotification() {
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.notify(NOTIFY_ID, buildNotification())
+    private fun setVolume(volume: Int) {
+        val maxVol = controller.getMaxSystemVolume()
+        val virtual = if (maxVol > 0) volume.toFloat() / maxVol else 1f
+        controller.setVirtualVolume(virtual)
+        currentGain = (virtual * 100).toInt()
     }
 
     override fun onDestroy() {
+        keyInterceptor.stop()
+        controller.disable()
+        controller.release()
         super.onDestroy()
-        restoreOriginalVolume()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun loadSavedGain(): Int {
+        return getSharedPreferences("volume_decay_prefs", Context.MODE_PRIVATE)
+            .getInt("last_gain", 40)
+    }
+
+    private fun saveGain(gain: Int) {
+        getSharedPreferences("volume_decay_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putInt("last_gain", gain)
+            .apply()
+    }
 }

@@ -1,24 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
-        android:id="@+id/sc_turn_on"
+        android:shortcutId="sc_turn_on"
         android:shortcutShortLabel="@string/shortcut_turn_on"
         android:shortcutLongLabel="@string/shortcut_turn_on_long"
-        android:icon="@android:drawable/ic_dialog_info">
+        android:icon="@android:drawable/ic_lock_silent_mode_off">
         <intent
-            android:action="io.github.xiaodouzi.fr.ACTION_TURN_ON"
+            android:action="android.intent.action.VIEW"
             android:targetPackage="io.github.xiaodouzi.fr"
-            android:targetClass="io.github.xiaodouzi.fr.native.volume.ShortcutActivity" />
+            android:targetClass="io.github.xiaodouzi.fr.native.volume.ShortcutActivity">
+            <extra android:name="custom_action" android:value="io.github.xiaodouzi.fr.ACTION_TURN_ON" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
     </shortcut>
 
     <shortcut
-        android:id="@+id/sc_turn_off"
+        android:shortcutId="sc_turn_off"
         android:shortcutShortLabel="@string/shortcut_turn_off"
         android:shortcutLongLabel="@string/shortcut_turn_off_long"
-        android:icon="@android:drawable/ic_menu_close_clear_cancel">
+        android:icon="@android:drawable/ic_lock_silent_mode_off">
         <intent
-            android:action="io.github.xiaodouzi.fr.ACTION_TURN_OFF"
+            android:action="android.intent.action.VIEW"
             android:targetPackage="io.github.xiaodouzi.fr"
-            android:targetClass="io.github.xiaodouzi.fr.native.volume.ShortcutActivity" />
+            android:targetClass="io.github.xiaodouzi.fr.native.volume.ShortcutActivity">
+            <extra android:name="custom_action" android:value="io.github.xiaodouzi.fr.ACTION_TURN_OFF" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
     </shortcut>
 </shortcuts>

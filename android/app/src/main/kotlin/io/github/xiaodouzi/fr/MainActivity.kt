@@ -1,36 +1,27 @@
 package io.github.xiaodouzi.fr
 
 import android.app.Activity
-import android.app.AppOpsManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.media.AudioManager
-import android.media.RingtoneManager
 import android.media.projection.MediaProjectionManager
-import android.net.Uri
 import android.os.Build
-import android.os.Process
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
-import android.provider.Settings
-import android.app.usage.UsageStats
-import android.app.usage.UsageStatsManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-import java.util.Calendar
+import io.github.xiaodouzi.fr.native.clock.ClockChannel
+import io.github.xiaodouzi.fr.native.overlay.FloatingChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingWindowManager
-import io.github.xiaodouzi.fr.native.volume.VolumeDecayService
+import io.github.xiaodouzi.fr.native.system.SystemChannel
+import io.github.xiaodouzi.fr.native.volume.VolumeChannel
+import io.github.xiaodouzi.fr.native.widget.WidgetChannel
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "io.github.xiaodouzi.fr/widget"
-    private val CLOCK_CHANNEL = "io.github.xiaodouzi.fr/clock"
-    private val SYSTEM_CHANNEL = "io.github.xiaodouzi.fr/system"
-    private val FLOATING_CHANNEL = "io.github.xiaodouzi.fr/floating"
-    private val VOLUME_CHANNEL = "io.github.xiaodouzi.fr/volume"
+    private lateinit var widgetChannel: WidgetChannel
+    private lateinit var clockChannel: ClockChannel
+    private lateinit var systemChannel: SystemChannel
+    private lateinit var floatingChannel: FloatingChannel
+    private lateinit var volumeChannel: VolumeChannel
 
     private var mediaProjectionManager: MediaProjectionManager? = null
     private var regionCaptureReceiver: BroadcastReceiver? = null
@@ -39,335 +30,67 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
 
-        // 设置 MethodChannel 处理来自 Widget 的跳转请求
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "navigateToLab") {
-                // 跳转到 Lab 页面
-                navigateToLab()
-                result.success(null)
-            } else {
-                result.notImplemented()
-            }
+        // Widget Channel
+        widgetChannel = WidgetChannel(messenger).apply {
+            onNavigateToLab = { navigateToLab() }
         }
 
-        // 时钟相关 MethodChannel
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CLOCK_CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "playNotificationSound" -> {
-                    playNotificationSound()
-                    result.success(null)
-                }
-                "vibrate" -> {
-                    // Dart 的 int 对应 Java 的 Integer，需要先获取 Int 再转为 Long
-                    val duration = (call.argument<Int>("duration") ?: 300).toLong()
-                    vibrate(duration)
-                    result.success(null)
-                }
-                else -> result.notImplemented()
-            }
+        // Clock Channel
+        clockChannel = ClockChannel(messenger, this)
+
+        // System Channel
+        systemChannel = SystemChannel(messenger, this)
+
+        // Floating Channel
+        floatingChannel = FloatingChannel(messenger, this).apply {
+            setMethodCallHandler()
+            onScreenshotPermissionGranted = { notifyFlutter("onScreenshotPermissionGranted", null) }
+            onScreenshotPermissionDenied = { notifyFlutter("onScreenshotPermissionDenied", null) }
         }
 
-        // 系统功能相关 MethodChannel
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SYSTEM_CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "checkUsagePermission" -> {
-                    val hasPermission = checkUsagePermission()
-                    result.success(hasPermission)
-                }
-                "openUsageSettings" -> {
-                    openUsageSettings()
-                    result.success(null)
-                }
-                "queryAppUsage" -> {
-                    val usageList = queryAppUsage()
-                    result.success(usageList)
-                }
-                else -> result.notImplemented()
-            }
-        }
+        // Volume Channel
+        volumeChannel = VolumeChannel(messenger, this)
+    }
 
-        // 悬浮窗相关 MethodChannel
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FLOATING_CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "checkOverlayPermission" -> {
-                    // 检查悬浮窗权限
-                    val hasPermission = FloatingWindowManager.canDrawOverlays(this)
-                    result.success(hasPermission)
-                }
-                "loadAiConfig" -> {
-                    // 从 SharedPreferences 加载 AI 配置
-                    val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
-                    val defaultApiUrl = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-                    val defaultModel = "glm-4v-flash"
-                    val defaultSystemPrompt = "你是一个专业的AI助手，请根据图片回答用户问题。"
-                    val config = mapOf(
-                        "apiUrl" to (prefs.getString("api_url", null) ?: defaultApiUrl),
-                        "apiKey" to (prefs.getString("api_key", null) ?: ""),
-                        "model" to (prefs.getString("model", null) ?: defaultModel),
-                        "systemPrompt" to (prefs.getString("system_prompt", null) ?: defaultSystemPrompt),
-                        "directScreenshot" to (prefs.getBoolean("direct_screenshot", false))
-                    )
-                    result.success(config)
-                }
-                "requestOverlayPermission" -> {
-                    // 跳转到悬浮窗权限设置页面
-                    val intent = FloatingWindowManager.getOverlaySettingsIntent(this)
-                    startActivity(intent)
-                    result.success(true)
-                }
-                "startFloating" -> {
-                    // 先检查悬浮窗权限
-                    if (!FloatingWindowManager.canDrawOverlays(this)) {
-                        // 没有权限，跳转到设置页面
-                        val intent = FloatingWindowManager.getOverlaySettingsIntent(this)
-                        startActivity(intent)
-                        result.success(false)
-                        return@setMethodCallHandler
-                    }
-
-                    // 启动悬浮窗服务
-                    val intent = Intent(this, FloatingWindowManager::class.java).apply {
-                        action = FloatingWindowManager.ACTION_START
-                    }
-                    // Android 15 (targetSDK=35) 不允许在获得 MediaProjection 之前
-                    // 以 mediaProjection 类型启动前台服务，先用 startService
-                    startService(intent)
-
-                    // 立即请求截图权限（而非等到截图时再请求）
-                    requestScreenCapturePermission()
-
-                    // 设置截图权限请求回调（备用）
-                    FloatingWindowManager.onScreenshotPermissionNeeded = {
-                        runOnUiThread {
-                            requestScreenCapturePermission()
-                        }
-                    }
-
-                    result.success(true)
-                }
-                "stopFloating" -> {
-                    val intent = Intent(this, FloatingWindowManager::class.java).apply {
-                        action = FloatingWindowManager.ACTION_STOP
-                    }
-                    startService(intent)
-                    result.success(true)
-                }
-                "requestScreenshotPermission" -> {
-                    // 请求截图权限
-                    requestScreenCapturePermission()
-                    result.success(true)
-                }
-                "isFloatingShowing" -> {
-                    val manager = FloatingWindowManager.getInstance()
-                    result.success(manager?.isFloatingWindowShowing() ?: false)
-                }
-                "saveScreenshotToGallery" -> {
-                    val data = call.arguments as? ByteArray
-                    if (data != null) {
-                        FloatingWindowManager.getInstance()?.saveScreenshotToGallery(data)
-                        result.success(true)
-                    } else {
-                        result.error("INVALID_ARGUMENT", "No image data provided", null)
-                    }
-                }
-                "saveAiConfig" -> {
-                    val apiUrl = call.argument<String>("apiUrl") ?: ""
-                    val apiKey = call.argument<String>("apiKey") ?: ""
-                    val model = call.argument<String>("model") ?: "glm-4v-flash"
-                    val systemPrompt = call.argument<String>("systemPrompt") ?: ""
-                    val directScreenshot = call.argument<Boolean>("directScreenshot") ?: false
-
-                    // 使用 applicationContext 确保与 Service 中 loadAiConfig 使用相同的 SharedPreferences
-                    val prefs = getApplicationContext().getSharedPreferences("ai_config", Context.MODE_PRIVATE)
-                    prefs.edit()
-                        .putString("api_url", apiUrl)
-                        .putString("api_key", apiKey)
-                        .putString("model", model)
-                        .putString("system_prompt", systemPrompt)
-                        .putBoolean("direct_screenshot", directScreenshot)
-                        .apply()
-
-                    // 同时更新 FloatingWindowManager 实例的配置
-                    FloatingWindowManager.getInstance()?.apply {
-                        ai.apiUrl = apiUrl
-                        ai.apiKey = apiKey
-                        ai.model = model
-                        ai.systemPrompt = systemPrompt
-                        directScreenshotMode = directScreenshot
-                    }
-
-                    result.success(true)
-                }
-                "onAiAnswerChunk" -> {
-                    // Flutter 推送 AI 答案片段
-                    val chunk = call.argument<String>("chunk") ?: ""
-                    FloatingWindowManager.getInstance()?.appendAiAnswer(chunk)
-                    result.success(true)
-                }
-                "onAiAnswerError" -> {
-                    // Flutter 推送 AI 错误
-                    val error = call.argument<String>("error") ?: ""
-                    FloatingWindowManager.getInstance()?.showAiError(error)
-                    result.success(true)
-                }
-                "onAiAnswerStart" -> {
-                    // Flutter 开始 AI 回答
-                    FloatingWindowManager.getInstance()?.showAiLoading()
-                    result.success(true)
-                }
-                "onAiAnswerDone" -> {
-                    // Flutter 完成 AI 回答
-                    FloatingWindowManager.getInstance()?.hideAiLoading()
-                    result.success(true)
-                }
-                else -> result.notImplemented()
-            }
-        }
-
-        // 音量衰减 MethodChannel
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOLUME_CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "turnOn" -> {
-                    val gain = call.argument<Int>("gain") ?: 40
-                    val intent = Intent(this, VolumeDecayService::class.java).apply {
-                        action = VolumeDecayService.ACTION_TURN_ON
-                        putExtra("gain", gain)
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        startService(intent)
-                    }
-                    result.success(true)
-                }
-                "turnOff" -> {
-                    val intent = Intent(this, VolumeDecayService::class.java).apply {
-                        action = VolumeDecayService.ACTION_TURN_OFF
-                    }
-                    startService(intent)
-                    result.success(true)
-                }
-                "setGain" -> {
-                    val gain = call.argument<Int>("gain") ?: 40
-                    val intent = Intent(this, VolumeDecayService::class.java).apply {
-                        action = VolumeDecayService.ACTION_SET_GAIN
-                        putExtra("gain", gain)
-                    }
-                    startService(intent)
-                    result.success(true)
-                }
-                "getGain" -> {
-                    result.success(VolumeDecayService.currentGain)
-                }
-                "isRunning" -> {
-                    result.success(VolumeDecayService.isRunning)
-                }
-                "setVolume" -> {
-                    val volume = call.argument<Int>("volume") ?: -1
-                    val intent = Intent(this, VolumeDecayService::class.java).apply {
-                        action = VolumeDecayService.ACTION_SET_VOLUME
-                        putExtra("volume", volume)
-                    }
-                    startService(intent)
-                    result.success(true)
-                }
-                "getMaxVolume" -> {
-                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    result.success(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
-                }
-                "getCurrentVolume" -> {
-                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    result.success(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC))
-                }
-                else -> result.notImplemented()
-            }
+    private fun notifyFlutter(method: String, args: Any?) {
+        flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+            io.flutter.plugin.common.MethodChannel(messenger, FloatingChannel.NAME)
+                .invokeMethod(method, args)
         }
     }
 
     private fun requestScreenCapturePermission() {
         mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val intent = mediaProjectionManager?.createScreenCaptureIntent()
-        intent?.let {
-            startActivityForResult(it, SCREEN_CAPTURE_REQUEST_CODE)
-        }
+        intent?.let { startActivityForResult(it, SCREEN_CAPTURE_REQUEST_CODE) }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                // 先升级为前台服务（Android 15 要求 getMediaProjection 前必须有 mediaProjection 类型的前台服务）
                 FloatingWindowManager.getInstance()?.promoteToForeground()
-                // 然后创建 MediaProjection
                 val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                 val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
-                // 设置给 FloatingWindowManager
                 FloatingWindowManager.getInstance()?.setMediaProjection(mediaProjection)
-
-                // 通知 Flutter 授权成功
-                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
-                    MethodChannel(messenger, FLOATING_CHANNEL)
-                        .invokeMethod("onScreenshotPermissionGranted", null)
-                }
+                floatingChannel.notifyPermissionGranted()
             } else {
-                // 授权失败
-                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
-                    MethodChannel(messenger, FLOATING_CHANNEL)
-                        .invokeMethod("onScreenshotPermissionDenied", null)
-                }
+                floatingChannel.notifyPermissionDenied()
             }
-        }
-    }
-
-    // 播放系统通知铃声
-    private fun playNotificationSound() {
-        try {
-            val notification: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
-            ringtone?.play()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    // 震动指定时长（毫秒）
-    private fun vibrate(duration: Long) {
-        try {
-            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-                vibratorManager.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // Android 8.0+ 使用 VibrationEffect
-                vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                // Android 8.0 以下
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(duration)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // 处理深层链接
         handleIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
-        // 处理启动时的 Intent
         handleIntent(intent)
-        // 注册区域截图广播接收器
         registerRegionCaptureReceiver()
-        // 注册 AI 问题广播接收器
         registerAiQuestionReceiver()
     }
 
@@ -377,30 +100,31 @@ class MainActivity : FlutterActivity() {
         aiQuestionReceiver?.let { unregisterReceiver(it) }
     }
 
+    private fun handleIntent(intent: Intent?) {
+        intent?.data?.let { uri ->
+            if (uri.toString() == "fr://lab" || uri.path == "/lab") {
+                widgetChannel.notifyNavigateToLab()
+            }
+        }
+    }
+
+    private fun navigateToLab() {
+        widgetChannel.notifyNavigateToLab()
+    }
+
     private fun registerRegionCaptureReceiver() {
         if (regionCaptureReceiver != null) return
         regionCaptureReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == "io.github.xiaodouzi.fr.REGION_CAPTURED") {
                     val data = intent.getByteArrayExtra("data")
-                    data?.let {
-                        runOnUiThread {
-                            flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
-                                MethodChannel(messenger, FLOATING_CHANNEL)
-                                    .invokeMethod("onRegionCaptured", it)
-                            }
-                        }
-                    }
+                    data?.let { floatingChannel.notifyRegionCaptured(it) }
                 }
             }
         }
         val filter = IntentFilter("io.github.xiaodouzi.fr.REGION_CAPTURED")
-        val receiverFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Context.RECEIVER_NOT_EXPORTED
-        } else {
-            0
-        }
-        registerReceiver(regionCaptureReceiver, filter, receiverFlags)
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Context.RECEIVER_NOT_EXPORTED else 0
+        registerReceiver(regionCaptureReceiver, filter, flags)
     }
 
     private fun registerAiQuestionReceiver() {
@@ -410,128 +134,12 @@ class MainActivity : FlutterActivity() {
                 if (intent?.action == "io.github.xiaodouzi.fr.AI_QUESTION") {
                     val question = intent.getStringExtra("question") ?: return
                     val imagePath = intent.getStringExtra("image_path") ?: return
-                    // 通过 MethodChannel 通知 Flutter 调用 AI（传文件路径而非字节数组）
-                    flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
-                        MethodChannel(messenger, FLOATING_CHANNEL)
-                            .invokeMethod("onAiQuestion", mapOf(
-                                "question" to question,
-                                "imagePath" to imagePath
-                            ))
-                    }
+                    floatingChannel.notifyAiQuestion(question, imagePath)
                 }
             }
         }
         val filter = IntentFilter("io.github.xiaodouzi.fr.AI_QUESTION")
-        val receiverFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Context.RECEIVER_NOT_EXPORTED
-        } else {
-            0
-        }
-        registerReceiver(aiQuestionReceiver, filter, receiverFlags)
-    }
-
-    private fun handleIntent(intent: Intent?) {
-        intent?.data?.let { uri ->
-            // 检查是否是 fr://lab
-            if (uri.toString() == "fr://lab" || uri.path == "/lab") {
-                // 通过 MethodChannel 通知 Flutter 跳转
-                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
-                    MethodChannel(messenger, CHANNEL).invokeMethod("navigateToLab", null)
-                }
-            }
-        }
-    }
-
-    private fun navigateToLab() {
-        // 通知 Flutter 导航到 Lab 页面
-        flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
-            MethodChannel(messenger, CHANNEL).invokeMethod("navigateToLab", null)
-        }
-    }
-
-    // 检查使用统计权限
-    private fun checkUsagePermission(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                appOps.unsafeCheckOpNoThrow(
-                    AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    Process.myUid(),
-                    packageName
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                appOps.checkOpNoThrow(
-                    AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    Process.myUid(),
-                    packageName
-                )
-            }
-            return mode == AppOpsManager.MODE_ALLOWED
-        }
-        return false
-    }
-
-    // 打开使用统计设置页面
-    private fun openUsageSettings() {
-        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-        startActivity(intent)
-    }
-
-    // 查询应用使用时长
-    private fun queryAppUsage(): List<Map<String, Any>> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            return emptyList()
-        }
-
-        if (!checkUsagePermission()) {
-            return emptyList()
-        }
-
-        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-
-        // 获取今天的开始和结束时间
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startTime = calendar.timeInMillis
-        val endTime = System.currentTimeMillis()
-
-        // 查询使用统计
-        val usageStatsList = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            startTime,
-            endTime
-        )
-
-        // 获取 PackageManager
-        val packageManager = packageManager
-
-        // 转换为 Map 列表
-        val result = mutableListOf<Map<String, Any>>()
-        for (usageStats in usageStatsList) {
-            // 过滤掉使用时长为0的应用
-            if (usageStats.totalTimeInForeground > 0) {
-                val appName = try {
-                    val appInfo = packageManager.getApplicationInfo(usageStats.packageName, 0)
-                    packageManager.getApplicationLabel(appInfo).toString()
-                } catch (e: Exception) {
-                    usageStats.packageName
-                }
-
-                val map = mapOf(
-                    "packageName" to usageStats.packageName,
-                    "appName" to appName,
-                    "totalTimeInForeground" to usageStats.totalTimeInForeground,
-                    "lastTimeUsed" to usageStats.lastTimeUsed
-                )
-                result.add(map)
-            }
-        }
-
-        // 按使用时长排序
-        return result.sortedByDescending { it["totalTimeInForeground"] as Long }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Context.RECEIVER_NOT_EXPORTED else 0
+        registerReceiver(aiQuestionReceiver, filter, flags)
     }
 }
