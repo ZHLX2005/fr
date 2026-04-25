@@ -145,7 +145,6 @@ dependencies:
 
   # Card Swiper - 卡片滑动库
   flutter_card_swiper: ^7.0.0
-  shizuku_api: ^1.2.2
 
 dev_dependencies:
   flutter_test:
