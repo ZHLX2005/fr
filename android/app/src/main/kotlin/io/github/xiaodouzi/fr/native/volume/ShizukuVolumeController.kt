@@ -2,16 +2,15 @@ package io.github.xiaodouzi.fr.native.volume
 
 import android.content.Context
 import android.media.AudioManager
-import android.os.Parcel
 import android.util.Log
 import rikka.shizuku.Shizuku
-import rikka.shizuku.SystemServiceHelper
+import rikka.shizuku.ShizukuRemoteProcess
 
 /**
  * Shizuku 音量控制器
  *
- * 通过 Shizuku 获取特权 IBinder 调用 AudioService
- * 拥有 ADB 级别的音频控制权限
+ * 通过 Shizuku (ADB shell) 执行系统命令来控制全局音量
+ * 比普通 App 权限高，可操作 system service
  */
 class ShizukuVolumeController(private val context: Context) {
 
@@ -55,6 +54,18 @@ class ShizukuVolumeController(private val context: Context) {
     }
 
     /**
+     * 请求 Shizuku 权限
+     */
+    fun requestPermission(requestCode: Int, listener: Shizuku.OnRequestPermissionResultListener) {
+        try {
+            Shizuku.addRequestPermissionResultListener(listener)
+            Shizuku.requestPermission(requestCode)
+        } catch (e: Exception) {
+            Log.e(TAG, "请求Shizuku权限失败: ${e.message}")
+        }
+    }
+
+    /**
      * 启用音量控制
      */
     fun enable() {
@@ -71,7 +82,7 @@ class ShizukuVolumeController(private val context: Context) {
         if (!isEnabled) return
         isEnabled = false
         if (savedVolume >= 0) {
-            setStreamVolumeViaShizuku(savedVolume)
+            setSystemVolume(savedVolume)
             savedVolume = -1
         }
         Log.d(TAG, "禁用 Shizuku 音量控制")
@@ -79,89 +90,41 @@ class ShizukuVolumeController(private val context: Context) {
 
     /**
      * 设置音量 (0-100)
-     * 通过 Shizuku 特权调用 AudioService
+     * 通过 Shizuku 调用 system service 实现
      */
     fun setVolume(gain: Int) {
         currentGain = gain.coerceIn(0, 100)
         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        // 非线性映射: gain -> 系统音量
         val targetVolume = mapGainToVolume(currentGain, maxVolume)
-        setStreamVolumeViaShizuku(targetVolume)
+        setSystemVolume(targetVolume)
         Log.d(TAG, "setVolume gain=$currentGain -> system=$targetVolume")
     }
 
     /**
-     * 通过 Shizuku 调用 AudioService.setStreamVolume
-     *
-     * 使用 SystemServiceHelper 获取特权 IBinder
-     * 再通过 transactRemote 调用 setStreamVolume 方法
+     * 核心: 通过 Shizuku 执行 shell 命令设置系统音量
      */
-    private fun setStreamVolumeViaShizuku(volume: Int) {
+    private fun setSystemVolume(volume: Int) {
+        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val safeVolume = volume.coerceIn(0, maxVol)
+
         try {
-            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val safeVolume = volume.coerceIn(0, maxVol)
-
-            // 方法1: 直接用 Shizuku 特权调用 AudioService
-            val binder = SystemServiceHelper.getSystemService("audio")
-            if (binder != null) {
-                // 构造 setStreamVolume 的 Parcel 数据
-                // API signature: setStreamVolume(int streamType, int index, int flags, String callingPackage)
-                val data = Parcel.obtain()
-                val reply = Parcel.obtain()
-                try {
-                    data.writeInterfaceToken("android.media.IAudioService")
-                    data.writeInt(AudioManager.STREAM_MUSIC)  // streamType
-                    data.writeInt(safeVolume)                  // index
-                    data.writeInt(0)                           // flags (no UI, no sound)
-                    data.writeString(context.opPackageName)    // callingPackage
-
-                    // setStreamVolume 的 transaction code
-                    // Android 10-15: transaction code 通常在 3-16 范围
-                    // 通过 SystemServiceHelper 获取正确的 code
-                    val transactionCode = SystemServiceHelper.getTransactionCode(
-                        "android.media.IAudioService",
-                        "setStreamVolume"
-                    )
-
-                    if (transactionCode != null) {
-                        binder.transact(transactionCode, data, reply, 0)
-                        reply.readException()
-                        Log.d(TAG, "setStreamVolume via Shizuku IBinder: $safeVolume")
-                        return
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "IBinder transact 失败: ${e.message}")
-                } finally {
-                    data.recycle()
-                    reply.recycle()
-                }
-            }
-
-            // 方法2: 备用 - 使用 media shell 命令
-            execMediaCommand(safeVolume)
-
+            // 方法1: 使用 service call 直接操作 AudioService
+            val cmd = "service call audio ${getAudioServiceCallCode()} i32 $safeVolume i32 1"
+            execShizukuCommand(cmd)
         } catch (e: Exception) {
             Log.e(TAG, "设置音量失败: ${e.message}")
         }
     }
 
     /**
-     * 备用方案: 通过 Shizuku 执行 media shell 命令
-     * media volume --stream 3 --set <volume>
+     * 获取 AudioService 的 call code
+     * 不同 Android 版本 code 不同
      */
-    private fun execMediaCommand(volume: Int) {
-        try {
-            val cmd = "media volume --stream 3 --set $volume"
-            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
-            val exitCode = process.waitFor()
-            Log.d(TAG, "media command exit=$exitCode for volume=$volume")
-        } catch (e: Exception) {
-            Log.e(TAG, "media command 失败: ${e.message}")
-            // 最后回退到 AudioManager
-            try {
-                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
-            } catch (ex: Exception) {
-                Log.e(TAG, "AudioManager 也失败: ${ex.message}")
-            }
+    private fun getAudioServiceCallCode(): String {
+        return when (android.os.Build.VERSION.SDK_INT) {
+            in 29..34 -> "13"  // setStreamVolume
+            else -> "13"
         }
     }
 
@@ -175,6 +138,26 @@ class ShizukuVolumeController(private val context: Context) {
         // x³ 曲线，越低越压缩
         val mapped = (v * v * v * maxVol).toInt()
         return mapped.coerceIn(0, maxVol)
+    }
+
+    /**
+     * 通过 Shizuku 执行 shell 命令 (public API)
+     */
+    private fun execShizukuCommand(command: String): String? {
+        return try {
+            val process: ShizukuRemoteProcess = Shizuku.newProcess(
+                arrayOf("sh", "-c", command),
+                null,
+                "/"
+            )
+            val stdout = process.inputStream.bufferedReader().readText().trim()
+            val exitCode = process.waitFor()
+            Log.d(TAG, "exec: '$command' -> exit=$exitCode stdout='$stdout'")
+            stdout
+        } catch (e: Exception) {
+            Log.e(TAG, "execShizukuCommand 失败: ${e.message}")
+            null
+        }
     }
 
     /**
