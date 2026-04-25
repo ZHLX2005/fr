@@ -39,9 +39,7 @@
     <!-- 音量衰减权限 -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-    <!-- 前台服务权限：mediaProjection 类型 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- 悬浮窗权限 (Overlay) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -131,7 +129,8 @@
         <!-- 音量衰减前台服务 -->
         <service
             android:name=".native.volume.VolumeDecayService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -166,15 +165,6 @@
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
-
-        <!-- Shizuku Provider -->
-        <provider
-            android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:multiprocess="false"
-            android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <!-- open_filex FileProvider (用于打开APK安装器) -->
         <provider

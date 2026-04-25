@@ -41,7 +41,7 @@ class VolumeChannel(messenger: BinaryMessenger, private val context: Context) {
                     result.success(true)
                 }
                 "setExponent" -> {
-                    // Shizuku 方案不再需要 exponent 参数
+                    // AudioFx 方案不需要 exponent 参数（EQ 曲线内置）
                     result.success(true)
                 }
                 "getGain" -> {

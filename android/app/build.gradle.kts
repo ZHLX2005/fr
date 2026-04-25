@@ -112,8 +112,4 @@ dependencies {
     // 其他必要的AndroidX库
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.activity:activity:1.8.0")
-
-    // Shizuku SDK (13.1.0 有 public newProcess，13.1.5 把 newProcess 设为了 private)
-    implementation("dev.rikka.shizuku:api:13.1.0")
-    implementation("dev.rikka.shizuku:provider:13.1.0")
 }
