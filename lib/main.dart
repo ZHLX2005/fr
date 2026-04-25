@@ -61,7 +61,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
   static const _channel = MethodChannel(
-    'com.example.flutter_application_1/widget',
+    'io.github.xiaodouzi.fr/widget',
   );
   late ThemeProvider _themeProvider;
 

@@ -1,4 +1,4 @@
-package com.example.flutter_application_1.native.overlay
+package io.github.xiaodouzi.fr.native.overlay
 
 import android.content.Context
 import android.graphics.Canvas
@@ -12,7 +12,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.ScrollView
-import com.example.flutter_application_1.R
+import io.github.xiaodouzi.fr.R
 
 /**
  * 选框边框视图 - 绘制半透明黑色遮罩（选区内部透明）+ 白色边框
