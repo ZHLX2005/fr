@@ -2,128 +2,190 @@ package io.github.xiaodouzi.fr.native.volume
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.audiofx.Equalizer
 import android.util.Log
-import kotlin.math.pow
 
 /**
- * 虚拟音量控制器
+ * EQ 均衡器响度控制器
  *
- * 核心原理：用户滑杆 0.0~1.0 -> 非线性映射 -> 系统音量
- * 非线性曲线实现"比1格更低"的感知效果
+ * 核心原理：所有 EQ 频段统一拉低 dB = 系统音量之外的"第二层音量旋钮"
+ * EQ 工作在音频数据流层（PCM），在系统音量（AudioFlinger）之前
+ * 因此能做到"比系统最低音量还低"
  */
 class VirtualVolumeController(private val context: Context) {
 
     companion object {
-        private const val TAG = "VirtualVolumeCtrl"
-        // 指数曲线 powerFactor 越大，虚拟音量"压缩"越厉害
-        // 2.0 = x², 3.0 = x³, 4.0 = x⁴（更激进）
-        private const val DEFAULT_POWER = 3.5f
+        private const val TAG = "EqVolumeCtrl"
+        // session 0 = 尝试全局音频
+        private const val GLOBAL_SESSION = 0
     }
 
     private val audioManager: AudioManager =
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-    private val maxStreamVolume: Int
-        get() = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-
-    // 虚拟音量 0.0 ~ 1.0
-    var virtualVolume: Float = 1.0f
-        private set
-
-    // 实际生效的衰减指数
-    var powerFactor: Float = DEFAULT_POWER
+    // EQ 实例
+    private var equalizer: Equalizer? = null
 
     // 是否启用
     var isEnabled: Boolean = false
         private set
 
-    init {
-        // 恢复保存的状态
-        val prefs = context.getSharedPreferences("volume_decay", Context.MODE_PRIVATE)
-        virtualVolume = prefs.getFloat("virtual_volume", 1.0f)
-        powerFactor = prefs.getFloat("power_factor", DEFAULT_POWER)
+    // 当前虚拟音量 0.0~1.0
+    var virtualVolume: Float = 1.0f
+        private set
+
+    // 当前增益 (0-100)，用于 Flutter 侧读取
+    var currentGain: Int = 100
+        private set
+
+    // EQ 是否可用（设备支持）
+    var isEqAvailable: Boolean = false
+        private set
+
+    // 保存的原始音量
+    private var savedOriginalVolume: Int = -1
+
+    /**
+     * 初始化 EQ
+     * 尝试绑定 session 0（全局），失败则 fallback 到系统音量
+     */
+    fun init() {
+        try {
+            equalizer = Equalizer(0, GLOBAL_SESSION).apply {
+                enabled = true
+            }
+            isEqAvailable = true
+            Log.d(TAG, "EQ 初始化成功, bands=${equalizer?.numberOfBands}")
+        } catch (e: Exception) {
+            isEqAvailable = false
+            Log.w(TAG, "EQ 初始化失败(设备不支持全局session), fallback到系统音量: ${e.message}")
+        }
     }
 
     /**
-     * 启用虚拟音量控制
-     * 保存当前系统音量作为基准，然后应用虚拟音量
+     * 启用响度控制
      */
     fun enable() {
         if (isEnabled) return
         isEnabled = true
-        applyVirtualVolume()
-        saveState()
-        Log.d(TAG, "启用虚拟音量 powerFactor=$powerFactor")
+        // 保存原始系统音量
+        if (savedOriginalVolume < 0) {
+            savedOriginalVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        }
+        applyVolume()
+        Log.d(TAG, "启用 isEqAvailable=$isEqAvailable")
     }
 
     /**
-     * 禁用虚拟音量，恢复原始音量
+     * 禁用响度控制，恢复原始状态
      */
     fun disable() {
         if (!isEnabled) return
         isEnabled = false
-        restoreOriginalVolume()
-        saveState()
-        Log.d(TAG, "禁用虚拟音量")
-    }
 
-    /**
-     * 设置虚拟音量 (0.0 ~ 1.0)
-     */
-    fun setVirtualVolume(value: Float) {
-        virtualVolume = value.coerceIn(0.0f, 1.0f)
-        if (isEnabled) {
-            applyVirtualVolume()
+        // 重置 EQ 所有频段到 0dB
+        if (isEqAvailable) {
+            try {
+                val bands = equalizer?.numberOfBands?.toInt() ?: 0
+                for (i in 0 until bands) {
+                    equalizer?.setBandLevel(i.toShort(), 0.toShort())
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "重置EQ失败: ${e.message}")
+            }
         }
-        saveState()
-    }
 
-    /**
-     * 设置衰减指数 (powerFactor)
-     * 值越大，虚拟音量压缩越厉害（更低感知响度）
-     */
-    fun applyPowerFactor(exp: Float) {
-        powerFactor = exp.coerceIn(1.0f, 10.0f)
-        if (isEnabled) {
-            applyVirtualVolume()
-        }
-        saveState()
-    }
-
-    /**
-     * 虚拟音量转系统音量的非线性映射
-     * virtualVolume=0.1, powerFactor=3.5 -> 系统音量极低
-     */
-    private fun virtualToSystemVolume(): Int {
-        if (virtualVolume <= 0f) return 0
-        val mapped = virtualVolume.toDouble().pow(powerFactor.toDouble())
-        return (mapped * maxStreamVolume).toInt().coerceIn(0, maxStreamVolume)
-    }
-
-    /**
-     * 应用虚拟音量到系统
-     */
-    private fun applyVirtualVolume() {
-        val systemVol = virtualToSystemVolume()
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, systemVol, 0)
-        Log.d(TAG, "apply virtual=$virtualVolume -> system=$systemVol (max=$maxStreamVolume)")
-    }
-
-    /**
-     * 恢复原始音量
-     */
-    private fun restoreOriginalVolume() {
-        val original = savedOriginalVolume
-        if (original >= 0) {
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, original, 0)
+        // 恢复系统音量
+        if (savedOriginalVolume >= 0) {
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, savedOriginalVolume, 0)
             savedOriginalVolume = -1
         }
+        Log.d(TAG, "禁用")
     }
 
-    private var savedOriginalVolume: Int = -1
+    /**
+     * 设置虚拟音量 (0.0~1.0)
+     */
+    fun setVirtualVolume(volume: Float) {
+        virtualVolume = volume.coerceIn(0.0f, 1.0f)
+        currentGain = (virtualVolume * 100).toInt()
+        if (isEnabled) {
+            applyVolume()
+        }
+    }
 
     /**
-     * 保存原始音量（首次启用时）
+     * 核心：应用音量衰减
+     *
+     * 双路径策略：
+     * - EQ 可用：所有频段统一设置 dB 衰减（比系统音量更精细）
+     * - EQ 不可用：fallback 到系统音量控制
+     */
+    private fun applyVolume() {
+        if (isEqAvailable) {
+            applyViaEqualizer()
+        } else {
+            applyViaSystemVolume()
+        }
+    }
+
+    /**
+     * 路径1：EQ 全频段衰减
+     * gainDb = -50 * (1 - v³)
+     * volume=1.0 -> 0dB（无衰减）
+     * volume=0.5 -> -43.75dB
+     * volume=0.1 -> -49.95dB
+     */
+    private fun applyViaEqualizer() {
+        val eq = equalizer ?: return
+        try {
+            val gainDb = mapVolumeToDb(virtualVolume)
+            // Equalizer 使用 millibel 为单位 (1dB = 100 mB)
+            val levelMb = (gainDb * 100).toInt()
+            val bands = eq.numberOfBands.toInt()
+
+            for (i in 0 until bands) {
+                eq.setBandLevel(i.toShort(), levelMb.toShort())
+            }
+
+            Log.d(TAG, "EQ: volume=$virtualVolume -> ${gainDb}dB (${levelMb}mB), bands=$bands")
+        } catch (e: Exception) {
+            Log.e(TAG, "EQ设置失败: ${e.message}")
+            // fallback
+            applyViaSystemVolume()
+        }
+    }
+
+    /**
+     * 路径2：系统音量 fallback
+     * 使用 x² 非线性映射
+     */
+    private fun applyViaSystemVolume() {
+        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val mapped = (virtualVolume * virtualVolume * maxVol).toInt().coerceIn(0, maxVol)
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, mapped, 0)
+        Log.d(TAG, "系统音量: volume=$virtualVolume -> system=$mapped")
+    }
+
+    /**
+     * 非线性映射：volume(0~1) -> dB 衰减
+     * v=1.0 -> 0dB
+     * v=0.5 -> -43.75dB
+     * v=0.1 -> -49.95dB
+     * v=0.0 -> -50dB
+     */
+    private fun mapVolumeToDb(v: Float): Float {
+        return -50f * (1f - v * v * v)
+    }
+
+    fun getMaxSystemVolume(): Int =
+        audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+
+    fun getCurrentSystemVolume(): Int =
+        audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+
+    /**
+     * 保存原始音量（供 Service 调用）
      */
     fun saveOriginalVolume(): Int {
         if (savedOriginalVolume < 0) {
@@ -132,28 +194,12 @@ class VirtualVolumeController(private val context: Context) {
         return savedOriginalVolume
     }
 
-    private fun saveState() {
-        context.getSharedPreferences("volume_decay", Context.MODE_PRIVATE)
-            .edit()
-            .putFloat("virtual_volume", virtualVolume)
-            .putFloat("exponent", powerFactor)
-            .apply()
+    /**
+     * 释放资源
+     */
+    fun release() {
+        equalizer?.release()
+        equalizer = null
+        isEqAvailable = false
     }
-
-    /**
-     * 获取当前系统音量
-     */
-    fun getCurrentSystemVolume(): Int {
-        return audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-    }
-
-    /**
-     * 获取最大系统音量
-     */
-    fun getMaxSystemVolume(): Int = maxStreamVolume
-
-    /**
-     * 获取当前虚拟音量百分比 (0~100)
-     */
-    fun getVirtualVolumePercent(): Int = (virtualVolume * 100).toInt()
 }

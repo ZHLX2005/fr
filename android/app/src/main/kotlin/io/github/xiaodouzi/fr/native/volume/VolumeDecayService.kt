@@ -34,6 +34,7 @@ class VolumeDecayService : Service() {
     override fun onCreate() {
         super.onCreate()
         controller = VirtualVolumeController(this)
+        controller.init()
         keyInterceptor = VolumeKeyInterceptor(this)
 
         currentGain = loadSavedGain()
@@ -89,7 +90,7 @@ class VolumeDecayService : Service() {
 
         isRunning = true
         saveGain(currentGain)
-        Log.d("VolumeDecayService", "turnOn gain=$currentGain powerFactor=${controller.powerFactor}")
+        Log.d("VolumeDecayService", "turnOn gain=$currentGain")
     }
 
     private fun turnOff() {
@@ -107,7 +108,7 @@ class VolumeDecayService : Service() {
     }
 
     private fun setExponent(exponent: Float) {
-        controller.applyPowerFactor(exponent)
+        // EQ 方案不需要 exponent 参数，保留兼容
     }
 
     private fun setVolume(volume: Int) {
@@ -120,6 +121,7 @@ class VolumeDecayService : Service() {
     override fun onDestroy() {
         keyInterceptor.stop()
         controller.disable()
+        controller.release()
         super.onDestroy()
     }
 
