@@ -22,7 +22,7 @@ class VolumeChannel(messenger: BinaryMessenger, private val context: Context) {
                         action = VolumeDecayService.ACTION_TURN_ON
                         putExtra("gain", gain)
                     }
-                    startService(intent)
+                    context.startService(intent)
                     result.success(true)
                 }
                 "turnOff" -> {
