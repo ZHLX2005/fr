@@ -8,15 +8,16 @@ class ShortcutActivity : Activity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
 
-        when (intent?.action) {
+        // customAction 通过 extra 传递，因为 intent action 固定为 VIEW
+        val customAction = intent?.getStringExtra(EXTRA_CUSTOM_ACTION)
+
+        when (customAction) {
             VolumeDecayService.ACTION_TURN_ON -> {
-                val gain = intent.getIntExtra("gain", 40)
+                val gain = intent?.getIntExtra("gain", 40) ?: 40
                 startService(gain)
-                setResult(RESULT_OK)
             }
             VolumeDecayService.ACTION_TURN_OFF -> {
                 stopService()
-                setResult(RESULT_OK)
             }
         }
         finish()
@@ -39,5 +40,9 @@ class ShortcutActivity : Activity() {
             action = VolumeDecayService.ACTION_TURN_OFF
         }
         startService(serviceIntent)
+    }
+
+    companion object {
+        const val EXTRA_CUSTOM_ACTION = "custom_action"
     }
 }
