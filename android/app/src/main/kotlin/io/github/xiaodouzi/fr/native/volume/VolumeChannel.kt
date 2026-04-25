@@ -41,12 +41,7 @@ class VolumeChannel(messenger: BinaryMessenger, private val context: Context) {
                     result.success(true)
                 }
                 "setExponent" -> {
-                    val exponent = call.argument<Double>("exponent")?.toFloat() ?: 3.5f
-                    val intent = Intent(context, VolumeDecayService::class.java).apply {
-                        action = VolumeDecayService.ACTION_SET_EXPONENT
-                        putExtra("exponent", exponent)
-                    }
-                    context.startService(intent)
+                    // Shizuku 方案不再需要 exponent 参数
                     result.success(true)
                 }
                 "getGain" -> {
