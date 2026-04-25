@@ -140,7 +140,7 @@
 
         <!-- 时钟桌面小组件 -->
         <receiver
-            android:name=".ClockWidgetProvider"
+            android:name=".native.widget.ClockWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
