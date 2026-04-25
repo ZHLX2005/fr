@@ -43,6 +43,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   double _lastViewportHeight = 0.0;
 
   double get _progress => _sm.progress;
+  bool get _panelConsumesBack =>
+      _progress > LabPullPanelMetrics.collapsedEpsilon ||
+      _sm.state == LabPullPanelState.settling;
 
   @override
   void dispose() {
@@ -107,6 +110,11 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
       case LabPullPanelActionType.animateTo:
         _animateTo(action.targetProgress!);
     }
+  }
+
+  void _collapsePanel() {
+    if (!_panelConsumesBack) return;
+    _animateTo(0.0);
   }
 
   void _trackVelocity(double currentY) {
@@ -224,109 +232,135 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final demos = demoRegistry.getAll();
     final theme = Theme.of(context);
+    final appBarReveal = (1.0 - _progress).clamp(0.0, 1.0);
+    final appBarHeight =
+        (kToolbarHeight + MediaQuery.of(context).padding.top) * appBarReveal;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Lab'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.cleaning_services_outlined),
-            onPressed: () => _showCacheInfo(context),
-            tooltip: 'Cache',
+    return PopScope(
+      canPop: !_panelConsumesBack,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _collapsePanel();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: PreferredSize(
+          preferredSize: Size.fromHeight(appBarHeight),
+          child: ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: appBarReveal,
+              child: Opacity(
+                opacity: appBarReveal,
+                child: IgnorePointer(
+                  ignoring: appBarReveal <= 0.0,
+                  child: AppBar(
+                    title: const Text('Lab'),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.cleaning_services_outlined),
+                        onPressed: () => _showCacheInfo(context),
+                        tooltip: 'Cache',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.info_outline),
+                        onPressed: () => _showLabInfo(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showLabInfo(context),
-          ),
-        ],
-      ),
-      body: Listener(
-        onPointerDown: _onPointerDown,
-        onPointerMove: _onPointerMove,
-        onPointerUp: _onPointerUp,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final fullHeight = constraints.maxHeight;
-            _lastViewportHeight = fullHeight;
-            final mainPush =
-                fullHeight * LabPullPanelMetrics.mainPushRatio * _progress;
-            final panelHeight = fullHeight * _progress;
+        ),
+        body: Listener(
+          onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
+          onPointerUp: _onPointerUp,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final fullHeight = constraints.maxHeight;
+              _lastViewportHeight = fullHeight;
+              final mainPush =
+                  fullHeight * LabPullPanelMetrics.mainPushRatio * _progress;
+              final panelHeight = fullHeight * _progress;
 
-            return Stack(
-              children: [
-                Transform.translate(
-                  offset: Offset(0, mainPush),
-                  child: IgnorePointer(
-                    ignoring: !_sm.mainContentInteractive,
-                    child: NotificationListener<ScrollNotification>(
-                      onNotification: (notification) {
-                        return _onMainContentNotification(
-                          notification,
-                          fullHeight,
-                        );
-                      },
+              return Stack(
+                children: [
+                  Transform.translate(
+                    offset: Offset(0, mainPush),
+                    child: IgnorePointer(
+                      ignoring: !_sm.mainContentInteractive,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          return _onMainContentNotification(
+                            notification,
+                            fullHeight,
+                          );
+                        },
+                        child: Stack(
+                          children: [
+                            if (demos.isEmpty)
+                              _buildEmptyState(Theme.of(context))
+                            else
+                              _buildDemoGrid(demos),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: panelHeight,
+                    child: ClipRect(
                       child: Stack(
                         children: [
-                          if (demos.isEmpty)
-                            _buildEmptyState(Theme.of(context))
-                          else
-                            _buildDemoGrid(demos),
+                          const Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    _kPanelGradientTop,
+                                    _kPanelGradientMiddle,
+                                    _kPanelGradientBottom,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _PanelSurfacePainter(progress: _progress),
+                            ),
+                          ),
+                          _LabPanelContent(
+                            scrollController: _panelScrollController,
+                            demos: demos,
+                            scrollable: _sm.panelScrollable,
+                            progress: _progress,
+                            readyToOpen: _sm.readyToOpen,
+                            closeProgress: _sm.closeProgress,
+                            showCloseCue: _sm.showCloseCue,
+                            onHandleDragStart: _onPanelHandleDragStart,
+                            onHandleDragUpdate: (deltaDy) {
+                              _onPanelHandleDragUpdate(deltaDy, fullHeight);
+                            },
+                            onHandleDragEnd: _onPanelHandleDragEnd,
+                            onDemoTap: (demo) => _openDemoPage(context, demo),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: panelHeight,
-                  child: ClipRect(
-                    child: Stack(
-                      children: [
-                        const Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  _kPanelGradientTop,
-                                  _kPanelGradientMiddle,
-                                  _kPanelGradientBottom,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _PanelSurfacePainter(progress: _progress),
-                          ),
-                        ),
-                        _LabPanelContent(
-                          scrollController: _panelScrollController,
-                          demos: demos,
-                          scrollable: _sm.panelScrollable,
-                          progress: _progress,
-                          readyToOpen: _sm.readyToOpen,
-                          closeProgress: _sm.closeProgress,
-                          showCloseCue: _sm.showCloseCue,
-                          onHandleDragStart: _onPanelHandleDragStart,
-                          onHandleDragUpdate: (deltaDy) {
-                            _onPanelHandleDragUpdate(deltaDy, fullHeight);
-                          },
-                          onHandleDragEnd: _onPanelHandleDragEnd,
-                          onDemoTap: (demo) => _openDemoPage(context, demo),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
