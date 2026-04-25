@@ -32,7 +32,7 @@ class _VolumeDecayPage extends StatefulWidget {
 }
 
 class _VolumeDecayPageState extends State<_VolumeDecayPage> {
-  static const _channel = MethodChannel('com.example.flutter_application_1/volume');
+  static const _channel = MethodChannel('io.github.xiaodouzi.fr/volume');
 
   int _currentGain = 40;
   int _maxVolume = 15;

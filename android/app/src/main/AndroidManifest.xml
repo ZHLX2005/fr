@@ -121,8 +121,8 @@
             android:exported="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
-                <action android:name="com.example.flutter_application_1.ACTION_TURN_ON" />
-                <action android:name="com.example.flutter_application_1.ACTION_TURN_OFF" />
+                <action android:name="io.github.xiaodouzi.fr.ACTION_TURN_ON" />
+                <action android:name="io.github.xiaodouzi.fr.ACTION_TURN_OFF" />
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>

@@ -1,4 +1,4 @@
-package com.example.flutter_application_1.native.volume
+package io.github.xiaodouzi.fr.native.volume
 
 import android.app.Activity
 import android.content.Intent
