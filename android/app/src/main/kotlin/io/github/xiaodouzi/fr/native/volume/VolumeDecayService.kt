@@ -73,7 +73,6 @@ class VolumeDecayService : Service() {
 
     private fun turnOn(gain: Int) {
         currentGain = gain.coerceIn(0, 100)
-        controller.saveOriginalVolume()
         controller.setVirtualVolume(currentGain / 100f)
         controller.enable()
 
@@ -112,10 +111,7 @@ class VolumeDecayService : Service() {
     }
 
     private fun setVolume(volume: Int) {
-        val maxVol = controller.getMaxSystemVolume()
-        val virtual = if (maxVol > 0) volume.toFloat() / maxVol else 1f
-        controller.setVirtualVolume(virtual)
-        currentGain = (virtual * 100).toInt()
+        // EQ 方案不支持直接设置系统音量，忽略
     }
 
     override fun onDestroy() {
