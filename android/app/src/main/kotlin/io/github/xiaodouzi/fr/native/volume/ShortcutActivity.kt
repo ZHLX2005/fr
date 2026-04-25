@@ -13,7 +13,9 @@ class ShortcutActivity : Activity() {
 
         when (customAction) {
             VolumeDecayService.ACTION_TURN_ON -> {
-                val gain = intent?.getIntExtra("gain", 40) ?: 40
+                // 优先用 intent 传入的 gain，没有则读保存的值
+                val intentGain = intent?.getIntExtra("gain", -1) ?: -1
+                val gain = if (intentGain >= 0) intentGain else loadSavedGain()
                 startService(gain)
             }
             VolumeDecayService.ACTION_TURN_OFF -> {
@@ -40,6 +42,11 @@ class ShortcutActivity : Activity() {
             action = VolumeDecayService.ACTION_TURN_OFF
         }
         startService(serviceIntent)
+    }
+
+    private fun loadSavedGain(): Int {
+        return getSharedPreferences("volume_decay_prefs", MODE_PRIVATE)
+            .getInt("last_gain", 40)
     }
 
     companion object {
