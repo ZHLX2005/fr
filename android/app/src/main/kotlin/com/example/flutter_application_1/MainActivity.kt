@@ -22,12 +22,14 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.Calendar
 import com.example.flutter_application_1.native.overlay.FloatingWindowManager
+import com.example.flutter_application_1.native.volume.VolumeDecayService
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.flutter_application_1/widget"
     private val CLOCK_CHANNEL = "com.example.flutter_application_1/clock"
     private val SYSTEM_CHANNEL = "com.example.flutter_application_1/system"
     private val FLOATING_CHANNEL = "com.example.flutter_application_1/floating"
+    private val VOLUME_CHANNEL = "com.example.flutter_application_1/volume"
 
     private var mediaProjectionManager: MediaProjectionManager? = null
     private var regionCaptureReceiver: BroadcastReceiver? = null
@@ -217,6 +219,65 @@ class MainActivity : FlutterActivity() {
                     // Flutter 完成 AI 回答
                     FloatingWindowManager.getInstance()?.hideAiLoading()
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // 音量衰减 MethodChannel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOLUME_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "turnOn" -> {
+                    val gain = call.argument<Int>("gain") ?: 40
+                    val intent = Intent(this, VolumeDecayService::class.java).apply {
+                        action = VolumeDecayService.ACTION_TURN_ON
+                        putExtra("gain", gain)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+                    result.success(true)
+                }
+                "turnOff" -> {
+                    val intent = Intent(this, VolumeDecayService::class.java).apply {
+                        action = VolumeDecayService.ACTION_TURN_OFF
+                    }
+                    startService(intent)
+                    result.success(true)
+                }
+                "setGain" -> {
+                    val gain = call.argument<Int>("gain") ?: 40
+                    val intent = Intent(this, VolumeDecayService::class.java).apply {
+                        action = VolumeDecayService.ACTION_SET_GAIN
+                        putExtra("gain", gain)
+                    }
+                    startService(intent)
+                    result.success(true)
+                }
+                "getGain" -> {
+                    result.success(VolumeDecayService.currentGain)
+                }
+                "isRunning" -> {
+                    result.success(VolumeDecayService.isRunning)
+                }
+                "setVolume" -> {
+                    val volume = call.argument<Int>("volume") ?: -1
+                    val intent = Intent(this, VolumeDecayService::class.java).apply {
+                        action = VolumeDecayService.ACTION_SET_VOLUME
+                        putExtra("volume", volume)
+                    }
+                    startService(intent)
+                    result.success(true)
+                }
+                "getMaxVolume" -> {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    result.success(audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
+                }
+                "getCurrentVolume" -> {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    result.success(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC))
                 }
                 else -> result.notImplemented()
             }
