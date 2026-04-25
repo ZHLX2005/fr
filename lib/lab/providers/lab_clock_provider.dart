@@ -106,7 +106,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // 播放系统通知铃声
   static const _soundChannel = MethodChannel(
-    'com.example.flutter_application_1/clock',
+    'io.github.xiaodouzi.fr/clock',
   );
 
   Future<void> _playNotificationSound() async {

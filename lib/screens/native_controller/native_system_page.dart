@@ -13,10 +13,10 @@ class NativeSystemPage extends StatefulWidget {
 
 class _NativeSystemPageState extends State<NativeSystemPage> {
   static const _systemChannel = MethodChannel(
-    'com.example.flutter_application_1/system',
+    'io.github.xiaodouzi.fr/system',
   );
   static const _clockChannel = MethodChannel(
-    'com.example.flutter_application_1/clock',
+    'io.github.xiaodouzi.fr/clock',
   );
 
   bool _isLoading = false;

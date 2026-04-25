@@ -12,7 +12,7 @@ class OverlayService {
   bool _hasOverlayPermission = false;
 
   static const _channel = MethodChannel(
-    'com.example.flutter_application_1/floating',
+    'io.github.xiaodouzi.fr/floating',
   );
 
   bool get isOverlayActive => _isOverlayActive;

@@ -1,4 +1,4 @@
-package com.example.flutter_application_1
+package io.github.xiaodouzi.fr
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager

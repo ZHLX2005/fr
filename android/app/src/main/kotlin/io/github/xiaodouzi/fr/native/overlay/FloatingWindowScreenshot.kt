@@ -1,4 +1,4 @@
-package com.example.flutter_application_1.native.overlay
+package io.github.xiaodouzi.fr.native.overlay
 
 import android.annotation.SuppressLint
 import android.graphics.PixelFormat
