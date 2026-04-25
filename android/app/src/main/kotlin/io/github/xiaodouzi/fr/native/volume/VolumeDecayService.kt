@@ -30,6 +30,9 @@ class VolumeDecayService : Service() {
         const val NOTIF_ID = 1001
         const val CHANNEL_ID = "volume_decay"
 
+        // 最大 EQ 衰减量 (millibels)
+        const val MAX_EQ_ATTENUATION = 2000  // -20 dB
+
         var currentGain: Int = 40
             private set
 
@@ -47,7 +50,9 @@ class VolumeDecayService : Service() {
         audioFxEngine = AudioFxEngine()
         audioFxEngine.initialize()
         isEngineAvailable = audioFxEngine.isInitialized
-        Log.d("VolumeDecayService", "onCreate Engine可用=$isEngineAvailable")
+        // 恢复上次保存的增益
+        currentGain = loadSavedGain()
+        Log.d("VolumeDecayService", "onCreate Engine可用=$isEngineAvailable 上次增益=$currentGain")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -69,7 +74,9 @@ class VolumeDecayService : Service() {
                 }
             }
             ACTION_TURN_ON -> {
-                val gain = intent.getIntExtra("gain", currentGain)
+                // 有 extra 时用 extra，没有则用保存的值
+                val hasGain = intent.hasExtra("gain")
+                val gain = if (hasGain) intent.getIntExtra("gain", currentGain) else currentGain
                 turnOn(gain)
             }
         }
@@ -95,7 +102,7 @@ class VolumeDecayService : Service() {
     private fun turnOff() {
         audioFxEngine.setEnabled(false)
         isRunning = false
-        saveGain(currentGain)
+        // 关闭时不保存 0，保留当前增益以便重新开启
         Log.d("VolumeDecayService", "turnOff")
     }
 
@@ -105,6 +112,9 @@ class VolumeDecayService : Service() {
             applyGain(currentGain)
         }
         saveGain(currentGain)
+        // 更新前台通知
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.notify(NOTIF_ID, buildNotification())
     }
 
     private fun setVolume(volume: Int) {
@@ -115,32 +125,29 @@ class VolumeDecayService : Service() {
     }
 
     /**
-     * 将 gain (0-100) 转换为 LoudnessEnhancer 增益
-     * gain 越低 → 响度衰减越大
-     * LoudnessEnhancer targetGain: 0 = 无增益, 2000 = +20dB
-     * 通过 EQ 所有频段统一拉低来实现衰减
+     * 将 gain (0-100) 转换为 EQ 衰减量
+     * gain = 100 → 0dB 衰减（无变化）
+     * gain = 0 → -20dB 衰减（几乎静音）
+     * gain = 40 → -12dB 衰减（线性映射）
+     *
+     * 映射公式: attenuationDb = -MAX_EQ_ATTENUATION * (1 - gain/100)
+     * 即: 保留多少百分比的音量，就衰减掉剩下的 dB 量
      */
     private fun applyGain(gain: Int) {
         if (!isEngineAvailable) return
         try {
-            val gainDb = mapGainToDb(gain)
-            val gainMb = (gainDb * 100).toInt()
-            audioFxEngine.setAllBandLevels(gainMb)
+            // 线性映射: gain 直接等于"保留的音量百分比"
+            // gain=100 → 0% 衰减，gain=0 → 100% 衰减
+            val attenuationRatio = (100 - gain) / 100f
+            val attenuationMb = (attenuationRatio * MAX_EQ_ATTENUATION).toInt()
+
+            audioFxEngine.setAllBandLevels(-attenuationMb)
             audioFxEngine.setLoudnessGain(0)
-            Log.d("VolumeDecayService", "applyGain: gain=$gain -> ${gainDb}dB ($gainMb mB)")
+
+            Log.d("VolumeDecayService", "applyGain: gain=$gain → 保留${gain}% → 衰减$attenuationMb mB")
         } catch (e: Exception) {
             Log.e("VolumeDecayService", "applyGain 失败: ${e.message}")
         }
-    }
-
-    /**
-     * 非线性映射: gain(0-100) -> dB 衰减
-     * 使用 x³ 曲线，低音量时压缩更激进
-     */
-    private fun mapGainToDb(gain: Int): Float {
-        if (gain <= 0) return -50f
-        val v = gain / 100f
-        return -50f * (1f - v * v * v)
     }
 
     override fun onDestroy() {
@@ -171,12 +178,17 @@ class VolumeDecayService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val percentText = if (currentGain >= 100) "无衰减"
+                           else if (currentGain <= 0) "静音"
+                           else "保留 ${currentGain}%"
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("音量衰减运行中")
-            .setContentText("增益: $currentGain%")
+            .setContentTitle("音量衰减")
+            .setContentText(percentText)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setShowWhen(false)
             .build()
     }
 
@@ -185,5 +197,10 @@ class VolumeDecayService : Service() {
             .edit()
             .putInt("last_gain", gain)
             .apply()
+    }
+
+    private fun loadSavedGain(): Int {
+        return getSharedPreferences("volume_decay_prefs", Context.MODE_PRIVATE)
+            .getInt("last_gain", 40)
     }
 }
