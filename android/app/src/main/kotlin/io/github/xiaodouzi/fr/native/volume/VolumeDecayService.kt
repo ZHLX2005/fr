@@ -116,7 +116,7 @@ class VolumeDecayService : Service() {
 
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_speaker_phone)
+            .setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
             .setContentTitle("响度衰减已开启")
             .setContentText("当前增益: $currentGain%")
             .setPriority(NotificationCompat.PRIORITY_LOW)
