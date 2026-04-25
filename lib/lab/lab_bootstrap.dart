@@ -10,7 +10,6 @@ import 'demos/network_demo.dart';
 import 'demos/network_env_demo.dart';
 import 'demos/game_2048_demo.dart';
 import 'demos/free_canvas_demo.dart';
-import 'demos/drag_reorder_demo.dart';
 import 'demos/web_bookmark_demo.dart';
 import 'demos/storage_analyze_demo.dart';
 import 'demos/hexagon_panel_demo.dart';
@@ -47,8 +46,6 @@ void registerAllDemos() {
   registerNetworkEnvDemo();
   registerGame2048Demo();
   registerFreeCanvasDemo();
-  registerDragReorderDemo();
-  registerWebBookmarkDemo();
   registerStorageAnalyzeDemo();
   registerHexagonPanelDemo();
   registerTypewriterDemo();
