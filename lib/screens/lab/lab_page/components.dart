@@ -358,60 +358,6 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text('Preset Images', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 12),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 4 / 3,
-              ),
-              itemCount: LabCardProvider.presetImages.length,
-              itemBuilder: (context, index) {
-                final url = LabCardProvider.presetImages[index];
-                final isSelected = widget.currentUrl == url;
-
-                return GestureDetector(
-                  onTap: () => _selectImage(url),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          url,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                color:
-                                    theme.colorScheme.surfaceContainerHighest,
-                                child: const Icon(Icons.broken_image),
-                              ),
-                        ),
-                      ),
-                      if (isSelected)
-                        Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.5,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.check_circle,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
