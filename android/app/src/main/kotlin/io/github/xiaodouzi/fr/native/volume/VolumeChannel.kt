@@ -3,7 +3,6 @@ package io.github.xiaodouzi.fr.native.volume
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
-import android.os.Build
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
@@ -22,7 +21,7 @@ class VolumeChannel(messenger: BinaryMessenger, private val context: Context) {
                         action = VolumeDecayService.ACTION_TURN_ON
                         putExtra("gain", gain)
                     }
-                    startService(intent)
+                    context.startService(intent)
                     result.success(true)
                 }
                 "turnOff" -> {
@@ -37,6 +36,15 @@ class VolumeChannel(messenger: BinaryMessenger, private val context: Context) {
                     val intent = Intent(context, VolumeDecayService::class.java).apply {
                         action = VolumeDecayService.ACTION_SET_GAIN
                         putExtra("gain", gain)
+                    }
+                    context.startService(intent)
+                    result.success(true)
+                }
+                "setExponent" -> {
+                    val exponent = call.argument<Double>("exponent")?.toFloat() ?: 3.5f
+                    val intent = Intent(context, VolumeDecayService::class.java).apply {
+                        action = VolumeDecayService.ACTION_SET_EXPONENT
+                        putExtra("exponent", exponent)
                     }
                     context.startService(intent)
                     result.success(true)
@@ -66,14 +74,6 @@ class VolumeChannel(messenger: BinaryMessenger, private val context: Context) {
                 }
                 else -> result.notImplemented()
             }
-        }
-    }
-
-    private fun startService(intent: Intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
         }
     }
 }
