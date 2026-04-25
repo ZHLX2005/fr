@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Flutter App</string>
+    <string name="app_name">小豆子</string>
+    <string name="shortcut_turn_on">开启衰减</string>
+    <string name="shortcut_turn_on_long">开启音量衰减</string>
+    <string name="shortcut_turn_off">关闭衰减</string>
+    <string name="shortcut_turn_off_long">关闭音量衰减</string>
 </resources>
