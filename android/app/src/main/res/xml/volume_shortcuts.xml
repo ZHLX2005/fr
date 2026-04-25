@@ -2,8 +2,8 @@
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:id="@+id/sc_turn_on"
-        android:shortcutShortLabel="开启衰减"
-        android:shortcutLongLabel="一键开启全局响度衰减"
+        android:shortcutShortLabel="@string/shortcut_turn_on"
+        android:shortcutLongLabel="@string/shortcut_turn_on_long"
         android:icon="@android:drawable/ic_dialog_info">
         <intent
             android:action="io.github.xiaodouzi.fr.ACTION_TURN_ON"
@@ -13,8 +13,8 @@
 
     <shortcut
         android:id="@+id/sc_turn_off"
-        android:shortcutShortLabel="关闭衰减"
-        android:shortcutLongLabel="一键恢复原音量"
+        android:shortcutShortLabel="@string/shortcut_turn_off"
+        android:shortcutLongLabel="@string/shortcut_turn_off_long"
         android:icon="@android:drawable/ic_menu_close_clear_cancel">
         <intent
             android:action="io.github.xiaodouzi.fr.ACTION_TURN_OFF"
