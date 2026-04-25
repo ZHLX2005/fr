@@ -74,11 +74,13 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                 child: Transform.scale(
                   scale: contentScale.clamp(0.5, 1.0),
                   alignment: Alignment.topCenter,
-                  child: ListView(
+                child: ListView(
                     controller: widget.scrollController,
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(18, 24, 18, 20),
                     children: [
+                      const _PanelTitleSection(),
+                      const SizedBox(height: 16),
                       if (favoriteDemos.isNotEmpty)
                         Builder(
                           builder: (context) {
@@ -146,6 +148,49 @@ class _LabPanelContentState extends State<_LabPanelContent> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PanelTitleSection extends StatelessWidget {
+  const _PanelTitleSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
+        boxShadow: [
+          BoxShadow(
+            color: _kAccentDeepColor.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _kAccentSoftColor.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'LAB PANEL',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: _kAccentDeepColor,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
