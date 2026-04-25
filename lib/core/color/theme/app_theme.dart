@@ -66,16 +66,16 @@ class AppTheme {
     }
   }
 
-  /// 创建浅色主题数据（清新蓝色）
+  /// 创建浅色主题数据（暖白奶油色）
   static ThemeData createLightTheme() {
     // 使用清新明亮的蓝色系
     const primaryColor = Color(0xFF2196F3); // 鲜艳的蓝色
     const secondaryColor = Color(0xFF00BCD4); // 青色
     const tertiaryColor = Color(0xFF7C4DFF); // 紫色
 
-    // 柔和的浅灰白背景色 - 不刺眼
-    const surfaceColor = Color(0xFFF5F6F8);
-    const backgroundColor = Color(0xFFF0F2F5);
+    // 暖白奶油色背景 - 不刺眼
+    const surfaceColor = Color(0xFFFFF8F0);
+    const backgroundColor = Color(0xFFFFF5ED);
 
     return ThemeData(
       colorScheme: ColorScheme.light(
@@ -97,13 +97,13 @@ class AppTheme {
         tertiaryContainer: const Color(0xFFEDE7F6),
         onTertiaryContainer: const Color(0xFF311B92),
 
-        // 表面色 - 柔和的浅灰白
+        // 表面色 - 暖白奶油色
         surface: surfaceColor,
         onSurface: const Color(0xFF1A1A1A),
-        surfaceVariant: const Color(0xFFE8E9EB),
+        surfaceVariant: const Color(0xFFF5EDE4),
         onSurfaceVariant: const Color(0xFF757575),
 
-        // 背景色 - 柔和的浅灰
+        // 背景色 - 奶油色
         background: backgroundColor,
         onBackground: const Color(0xFF1A1A1A),
 
@@ -114,8 +114,8 @@ class AppTheme {
         onErrorContainer: const Color(0xFFB71C1C),
 
         // 轮廓和分割线
-        outline: const Color(0xFFD0D0D0),
-        outlineVariant: const Color(0xFFE8E8E8),
+        outline: const Color(0xFFD8CFC5),
+        outlineVariant: const Color(0xFFE8E0D6),
 
         // 容器色调
         surfaceTint: primaryColor,
@@ -126,7 +126,7 @@ class AppTheme {
       // 自定义组件样式
       cardTheme: CardThemeData(
         elevation: 2,
-        color: surfaceColor,
+        color: const Color(0xFFFFFBF7),
         shadowColor: Colors.black.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -134,7 +134,7 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: surfaceColor,
+        backgroundColor: Color(0xFFFFF8F0),
         foregroundColor: Color(0xFF1A1A1A),
         surfaceTintColor: Color(0xFF2196F3),
       ),
