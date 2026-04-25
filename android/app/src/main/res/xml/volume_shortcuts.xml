@@ -6,9 +6,9 @@
         android:shortcutLongLabel="一键开启全局响度衰减"
         android:icon="@android:drawable/ic_dialog_info">
         <intent
-            android:action="com.example.flutter_application_1.ACTION_TURN_ON"
-            android:targetPackage="com.example.flutter_application_1"
-            android:targetClass="com.example.flutter_application_1.native.volume.ShortcutActivity" />
+            android:action="io.github.xiaodouzi.fr.ACTION_TURN_ON"
+            android:targetPackage="io.github.xiaodouzi.fr"
+            android:targetClass="io.github.xiaodouzi.fr.native.volume.ShortcutActivity" />
     </shortcut>
 
     <shortcut
@@ -17,8 +17,8 @@
         android:shortcutLongLabel="一键恢复原音量"
         android:icon="@android:drawable/ic_menu_close_clear_cancel">
         <intent
-            android:action="com.example.flutter_application_1.ACTION_TURN_OFF"
-            android:targetPackage="com.example.flutter_application_1"
-            android:targetClass="com.example.flutter_application_1.native.volume.ShortcutActivity" />
+            android:action="io.github.xiaodouzi.fr.ACTION_TURN_OFF"
+            android:targetPackage="io.github.xiaodouzi.fr"
+            android:targetClass="io.github.xiaodouzi.fr.native.volume.ShortcutActivity" />
     </shortcut>
 </shortcuts>

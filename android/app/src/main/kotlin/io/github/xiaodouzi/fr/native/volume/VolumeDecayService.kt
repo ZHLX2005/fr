@@ -1,4 +1,4 @@
-package com.example.flutter_application_1.native.volume
+package io.github.xiaodouzi.fr.native.volume
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -15,10 +15,10 @@ class VolumeDecayService : Service() {
     companion object {
         const val CHANNEL_ID = "volume_decay_channel"
         const val NOTIFY_ID = 9528
-        const val ACTION_TURN_ON = "com.example.flutter_application_1.ACTION_TURN_ON"
-        const val ACTION_TURN_OFF = "com.example.flutter_application_1.ACTION_TURN_OFF"
-        const val ACTION_SET_GAIN = "com.example.flutter_application_1.ACTION_SET_GAIN"
-        const val ACTION_SET_VOLUME = "com.example.flutter_application_1.ACTION_SET_VOLUME"
+        const val ACTION_TURN_ON = "io.github.xiaodouzi.fr.ACTION_TURN_ON"
+        const val ACTION_TURN_OFF = "io.github.xiaodouzi.fr.ACTION_TURN_OFF"
+        const val ACTION_SET_GAIN = "io.github.xiaodouzi.fr.ACTION_SET_GAIN"
+        const val ACTION_SET_VOLUME = "io.github.xiaodouzi.fr.ACTION_SET_VOLUME"
 
         private const val DEFAULT_STREAM = AudioManager.STREAM_MUSIC
 

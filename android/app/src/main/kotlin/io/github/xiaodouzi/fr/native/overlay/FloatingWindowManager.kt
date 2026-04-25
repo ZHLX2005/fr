@@ -1,4 +1,4 @@
-package com.example.flutter_application_1.native.overlay
+package io.github.xiaodouzi.fr.native.overlay
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -55,9 +55,9 @@ class FloatingWindowManager : Service() {
     companion object {
         const val CHANNEL_ID = "FloatingWindowChannel"
         const val NOTIFICATION_ID = 1
-        const val ACTION_START = "com.example.flutter_application_1.START_FLOATING"
-        const val ACTION_STOP = "com.example.flutter_application_1.STOP_FLOATING"
-        const val ACTION_CAPTURE = "com.example.flutter_application_1.CAPTURE_SCREEN"
+        const val ACTION_START = "io.github.xiaodouzi.fr.START_FLOATING"
+        const val ACTION_STOP = "io.github.xiaodouzi.fr.STOP_FLOATING"
+        const val ACTION_CAPTURE = "io.github.xiaodouzi.fr.CAPTURE_SCREEN"
 
         private var instance: FloatingWindowManager? = null
         fun getInstance(): FloatingWindowManager? = instance

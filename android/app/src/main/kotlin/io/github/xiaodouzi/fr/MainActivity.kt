@@ -1,4 +1,4 @@
-package com.example.flutter_application_1
+package io.github.xiaodouzi.fr
 
 import android.app.Activity
 import android.app.AppOpsManager
@@ -21,15 +21,15 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.util.Calendar
-import com.example.flutter_application_1.native.overlay.FloatingWindowManager
-import com.example.flutter_application_1.native.volume.VolumeDecayService
+import io.github.xiaodouzi.fr.native.overlay.FloatingWindowManager
+import io.github.xiaodouzi.fr.native.volume.VolumeDecayService
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.flutter_application_1/widget"
-    private val CLOCK_CHANNEL = "com.example.flutter_application_1/clock"
-    private val SYSTEM_CHANNEL = "com.example.flutter_application_1/system"
-    private val FLOATING_CHANNEL = "com.example.flutter_application_1/floating"
-    private val VOLUME_CHANNEL = "com.example.flutter_application_1/volume"
+    private val CHANNEL = "io.github.xiaodouzi.fr/widget"
+    private val CLOCK_CHANNEL = "io.github.xiaodouzi.fr/clock"
+    private val SYSTEM_CHANNEL = "io.github.xiaodouzi.fr/system"
+    private val FLOATING_CHANNEL = "io.github.xiaodouzi.fr/floating"
+    private val VOLUME_CHANNEL = "io.github.xiaodouzi.fr/volume"
 
     private var mediaProjectionManager: MediaProjectionManager? = null
     private var regionCaptureReceiver: BroadcastReceiver? = null
@@ -380,7 +380,7 @@ class MainActivity : FlutterActivity() {
         if (regionCaptureReceiver != null) return
         regionCaptureReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == "com.example.flutter_application_1.REGION_CAPTURED") {
+                if (intent?.action == "io.github.xiaodouzi.fr.REGION_CAPTURED") {
                     val data = intent.getByteArrayExtra("data")
                     data?.let {
                         runOnUiThread {
@@ -393,7 +393,7 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
-        val filter = IntentFilter("com.example.flutter_application_1.REGION_CAPTURED")
+        val filter = IntentFilter("io.github.xiaodouzi.fr.REGION_CAPTURED")
         val receiverFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Context.RECEIVER_NOT_EXPORTED
         } else {
@@ -406,7 +406,7 @@ class MainActivity : FlutterActivity() {
         if (aiQuestionReceiver != null) return
         aiQuestionReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action == "com.example.flutter_application_1.AI_QUESTION") {
+                if (intent?.action == "io.github.xiaodouzi.fr.AI_QUESTION") {
                     val question = intent.getStringExtra("question") ?: return
                     val imagePath = intent.getStringExtra("image_path") ?: return
                     // 通过 MethodChannel 通知 Flutter 调用 AI（传文件路径而非字节数组）
@@ -420,7 +420,7 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
-        val filter = IntentFilter("com.example.flutter_application_1.AI_QUESTION")
+        val filter = IntentFilter("io.github.xiaodouzi.fr.AI_QUESTION")
         val receiverFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Context.RECEIVER_NOT_EXPORTED
         } else {
