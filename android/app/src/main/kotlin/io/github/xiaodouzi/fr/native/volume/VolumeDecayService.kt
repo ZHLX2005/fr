@@ -56,11 +56,10 @@ class VolumeDecayService : Service() {
             }
             ACTION_TURN_ON -> {
                 val gain = intent.getIntExtra("gain", 40)
-                startForeground(NOTIFY_ID, buildNotification())
                 setDecayGain(gain)
             }
             else -> {
-                startForeground(NOTIFY_ID, buildNotification())
+                // 无需 startForeground，普通 Service 即可
             }
         }
         return START_STICKY
