@@ -62,8 +62,12 @@ class _LabPanelContentState extends State<_LabPanelContent> {
     }).toList();
   }
 
-  DemoPage _findDemoByTitle(String title) {
-    return widget.demos.firstWhere((e) => e.value.title == title).value;
+  DemoPage? _findDemoByTitle(String title) {
+    final entry = widget.demos.cast<MapEntry<String, DemoPage>?>().firstWhere(
+      (e) => e?.value.title == title,
+      orElse: () => null,
+    );
+    return entry?.value;
   }
 
   @override
@@ -98,8 +102,6 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                       if (favoriteDemos.isNotEmpty)
                         Builder(
                           builder: (context) {
-                            debugPrint('Lab favorites grid forced columns=4');
-
                             return ReorderableBuilder<String>.builder(
                               longPressDelay: const Duration(milliseconds: 300),
                               onDragStarted: (index) => HapticFeedback.lightImpact(),
