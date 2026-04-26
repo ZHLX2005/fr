@@ -274,21 +274,36 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                                 final isSelected = index == _selectedCourseIndex;
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                    label: Text(
-                                      course.title,
-                                      style: TextStyle(
-                                        fontSize: 12,
+                                  child: GestureDetector(
+                                    onTap: () => _switchToCourse(index),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? theme.colorScheme.outline
+                                              : theme.colorScheme.outline.withValues(alpha: 0.3),
+                                          width: isSelected ? 1.5 : 1,
+                                        ),
                                         color: isSelected
-                                            ? Colors.white
-                                            : TimetableColors.textPrimary,
+                                            ? theme.colorScheme.outline.withValues(alpha: 0.08)
+                                            : Colors.transparent,
+                                      ),
+                                      child: Text(
+                                        course.title,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                          color: isSelected
+                                              ? theme.colorScheme.outline
+                                              : TimetableColors.textPrimary,
+                                        ),
                                       ),
                                     ),
-                                    selected: isSelected,
-                                    onSelected: (_) => _switchToCourse(index),
-                                    selectedColor: theme.colorScheme.secondary,
-                                    backgroundColor:
-                                        theme.colorScheme.surfaceContainerHighest,
                                   ),
                                 );
                               },
