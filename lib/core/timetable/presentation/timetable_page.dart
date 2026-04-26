@@ -325,8 +325,6 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   ) {
     // 使用 cycleGridProvider 获取课程（会根据 visibleInCycles 过滤）
     final cycleGrid = ref.watch(TimetableStore.cycleGridProvider(cycleIndex));
-    // 获取原始课程数据（用于编辑）
-    final allSlots = ref.watch(TimetableStore.allDaySlotsProvider);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -349,7 +347,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                     final course = cycleGrid[dayOfCycle][slotIndex];
                     final cellKeyValue = '$cycleIndex-$dayOfCycle-$slotIndex';
                     final isSelected = _selectedCellKey == cellKeyValue;
-                    final originalCourse = allSlots[dayOfCycle]?[slotIndex];
+                    final cellKey = 'd${dayOfCycle}_s$slotIndex';
 
                     return Expanded(
                       child: TimetableCell(
@@ -364,13 +362,13 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                           cycleIndex,
                           dayOfCycle,
                           slotIndex,
-                          originalCourse,
+                          course,
                         ),
                         onLongPress: () => _handleCellLongPress(
                           cycleIndex,
                           dayOfCycle,
                           slotIndex,
-                          originalCourse,
+                          cellKey,
                         ),
                       ),
                     );
@@ -389,26 +387,26 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     int cycleIndex,
     int dayOfCycle,
     int slotIndex,
-    CourseItem? originalCourse,
+    CourseItem? course,
   ) {
     final cellKeyValue = _cellKey(cycleIndex, dayOfCycle, slotIndex);
-    final hasVisibleCourse =
-        originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex);
+    final cellKey = 'd${dayOfCycle}_s$slotIndex';
+    final hasVisibleCourse = course != null;
 
     if (_selectedCellKey == cellKeyValue) {
       // 点击已选中的单元格
       if (hasVisibleCourse) {
         // 有课程 → 显示预览抽屉
-        _showCoursePreview(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+        _showCoursePreview(cycleIndex, dayOfCycle, slotIndex, course);
       } else {
         // 空白 → 打开编辑器
-        _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+        _openEditor(cycleIndex, dayOfCycle, slotIndex, cellKey);
       }
     } else {
       // 点击不同的单元格
       if (hasVisibleCourse) {
         // 有课程 → 显示预览抽屉
-        _showCoursePreview(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+        _showCoursePreview(cycleIndex, dayOfCycle, slotIndex, course);
       } else {
         // 空白 → 选中当前单元格（进入+状态）
         setState(() => _selectedCellKey = cellKeyValue);
@@ -436,7 +434,8 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         slotIndex: slotIndex,
         onEdit: () {
           Navigator.pop(context); // 关闭抽屉
-          _openEditor(cycleIndex, dayOfCycle, slotIndex, course);
+          final cellKey = 'd${dayOfCycle}_s$slotIndex';
+          _openEditor(cycleIndex, dayOfCycle, slotIndex, cellKey);
         },
         onClose: () => Navigator.pop(context),
       ),
@@ -448,10 +447,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     int cycleIndex,
     int dayOfCycle,
     int slotIndex,
-    CourseItem? originalCourse,
+    String cellKey,
   ) {
     // 长按直接打开编辑器
-    _openEditor(cycleIndex, dayOfCycle, slotIndex, originalCourse);
+    _openEditor(cycleIndex, dayOfCycle, slotIndex, cellKey);
   }
 
   /// 打开编辑器（居中对话框）
@@ -459,13 +458,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     int cycleIndex,
     int dayOfCycle,
     int slotIndex,
-    CourseItem? originalCourse,
+    String cellKey,
   ) {
-    // 检查课程是否在指定周期可见
-    final visibleCourse =
-        originalCourse != null && originalCourse.isVisibleInCycle(cycleIndex)
-        ? originalCourse
-        : null;
+    // 从 store 获取该 cellKey 的所有课程
+    final courses = ref.read(TimetableStore.cellProvider(cellKey));
 
     // 清除选中状态
     setState(() => _selectedCellKey = null);
@@ -478,7 +474,8 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         dayOfCycle: dayOfCycle,
         slotIndex: slotIndex,
         cycleIndex: cycleIndex,
-        existingCourse: visibleCourse,
+        cellKey: cellKey,
+        existingCourses: courses,
         onClose: () => Navigator.pop(context),
       ),
     );

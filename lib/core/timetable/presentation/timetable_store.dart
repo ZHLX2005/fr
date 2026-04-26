@@ -11,13 +11,14 @@ class TimetableState {
   });
 
   final TimetableConfig config;
-  final Map<String, CourseItem>
-  items; // 按 cellKey 索引 (cellKey = 'd${dayOfCycle}_s$slotIndex')
+  /// 按 cellKey 索引，每个 key 对应该时间段的所有课程列表
+  /// cellKey = 'd${dayOfCycle}_s$slotIndex'
+  final Map<String, List<CourseItem>> items;
   final bool isLoading;
 
   TimetableState copyWith({
     TimetableConfig? config,
-    Map<String, CourseItem>? items,
+    Map<String, List<CourseItem>>? items,
     bool? isLoading,
   }) {
     return TimetableState(
@@ -51,10 +52,9 @@ class TimetableStore extends StateNotifier<TimetableState> {
 
     try {
       final config = await _repo.loadConfig();
-      final itemsList = await _repo.loadItems();
-      final items = {for (var item in itemsList) item.cellKey: item};
+      final itemsMap = await _repo.loadItems();
 
-      state = TimetableState(config: config, items: items, isLoading: false);
+      state = TimetableState(config: config, items: itemsMap, isLoading: false);
     } catch (e) {
       state = TimetableState(
         config: TimetableConfig.defaultConfig,
@@ -65,47 +65,68 @@ class TimetableStore extends StateNotifier<TimetableState> {
   }
 
   /// 新增或更新课程项目
+  /// 如果 item.id 已存在则替换，不存在则追加到列表
   Future<void> upsertItem(CourseItem item) async {
-    final newItems = Map<String, CourseItem>.from(state.items);
-    newItems[item.cellKey] = item;
+    final newItems = Map<String, List<CourseItem>>.from(state.items);
+    final cellKey = item.cellKey;
+    final existing = List<CourseItem>.from(newItems[cellKey] ?? []);
 
-    // 立即更新 UI (optimistic update)
+    final idx = existing.indexWhere((c) => c.id == item.id);
+    if (idx >= 0) {
+      existing[idx] = item;
+    } else {
+      existing.add(item);
+    }
+    newItems[cellKey] = existing;
+
     state = state.copyWith(items: newItems);
 
-    // 持久化
     try {
-      await _repo.upsertItem(item);
+      await _repo.upsertItems(cellKey, existing);
     } catch (e) {
-      // 失败则回滚 (简化处理)
-      newItems.remove(item.cellKey);
+      // 失败回滚
+      newItems[cellKey] = existing.where((c) => c.id != item.id).toList();
+      if (newItems[cellKey]!.isEmpty) newItems.remove(cellKey);
       state = state.copyWith(items: newItems);
     }
   }
 
-  /// 删除课程项目
-  Future<void> deleteItem(String cellKey) async {
-    final newItems = Map<String, CourseItem>.from(state.items);
-    final deletedItem = newItems.remove(cellKey);
+  /// 删除课程项目（从cellKey对应的列表中删除指定id的课程）
+  Future<void> deleteItem(String cellKey, {String? itemId}) async {
+    final newItems = Map<String, List<CourseItem>>.from(state.items);
+    final existing = newItems[cellKey];
+    if (existing == null || existing.isEmpty) return;
 
-    if (deletedItem == null) return;
+    final deletedItemId = itemId ?? existing.last.id;
+    final remaining = existing.where((c) => c.id != deletedItemId).toList();
+
+    if (remaining.isEmpty) {
+      newItems.remove(cellKey);
+    } else {
+      newItems[cellKey] = remaining;
+    }
 
     state = state.copyWith(items: newItems);
 
     try {
-      await _repo.deleteItem(cellKey);
+      if (remaining.isEmpty) {
+        await _repo.deleteItem(cellKey);
+      } else {
+        await _repo.upsertItems(cellKey, remaining);
+      }
     } catch (e) {
-      // 失败则恢复
-      newItems[cellKey] = deletedItem;
+      // 失败恢复
+      newItems[cellKey] = existing;
       state = state.copyWith(items: newItems);
     }
   }
 
   /// 清空所有课程
   Future<void> clearAllItems() async {
-    final newItems = <String, CourseItem>{};
+    final newItems = <String, List<CourseItem>>{};
     state = state.copyWith(items: newItems);
     try {
-      await _repo.saveItems([]);
+      await _repo.clearItems();
     } catch (e) {
       // 失败时恢复（简化处理：不做回滚）
     }
@@ -115,24 +136,26 @@ class TimetableStore extends StateNotifier<TimetableState> {
   String exportToDsl() {
     final buffer = StringBuffer();
 
-    for (final item in state.items.values) {
-      final dayOfCycle = item.dayOfCycle + 1; // 1-based
-      final slotStart = item.slotIndex + 1;
-      final slotEnd = item.slotIndex + 1;
-      final slotStr = slotStart == slotEnd ? '$slotStart' : '$slotStart-$slotEnd';
+    for (final courseList in state.items.values) {
+      for (final item in courseList) {
+        final dayOfCycle = item.dayOfCycle + 1; // 1-based
+        final slotStart = item.slotIndex + 1;
+        final slotEnd = item.slotIndex + 1;
+        final slotStr = slotStart == slotEnd ? '$slotStart' : '$slotStart-$slotEnd';
 
-      final weeks = item.visibleInCycles != null && item.visibleInCycles!.isNotEmpty
-          ? 'w${item.visibleInCycles!.map((i) => i + 1).join(",")}'
-          : '';
+        final weeks = item.visibleInCycles != null && item.visibleInCycles!.isNotEmpty
+            ? 'w${item.visibleInCycles!.map((i) => i + 1).join(",")}'
+            : '';
 
-      final location = item.location ?? '';
-      final teacher = item.teacher ?? '';
+        final location = item.location ?? '';
+        final teacher = item.teacher ?? '';
 
-      final parts = [item.title, '@', '$dayOfCycle', slotStr, weeks, location, teacher]
-          .where((p) => p.isNotEmpty)
-          .toList();
+        final parts = [item.title, '@', '$dayOfCycle', slotStr, weeks, location, teacher]
+            .where((p) => p.isNotEmpty)
+            .toList();
 
-      buffer.writeln(parts.join(' '));
+        buffer.writeln(parts.join(' '));
+      }
     }
 
     return buffer.toString();
@@ -163,13 +186,14 @@ class TimetableStore extends StateNotifier<TimetableState> {
         oldConfig.slotsPerDay;
 
     // 检查是否有课程超出新的边界
-    final newItems = Map<String, CourseItem>.from(state.items);
+    final newItems = Map<String, List<CourseItem>>.from(state.items);
     final deletedKeys = <String>[];
 
     // 检查 dayOfCycle 是否超出范围
     if (daysPerCycle != null) {
-      newItems.removeWhere((key, item) {
-        if (item.dayOfCycle >= newDaysPerCycle) {
+      newItems.removeWhere((key, courseList) {
+        final outOfRange = courseList.where((item) => item.dayOfCycle >= newDaysPerCycle).toList();
+        if (outOfRange.isNotEmpty) {
           deletedKeys.add(key);
           return true;
         }
@@ -179,8 +203,9 @@ class TimetableStore extends StateNotifier<TimetableState> {
 
     // 检查 slotIndex 是否超出范围
     if (slotsPerDay != null) {
-      newItems.removeWhere((key, item) {
-        if (item.slotIndex >= newSlotsPerDay) {
+      newItems.removeWhere((key, courseList) {
+        final outOfRange = courseList.where((item) => item.slotIndex >= newSlotsPerDay).toList();
+        if (outOfRange.isNotEmpty) {
           deletedKeys.add(key);
           return true;
         }
@@ -202,8 +227,8 @@ class TimetableStore extends StateNotifier<TimetableState> {
     // 保存配置
     await _repo.saveConfig(newConfig);
 
-    // 保存更新后的 items
-    await _repo.saveItems(newItems.values.toList());
+    // 保存更新后的 items（展平列表）
+    await _repo.saveItems(newItems.values.expand((list) => list).toList());
 
     state = state.copyWith(config: newConfig, items: newItems);
 
@@ -242,29 +267,29 @@ class TimetableStore extends StateNotifier<TimetableState> {
     return ref.watch(timetableProvider).config;
   });
 
-  /// 单格 Provider (family) - 通过 cellKey 获取
-  static final cellProvider = Provider.family<CourseItem?, String>((
+  /// 单格课程列表 Provider (family) - 通过 cellKey 获取该时间段所有课程
+  static final cellProvider = Provider.family<List<CourseItem>, String>((
     ref,
     cellKey,
   ) {
     final state = ref.watch(timetableProvider);
-    return state.items[cellKey];
+    return state.items[cellKey] ?? [];
   });
 
-  /// 所有天的课程 Provider - 返回 Map&#60;dayOfCycle, List&#60;CourseItem?&#62;&#62;
+  /// 所有天的课程 Provider - 返回 Map<dayOfCycle, List<该天所有课程列表>>
   /// 这个 provider 按 dayOfCycle 存储课程，所以所有周期显示相同的课程
-  static final allDaySlotsProvider = Provider<Map<int, List<CourseItem?>>>((
+  static final allDaySlotsProvider = Provider<Map<int, List<List<CourseItem>>>>((
     ref,
   ) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
 
-    final result = <int, List<CourseItem?>>{};
+    final result = <int, List<List<CourseItem>>>{};
 
     for (int dayOfCycle = 0; dayOfCycle < config.daysPerCycle; dayOfCycle++) {
-      final slots = <CourseItem?>[];
+      final slots = <List<CourseItem>>[];
       for (int slot = 0; slot < config.slotsPerDay; slot++) {
-        slots.add(state.items['d${dayOfCycle}_s$slot']);
+        slots.add(state.items['d${dayOfCycle}_s$slot'] ?? []);
       }
       result[dayOfCycle] = slots;
     }
@@ -273,27 +298,25 @@ class TimetableStore extends StateNotifier<TimetableState> {
   });
 
   /// 某天所有节次 Provider (family) - 通过 dayOfCycle 获取
-  static final daySlotsProvider = Provider.family<List<CourseItem?>, int>((
+  static final daySlotsProvider = Provider.family<List<List<CourseItem>>, int>((
     ref,
     dayOfCycle,
   ) {
     final config = ref.watch(configProvider);
     final state = ref.watch(timetableProvider);
-    final slots = <CourseItem?>[];
 
     if (dayOfCycle >= config.daysPerCycle) {
-      return slots;
+      return [];
     }
 
-    for (int slot = 0; slot < config.slotsPerDay; slot++) {
-      slots.add(state.items['d${dayOfCycle}_s$slot']);
-    }
-
-    return slots;
+    return List.generate(config.slotsPerDay, (slot) {
+      return state.items['d${dayOfCycle}_s$slot'] ?? [];
+    });
   });
 
   /// 某周期网格 Provider (family) - 返回 2D 数组 [dayOfCycle][slot]
-  /// 根据课程的 visibleInCycles 决定是否在特定周期显示
+  /// 每个单元格返回该时间段所有课程中在指定周期可见的第一个课程（用于显示）
+  /// 如果没有可见课程，返回 null
   static final cycleGridProvider =
       Provider.family<List<List<CourseItem?>>, int>((ref, cycleIndex) {
         final config = ref.watch(configProvider);
@@ -302,12 +325,14 @@ class TimetableStore extends StateNotifier<TimetableState> {
         // 创建 2D 数组: [dayOfCycle][slot]
         final grid = List.generate(config.daysPerCycle, (dayOfCycle) {
           return List.generate(config.slotsPerDay, (slot) {
-            final item = state.items['d${dayOfCycle}_s$slot'];
-            // 检查课程是否在该周期可见
-            if (item != null && !item.isVisibleInCycle(cycleIndex)) {
-              return null;
+            final courseList = state.items['d${dayOfCycle}_s$slot'] ?? [];
+            // 找第一个在该周期可见的课程
+            for (final item in courseList) {
+              if (item.isVisibleInCycle(cycleIndex)) {
+                return item;
+              }
             }
-            return item;
+            return null;
           });
         });
 
@@ -327,7 +352,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     int dayCourseCount = 0;
     for (int slot = 0; slot < config.slotsPerDay; slot++) {
       for (int dayOfCycle = 0; dayOfCycle < config.daysPerCycle; dayOfCycle++) {
-        if (state.items['d${dayOfCycle}_s$slot'] != null) {
+        if ((state.items['d${dayOfCycle}_s$slot'] ?? []).isNotEmpty) {
           dayCourseCount++;
         }
       }

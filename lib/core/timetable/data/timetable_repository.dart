@@ -8,15 +8,18 @@ abstract class TimetableRepository {
   /// 保存配置
   Future<void> saveConfig(TimetableConfig config);
 
-  /// 加载所有课程项目
-  Future<List<CourseItem>> loadItems();
+  /// 加载所有课程项目（按 cellKey 分组）
+  Future<Map<String, List<CourseItem>>> loadItems();
 
-  /// 保存所有课程项目
+  /// 保存所有课程项目（展平后存储）
   Future<void> saveItems(List<CourseItem> items);
 
-  /// 新增或更新单个项目
-  Future<void> upsertItem(CourseItem item);
+  /// 保存指定 cellKey 的课程列表
+  Future<void> upsertItems(String cellKey, List<CourseItem> items);
 
-  /// 删除单个项目
+  /// 删除指定 cellKey 的所有课程
   Future<void> deleteItem(String cellKey);
+
+  /// 清空所有课程
+  Future<void> clearItems();
 }
