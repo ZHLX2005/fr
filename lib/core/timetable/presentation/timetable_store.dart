@@ -91,6 +91,27 @@ class TimetableStore extends StateNotifier<TimetableState> {
     }
   }
 
+  /// 直接更新整个列表（用于编辑器批量更新）
+  Future<void> upsertItems(String cellKey, List<CourseItem> items) async {
+    final newItems = Map<String, List<CourseItem>>.from(state.items);
+    newItems[cellKey] = items;
+
+    state = state.copyWith(items: newItems);
+
+    try {
+      await _repo.upsertItems(cellKey, items);
+    } catch (e) {
+      // 失败回滚
+      final oldItems = state.items[cellKey];
+      if (oldItems != null) {
+        newItems[cellKey] = oldItems;
+      } else {
+        newItems.remove(cellKey);
+      }
+      state = state.copyWith(items: newItems);
+    }
+  }
+
   /// 删除课程项目（从cellKey对应的列表中删除指定id的课程）
   Future<void> deleteItem(String cellKey, {String? itemId}) async {
     final newItems = Map<String, List<CourseItem>>.from(state.items);

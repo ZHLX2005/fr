@@ -435,7 +435,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         onEdit: () {
           Navigator.pop(context); // 关闭抽屉
           final cellKey = 'd${dayOfCycle}_s$slotIndex';
-          _openEditor(cycleIndex, dayOfCycle, slotIndex, cellKey);
+          _openEditor(cycleIndex, dayOfCycle, slotIndex, cellKey, focusCourse: course);
         },
         onClose: () => Navigator.pop(context),
       ),
@@ -458,8 +458,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     int cycleIndex,
     int dayOfCycle,
     int slotIndex,
-    String cellKey,
-  ) {
+    String cellKey, {
+    CourseItem? focusCourse,
+  }) {
     // 从 store 获取该 cellKey 的所有课程
     final courses = ref.read(TimetableStore.cellProvider(cellKey));
 
@@ -476,6 +477,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         cycleIndex: cycleIndex,
         cellKey: cellKey,
         existingCourses: courses,
+        focusCourse: focusCourse,
         onClose: () => Navigator.pop(context),
       ),
     );
