@@ -363,6 +363,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           setState(() {
             _startDateController.text = date;
           });
+          // 应用日期后自动保存
+          _save();
         },
       );
     }
