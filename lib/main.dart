@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rive/rive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
@@ -15,13 +16,13 @@ import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
-import 'providers/agent_chat_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/repository/chart_repository.dart';
 
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+  await RiveNative.init();
 
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();
@@ -31,7 +32,8 @@ void main() async {
   // 初始化 Supabase
   await Supabase.initialize(
     url: 'https://kklrbynhqpwwhtfanqwt.supabase.co',
-    anonKey: 'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P', // TODO: 替换为实际 anon key
+    anonKey:
+        'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P', // TODO: 替换为实际 anon key
   );
   ChartRepository.initSupabase(
     'https://kklrbynhqpwwhtfanqwt.supabase.co',
@@ -60,9 +62,7 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
-  static const _channel = MethodChannel(
-    'io.github.xiaodouzi.fr/widget',
-  );
+  static const _channel = MethodChannel('io.github.xiaodouzi.fr/widget');
   late ThemeProvider _themeProvider;
 
   @override
