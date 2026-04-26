@@ -33,6 +33,7 @@ class _LabPanelContent extends StatefulWidget {
 
 class _LabPanelContentState extends State<_LabPanelContent> {
   final LabCardProvider _provider = LabCardProvider();
+  String? _draggingFavoriteTitle;
 
   @override
   void initState() {
@@ -101,15 +102,29 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                           builder: (context) {
                             return ReorderableBuilder<String>.builder(
                               longPressDelay: const Duration(milliseconds: 300),
+                              animationConfig: const ReorderableAnimationConfig(
+                                dragFeedbackDuration: Duration.zero,
+                              ),
                               feedbackScaleFactor: 1.0,
                               dragChildBoxDecoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.06),
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: const <BoxShadow>[],
                               ),
-                              onDragStarted: (index) => HapticFeedback.lightImpact(),
+                              onDragStarted: (index) {
+                                setState(() {
+                                  _draggingFavoriteTitle = _favoriteTitles[index];
+                                });
+                                HapticFeedback.lightImpact();
+                              },
                               onUpdatedDraggedChild: (index) {},
-                              onDragEnd: (index) {},
+                              onDragEnd: (index) {
+                                if (_draggingFavoriteTitle != null) {
+                                  setState(() {
+                                    _draggingFavoriteTitle = null;
+                                  });
+                                }
+                              },
                               onReorder: (reorderFn) {
                                 final reorderedTitles = reorderFn(_favoriteTitles);
                                 _provider.reorderFavorites(reorderedTitles);
@@ -134,6 +149,8 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                       _FavoriteDemoShortcut(
                                         key: ValueKey(title),
                                         demo: demo,
+                                        isDragActive:
+                                            _draggingFavoriteTitle == title,
                                         onTap: () => widget.onDemoTap(demo),
                                       ),
                                       index,
@@ -232,59 +249,98 @@ class _PanelTitleSection extends StatelessWidget {
   }
 }
 
-class _FavoriteDemoShortcut extends StatelessWidget {
+class _FavoriteDemoShortcut extends StatefulWidget {
   final DemoPage demo;
+  final bool isDragActive;
   final VoidCallback onTap;
 
-  const _FavoriteDemoShortcut({super.key, required this.demo, required this.onTap});
+  const _FavoriteDemoShortcut({
+    super.key,
+    required this.demo,
+    required this.isDragActive,
+    required this.onTap,
+  });
+
+  @override
+  State<_FavoriteDemoShortcut> createState() => _FavoriteDemoShortcutState();
+}
+
+class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
+  bool _isPressed = false;
+
+  void _handleHighlightChanged(bool value) {
+    if (_isPressed == value) return;
+    setState(() {
+      _isPressed = value;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final showOverlay = _isPressed || widget.isDragActive;
+
     return Tooltip(
-      message: demo.title,
+      message: widget.demo.title,
+      triggerMode: TooltipTriggerMode.tap,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: widget.onTap,
+          onHighlightChanged: _handleHighlightChanged,
           borderRadius: BorderRadius.circular(16),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Ink(
-            width: double.infinity,
-            height: double.infinity,
-            padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.max,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: _kAccentSoftColor.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.star_rounded,
-                    color: _kAccentDeepColor,
-                    size: 18,
+                Opacity(
+                  opacity: showOverlay ? 1.0 : 0.0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 6),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 1),
-                  child: Text(
-                    demo.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: _kPanelTextColor,
-                      fontWeight: FontWeight.w700,
-                      height: 1.0,
-                    ),
+                  padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: _kAccentSoftColor.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.star_rounded,
+                          color: _kAccentDeepColor,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 1),
+                        child: Text(
+                          widget.demo.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: _kPanelTextColor,
+                            fontWeight: FontWeight.w700,
+                            height: 1.0,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
