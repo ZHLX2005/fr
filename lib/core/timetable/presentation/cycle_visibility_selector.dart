@@ -173,26 +173,26 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
+                    color: theme.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.3),
+                      color: theme.colorScheme.outline.withValues(alpha: 0.2),
                       width: 1,
                     ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.warning_amber_rounded,
+                      Icon(
+                        Icons.block,
                         size: 14,
-                        color: Colors.orange,
+                        color: theme.colorScheme.outline.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           '灰色周期已被其他课程占用',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.orange.shade700,
+                            color: TimetableColors.textSecondary,
                             fontSize: 11,
                           ),
                         ),
@@ -314,10 +314,10 @@ class _CycleChip extends StatelessWidget {
     Color textColor;
 
     if (isOccupied) {
-      // 被占用：灰色，显示警告样式
-      borderColor = Colors.grey.shade400;
-      bgColor = Colors.grey.shade200;
-      textColor = Colors.grey.shade600;
+      // 被占用：灰色，低饱和度
+      borderColor = theme.colorScheme.outline.withValues(alpha: 0.25);
+      bgColor = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5);
+      textColor = theme.colorScheme.outline.withValues(alpha: 0.4);
     } else if (isSelected) {
       borderColor = theme.colorScheme.outline;
       bgColor = theme.colorScheme.outline.withValues(alpha: 0.1);
@@ -346,16 +346,47 @@ class _CycleChip extends StatelessWidget {
               width: isSelected ? 2 : 1,
             ),
           ),
-          child: Text(
-            isOccupied ? '⛔' : label,
-            style: TextStyle(
-              fontSize: isOccupied ? 10 : 12,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: textColor,
-            ),
-          ),
+          child: isOccupied
+              ? CustomPaint(
+                  size: const Size(20, 20),
+                  painter: _DiagonalLinePainter(
+                    color: textColor,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: textColor,
+                  ),
+                ),
         ),
       ),
     );
   }
+}
+
+/// 绘制对角线的 painter
+class _DiagonalLinePainter extends CustomPainter {
+  _DiagonalLinePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(
+      Offset(4, size.height - 4),
+      Offset(size.width - 4, 4),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
