@@ -134,7 +134,7 @@ class LabCardProvider with ChangeNotifier {
     final favoritesOrder = prefs.getStringList(_favoritesOrderKey);
     _favoritesOrder
       ..clear()
-      ..addAll(favoritesOrder ?? const <String>());
+      ..addAll(favoritesOrder ?? <String>[]);
 
     _isLoaded = true;
   }
