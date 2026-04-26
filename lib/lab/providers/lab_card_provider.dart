@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class LabCardProvider with ChangeNotifier {
   static const String _storageKey = 'lab_card_backgrounds';
   static const String _favoritesKey = 'lab_card_favorites';
+  static const String _favoritesOrderKey = 'lab_card_favorites_order';
   static LabCardProvider? _instance;
 
   factory LabCardProvider() {
@@ -26,6 +27,7 @@ class LabCardProvider with ChangeNotifier {
 
   final Map<String, String> _backgrounds = {};
   final Set<String> _favorites = <String>{};
+  final List<String> _favoritesOrder = [];
 
   String? getBackground(String demoTitle) {
     return _backgrounds[demoTitle];
@@ -37,6 +39,13 @@ class LabCardProvider with ChangeNotifier {
 
   List<String> getFavorites() {
     return _favorites.toList()..sort();
+  }
+
+  List<String> getFavoritesOrder() {
+    if (_favoritesOrder.isEmpty) {
+      return _favorites.toList()..sort();
+    }
+    return List<String>.from(_favoritesOrder);
   }
 
   bool isLocalFile(String demoTitle) {
@@ -68,7 +77,21 @@ class LabCardProvider with ChangeNotifier {
       _favorites.remove(demoTitle);
     }
     await _saveFavorites();
+    await syncFavoritesOrder();
     notifyListeners();
+  }
+
+  Future<void> reorderFavorites(List<String> ordered) async {
+    _favoritesOrder
+      ..clear()
+      ..addAll(ordered);
+    await _saveFavoritesOrder();
+    notifyListeners();
+  }
+
+  Future<void> syncFavoritesOrder() async {
+    _favoritesOrder.removeWhere((title) => !_favorites.contains(title));
+    await _saveFavoritesOrder();
   }
 
   Future<void> clearAll() async {
@@ -108,6 +131,11 @@ class LabCardProvider with ChangeNotifier {
       ..clear()
       ..addAll(favorites ?? const <String>[]);
 
+    final favoritesOrder = prefs.getStringList(_favoritesOrderKey);
+    _favoritesOrder
+      ..clear()
+      ..addAll(favoritesOrder ?? <String>[]);
+
     _isLoaded = true;
   }
 
@@ -122,6 +150,11 @@ class LabCardProvider with ChangeNotifier {
   Future<void> _saveFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_favoritesKey, getFavorites());
+  }
+
+  Future<void> _saveFavoritesOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_favoritesOrderKey, _favoritesOrder);
   }
 
   static const List<String> presetImages = [
