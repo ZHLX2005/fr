@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'timetable_dsl_parser.dart';
 import '../../presentation/timetable_colors.dart';
@@ -36,8 +37,16 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
     if (_preview == null || _preview!.courses.isEmpty) return;
 
     final store = ref.read(TimetableStore.provider.notifier);
+
+    // 按 cellKey 分组，减少存储操作
+    final grouped = <String, List<CourseItem>>{};
     for (final course in _preview!.courses) {
-      await store.upsertItem(course);
+      grouped.putIfAbsent(course.cellKey, () => []).add(course);
+    }
+
+    // 一次性更新每个 cellKey 的课程列表
+    for (final entry in grouped.entries) {
+      await store.upsertItems(entry.key, entry.value);
     }
 
     if (mounted) {
