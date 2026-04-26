@@ -9,21 +9,25 @@ import '../services/api_client.dart';
 class AgentChatProvider with ChangeNotifier {
   static const String _messagesKey = 'agent_chat_messages';
   static const String _settingsKey = 'ai_chat_settings'; // 复用 AI Chat 的设置
+  static const String _sessionIdKey = 'agent_session_id';
 
   List<AIChatMessage> _messages = [];
   AISettings _settings = AISettings();
   bool _isLoading = false;
   String? _error;
+  String _sessionId = '';
 
   List<AIChatMessage> get messages => _messages;
   AISettings get settings => _settings;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isConfigured => _settings.isConfigured;
+  String get sessionId => _sessionId;
 
   AgentChatProvider() {
     _loadSettings();
     _loadMessages();
+    _loadSessionId();
   }
 
   // 加载设置（复用 AIChatProvider 的设置）
@@ -62,6 +66,43 @@ class AgentChatProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('保存 Agent 聊天消息失败: $e');
     }
+  }
+
+  // 加载或生成会话ID
+  Future<void> _loadSessionId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      var sessionId = prefs.getString(_sessionIdKey) ?? '';
+      if (sessionId.isEmpty) {
+        sessionId = _generateSessionId();
+        await prefs.setString(_sessionIdKey, sessionId);
+      }
+      _sessionId = sessionId;
+      debugPrint('Agent sessionId: $_sessionId');
+    } catch (e) {
+      _sessionId = _generateSessionId();
+    }
+  }
+
+  // 手动设置会话ID
+  Future<void> setSessionId(String sessionId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (sessionId.isEmpty) {
+        sessionId = _generateSessionId();
+      }
+      await prefs.setString(_sessionIdKey, sessionId);
+      _sessionId = sessionId;
+      notifyListeners();
+      debugPrint('Agent sessionId 更新为: $_sessionId');
+    } catch (e) {
+      debugPrint('保存 sessionId 失败: $e');
+    }
+  }
+
+  String _generateSessionId() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return 'agent_${now}_${_messages.length}';
   }
 
   // 发送事件并获取 Agent 响应
@@ -126,6 +167,7 @@ class AgentChatProvider with ChangeNotifier {
       final body = {
         'apiKey': _settings.apiKey,
         'eventDescription': eventDescription,
+        'sessionId': _sessionId,
         'db': {
           'host': _settings.dbHost,
           'port': _settings.dbPort,
