@@ -76,6 +76,7 @@ class LabCardProvider with ChangeNotifier {
     } else {
       _favorites.remove(demoTitle);
     }
+    await _saveFavorites();
     await syncFavoritesOrder();
     notifyListeners();
   }
