@@ -1,5 +1,8 @@
 part of '../lab_page.dart';
 
+import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
+import 'package:flutter/services.dart';
+
 class _LabPanelContent extends StatefulWidget {
   final ScrollController scrollController;
   final List<MapEntry<String, DemoPage>> demos;
@@ -52,6 +55,17 @@ class _LabPanelContentState extends State<_LabPanelContent> {
     }
   }
 
+  List<String> get _favoriteTitles {
+    final order = _provider.getFavoritesOrder();
+    return order.where((title) {
+      return widget.demos.any((e) => e.value.title == title);
+    }).toList();
+  }
+
+  DemoPage _findDemoByTitle(String title) {
+    return widget.demos.firstWhere((e) => e.value.title == title).value;
+  }
+
   @override
   Widget build(BuildContext context) {
     final contentOffset = (1.0 - widget.progress) * 16.0;
@@ -86,22 +100,39 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                           builder: (context) {
                             debugPrint('Lab favorites grid forced columns=4');
 
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                            return ReorderableBuilder<String>.builder(
+                              longPressDelay: const Duration(milliseconds: 300),
+                              onDragStarted: (index) => HapticFeedback.lightImpact(),
+                              onUpdatedDraggedChild: (index) {},
+                              onDragEnd: (index) {},
+                              onReorder: (reorderFn) {
+                                final reorderedTitles = reorderFn(_favoriteTitles);
+                                _provider.reorderFavorites(reorderedTitles);
+                              },
+                              itemCount: _favoriteTitles.length,
+                              childBuilder: (itemBuilder) {
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 4,
                                     mainAxisSpacing: 8,
                                     crossAxisSpacing: 8,
                                     childAspectRatio: 0.92,
                                   ),
-                              itemCount: favoriteDemos.length,
-                              itemBuilder: (context, index) {
-                                final demo = favoriteDemos[index];
-                                return _FavoriteDemoShortcut(
-                                  demo: demo,
-                                  onTap: () => widget.onDemoTap(demo),
+                                  itemCount: _favoriteTitles.length,
+                                  itemBuilder: (context, index) {
+                                    final title = _favoriteTitles[index];
+                                    final demo = _findDemoByTitle(title);
+                                    return itemBuilder(
+                                      _FavoriteDemoShortcut(
+                                        key: ValueKey(title),
+                                        demo: demo,
+                                        onTap: () => widget.onDemoTap(demo),
+                                      ),
+                                      index,
+                                    );
+                                  },
                                 );
                               },
                             );
