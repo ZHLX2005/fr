@@ -14,6 +14,7 @@ class TimetableEditorDialog extends ConsumerStatefulWidget {
     required this.cycleIndex,
     required this.cellKey,
     required this.existingCourses,
+    this.focusCourse,
     required this.onClose,
   });
 
@@ -22,6 +23,8 @@ class TimetableEditorDialog extends ConsumerStatefulWidget {
   final int cycleIndex;
   final String cellKey;
   final List<CourseItem> existingCourses;
+  /// 指定默认选中的课程（从预览进入时传入）
+  final CourseItem? focusCourse;
   final VoidCallback onClose;
 
   @override
@@ -30,28 +33,38 @@ class TimetableEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
-  late final TextEditingController _titleController;
-  late final TextEditingController _locationController;
-  late final TextEditingController _teacherController;
-  late List<int> _selectedCycles;
+  TextEditingController _titleController = TextEditingController();
+  TextEditingController _locationController = TextEditingController();
+  TextEditingController _teacherController = TextEditingController();
+  List<int> _selectedCycles = [];
+  // 有课程时默认选中第一个，没有课程时为-1（添加模式）
   int _selectedCourseIndex = 0;
 
-  CourseItem? get _currentCourse =>
-      widget.existingCourses.isNotEmpty
-          ? widget.existingCourses[_selectedCourseIndex]
-          : null;
+  CourseItem? get _currentCourse {
+    if (_selectedCourseIndex < 0 || _selectedCourseIndex >= widget.existingCourses.length) {
+      return null;
+    }
+    return widget.existingCourses[_selectedCourseIndex];
+  }
 
   @override
   void initState() {
     super.initState();
+    // 优先使用 focusCourse 作为初始选中，否则选第一个，没有课程时为-1（添加模式）
+    if (widget.focusCourse != null) {
+      final focusIndex = widget.existingCourses.indexWhere((c) => c.id == widget.focusCourse!.id);
+      _selectedCourseIndex = focusIndex >= 0 ? focusIndex : (widget.existingCourses.isNotEmpty ? 0 : -1);
+    } else {
+      _selectedCourseIndex = widget.existingCourses.isNotEmpty ? 0 : -1;
+    }
     _initControllers();
   }
 
   void _initControllers() {
     final course = _currentCourse;
-    _titleController = TextEditingController(text: course?.title ?? '');
-    _locationController = TextEditingController(text: course?.location ?? '');
-    _teacherController = TextEditingController(text: course?.teacher ?? '');
+    _titleController.text = course?.title ?? '';
+    _locationController.text = course?.location ?? '';
+    _teacherController.text = course?.teacher ?? '';
     _selectedCycles = List<int>.from(course?.visibleInCycles ?? []);
   }
 
@@ -66,6 +79,13 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
   void _switchToCourse(int index) {
     setState(() {
       _selectedCourseIndex = index;
+      _initControllers();
+    });
+  }
+
+  void _addNewCourse() {
+    setState(() {
+      _selectedCourseIndex = -1; // 添加模式
       _initControllers();
     });
   }
@@ -110,7 +130,8 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
       currentList.add(item);
     }
 
-    await store.upsertItem(item);
+    // 直接用整个列表更新 store（而不是单个 item）
+    await store.upsertItems(widget.cellKey, currentList);
     widget.onClose();
   }
 
@@ -127,7 +148,14 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
     final theme = Theme.of(context);
     final config = ref.watch(TimetableStore.configProvider);
     final isEditing = _currentCourse != null;
-    final hasMultipleCourses = widget.existingCourses.length > 1;
+
+    // 计算被其他课程占用的周期（排除当前正在编辑的课程）
+    Set<int> occupiedCycles = {};
+    for (final course in widget.existingCourses) {
+      if (course.id != _currentCourse?.id && course.visibleInCycles != null) {
+        occupiedCycles.addAll(course.visibleInCycles!);
+      }
+    }
 
     return Stack(
       children: [
@@ -214,15 +242,34 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                               ),
                           ],
                         ),
-                        // 课程切换标签（当有多个课程时显示）
-                        if (hasMultipleCourses) ...[
+                        // 课程切换标签（当有课程时显示，含添加按钮）
+                        if (widget.existingCourses.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           SizedBox(
                             height: 32,
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
-                              itemCount: widget.existingCourses.length,
+                              itemCount: widget.existingCourses.length + 1,
                               itemBuilder: (context, index) {
+                                // 最后一个是添加按钮
+                                if (index == widget.existingCourses.length) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ActionChip(
+                                      label: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.add, size: 14),
+                                          SizedBox(width: 2),
+                                          Text('添加', style: TextStyle(fontSize: 12)),
+                                        ],
+                                      ),
+                                      onPressed: _addNewCourse,
+                                      backgroundColor:
+                                          theme.colorScheme.primaryContainer,
+                                    ),
+                                  );
+                                }
                                 final course = widget.existingCourses[index];
                                 final isSelected = index == _selectedCourseIndex;
                                 return Padding(
@@ -307,6 +354,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                         CycleVisibilitySelector(
                           cycleCount: config.cycleCount,
                           selectedCycles: _selectedCycles,
+                          occupiedCycles: occupiedCycles,
                           onChanged: (cycles) {
                             setState(() => _selectedCycles = cycles);
                           },

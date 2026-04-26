@@ -8,11 +8,14 @@ class CycleVisibilitySelector extends StatefulWidget {
     required this.cycleCount,
     required this.selectedCycles,
     required this.onChanged,
+    this.occupiedCycles = const {},
   });
 
   final int cycleCount;
   final List<int> selectedCycles;
   final ValueChanged<List<int>> onChanged;
+  /// 被其他课程占用的周期集合（用于标记冲突）
+  final Set<int> occupiedCycles;
 
   @override
   State<CycleVisibilitySelector> createState() =>
@@ -61,6 +64,17 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
   }
 
   void _toggleCycle(int cycleIndex) {
+    // 检查是否是冲突周期
+    if (widget.occupiedCycles.contains(cycleIndex)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('周期${cycleIndex + 1}已被其他课程占用'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isAllMode = false);
     final newList = List<int>.from(widget.selectedCycles);
     if (newList.contains(cycleIndex)) {
@@ -100,7 +114,9 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                _isAllMode ? '全部周期' : '已选${widget.selectedCycles.length}个',
+                _isAllMode
+                    ? '全部周期'
+                    : '已选${widget.selectedCycles.length}个',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: TimetableColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -149,19 +165,60 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
             ),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: List.generate(widget.cycleCount, (index) {
-              final cycleIndex = index;
-              final isSelected =
-                  _isAllMode || widget.selectedCycles.contains(cycleIndex);
-              return _CycleChip(
-                label: '${cycleIndex + 1}',
-                isSelected: isSelected,
-                onTap: () => _toggleCycle(cycleIndex),
-              );
-            }),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 冲突警告
+              if (widget.occupiedCycles.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 14,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '灰色周期已被其他课程占用',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.orange.shade700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(widget.cycleCount, (index) {
+                  final cycleIndex = index;
+                  final isSelected =
+                      _isAllMode || widget.selectedCycles.contains(cycleIndex);
+                  final isOccupied = widget.occupiedCycles.contains(cycleIndex);
+                  return _CycleChip(
+                    label: '${cycleIndex + 1}',
+                    isSelected: isSelected,
+                    isOccupied: isOccupied,
+                    onTap: () => _toggleCycle(cycleIndex),
+                  );
+                }),
+              ),
+            ],
           ),
         ),
       ],
@@ -202,7 +259,7 @@ class _QuickActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: isSelected ? Colors.transparent : Colors.transparent,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -239,21 +296,43 @@ class _CycleChip extends StatelessWidget {
   const _CycleChip({
     required this.label,
     required this.isSelected,
+    required this.isOccupied,
     required this.onTap,
   });
 
   final String label;
   final bool isSelected;
+  final bool isOccupied;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    Color borderColor;
+    Color bgColor;
+    Color textColor;
+
+    if (isOccupied) {
+      // 被占用：灰色，显示警告样式
+      borderColor = Colors.grey.shade400;
+      bgColor = Colors.grey.shade200;
+      textColor = Colors.grey.shade600;
+    } else if (isSelected) {
+      borderColor = theme.colorScheme.outline;
+      bgColor = theme.colorScheme.outline.withValues(alpha: 0.1);
+      textColor = theme.colorScheme.outline;
+    } else {
+      borderColor = theme.colorScheme.outline.withValues(alpha: 0.3);
+      bgColor = Colors.transparent;
+      textColor = TimetableColors.textPrimary;
+    }
+
     return Material(
-      color: isSelected ? Colors.transparent : Colors.transparent,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        onTap: onTap,
+        onTap: isOccupied ? null : onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           width: 36,
@@ -261,21 +340,18 @@ class _CycleChip extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
+            color: bgColor,
             border: Border.all(
-              color: isSelected
-                  ? theme.colorScheme.outline
-                  : theme.colorScheme.outline.withValues(alpha: 0.3),
-              width: 1,
+              color: borderColor,
+              width: isSelected ? 2 : 1,
             ),
           ),
           child: Text(
-            label,
+            isOccupied ? '⛔' : label,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: isOccupied ? 10 : 12,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected
-                  ? theme.colorScheme.outline
-                  : TimetableColors.textPrimary,
+              color: textColor,
             ),
           ),
         ),
