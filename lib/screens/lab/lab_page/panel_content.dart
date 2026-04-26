@@ -1,8 +1,5 @@
 part of '../lab_page.dart';
 
-import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
-import 'package:flutter/services.dart';
-
 class _LabPanelContent extends StatefulWidget {
   final ScrollController scrollController;
   final List<MapEntry<String, DemoPage>> demos;
@@ -126,6 +123,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                   itemBuilder: (context, index) {
                                     final title = _favoriteTitles[index];
                                     final demo = _findDemoByTitle(title);
+                                    if (demo == null) return const SizedBox.shrink();
                                     return itemBuilder(
                                       _FavoriteDemoShortcut(
                                         key: ValueKey(title),
@@ -232,7 +230,7 @@ class _FavoriteDemoShortcut extends StatelessWidget {
   final DemoPage demo;
   final VoidCallback onTap;
 
-  const _FavoriteDemoShortcut({required this.demo, required this.onTap});
+  const _FavoriteDemoShortcut({super.key, required this.demo, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
