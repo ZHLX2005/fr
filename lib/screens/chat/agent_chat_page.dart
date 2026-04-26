@@ -140,6 +140,11 @@ class _AgentChatPageState extends State<AgentChatPage> {
             onPressed: _showSessionIdDialog,
             tooltip: '会话ID',
           ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _openSettings,
+            tooltip: 'AI 设置',
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'clear') {
