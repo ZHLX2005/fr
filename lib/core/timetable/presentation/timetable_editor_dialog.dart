@@ -266,7 +266,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                                       ),
                                       onPressed: _addNewCourse,
                                       backgroundColor:
-                                          theme.colorScheme.primaryContainer,
+                                          theme.colorScheme.surfaceContainerHighest,
                                     ),
                                   );
                                 }
@@ -286,7 +286,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                                     ),
                                     selected: isSelected,
                                     onSelected: (_) => _switchToCourse(index),
-                                    selectedColor: theme.colorScheme.primary,
+                                    selectedColor: theme.colorScheme.secondary,
                                     backgroundColor:
                                         theme.colorScheme.surfaceContainerHighest,
                                   ),
