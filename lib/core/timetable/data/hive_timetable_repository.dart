@@ -86,20 +86,34 @@ class HiveTimetableRepository extends TimetableRepository {
   }
 
   @override
-  Future<List<CourseItem>> loadItems() async {
+  Future<Map<String, List<CourseItem>>> loadItems() async {
     if (!_isInitialized) {
-      return [];
+      return {};
     }
-    final items = <CourseItem>[];
+    final result = <String, List<CourseItem>>{};
     for (final key in _itemsBox.keys) {
       final json = _itemsBox.get(key);
-      if (json != null && json is Map) {
-        // Hive returns _Map<dynamic, dynamic>, convert to Map<String, dynamic>
-        final typedJson = json.map((k, v) => MapEntry(k.toString(), v));
-        items.add(_courseItemFromJson(typedJson));
+      if (json != null) {
+        // 兼容旧数据格式：单个 Map 为旧格式，List 为新格式
+        if (json is Map) {
+          // 旧格式迁移：单个课程项
+          final typedJson = json.map((k, v) => MapEntry(k.toString(), v));
+          final item = _courseItemFromJson(typedJson);
+          result[key.toString()] = [item];
+        } else if (json is List) {
+          // 新格式：课程列表
+          final itemList = <CourseItem>[];
+          for (final itemJson in json) {
+            if (itemJson is Map) {
+              final typedJson = itemJson.map((k, v) => MapEntry(k.toString(), v));
+              itemList.add(_courseItemFromJson(typedJson));
+            }
+          }
+          result[key.toString()] = itemList;
+        }
       }
     }
-    return items;
+    return result;
   }
 
   @override
@@ -108,23 +122,39 @@ class HiveTimetableRepository extends TimetableRepository {
       debugPrint('HiveTimetableRepository.saveItems: 未初始化');
       return;
     }
-    await _itemsBox.clear();
+    // 按 cellKey 分组
+    final grouped = <String, List<CourseItem>>{};
     for (final item in items) {
-      await _itemsBox.put(item.cellKey, _courseItemToJson(item));
+      grouped.putIfAbsent(item.cellKey, () => []).add(item);
+    }
+    // 清空并按新格式保存（JSON 数组）
+    await _itemsBox.clear();
+    for (final entry in grouped.entries) {
+      await _itemsBox.put(entry.key, _courseListToJson(entry.value));
     }
     debugPrint('HiveTimetableRepository.saveItems: 保存了 ${items.length} 个课程');
   }
 
   @override
-  Future<void> upsertItem(CourseItem item) async {
+  Future<void> upsertItems(String cellKey, List<CourseItem> items) async {
     if (!_isInitialized) {
-      debugPrint('HiveTimetableRepository.upsertItem: 未初始化');
+      debugPrint('HiveTimetableRepository.upsertItems: 未初始化');
       return;
     }
-    await _itemsBox.put(item.cellKey, _courseItemToJson(item));
+    await _itemsBox.put(cellKey, _courseListToJson(items));
     debugPrint(
-      'HiveTimetableRepository.upsertItem: 保存课程 ${item.cellKey} 成功，Box长度=${_itemsBox.length}',
+      'HiveTimetableRepository.upsertItems: 保存课程 $cellKey (${items.length}个)，Box长度=${_itemsBox.length}',
     );
+  }
+
+  @override
+  Future<void> clearItems() async {
+    if (!_isInitialized) {
+      debugPrint('HiveTimetableRepository.clearItems: 未初始化');
+      return;
+    }
+    await _itemsBox.clear();
+    debugPrint('HiveTimetableRepository.clearItems: 已清空所有课程');
   }
 
   @override
@@ -153,6 +183,10 @@ class HiveTimetableRepository extends TimetableRepository {
       'createdAt': item.createdAt,
       'updatedAt': item.updatedAt,
     };
+  }
+
+  List<Map<String, dynamic>> _courseListToJson(List<CourseItem> items) {
+    return items.map((item) => _courseItemToJson(item)).toList();
   }
 
   CourseItem _courseItemFromJson(Map<String, dynamic> json) {

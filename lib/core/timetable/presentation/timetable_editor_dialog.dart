@@ -12,14 +12,16 @@ class TimetableEditorDialog extends ConsumerStatefulWidget {
     required this.dayOfCycle,
     required this.slotIndex,
     required this.cycleIndex,
-    this.existingCourse,
+    required this.cellKey,
+    required this.existingCourses,
     required this.onClose,
   });
 
   final int dayOfCycle;
   final int slotIndex;
   final int cycleIndex;
-  final CourseItem? existingCourse;
+  final String cellKey;
+  final List<CourseItem> existingCourses;
   final VoidCallback onClose;
 
   @override
@@ -32,22 +34,25 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
   late final TextEditingController _locationController;
   late final TextEditingController _teacherController;
   late List<int> _selectedCycles;
+  int _selectedCourseIndex = 0;
+
+  CourseItem? get _currentCourse =>
+      widget.existingCourses.isNotEmpty
+          ? widget.existingCourses[_selectedCourseIndex]
+          : null;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(
-      text: widget.existingCourse?.title ?? '',
-    );
-    _locationController = TextEditingController(
-      text: widget.existingCourse?.location ?? '',
-    );
-    _teacherController = TextEditingController(
-      text: widget.existingCourse?.teacher ?? '',
-    );
-    _selectedCycles = List<int>.from(
-      widget.existingCourse?.visibleInCycles ?? [],
-    );
+    _initControllers();
+  }
+
+  void _initControllers() {
+    final course = _currentCourse;
+    _titleController = TextEditingController(text: course?.title ?? '');
+    _locationController = TextEditingController(text: course?.location ?? '');
+    _teacherController = TextEditingController(text: course?.teacher ?? '');
+    _selectedCycles = List<int>.from(course?.visibleInCycles ?? []);
   }
 
   @override
@@ -56,6 +61,13 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
     _locationController.dispose();
     _teacherController.dispose();
     super.dispose();
+  }
+
+  void _switchToCourse(int index) {
+    setState(() {
+      _selectedCourseIndex = index;
+      _initControllers();
+    });
   }
 
   Future<void> _submit() async {
@@ -72,9 +84,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
     final visibleInCycles = _selectedCycles.isEmpty ? null : _selectedCycles;
 
     final item = CourseItem(
-      id:
-          widget.existingCourse?.id ??
-          '${now}_${widget.dayOfCycle}_${widget.slotIndex}',
+      id: _currentCourse?.id ?? '${now}_${widget.dayOfCycle}_${widget.slotIndex}',
       dayOfCycle: widget.dayOfCycle,
       slotIndex: widget.slotIndex,
       title: _titleController.text.trim(),
@@ -84,22 +94,31 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
       teacher: _teacherController.text.trim().isEmpty
           ? null
           : _teacherController.text.trim(),
-      colorSeed: widget.existingCourse?.colorSeed ?? now,
-      version: (widget.existingCourse?.version ?? 0) + 1,
+      colorSeed: _currentCourse?.colorSeed ?? now,
+      version: (_currentCourse?.version ?? 0) + 1,
       visibleInCycles: visibleInCycles,
-      createdAt: widget.existingCourse?.createdAt ?? now,
+      createdAt: _currentCourse?.createdAt ?? now,
       updatedAt: now,
     );
+
+    // 获取当前列表并更新
+    final currentList = List<CourseItem>.from(widget.existingCourses);
+    final existingIndex = currentList.indexWhere((c) => c.id == item.id);
+    if (existingIndex >= 0) {
+      currentList[existingIndex] = item;
+    } else {
+      currentList.add(item);
+    }
 
     await store.upsertItem(item);
     widget.onClose();
   }
 
   Future<void> _delete() async {
-    if (widget.existingCourse == null) return;
+    if (_currentCourse == null) return;
 
     final store = ref.read(TimetableStore.provider.notifier);
-    await store.deleteItem(widget.existingCourse!.cellKey);
+    await store.deleteItem(widget.cellKey, itemId: _currentCourse!.id);
     widget.onClose();
   }
 
@@ -107,7 +126,8 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final config = ref.watch(TimetableStore.configProvider);
-    final isEditing = widget.existingCourse != null;
+    final isEditing = _currentCourse != null;
+    final hasMultipleCourses = widget.existingCourses.length > 1;
 
     return Stack(
       children: [
@@ -134,61 +154,100 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                   // Header
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 边框强调标签
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: theme.colorScheme.outline,
-                              width: 1,
+                        Row(
+                          children: [
+                            // 边框强调标签
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: theme.colorScheme.outline,
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isEditing ? '编辑课程' : '添加课程',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: TimetableColors.textPrimary,
+                                ),
+                              ),
                             ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            isEditing ? '编辑ITEM' : '添加ITEM',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: TimetableColors.textPrimary,
+                            const Spacer(),
+                            // 边框强调 - 时间标签
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: theme.colorScheme.outline,
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '第${widget.dayOfCycle + 1}天 · 第${widget.slotIndex + 1}节',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: TimetableColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
-                          ),
+                            if (isEditing)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: theme.colorScheme.error,
+                                  size: 22,
+                                ),
+                                onPressed: _delete,
+                                tooltip: '删除课程',
+                              ),
+                          ],
                         ),
-                        const Spacer(),
-                        // 边框强调 - 时间标签
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: theme.colorScheme.outline,
-                              width: 1,
+                        // 课程切换标签（当有多个课程时显示）
+                        if (hasMultipleCourses) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 32,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: widget.existingCourses.length,
+                              itemBuilder: (context, index) {
+                                final course = widget.existingCourses[index];
+                                final isSelected = index == _selectedCourseIndex;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ChoiceChip(
+                                    label: Text(
+                                      course.title,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : TimetableColors.textPrimary,
+                                      ),
+                                    ),
+                                    selected: isSelected,
+                                    onSelected: (_) => _switchToCourse(index),
+                                    selectedColor: theme.colorScheme.primary,
+                                    backgroundColor:
+                                        theme.colorScheme.surfaceContainerHighest,
+                                  ),
+                                );
+                              },
                             ),
-                            borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(
-                            '第${widget.dayOfCycle + 1}天 · 第${widget.slotIndex + 1}节',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: TimetableColors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        if (isEditing)
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete_outline,
-                              color: theme.colorScheme.error,
-                              size: 22,
-                            ),
-                            onPressed: _delete,
-                            tooltip: '删除课程',
-                          ),
+                        ],
                       ],
                     ),
                   ),
