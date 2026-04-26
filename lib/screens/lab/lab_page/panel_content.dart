@@ -101,6 +101,12 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                           builder: (context) {
                             return ReorderableBuilder<String>.builder(
                               longPressDelay: const Duration(milliseconds: 300),
+                              feedbackScaleFactor: 1.0,
+                              dragChildBoxDecoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: const <BoxShadow>[],
+                              ),
                               onDragStarted: (index) => HapticFeedback.lightImpact(),
                               onUpdatedDraggedChild: (index) {},
                               onDragEnd: (index) {},
