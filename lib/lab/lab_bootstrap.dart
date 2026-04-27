@@ -36,6 +36,7 @@ import 'demos/volume_decay_demo.dart';
 import 'demos/water_capsule_demo.dart';
 import 'demos/web_bookmark_demo.dart';
 import 'demos/word_drag_demo.dart';
+import 'demos/rive_pendulum_demo.dart';
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -73,6 +74,7 @@ void registerAllDemos() {
   registerVolumeDecayDemo();
   registerArcSelectorDemo();
   registerDemoLaboratoryDemo();
+  registerRivePendulumDemo();
 }
 
 // 初始化 Schema 注册表
