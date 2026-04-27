@@ -25,7 +25,7 @@ class _RivePendulumPage extends StatefulWidget {
 
 class _RivePendulumPageState extends State<_RivePendulumPage> {
   late final rive.FileLoader _fileLoader = rive.FileLoader.fromAsset(
-    'assets/rive/pendulum.riv',
+    'assets/rive/pendulum/pendulum.riv',
     riveFactory: rive.Factory.rive,
   );
 
