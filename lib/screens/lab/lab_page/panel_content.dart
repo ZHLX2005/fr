@@ -122,9 +122,8 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                         ),
                                         animationConfig:
                                             const ReorderableAnimationConfig(
-                                              dragFeedbackDuration:
-                                                  Duration.zero,
-                                            ),
+                                          dragFeedbackDuration: Duration.zero,
+                                        ),
                                         feedbackScaleFactor: 1.0,
                                         dragChildBoxDecoration: BoxDecoration(
                                           color: Colors.black.withValues(
@@ -166,18 +165,17 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                                 const NeverScrollableScrollPhysics(),
                                             gridDelegate:
                                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                                                  crossAxisCount: 4,
-                                                  mainAxisSpacing: 8,
-                                                  crossAxisSpacing: 8,
-                                                  childAspectRatio: 0.92,
-                                                ),
+                                              crossAxisCount: 4,
+                                              mainAxisSpacing: 8,
+                                              crossAxisSpacing: 8,
+                                              childAspectRatio: 0.92,
+                                            ),
                                             itemCount: _favoriteTitles.length,
                                             itemBuilder: (context, index) {
                                               final title =
                                                   _favoriteTitles[index];
-                                              final demo = _findDemoByTitle(
-                                                title,
-                                              );
+                                              final demo =
+                                                  _findDemoByTitle(title);
                                               if (demo == null) {
                                                 return const SizedBox.shrink();
                                               }
@@ -188,8 +186,9 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                                   isDragActive:
                                                       _draggingFavoriteTitle ==
                                                       title,
-                                                  onTap: () =>
-                                                      widget.onDemoTap(demo),
+                                                  onTap: () => widget.onDemoTap(
+                                                    demo,
+                                                  ),
                                                 ),
                                                 index,
                                               );
@@ -263,7 +262,10 @@ class _PanelRiveSection extends StatelessWidget {
   final rive.FileLoader fileLoader;
   final double maxHeight;
 
-  const _PanelRiveSection({required this.fileLoader, required this.maxHeight});
+  const _PanelRiveSection({
+    required this.fileLoader,
+    required this.maxHeight,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -429,12 +431,11 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: _kPanelTextColor,
-                                fontWeight: FontWeight.w700,
-                                height: 1.0,
-                              ),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: _kPanelTextColor,
+                            fontWeight: FontWeight.w700,
+                            height: 1.0,
+                          ),
                         ),
                       ),
                     ],

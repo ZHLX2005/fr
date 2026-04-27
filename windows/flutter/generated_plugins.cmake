@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_windows
   permission_handler_windows
   record_windows
+  rive_native
   screen_brightness_windows
   share_plus
   url_launcher_windows
