@@ -31,7 +31,6 @@ import 'demos/snake_game_demo.dart';
 import 'demos/speech_synthesis_demo.dart';
 import 'demos/storage_analyze_demo.dart';
 import 'demos/torch_demo.dart';
-import 'demos/typewriter_demo.dart';
 import 'demos/volume_decay_demo.dart';
 import 'demos/water_capsule_demo.dart';
 import 'demos/web_bookmark_demo.dart';
@@ -49,7 +48,6 @@ void registerAllDemos() {
   registerFreeCanvasDemo();
   registerStorageAnalyzeDemo();
   registerHexagonPanelDemo();
-  registerTypewriterDemo();
   registerSnakeGameDemo();
   registerApiTestDemo();
   registerCalendarDemo();
