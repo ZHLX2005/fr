@@ -178,6 +178,7 @@ flutter:
 
   assets:
     - assets/rive/smiley_stress_reliever.riv
+    - assets/rive/douzi.riv
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
