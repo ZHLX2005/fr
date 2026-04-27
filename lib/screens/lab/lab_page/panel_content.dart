@@ -33,6 +33,10 @@ class _LabPanelContent extends StatefulWidget {
 
 class _LabPanelContentState extends State<_LabPanelContent> {
   final LabCardProvider _provider = LabCardProvider();
+  late final rive.FileLoader _douziFileLoader = rive.FileLoader.fromAsset(
+    'assets/rive/douzi.riv',
+    riveFactory: rive.Factory.rive,
+  );
   String? _draggingFavoriteTitle;
 
   @override
@@ -44,6 +48,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
   @override
   void dispose() {
     _provider.removeListener(_handleProviderChanged);
+    _douziFileLoader.dispose();
     super.dispose();
   }
 
@@ -81,90 +86,137 @@ class _LabPanelContentState extends State<_LabPanelContent> {
     return Column(
       children: [
         Expanded(
-          child: IgnorePointer(
-            ignoring: !widget.scrollable,
-            child: Transform.translate(
-              offset: Offset(0, contentOffset),
-              child: Opacity(
-                opacity: contentOpacity,
-                child: Transform.scale(
-                  scale: contentScale.clamp(0.5, 1.0),
-                  alignment: Alignment.topCenter,
-                child: ListView(
-                    controller: widget.scrollController,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(18, 24, 18, 20),
-                    children: [
-                      const _PanelTitleSection(),
-                      const SizedBox(height: 16),
-                      if (favoriteDemos.isNotEmpty)
-                        Builder(
-                          builder: (context) {
-                            return ReorderableBuilder<String>.builder(
-                              longPressDelay: const Duration(milliseconds: 300),
-                              animationConfig: const ReorderableAnimationConfig(
-                                dragFeedbackDuration: Duration.zero,
+          child: Transform.translate(
+            offset: Offset(0, contentOffset),
+            child: Opacity(
+              opacity: contentOpacity,
+              child: Transform.scale(
+                scale: contentScale.clamp(0.5, 1.0),
+                alignment: Alignment.topCenter,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Column(
+                      children: [
+                        Expanded(
+                          flex: 7,
+                          child: IgnorePointer(
+                            ignoring: !widget.scrollable,
+                            child: ListView(
+                              controller: widget.scrollController,
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(
+                                18,
+                                24,
+                                18,
+                                16,
                               ),
-                              feedbackScaleFactor: 1.0,
-                              dragChildBoxDecoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.06),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: const <BoxShadow>[],
-                              ),
-                              onDragStarted: (index) {
-                                setState(() {
-                                  _draggingFavoriteTitle = _favoriteTitles[index];
-                                });
-                                HapticFeedback.lightImpact();
-                              },
-                              onUpdatedDraggedChild: (index) {},
-                              onDragEnd: (index) {
-                                if (_draggingFavoriteTitle != null) {
-                                  setState(() {
-                                    _draggingFavoriteTitle = null;
-                                  });
-                                }
-                              },
-                              onReorder: (reorderFn) {
-                                final reorderedTitles = reorderFn(_favoriteTitles);
-                                _provider.reorderFavorites(reorderedTitles);
-                              },
-                              itemCount: _favoriteTitles.length,
-                              childBuilder: (itemBuilder) {
-                                return GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 4,
-                                    mainAxisSpacing: 8,
-                                    crossAxisSpacing: 8,
-                                    childAspectRatio: 0.92,
-                                  ),
-                                  itemCount: _favoriteTitles.length,
-                                  itemBuilder: (context, index) {
-                                    final title = _favoriteTitles[index];
-                                    final demo = _findDemoByTitle(title);
-                                    if (demo == null) return const SizedBox.shrink();
-                                    return itemBuilder(
-                                      _FavoriteDemoShortcut(
-                                        key: ValueKey(title),
-                                        demo: demo,
-                                        isDragActive:
-                                            _draggingFavoriteTitle == title,
-                                        onTap: () => widget.onDemoTap(demo),
-                                      ),
-                                      index,
-                                    );
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        )
-                      else
-                        const _PanelEmptyFavorites(),
-                    ],
-                  ),
+                              children: [
+                                const _PanelTitleSection(),
+                                const SizedBox(height: 16),
+                                if (favoriteDemos.isNotEmpty)
+                                  Builder(
+                                    builder: (context) {
+                                      return ReorderableBuilder<String>.builder(
+                                        longPressDelay: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        animationConfig:
+                                            const ReorderableAnimationConfig(
+                                          dragFeedbackDuration: Duration.zero,
+                                        ),
+                                        feedbackScaleFactor: 1.0,
+                                        dragChildBoxDecoration: BoxDecoration(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.06,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          boxShadow: const <BoxShadow>[],
+                                        ),
+                                        onDragStarted: (index) {
+                                          setState(() {
+                                            _draggingFavoriteTitle =
+                                                _favoriteTitles[index];
+                                          });
+                                          HapticFeedback.lightImpact();
+                                        },
+                                        onUpdatedDraggedChild: (index) {},
+                                        onDragEnd: (index) {
+                                          if (_draggingFavoriteTitle != null) {
+                                            setState(() {
+                                              _draggingFavoriteTitle = null;
+                                            });
+                                          }
+                                        },
+                                        onReorder: (reorderFn) {
+                                          final reorderedTitles = reorderFn(
+                                            _favoriteTitles,
+                                          );
+                                          _provider.reorderFavorites(
+                                            reorderedTitles,
+                                          );
+                                        },
+                                        itemCount: _favoriteTitles.length,
+                                        childBuilder: (itemBuilder) {
+                                          return GridView.builder(
+                                            shrinkWrap: true,
+                                            physics:
+                                                const NeverScrollableScrollPhysics(),
+                                            gridDelegate:
+                                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: 4,
+                                              mainAxisSpacing: 8,
+                                              crossAxisSpacing: 8,
+                                              childAspectRatio: 0.92,
+                                            ),
+                                            itemCount: _favoriteTitles.length,
+                                            itemBuilder: (context, index) {
+                                              final title =
+                                                  _favoriteTitles[index];
+                                              final demo =
+                                                  _findDemoByTitle(title);
+                                              if (demo == null) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              return itemBuilder(
+                                                _FavoriteDemoShortcut(
+                                                  key: ValueKey(title),
+                                                  demo: demo,
+                                                  isDragActive:
+                                                      _draggingFavoriteTitle ==
+                                                      title,
+                                                  onTap: () => widget.onDemoTap(
+                                                    demo,
+                                                  ),
+                                                ),
+                                                index,
+                                              );
+                                            },
+                                          );
+                                        },
+                                      );
+                                    },
+                                  )
+                                else
+                                  const _PanelEmptyFavorites(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                            child: _PanelRiveSection(
+                              fileLoader: _douziFileLoader,
+                              maxHeight: constraints.maxHeight * 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -202,6 +254,52 @@ class _LabPanelContentState extends State<_LabPanelContent> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PanelRiveSection extends StatelessWidget {
+  final rive.FileLoader fileLoader;
+  final double maxHeight;
+
+  const _PanelRiveSection({
+    required this.fileLoader,
+    required this.maxHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final visualSize = math.min(maxHeight * 0.78, 160.0).clamp(88.0, 160.0);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.26),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: visualSize,
+            height: visualSize,
+            child: rive.RiveWidgetBuilder(
+              fileLoader: fileLoader,
+              dataBind: rive.DataBind.auto(),
+              builder: (context, state) => switch (state) {
+                rive.RiveLoading() => const SizedBox.shrink(),
+                rive.RiveFailed() => const SizedBox.shrink(),
+                rive.RiveLoaded(:final controller) => rive.RiveWidget(
+                  controller: controller,
+                  fit: rive.Fit.contain,
+                  hitTestBehavior: rive.RiveHitTestBehavior.opaque,
+                ),
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
