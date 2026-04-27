@@ -35,8 +35,7 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
   static const _channel = MethodChannel('io.github.xiaodouzi.fr/volume');
 
   int _currentGain = 40;
-  int _maxVolume = 15;
-  int _savedVolume = -1;
+
   bool _isRunning = false;
 
   @override
@@ -48,11 +47,9 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
   Future<void> _loadState() async {
     try {
       final gain = await _channel.invokeMethod<int>('getGain') ?? 40;
-      final maxVol = await _channel.invokeMethod<int>('getMaxVolume') ?? 15;
       final running = await _channel.invokeMethod<bool>('isRunning') ?? false;
       setState(() {
         _currentGain = gain;
-        _maxVolume = maxVol;
         _isRunning = running;
       });
     } on PlatformException catch (e) {
