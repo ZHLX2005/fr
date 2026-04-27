@@ -38,6 +38,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
     riveFactory: rive.Factory.rive,
   );
   String? _draggingFavoriteTitle;
+  bool _isDeleteZoneActive = false;
 
   @override
   void initState() {
@@ -71,6 +72,16 @@ class _LabPanelContentState extends State<_LabPanelContent> {
       orElse: () => null,
     );
     return entry?.value;
+  }
+
+  Future<void> _handleFavoriteDeleteAccepted(String title) async {
+    if (!_provider.isFavorite(title)) return;
+    setState(() {
+      _isDeleteZoneActive = false;
+      _draggingFavoriteTitle = null;
+    });
+    await _provider.setFavorite(title, false);
+    HapticFeedback.mediumImpact();
   }
 
   @override
@@ -138,16 +149,16 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                           setState(() {
                                             _draggingFavoriteTitle =
                                                 _favoriteTitles[index];
+                                            _isDeleteZoneActive = false;
                                           });
                                           HapticFeedback.lightImpact();
                                         },
                                         onUpdatedDraggedChild: (index) {},
                                         onDragEnd: (index) {
-                                          if (_draggingFavoriteTitle != null) {
-                                            setState(() {
-                                              _draggingFavoriteTitle = null;
-                                            });
-                                          }
+                                          setState(() {
+                                            _draggingFavoriteTitle = null;
+                                            _isDeleteZoneActive = false;
+                                          });
                                         },
                                         onReorder: (reorderFn) {
                                           final reorderedTitles = reorderFn(
@@ -180,14 +191,17 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                                 return const SizedBox.shrink();
                                               }
                                               return itemBuilder(
-                                                _FavoriteDemoShortcut(
+                                                CustomDraggable(
                                                   key: ValueKey(title),
-                                                  demo: demo,
-                                                  isDragActive:
-                                                      _draggingFavoriteTitle ==
-                                                      title,
-                                                  onTap: () => widget.onDemoTap(
-                                                    demo,
+                                                  data: title,
+                                                  child: _FavoriteDemoShortcut(
+                                                    key: ValueKey(title),
+                                                    demo: demo,
+                                                    isDragActive:
+                                                        _draggingFavoriteTitle ==
+                                                        title,
+                                                    onTap: () =>
+                                                        widget.onDemoTap(demo),
                                                   ),
                                                 ),
                                                 index,
@@ -224,36 +238,128 @@ class _LabPanelContentState extends State<_LabPanelContent> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onVerticalDragStart: (_) => widget.onHandleDragStart(),
-            onVerticalDragUpdate: (details) {
-              widget.onHandleDragUpdate(details.delta.dy);
-            },
-            onVerticalDragEnd: (details) {
-              widget.onHandleDragEnd(details.velocity.pixelsPerSecond.dy);
-            },
-            onVerticalDragCancel: () => widget.onHandleDragEnd(0.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                child: Center(
-                  child: _PanelHandle(
-                    progress: widget.progress,
-                    readyToOpen: widget.readyToOpen,
-                    closeProgress: widget.closeProgress,
-                    showCloseCue: widget.showCloseCue,
-                  ),
-                ),
+          child: SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Center(
+                child: _draggingFavoriteTitle != null
+                    ? _PanelDeleteZone(
+                        isActive: _isDeleteZoneActive,
+                        onWillAccept: (data) {
+                          final accept = data == _draggingFavoriteTitle;
+                          if (_isDeleteZoneActive != accept) {
+                            setState(() {
+                              _isDeleteZoneActive = accept;
+                            });
+                          }
+                          return accept;
+                        },
+                        onLeave: (_) {
+                          if (_isDeleteZoneActive) {
+                            setState(() {
+                              _isDeleteZoneActive = false;
+                            });
+                          }
+                        },
+                        onAccept: _handleFavoriteDeleteAccepted,
+                      )
+                    : GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onVerticalDragStart: (_) => widget.onHandleDragStart(),
+                        onVerticalDragUpdate: (details) {
+                          widget.onHandleDragUpdate(details.delta.dy);
+                        },
+                        onVerticalDragEnd: (details) {
+                          widget.onHandleDragEnd(
+                            details.velocity.pixelsPerSecond.dy,
+                          );
+                        },
+                        onVerticalDragCancel: () => widget.onHandleDragEnd(0.0),
+                        child: _PanelHandle(
+                          progress: widget.progress,
+                          readyToOpen: widget.readyToOpen,
+                          closeProgress: widget.closeProgress,
+                          showCloseCue: widget.showCloseCue,
+                        ),
+                      ),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PanelDeleteZone extends StatelessWidget {
+  final bool isActive;
+  final bool Function(String?) onWillAccept;
+  final ValueChanged<String?> onLeave;
+  final ValueChanged<String> onAccept;
+
+  const _PanelDeleteZone({
+    required this.isActive,
+    required this.onWillAccept,
+    required this.onLeave,
+    required this.onAccept,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => onWillAccept(details.data),
+      onLeave: onLeave,
+      onAcceptWithDetails: (details) => onAccept(details.data),
+      builder: (context, candidateData, rejectedData) {
+        final active = isActive || candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 76),
+          decoration: BoxDecoration(
+            color: active
+                ? const Color(0xFFD63B3B)
+                : const Color(0xFFEF6B6B).withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: active ? 0.78 : 0.52),
+              width: active ? 1.6 : 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFB3261E).withValues(
+                  alpha: active ? 0.28 : 0.16,
+                ),
+                blurRadius: active ? 24 : 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                active ? Icons.delete_forever_rounded : Icons.delete_outline,
+                color: Colors.white,
+                size: active ? 28 : 24,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                active ? 'Release to remove favorite' : 'Drag here to delete',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
