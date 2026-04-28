@@ -60,14 +60,19 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _stopCurrentAnimation() {
+  void _stopCurrentAnimation({bool settleToTarget = false}) {
+    final target = _pendingAnimationTarget;
     if (_anim.isAnimating) {
       _anim.stop();
     }
     _progressAnim?.removeListener(_onAnimTick);
     _progressAnim = null;
+    if (settleToTarget && target != null) {
+      _sm.onAnimationCompleted(target);
+    } else {
+      _sm.syncProgress(_progress);
+    }
     _pendingAnimationTarget = null;
-    _sm.syncProgress(_progress);
   }
 
   void _animateTo(double target) {
@@ -93,6 +98,11 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   }
 
   void _onAnimationStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed) {
+      print('[PanelBug] Animation dismissed! pendingTarget=$_pendingAnimationTarget state=${_sm.state}');
+      // 动画被中断（如新拖拽开始），立即完成到目标状态
+      return;
+    }
     if (status != AnimationStatus.completed) return;
     final target = _pendingAnimationTarget;
     if (target == null) return;
@@ -173,7 +183,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     if (!atTop) return false;
 
     if (notification is ScrollStartNotification) {
-      _stopCurrentAnimation();
+      _stopCurrentAnimation(settleToTarget: true);
       _sm.beginMainDrag();
       return false;
     }
@@ -192,7 +202,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
         notification.dragDetails != null) {
       final dy = notification.dragDetails!.delta.dy;
       if (dy > 0) {
-        _stopCurrentAnimation();
+        _stopCurrentAnimation(settleToTarget: true);
         _sm.beginMainDrag();
         _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
         setState(() {});
@@ -210,7 +220,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   }
 
   void _onPanelHandleDragStart() {
-    _stopCurrentAnimation();
+    _stopCurrentAnimation(settleToTarget: true);
     _sm.beginPanelDrag();
     setState(() {});
   }

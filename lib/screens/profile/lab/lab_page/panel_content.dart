@@ -276,11 +276,14 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                           );
                         },
                         onVerticalDragCancel: () => widget.onHandleDragEnd(0.0),
-                        child: _PanelHandle(
-                          progress: widget.progress,
-                          readyToOpen: widget.readyToOpen,
-                          closeProgress: widget.closeProgress,
-                          showCloseCue: widget.showCloseCue,
+                        child: Container(
+                          width: double.infinity,
+                          child: _PanelHandle(
+                            progress: widget.progress,
+                            readyToOpen: widget.readyToOpen,
+                            closeProgress: widget.closeProgress,
+                            showCloseCue: widget.showCloseCue,
+                          ),
                         ),
                       ),
               ),
