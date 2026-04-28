@@ -12,7 +12,7 @@ Flutter 多功能应用，专注时间管理、AI 对话、数据追踪与实验
 - **相册管理** - 媒体资源管理与浏览（开发中占位）
 
 ### 实验性 Demo (Lab)
-通过 IoC 容器注册管理，包含 31 个实验性页面：
+通过 IoC 容器注册管理，包含 35 个实验性页面：
 
 | Demo | 说明 |
 |------|------|
@@ -27,7 +27,6 @@ Flutter 多功能应用，专注时间管理、AI 对话、数据追踪与实验
 | Web Bookmark | 书签管理器 |
 | Storage Analyze | 存储分析 |
 | Hexagon Panel | 六边形面板 |
-| Typewriter | 打字机效果 |
 | Snake Game | 贪吃蛇游戏 |
 | API Test | API 测试工具 |
 | Calendar | 日历组件 |
@@ -47,6 +46,12 @@ Flutter 多功能应用，专注时间管理、AI 对话、数据追踪与实验
 | GitHub Demo | GitHub Actions/Issues |
 | QR Demo | 二维码扫描与生成 |
 | DoubleTime | 双时间轴可视化 |
+| Notification Demo | 本地通知演示 |
+| Novel Reader | 小说阅读器原型 |
+| Arc Selector | 圆弧选择器 |
+| Demo Laboratory | Rive 动画实验室 |
+| Volume Decay | 音量衰减曲线 |
+| Rive Pendulum | Rive 钟摆动画 |
 
 ## 技术栈
 
@@ -55,8 +60,9 @@ Flutter 多功能应用，专注时间管理、AI 对话、数据追踪与实验
 - **本地存储**: Hive + SharedPreferences
 - **后端服务**: Supabase
 - **HTTP**: http + web_socket_channel
-- **原生桥接**: MethodChannel
+- **原生桥接**: MethodChannel + Overlay Window
 - **游戏引擎**: Flame
+- **动画**: Rive
 
 ## 依赖项
 
