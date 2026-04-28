@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../../providers/agent_chat_provider.dart';
 import '../../../models/ai_chat_message.dart';
 import '../../../widgets/markdown_renderer_widget.dart';
-import 'ai_chat_settings_page.dart';
 
 /// Agent 聊天页面 - 事件记录 Agent
 class AgentChatPage extends StatefulWidget {
@@ -49,9 +48,8 @@ class _AgentChatPageState extends State<AgentChatPage> {
     // 检查是否配置了 API Key
     if (!agentProvider.isConfigured) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('请先配置 API Key'),
-          action: SnackBarAction(label: '去设置', onPressed: _openSettings),
+        const SnackBar(
+          content: Text('请先配置 API Key'),
         ),
       );
       return;
@@ -72,17 +70,6 @@ class _AgentChatPageState extends State<AgentChatPage> {
       setState(() {
         _isSending = false;
       });
-    }
-  }
-
-  void _openSettings() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AIChatSettingsPage()),
-    );
-    // 返回后刷新设置状态
-    if (mounted) {
-      context.read<AgentChatProvider>().refreshSettings();
     }
   }
 
@@ -139,11 +126,6 @@ class _AgentChatPageState extends State<AgentChatPage> {
             icon: const Icon(Icons.fingerprint),
             onPressed: _showSessionIdDialog,
             tooltip: '会话ID',
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _openSettings,
-            tooltip: 'AI 设置',
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -235,11 +217,6 @@ class _AgentChatPageState extends State<AgentChatPage> {
             ),
             if (!provider.isConfigured) ...[
               const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: _openSettings,
-                icon: const Icon(Icons.settings),
-                label: const Text('去设置'),
-              ),
             ],
             const SizedBox(height: 32),
             // 快捷提示

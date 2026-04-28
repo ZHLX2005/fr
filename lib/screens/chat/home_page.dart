@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'chat/ai_chat_page.dart';
 import 'chat/agent_chat_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -15,7 +14,7 @@ class HomePage extends StatelessWidget {
           children: [
             const SizedBox(height: 32),
             Text(
-              'AI 助手',
+              'Agent',
               style: Theme.of(
                 context,
               ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -23,30 +22,13 @@ class HomePage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '选择聊天方式',
+              '事件记录与分析',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 48),
-            Expanded(
-              child: _ChatTypeCard(
-                icon: Icons.smart_toy,
-                title: 'AI 聊天',
-                subtitle: '通用对话助手',
-                color: Theme.of(context).colorScheme.primary,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AIChatPage(title: 'AI 聊天'),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
             Expanded(
               child: _ChatTypeCard(
                 icon: Icons.assistant,
