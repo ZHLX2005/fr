@@ -31,42 +31,36 @@ class HomePage extends StatelessWidget {
             ),
             const SizedBox(height: 48),
             Expanded(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _ChatTypeCard(
-                      icon: Icons.assistant,
-                      title: 'Agent',
-                      subtitle: '事件记录',
-                      color: Theme.of(context).colorScheme.primary,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AgentChatPage(title: 'Agent'),
-                          ),
-                        );
-                      },
+              child: _ChatTypeCard(
+                icon: Icons.assistant,
+                title: 'Agent',
+                subtitle: '事件记录与分析',
+                color: Theme.of(context).colorScheme.primary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AgentChatPage(title: 'Agent'),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _ChatTypeCard(
-                      icon: Icons.format_align_left,
-                      title: 'Format',
-                      subtitle: '格式测试',
-                      color: Theme.of(context).colorScheme.secondary,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const FormatCompatibilityPage(),
-                          ),
-                        );
-                      },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _ChatTypeCard(
+                icon: Icons.format_align_left,
+                title: 'Format',
+                subtitle: '格式兼容性测试',
+                color: Theme.of(context).colorScheme.secondary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const FormatCompatibilityPage(),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 32),
