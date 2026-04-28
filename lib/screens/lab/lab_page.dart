@@ -93,6 +93,20 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   }
 
   void _onAnimationStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed) {
+      print('[PanelBug] Animation dismissed! pendingTarget=$_pendingAnimationTarget state=${_sm.state}');
+      // 动画被中断（如新拖拽开始），立即完成到目标状态
+      if (_pendingAnimationTarget != null) {
+        _sm.onAnimationCompleted(_pendingAnimationTarget!);
+        _pendingAnimationTarget = null;
+        _progressAnim?.removeListener(_onAnimTick);
+        _progressAnim = null;
+      }
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
     if (status != AnimationStatus.completed) return;
     final target = _pendingAnimationTarget;
     if (target == null) return;

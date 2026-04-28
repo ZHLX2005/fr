@@ -278,7 +278,6 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                         onVerticalDragCancel: () => widget.onHandleDragEnd(0.0),
                         child: Container(
                           width: double.infinity,
-                          color: Colors.red.withValues(alpha: 0.3),
                           child: _PanelHandle(
                             progress: widget.progress,
                             readyToOpen: widget.readyToOpen,
