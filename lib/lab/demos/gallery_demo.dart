@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import '../../screens/gallery/gallery_manage_page.dart';
+import '../../core/gallerymanage/gallery_manage_page.dart';
 
 /// 图库管理Demo
 class GalleryDemo extends DemoPage {
