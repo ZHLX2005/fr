@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/providers.dart';
-import 'screens/home/home_page.dart';
+import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/profile/lab/lab_page.dart';
