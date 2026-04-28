@@ -7,10 +7,10 @@ import 'package:flutter_reorderable_grid_view/entities/reorderable_animation_con
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import 'package:rive/rive.dart' as rive;
 
-import '../../lab/lab_container.dart';
-import '../../lab/providers/lab_card_provider.dart';
-import '../../services/lab_image_cache_service.dart';
-import '../../widgets/image_picker_widget.dart';
+import '../../../lab/lab_container.dart';
+import '../../../lab/providers/lab_card_provider.dart';
+import '../../../services/lab_image_cache_service.dart';
+import '../../../widgets/image_picker_widget.dart';
 
 part 'lab_page/components.dart';
 part 'lab_page/panel_content.dart';

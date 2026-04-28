@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import '../../services/media_service.dart';
-import '../../services/audio_recording_service.dart';
+import '../../../services/media_service.dart';
+import '../../../services/audio_recording_service.dart';
 
 /// 原生媒体功能测试页面
 /// 用于在Web和移动端验证摄像头、图库、麦克风等原生功能
