@@ -8,7 +8,7 @@ import 'providers/providers.dart';
 import 'screens/home/home_page.dart';
 import 'lab/lab_bootstrap.dart';
 import 'screens/profile/profile_page.dart';
-import 'screens/lab/lab_page.dart';
+import 'screens/profile/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
