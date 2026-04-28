@@ -2,19 +2,19 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import '../../services/media_service.dart';
-import '../../services/audio_recording_service.dart';
+import '../../../services/media_service.dart';
+import '../../../services/audio_recording_service.dart';
 
-/// 媒体功能测试页面
-/// 用于在Web和移动端验证摄像头和图库访问功能
-class MediaTestPage extends StatefulWidget {
-  const MediaTestPage({super.key});
+/// 原生媒体功能测试页面
+/// 用于在Web和移动端验证摄像头、图库、麦克风等原生功能
+class NativeMediaPage extends StatefulWidget {
+  const NativeMediaPage({super.key});
 
   @override
-  State<MediaTestPage> createState() => _MediaTestPageState();
+  State<NativeMediaPage> createState() => _NativeMediaPageState();
 }
 
-class _MediaTestPageState extends State<MediaTestPage> {
+class _NativeMediaPageState extends State<NativeMediaPage> {
   String _selectedImagePath = '';
   String _testResult = '';
   MediaCapability? _capability;
@@ -277,7 +277,7 @@ class _MediaTestPageState extends State<MediaTestPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('媒体功能测试'),
+        title: const Text('原生媒体测试'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
