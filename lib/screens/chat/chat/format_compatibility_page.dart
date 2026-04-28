@@ -3,187 +3,118 @@ import '../../../widgets/markdown_renderer_widget.dart';
 import '../../../widgets/html_renderer_widget.dart';
 
 /// 格式兼容性测试页面
-/// 展示 Markdown 和 HTML 渲染器 Widget 的效果
+/// 展示各种消息格式的渲染效果，布局与 AgentChatPage 相同
 class FormatCompatibilityPage extends StatelessWidget {
   const FormatCompatibilityPage({super.key});
-
-  static const String _markdownSample = '''
-# 标题一
-## 标题二
-### 标题三
-
-**这是粗体文本** 和 *这是斜体文本*
-
-~~这是删除线文本~~
-
-- 无序列表项 1
-- 无序列表项 2
-  - 子项 2.1
-  - 子项 2.2
-
-1. 有序列表项
-2. 有序列表项
-3. 有序列表项
-
-> 这是引用块
-> 可以引用他人说的话
-
-[这是一个链接](https://example.com)
-
-`行内代码` 展示
-
-```
-代码块
-function hello() {
-  print("Hello");
-}
-```
-
-| 表格 | 列1 | 列2 |
-|------|-----|-----|
-| 行1  | A   | B   |
-| 行2  | C   | D   |
-''';
-
-  static const String _htmlSample = '''
-<h1>HTML 标题一</h1>
-<h2>HTML 标题二</h2>
-<h3>HTML 标题三</h3>
-
-<p>这是 <strong>粗体文本</strong> 和 <em>斜体文本</em></p>
-
-<p>~~删除线~~ <del>删除线替代</del></p>
-
-<ul>
-  <li>无序列表项 1</li>
-  <li>无序列表项 2
-    <ul>
-      <li>子项 2.1</li>
-      <li>子项 2.2</li>
-    </ul>
-  </li>
-</ul>
-
-<ol>
-  <li>有序列表项</li>
-  <li>有序列表项</li>
-  <li>有序列表项</li>
-</ol>
-
-<blockquote>
-  这是引用块<br>
-  可以引用他人说的话
-</blockquote>
-
-<p><a href="https://example.com">这是一个链接</a></p>
-
-<p><code>行内代码</code> 展示</p>
-
-<pre><code>代码块
-function hello() {
-  print("Hello");
-}</code></pre>
-
-<table>
-  <tr><th>表格</th><th>列1</th><th>列2</th></tr>
-  <tr><td>行1</td><td>A</td><td>B</td></tr>
-  <tr><td>行2</td><td>C</td><td>D</td></tr>
-</table>
-''';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('格式兼容性测试'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => _showFormatInfo(context),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        title: const Row(
           children: [
-            _SectionTitle(
-              title: 'Markdown 渲染器 Widget',
-              subtitle: '使用 flutter_markdown',
-              color: Theme.of(context).colorScheme.primary,
+            CircleAvatar(
+              radius: 16,
+              child: Icon(Icons.format_align_left, size: 18),
             ),
-            const SizedBox(height: 12),
-            _WidgetDemoCard(
-              title: 'Markdown 输入/回复框',
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 400),
-                child: SingleChildScrollView(
-                  child: MarkdownRendererWidget(data: _markdownSample),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            _SectionTitle(
-              title: 'HTML 渲染器 Widget',
-              subtitle: '使用 flutter_widget_from_html',
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-            const SizedBox(height: 12),
-            _WidgetDemoCard(
-              title: 'HTML 输入/回复框',
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 400),
-                child: SingleChildScrollView(
-                  child: HtmlRendererWidget(data: _htmlSample),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            _SectionTitle(
-              title: '对比展示',
-              subtitle: '同一内容两种格式对比',
-              color: Theme.of(context).colorScheme.tertiary,
-            ),
-            const SizedBox(height: 12),
-            _CompareSection(markdownSample: _markdownSample, htmlSample: _htmlSample),
-            const SizedBox(height: 48),
+            SizedBox(width: 8),
+            Text('Format 测试'),
           ],
         ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              children: const [
+                _FormatMessageBubble(
+                  label: '纯文本',
+                  content: '这是一条普通的纯文本消息，直接显示内容。',
+                ),
+                _FormatMessageBubble(
+                  label: 'Markdown 粗体/斜体',
+                  content: '**粗体文本** 和 *斜体文本*\n\n~~删除线~~',
+                ),
+                _FormatMessageBubble(
+                  label: 'Markdown 代码块',
+                  content: '''```dart
+void main() {
+  print("Hello");
+}
+```''',
+                ),
+                _FormatMessageBubble(
+                  label: 'Markdown 列表',
+                  content: '''1. 第一步操作
+2. 第二步操作
+3. 第三步操作
+
+- 无序列表项
+- 子项''',
+                ),
+                _FormatMessageBubble(
+                  label: 'Markdown 表格',
+                  content: '''| 名称 | 数量 | 价格 |
+|------|------|------|
+| 苹果 | 10 | \$5 |
+| 香蕉 | 5 | \$3 |''',
+                ),
+                _FormatMessageBubble(
+                  label: 'Markdown 引用块',
+                  content: '''> 这是一段引用文本
+> 可以用来引用他人说的话''',
+                ),
+                _FormatMessageBubble(
+                  label: 'Markdown 混合格式',
+                  content: '''**标题**: 混合格式示例
+
+1. 首先，创建一个 `变量`
+2. 然后调用 `print()` 输出
+
+> 注意: 这是一个重要提示''',
+                ),
+                _FormatMessageBubble(
+                  label: 'HTML 格式',
+                  content: '''<p>这是 <strong>粗体</strong> 和 <em>斜体</em></p>
+
+<ul>
+  <li>列表项 1</li>
+  <li>列表项 2</li>
+</ul>
+
+<blockquote>引用块</blockquote>
+
+<code>行内代码</code>''',
+                  useHtml: true,
+                ),
+                _FormatMessageBubble(
+                  label: '错误消息',
+                  content: '❌ 发生错误: 无法连接到服务器',
+                  isError: true,
+                ),
+                SizedBox(height: 80),
+              ],
+            ),
+          ),
+          _buildHintBar(),
+        ],
       ),
     );
   }
 
-  void _showFormatInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('支持的 Widget'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('MarkdownRendererWidget:'),
-            SizedBox(height: 4),
-            Text('• flutter_markdown 实现'),
-            Text('• 支持粗体、斜体、删除线'),
-            Text('• 支持代码块、列表、表格'),
-            Text('• 支持链接、引用块'),
-            SizedBox(height: 12),
-            Text('HtmlRendererWidget:'),
-            SizedBox(height: 4),
-            Text('• flutter_widget_from_html 实现'),
-            Text('• 支持大部分 HTML 标签'),
-            Text('• 支持内联样式'),
-            Text('• 支持链接点击回调'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+  Widget _buildHintBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: Colors.grey[100],
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: Colors.grey),
+          SizedBox(width: 8),
+          Text(
+            '以上为各种格式的渲染效果展示',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
           ),
         ],
       ),
@@ -191,138 +122,71 @@ function hello() {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color color;
+class _FormatMessageBubble extends StatelessWidget {
+  final String label;
+  final String content;
+  final bool useHtml;
+  final bool isError;
 
-  const _SectionTitle({
-    required this.title,
-    required this.subtitle,
-    required this.color,
+  const _FormatMessageBubble({
+    required this.label,
+    required this.content,
+    this.useHtml = false,
+    this.isError = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 4,
-              height: 24,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+    final theme = Theme.of(context);
 
-class _WidgetDemoCard extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _WidgetDemoCard({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.input,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+            margin: const EdgeInsets.only(left: 12, bottom: 4),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.95,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isError
+                    ? theme.colorScheme.errorContainer
+                    : theme.colorScheme.surfaceContainerHighest,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.zero,
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
+              child: isError
+                  ? Text(
+                      content,
+                      style: TextStyle(
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    )
+                  : useHtml
+                      ? HtmlRendererWidget(data: content)
+                      : MarkdownRendererWidget(data: content),
+            ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _CompareSection extends StatelessWidget {
-  final String markdownSample;
-  final String htmlSample;
-
-  const _CompareSection({required this.markdownSample, required this.htmlSample});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _WidgetDemoCard(
-            title: 'Markdown 格式',
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: SingleChildScrollView(
-                child: MarkdownRendererWidget(data: markdownSample),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _WidgetDemoCard(
-            title: 'HTML 格式',
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: SingleChildScrollView(
-                child: HtmlRendererWidget(data: htmlSample),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
