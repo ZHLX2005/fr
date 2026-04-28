@@ -28,7 +28,8 @@ class ChartRepository {
     return notesRaw
         .whereType<Map<String, dynamic>>()
         .map((n) => NoteEvent.fromJson(n))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.time.compareTo(b.time));
   }
 
   /// 加载歌曲列表（从 Supabase songs 表）
@@ -51,7 +52,9 @@ class ChartRepository {
     final response = await client.from('music').select();
 
     final List<dynamic> rows = response as List<dynamic>;
-    final songRecords = rows.map((r) => SongRecord.fromJson(r as Map<String, dynamic>)).toList();
+    final songRecords = rows
+        .map((r) => SongRecord.fromJson(r as Map<String, dynamic>))
+        .toList();
 
     final songs = <SongData>[];
     for (final record in songRecords) {
@@ -61,19 +64,21 @@ class ChartRepository {
       final chartData = jsonDecode(chartJson) as Map<String, dynamic>;
       final notes = _parseNotes(chartData);
 
-      songs.add(SongData(
-        id: record.id,
-        name: chartData['name'] as String? ?? record.name,
-        artist: chartData['artist'] as String? ?? record.artist,
-        intro: chartData['intro'] as String? ?? record.intro,
-        audioPath: record.audioUrl,
-        coverPath: record.coverUrl,
-        bpm: chartData['bpm'] as int? ?? 120,
-        duration: chartData['duration'] as int? ?? 180,
-        difficulty: chartData['difficulty'] as int? ?? 1,
-        dropDuration: chartData['dropDuration'] as int? ?? 2500,
-        notes: notes,
-      ));
+      songs.add(
+        SongData(
+          id: record.id,
+          name: chartData['name'] as String? ?? record.name,
+          artist: chartData['artist'] as String? ?? record.artist,
+          intro: chartData['intro'] as String? ?? record.intro,
+          audioPath: record.audioUrl,
+          coverPath: record.coverUrl,
+          bpm: chartData['bpm'] as int? ?? 120,
+          duration: chartData['duration'] as int? ?? 180,
+          difficulty: chartData['difficulty'] as int? ?? 1,
+          dropDuration: chartData['dropDuration'] as int? ?? 2500,
+          notes: notes,
+        ),
+      );
     }
     return songs;
   }
@@ -88,7 +93,11 @@ class ChartRepository {
 
     // 2. 下载并缓存
     try {
-      final localPath = await _cache.cacheFile(chartUrl, _chartsDir, '$songId.json');
+      final localPath = await _cache.cacheFile(
+        chartUrl,
+        _chartsDir,
+        '$songId.json',
+      );
       return File(localPath).readAsString();
     } catch (e) {
       debugPrint('[ChartRepository] Failed to load chart $songId: $e');
@@ -108,7 +117,11 @@ class ChartRepository {
     }
 
     try {
-      final response = await _supabaseClient!.from('music').select().eq('id', id).single();
+      final response = await _supabaseClient!
+          .from('music')
+          .select()
+          .eq('id', id)
+          .single();
       final record = SongRecord.fromJson(Map<String, dynamic>.from(response));
       final chartJson = await _getChartJson(record.id, record.chartUrl);
       if (chartJson == null) return null;
@@ -138,7 +151,12 @@ class ChartRepository {
   }
 
   /// 预下载歌曲资源到本地缓存
-  static Future<void> precacheSong(String songId, String audioUrl, String coverUrl, String chartUrl) async {
+  static Future<void> precacheSong(
+    String songId,
+    String audioUrl,
+    String coverUrl,
+    String chartUrl,
+  ) async {
     try {
       final audioFile = audioUrl.split('/').last;
       await _cache.cacheFile(audioUrl, _audioDir, audioFile);
@@ -173,7 +191,11 @@ class ChartRepository {
   static Future<SongRecord?> loadSongRecord(String id) async {
     if (_supabaseClient == null) return null;
     try {
-      final response = await _supabaseClient!.from('music').select().eq('id', id).single();
+      final response = await _supabaseClient!
+          .from('music')
+          .select()
+          .eq('id', id)
+          .single();
       return SongRecord.fromJson(Map<String, dynamic>.from(response));
     } catch (e) {
       debugPrint('[ChartRepository] loadSongRecord failed: $e');

@@ -191,14 +191,9 @@ class GamePainter extends CustomPainter {
     final actualDropMs = dropDuration / scrollSpeed;
     final travelPerMs = (screenHeight + 2 * radius) / actualDropMs;
 
-    // 根据 gameElapsed 实时计算 headY；但 fade 状态下用冻结的 note.currentY
-    double headY;
-    if (note.holdFadeOut > 0) {
-      headY = note.currentY; // fade 开始时冻结
-    } else {
-      final noteElapsed = gameElapsed - note.spawnElapsed;
-      headY = -radius + travelPerMs * noteElapsed;
-    }
+    // 根据 gameElapsed 实时计算 headY，fade-out 时也继续下落
+    final noteElapsed = gameElapsed - note.spawnElapsed;
+    final headY = -radius + travelPerMs * noteElapsed;
 
     // 整个 hold（头+尾）都在屏幕外才跳过绘制
     final tailOffset = travelPerMs * note.event.holdDuration!;
@@ -221,7 +216,9 @@ class GamePainter extends CustomPainter {
     // 基于实际流逝时间计算 fillProgress，不依赖可能冻结的 holdProgress
     // 用 computedHoldProgress 判断，这样 judged 后 fill 仍然保持满状态
     double computedHoldProgress = 0.0;
-    if (note.holdPressTime > 0) {
+    if (note.holdFadeOut > 0) {
+      computedHoldProgress = note.holdProgress.clamp(0.0, 1.0);
+    } else if (note.holdPressTime > 0) {
       final heldTime = (gameElapsed - note.holdPressTime).clamp(
         0,
         note.event.holdDuration!,
@@ -236,11 +233,7 @@ class GamePainter extends CustomPainter {
     // 透明度计算
     double alpha;
     if (note.holdFadeOut > 0) {
-      // fade-out：从 hold 结束时的 alpha 平滑过渡到 0
-      // hold 结束时 computedHoldProgress≈1.0，alpha≈0.15，从此处渐隐
-      final baseAlpha =
-          0.5 * (1.0 - computedHoldProgress * 0.7).clamp(0.15, 1.0);
-      alpha = baseAlpha * (1.0 - note.holdFadeOut);
+      alpha = 0.5;
     } else if (note.holding) {
       // holdProgress 低时保持较高 alpha，高时渐隐
       alpha = 0.5 * (1.0 - computedHoldProgress * 0.7).clamp(0.15, 1.0);
@@ -392,8 +385,9 @@ class GamePainter extends CustomPainter {
 
   void _paintSlideNote(Canvas canvas, double cx, FallingNote note) {
     if (note.judged || note.removeMe) return;
-    if (note.currentY < -radius || note.currentY > screenHeight + radius)
+    if (note.currentY < -radius || note.currentY > screenHeight + radius) {
       return;
+    }
 
     // Slide 音符用虚线圆圈区分
     final circlePaint = Paint()

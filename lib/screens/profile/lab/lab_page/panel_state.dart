@@ -99,6 +99,9 @@ class LabPullPanelStateMachine {
   }
 
   void beginMainDrag() {
+    if (_state == LabPullPanelState.settling) {
+      print('[PanelBug] beginMainDrag blocked by settling!');
+    }
     if (_state == LabPullPanelState.settling ||
         _state == LabPullPanelState.expanded ||
         _state == LabPullPanelState.draggingPanel) {
@@ -160,6 +163,9 @@ class LabPullPanelStateMachine {
   }
 
   void beginPanelDrag() {
+    if (_state == LabPullPanelState.settling) {
+      print('[PanelBug] beginPanelDrag blocked by settling!');
+    }
     if (_state == LabPullPanelState.draggingPanel) return;
     if (_state == LabPullPanelState.settling ||
         _state == LabPullPanelState.collapsed ||
@@ -228,6 +234,10 @@ class LabPullPanelStateMachine {
   }
 
   void onAnimationCompleted(double targetProgress) {
+    assert(
+      _state == LabPullPanelState.settling,
+      '[PanelBug] onAnimationCompleted called from invalid state: $_state (expected settling)',
+    );
     _pendingMainDragDy = 0.0;
     _pendingPanelDragDy = 0.0;
     _panelDragDistancePx = 0.0;
