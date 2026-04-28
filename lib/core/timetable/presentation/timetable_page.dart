@@ -518,6 +518,42 @@ class _SlotLabel extends StatelessWidget {
   }
 }
 
+/// 周期胶囊标签组件 - 低饱和度圆角边框风格
+class _CycleChips extends StatelessWidget {
+  const _CycleChips({required this.cycles});
+
+  final List<int> cycles;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: cycles.map((cycle) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: TimetableColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: TimetableColors.border,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            '周期${cycle + 1}',
+            style: TextStyle(
+              fontSize: 12,
+              color: TimetableColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
 /// 课程预览底部抽屉
 class _CoursePreviewSheet extends StatelessWidget {
   const _CoursePreviewSheet({
@@ -618,32 +654,7 @@ class _CoursePreviewSheet extends StatelessWidget {
                 if (course.visibleInCycles != null &&
                     course.visibleInCycles!.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    children: course.visibleInCycles!.map((cycle) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          border: const Border(
-                            left: BorderSide(
-                              color: TimetableColors.textPrimary,
-                              width: 2,
-                            ),
-                          ),
-                          color: TimetableColors.selectedBg,
-                        ),
-                        child: Text(
-                          '周期${cycle + 1}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: TimetableColors.textSecondary,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                  _CycleChips(cycles: course.visibleInCycles!),
                 ],
                 // 编辑按钮
                 const SizedBox(height: 24),
