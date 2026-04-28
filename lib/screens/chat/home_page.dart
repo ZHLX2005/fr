@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../chat/ai_chat_page.dart';
-import '../chat/agent_chat_page.dart';
+import 'chat/ai_chat_page.dart';
+import 'chat/agent_chat_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});

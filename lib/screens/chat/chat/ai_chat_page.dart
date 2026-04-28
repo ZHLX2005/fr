@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/agent_chat_provider.dart';
-import '../../models/ai_chat_message.dart';
-import '../../widgets/markdown_renderer_widget.dart';
+import '../../../providers/ai_chat_provider.dart';
+import '../../../models/ai_chat_message.dart';
+import '../../../widgets/markdown_renderer_widget.dart';
 import 'ai_chat_settings_page.dart';
 
-/// Agent 聊天页面 - 事件记录 Agent
-class AgentChatPage extends StatefulWidget {
+/// AI 聊天页面
+class AIChatPage extends StatefulWidget {
   final String title;
 
-  const AgentChatPage({super.key, this.title = 'Agent'});
+  const AIChatPage({super.key, this.title = 'AI 聊天'});
 
   @override
-  State<AgentChatPage> createState() => _AgentChatPageState();
+  State<AIChatPage> createState() => _AIChatPageState();
 }
 
-class _AgentChatPageState extends State<AgentChatPage> {
+class _AIChatPageState extends State<AIChatPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _inputController = TextEditingController();
   bool _isSending = false;
@@ -44,14 +44,17 @@ class _AgentChatPageState extends State<AgentChatPage> {
   Future<void> _handleSend(String content) async {
     if (content.trim().isEmpty || _isSending) return;
 
-    final agentProvider = context.read<AgentChatProvider>();
+    final aiProvider = context.read<AIChatProvider>();
 
     // 检查是否配置了 API Key
-    if (!agentProvider.isConfigured) {
+    if (!aiProvider.isConfigured) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('请先配置 API Key'),
-          action: SnackBarAction(label: '去设置', onPressed: _openSettings),
+          action: SnackBarAction(
+            label: '去设置',
+            onPressed: () => _openSettings(),
+          ),
         ),
       );
       return;
@@ -63,8 +66,8 @@ class _AgentChatPageState extends State<AgentChatPage> {
 
     _inputController.clear();
 
-    // 发送事件
-    await agentProvider.sendEvent(content.trim());
+    // 发送消息
+    await aiProvider.sendMessage(content.trim());
 
     await _scrollToBottom();
 
@@ -75,15 +78,11 @@ class _AgentChatPageState extends State<AgentChatPage> {
     }
   }
 
-  void _openSettings() async {
-    await Navigator.push(
+  void _openSettings() {
+    Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AIChatSettingsPage()),
     );
-    // 返回后刷新设置状态
-    if (mounted) {
-      context.read<AgentChatProvider>().refreshSettings();
-    }
   }
 
   @override
@@ -96,11 +95,11 @@ class _AgentChatPageState extends State<AgentChatPage> {
           children: [
             CircleAvatar(
               radius: 16,
-              backgroundColor: theme.colorScheme.secondaryContainer,
+              backgroundColor: theme.colorScheme.primaryContainer,
               child: Icon(
-                Icons.assistant,
+                Icons.smart_toy,
                 size: 18,
-                color: theme.colorScheme.secondary,
+                color: theme.colorScheme.primary,
               ),
             ),
             const SizedBox(width: 8),
@@ -110,14 +109,8 @@ class _AgentChatPageState extends State<AgentChatPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(widget.title, style: const TextStyle(fontSize: 16)),
-                  Consumer<AgentChatProvider>(
+                  Consumer<AIChatProvider>(
                     builder: (context, provider, _) {
-                      if (provider.isLoading) {
-                        return const Text(
-                          '处理中...',
-                          style: TextStyle(fontSize: 12, color: Colors.blue),
-                        );
-                      }
                       return Text(
                         provider.isConfigured ? '已连接' : '未配置',
                         style: TextStyle(
@@ -135,11 +128,6 @@ class _AgentChatPageState extends State<AgentChatPage> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.fingerprint),
-            onPressed: _showSessionIdDialog,
-            tooltip: '会话ID',
-          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: _openSettings,
@@ -169,12 +157,12 @@ class _AgentChatPageState extends State<AgentChatPage> {
       body: Column(
         children: [
           Expanded(
-            child: Consumer<AgentChatProvider>(
-              builder: (context, agentProvider, child) {
-                final messages = agentProvider.messages;
+            child: Consumer<AIChatProvider>(
+              builder: (context, aiProvider, child) {
+                final messages = aiProvider.messages;
 
                 if (messages.isEmpty) {
-                  return _buildEmptyState(agentProvider);
+                  return _buildEmptyState(aiProvider);
                 }
 
                 return ListView.builder(
@@ -183,11 +171,10 @@ class _AgentChatPageState extends State<AgentChatPage> {
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  itemCount:
-                      messages.length + (agentProvider.isLoading ? 1 : 0),
+                  itemCount: messages.length + (aiProvider.isLoading ? 1 : 0),
                   itemBuilder: (context, index) {
                     // 如果正在加载，显示加载指示器
-                    if (agentProvider.isLoading && index == messages.length) {
+                    if (aiProvider.isLoading && index == messages.length) {
                       return const _LoadingIndicator();
                     }
 
@@ -207,70 +194,56 @@ class _AgentChatPageState extends State<AgentChatPage> {
     );
   }
 
-  Widget _buildEmptyState(AgentChatProvider provider) {
+  Widget _buildEmptyState(AIChatProvider provider) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-              child: Icon(
-                Icons.assistant,
-                size: 40,
-                color: Theme.of(context).colorScheme.secondary,
-              ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 40,
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            child: Icon(
+              Icons.smart_toy,
+              size: 40,
+              color: Theme.of(context).colorScheme.primary,
             ),
-            const SizedBox(height: 16),
-            Text('事件记录 Agent', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              provider.isConfigured ? '记录你的事件，我会为你生成分析报告' : '请先配置 API Key',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-              textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text('AI 聊天助手', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Text(
+            provider.isConfigured ? '开始你的对话吧' : '请先配置 API Key',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
             ),
-            if (!provider.isConfigured) ...[
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: _openSettings,
-                icon: const Icon(Icons.settings),
-                label: const Text('去设置'),
-              ),
-            ],
-            const SizedBox(height: 32),
-            // 快捷提示
-            Text(
-              '例如：',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                _QuickReply(
-                  text: '完成了10次深呼吸',
-                  onTap: () => _handleSend('完成了10次深呼吸'),
-                ),
-                _QuickReply(
-                  text: '做了30个深蹲',
-                  onTap: () => _handleSend('做了30个深蹲，感觉很累，出汗了'),
-                ),
-                _QuickReply(
-                  text: '跑步5公里',
-                  onTap: () => _handleSend('今天早上跑步5公里，用时30分钟'),
-                ),
-              ],
+          ),
+          if (!provider.isConfigured) ...[
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _openSettings,
+              icon: const Icon(Icons.settings),
+              label: const Text('去设置'),
             ),
           ],
-        ),
+          const SizedBox(height: 24),
+          // 快捷提示
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              _QuickReply(text: '你好', onTap: () => _handleSend('你好')),
+              _QuickReply(
+                text: '帮我写首诗',
+                onTap: () => _handleSend('帮我写一首关于春天的诗'),
+              ),
+              _QuickReply(
+                text: '解释一下AI',
+                onTap: () => _handleSend('请简单解释一下什么是人工智能'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -282,7 +255,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -295,7 +268,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
               child: TextField(
                 controller: _inputController,
                 decoration: InputDecoration(
-                  hintText: '描述你的事件...',
+                  hintText: '发送消息...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
@@ -318,7 +291,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
             const SizedBox(width: 8),
             Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary,
+                color: Theme.of(context).colorScheme.primary,
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -343,50 +316,6 @@ class _AgentChatPageState extends State<AgentChatPage> {
     );
   }
 
-  void _showSessionIdDialog() {
-    final provider = context.read<AgentChatProvider>();
-    final controller = TextEditingController(text: provider.sessionId);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('设置会话ID'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '会话ID用于关联多轮对话，空置则自动生成',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'sessionId',
-                border: OutlineInputBorder(),
-                hintText: '输入自定义会话ID',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              provider.setSessionId(controller.text.trim());
-              Navigator.pop(context);
-            },
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showClearDialog() {
     showDialog(
       context: context,
@@ -400,7 +329,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
           ),
           TextButton(
             onPressed: () {
-              context.read<AgentChatProvider>().clearMessages();
+              context.read<AIChatProvider>().clearMessages();
               Navigator.pop(context);
             },
             child: const Text('清空', style: TextStyle(color: Colors.red)),
@@ -431,7 +360,7 @@ class _MessageBubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isMe
-              ? theme.colorScheme.secondary
+              ? theme.colorScheme.primary
               : theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
@@ -440,14 +369,43 @@ class _MessageBubble extends StatelessWidget {
             bottomRight: isMe ? Radius.zero : const Radius.circular(16),
           ),
         ),
-        child: isMe
-            ? Text(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (message.isLoading)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: isMe ? Colors.white : theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '思考中...',
+                    style: TextStyle(
+                      color: isMe
+                          ? Colors.white70
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              )
+            else if (isMe)
+              Text(
                 message.content,
                 style: TextStyle(
                   color: isMe ? Colors.white : theme.colorScheme.onSurface,
                 ),
               )
-            : MarkdownRendererWidget(data: message.content),
+            else
+              MarkdownRendererWidget(data: message.content),
+          ],
+        ),
       ),
     );
   }
@@ -471,7 +429,7 @@ class _LoadingIndicator extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             SizedBox(width: 8),
-            Text('Agent 正在处理...'),
+            Text('AI 正在思考...'),
           ],
         ),
       ),
@@ -493,13 +451,13 @@ class _QuickReply extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
+          color: Theme.of(context).colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSecondaryContainer,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
             fontSize: 14,
           ),
         ),
