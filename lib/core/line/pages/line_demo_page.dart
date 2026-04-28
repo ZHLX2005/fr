@@ -625,8 +625,12 @@ class _LineDemoPageState extends State<_LineDemoPage>
         skipReason = 'alreadyJudged';
         continue;
       }
-      final missThreshold = note.event.time + scaledMissWindow;
-      if (elapsed > missThreshold) {
+      final signedDiff = elapsed - note.event.time;
+      if (signedDiff < -scaledMissWindow) {
+        skipReason = 'beforeJudgeWindow';
+        break;
+      }
+      if (signedDiff > scaledMissWindow) {
         skipReason = 'pastMissThreshold';
         continue;
       }
