@@ -16,7 +16,7 @@ class _AudioSyncGuard {
   final AudioPlayer player;
   final Stopwatch stopwatch;
   Timer? _timer;
-  int _lastCorrection = 0;
+  int _lastCorrectionTarget = -1;
 
   _AudioSyncGuard({required this.player, required this.stopwatch});
 
@@ -34,16 +34,16 @@ class _AudioSyncGuard {
     // 获取音频当前位置（ms）
     final audioMs = player.position.inMilliseconds;
     final swMs = stopwatch.elapsedMilliseconds;
-    final diff = (audioMs - swMs).abs();
+    final diff = audioMs - swMs;
 
-    if (diff > 50 && _lastCorrection != audioMs) {
+    if (diff.abs() > 50 && _lastCorrectionTarget != swMs) {
       // 偏差超过 50ms，需要修正
       debugPrint(
         '[SYNC] 修正偏移 audio=${audioMs}ms stopwatch=${swMs}ms diff=${diff}ms',
       );
-      stopwatch.reset();
+      player.seek(Duration(milliseconds: swMs));
       // 需要在外部重新 start stopwatch 并补偿
-      _lastCorrection = audioMs;
+      _lastCorrectionTarget = swMs;
     }
   }
 
@@ -469,7 +469,15 @@ class _LineDemoPageState extends State<_LineDemoPage>
       if (!mounted) return;
       if (note.removeMe) return; // 已被判定移除，不再重复处理
       // hold 音符未判定时不能 dispose 或移除，由 auto-miss 或 hold 完成回调处理
-      if (event.type == NoteType.hold && !note.judged) return;
+      if (event.type == NoteType.hold) {
+        Future.delayed(Duration(milliseconds: event.holdDuration ?? 0), () {
+          if (!mounted) return;
+          if (!_notes[event.column].contains(note)) return;
+          note.controller.dispose();
+          setState(() => _notes[event.column].remove(note));
+        });
+        return;
+      }
       note.controller.dispose();
       setState(() => _notes[event.column].remove(note));
     });
@@ -823,10 +831,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   /// Hold 音符静默处理：不判 miss、不扣血、不断 combo，继续自然下落
   void _silentFadeOutHold(int col, FallingNote note) {
-    if (note.judged) return;
+    if (note.holdFadeOut > 0) return;
     note.judged = true;
     note.removeMe = false;
-    // 不停止控制器，让音符自然下落离开屏幕，由 .then() 回收
+    note.holding = false;
+    if (note.holdPressTime > 0) {
+      final heldTime = (_gameStopwatch.elapsedMilliseconds - note.holdPressTime)
+          .clamp(0, note.event.holdDuration!);
+      note.holdProgress = (heldTime / note.event.holdDuration!).clamp(0.0, 1.0);
+    }
+    note.holdFadeOut = 1.0;
+    // 不停止控制器，让音符保持当前填充状态继续下落离开屏幕，由 .then() 回收
   }
 
   void _createExplode(int col, double x, double y, double radius) {
@@ -1007,6 +1022,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
       Duration(milliseconds: _gameStopwatch.elapsedMilliseconds),
     );
     _audioPlayer?.play();
+    _syncGuard?.start();
     for (final noteList in _notes) {
       for (final note in noteList) {
         if (!note.judged) {

@@ -60,10 +60,12 @@ class ChartData {
 
   factory ChartData.fromJson(Map<String, dynamic> json) {
     final rawNotes = json['notes'] as List;
-    final notes = rawNotes
-        .whereType<Map<String, dynamic>>()
-        .map((n) => NoteEvent.fromJson(n))
-        .toList();
+    final notes =
+        rawNotes
+            .whereType<Map<String, dynamic>>()
+            .map((n) => NoteEvent.fromJson(n))
+            .toList()
+          ..sort((a, b) => a.time.compareTo(b.time));
     return ChartData(
       name: json['name'] as String? ?? 'Unnamed',
       bpm: json['bpm'] as int? ?? 120,
@@ -179,6 +181,8 @@ class SongData {
   });
 
   factory SongData.fromJson(Map<String, dynamic> json, List<NoteEvent> notes) {
+    final sortedNotes = List<NoteEvent>.from(notes)
+      ..sort((a, b) => a.time.compareTo(b.time));
     return SongData(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? 'Unknown',
@@ -190,7 +194,7 @@ class SongData {
       duration: json['duration'] as int? ?? 180,
       difficulty: json['difficulty'] as int? ?? 1,
       dropDuration: json['dropDuration'] as int? ?? 2500,
-      notes: notes,
+      notes: sortedNotes,
     );
   }
 
