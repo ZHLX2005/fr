@@ -161,7 +161,7 @@ class _WavePainter extends CustomPainter {
 
     final waterHeight = height * (level / 100);
     final waterY = height - waterHeight;
-    final waveDepth = 3.0;
+    final waveDepth = 3 + (100 - level) / 100 * 4; // 3-7之间变化
 
     // 第一层波浪（浅色）
     final path1 = Path();
