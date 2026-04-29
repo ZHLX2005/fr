@@ -14,14 +14,13 @@ void registerMessageStrategies() {
     WaterCapsuleMessageWidgetStrategy(),
   ];
 
-  final strategies = <String, MessageWidgetStrategy<IMessageData>>{
-    for (final s in strategyInstances) s.createMockData().type: s,
-  };
-
-  // 遍历 strategies 通过 createMockData() 构建 mockData
-  final mockData = <String, IMessageData>{
-    for (final s in strategyInstances) s.createMockData().type: s.createMockData(),
-  };
+  final strategies = <String, MessageWidgetStrategy<IMessageData>>{};
+  final mockData = <String, IMessageData>{};
+  for (final s in strategyInstances) {
+    final mock = s.createMockData();
+    strategies[mock.type] = s;
+    mockData[mock.type] = mock;
+  }
 
   getIt.registerSingleton<MessageWidgetFactory>(
     MessageWidgetFactory(strategies, mockData),
