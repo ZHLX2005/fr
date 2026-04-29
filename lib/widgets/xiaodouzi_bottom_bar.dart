@@ -257,8 +257,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               light: GlassThemeVariant(
                 quality: GlassQuality.premium,
                 settings: GlassThemeSettings(
-                  blur: 4,
-                  thickness: 18,
+                  blur: 2.5,
+                  thickness: 24,
                   lightIntensity: 0.42,
                   ambientStrength: 0.06,
                   saturation: 1.10,
@@ -267,8 +267,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               dark: GlassThemeVariant(
                 quality: GlassQuality.premium,
                 settings: GlassThemeSettings(
-                  blur: 4,
-                  thickness: 18,
+                  blur: 2.5,
+                  thickness: 24,
                   lightIntensity: 0.38,
                   ambientStrength: 0.06,
                   saturation: 1.08,
@@ -284,15 +284,15 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                 shape: const LiquidRoundedSuperellipse(borderRadius: 28),
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
                 settings: const LiquidGlassSettings(
-                  visibility: 0.36,
+                  visibility: 0.42,
                   glassColor: Color.fromARGB(18, 255, 255, 255),
-                  thickness: 24,
-                  blur: 4,
+                  thickness: 30,
+                  blur: 2.5,
                   lightIntensity: 0.48,
                   ambientStrength: 0.07,
                   saturation: 1.12,
-                  refractiveIndex: 1.19,
-                  chromaticAberration: 0.01,
+                  refractiveIndex: 1.24,
+                  chromaticAberration: 0.014,
                   specularSharpness: GlassSpecularSharpness.sharp,
                 ),
                 child: SizedBox(
