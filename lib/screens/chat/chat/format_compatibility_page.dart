@@ -22,6 +22,16 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   late final List<String> _supportedTypes;
 
   @override
+  void initState() {
+    super.initState();
+    final factory = GetIt.instance<MessageWidgetFactory>();
+    _mockData = {
+      for (final type in factory.supportedTypes) type: factory.getMockData(type),
+    };
+    _supportedTypes = factory.supportedTypes;
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     _inputController.dispose();
