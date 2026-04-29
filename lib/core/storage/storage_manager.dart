@@ -225,6 +225,18 @@ class StorageManager {
   String _formatValue(dynamic value) {
     if (value == null) return 'null';
 
+    // BodyRecord 格式化
+    if (value is BodyRecord) {
+      final parts = <String>[];
+      parts.add('身体部位: ${value.bodyPartId}');
+      parts.add('内容: ${value.content}');
+      if (value.painLevel != null) {
+        parts.add('疼痛等级: ${value.painLevel}');
+      }
+      parts.add('时间: ${value.createdAt.toString().substring(0, 19)}');
+      return parts.join('\n');
+    }
+
     // 如果是 Map 或 List，尝试格式化
     if (value is Map || value is List) {
       try {
@@ -285,6 +297,15 @@ class StorageManager {
   }
 
   int _estimateSize(dynamic value) {
+    if (value is BodyRecord) {
+      // 估算 BodyRecord 各字段大小
+      int size = 0;
+      size += value.bodyPartId.length;
+      size += value.content.length;
+      if (value.painLevel != null) size += value.painLevel.toString().length;
+      size += value.createdAt.toString().length;
+      return size;
+    }
     return value.toString().length;
   }
 
@@ -304,8 +325,25 @@ class StorageManager {
           }
 
           if (actualBoxName.isEmpty) return false;
-          final box = Hive.box(actualBoxName);
-          await box.delete(actualKey);
+          // body_records 需要用类型化 Box，key可能是int或string类型
+          if (actualBoxName == 'body_records') {
+            final box = Hive.box<BodyRecord>(actualBoxName);
+            // 尝试直接删除（string key）
+            if (box.containsKey(actualKey)) {
+              await box.delete(actualKey);
+            } else {
+              // 尝试转换为int key
+              final intKey = int.tryParse(actualKey);
+              if (intKey != null && box.containsKey(intKey)) {
+                await box.delete(intKey);
+              } else {
+                return false;
+              }
+            }
+          } else {
+            final box = Hive.box(actualBoxName);
+            await box.delete(actualKey);
+          }
           return true;
 
         case StorageType.prefs:

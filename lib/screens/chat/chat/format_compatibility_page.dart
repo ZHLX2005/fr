@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get_it/get_it.dart';
 import '../../../services/message_strategy/interfaces/interfaces.dart';
 import '../../../services/message_strategy/factory/factory.dart';
@@ -17,14 +18,15 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   final TextEditingController _inputController = TextEditingController();
   final List<_DisplayMessage> _messages = [];
 
-  // Mock 数据工厂 - 从工厂获取
   late final Map<String, IMessageData> _mockData;
   late final List<String> _supportedTypes;
+  late final MessageWidgetFactory _factory;
 
   @override
   void initState() {
     super.initState();
     final factory = GetIt.instance<MessageWidgetFactory>();
+    _factory = factory;
     _mockData = {
       for (final type in factory.supportedTypes) type: factory.getMockData(type),
     };
@@ -38,25 +40,25 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     super.dispose();
   }
 
-  Future<void> _scrollToBottom() async {
-    if (_scrollController.hasClients) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      final position = _scrollController.position;
-      if (position.maxScrollExtent.isFinite) {
-        _scrollController.animateTo(
-          position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+  void _scrollToBottom() {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        final position = _scrollController.position;
+        if (position.maxScrollExtent.isFinite) {
+          _scrollController.animateTo(
+            position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
       }
-    }
+    });
   }
 
   void _handleSend(String type) async {
     final trimmedType = type.trim().toLowerCase();
     if (trimmedType.isEmpty) return;
 
-    // 检查 type 是否支持
     if (!_supportedTypes.contains(trimmedType)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -67,7 +69,6 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
       return;
     }
 
-    // 添加用户消息
     setState(() {
       _messages.add(_DisplayMessage(
         type: trimmedType,
@@ -76,9 +77,8 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     });
 
     _inputController.clear();
-    await _scrollToBottom();
+    _scrollToBottom();
 
-    // 模拟 AI 响应
     await Future.delayed(const Duration(milliseconds: 500));
 
     final messageData = _mockData[trimmedType]!;
@@ -90,13 +90,12 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
       ));
     });
 
-    await _scrollToBottom();
+    _scrollToBottom();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final factory = GetIt.instance<MessageWidgetFactory>();
 
     return Scaffold(
       appBar: AppBar(
@@ -142,101 +141,78 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
       body: Column(
         children: [
           Expanded(
-            child: _messages.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      return _FormatMessageBubble(
-                        message: message,
-                        isMe: message.isMe,
-                        factory: factory,
-                      );
-                    },
-                  ),
+            child: _MessageList(
+              messages: _messages,
+              factory: _factory,
+              scrollController: _scrollController,
+            ),
           ),
-          _buildInputArea(),
+          _InputArea(
+            controller: _inputController,
+            onSend: _handleSend,
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-              child: Icon(
-                Icons.format_align_left,
-                size: 40,
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '格式兼容性测试',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '输入 type 名称，查看对应组件渲染效果',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Text(
-              '支持的 type：',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                _QuickReply(
-                  text: 'text',
-                  onTap: () => _handleSend('text'),
-                ),
-                _QuickReply(
-                  text: 'markdown',
-                  onTap: () => _handleSend('markdown'),
-                ),
-                _QuickReply(
-                  text: 'html',
-                  onTap: () => _handleSend('html'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+/// 消息列表 - 独立Widget，键盘变化不会重建
+class _MessageList extends StatelessWidget {
+  final List<_DisplayMessage> messages;
+  final MessageWidgetFactory factory;
+  final ScrollController scrollController;
+
+  const _MessageList({
+    required this.messages,
+    required this.factory,
+    required this.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (messages.isEmpty) {
+      return _EmptyState();
+    }
+
+    return ListView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        return _FormatMessageBubble(
+          key: ValueKey('${message.type}_${message.isMe}_$index'),
+          message: message,
+          isMe: message.isMe,
+          factory: factory,
+        );
+      },
     );
   }
+}
 
-  Widget _buildInputArea() {
+/// 输入区域 - 独立Widget，键盘变化不会重建
+class _InputArea extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onSend;
+
+  const _InputArea({
+    required this.controller,
+    required this.onSend,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -247,7 +223,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
           children: [
             Expanded(
               child: TextField(
-                controller: _inputController,
+                controller: controller,
                 decoration: InputDecoration(
                   hintText: '输入 type (text/markdown/html)...',
                   border: OutlineInputBorder(
@@ -255,9 +231,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
+                  fillColor: theme.colorScheme.surfaceContainerHighest,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
@@ -266,21 +240,117 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                 maxLines: 4,
                 minLines: 1,
                 textInputAction: TextInputAction.send,
-                onSubmitted: (value) => _handleSend(value),
+                onSubmitted: onSend,
               ),
             ),
             const SizedBox(width: 8),
             Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary,
+                color: theme.colorScheme.secondary,
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                onPressed: () => _handleSend(_inputController.text),
+                onPressed: () => onSend(controller.text),
                 icon: const Icon(Icons.send, color: Colors.white),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundColor: theme.colorScheme.secondaryContainer,
+              child: Icon(
+                Icons.format_align_left,
+                size: 40,
+                color: theme.colorScheme.secondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '格式兼容性测试',
+              style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '输入 type 名称，查看对应组件渲染效果',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Text(
+              '支持的 type：',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _QuickReplyChips(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickReplyChips extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: [
+        _QuickReply(text: 'text', onTap: () {}),
+        _QuickReply(text: 'markdown', onTap: () {}),
+        _QuickReply(text: 'html', onTap: () {}),
+      ],
+    );
+  }
+}
+
+class _QuickReply extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const _QuickReply({required this.text, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: theme.colorScheme.onSecondaryContainer,
+            fontSize: 14,
+          ),
         ),
       ),
     );
@@ -305,6 +375,7 @@ class _FormatMessageBubble extends StatelessWidget {
   final MessageWidgetFactory factory;
 
   const _FormatMessageBubble({
+    super.key,
     required this.message,
     required this.isMe,
     required this.factory,
@@ -316,78 +387,51 @@ class _FormatMessageBubble extends StatelessWidget {
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.95,
-        ),
-        child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(left: 12, bottom: 4),
-              child: Text(
-                message.type.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w500,
+      child: RepaintBoundary(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * 0.95,
+          ),
+          child: Column(
+            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(left: 12, bottom: 4),
+                child: Text(
+                  message.type.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: isMe
-                    ? theme.colorScheme.secondary
-                    : theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-                  bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? theme.colorScheme.secondary
+                      : theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
+                    bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+                  ),
                 ),
+                child: isMe
+                    ? Text(
+                        message.type,
+                        style: TextStyle(
+                          color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                        ),
+                      )
+                    : message.messageData != null
+                        ? factory.create(context, message.messageData!)
+                        : const SizedBox.shrink(),
               ),
-              child: isMe
-                  ? Text(
-                      message.type,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : theme.colorScheme.onSurface,
-                      ),
-                    )
-                  : message.messageData != null
-                      ? factory.create(context, message.messageData!)
-                      : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickReply extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-
-  const _QuickReply({required this.text, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSecondaryContainer,
-            fontSize: 14,
+            ],
           ),
         ),
       ),
