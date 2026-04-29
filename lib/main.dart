@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/providers.dart';
 import 'screens/chat/home_page.dart';
@@ -23,6 +25,12 @@ import 'services/message_strategy/di/di.dart';
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final savedQuality = prefs.getString('glass_quality');
+  final initialGlassQuality = savedQuality != null
+      ? GlassQuality.values.byName(savedQuality)
+      : null;
+  await LiquidGlassWidgets.initialize();
   await RiveNative.init();
 
   // 初始化 Hive
@@ -49,9 +57,18 @@ void main() async {
 
   // 使用 ProviderScope 包装应用，注入 Repository
   runApp(
-    ProviderScope(
-      overrides: [TimetableStore.repoProvider.overrideWithValue(hiveRepo)],
-      child: const MyApp(),
+    LiquidGlassWidgets.wrap(
+      ProviderScope(
+        overrides: [TimetableStore.repoProvider.overrideWithValue(hiveRepo)],
+        child: const MyApp(),
+      ),
+      adaptiveQuality: true,
+      // ignore: experimental_member_use
+      adaptiveConfig: GlassAdaptiveScopeConfig(
+        initialQuality: initialGlassQuality,
+        allowStepUp: true,
+        onQualityChanged: (_, to) => prefs.setString('glass_quality', to.name),
+      ),
     ),
   );
 }

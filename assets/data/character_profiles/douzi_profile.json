@@ -1,0 +1,29 @@
+{
+  "code": "DZ-01",
+  "name": "豆子",
+  "subtitle": "呆呆的小豆子",
+  "tagline": "呆呆的豆子而已，她什么都不知道，因为她只是一颗小豆子。",
+  "analysis": {
+    "title": "性格六边形分析",
+    "items": [
+      { "label": "共情", "value": 0.0, "color": "#E86A92" },
+      { "label": "观察", "value": 1.0, "color": "#5E81F4" },
+      { "label": "韧性", "value": 0.5, "color": "#F26B4F" },
+      { "label": "好奇", "value": 1.0, "color": "#2DBE9D" },
+      { "label": "幽默", "value": 0.0, "color": "#F1A33C" },
+      { "label": "克制", "value": 0.0, "color": "#8C6FF7" }
+    ]
+  },
+  "story": {
+    "title": "背景故事",
+    "caption": "暂无",
+    "pages": [
+      {
+        "chapter": "暂无",
+        "heading": "故事暂未开放",
+        "content": "暂无",
+        "footer": ""
+      }
+    ]
+  }
+}
