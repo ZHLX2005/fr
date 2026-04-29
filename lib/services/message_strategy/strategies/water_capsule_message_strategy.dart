@@ -154,9 +154,6 @@ class _WavePainter extends CustomPainter {
 class WaterCapsuleMessageWidgetStrategy
     extends MessageWidgetStrategy<WaterCapsuleMessageData> {
   @override
-  String get type => 'water_capsule';
-
-  @override
   Widget build(BuildContext context, WaterCapsuleMessageData data) {
     return _WaveCapsule(level: data.level);
   }
