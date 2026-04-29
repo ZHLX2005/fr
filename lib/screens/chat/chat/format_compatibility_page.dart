@@ -168,64 +168,8 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-              child: Icon(
-                Icons.format_align_left,
-                size: 40,
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '格式兼容性测试',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '输入 type 名称，查看对应组件渲染效果',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Text(
-              '支持的 type：',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                _QuickReply(
-                  text: 'text',
-                  onTap: () => _handleSend('text'),
-                ),
-                _QuickReply(
-                  text: 'markdown',
-                  onTap: () => _handleSend('markdown'),
-                ),
-                _QuickReply(
-                  text: 'html',
-                  onTap: () => _handleSend('html'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return const Center(
+      child: Text('输入 type 名称查看渲染效果'),
     );
   }
 
@@ -263,7 +207,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                     vertical: 12,
                   ),
                 ),
-                maxLines: 4,
+                maxLines: 1,
                 minLines: 1,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (value) => _handleSend(value),
@@ -360,35 +304,6 @@ class _FormatMessageBubble extends StatelessWidget {
                       : const SizedBox.shrink(),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickReply extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-
-  const _QuickReply({required this.text, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSecondaryContainer,
-            fontSize: 14,
-          ),
         ),
       ),
     );
