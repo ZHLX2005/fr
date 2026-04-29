@@ -12,6 +12,7 @@ void registerMessageStrategies() {
     MarkdownMessageWidgetStrategy(),
     HtmlMessageWidgetStrategy(),
     WaterCapsuleMessageWidgetStrategy(),
+    CalendarMessageWidgetStrategy(),
   ];
 
   final strategies = <String, MessageWidgetStrategy<IMessageData>>{};
