@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../services/message_strategy/interfaces/interfaces.dart';
-import '../../../services/message_strategy/data/data.dart';
 import '../../../services/message_strategy/factory/factory.dart';
 
 /// 格式兼容性测试页面
@@ -18,29 +17,9 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   final TextEditingController _inputController = TextEditingController();
   final List<_DisplayMessage> _messages = [];
 
-  // Mock 数据示例
-  final Map<String, IMessageData> _mockData = {
-    'text': TextMessageData('这是一条普通的纯文本消息，直接显示内容。'),
-    'markdown': MarkdownMessageData('''**粗体文本** 和 *斜体文本*
-
-~~删除线~~
-
-```dart
-void main() {
-  print("Hello");
-}
-```'''),
-    'html': HtmlMessageData('''<p>这是 <strong>粗体</strong> 和 <em>斜体</em></p>
-
-<ul>
-  <li>列表项 1</li>
-  <li>列表项 2</li>
-</ul>
-
-<blockquote>引用块</blockquote>
-
-<code>行内代码</code>'''),
-  };
+  // Mock 数据工厂 - 从工厂获取
+  late final Map<String, IMessageData> _mockData;
+  late final List<String> _supportedTypes;
 
   @override
   void dispose() {
@@ -67,11 +46,11 @@ void main() {
     final trimmedType = type.trim().toLowerCase();
     if (trimmedType.isEmpty) return;
 
-    // 检查 Mock 数据是否存在
-    if (!_mockData.containsKey(trimmedType)) {
+    // 检查 type 是否支持
+    if (!_supportedTypes.contains(trimmedType)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('不支持的 type: $trimmedType，支持的类型: text, markdown, html'),
+          content: Text('不支持的 type: $trimmedType，支持的类型: ${_supportedTypes.join(", ")}'),
           duration: const Duration(seconds: 2),
         ),
       );

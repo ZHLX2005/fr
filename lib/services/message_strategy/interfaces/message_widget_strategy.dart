@@ -5,4 +5,5 @@ import 'message_data.dart';
 abstract class MessageWidgetStrategy<T extends IMessageData> {
   String get type;
   Widget build(BuildContext context, T data);
+  T createMockData();
 }
