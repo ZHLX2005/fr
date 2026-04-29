@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart' as rive;
 
+import '../screens/profile/character_profile_page.dart';
+
 class BottomBarItem {
   final String label;
   final IconData icon;
@@ -258,29 +260,35 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
           padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFF9F3EA),
-                Color(0xFFF1E5D6),
-                Color(0xFFE8D7C5),
+                colorScheme.surfaceBright,
+                colorScheme.surfaceContainerHigh,
+                Color.alphaBlend(
+                  colorScheme.primary.withValues(alpha: 0.14),
+                  colorScheme.surfaceContainer,
+                ),
               ],
             ),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: Color.alphaBlend(
+                Colors.white.withValues(alpha: 0.42),
+                colorScheme.outlineVariant.withValues(alpha: 0.22),
+              ),
               width: 1.4,
             ),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
-                color: Color(0x2A20150E),
+                color: colorScheme.shadow.withValues(alpha: 0.18),
                 blurRadius: 40,
-                offset: Offset(0, 18),
+                offset: const Offset(0, 18),
               ),
               BoxShadow(
-                color: Color(0x14FFFFFF),
+                color: Colors.white.withValues(alpha: 0.14),
                 blurRadius: 10,
-                offset: Offset(0, 1),
+                offset: const Offset(0, 1),
               ),
             ],
           ),
@@ -293,10 +301,13 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                   child: Container(
                     width: 96,
                     height: 96,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
-                        colors: [Color(0x42FFFFFF), Color(0x00FFFFFF)],
+                        colors: [
+                          Colors.white.withValues(alpha: 0.26),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
                       ),
                     ),
                   ),
@@ -309,10 +320,13 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                   child: Container(
                     width: 88,
                     height: 88,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
-                        colors: [Color(0x22D67F54), Color(0x00D67F54)],
+                        colors: [
+                          colorScheme.tertiary.withValues(alpha: 0.16),
+                          colorScheme.tertiary.withValues(alpha: 0.0),
+                        ],
                       ),
                     ),
                   ),
@@ -328,7 +342,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3A261B),
+                          color: colorScheme.primary,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
@@ -342,7 +356,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                         child: Text(
                           '人物小谱',
                           style: theme.textTheme.titleLarge?.copyWith(
-                            color: const Color(0xFF2B1A12),
+                            color: colorScheme.onSurface,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.2,
                           ),
@@ -354,7 +368,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                   Text(
                     '看看豆子的角色设定与气质档案',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF6D5648),
+                      color: colorScheme.onSurfaceVariant,
                       height: 1.3,
                     ),
                   ),
@@ -362,10 +376,16 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                   Container(
                     height: 248,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF7EFE4),
+                      color: Color.alphaBlend(
+                        colorScheme.primary.withValues(alpha: 0.05),
+                        colorScheme.surface,
+                      ),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: Color.alphaBlend(
+                          Colors.white.withValues(alpha: 0.52),
+                          colorScheme.outlineVariant.withValues(alpha: 0.24),
+                        ),
                       ),
                     ),
                     child: ClipRRect(
@@ -388,8 +408,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                   const SizedBox(height: 18),
                   FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E221B),
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       minimumSize: const Size.fromHeight(52),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
@@ -401,12 +421,14 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                     ),
                     onPressed: () {
                       Navigator.pop(dialogContext);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('人物小谱入口已预留'),
-                          backgroundColor: colorScheme.inverseSurface,
-                        ),
-                      );
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CharacterProfilePage(),
+                          ),
+                        );
+                      });
                     },
                     child: const Text('查看人物小谱'),
                   ),

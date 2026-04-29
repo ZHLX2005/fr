@@ -184,6 +184,7 @@ flutter:
     - assets/rive/smiley_stress_reliever.riv
     - assets/rive/douzi.riv
     - assets/rive/pendulum/
+    - assets/data/character_profiles/douzi_profile.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
