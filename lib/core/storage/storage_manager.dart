@@ -325,10 +325,21 @@ class StorageManager {
           }
 
           if (actualBoxName.isEmpty) return false;
-          // body_records 需要用类型化 Box
+          // body_records 需要用类型化 Box，key可能是int或string类型
           if (actualBoxName == 'body_records') {
             final box = Hive.box<BodyRecord>(actualBoxName);
-            await box.delete(actualKey);
+            // 尝试直接删除（string key）
+            if (box.containsKey(actualKey)) {
+              await box.delete(actualKey);
+            } else {
+              // 尝试转换为int key
+              final intKey = int.tryParse(actualKey);
+              if (intKey != null && box.containsKey(intKey)) {
+                await box.delete(intKey);
+              } else {
+                return false;
+              }
+            }
           } else {
             final box = Hive.box(actualBoxName);
             await box.delete(actualKey);
