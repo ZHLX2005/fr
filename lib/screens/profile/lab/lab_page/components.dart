@@ -503,6 +503,7 @@ class _ScrollRevealGridState extends State<_ScrollRevealGrid>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
+    _labPerfLog('grid reveal start itemCount=${widget.demos.length}');
     _controller.forward();
   }
 
@@ -557,6 +558,9 @@ class _RevealItem extends StatefulWidget {
 }
 
 class _RevealItemState extends State<_RevealItem> {
+  late final Animation<double> _opacityAnim;
+  late final Animation<Offset> _slideAnim;
+
   double get _delay => (widget.index * 0.06).clamp(0.0, 0.72);
   double get _dur => 0.28;
 
@@ -569,22 +573,30 @@ class _RevealItemState extends State<_RevealItem> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.index < 6) {
+      _labPerfLog(
+        'reveal item index=${widget.index} delay=${_delay.toStringAsFixed(2)} dur=${_dur.toStringAsFixed(2)}',
+      );
+    }
+    final curveAnim = CurvedAnimation(
+      parent: widget.controller,
+      curve: Interval(_delay, _delay + _dur, curve: Curves.easeOutCubic),
+    );
+    _opacityAnim = Tween<double>(begin: 0.0, end: 1.0).animate(curveAnim);
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 24), end: Offset.zero)
+        .animate(curveAnim);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        final p = _progress(widget.controller.value);
-        if (p >= 1.0) {
-          return widget.child;
-        }
-        return Opacity(
-          opacity: p,
-          child: Transform.translate(
-            offset: Offset(0, 24 * (1 - p)),
-            child: widget.child,
-          ),
-        );
-      },
+    return FadeTransition(
+      opacity: _opacityAnim,
+      child: SlideTransition(
+        position: _slideAnim,
+        child: widget.child,
+      ),
     );
   }
 }
