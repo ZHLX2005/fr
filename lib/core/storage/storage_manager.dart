@@ -96,19 +96,26 @@ class StorageManager {
 
           for (final name in boxNames) {
             try {
+              Box box;
               if (Hive.isBoxOpen(name)) {
-                final box = Hive.box(name);
-                for (final key in box.keys) {
-                  final value = box.get(key);
-                  result.add(
-                    KeyDetail(
-                      key: '$name/$key',
-                      value: _formatValue(value),
-                      rawValue: value,
-                      size: _estimateSize(value),
-                    ),
-                  );
+                box = Hive.box(name);
+              } else {
+                // body_records需要先注册适配器
+                if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
+                  Hive.registerAdapter(_BodyRecordAdapterForStorage());
                 }
+                box = await Hive.openBox(name);
+              }
+              for (final key in box.keys) {
+                final value = box.get(key);
+                result.add(
+                  KeyDetail(
+                    key: '$name/$key',
+                    value: _formatValue(value),
+                    rawValue: value,
+                    size: _estimateSize(value),
+                  ),
+                );
               }
             } catch (e) {
               // Box 不存在或已删除
@@ -502,4 +509,22 @@ class KeyDetail {
   }
 
   bool get isJson => rawValue is Map || rawValue is List;
+}
+
+/// BodyRecord适配器(用于StorageManager读取body_records)
+class _BodyRecordAdapterForStorage extends TypeAdapter<dynamic> {
+  @override
+  final int typeId = 0;
+
+  @override
+  dynamic read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return '${fields[1] ?? ''} (疼痛:${fields[2] ?? '无'}) ${fields[3] ?? ''}';
+  }
+
+  @override
+  void write(BinaryWriter writer, dynamic obj) {}
 }
