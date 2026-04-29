@@ -67,7 +67,7 @@ class FocusHomePage extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '今天准备深潜到哪一段时光？',
+          '欢迎使用小豆子 ^.^ ？',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w400),
