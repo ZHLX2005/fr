@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rive/rive.dart' as rive;
 
-import '../../core/novel_reader/page_curl_view.dart';
+import '../../core/novel_reader/canvas_reader_engine.dart';
 import '../../lab/demos/hexagon_panel_demo.dart';
 
 class CharacterProfilePage extends StatefulWidget {
@@ -21,7 +21,6 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
     'assets/rive/douzi.riv',
     riveFactory: rive.Factory.rive,
   );
-  int _storyPageIndex = 0;
   _ProfileSection _activeSection = _ProfileSection.character;
 
   @override
@@ -120,18 +119,12 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
                         : _StoryDetailPanel(
                             key: const ValueKey('story-panel'),
                             story: profile.story,
-                            pageIndex: _storyPageIndex,
-                            onPageChanged: (value) {
-                              setState(() {
-                                _storyPageIndex = value;
-                              });
-                            },
                           ),
                   ),
                 ),
                 Positioned(
-                  left: -14,
-                  top: 28,
+                  left: -12,
+                  top: 54,
                   child: _BookmarkTab(
                     label: '人物',
                     side: _BookmarkSide.left,
@@ -147,8 +140,8 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
                   ),
                 ),
                 Positioned(
-                  right: -14,
-                  top: 28,
+                  right: -12,
+                  top: 54,
                   child: _BookmarkTab(
                     label: '故事',
                     side: _BookmarkSide.right,
@@ -204,17 +197,20 @@ class _BookmarkTab extends StatelessWidget {
     final foregroundColor = active
         ? colorScheme.onPrimary
         : colorScheme.onSurface;
+    final notchShadowColor = Colors.black.withValues(
+      alpha: active ? 0.12 : 0.08,
+    );
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
-      width: 48,
-      height: 136,
+      width: 60,
+      height: 68,
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.horizontal(
-          left: Radius.circular(side == _BookmarkSide.left ? 18 : 14),
-          right: Radius.circular(side == _BookmarkSide.right ? 18 : 14),
+          left: Radius.circular(side == _BookmarkSide.left ? 16 : 12),
+          right: Radius.circular(side == _BookmarkSide.right ? 16 : 12),
         ),
         boxShadow: [
           BoxShadow(
@@ -226,30 +222,128 @@ class _BookmarkTab extends StatelessWidget {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.horizontal(
-            left: Radius.circular(side == _BookmarkSide.left ? 18 : 14),
-            right: Radius.circular(side == _BookmarkSide.right ? 18 : 14),
-          ),
-          onTap: onTap,
-          child: Center(
-            child: RotatedBox(
-              quarterTurns: side == _BookmarkSide.left ? 3 : 1,
-              child: Text(
-                label,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: foregroundColor,
-                  letterSpacing: 3.2,
+      child: ClipPath(
+        clipper: _BookmarkTabClipper(side: side),
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              left: side == _BookmarkSide.left ? null : 0,
+              right: side == _BookmarkSide.left ? 0 : null,
+              child: IgnorePointer(
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: side == _BookmarkSide.left
+                          ? Alignment.topRight
+                          : Alignment.topLeft,
+                      end: side == _BookmarkSide.left
+                          ? Alignment.bottomLeft
+                          : Alignment.bottomRight,
+                      colors: [
+                        notchShadowColor,
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 10,
+                      left: side == _BookmarkSide.left ? 10 : 12,
+                      right: side == _BookmarkSide.left ? 12 : 10,
+                      child: IgnorePointer(
+                        child: Container(
+                          height: 1.2,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(
+                              alpha: active ? 0.36 : 0.46,
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Text(
+                        label,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: foregroundColor,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+class _BookmarkTabClipper extends CustomClipper<Path> {
+  const _BookmarkTabClipper({required this.side});
+
+  final _BookmarkSide side;
+
+  @override
+  Path getClip(Size size) {
+    const cut = 14.0;
+    const radius = 14.0;
+    final path = Path();
+
+    if (side == _BookmarkSide.left) {
+      path.moveTo(cut, 0);
+      path.lineTo(size.width - radius, 0);
+      path.quadraticBezierTo(size.width, 0, size.width, radius);
+      path.lineTo(size.width, size.height - radius);
+      path.quadraticBezierTo(
+        size.width,
+        size.height,
+        size.width - radius,
+        size.height,
+      );
+      path.lineTo(radius, size.height);
+      path.quadraticBezierTo(0, size.height, 0, size.height - radius);
+      path.lineTo(0, cut);
+      path.close();
+    } else {
+      path.moveTo(0, 0);
+      path.lineTo(size.width - cut, 0);
+      path.lineTo(size.width, cut);
+      path.lineTo(size.width, size.height - radius);
+      path.quadraticBezierTo(
+        size.width,
+        size.height,
+        size.width - radius,
+        size.height,
+      );
+      path.lineTo(radius, size.height);
+      path.quadraticBezierTo(0, size.height, 0, size.height - radius);
+      path.lineTo(0, radius);
+      path.quadraticBezierTo(0, 0, radius, 0);
+      path.close();
+    }
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _BookmarkTabClipper oldClipper) {
+    return side != oldClipper.side;
   }
 }
 
@@ -399,17 +493,48 @@ class _CharacterDetailPanel extends StatelessWidget {
   }
 }
 
-class _StoryDetailPanel extends StatelessWidget {
+class _StoryDetailPanel extends StatefulWidget {
   const _StoryDetailPanel({
     super.key,
     required this.story,
-    required this.pageIndex,
-    required this.onPageChanged,
   });
 
   final ProfileStoryData story;
-  final int pageIndex;
-  final ValueChanged<int> onPageChanged;
+
+  @override
+  State<_StoryDetailPanel> createState() => _StoryDetailPanelState();
+}
+
+class _StoryDetailPanelState extends State<_StoryDetailPanel> {
+  late NovelCanvasReaderController _readerController = _buildController(
+    widget.story,
+  );
+
+  NovelCanvasReaderController _buildController(ProfileStoryData story) {
+    final controller = NovelCanvasReaderController(title: story.title);
+    controller.initialize(
+      text: story.toReaderText(),
+      initialPageIndex: 0,
+      initialPageOffset: null,
+    );
+    controller.setTheme(NovelReaderTheme.paper);
+    return controller;
+  }
+
+  @override
+  void didUpdateWidget(covariant _StoryDetailPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.story == widget.story) return;
+    final oldController = _readerController;
+    _readerController = _buildController(widget.story);
+    oldController.dispose();
+  }
+
+  @override
+  void dispose() {
+    _readerController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -429,14 +554,14 @@ class _StoryDetailPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        story.title,
+                        widget.story.title,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        story.caption,
+                        widget.story.caption,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -453,12 +578,19 @@ class _StoryDetailPanel extends StatelessWidget {
                     color: colorScheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text(
-                    '${pageIndex + 1}/${story.pages.length}',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: AnimatedBuilder(
+                    animation: _readerController,
+                    builder: (context, _) {
+                      final total = _readerController.totalDisplayPages;
+                      final current = _readerController.currentDisplayPage;
+                      return Text(
+                        total == 0 ? '...' : '$current/$total',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onSecondaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -468,11 +600,7 @@ class _StoryDetailPanel extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-              child: _StoryReaderPanel(
-                pages: story.pages,
-                pageIndex: pageIndex,
-                onPageChanged: onPageChanged,
-              ),
+              child: _StoryReaderPanel(controller: _readerController),
             ),
           ),
         ],
@@ -513,20 +641,13 @@ class _PanelCard extends StatelessWidget {
 
 class _StoryReaderPanel extends StatelessWidget {
   const _StoryReaderPanel({
-    required this.pages,
-    required this.pageIndex,
-    required this.onPageChanged,
+    required this.controller,
   });
 
-  final List<StoryPageData> pages;
-  final int pageIndex;
-  final ValueChanged<int> onPageChanged;
+  final NovelCanvasReaderController controller;
 
   @override
   Widget build(BuildContext context) {
-    final canTurnNext = pageIndex < pages.length - 1;
-    final canTurnPrevious = pageIndex > 0;
-
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
@@ -540,138 +661,35 @@ class _StoryReaderPanel extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFF7E6CB),
-                      Color(0xFFE9CDA7),
-                      Color(0xFFD7AF7E),
-                    ],
-                  ),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF7E6CB),
+                Color(0xFFE9CDA7),
+                Color(0xFFD7AF7E),
+              ],
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6EEE1).withValues(alpha: 0.74),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: NovelCanvasReaderView(
+                  controller: controller,
+                  onToggleChrome: () {},
                 ),
               ),
             ),
-            Positioned.fill(
-              child: PageCurlView(
-                currentPageBuilder: (context) =>
-                    _StoryPaperPage(page: pages[pageIndex]),
-                targetPageBuilder: canTurnNext
-                    ? (context) => _StoryPaperPage(page: pages[pageIndex + 1])
-                    : canTurnPrevious
-                        ? (context) =>
-                            _StoryPaperPage(page: pages[pageIndex - 1])
-                        : null,
-                canTurnNext: canTurnNext,
-                canTurnPrevious: canTurnPrevious,
-                onTurnFinished: (request) {
-                  if (!request.completed) return;
-                  final nextIndex = request.direction == PageTurnDirection.next
-                      ? pageIndex + 1
-                      : pageIndex - 1;
-                  if (nextIndex < 0 || nextIndex >= pages.length) return;
-                  onPageChanged(nextIndex);
-                },
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _StoryPaperPage extends StatelessWidget {
-  const _StoryPaperPage({required this.page});
-
-  final StoryPageData page;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(28, 28, 28, 22),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFBF4), Color(0xFFF5EBD9)],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  Icons.menu_book_rounded,
-                  color: colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      page.chapter,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF402A1D),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      page.heading,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF8A6A52),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(),
-              child: Text(
-                page.content,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: const Color(0xFF4B3527),
-                  height: 1.8,
-                  letterSpacing: 0.15,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              page.footer,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: const Color(0xFF8A6A52),
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -765,6 +783,21 @@ class ProfileStoryData {
           .map((item) => StoryPageData.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
+  }
+
+  String toReaderText() {
+    return pages
+        .map(
+          (page) => [
+            page.chapter,
+            page.heading,
+            '',
+            page.content,
+            if (page.footer.isNotEmpty) '',
+            if (page.footer.isNotEmpty) page.footer,
+          ].join('\n'),
+        )
+        .join('\n\n');
   }
 }
 
