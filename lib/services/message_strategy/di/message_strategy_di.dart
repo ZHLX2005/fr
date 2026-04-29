@@ -13,6 +13,8 @@ void registerMessageStrategies() {
     HtmlMessageWidgetStrategy(),
     WaterCapsuleMessageWidgetStrategy(),
     CalendarMessageWidgetStrategy(),
+    AskMessageWidgetStrategy(),
+    SelectionMessageWidgetStrategy(),
   ];
 
   final strategies = <String, MessageWidgetStrategy<IMessageData>>{};
