@@ -381,15 +381,23 @@ class StorageManager {
       'focus_subjects',
       'clock_records',
       'notes',
+      'body_records',
     ];
 
     for (final name in boxNames) {
       try {
+        Box box;
         if (Hive.isBoxOpen(name)) {
-          final box = Hive.box(name);
-          totalKeys += box.length;
-          totalSize += _estimateBoxSize(box);
+          box = Hive.box(name);
+        } else {
+          // body_records需要先注册适配器
+          if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
+            Hive.registerAdapter(_BodyRecordAdapterForStorage());
+          }
+          box = await Hive.openBox(name);
         }
+        totalKeys += box.length;
+        totalSize += _estimateBoxSize(box);
       } catch (e) {
         // Box 可能不存在
       }
