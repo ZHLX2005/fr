@@ -91,6 +91,7 @@ class StorageManager {
             'focus_subjects',
             'clock_records',
             'notes',
+            'body_records',
           ];
 
           for (final name in boxNames) {
@@ -310,6 +311,7 @@ class StorageManager {
             'focus_subjects',
             'clock_records',
             'notes',
+            'body_records',
           ];
           for (final name in boxNames) {
             try {
@@ -470,6 +472,7 @@ class StorageInfo {
       'focus_subjects': '专注科目',
       'clock_records': '时钟记录',
       'notes': '笔记',
+      'body_records': '身体记录',
       'SharedPreferences': '应用配置',
     };
     return nameMap[name] ?? name;
