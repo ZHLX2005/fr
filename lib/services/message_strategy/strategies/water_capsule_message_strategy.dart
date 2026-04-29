@@ -3,11 +3,34 @@ import 'package:flutter/material.dart';
 import '../interfaces/interfaces.dart';
 import '../data/water_capsule_message_data.dart';
 
-/// 波浪胶囊组件（静态版本，用于消息渲染）
-class _StaticWaveCapsule extends StatelessWidget {
+/// 波浪胶囊组件（动画版本，用于消息渲染）
+class _WaveCapsule extends StatefulWidget {
   final int level;
 
-  const _StaticWaveCapsule({required this.level});
+  const _WaveCapsule({required this.level});
+
+  @override
+  State<_WaveCapsule> createState() => _WaveCapsuleState();
+}
+
+class _WaveCapsuleState extends State<_WaveCapsule>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,43 +50,52 @@ class _StaticWaveCapsule extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(80),
-        child: CustomPaint(
-          painter: _StaticWavePainter(level: level),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  level.round().toString(),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 24,
-                    color: Colors.white,
-                  ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return CustomPaint(
+              painter: _WavePainter(
+                waveValue: _controller.value,
+                level: widget.level,
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      widget.level.round().toString(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Text(
+                      '%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                const Text(
-                  '%',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 }
 
-class _StaticWavePainter extends CustomPainter {
+class _WavePainter extends CustomPainter {
+  final double waveValue;
   final int level;
 
   static const Color _nearlyDarkBlue = Color(0xFF2633C5);
 
-  _StaticWavePainter({required this.level});
+  _WavePainter({required this.waveValue, required this.level});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -78,7 +110,8 @@ class _StaticWavePainter extends CustomPainter {
     final path1 = Path();
     path1.moveTo(0, height);
     for (double x = 0; x <= width; x += 1) {
-      final y = waterY + math.sin((0 - x * 5) * math.pi / 180) * waveDepth;
+      final y = waterY +
+          math.sin((waveValue * 360 - x * 5) * math.pi / 180) * waveDepth;
       path1.lineTo(x, y.clamp(0, height));
     }
     path1.lineTo(width, height);
@@ -95,7 +128,9 @@ class _StaticWavePainter extends CustomPainter {
     final path2 = Path();
     path2.moveTo(0, height);
     for (double x = 0; x <= width; x += 1) {
-      final y = waterY + math.sin((0 - x * 5 + 30) * math.pi / 180) * waveDepth;
+      final y = waterY +
+          math.sin((waveValue * 360 - x * 5 + 30) * math.pi / 180) *
+              waveDepth;
       path2.lineTo(x, y.clamp(0, height));
     }
     path2.lineTo(width, height);
@@ -110,8 +145,8 @@ class _StaticWavePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_StaticWavePainter oldDelegate) {
-    return oldDelegate.level != level;
+  bool shouldRepaint(_WavePainter oldDelegate) {
+    return oldDelegate.waveValue != waveValue || oldDelegate.level != level;
   }
 }
 
@@ -123,7 +158,7 @@ class WaterCapsuleMessageWidgetStrategy
 
   @override
   Widget build(BuildContext context, WaterCapsuleMessageData data) {
-    return _StaticWaveCapsule(level: data.level);
+    return _WaveCapsule(level: data.level);
   }
 
   @override
