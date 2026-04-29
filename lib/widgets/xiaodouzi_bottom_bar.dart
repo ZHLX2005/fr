@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:rive/rive.dart' as rive;
 
 class BottomBarItem {
@@ -35,7 +36,7 @@ class XiaoDouZiBottomBar extends StatefulWidget {
 
 class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     with TickerProviderStateMixin {
-  late AnimationController _animationController;
+  late final AnimationController _animationController;
   late final rive.FileLoader _douziFileLoader = rive.FileLoader.fromAsset(
     'assets/rive/douzi.riv',
     riveFactory: rive.Factory.rive,
@@ -244,54 +245,74 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   }
 
   void _showEasterEgg(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: Colors.transparent,
       builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                colorScheme.primaryContainer,
-                colorScheme.secondaryContainer,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.primary.withValues(alpha: 0.3),
-                blurRadius: 32,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 240,
-                height: 240,
-                child: rive.RiveWidgetBuilder(
-                  fileLoader: _douziFileLoader,
-                  dataBind: rive.DataBind.auto(),
-                  builder: (context, state) => switch (state) {
-                    rive.RiveLoading() => const SizedBox.shrink(),
-                    rive.RiveFailed() => const SizedBox.shrink(),
-                    rive.RiveLoaded(:final controller) => rive.RiveWidget(
-                      controller: controller,
-                      fit: rive.Fit.contain,
-                      hitTestBehavior: rive.RiveHitTestBehavior.opaque,
-                    ),
-                  },
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: GlassBackdropScope(
+          child: GlassTheme(
+            data: const GlassThemeData(
+              light: GlassThemeVariant(
+                quality: GlassQuality.premium,
+                settings: GlassThemeSettings(
+                  blur: 4,
+                  thickness: 18,
+                  lightIntensity: 0.42,
+                  ambientStrength: 0.06,
+                  saturation: 1.10,
                 ),
               ),
-            ],
+              dark: GlassThemeVariant(
+                quality: GlassQuality.premium,
+                settings: GlassThemeSettings(
+                  blur: 4,
+                  thickness: 18,
+                  lightIntensity: 0.38,
+                  ambientStrength: 0.06,
+                  saturation: 1.08,
+                ),
+              ),
+            ),
+            child: Center(
+              child: GlassPanel(
+                useOwnLayer: true,
+                quality: GlassQuality.premium,
+                clipBehavior: Clip.antiAlias,
+                width: 292,
+                shape: const LiquidRoundedSuperellipse(borderRadius: 28),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                settings: const LiquidGlassSettings(
+                  visibility: 0.36,
+                  glassColor: Color.fromARGB(18, 255, 255, 255),
+                  thickness: 24,
+                  blur: 4,
+                  lightIntensity: 0.48,
+                  ambientStrength: 0.07,
+                  saturation: 1.12,
+                  refractiveIndex: 1.19,
+                  chromaticAberration: 0.01,
+                  specularSharpness: GlassSpecularSharpness.sharp,
+                ),
+                child: SizedBox(
+                  height: 248,
+                  child: rive.RiveWidgetBuilder(
+                    fileLoader: _douziFileLoader,
+                    dataBind: rive.DataBind.auto(),
+                    builder: (context, state) => switch (state) {
+                      rive.RiveLoading() => const SizedBox.shrink(),
+                      rive.RiveFailed() => const SizedBox.shrink(),
+                      rive.RiveLoaded(:final controller) => rive.RiveWidget(
+                        controller: controller,
+                        fit: rive.Fit.contain,
+                        hitTestBehavior: rive.RiveHitTestBehavior.opaque,
+                      ),
+                    },
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

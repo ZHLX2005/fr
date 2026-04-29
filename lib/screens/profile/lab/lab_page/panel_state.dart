@@ -92,9 +92,14 @@ class LabPullPanelStateMachine {
   }
 
   void syncProgress(double value) {
+    final sw = Stopwatch()..start();
     _progress = value.clamp(0.0, 1.0);
     if (_progress <= 0.0 && _state != LabPullPanelState.settling) {
       _state = LabPullPanelState.collapsed;
+    }
+    final elapsed = sw.elapsedMicroseconds;
+    if (elapsed > 100) {
+      debugPrint('[Perf] StateMachine.syncProgress: ${elapsed}μs, value=$value, state=$_state');
     }
   }
 

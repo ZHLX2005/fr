@@ -601,6 +601,7 @@ class _PanelSurfacePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final sw = Stopwatch()..start();
     final waveDepth = (24.0 - progress * 12.0).clamp(10.0, 24.0);
     final path = Path()..moveTo(0, 0);
     path.quadraticBezierTo(
@@ -643,6 +644,11 @@ class _PanelSurfacePainter extends CustomPainter {
       size.width * 0.48,
       highlightPaint,
     );
+
+    final elapsed = sw.elapsedMicroseconds;
+    if (elapsed > 200) {
+      debugPrint('[Perf] _PanelSurfacePainter.paint: ${elapsed}μs, progress=$progress');
+    }
   }
 
   @override

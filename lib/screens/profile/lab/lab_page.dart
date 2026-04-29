@@ -87,12 +87,22 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _anim.forward(from: 0.0);
   }
 
+  int _animTickCount = 0;
+  int _buildCount = 0;
+
   void _onAnimTick() {
+    _animTickCount++;
+    final sw = Stopwatch()..start();
     final animation = _progressAnim;
     if (animation == null) return;
     _sm.syncProgress(animation.value);
     if (mounted) {
       setState(() {});
+    }
+    final elapsed = sw.elapsedMicroseconds;
+    // 每 10 帧输出一次统计
+    if (_animTickCount % 10 == 0) {
+      debugPrint('[Perf] _onAnimTick: ${elapsed}μs (count=$_animTickCount)');
     }
   }
 
@@ -116,11 +126,16 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   }
 
   void _runAction(LabPullPanelAction action) {
+    final sw = Stopwatch()..start();
     switch (action.type) {
       case LabPullPanelActionType.none:
         setState(() {});
       case LabPullPanelActionType.animateTo:
         _animateTo(action.targetProgress!);
+    }
+    final elapsed = sw.elapsedMicroseconds;
+    if (elapsed > 500) {
+      debugPrint('[Perf] _runAction: ${elapsed}μs, type=${action.type}, target=${action.targetProgress}');
     }
   }
 
@@ -242,10 +257,19 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    _buildCount++;
+    final sw = Stopwatch()..start();
     final demos = demoRegistry.getAll();
     final theme = Theme.of(context);
     final appBarReveal = (1.0 - _progress).clamp(0.0, 1.0);
     final appBarHeight = kToolbarHeight * appBarReveal;
+
+    final elapsed = sw.elapsedMicroseconds;
+    // 每 5 次输出一次，或者耗时超过 500μs 时输出
+    if (_buildCount % 5 == 0 || elapsed > 500) {
+      debugPrint('[Perf] build #$_buildCount: ${elapsed}μs, progress=$_progress, state=${_sm.state}');
+    }
+
 
     return PopScope(
       canPop: !_panelConsumesBack,
