@@ -92,112 +92,109 @@ class _LabPanelContentState extends State<_LabPanelContent> {
     return Column(
       children: [
         Expanded(
-          child: Transform.translate(
-            offset: Offset(0, contentOffset),
-            child: Opacity(
-              opacity: contentOpacity,
-              child: Transform.scale(
-                scale: contentScale.clamp(0.5, 1.0),
-                alignment: Alignment.topCenter,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return IgnorePointer(
-                      ignoring: !widget.scrollable,
-                      child: ListView(
-                        controller: widget.scrollController,
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
-                        children: [
-                          const _PanelTitleSection(),
-                          const SizedBox(height: 16),
-                          if (favoriteDemos.isNotEmpty)
-                            Builder(
-                              builder: (context) {
-                                return ReorderableBuilder<String>.builder(
-                                  longPressDelay: const Duration(
-                                    milliseconds: 300,
-                                  ),
-                                  animationConfig:
-                                      const ReorderableAnimationConfig(
-                                    dragFeedbackDuration: Duration.zero,
-                                  ),
-                                  feedbackScaleFactor: 1.0,
-                                  dragChildBoxDecoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.06),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: const <BoxShadow>[],
-                                  ),
-                                  onDragStarted: (index) {
-                                    setState(() {
-                                      _draggingFavoriteTitle =
-                                          _favoriteTitles[index];
-                                      _isDeleteZoneActive = false;
-                                    });
-                                    HapticFeedback.lightImpact();
-                                  },
-                                  onUpdatedDraggedChild: (index) {},
-                                  onDragEnd: (index) {
-                                    setState(() {
-                                      _draggingFavoriteTitle = null;
-                                      _isDeleteZoneActive = false;
-                                    });
-                                  },
-                                  onReorder: (reorderFn) {
-                                    final reorderedTitles = reorderFn(
-                                      _favoriteTitles,
-                                    );
-                                    _provider.reorderFavorites(
-                                      reorderedTitles,
-                                    );
-                                  },
-                                  itemCount: _favoriteTitles.length,
-                                  childBuilder: (itemBuilder) {
-                                    return GridView.builder(
-                                      shrinkWrap: true,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      gridDelegate:
-                                          const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 4,
-                                        mainAxisSpacing: 8,
-                                        crossAxisSpacing: 8,
-                                        childAspectRatio: 0.92,
-                                      ),
-                                      itemCount: _favoriteTitles.length,
-                                      itemBuilder: (context, index) {
-                                        final title = _favoriteTitles[index];
-                                        final demo = _findDemoByTitle(title);
-                                        if (demo == null) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        return itemBuilder(
-                                          CustomDraggable(
+          child: RepaintBoundary(
+            child: Transform.translate(
+              offset: Offset(0, contentOffset),
+              child: Opacity(
+                opacity: contentOpacity,
+                child: Transform.scale(
+                  scale: contentScale.clamp(0.5, 1.0),
+                  alignment: Alignment.topCenter,
+                  child: IgnorePointer(
+                    ignoring: !widget.scrollable,
+                    child: ListView(
+                      controller: widget.scrollController,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
+                      children: [
+                        const _PanelTitleSection(),
+                        const SizedBox(height: 16),
+                        if (favoriteDemos.isNotEmpty)
+                          Builder(
+                            builder: (context) {
+                              return ReorderableBuilder<String>.builder(
+                                longPressDelay: const Duration(
+                                  milliseconds: 300,
+                                ),
+                                animationConfig:
+                                    const ReorderableAnimationConfig(
+                                  dragFeedbackDuration: Duration.zero,
+                                ),
+                                feedbackScaleFactor: 1.0,
+                                dragChildBoxDecoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: const <BoxShadow>[],
+                                ),
+                                onDragStarted: (index) {
+                                  setState(() {
+                                    _draggingFavoriteTitle =
+                                        _favoriteTitles[index];
+                                    _isDeleteZoneActive = false;
+                                  });
+                                  HapticFeedback.lightImpact();
+                                },
+                                onUpdatedDraggedChild: (index) {},
+                                onDragEnd: (index) {
+                                  setState(() {
+                                    _draggingFavoriteTitle = null;
+                                    _isDeleteZoneActive = false;
+                                  });
+                                },
+                                onReorder: (reorderFn) {
+                                  final reorderedTitles = reorderFn(
+                                    _favoriteTitles,
+                                  );
+                                  _provider.reorderFavorites(
+                                    reorderedTitles,
+                                  );
+                                },
+                                itemCount: _favoriteTitles.length,
+                                childBuilder: (itemBuilder) {
+                                  return GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 4,
+                                      mainAxisSpacing: 8,
+                                      crossAxisSpacing: 8,
+                                      childAspectRatio: 0.92,
+                                    ),
+                                    itemCount: _favoriteTitles.length,
+                                    itemBuilder: (context, index) {
+                                      final title = _favoriteTitles[index];
+                                      final demo = _findDemoByTitle(title);
+                                      if (demo == null) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return itemBuilder(
+                                        CustomDraggable(
+                                          key: ValueKey(title),
+                                          data: title,
+                                          child: _FavoriteDemoShortcut(
                                             key: ValueKey(title),
-                                            data: title,
-                                            child: _FavoriteDemoShortcut(
-                                              key: ValueKey(title),
-                                              demo: demo,
-                                              isDragActive:
-                                                  _draggingFavoriteTitle ==
-                                                  title,
-                                              onTap: () =>
-                                                  widget.onDemoTap(demo),
-                                            ),
+                                            demo: demo,
+                                            isDragActive:
+                                                _draggingFavoriteTitle ==
+                                                title,
+                                            onTap: () => widget.onDemoTap(demo),
                                           ),
-                                          index,
-                                        );
-                                      },
-                                    );
-                                  },
-                                );
-                              },
-                            )
-                          else
-                            const _PanelEmptyFavorites(),
-                        ],
-                      ),
-                    );
-                  },
+                                        ),
+                                        index,
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          )
+                        else
+                          const _PanelEmptyFavorites(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -425,15 +422,14 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Opacity(
-                  opacity: showOverlay ? 1.0 : 0.0,
-                  child: DecoratedBox(
+                if (showOverlay)
+                  DecoratedBox(
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                ),
+
                 Padding(
                   padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
                   child: Column(
@@ -601,7 +597,6 @@ class _PanelSurfacePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final sw = Stopwatch()..start();
     final waveDepth = (24.0 - progress * 12.0).clamp(10.0, 24.0);
     final path = Path()..moveTo(0, 0);
     path.quadraticBezierTo(
@@ -644,11 +639,6 @@ class _PanelSurfacePainter extends CustomPainter {
       size.width * 0.48,
       highlightPaint,
     );
-
-    final elapsed = sw.elapsedMicroseconds;
-    if (elapsed > 200) {
-      debugPrint('[Perf] _PanelSurfacePainter.paint: ${elapsed}μs, progress=$progress');
-    }
   }
 
   @override

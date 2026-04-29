@@ -1,7 +1,11 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+// ignore_for_file: avoid_print
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_reorderable_grid_view/entities/reorderable_animation_config.dart';
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
@@ -14,6 +18,14 @@ import '../../../widgets/image_picker_widget.dart';
 part 'lab_page/components.dart';
 part 'lab_page/panel_content.dart';
 part 'lab_page/panel_state.dart';
+
+const bool _kLabPanelPerfDebug = false;
+
+void _labPerfLog(String message) {
+  if (_kLabPanelPerfDebug && kDebugMode) {
+    debugPrint('[LabPagePerf] $message');
+  }
+}
 
 class LabPage extends StatefulWidget {
   const LabPage({super.key});
@@ -32,17 +44,21 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     duration: _kAnimationDuration,
   )..addStatusListener(_onAnimationStatusChanged);
 
-  late final AnimationController _waveController = AnimationController(
-    vsync: this,
-    duration: _kWaveDuration,
-  )..repeat();
-
   Animation<double>? _progressAnim;
   double? _pendingAnimationTarget;
   double _estimatedVelocityDy = 0.0;
   double _lastPointerY = 0.0;
   DateTime? _lastPointerTime;
   double _lastViewportHeight = 0.0;
+  late final TimingsCallback _timingsCallback = _onFrameTimings;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_kLabPanelPerfDebug && kDebugMode) {
+      SchedulerBinding.instance.addTimingsCallback(_timingsCallback);
+    }
+  }
 
   double get _progress => _sm.progress;
   bool get _panelConsumesBack =>
@@ -51,12 +67,31 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    if (_kLabPanelPerfDebug && kDebugMode) {
+      SchedulerBinding.instance.removeTimingsCallback(_timingsCallback);
+    }
     _progressAnim?.removeListener(_onAnimTick);
     _anim.dispose();
-    _waveController.dispose();
     _gridScrollController.dispose();
     _panelScrollController.dispose();
     super.dispose();
+  }
+
+  void _onFrameTimings(List<FrameTiming> timings) {
+    if (!_kLabPanelPerfDebug || !mounted) return;
+
+    for (final timing in timings) {
+      final buildMs = timing.buildDuration.inMicroseconds / 1000.0;
+      final rasterMs = timing.rasterDuration.inMicroseconds / 1000.0;
+      if (buildMs <= 8.0 && rasterMs <= 8.0) continue;
+      _labPerfLog(
+        'slow frame build=${buildMs.toStringAsFixed(1)}ms '
+        'raster=${rasterMs.toStringAsFixed(1)}ms '
+        'progress=${_progress.toStringAsFixed(3)} '
+        'state=${_sm.state.name} '
+        'animating=${_anim.isAnimating}',
+      );
+    }
   }
 
   void _stopCurrentAnimation({bool settleToTarget = false}) {
@@ -78,6 +113,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _stopCurrentAnimation();
     _pendingAnimationTarget = target;
     _sm.onAnimationStarted();
+    _labPerfLog(
+      'animateTo target=${target.toStringAsFixed(3)} from=${_progress.toStringAsFixed(3)}',
+    );
 
     _progressAnim = Tween<double>(begin: _progress, end: target).animate(
       CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
@@ -87,22 +125,12 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _anim.forward(from: 0.0);
   }
 
-  int _animTickCount = 0;
-  int _buildCount = 0;
-
   void _onAnimTick() {
-    _animTickCount++;
-    final sw = Stopwatch()..start();
     final animation = _progressAnim;
     if (animation == null) return;
     _sm.syncProgress(animation.value);
     if (mounted) {
       setState(() {});
-    }
-    final elapsed = sw.elapsedMicroseconds;
-    // 每 10 帧输出一次统计
-    if (_animTickCount % 10 == 0) {
-      debugPrint('[Perf] _onAnimTick: ${elapsed}μs (count=$_animTickCount)');
     }
   }
 
@@ -120,22 +148,20 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _progressAnim = null;
     _pendingAnimationTarget = null;
     _sm.onAnimationCompleted(target);
+    _labPerfLog(
+      'animation completed target=${target.toStringAsFixed(3)} state=${_sm.state.name}',
+    );
     if (mounted) {
       setState(() {});
     }
   }
 
   void _runAction(LabPullPanelAction action) {
-    final sw = Stopwatch()..start();
     switch (action.type) {
       case LabPullPanelActionType.none:
         setState(() {});
       case LabPullPanelActionType.animateTo:
         _animateTo(action.targetProgress!);
-    }
-    final elapsed = sw.elapsedMicroseconds;
-    if (elapsed > 500) {
-      debugPrint('[Perf] _runAction: ${elapsed}μs, type=${action.type}, target=${action.targetProgress}');
     }
   }
 
@@ -197,6 +223,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     if (!atTop) return false;
 
     if (notification is ScrollStartNotification) {
+      _labPerfLog(
+        'main scroll start progress=${_progress.toStringAsFixed(3)}',
+      );
       _stopCurrentAnimation(settleToTarget: true);
       _sm.beginMainDrag();
       return false;
@@ -207,6 +236,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
       final dy = notification.dragDetails!.delta.dy;
       if (dy > 0) {
         _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
+        _labPerfLog(
+          'main drag update dy=${dy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
+        );
         setState(() {});
         return true;
       }
@@ -219,6 +251,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
         _stopCurrentAnimation(settleToTarget: true);
         _sm.beginMainDrag();
         _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
+        _labPerfLog(
+          'main overscroll dy=${dy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
+        );
         setState(() {});
         return true;
       }
@@ -226,6 +261,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
     if (notification is ScrollEndNotification &&
         _sm.state == LabPullPanelState.draggingMain) {
+      _labPerfLog(
+        'main drag end velocity=${_estimatedVelocityDy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
+      );
       _runAction(_sm.endMainDrag(velocityDy: _estimatedVelocityDy));
       return true;
     }
@@ -236,15 +274,22 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   void _onPanelHandleDragStart() {
     _stopCurrentAnimation(settleToTarget: true);
     _sm.beginPanelDrag();
+    _labPerfLog('panel drag start progress=${_progress.toStringAsFixed(3)}');
     setState(() {});
   }
 
   void _onPanelHandleDragUpdate(double deltaDy, double fullHeight) {
     _sm.updatePanelDrag(deltaDy: deltaDy, fullHeight: fullHeight);
+    _labPerfLog(
+      'panel drag update dy=${deltaDy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
+    );
     setState(() {});
   }
 
   void _onPanelHandleDragEnd(double velocityDy) {
+    _labPerfLog(
+      'panel drag end velocity=${velocityDy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
+    );
     _runAction(_sm.endPanelDrag(velocityDy: velocityDy));
   }
 
@@ -257,19 +302,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    _buildCount++;
-    final sw = Stopwatch()..start();
     final demos = demoRegistry.getAll();
     final theme = Theme.of(context);
     final appBarReveal = (1.0 - _progress).clamp(0.0, 1.0);
-    final appBarHeight = kToolbarHeight * appBarReveal;
-
-    final elapsed = sw.elapsedMicroseconds;
-    // 每 5 次输出一次，或者耗时超过 500μs 时输出
-    if (_buildCount % 5 == 0 || elapsed > 500) {
-      debugPrint('[Perf] build #$_buildCount: ${elapsed}μs, progress=$_progress, state=${_sm.state}');
-    }
-
 
     return PopScope(
       canPop: !_panelConsumesBack,
@@ -281,30 +316,32 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: PreferredSize(
-          preferredSize: Size.fromHeight(appBarHeight),
-          child: ClipRect(
-            child: Align(
-              alignment: Alignment.topCenter,
-              heightFactor: appBarReveal,
-              child: Opacity(
-                opacity: appBarReveal,
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: RepaintBoundary(
+            child: ClipRect(
+              child: Align(
+                alignment: Alignment.topCenter,
+                heightFactor: appBarReveal,
                 child: IgnorePointer(
                   ignoring: appBarReveal <= 0.0,
-                  child: AppBar(
-                    title: const Text('Lab'),
-                        actions: [
-                          IconButton(
-                            icon: const Icon(Icons.cleaning_services_outlined),
-                            onPressed: () => _showCacheInfo(context),
-                            tooltip: 'Cache',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.info_outline),
-                            onPressed: () => _showLabInfo(context),
-                          ),
-                        ],
-                      ),
+                  child: Opacity(
+                    opacity: appBarReveal,
+                    child: AppBar(
+                      title: const Text('Lab'),
+                      actions: [
+                        IconButton(
+                          icon: const Icon(Icons.cleaning_services_outlined),
+                          onPressed: () => _showCacheInfo(context),
+                          tooltip: 'Cache',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.info_outline),
+                          onPressed: () => _showLabInfo(context),
+                        ),
+                      ],
                     ),
+                  ),
+                ),
               ),
             ),
           ),
