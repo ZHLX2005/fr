@@ -7,13 +7,22 @@ final GetIt getIt = GetIt.instance;
 
 /// Register all message strategies and factory
 void registerMessageStrategies() {
+  final List<MessageWidgetStrategy<IMessageData>> strategyInstances = [
+    TextMessageWidgetStrategy(),
+    MarkdownMessageWidgetStrategy(),
+    HtmlMessageWidgetStrategy(),
+  ];
+
   final strategies = <String, MessageWidgetStrategy<IMessageData>>{
-    TextMessageWidgetStrategy().type: TextMessageWidgetStrategy(),
-    MarkdownMessageWidgetStrategy().type: MarkdownMessageWidgetStrategy(),
-    HtmlMessageWidgetStrategy().type: HtmlMessageWidgetStrategy(),
+    for (final s in strategyInstances) s.type: s,
+  };
+
+  // 遍历 strategies 通过 createMockData() 构建 mockData
+  final mockData = <String, IMessageData>{
+    for (final s in strategyInstances) s.type: s.createMockData(),
   };
 
   getIt.registerSingleton<MessageWidgetFactory>(
-    MessageWidgetFactory(strategies),
+    MessageWidgetFactory(strategies, mockData),
   );
 }

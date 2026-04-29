@@ -12,4 +12,15 @@ class MarkdownMessageWidgetStrategy extends MessageWidgetStrategy<MarkdownMessag
   Widget build(BuildContext context, MarkdownMessageData data) {
     return MarkdownRendererWidget(data: data.content);
   }
+
+  @override
+  MarkdownMessageData createMockData() => MarkdownMessageData('''**粗体文本** 和 *斜体文本*
+
+~~删除线~~
+
+```dart
+void main() {
+  print("Hello");
+}
+```''');
 }

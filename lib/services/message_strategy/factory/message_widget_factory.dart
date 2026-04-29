@@ -8,8 +8,9 @@ typedef MessageWidgetStrategyMap = Map<String, MessageWidgetStrategy<IMessageDat
 /// Uses O(1) lookup via Map
 class MessageWidgetFactory {
   final MessageWidgetStrategyMap _strategies;
+  final Map<String, IMessageData> _mockData;
 
-  MessageWidgetFactory(this._strategies);
+  MessageWidgetFactory(this._strategies, this._mockData);
 
   /// Create widget for the given message data
   /// Throws UnsupportedError if no strategy found for type
@@ -22,4 +23,17 @@ class MessageWidgetFactory {
     }
     return strategy.build(context, data);
   }
+
+  /// Get mock data by type
+  /// Throws UnsupportedError if no mock data found for type
+  IMessageData getMockData(String type) {
+    final data = _mockData[type];
+    if (data == null) {
+      throw UnsupportedError('No mock data for type: $type');
+    }
+    return data;
+  }
+
+  /// Get all supported types
+  List<String> get supportedTypes => _mockData.keys.toList();
 }
