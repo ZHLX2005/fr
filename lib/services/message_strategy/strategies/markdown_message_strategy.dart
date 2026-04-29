@@ -11,13 +11,55 @@ class MarkdownMessageWidgetStrategy extends MessageWidgetStrategy<MarkdownMessag
   }
 
   @override
-  MarkdownMessageData createMockData() => MarkdownMessageData('''**粗体文本** 和 *斜体文本*
+  MarkdownMessageData createMockData() => MarkdownMessageData('''# Markdown 测试数据
 
-~~删除线~~
+这是一个**完整的 Markdown 示例**，包含多种格式：
+
+## 文本格式
+
+- **粗体文字** 用于强调
+- *斜体文字* 用于轻量强调
+- ~~删除线~~ 用于标记过时内容
+- `行内代码` 用于代码片段
+
+## 代码块
 
 ```dart
-void main() {
-  print("Hello");
+class MarkdownMessageData implements IMessageData {
+  final String content;
+
+  MarkdownMessageData(this.content);
+
+  @override
+  String get type => 'markdown';
+
+  void render() {
+    print('Hello Markdown!');
+  }
 }
-```''');
+```
+
+## 列表
+
+1. 第一项
+2. 第二项
+3. 第三项
+
+- 无序列表项 A
+- 无序列表项 B
+- 无序列表项 C
+
+## 引用
+
+> 这是一段引用文本
+> 可以跨越多行
+> 通常用于引用他人言论
+
+## 链接
+
+[Flutter 官网](https://flutter.dev)
+
+---
+
+*测试数据结束*''');
 }
