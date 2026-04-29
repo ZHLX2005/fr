@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get_it/get_it.dart';
 import '../../../services/message_strategy/interfaces/interfaces.dart';
 import '../../../services/message_strategy/factory/factory.dart';
@@ -17,14 +18,16 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   final TextEditingController _inputController = TextEditingController();
   final List<_DisplayMessage> _messages = [];
 
-  // Mock 数据工厂 - 从工厂获取
+  // Mock 数据工厂 - 从工厂获取（缓存避免重复查找）
   late final Map<String, IMessageData> _mockData;
   late final List<String> _supportedTypes;
+  late final MessageWidgetFactory _factory;
 
   @override
   void initState() {
     super.initState();
     final factory = GetIt.instance<MessageWidgetFactory>();
+    _factory = factory;
     _mockData = {
       for (final type in factory.supportedTypes) type: factory.getMockData(type),
     };
@@ -38,18 +41,19 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     super.dispose();
   }
 
-  Future<void> _scrollToBottom() async {
-    if (_scrollController.hasClients) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      final position = _scrollController.position;
-      if (position.maxScrollExtent.isFinite) {
-        _scrollController.animateTo(
-          position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+  void _scrollToBottom() {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        final position = _scrollController.position;
+        if (position.maxScrollExtent.isFinite) {
+          _scrollController.animateTo(
+            position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
       }
-    }
+    });
   }
 
   void _handleSend(String type) async {
@@ -76,7 +80,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     });
 
     _inputController.clear();
-    await _scrollToBottom();
+    _scrollToBottom();
 
     // 模拟 AI 响应
     await Future.delayed(const Duration(milliseconds: 500));
@@ -90,13 +94,13 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
       ));
     });
 
-    await _scrollToBottom();
+    _scrollToBottom();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final factory = GetIt.instance<MessageWidgetFactory>();
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
     return Scaffold(
       appBar: AppBar(
@@ -156,7 +160,8 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                       return _FormatMessageBubble(
                         message: message,
                         isMe: message.isMe,
-                        factory: factory,
+                        factory: _factory,
+                        maxWidth: screenWidth * 0.95,
                       );
                     },
                   ),
@@ -168,6 +173,8 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   }
 
   Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -176,31 +183,31 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
           children: [
             CircleAvatar(
               radius: 40,
-              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              backgroundColor: theme.colorScheme.secondaryContainer,
               child: Icon(
                 Icons.format_align_left,
                 size: 40,
-                color: Theme.of(context).colorScheme.secondary,
+                color: theme.colorScheme.secondary,
               ),
             ),
             const SizedBox(height: 16),
             Text(
               '格式兼容性测试',
-              style: Theme.of(context).textTheme.titleLarge,
+              style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
               '输入 type 名称，查看对应组件渲染效果',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             Text(
               '支持的 type：',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 12),
@@ -230,13 +237,15 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   }
 
   Widget _buildInputArea() {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -255,9 +264,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
+                  fillColor: theme.colorScheme.surfaceContainerHighest,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
@@ -266,13 +273,13 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                 maxLines: 4,
                 minLines: 1,
                 textInputAction: TextInputAction.send,
-                onSubmitted: (value) => _handleSend(value),
+                onSubmitted: _handleSend,
               ),
             ),
             const SizedBox(width: 8),
             Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary,
+                color: theme.colorScheme.secondary,
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -303,11 +310,13 @@ class _FormatMessageBubble extends StatelessWidget {
   final _DisplayMessage message;
   final bool isMe;
   final MessageWidgetFactory factory;
+  final double maxWidth;
 
   const _FormatMessageBubble({
     required this.message,
     required this.isMe,
     required this.factory,
+    required this.maxWidth,
   });
 
   @override
@@ -316,50 +325,50 @@ class _FormatMessageBubble extends StatelessWidget {
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.95,
-        ),
-        child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(left: 12, bottom: 4),
-              child: Text(
-                message.type.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w500,
+      child: RepaintBoundary(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Column(
+            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(left: 12, bottom: 4),
+                child: Text(
+                  message.type.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: isMe
-                    ? theme.colorScheme.secondary
-                    : theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-                  bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? theme.colorScheme.secondary
+                      : theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
+                    bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+                  ),
                 ),
+                child: isMe
+                    ? Text(
+                        message.type,
+                        style: TextStyle(
+                          color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                        ),
+                      )
+                    : message.messageData != null
+                        ? factory.create(context, message.messageData!)
+                        : const SizedBox.shrink(),
               ),
-              child: isMe
-                  ? Text(
-                      message.type,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : theme.colorScheme.onSurface,
-                      ),
-                    )
-                  : message.messageData != null
-                      ? factory.create(context, message.messageData!)
-                      : const SizedBox.shrink(),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -374,19 +383,21 @@ class _QuickReply extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
+          color: theme.colorScheme.secondaryContainer,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSecondaryContainer,
+            color: theme.colorScheme.onSecondaryContainer,
             fontSize: 14,
           ),
         ),
