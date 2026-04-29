@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:rive/rive.dart' as rive;
 
 class BottomBarItem {
@@ -245,92 +244,175 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   }
 
   void _showEasterEgg(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     showDialog(
       context: context,
-      barrierColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
       builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: GlassBackdropScope(
-          child: GlassTheme(
-            data: const GlassThemeData(
-              light: GlassThemeVariant(
-                quality: GlassQuality.premium,
-                settings: GlassThemeSettings(
-                  blur: 2.5,
-                  thickness: 24,
-                  lightIntensity: 0.42,
-                  ambientStrength: 0.06,
-                  saturation: 1.10,
-                ),
-              ),
-              dark: GlassThemeVariant(
-                quality: GlassQuality.premium,
-                settings: GlassThemeSettings(
-                  blur: 2.5,
-                  thickness: 24,
-                  lightIntensity: 0.38,
-                  ambientStrength: 0.06,
-                  saturation: 1.08,
-                ),
-              ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Container(
+          width: 316,
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF9F3EA),
+                Color(0xFFF1E5D6),
+                Color(0xFFE8D7C5),
+              ],
             ),
-            child: Center(
-              child: SizedBox(
-                width: 292,
-                height: 288,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned.fill(
-                      child: GlassPanel(
-                        useOwnLayer: true,
-                        quality: GlassQuality.premium,
-                        clipBehavior: Clip.antiAlias,
-                        shape: const LiquidRoundedSuperellipse(
-                          borderRadius: 28,
-                        ),
-                        padding: EdgeInsets.zero,
-                        settings: const LiquidGlassSettings(
-                          visibility: 0.42,
-                          glassColor: Color.fromARGB(18, 255, 255, 255),
-                          thickness: 30,
-                          blur: 2.5,
-                          lightIntensity: 0.48,
-                          ambientStrength: 0.07,
-                          saturation: 1.12,
-                          refractiveIndex: 1.7,
-                          chromaticAberration: 1.0,
-                          specularSharpness: GlassSpecularSharpness.sharp,
-                        ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.72),
+              width: 1.4,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x2A20150E),
+                blurRadius: 40,
+                offset: Offset(0, 18),
+              ),
+              BoxShadow(
+                color: Color(0x14FFFFFF),
+                blurRadius: 10,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -18,
+                top: -10,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [Color(0x42FFFFFF), Color(0x00FFFFFF)],
                       ),
                     ),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(28),
-                      child: SizedBox(
-                        width: 252,
-                        height: 248,
-                        child: rive.RiveWidgetBuilder(
-                          fileLoader: _douziFileLoader,
-                          dataBind: rive.DataBind.auto(),
-                          builder: (context, state) => switch (state) {
-                            rive.RiveLoading() => const SizedBox.shrink(),
-                            rive.RiveFailed() => const SizedBox.shrink(),
-                            rive.RiveLoaded(:final controller) =>
-                              rive.RiveWidget(
-                                controller: controller,
-                                fit: rive.Fit.contain,
-                                hitTestBehavior:
-                                    rive.RiveHitTestBehavior.opaque,
-                              ),
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              Positioned(
+                left: -10,
+                bottom: 36,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 88,
+                    height: 88,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [Color(0x22D67F54), Color(0x00D67F54)],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3A261B),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.auto_stories_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '人物小谱',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: const Color(0xFF2B1A12),
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '看看豆子的角色设定与气质档案',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF6D5648),
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    height: 248,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7EFE4),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: rive.RiveWidgetBuilder(
+                        fileLoader: _douziFileLoader,
+                        dataBind: rive.DataBind.auto(),
+                        builder: (context, state) => switch (state) {
+                          rive.RiveLoading() => const SizedBox.shrink(),
+                          rive.RiveFailed() => const SizedBox.shrink(),
+                          rive.RiveLoaded(:final controller) => rive.RiveWidget(
+                            controller: controller,
+                            fit: rive.Fit.contain,
+                            hitTestBehavior: rive.RiveHitTestBehavior.opaque,
+                          ),
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E221B),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      textStyle: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('人物小谱入口已预留'),
+                          backgroundColor: colorScheme.inverseSurface,
+                        ),
+                      );
+                    },
+                    child: const Text('查看人物小谱'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
