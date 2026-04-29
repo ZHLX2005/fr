@@ -6,7 +6,6 @@ import '../data/selection_message_data.dart';
 class SelectionMessageWidgetStrategy extends MessageWidgetStrategy<SelectionMessageData> {
   final Set<String> _selectedIds = {};
 
-  @override
   void dispose() {
     // No resources to dispose
   }
