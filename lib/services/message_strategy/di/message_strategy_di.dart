@@ -15,12 +15,12 @@ void registerMessageStrategies() {
   ];
 
   final strategies = <String, MessageWidgetStrategy<IMessageData>>{
-    for (final s in strategyInstances) s.type: s,
+    for (final s in strategyInstances) s.createMockData().type: s,
   };
 
   // 遍历 strategies 通过 createMockData() 构建 mockData
   final mockData = <String, IMessageData>{
-    for (final s in strategyInstances) s.type: s.createMockData(),
+    for (final s in strategyInstances) s.createMockData().type: s.createMockData(),
   };
 
   getIt.registerSingleton<MessageWidgetFactory>(
