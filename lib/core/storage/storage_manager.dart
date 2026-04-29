@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../body/models/body_record.dart';
 
 /// 统一存储管理器
 ///
@@ -102,7 +103,7 @@ class StorageManager {
               } else {
                 // body_records需要先注册适配器
                 if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
-                  Hive.registerAdapter(_BodyRecordAdapterForStorage());
+                  Hive.registerAdapter(BodyRecordAdapter());
                 }
                 box = await Hive.openBox(name);
               }
@@ -392,7 +393,7 @@ class StorageManager {
         } else {
           // body_records需要先注册适配器
           if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
-            Hive.registerAdapter(_BodyRecordAdapterForStorage());
+            Hive.registerAdapter(BodyRecordAdapter());
           }
           box = await Hive.openBox(name);
         }
@@ -517,22 +518,4 @@ class KeyDetail {
   }
 
   bool get isJson => rawValue is Map || rawValue is List;
-}
-
-/// BodyRecord适配器(用于StorageManager读取body_records)
-class _BodyRecordAdapterForStorage extends TypeAdapter<dynamic> {
-  @override
-  final int typeId = 0;
-
-  @override
-  dynamic read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return '${fields[1] ?? ''} (疼痛:${fields[2] ?? '无'}) ${fields[3] ?? ''}';
-  }
-
-  @override
-  void write(BinaryWriter writer, dynamic obj) {}
 }
