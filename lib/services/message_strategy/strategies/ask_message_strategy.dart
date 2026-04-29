@@ -6,7 +6,6 @@ import '../data/ask_message_data.dart';
 class AskMessageWidgetStrategy extends MessageWidgetStrategy<AskMessageData> {
   final TextEditingController _controller = TextEditingController();
 
-  @override
   void dispose() {
     _controller.dispose();
   }
