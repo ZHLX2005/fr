@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/markdown_renderer_widget.dart';
-import '../../../widgets/html_renderer_widget.dart';
+import 'package:get_it/get_it.dart';
+import '../../../services/message_strategy/interfaces/interfaces.dart';
+import '../../../services/message_strategy/data/data.dart';
+import '../../../services/message_strategy/factory/factory.dart';
 
 /// 格式兼容性测试页面
-/// 展示各种消息格式的渲染效果，布局与 AgentChatPage 相同
+/// 使用策略模式展示各种消息组件
 class FormatCompatibilityPage extends StatefulWidget {
   const FormatCompatibilityPage({super.key});
 
@@ -14,60 +16,21 @@ class FormatCompatibilityPage extends StatefulWidget {
 class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _inputController = TextEditingController();
-  final List<_FormatMessage> _messages = [];
-  int _responseIndex = 0;
+  final List<_DisplayMessage> _messages = [];
 
-  // 预定义的响应示例
-  final List<_FormatExample> _examples = [
-    _FormatExample(
-      label: '纯文本',
-      content: '这是一条普通的纯文本消息，直接显示内容。',
-    ),
-    _FormatExample(
-      label: 'Markdown 粗体/斜体',
-      content: '**粗体文本** 和 *斜体文本*\n\n~~删除线~~',
-    ),
-    _FormatExample(
-      label: 'Markdown 代码块',
-      content: '''```dart
+  // Mock 数据示例
+  final Map<String, IMessageData> _mockData = {
+    'text': TextMessageData('这是一条普通的纯文本消息，直接显示内容。'),
+    'markdown': MarkdownMessageData('''**粗体文本** 和 *斜体文本*
+
+~~删除线~~
+
+```dart
 void main() {
   print("Hello");
 }
-```''',
-    ),
-    _FormatExample(
-      label: 'Markdown 列表',
-      content: '''1. 第一步操作
-2. 第二步操作
-3. 第三步操作
-
-- 无序列表项
-- 子项''',
-    ),
-    _FormatExample(
-      label: 'Markdown 表格',
-      content: '''| 名称 | 数量 | 价格 |
-|------|------|------|
-| 苹果 | 10 | \$5 |
-| 香蕉 | 5 | \$3 |''',
-    ),
-    _FormatExample(
-      label: 'Markdown 引用块',
-      content: '''> 这是一段引用文本
-> 可以用来引用他人说的话''',
-    ),
-    _FormatExample(
-      label: 'Markdown 混合格式',
-      content: '''**标题**: 混合格式示例
-
-1. 首先，创建一个 `变量`
-2. 然后调用 `print()` 输出
-
-> 注意: 这是一个重要提示''',
-    ),
-    _FormatExample(
-      label: 'HTML 格式',
-      content: '''<p>这是 <strong>粗体</strong> 和 <em>斜体</em></p>
+```'''),
+    'html': HtmlMessageData('''<p>这是 <strong>粗体</strong> 和 <em>斜体</em></p>
 
 <ul>
   <li>列表项 1</li>
@@ -76,10 +39,8 @@ void main() {
 
 <blockquote>引用块</blockquote>
 
-<code>行内代码</code>''',
-      useHtml: true,
-    ),
-  ];
+<code>行内代码</code>'''),
+  };
 
   @override
   void dispose() {
@@ -102,13 +63,25 @@ void main() {
     }
   }
 
-  void _handleSend(String content) async {
-    if (content.trim().isEmpty) return;
+  void _handleSend(String type) async {
+    final trimmedType = type.trim().toLowerCase();
+    if (trimmedType.isEmpty) return;
+
+    // 检查 Mock 数据是否存在
+    if (!_mockData.containsKey(trimmedType)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('不支持的 type: $trimmedType，支持的类型: text, markdown, html'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
 
     // 添加用户消息
     setState(() {
-      _messages.add(_FormatMessage(
-        content: content,
+      _messages.add(_DisplayMessage(
+        type: trimmedType,
         isMe: true,
       ));
     });
@@ -116,17 +89,15 @@ void main() {
     _inputController.clear();
     await _scrollToBottom();
 
-    // 模拟 AI 响应（循环展示不同格式）
+    // 模拟 AI 响应
     await Future.delayed(const Duration(milliseconds: 500));
-    final example = _examples[_responseIndex % _examples.length];
-    _responseIndex++;
 
+    final messageData = _mockData[trimmedType]!;
     setState(() {
-      _messages.add(_FormatMessage(
-        content: example.content,
+      _messages.add(_DisplayMessage(
+        type: trimmedType,
         isMe: false,
-        label: example.label,
-        useHtml: example.useHtml,
+        messageData: messageData,
       ));
     });
 
@@ -136,6 +107,7 @@ void main() {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final factory = GetIt.instance<MessageWidgetFactory>();
 
     return Scaffold(
       appBar: AppBar(
@@ -158,7 +130,7 @@ void main() {
                 children: [
                   Text('Format 测试', style: TextStyle(fontSize: 16)),
                   Text(
-                    '格式渲染演示',
+                    '策略模式渲染演示',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
@@ -172,7 +144,6 @@ void main() {
             onPressed: () {
               setState(() {
                 _messages.clear();
-                _responseIndex = 0;
               });
             },
             tooltip: '重置',
@@ -196,6 +167,7 @@ void main() {
                       return _FormatMessageBubble(
                         message: message,
                         isMe: message.isMe,
+                        factory: factory,
                       );
                     },
                   ),
@@ -229,7 +201,7 @@ void main() {
             ),
             const SizedBox(height: 8),
             Text(
-              '输入文本，查看不同格式的渲染效果',
+              '输入 type 名称，查看对应组件渲染效果',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
               ),
@@ -237,7 +209,7 @@ void main() {
             ),
             const SizedBox(height: 32),
             Text(
-              '快捷示例：',
+              '支持的 type：',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
               ),
@@ -249,16 +221,16 @@ void main() {
               alignment: WrapAlignment.center,
               children: [
                 _QuickReply(
-                  text: 'Markdown 粗体',
-                  onTap: () => _handleSend('**粗体文本**'),
+                  text: 'text',
+                  onTap: () => _handleSend('text'),
                 ),
                 _QuickReply(
-                  text: 'Markdown 列表',
-                  onTap: () => _handleSend('1. 第一项\n2. 第二项'),
+                  text: 'markdown',
+                  onTap: () => _handleSend('markdown'),
                 ),
                 _QuickReply(
-                  text: 'HTML 格式',
-                  onTap: () => _handleSend('<strong>粗体</strong> 和 <em>斜体</em>'),
+                  text: 'html',
+                  onTap: () => _handleSend('html'),
                 ),
               ],
             ),
@@ -288,7 +260,7 @@ void main() {
               child: TextField(
                 controller: _inputController,
                 decoration: InputDecoration(
-                  hintText: '输入文本测试格式...',
+                  hintText: '输入 type (text/markdown/html)...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
@@ -326,39 +298,27 @@ void main() {
   }
 }
 
-class _FormatMessage {
-  final String content;
+class _DisplayMessage {
+  final String type;
   final bool isMe;
-  final String? label;
-  final bool useHtml;
+  final IMessageData? messageData;
 
-  _FormatMessage({
-    required this.content,
+  _DisplayMessage({
+    required this.type,
     required this.isMe,
-    this.label,
-    this.useHtml = false,
-  });
-}
-
-class _FormatExample {
-  final String label;
-  final String content;
-  final bool useHtml;
-
-  _FormatExample({
-    required this.label,
-    required this.content,
-    this.useHtml = false,
+    this.messageData,
   });
 }
 
 class _FormatMessageBubble extends StatelessWidget {
-  final _FormatMessage message;
+  final _DisplayMessage message;
   final bool isMe;
+  final MessageWidgetFactory factory;
 
   const _FormatMessageBubble({
     required this.message,
     required this.isMe,
+    required this.factory,
   });
 
   @override
@@ -375,18 +335,17 @@ class _FormatMessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (message.label != null)
-              Container(
-                margin: const EdgeInsets.only(left: 12, bottom: 4),
-                child: Text(
-                  message.label!,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
+            Container(
+              margin: const EdgeInsets.only(left: 12, bottom: 4),
+              child: Text(
+                message.type.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
+            ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
@@ -402,14 +361,14 @@ class _FormatMessageBubble extends StatelessWidget {
               ),
               child: isMe
                   ? Text(
-                      message.content,
+                      message.type,
                       style: TextStyle(
                         color: isMe ? Colors.white : theme.colorScheme.onSurface,
                       ),
                     )
-                  : message.useHtml
-                      ? HtmlRendererWidget(data: message.content)
-                      : MarkdownRendererWidget(data: message.content),
+                  : message.messageData != null
+                      ? factory.create(context, message.messageData!)
+                      : const SizedBox.shrink(),
             ),
           ],
         ),
