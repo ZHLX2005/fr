@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../body/models/body_record.dart';
 
 /// 统一存储管理器
 ///
@@ -91,26 +93,64 @@ class StorageManager {
             'focus_subjects',
             'clock_records',
             'notes',
+            'body_records',
           ];
 
           for (final name in boxNames) {
             try {
+              debugPrint('StorageManager: 尝试处理 box: $name');
               if (Hive.isBoxOpen(name)) {
-                final box = Hive.box(name);
-                for (final key in box.keys) {
-                  final value = box.get(key);
-                  result.add(
-                    KeyDetail(
+                debugPrint('StorageManager: $name 已打开');
+                // body_records需要用正确的类型访问
+                if (name == 'body_records') {
+                  final box = Hive.box<BodyRecord>(name);
+                  debugPrint('StorageManager: $name 以BodyRecord类型获取,长度=${box.length}');
+                  for (final key in box.keys) {
+                    final value = box.get(key);
+                    debugPrint('StorageManager: 获取键 $key, value类型=${value.runtimeType}');
+                    result.add(KeyDetail(
                       key: '$name/$key',
                       value: _formatValue(value),
                       rawValue: value,
                       size: _estimateSize(value),
-                    ),
-                  );
+                    ));
+                  }
+                } else {
+                  final box = Hive.box(name);
+                  debugPrint('StorageManager: $name 包含 ${box.length} 个键');
+                  for (final key in box.keys) {
+                    final value = box.get(key);
+                    debugPrint('StorageManager: 获取键 $key, value类型=${value.runtimeType}');
+                    result.add(KeyDetail(
+                      key: '$name/$key',
+                      value: _formatValue(value),
+                      rawValue: value,
+                      size: _estimateSize(value),
+                    ));
+                  }
+                }
+              } else {
+                debugPrint('StorageManager: $name 未打开,尝试打开');
+                // body_records需要先注册适配器
+                if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
+                  debugPrint('StorageManager: 注册 BodyRecordAdapter');
+                  Hive.registerAdapter(BodyRecordAdapter());
+                }
+                final box = await Hive.openBox(name);
+                debugPrint('StorageManager: $name 打开成功,长度=${box.length}');
+                for (final key in box.keys) {
+                  final value = box.get(key);
+                  debugPrint('StorageManager: 获取键 $key, value类型=${value.runtimeType}');
+                  result.add(KeyDetail(
+                    key: '$name/$key',
+                    value: _formatValue(value),
+                    rawValue: value,
+                    size: _estimateSize(value),
+                  ));
                 }
               }
-            } catch (e) {
-              // Box 不存在或已删除
+            } catch (e, st) {
+              debugPrint('StorageManager: 处理 $name 出错: $e\n$st');
             }
           }
         }
@@ -310,6 +350,7 @@ class StorageManager {
             'focus_subjects',
             'clock_records',
             'notes',
+            'body_records',
           ];
           for (final name in boxNames) {
             try {
@@ -372,15 +413,27 @@ class StorageManager {
       'focus_subjects',
       'clock_records',
       'notes',
+      'body_records',
     ];
 
     for (final name in boxNames) {
       try {
+        Box box;
         if (Hive.isBoxOpen(name)) {
-          final box = Hive.box(name);
-          totalKeys += box.length;
-          totalSize += _estimateBoxSize(box);
+          if (name == 'body_records') {
+            box = Hive.box<BodyRecord>(name);
+          } else {
+            box = Hive.box(name);
+          }
+        } else {
+          // body_records需要先注册适配器
+          if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
+            Hive.registerAdapter(BodyRecordAdapter());
+          }
+          box = await Hive.openBox(name);
         }
+        totalKeys += box.length;
+        totalSize += _estimateBoxSize(box);
       } catch (e) {
         // Box 可能不存在
       }
@@ -470,6 +523,7 @@ class StorageInfo {
       'focus_subjects': '专注科目',
       'clock_records': '时钟记录',
       'notes': '笔记',
+      'body_records': '身体记录',
       'SharedPreferences': '应用配置',
     };
     return nameMap[name] ?? name;
