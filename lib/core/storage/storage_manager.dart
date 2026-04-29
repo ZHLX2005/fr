@@ -325,8 +325,14 @@ class StorageManager {
           }
 
           if (actualBoxName.isEmpty) return false;
-          final box = Hive.box(actualBoxName);
-          await box.delete(actualKey);
+          // body_records 需要用类型化 Box
+          if (actualBoxName == 'body_records') {
+            final box = Hive.box<BodyRecord>(actualBoxName);
+            await box.delete(actualKey);
+          } else {
+            final box = Hive.box(actualBoxName);
+            await box.delete(actualKey);
+          }
           return true;
 
         case StorageType.prefs:
