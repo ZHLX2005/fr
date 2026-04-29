@@ -1,7 +1,8 @@
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
 
-/// 底部导航数据模型
+import 'package:flutter/material.dart';
+import 'package:rive/rive.dart' as rive;
+
 class BottomBarItem {
   final String label;
   final IconData icon;
@@ -16,7 +17,6 @@ class BottomBarItem {
   });
 }
 
-/// 小豆子底部导航栏
 class XiaoDouZiBottomBar extends StatefulWidget {
   final int currentIndex;
   final Function(int) onItemSelected;
@@ -36,9 +36,12 @@ class XiaoDouZiBottomBar extends StatefulWidget {
 class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
+  late final rive.FileLoader _douziFileLoader = rive.FileLoader.fromAsset(
+    'assets/rive/douzi.riv',
+    riveFactory: rive.Factory.rive,
+  );
   bool _isLongPressed = false;
 
-  // 底部导航项
   static const List<BottomBarItem> _items = [
     BottomBarItem(
       label: '主页',
@@ -55,13 +58,12 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
       icon: Icons.radio_button_unchecked,
       selectedIcon: Icons.radio_button_checked,
       isEnabled: true,
-    ), // 中间O按钮
+    ),
     BottomBarItem(
       label: 'LocalNet',
       icon: Icons.wifi,
       selectedIcon: Icons.wifi,
     ),
-
     BottomBarItem(
       label: '图库',
       icon: Icons.photo_library_outlined,
@@ -75,13 +77,14 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
-      value: 1.0, // 设置为最终状态，避免初始化时布局抖动
+      value: 1.0,
     );
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _douziFileLoader.dispose();
     super.dispose();
   }
 
@@ -93,7 +96,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     return Stack(
       alignment: AlignmentDirectional.bottomCenter,
       children: [
-        // 底部导航栏背景
         AnimatedBuilder(
           animation: _animationController,
           builder: (context, child) {
@@ -118,18 +120,14 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 导航项行
               SizedBox(
                 height: 62,
                 child: Padding(
                   padding: const EdgeInsets.only(left: 8, right: 8, top: 4),
                   child: Row(
                     children: [
-                      // 主页
                       Expanded(child: _buildTabItem(0, theme)),
-                      // 聊天
                       Expanded(child: _buildTabItem(1, theme)),
-                      // 中间占位
                       SizedBox(
                         width:
                             Tween<double>(begin: 0.0, end: 1.0)
@@ -142,20 +140,16 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                                 .value *
                             64.0,
                       ),
-                      // 通讯录
                       Expanded(child: _buildTabItem(3, theme)),
-                      // 待开发
                       Expanded(child: _buildTabItem(4, theme)),
                     ],
                   ),
                 ),
               ),
-              // 底部安全区
               SizedBox(height: MediaQuery.of(context).padding.bottom),
             ],
           ),
         ),
-        // 中间O按钮
         Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).padding.bottom,
@@ -249,7 +243,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     );
   }
 
-  /// 显示彩蛋对话框
   void _showEasterEgg(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -259,7 +252,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
       builder: (dialogContext) => Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -281,78 +274,28 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [colorScheme.primary, colorScheme.tertiary],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.4),
-                      blurRadius: 20,
+              SizedBox(
+                width: 240,
+                height: 240,
+                child: rive.RiveWidgetBuilder(
+                  fileLoader: _douziFileLoader,
+                  dataBind: rive.DataBind.auto(),
+                  builder: (context, state) => switch (state) {
+                    rive.RiveLoading() => const SizedBox.shrink(),
+                    rive.RiveFailed() => const SizedBox.shrink(),
+                    rive.RiveLoaded(:final controller) => rive.RiveWidget(
+                      controller: controller,
+                      fit: rive.Fit.contain,
+                      hitTestBehavior: rive.RiveHitTestBehavior.opaque,
                     ),
-                  ],
+                  },
                 ),
-                child: const Icon(
-                  Icons.auto_awesome,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                '🎉 发现了彩蛋！',
-                style: Theme.of(
-                  dialogContext,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '专注时光，让每一刻都有意义',
-                style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  Chip(
-                    avatar: const Icon(Icons.timer, size: 16),
-                    label: const Text('番茄钟'),
-                    backgroundColor: colorScheme.surface,
-                  ),
-                  Chip(
-                    avatar: const Icon(Icons.spa, size: 16),
-                    label: const Text('心流'),
-                    backgroundColor: colorScheme.surface,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '💡 翻转手机可自动进入专注模式',
-                style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('知道了'),
               ),
             ],
           ),
         ),
       ),
     ).then((_) {
-      // 弹窗关闭后重置状态
       if (mounted) {
         setState(() => _isLongPressed = false);
       }
@@ -364,7 +307,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     final isSelected = widget.currentIndex == index;
     final colorScheme = theme.colorScheme;
 
-    // 中间专注按钮 - 特殊气泡效果
     if (index == 2) {
       return GestureDetector(
         onTap: () {
@@ -433,7 +375,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     }
 
     if (!item.isEnabled) {
-      // 待开发 - 禁用状态
       return Opacity(
         opacity: 0.4,
         child: Column(
@@ -493,7 +434,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   }
 }
 
-/// 底部导航栏裁剪器 - 中间圆形缺口
 class _BottomBarClipper extends CustomClipper<Path> {
   _BottomBarClipper({this.radius = 38.0});
 
@@ -504,7 +444,6 @@ class _BottomBarClipper extends CustomClipper<Path> {
     final Path path = Path();
     final double v = radius * 2;
 
-    // 左上角圆角
     path.lineTo(0, 0);
     path.arcTo(
       Rect.fromLTWH(0, 0, radius, radius),
@@ -513,34 +452,30 @@ class _BottomBarClipper extends CustomClipper<Path> {
       false,
     );
 
-    // 中间缺口左侧
     final double leftArcStartX = (size.width / 2) - v / 2 - radius + v * 0.04;
     path.arcTo(
       Rect.fromLTWH(leftArcStartX, 0, radius, radius),
-      math.pi * 1.5, // 270度
-      math.pi * 0.39, // 约70度
+      math.pi * 1.5,
+      math.pi * 0.39,
       false,
     );
 
-    // 中间圆形缺口
     path.arcTo(
       Rect.fromLTWH((size.width / 2) - v / 2, -v / 2, v, v),
-      math.pi * 0.89, // 160度
-      math.pi * -0.78, // -140度
+      math.pi * 0.89,
+      math.pi * -0.78,
       false,
     );
 
-    // 中间缺口右侧
     final double rightArcStartX =
         (size.width - ((size.width / 2) - v / 2)) - v * 0.04;
     path.arcTo(
       Rect.fromLTWH(rightArcStartX, 0, radius, radius),
-      math.pi * 1.11, // 200度
-      math.pi * 0.39, // 约70度
+      math.pi * 1.11,
+      math.pi * 0.39,
       false,
     );
 
-    // 右上角圆角
     path.arcTo(
       Rect.fromLTWH(size.width - radius, 0, radius, radius),
       math.pi * 1.5,
@@ -548,9 +483,7 @@ class _BottomBarClipper extends CustomClipper<Path> {
       false,
     );
 
-    // 右下角
     path.lineTo(size.width, size.height);
-    // 左下角
     path.lineTo(0, size.height);
     path.close();
 
