@@ -276,40 +276,58 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               ),
             ),
             child: Center(
-              child: GlassPanel(
-                useOwnLayer: true,
-                quality: GlassQuality.premium,
-                clipBehavior: Clip.antiAlias,
+              child: SizedBox(
                 width: 292,
-                shape: const LiquidRoundedSuperellipse(borderRadius: 28),
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                settings: const LiquidGlassSettings(
-                  visibility: 0.42,
-                  glassColor: Color.fromARGB(18, 255, 255, 255),
-                  thickness: 30,
-                  blur: 2.5,
-                  lightIntensity: 0.48,
-                  ambientStrength: 0.07,
-                  saturation: 1.12,
-                  refractiveIndex: 1.24,
-                  chromaticAberration: 0.014,
-                  specularSharpness: GlassSpecularSharpness.sharp,
-                ),
-                child: SizedBox(
-                  height: 248,
-                  child: rive.RiveWidgetBuilder(
-                    fileLoader: _douziFileLoader,
-                    dataBind: rive.DataBind.auto(),
-                    builder: (context, state) => switch (state) {
-                      rive.RiveLoading() => const SizedBox.shrink(),
-                      rive.RiveFailed() => const SizedBox.shrink(),
-                      rive.RiveLoaded(:final controller) => rive.RiveWidget(
-                        controller: controller,
-                        fit: rive.Fit.contain,
-                        hitTestBehavior: rive.RiveHitTestBehavior.opaque,
+                height: 288,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: GlassPanel(
+                        useOwnLayer: true,
+                        quality: GlassQuality.premium,
+                        clipBehavior: Clip.antiAlias,
+                        shape: const LiquidRoundedSuperellipse(
+                          borderRadius: 28,
+                        ),
+                        padding: EdgeInsets.zero,
+                        settings: const LiquidGlassSettings(
+                          visibility: 0.42,
+                          glassColor: Color.fromARGB(18, 255, 255, 255),
+                          thickness: 30,
+                          blur: 2.5,
+                          lightIntensity: 0.48,
+                          ambientStrength: 0.07,
+                          saturation: 1.12,
+                          refractiveIndex: 1.24,
+                          chromaticAberration: 0.014,
+                          specularSharpness: GlassSpecularSharpness.sharp,
+                        ),
                       ),
-                    },
-                  ),
+                    ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: SizedBox(
+                        width: 252,
+                        height: 248,
+                        child: rive.RiveWidgetBuilder(
+                          fileLoader: _douziFileLoader,
+                          dataBind: rive.DataBind.auto(),
+                          builder: (context, state) => switch (state) {
+                            rive.RiveLoading() => const SizedBox.shrink(),
+                            rive.RiveFailed() => const SizedBox.shrink(),
+                            rive.RiveLoaded(:final controller) =>
+                              rive.RiveWidget(
+                                controller: controller,
+                                fit: rive.Fit.contain,
+                                hitTestBehavior:
+                                    rive.RiveHitTestBehavior.opaque,
+                              ),
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
