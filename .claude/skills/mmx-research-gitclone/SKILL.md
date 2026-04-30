@@ -53,7 +53,31 @@ git clone --depth 1 git@github.com:<owner>/<repo>.git .claude/repo/<repo-name>
 git clone --depth 1 https://github.com/<owner>/<repo>.git .claude/repo/<repo-name>
 ```
 
-### 4. 限制
+### 4. 验证克隆结果
+
+**必须检查目录和文件是否存在**：
+
+```bash
+# 检查目录是否存在
+if [ -d ".claude/repo/<repo-name>" ]; then
+    echo "目录存在: .claude/repo/<repo-name>"
+else
+    echo "错误: 目录不存在"
+    exit 1
+fi
+
+# 检查关键文件是否存在
+if [ -f ".claude/repo/<repo-name>/README.md" ] || [ -f ".claude/repo/<repo-name>/build.gradle" ] || [ -f ".claude/repo/<repo-name>/pubspec.yaml" ]; then
+    echo "关键文件存在"
+else
+    echo "警告: 可能克隆不完整，缺少关键文件"
+fi
+
+# 列出目录内容
+ls -la .claude/repo/<repo-name>/
+```
+
+### 5. 限制
 
 - **最多克隆2个**最有价值的项目
 - 优先克隆与当前任务最相关的
