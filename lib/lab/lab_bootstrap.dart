@@ -14,7 +14,6 @@ import 'demos/gallery_demo.dart';
 import 'demos/game_2048_demo.dart';
 import 'demos/github_demo.dart';
 import 'demos/grid_dashboard_demo.dart';
-import 'demos/hexagon_panel_demo.dart';
 import 'demos/line_demo.dart';
 import 'demos/localnet_demo.dart';
 import 'demos/my_diary_header_demo.dart';
@@ -45,7 +44,6 @@ void registerAllDemos() {
   registerGame2048Demo();
   registerFreeCanvasDemo();
   registerStorageAnalyzeDemo();
-  registerHexagonPanelDemo();
   registerSnakeGameDemo();
   registerApiTestDemo();
   registerMyDiaryHeaderDemo();
