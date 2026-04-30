@@ -57,3 +57,6 @@ app.*.map.json
 # assets/charts/*.json
 PROJECT_INDEX.json
 PROJECT_INDEX.md
+
+# Cloned repositories (nested git repos)
+.claude/repo/
