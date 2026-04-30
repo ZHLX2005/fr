@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:rive/rive.dart' as rive;
 
 import '../../core/novel_reader/canvas_reader_engine.dart';
-import '../../lab/demos/hexagon_panel_demo.dart';
+import '../../widgets/hexagon_radar_painter.dart';
 
 class CharacterProfilePage extends StatefulWidget {
   const CharacterProfilePage({super.key});
