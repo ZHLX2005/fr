@@ -112,4 +112,7 @@ dependencies {
     // 其他必要的AndroidX库
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.activity:activity:1.8.0")
+
+    // ========== Android Liquid Glass ==========
+    // 纯 Canvas 实现，不依赖 Compose
 }

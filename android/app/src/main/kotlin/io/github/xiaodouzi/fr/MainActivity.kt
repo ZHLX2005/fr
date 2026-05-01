@@ -10,6 +10,7 @@ import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.github.xiaodouzi.fr.native.clock.ClockChannel
+import io.github.xiaodouzi.fr.native.liquid.LiquidGlassChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingWindowManager
 import io.github.xiaodouzi.fr.native.system.SystemChannel
@@ -52,6 +53,9 @@ class MainActivity : FlutterActivity() {
 
         // Volume Channel
         volumeChannel = VolumeChannel(messenger, this)
+
+        // Liquid Glass Channel
+        LiquidGlassChannel.register(messenger)
     }
 
     private fun notifyFlutter(method: String, args: Any?) {
