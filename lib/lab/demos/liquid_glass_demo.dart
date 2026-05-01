@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../lab_container.dart';
+import 'dart:io' show Platform;
+
+const String _kLiquidGlassViewType = 'com.xiaodouzi.fr/liquid_glass_view';
 
 /// 液态玻璃Demo
 class LiquidGlassDemo extends DemoPage {
@@ -15,6 +18,7 @@ class LiquidGlassDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
+    // Android 使用原生液态玻璃，其他平台使用 Flutter 实现
     return const LiquidGlassDemoPage();
   }
 }
@@ -28,6 +32,9 @@ class LiquidGlassDemoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 检测是否为 Android 平台
+    final isAndroid = Platform.isAndroid;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -88,9 +95,9 @@ class LiquidGlassDemoPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 20),
-                  const Text(
-                    'Liquid Glass',
-                    style: TextStyle(
+                  Text(
+                    isAndroid ? '原生液态玻璃 (Android)' : 'Flutter 液态玻璃',
+                    style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -98,52 +105,20 @@ class LiquidGlassDemoPage extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'iOS 26 液态玻璃效果',
-                    style: TextStyle(
+                  Text(
+                    isAndroid ? '使用 AndroidLiquidGlass 原生实现' : '使用 BackdropFilter 实现',
+                    style: const TextStyle(
                       fontSize: 16,
                       color: Colors.white70,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
-                  // 基础卡片
-                  _LiquidGlassCard(
-                    child: const Text(
-                      '基础液态玻璃卡片',
-                      style: TextStyle(color: Colors.white, fontSize: 18),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // 按钮
-                  _LiquidGlassButton(
-                    onPressed: () {},
-                    child: const Text(
-                      '液态玻璃按钮',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // 输入框
-                  _LiquidGlassTextField(
-                    hintText: '输入文字...',
-                    onChanged: (v) {},
-                  ),
-                  const SizedBox(height: 20),
-                  // 滑块
-                  _LiquidGlassSlider(
-                    value: 0.5,
-                    onChanged: (v) {},
-                  ),
-                  const SizedBox(height: 20),
-                  // 开关
-                  _LiquidGlassSwitch(
-                    value: true,
-                    onChanged: (v) {},
-                  ),
-                  const SizedBox(height: 20),
-                  // 信用卡卡片
-                  const _LiquidGlassCreditCard(),
+                  // Android 使用原生 Platform View
+                  if (isAndroid)
+                    const _NativeLiquidGlassView()
+                  else
+                    const _FlutterLiquidGlassContent(),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -155,7 +130,86 @@ class LiquidGlassDemoPage extends StatelessWidget {
   }
 }
 
-/// 液态玻璃卡片组件
+/// Android 原生液态玻璃视图
+class _NativeLiquidGlassView extends StatelessWidget {
+  const _NativeLiquidGlassView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 400,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: AndroidView(
+          viewType: _kLiquidGlassViewType,
+          layoutDirection: TextDirection.ltr,
+        ),
+      ),
+    );
+  }
+}
+
+/// Flutter 实现的液态玻璃内容（iOS fallback）
+class _FlutterLiquidGlassContent extends StatelessWidget {
+  const _FlutterLiquidGlassContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: const [
+        // 基础卡片
+        _LiquidGlassCard(
+          child: Text(
+            '基础液态玻璃卡片',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+        ),
+        SizedBox(height: 20),
+        // 按钮
+        _LiquidGlassButton(
+          onPressed: null,
+          child: Text(
+            '液态玻璃按钮',
+            style: TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ),
+        SizedBox(height: 20),
+        // 输入框
+        _LiquidGlassTextField(
+          hintText: '输入文字...',
+          onChanged: null,
+        ),
+        SizedBox(height: 20),
+        // 滑块
+        _LiquidGlassSlider(
+          value: 0.5,
+          onChanged: null,
+        ),
+        SizedBox(height: 20),
+        // 开关
+        _LiquidGlassSwitch(
+          value: true,
+          onChanged: null,
+        ),
+        SizedBox(height: 20),
+        // 信用卡卡片
+        _LiquidGlassCreditCard(),
+      ],
+    );
+  }
+}
+
+/// Flutter 液态玻璃卡片
 class _LiquidGlassCard extends StatelessWidget {
   final Widget child;
   final double borderRadius;
@@ -204,7 +258,7 @@ class _LiquidGlassCard extends StatelessWidget {
   }
 }
 
-/// 液态玻璃按钮
+/// Flutter 液态玻璃按钮
 class _LiquidGlassButton extends StatefulWidget {
   final Widget child;
   final VoidCallback? onPressed;
@@ -278,7 +332,7 @@ class _LiquidGlassButtonState extends State<_LiquidGlassButton> {
   }
 }
 
-/// 液态玻璃输入框
+/// Flutter 液态玻璃输入框
 class _LiquidGlassTextField extends StatelessWidget {
   final String hintText;
   final ValueChanged<String>? onChanged;
@@ -313,7 +367,8 @@ class _LiquidGlassTextField extends StatelessWidget {
               hintText: hintText,
               hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
           ),
         ),
@@ -322,7 +377,7 @@ class _LiquidGlassTextField extends StatelessWidget {
   }
 }
 
-/// 液态玻璃滑块
+/// Flutter 液态玻璃滑块
 class _LiquidGlassSlider extends StatelessWidget {
   final double value;
   final ValueChanged<double>? onChanged;
@@ -352,7 +407,8 @@ class _LiquidGlassSlider extends StatelessWidget {
               thumbColor: Colors.white,
               overlayColor: Colors.white.withOpacity(0.1),
               trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+              thumbShape:
+                  const RoundSliderThumbShape(enabledThumbRadius: 10),
             ),
             child: Slider(
               value: value,
@@ -365,7 +421,7 @@ class _LiquidGlassSlider extends StatelessWidget {
   }
 }
 
-/// 液态玻璃开关
+/// Flutter 液态玻璃开关
 class _LiquidGlassSwitch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
@@ -401,7 +457,7 @@ class _LiquidGlassSwitch extends StatelessWidget {
   }
 }
 
-/// 液态玻璃信用卡
+/// Flutter 液态玻璃信用卡
 class _LiquidGlassCreditCard extends StatelessWidget {
   const _LiquidGlassCreditCard();
 
