@@ -7,7 +7,6 @@ import 'package:rive/rive.dart' as rive;
 
 import '../../core/novel_reader/canvas_reader_engine.dart';
 import '../../widgets/hexagon_radar_painter.dart';
-import '../../lab/demos/hexagon_panel_demo.dart';
 
 class CharacterProfilePage extends StatefulWidget {
   const CharacterProfilePage({super.key});
