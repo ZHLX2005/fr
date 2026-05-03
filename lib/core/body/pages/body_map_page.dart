@@ -35,11 +35,7 @@ class _BodyMapPageState extends State<BodyMapPage> {
     if (hit == null) return;
 
     if (_mode == MapMode.overview || !hit.hasChildren) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        builder: (_) => RecordSheet(bodyPart: hit),
-      );
+      RecordSheet.show(context, hit);
     } else {
       Navigator.of(context).push(
         MaterialPageRoute(

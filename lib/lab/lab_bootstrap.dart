@@ -14,7 +14,6 @@ import 'demos/gallery_demo.dart';
 import 'demos/game_2048_demo.dart';
 import 'demos/github_demo.dart';
 import 'demos/grid_dashboard_demo.dart';
-import 'demos/hexagon_panel_demo.dart';
 import 'demos/line_demo.dart';
 import 'demos/localnet_demo.dart';
 import 'demos/my_diary_header_demo.dart';
@@ -34,6 +33,7 @@ import 'demos/volume_decay_demo.dart';
 import 'demos/web_bookmark_demo.dart';
 import 'demos/word_drag_demo.dart';
 import 'demos/rive_pendulum_demo.dart';
+import 'demos/liquid_glass_demo.dart';
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -45,7 +45,6 @@ void registerAllDemos() {
   registerGame2048Demo();
   registerFreeCanvasDemo();
   registerStorageAnalyzeDemo();
-  registerHexagonPanelDemo();
   registerSnakeGameDemo();
   registerApiTestDemo();
   registerMyDiaryHeaderDemo();
@@ -69,6 +68,7 @@ void registerAllDemos() {
   registerArcSelectorDemo();
   registerDemoLaboratoryDemo();
   registerRivePendulumDemo();
+  registerLiquidGlassDemo();
 }
 
 // 初始化 Schema 注册表
