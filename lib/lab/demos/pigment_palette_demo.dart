@@ -8,7 +8,7 @@ class PigmentPaletteDemo extends DemoPage {
   String get title => 'Pigment 调色板';
 
   @override
-  String get description => 'Flutter 只负责控制区；悬浮气泡、面板、取色和画布都由 Kotlin 原生实现。';
+  String get description => 'Flutter 只负责控制区，悬浮窗、取色和调色画布由 Kotlin 原生实现。';
 
   @override
   bool get preferFullScreen => true;
@@ -99,11 +99,11 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _InfoCard(
+          const _InfoCard(
             title: '实现方式',
             body:
-                '按照你的要求，这个 demo 不在 Flutter 里模拟功能层。Flutter 这里只负责权限、状态和开关控制；'
-                '悬浮气泡、展开面板、调色画布、取色覆盖层、色板抽屉都在 Kotlin 原生服务里实现。',
+                '这个 demo 不在 Flutter 里模拟功能层。Flutter 只负责权限、状态和开关控制；'
+                '悬浮气泡、展开面板、取色覆盖层和调色画布都在 Kotlin 原生服务里实现。',
           ),
           const SizedBox(height: 16),
           Card(
@@ -205,19 +205,19 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
           ),
           const SizedBox(height: 16),
           const _InfoCard(
-            title: '原生功能层',
+            title: '原生功能',
             body:
-                '1. 56dp 悬浮气泡，可拖拽与吸边\n'
-                '2. 点击气泡展开玻璃面板\n'
-                '3. 面板内原生画布支持绘制、撤销、重做、清空\n'
-                '4. 面板可进入全屏取色层\n'
-                '5. 取色完成后同步主色和色板抽屉',
+                '1. 56dp 悬浮气泡，可拖拽并吸边\n'
+                '2. 点击气泡展开原生面板\n'
+                '3. 面板内调色画布支持绘制、撤销、重做和清空\n'
+                '4. 点击取色进入全屏取色层\n'
+                '5. 取色完成后同步当前颜色和色板',
           ),
           const SizedBox(height: 16),
           const _InfoCard(
             title: '说明',
             body:
-                '这版遵循你的约束：功能层不在 Flutter 里复刻。后续如果继续补功能，应继续沿 Kotlin 服务、WindowManager overlay、MediaProjection 这条线扩展。',
+                '功能层不在 Flutter 里复制。后续如果继续补功能，应继续沿 Kotlin 服务、WindowManager overlay 和 MediaProjection 这条链路扩展。',
           ),
         ],
       ),
