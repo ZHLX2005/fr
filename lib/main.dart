@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -27,111 +25,52 @@ import 'services/message_strategy/di/di.dart';
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final savedQuality = prefs.getString('glass_quality');
+  final initialGlassQuality = savedQuality != null
+      ? GlassQuality.values.byName(savedQuality)
+      : null;
+  await LiquidGlassWidgets.initialize();
+  await RiveNative.init();
 
-  // 快速启动应用，避免华为系统杀死进程
-  runApp(const AppRoot());
+  // 初始化 Hive
+  final hiveRepo = HiveTimetableRepository();
+  await hiveRepo.init();
+  await bodyRecordRepo.init();
 
-  // 后台初始化
-  _initializeInBackground();
-}
+  // 初始化 Supabase
+  await Supabase.initialize(
+    url: 'https://kklrbynhqpwwhtfanqwt.supabase.co',
+    anonKey:
+        'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P', // TODO: 替换为实际 anon key
+  );
+  ChartRepository.initSupabase(
+    'https://kklrbynhqpwwhtfanqwt.supabase.co',
+    'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P',
+  );
 
-// 应用根 Widget - 包装所有需要的 providers
-class AppRoot extends StatefulWidget {
-  const AppRoot({super.key});
+  // 初始化 Lab 模块（注册所有 Demo + Schema）
+  bootstrapLab();
 
-  @override
-  State<AppRoot> createState() => _AppRootState();
-}
+  // 初始化消息策略
+  registerMessageStrategies();
 
-class _AppRootState extends State<AppRoot> {
-  late final Future<HiveTimetableRepository> _repoFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _repoFuture = _initRepository();
-  }
-
-  Future<HiveTimetableRepository> _initRepository() async {
-    final hiveRepo = HiveTimetableRepository();
-    await hiveRepo.init();
-    return hiveRepo;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<HiveTimetableRepository>(
-      future: _repoFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const MaterialApp(
-            home: Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-          );
-        }
-
-        return ProviderScope(
-          overrides: [
-            TimetableStore.repoProvider.overrideWithValue(snapshot.data!),
-          ],
-          child: LiquidGlassWidgets.wrap(
-            const MyApp(),
-            adaptiveQuality: true,
-            // ignore: experimental_member_use
-            adaptiveConfig: const GlassAdaptiveScopeConfig(
-              initialQuality: null,
-              allowStepUp: true,
-              onQualityChanged: null,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-Future<void> _initializeInBackground() async {
-  // 延迟初始化，避免阻塞启动
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final savedQuality = prefs.getString('glass_quality');
-    final initialGlassQuality = savedQuality != null
-        ? GlassQuality.values.byName(savedQuality)
-        : null;
-    await LiquidGlassWidgets.initialize();
-
-    // 初始化 Hive
-    final hiveRepo = HiveTimetableRepository();
-    await hiveRepo.init();
-    await bodyRecordRepo.init();
-
-    // 初始化 Supabase
-    await Supabase.initialize(
-      url: 'https://kklrbynhqpwwhtfanqwt.supabase.co',
-      anonKey:
-          'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P',
-    );
-    ChartRepository.initSupabase(
-      'https://kklrbynhqpwwhtfanqwt.supabase.co',
-      'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P',
-    );
-
-    // 初始化 Lab 模块
-    bootstrapLab();
-    registerMessageStrategies();
-
-    // Rive 后台初始化
-    try {
-      await RiveNative.init();
-    } catch (e) {
-      debugPrint('Rive initialization failed: $e');
-    }
-  } catch (e) {
-    debugPrint('Background initialization failed: $e');
-  }
+  // 使用 ProviderScope 包装应用，注入 Repository
+  runApp(
+    LiquidGlassWidgets.wrap(
+      ProviderScope(
+        overrides: [TimetableStore.repoProvider.overrideWithValue(hiveRepo)],
+        child: const MyApp(),
+      ),
+      adaptiveQuality: true,
+      // ignore: experimental_member_use
+      adaptiveConfig: GlassAdaptiveScopeConfig(
+        initialQuality: initialGlassQuality,
+        allowStepUp: true,
+        onQualityChanged: (_, to) => prefs.setString('glass_quality', to.name),
+      ),
+    ),
+  );
 }
 
 class MyApp extends ConsumerStatefulWidget {
