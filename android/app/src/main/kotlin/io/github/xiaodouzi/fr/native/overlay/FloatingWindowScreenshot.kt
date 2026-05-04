@@ -110,6 +110,15 @@ class FloatingWindowScreenshot(
         }
     }
 
+    fun discardPendingFrames() {
+        if (!captureInitialized || captureImageReader == null) return
+
+        while (true) {
+            val image = captureImageReader?.acquireLatestImage() ?: break
+            image.close()
+        }
+    }
+
     fun releaseAllCaptureResources() {
         try {
             captureVirtualDisplay?.release()

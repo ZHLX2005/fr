@@ -25,6 +25,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 class PigmentFloatingManager : Service() {
+    private val pickerCaptureDelayMs = 80L
     private lateinit var handler: Handler
     private val mainHandler = Handler(Looper.getMainLooper())
     private val thread = HandlerThread("PigmentFloatingThread").apply { start() }
@@ -460,7 +461,7 @@ class PigmentFloatingManager : Service() {
             onScreenshotPermissionNeeded?.invoke()
             return
         }
-        showPickerOverlay(screenshot.acquireFrame())
+        captureFreshFrameAndShowPicker()
     }
 
     fun setMediaProjection(mediaProjection: MediaProjection?) {
@@ -469,7 +470,7 @@ class PigmentFloatingManager : Service() {
             screenshot.initPersistentCapture(mediaProjection)
             if (pendingPickerAfterPermission) {
                 pendingPickerAfterPermission = false
-                mainHandler.post { showPickerOverlay(screenshot.acquireFrame()) }
+                mainHandler.post { captureFreshFrameAndShowPicker() }
             }
         }
     }
@@ -508,6 +509,15 @@ class PigmentFloatingManager : Service() {
             }
         }
         windowManager?.addView(pickerView, pickerParams)
+    }
+
+    private fun captureFreshFrameAndShowPicker() {
+        mainHandler.postDelayed({
+            screenshot.discardPendingFrames()
+            mainHandler.postDelayed({
+                showPickerOverlay(screenshot.acquireFrame())
+            }, pickerCaptureDelayMs)
+        }, pickerCaptureDelayMs)
     }
 
     private fun hidePickerOverlay() {
