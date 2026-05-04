@@ -239,6 +239,7 @@ class PigmentFloatingManager : Service() {
         }
         panelView = createPanelView()
         windowManager?.addView(panelView, panelParams)
+        bubbleView?.visibility = View.INVISIBLE
     }
 
     private fun hidePanel() {
@@ -252,6 +253,7 @@ class PigmentFloatingManager : Service() {
         panelParams = null
         currentColorLabel = null
         paletteChipsRow = null
+        bubbleView?.visibility = View.VISIBLE
     }
 
     private fun createPanelView(): View {
