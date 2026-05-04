@@ -12,6 +12,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.github.xiaodouzi.fr.native.clock.ClockChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingWindowManager
+import io.github.xiaodouzi.fr.native.pigment.PigmentFloatingManager
 import io.github.xiaodouzi.fr.native.system.SystemChannel
 import io.github.xiaodouzi.fr.native.volume.VolumeChannel
 import io.github.xiaodouzi.fr.native.widget.WidgetChannel
@@ -49,6 +50,8 @@ class MainActivity : FlutterActivity() {
             onScreenshotPermissionGranted = { notifyFlutter("onScreenshotPermissionGranted", null) }
             onScreenshotPermissionDenied = { notifyFlutter("onScreenshotPermissionDenied", null) }
         }
+        FloatingWindowManager.onScreenshotPermissionNeeded = { requestScreenCapturePermission() }
+        PigmentFloatingManager.onScreenshotPermissionNeeded = { requestScreenCapturePermission() }
 
         // Volume Channel
         volumeChannel = VolumeChannel(messenger, this)
@@ -72,11 +75,14 @@ class MainActivity : FlutterActivity() {
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
                 FloatingWindowManager.getInstance()?.promoteToForeground()
+                PigmentFloatingManager.getInstance()?.promoteToForeground()
                 val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                 val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
                 FloatingWindowManager.getInstance()?.setMediaProjection(mediaProjection)
+                PigmentFloatingManager.getInstance()?.setMediaProjection(mediaProjection)
                 floatingChannel.notifyPermissionGranted()
             } else {
+                PigmentFloatingManager.getInstance()?.handleScreenshotPermissionDenied()
                 floatingChannel.notifyPermissionDenied()
             }
         }
