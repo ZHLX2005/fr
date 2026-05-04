@@ -674,6 +674,13 @@ class PigmentFloatingManager : Service() {
     inner class PigmentCanvasView(context: Context) : View(context) {
         var onColorConsumed: ((Int) -> Unit)? = null
         private var active = mutableListOf<PaintStamp>()
+        private var lastTouchX = 0f
+        private var lastTouchY = 0f
+        private val blurPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val bridgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            strokeCap = Paint.Cap.ROUND
+        }
 
         init {
             background = GradientDrawable().apply {
@@ -687,11 +694,15 @@ class PigmentFloatingManager : Service() {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     active = mutableListOf(createStamp(event.x, event.y))
+                    lastTouchX = event.x
+                    lastTouchY = event.y
                     invalidate()
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    active.add(createStamp(event.x, event.y))
+                    appendInterpolatedStamps(lastTouchX, lastTouchY, event.x, event.y)
+                    lastTouchX = event.x
+                    lastTouchY = event.y
                     invalidate()
                     return true
                 }
@@ -706,6 +717,29 @@ class PigmentFloatingManager : Service() {
                 }
             }
             return super.onTouchEvent(event)
+        }
+
+        private fun appendInterpolatedStamps(fromX: Float, fromY: Float, toX: Float, toY: Float) {
+            val dx = toX - fromX
+            val dy = toY - fromY
+            val distance = kotlin.math.sqrt(dx * dx + dy * dy)
+            if (distance <= 0f) {
+                active.add(createStamp(toX, toY))
+                return
+            }
+
+            val sampled = sampleExistingColor(toX, toY)
+            val mixed = if (sampled == null) currentColor else pigmentMix(currentColor, sampled, wetness)
+            onColorConsumed?.invoke(mixed)
+
+            val spacing = max(brushRadius * 0.48f, 4.5f)
+            val steps = max(1, kotlin.math.ceil(distance / spacing).toInt())
+            for (step in 1..steps) {
+                val t = step / steps.toFloat()
+                val x = fromX + dx * t
+                val y = fromY + dy * t
+                active.add(PaintStamp(x, y, brushRadius, mixed))
+            }
         }
 
         private fun createStamp(x: Float, y: Float): PaintStamp {
@@ -740,26 +774,21 @@ class PigmentFloatingManager : Service() {
         private fun drawStroke(canvasRef: Canvas, stroke: PaintStroke) {
             val stamps = stroke.stamps
             stamps.forEachIndexed { index, stamp ->
-                val blurPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = stamp.color
-                    alpha = 210
-                    maskFilter = BlurMaskFilter(3f, BlurMaskFilter.Blur.NORMAL)
-                }
+                blurPaint.color = stamp.color
+                blurPaint.alpha = 224
+                blurPaint.maskFilter = BlurMaskFilter(4.2f, BlurMaskFilter.Blur.NORMAL)
                 canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius, blurPaint)
 
-                val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = stamp.color }
-                canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius * 0.72f, corePaint)
+                corePaint.color = stamp.color
+                canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius * 0.9f, corePaint)
 
                 if (index > 0) {
                     val prev = stamps[index - 1]
-                    val bridge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = pigmentMix(prev.color, stamp.color, 0.5f)
-                        alpha = 96
-                        strokeCap = Paint.Cap.ROUND
-                        strokeWidth = stamp.radius * 1.05f
-                        maskFilter = BlurMaskFilter(2.5f, BlurMaskFilter.Blur.NORMAL)
-                    }
-                    canvasRef.drawLine(prev.x, prev.y, stamp.x, stamp.y, bridge)
+                    bridgePaint.color = pigmentMix(prev.color, stamp.color, 0.5f)
+                    bridgePaint.alpha = 180
+                    bridgePaint.strokeWidth = stamp.radius * 1.65f
+                    bridgePaint.maskFilter = BlurMaskFilter(4f, BlurMaskFilter.Blur.NORMAL)
+                    canvasRef.drawLine(prev.x, prev.y, stamp.x, stamp.y, bridgePaint)
                 }
             }
         }
