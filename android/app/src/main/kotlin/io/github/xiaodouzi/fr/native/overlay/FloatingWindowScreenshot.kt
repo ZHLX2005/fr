@@ -22,6 +22,7 @@ import java.io.OutputStreamWriter
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import android.util.Base64
+import android.graphics.Bitmap
 
 /**
  * 截图功能模块
@@ -79,35 +80,7 @@ class FloatingWindowScreenshot(
         if (!captureInitialized || captureImageReader == null) return null
 
         val image = captureImageReader?.acquireLatestImage() ?: return null
-
-        try {
-            val planes = image.planes
-            val buffer = planes[0].buffer
-            val rowStride = planes[0].rowStride
-            val pixelStride = planes[0].pixelStride
-            val rowPadding = rowStride - image.width * pixelStride
-
-            val bitmap = android.graphics.Bitmap.createBitmap(
-                image.width + rowPadding / pixelStride,
-                image.height,
-                android.graphics.Bitmap.Config.ARGB_8888
-            )
-            bitmap.copyPixelsFromBuffer(buffer)
-
-            val cropped = android.graphics.Bitmap.createBitmap(
-                bitmap, 0, 0,
-                image.width.coerceAtMost(screenWidth),
-                image.height.coerceAtMost(screenHeight)
-            )
-
-            if (cropped != bitmap) bitmap.recycle()
-            image.close()
-
-            return cropped
-        } catch (e: Exception) {
-            image.close()
-            return null
-        }
+        return image.useToBitmap()
     }
 
     fun discardPendingFrames() {
@@ -116,6 +89,62 @@ class FloatingWindowScreenshot(
         while (true) {
             val image = captureImageReader?.acquireLatestImage() ?: break
             image.close()
+        }
+    }
+
+    fun awaitNextFrame(timeoutMs: Long = 400L, onResult: (Bitmap?) -> Unit) {
+        val reader = captureImageReader
+        if (!captureInitialized || reader == null) {
+            handler.post { onResult(null) }
+            return
+        }
+
+        var completed = false
+
+        fun finish(bitmap: Bitmap?) {
+            if (completed) return
+            completed = true
+            reader.setOnImageAvailableListener(null, null)
+            onResult(bitmap)
+        }
+
+        reader.setOnImageAvailableListener({ imageReader ->
+            val image = imageReader.acquireLatestImage() ?: return@setOnImageAvailableListener
+            finish(image.useToBitmap())
+        }, handler)
+
+        handler.postDelayed({
+            finish(null)
+        }, timeoutMs)
+    }
+
+    private fun android.media.Image.useToBitmap(): Bitmap? {
+        try {
+            val planes = planes
+            val buffer = planes[0].buffer
+            val rowStride = planes[0].rowStride
+            val pixelStride = planes[0].pixelStride
+            val rowPadding = rowStride - width * pixelStride
+
+            val bitmap = Bitmap.createBitmap(
+                width + rowPadding / pixelStride,
+                height,
+                Bitmap.Config.ARGB_8888
+            )
+            bitmap.copyPixelsFromBuffer(buffer)
+
+            val cropped = Bitmap.createBitmap(
+                bitmap, 0, 0,
+                width.coerceAtMost(screenWidth),
+                height.coerceAtMost(screenHeight)
+            )
+
+            if (cropped != bitmap) bitmap.recycle()
+            close()
+            return cropped
+        } catch (e: Exception) {
+            close()
+            return null
         }
     }
 

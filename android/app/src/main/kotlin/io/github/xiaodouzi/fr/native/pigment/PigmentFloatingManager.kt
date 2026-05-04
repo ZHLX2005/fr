@@ -514,9 +514,16 @@ class PigmentFloatingManager : Service() {
     private fun captureFreshFrameAndShowPicker() {
         mainHandler.postDelayed({
             screenshot.discardPendingFrames()
-            mainHandler.postDelayed({
-                showPickerOverlay(screenshot.acquireFrame())
-            }, pickerCaptureDelayMs)
+            screenshot.awaitNextFrame { bitmap ->
+                mainHandler.post {
+                    if (bitmap != null) {
+                        showPickerOverlay(bitmap)
+                    } else {
+                        showPickerOverlay(null)
+                        Toast.makeText(this, "取色帧获取失败，已使用备用取色层", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }, pickerCaptureDelayMs)
     }
 
