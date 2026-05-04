@@ -5,7 +5,7 @@ import '../lab_container.dart';
 
 class PigmentPaletteDemo extends DemoPage {
   @override
-  String get title => 'Pigment 调色板';
+  String get title => '调色板';
 
   @override
   String get description => 'Flutter 只负责控制区，悬浮窗、取色和调色画布由 Kotlin 原生实现。';

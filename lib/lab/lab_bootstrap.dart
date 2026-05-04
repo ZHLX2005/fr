@@ -59,7 +59,6 @@ void registerAllDemos() {
   registerGalleryDemo();
   registerSchemaDemo();
   registerColorPaletteDemo();
-  registerPigmentPaletteDemo();
   registerGithubDemo();
   registerQrDemo();
   registerWebBookmarkDemo();
@@ -69,6 +68,7 @@ void registerAllDemos() {
   registerArcSelectorDemo();
   registerDemoLaboratoryDemo();
   registerRivePendulumDemo();
+  registerPigmentPaletteDemo();
 }
 
 // 初始化 Schema 注册表

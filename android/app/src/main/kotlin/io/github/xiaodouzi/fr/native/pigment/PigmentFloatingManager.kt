@@ -40,6 +40,7 @@ class PigmentFloatingManager : Service() {
     private lateinit var screenshot: FloatingWindowScreenshot
     private var currentColorLabel: TextView? = null
     private var paletteChipsRow: LinearLayout? = null
+    private var panelCollapsed = false
 
     private var currentColor: Int = Color.parseColor("#0D1B44")
     private val strokes = mutableListOf<PaintStroke>()
@@ -224,7 +225,7 @@ class PigmentFloatingManager : Service() {
         val metrics = resources.displayMetrics
         panelParams = WindowManager.LayoutParams(
             dp(360),
-            dp(560),
+            panelHeightForState(),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
@@ -233,7 +234,8 @@ class PigmentFloatingManager : Service() {
             val bubble = bubbleParams
             val openRight = (bubble?.x ?: 0) < metrics.widthPixels / 2
             x = if (openRight) dp(84) else metrics.widthPixels - dp(372)
-            y = (bubble?.y ?: dp(160)).coerceIn(dp(96), metrics.heightPixels - dp(572))
+            val panelHeight = panelHeightForState()
+            y = (bubble?.y ?: dp(160)).coerceIn(dp(96), metrics.heightPixels - panelHeight - dp(12))
         }
         panelView = createPanelView()
         windowManager?.addView(panelView, panelParams)
@@ -302,6 +304,19 @@ class PigmentFloatingManager : Service() {
         }
         header.addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
+        val collapseToggle = ImageButton(this).apply {
+            setImageResource(
+                if (panelCollapsed) {
+                    android.R.drawable.arrow_down_float
+                } else {
+                    android.R.drawable.arrow_up_float
+                },
+            )
+            background = null
+            setOnClickListener { togglePanelCollapsed() }
+        }
+        header.addView(collapseToggle)
+
         val close = ImageButton(this).apply {
             setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
             background = null
@@ -323,46 +338,50 @@ class PigmentFloatingManager : Service() {
             gravity = Gravity.CENTER_VERTICAL
         }
         val pickerBtn = panelButton("取色") { enterPickerMode() }
-        val undoBtn = panelButton("撤销") { undoStroke() }
-        val redoBtn = panelButton("重做") { redoStroke() }
-        val clearBtn = panelButton("清空") { clearCanvas() }
         tools.addView(pickerBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
-        tools.addView(undoBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
-        tools.addView(redoBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
-        tools.addView(clearBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
+        if (!panelCollapsed) {
+            val undoBtn = panelButton("撤销") { undoStroke() }
+            val redoBtn = panelButton("重做") { redoStroke() }
+            val clearBtn = panelButton("清空") { clearCanvas() }
+            tools.addView(undoBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
+            tools.addView(redoBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
+            tools.addView(clearBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
+        }
         root.addView(space(12))
         root.addView(tools)
 
-        val brushLabel = TextView(this).apply {
-            text = "笔触 ${brushRadius.toInt()}"
-            setTextColor(Color.parseColor("#56483D"))
-        }
-        root.addView(space(12))
-        root.addView(brushLabel)
-        val brushSeek = SeekBar(this).apply {
-            max = 26
-            progress = (brushRadius - 8).toInt()
-            setOnSeekBarChangeListener(simpleSeek { value ->
-                brushRadius = 8f + value
-                brushLabel.text = "笔触 ${brushRadius.toInt()}"
-            })
-        }
-        root.addView(brushSeek)
+        if (!panelCollapsed) {
+            val brushLabel = TextView(this).apply {
+                text = "笔触 ${brushRadius.toInt()}"
+                setTextColor(Color.parseColor("#56483D"))
+            }
+            root.addView(space(12))
+            root.addView(brushLabel)
+            val brushSeek = SeekBar(this).apply {
+                max = 26
+                progress = (brushRadius - 8).toInt()
+                setOnSeekBarChangeListener(simpleSeek { value ->
+                    brushRadius = 8f + value
+                    brushLabel.text = "笔触 ${brushRadius.toInt()}"
+                })
+            }
+            root.addView(brushSeek)
 
-        val wetLabel = TextView(this).apply {
-            text = "湿度 ${(wetness * 100).toInt()}"
-            setTextColor(Color.parseColor("#56483D"))
+            val wetLabel = TextView(this).apply {
+                text = "湿度 ${(wetness * 100).toInt()}"
+                setTextColor(Color.parseColor("#56483D"))
+            }
+            root.addView(wetLabel)
+            val wetSeek = SeekBar(this).apply {
+                max = 80
+                progress = (wetness * 100).toInt()
+                setOnSeekBarChangeListener(simpleSeek { value ->
+                    wetness = value / 100f
+                    wetLabel.text = "湿度 ${(wetness * 100).toInt()}"
+                })
+            }
+            root.addView(wetSeek)
         }
-        root.addView(wetLabel)
-        val wetSeek = SeekBar(this).apply {
-            max = 80
-            progress = (wetness * 100).toInt()
-            setOnSeekBarChangeListener(simpleSeek { value ->
-                wetness = value / 100f
-                wetLabel.text = "湿度 ${(wetness * 100).toInt()}"
-            })
-        }
-        root.addView(wetSeek)
 
         root.addView(space(12))
         val canvas = PigmentCanvasView(this).apply {
@@ -379,27 +398,29 @@ class PigmentFloatingManager : Service() {
             1f,
         ))
 
-        root.addView(space(12))
-        val paletteTitle = TextView(this).apply {
-            text = "色板"
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.parseColor("#2E241D"))
-        }
-        root.addView(paletteTitle)
+        if (!panelCollapsed) {
+            root.addView(space(12))
+            val paletteTitle = TextView(this).apply {
+                text = "色板"
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(Color.parseColor("#2E241D"))
+            }
+            root.addView(paletteTitle)
 
-        val scroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
+            val scroll = HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+            }
+            val chips = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+            paletteChipsRow = chips
+            palette.forEach { color ->
+                chips.addView(createColorChip(color, current, canvas))
+            }
+            scroll.addView(chips)
+            root.addView(space(8))
+            root.addView(scroll)
         }
-        val chips = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-        paletteChipsRow = chips
-        palette.forEach { color ->
-            chips.addView(createColorChip(color, current, canvas))
-        }
-        scroll.addView(chips)
-        root.addView(space(8))
-        root.addView(scroll)
         return root
     }
 
@@ -566,6 +587,37 @@ class PigmentFloatingManager : Service() {
         chips.addView(createColorChip(color, current, canvasView), 0)
     }
 
+    private fun panelHeightForState(): Int = if (panelCollapsed) dp(360) else dp(560)
+
+    private fun togglePanelCollapsed() {
+        panelCollapsed = !panelCollapsed
+        rebuildPanelForState()
+    }
+
+    private fun rebuildPanelForState() {
+        val existingView = panelView ?: return
+        val params = panelParams ?: return
+        val metrics = resources.displayMetrics
+        val targetHeight = panelHeightForState()
+        val currentBottom = params.y + params.height
+        params.height = targetHeight
+        params.y = currentBottom.coerceAtLeast(dp(96) + targetHeight) - targetHeight
+        params.y = params.y.coerceIn(dp(96), metrics.heightPixels - targetHeight - dp(12))
+
+        val parent = existingView.parent
+        if (parent != null) {
+            try {
+                windowManager?.removeView(existingView)
+            } catch (_: Exception) {
+            }
+        }
+
+        currentColorLabel = null
+        paletteChipsRow = null
+        panelView = createPanelView()
+        windowManager?.addView(panelView, params)
+    }
+
     private fun undoStroke() {
         if (strokes.isEmpty() || !::canvas.isInitialized) return
         val lastIndex = strokes.lastIndex
@@ -614,8 +666,8 @@ class PigmentFloatingManager : Service() {
         init {
             background = GradientDrawable().apply {
                 cornerRadius = dp(24).toFloat()
-                setColor(Color.parseColor("#F8F4ED"))
-                setStroke(dp(1), Color.parseColor("#E5D8C9"))
+                setColor(Color.WHITE)
+                setStroke(dp(1), Color.parseColor("#EDEDED"))
             }
         }
 
@@ -669,21 +721,8 @@ class PigmentFloatingManager : Service() {
 
         override fun onDraw(canvasRef: Canvas) {
             super.onDraw(canvasRef)
-            drawPaper(canvasRef)
             for (stroke in strokes) drawStroke(canvasRef, stroke)
             if (active.isNotEmpty()) drawStroke(canvasRef, PaintStroke(active))
-        }
-
-        private fun drawPaper(canvasRef: Canvas) {
-            val grain = Paint().apply {
-                color = Color.parseColor("#E9DDCF")
-                strokeWidth = 1f
-            }
-            var y = 10f
-            while (y < height) {
-                canvasRef.drawLine(0f, y, width.toFloat(), y + kotlin.math.sin(y * 0.08f) * 1.4f, grain)
-                y += 18f
-            }
         }
 
         private fun drawStroke(canvasRef: Canvas, stroke: PaintStroke) {
