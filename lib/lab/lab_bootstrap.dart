@@ -22,7 +22,6 @@ import 'demos/network_env_demo.dart';
 import 'demos/notebook_demo_ai_proto.dart';
 import 'demos/novel_reader_demo.dart';
 import 'demos/overlay_demo.dart';
-import 'demos/pigment_palette_demo.dart';
 import 'demos/qr_demo.dart';
 import 'demos/schema_demo.dart';
 import 'demos/sensor_demo.dart';
@@ -68,7 +67,6 @@ void registerAllDemos() {
   registerArcSelectorDemo();
   registerDemoLaboratoryDemo();
   registerRivePendulumDemo();
-  registerPigmentPaletteDemo();
 }
 
 // 初始化 Schema 注册表

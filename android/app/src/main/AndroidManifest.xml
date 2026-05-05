@@ -184,10 +184,6 @@
             android:name=".native.overlay.FloatingWindowManager"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
-        <service
-            android:name=".native.pigment.PigmentFloatingManager"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
     </application>
 
     <!-- Required to query activities that can process text, see:

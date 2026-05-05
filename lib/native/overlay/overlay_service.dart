@@ -11,7 +11,9 @@ class OverlayService {
   bool _isOverlayActive = false;
   bool _hasOverlayPermission = false;
 
-  static const _channel = MethodChannel('io.github.xiaodouzi.fr/floating');
+  static const _channel = MethodChannel(
+    'io.github.xiaodouzi.fr/floating',
+  );
 
   bool get isOverlayActive => _isOverlayActive;
   bool get hasOverlayPermission => _hasOverlayPermission;
