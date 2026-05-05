@@ -90,37 +90,16 @@ class LabCardProvider with ChangeNotifier {
   }
 
   Future<void> syncFavoritesOrder() async {
-    _normalizeFavoritesOrder();
+    _favoritesOrder.removeWhere((title) => !_favorites.contains(title));
     await _saveFavoritesOrder();
   }
 
   Future<void> clearAll() async {
     _backgrounds.clear();
     _favorites.clear();
-    _favoritesOrder.clear();
     await _saveBackgrounds();
     await _saveFavorites();
-    await _saveFavoritesOrder();
     notifyListeners();
-  }
-
-  bool _normalizeFavoritesOrder() {
-    var changed = false;
-
-    final removed = _favoritesOrder.where((title) => !_favorites.contains(title)).toList();
-    if (removed.isNotEmpty) {
-      _favoritesOrder.removeWhere((title) => !_favorites.contains(title));
-      changed = true;
-    }
-
-    final missing = (_favorites.toList()..sort())
-        .where((title) => !_favoritesOrder.contains(title));
-    for (final title in missing) {
-      _favoritesOrder.add(title);
-      changed = true;
-    }
-
-    return changed;
   }
 
   Future<void> _loadData() async {
@@ -156,10 +135,6 @@ class LabCardProvider with ChangeNotifier {
     _favoritesOrder
       ..clear()
       ..addAll(favoritesOrder ?? <String>[]);
-
-    if (_normalizeFavoritesOrder()) {
-      await _saveFavoritesOrder();
-    }
 
     _isLoaded = true;
   }

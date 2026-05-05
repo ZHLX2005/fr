@@ -2,7 +2,6 @@ package io.github.xiaodouzi.fr.native.overlay
 
 import android.content.Context
 import android.content.Intent
-import io.github.xiaodouzi.fr.native.pigment.PigmentFloatingManager
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
@@ -62,29 +61,6 @@ class FloatingChannel(messenger: BinaryMessenger, private val context: Context) 
                     }
                     context.startService(intent)
                     result.success(true)
-                }
-                "startPigmentFloating" -> {
-                    if (!PigmentFloatingManager.canDrawOverlays(context)) {
-                        val intent = FloatingWindowManager.getOverlaySettingsIntent(context)
-                        context.startActivity(intent)
-                        result.success(false)
-                        return@setMethodCallHandler
-                    }
-                    val intent = Intent(context, PigmentFloatingManager::class.java).apply {
-                        action = PigmentFloatingManager.ACTION_START
-                    }
-                    context.startService(intent)
-                    result.success(true)
-                }
-                "stopPigmentFloating" -> {
-                    val intent = Intent(context, PigmentFloatingManager::class.java).apply {
-                        action = PigmentFloatingManager.ACTION_STOP
-                    }
-                    context.startService(intent)
-                    result.success(true)
-                }
-                "isPigmentFloatingShowing" -> {
-                    result.success(PigmentFloatingManager.getInstance()?.isShowing() ?: false)
                 }
                 "requestScreenshotPermission" -> {
                     // handled by activity
