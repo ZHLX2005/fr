@@ -67,6 +67,12 @@ class MainActivity : FlutterActivity() {
         intent?.let { startActivityForResult(it, SCREEN_CAPTURE_REQUEST_CODE) }
     }
 
+    init {
+        FloatingWindowManager.onScreenshotPermissionNeeded = {
+            runOnUiThread { requestScreenCapturePermission() }
+        }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {

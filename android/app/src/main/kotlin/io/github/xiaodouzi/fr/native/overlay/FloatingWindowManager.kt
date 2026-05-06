@@ -170,6 +170,13 @@ class FloatingWindowManager : Service() {
 
             floatingView = createFloatingView()
             windowManager?.addView(floatingView, params)
+
+            // 如果还没初始化截图权限，先申请（高版本Android必须）
+            if (!screenshot.captureInitialized) {
+                isWaitingForScreenshotPermission = true
+                onScreenshotPermissionNeeded?.invoke()
+            }
+
             return true
         } catch (e: Exception) {
             handler.post { Toast.makeText(this, "创建悬浮窗失败: ${e.message}", Toast.LENGTH_SHORT).show() }
