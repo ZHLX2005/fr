@@ -78,22 +78,25 @@ class MainActivity : FlutterActivity() {
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
                 val manager = FloatingWindowManager.getInstance()
-                // 确保 floatingView 已创建（Service 重启后需要重建）
-                if (manager != null && !manager.isFloatingWindowShowing()) {
-                    manager.showFloatingWindow()
+                // Android 14+ 必须先提升前台服务，再获取 MediaProjection
+                try {
+                    manager?.promoteToForeground()
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "promoteToForeground failed: ${e.message}", e)
                 }
-                manager?.promoteToForeground()
                 try {
                     val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                     val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
                     manager?.setMediaProjection(mediaProjection)
+                    // 确保 floatingView 已创建（Service 重启后需要重建）
+                    if (manager != null && !manager.isFloatingWindowShowing()) {
+                        manager.showFloatingWindow()
+                    }
                     floatingChannel?.notifyPermissionGranted()
                 } catch (e: Exception) {
-                    e.printStackTrace()
-                    // 初始化失败，清除持久化状态，重置等待标志
-                    FloatingWindowManager.setScreenshotPermissionGranted(this, false)
-                    FloatingWindowManager.getInstance()?.resetScreenshotPermissionWaiting()
-                    floatingChannel?.notifyPermissionDenied()
+                    android.util.Log.e("MainActivity", "getMediaProjection failed: ${e.message}", e)
+                    manager?.resetScreenshotPermissionWaiting()
+                    floatingChannel?.notifyPermissionGranted()
                 }
             } else {
                 // 权限被拒绝，清除持久化状态，重置等待标志
