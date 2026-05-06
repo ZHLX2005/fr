@@ -77,13 +77,29 @@ class MainActivity : FlutterActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                FloatingWindowManager.getInstance()?.promoteToForeground()
-                val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
-                FloatingWindowManager.getInstance()?.setMediaProjection(mediaProjection)
-                floatingChannel.notifyPermissionGranted()
+                val manager = FloatingWindowManager.getInstance()
+                // 确保 floatingView 已创建（Service 重启后需要重建）
+                if (manager != null && !manager.isFloatingWindowShowing()) {
+                    manager.showFloatingWindow()
+                }
+                manager?.promoteToForeground()
+                try {
+                    val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
+                    manager?.setMediaProjection(mediaProjection)
+                    floatingChannel?.notifyPermissionGranted()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // 初始化失败，清除持久化状态，重置等待标志
+                    FloatingWindowManager.setScreenshotPermissionGranted(this, false)
+                    FloatingWindowManager.getInstance()?.resetScreenshotPermissionWaiting()
+                    floatingChannel?.notifyPermissionDenied()
+                }
             } else {
-                floatingChannel.notifyPermissionDenied()
+                // 权限被拒绝，清除持久化状态，重置等待标志
+                FloatingWindowManager.setScreenshotPermissionGranted(this, false)
+                FloatingWindowManager.getInstance()?.resetScreenshotPermissionWaiting()
+                floatingChannel?.notifyPermissionDenied()
             }
         }
     }

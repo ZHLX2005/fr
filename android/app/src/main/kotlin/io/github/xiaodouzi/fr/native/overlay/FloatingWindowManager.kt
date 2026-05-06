@@ -52,6 +52,10 @@ class FloatingWindowManager : Service() {
 
     var directScreenshotMode: Boolean = false
 
+    fun resetScreenshotPermissionWaiting() {
+        isWaitingForScreenshotPermission = false
+    }
+
     companion object {
         const val CHANNEL_ID = "FloatingWindowChannel"
         const val NOTIFICATION_ID = 1
@@ -71,6 +75,21 @@ class FloatingWindowManager : Service() {
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 android.net.Uri.parse("package:${context.packageName}")
             )
+        }
+
+        private const val PREFS_NAME = "floating_window_prefs"
+        private const val KEY_SCREENSHOT_PERMISSION_GRANTED = "screenshot_permission_granted"
+
+        fun isScreenshotPermissionGranted(context: Context): Boolean {
+            return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_SCREENSHOT_PERMISSION_GRANTED, false)
+        }
+
+        fun setScreenshotPermissionGranted(context: Context, granted: Boolean) {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_SCREENSHOT_PERMISSION_GRANTED, granted)
+                .apply()
         }
     }
 
@@ -171,8 +190,13 @@ class FloatingWindowManager : Service() {
             floatingView = createFloatingView()
             windowManager?.addView(floatingView, params)
 
-            // 如果还没初始化截图权限，先申请（高版本Android必须）
-            if (!screenshot.captureInitialized) {
+            // 检查持久化的权限状态，避免 Service 重启后重复请求权限
+            val hasScreenshotPermission = isScreenshotPermissionGranted(this)
+            if (!screenshot.captureInitialized && !hasScreenshotPermission) {
+                isWaitingForScreenshotPermission = true
+                onScreenshotPermissionNeeded?.invoke()
+            } else if (hasScreenshotPermission && !screenshot.captureInitialized) {
+                // 权限已授予但 capture 未初始化，尝试重新初始化
                 isWaitingForScreenshotPermission = true
                 onScreenshotPermissionNeeded?.invoke()
             }
@@ -294,6 +318,8 @@ class FloatingWindowManager : Service() {
         this.mediaProjection = mediaProjection
         if (mediaProjection != null) {
             screenshot.initPersistentCapture(mediaProjection)
+            // 持久化权限状态，即使 Service 重启也能知道权限已授予
+            setScreenshotPermissionGranted(this, true)
             if (isWaitingForScreenshotPermission) {
                 isWaitingForScreenshotPermission = false
                 handler.post { startScreenCaptureForRegion() }
@@ -395,6 +421,10 @@ class FloatingWindowManager : Service() {
 
     private fun startScreenCaptureForRegion() {
         if (!screenshot.captureInitialized) {
+            // 如果已经在等待权限，不要重复请求
+            if (isWaitingForScreenshotPermission) {
+                return
+            }
             handler.post { Toast.makeText(this, "正在请求截图权限...", Toast.LENGTH_SHORT).show() }
             isWaitingForScreenshotPermission = true
             onScreenshotPermissionNeeded?.invoke()

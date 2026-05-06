@@ -49,6 +49,13 @@ class FloatingWindowScreenshot(
         screenHeight = displayMetrics.heightPixels
         screenDensity = displayMetrics.densityDpi
 
+        if (screenWidth <= 0 || screenHeight <= 0) {
+            handler.post {
+                Toast.makeText(context, "屏幕尺寸获取失败", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
         mediaProjection.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
                 releaseAllCaptureResources()
@@ -64,11 +71,19 @@ class FloatingWindowScreenshot(
             2
         )
 
+        val surface = captureImageReader?.surface
+        if (surface == null) {
+            handler.post {
+                Toast.makeText(context, "截图初始化失败", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
         captureVirtualDisplay = mediaProjection.createVirtualDisplay(
             "ScreenCapturePersistent",
             screenWidth, screenHeight, screenDensity,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            captureImageReader!!.surface,
+            surface,
             null, handler
         )
 
