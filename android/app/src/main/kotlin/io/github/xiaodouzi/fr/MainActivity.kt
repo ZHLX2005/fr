@@ -10,6 +10,8 @@ import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.github.xiaodouzi.fr.native.clock.ClockChannel
+import io.github.xiaodouzi.fr.native.crash.CrashLogChannel
+import io.github.xiaodouzi.fr.native.crash.CrashLogHandler
 import io.github.xiaodouzi.fr.native.overlay.FloatingChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingWindowManager
 import io.github.xiaodouzi.fr.native.system.SystemChannel
@@ -31,6 +33,10 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        // Crash Log
+        CrashLogHandler.init(this)
+        CrashLogChannel(messenger, this).setMethodCallHandler()
 
         // Widget Channel
         widgetChannel = WidgetChannel(messenger).apply {
