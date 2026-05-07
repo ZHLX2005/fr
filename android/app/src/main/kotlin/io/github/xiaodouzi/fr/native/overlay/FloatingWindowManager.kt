@@ -52,6 +52,10 @@ class FloatingWindowManager : Service() {
 
     var directScreenshotMode: Boolean = false
 
+    fun resetScreenshotPermissionWaiting() {
+        isWaitingForScreenshotPermission = false
+    }
+
     companion object {
         const val CHANNEL_ID = "FloatingWindowChannel"
         const val NOTIFICATION_ID = 1
@@ -71,6 +75,21 @@ class FloatingWindowManager : Service() {
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 android.net.Uri.parse("package:${context.packageName}")
             )
+        }
+
+        private const val PREFS_NAME = "floating_window_prefs"
+        private const val KEY_SCREENSHOT_PERMISSION_GRANTED = "screenshot_permission_granted"
+
+        fun isScreenshotPermissionGranted(context: Context): Boolean {
+            return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_SCREENSHOT_PERMISSION_GRANTED, false)
+        }
+
+        fun setScreenshotPermissionGranted(context: Context, granted: Boolean) {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_SCREENSHOT_PERMISSION_GRANTED, granted)
+                .apply()
         }
     }
 
@@ -144,7 +163,9 @@ class FloatingWindowManager : Service() {
 
     fun promoteToForeground() {
         try {
-            startForeground(NOTIFICATION_ID, createNotification())
+            // 始终使用带 foregroundServiceType 的版本，不依赖 SDK_INT 判断
+            // 部分厂商 Android 14 设备 SDK_INT 可能不等于 34 但仍要求该参数
+            startForeground(NOTIFICATION_ID, createNotification(), 0x00000020)
         } catch (e: Exception) {
             android.util.Log.e("FloatingWindow", "promoteToForeground failed: ${e.message}", e)
         }
@@ -170,6 +191,16 @@ class FloatingWindowManager : Service() {
 
             floatingView = createFloatingView()
             windowManager?.addView(floatingView, params)
+
+            // 检查持久化的权限状态，避免 Service 重启后重复请求权限
+            val hasScreenshotPermission = isScreenshotPermissionGranted(this)
+            if (!screenshot.captureInitialized && !hasScreenshotPermission) {
+                isWaitingForScreenshotPermission = true
+                onScreenshotPermissionNeeded?.invoke()
+            }
+            // 注意：如果 hasScreenshotPermission = true 但 captureInitialized = false，
+            // 不再触发权限请求（else if 分支已删除），因为权限已授予
+
             return true
         } catch (e: Exception) {
             handler.post { Toast.makeText(this, "创建悬浮窗失败: ${e.message}", Toast.LENGTH_SHORT).show() }
@@ -257,6 +288,8 @@ class FloatingWindowManager : Service() {
         handler.postDelayed({ startScreenCaptureForFullScreen() }, 100)
     }
 
+    private var captureRetries = 0
+
     private fun startScreenCaptureForFullScreen() {
         if (!screenshot.captureInitialized) {
             handler.post { Toast.makeText(this, "正在请求截图权限...", Toast.LENGTH_SHORT).show() }
@@ -267,10 +300,18 @@ class FloatingWindowManager : Service() {
 
         val bitmap = screenshot.acquireFrame()
         if (bitmap == null) {
+            if (captureRetries < 5) {
+                captureRetries++
+                android.util.Log.d("FloatingWindow", "acquireFrame null, retry $captureRetries")
+                handler.postDelayed({ startScreenCaptureForFullScreen() }, 200)
+                return
+            }
+            captureRetries = 0
             handler.post { Toast.makeText(this, "截图失败：无法获取图像", Toast.LENGTH_SHORT).show() }
             showFloatingWindow()
             return
         }
+        captureRetries = 0
 
         if (directScreenshotMode) {
             pendingBitmap = bitmap
@@ -287,9 +328,14 @@ class FloatingWindowManager : Service() {
         this.mediaProjection = mediaProjection
         if (mediaProjection != null) {
             screenshot.initPersistentCapture(mediaProjection)
+            setScreenshotPermissionGranted(this, true)
             if (isWaitingForScreenshotPermission) {
                 isWaitingForScreenshotPermission = false
-                handler.post { startScreenCaptureForRegion() }
+                captureRetries = 0
+                handler.postDelayed({
+                    if (directScreenshotMode) startScreenCaptureForFullScreen()
+                    else startScreenCaptureForRegion()
+                }, 500)
             }
         }
     }
@@ -388,6 +434,10 @@ class FloatingWindowManager : Service() {
 
     private fun startScreenCaptureForRegion() {
         if (!screenshot.captureInitialized) {
+            if (isWaitingForScreenshotPermission) {
+                android.util.Log.w("FloatingWindow", "capture not initialized and already waiting for permission")
+                return
+            }
             handler.post { Toast.makeText(this, "正在请求截图权限...", Toast.LENGTH_SHORT).show() }
             isWaitingForScreenshotPermission = true
             onScreenshotPermissionNeeded?.invoke()
@@ -395,10 +445,18 @@ class FloatingWindowManager : Service() {
         }
         val bitmap = screenshot.acquireFrame()
         if (bitmap == null) {
+            if (captureRetries < 5) {
+                captureRetries++
+                android.util.Log.d("FloatingWindow", "acquireFrame null (region), retry $captureRetries")
+                handler.postDelayed({ startScreenCaptureForRegion() }, 200)
+                return
+            }
+            captureRetries = 0
             handler.post { Toast.makeText(this, "截图失败：无法获取图像", Toast.LENGTH_SHORT).show() }
             showFloatingWindow()
             return
         }
+        captureRetries = 0
         pendingBitmap = bitmap
         cropAndSendBitmap()
     }

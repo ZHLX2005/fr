@@ -12,7 +12,6 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.github.xiaodouzi.fr.native.clock.ClockChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingWindowManager
-import io.github.xiaodouzi.fr.native.pigment.PigmentFloatingManager
 import io.github.xiaodouzi.fr.native.system.SystemChannel
 import io.github.xiaodouzi.fr.native.volume.VolumeChannel
 import io.github.xiaodouzi.fr.native.widget.WidgetChannel
@@ -50,8 +49,6 @@ class MainActivity : FlutterActivity() {
             onScreenshotPermissionGranted = { notifyFlutter("onScreenshotPermissionGranted", null) }
             onScreenshotPermissionDenied = { notifyFlutter("onScreenshotPermissionDenied", null) }
         }
-        FloatingWindowManager.onScreenshotPermissionNeeded = { requestScreenCapturePermission() }
-        PigmentFloatingManager.onScreenshotPermissionNeeded = { requestScreenCapturePermission() }
 
         // Volume Channel
         volumeChannel = VolumeChannel(messenger, this)
@@ -70,20 +67,42 @@ class MainActivity : FlutterActivity() {
         intent?.let { startActivityForResult(it, SCREEN_CAPTURE_REQUEST_CODE) }
     }
 
+    init {
+        FloatingWindowManager.onScreenshotPermissionNeeded = {
+            runOnUiThread { requestScreenCapturePermission() }
+        }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK && data != null) {
-                FloatingWindowManager.getInstance()?.promoteToForeground()
-                PigmentFloatingManager.getInstance()?.promoteToForeground()
-                val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
-                FloatingWindowManager.getInstance()?.setMediaProjection(mediaProjection)
-                PigmentFloatingManager.getInstance()?.setMediaProjection(mediaProjection)
-                floatingChannel.notifyPermissionGranted()
+                val manager = FloatingWindowManager.getInstance()
+                // Android 14+ 必须先提升前台服务，再获取 MediaProjection
+                try {
+                    manager?.promoteToForeground()
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "promoteToForeground failed: ${e.message}", e)
+                }
+                try {
+                    val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
+                    manager?.setMediaProjection(mediaProjection)
+                    // 确保 floatingView 已创建（Service 重启后需要重建）
+                    if (manager != null && !manager.isFloatingWindowShowing()) {
+                        manager.showFloatingWindow()
+                    }
+                    floatingChannel?.notifyPermissionGranted()
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "getMediaProjection failed: ${e.message}", e)
+                    manager?.resetScreenshotPermissionWaiting()
+                    floatingChannel?.notifyPermissionGranted()
+                }
             } else {
-                PigmentFloatingManager.getInstance()?.handleScreenshotPermissionDenied()
-                floatingChannel.notifyPermissionDenied()
+                // 权限被拒绝，清除持久化状态，重置等待标志
+                FloatingWindowManager.setScreenshotPermissionGranted(this, false)
+                FloatingWindowManager.getInstance()?.resetScreenshotPermissionWaiting()
+                floatingChannel?.notifyPermissionDenied()
             }
         }
     }
