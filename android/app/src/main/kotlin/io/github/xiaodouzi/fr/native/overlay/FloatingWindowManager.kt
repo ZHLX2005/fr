@@ -331,9 +331,11 @@ class FloatingWindowManager : Service() {
             setScreenshotPermissionGranted(this, true)
             if (isWaitingForScreenshotPermission) {
                 isWaitingForScreenshotPermission = false
-                // 延迟重试，等 VirtualDisplay 渲染第一帧
                 captureRetries = 0
-                handler.postDelayed({ startScreenCaptureForRegion() }, 500)
+                handler.postDelayed({
+                    if (directScreenshotMode) startScreenCaptureForFullScreen()
+                    else startScreenCaptureForRegion()
+                }, 500)
             }
         }
     }
