@@ -6,6 +6,7 @@ import 'demos/api_test_demo.dart';
 import 'demos/arc_selector_demo.dart';
 import 'demos/body_map_demo.dart';
 import 'demos/clock_demo.dart';
+import 'demos/crash_log_demo.dart';
 import 'demos/color_palette_demo.dart';
 import 'demos/demo_laboratory_demo.dart';
 import 'demos/doubletime_demo.dart';
@@ -39,6 +40,7 @@ void registerAllDemos() {
   registerGridDashboardDemo();
   registerNotebookDemoAiProto();
   registerClockDemo();
+  registerCrashLogDemo();
   registerNetworkDemo();
   registerNetworkEnvDemo();
   registerGame2048Demo();
