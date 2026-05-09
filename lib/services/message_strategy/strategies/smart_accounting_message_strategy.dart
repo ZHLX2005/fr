@@ -19,21 +19,11 @@ class SmartAccountingMessageWidgetStrategy
       );
 }
 
-/// Callback for when accounting is confirmed
-typedef OnAccountingConfirm = void Function(SmartAccountingMessageData data);
-
-/// Callback for when accounting is ignored
-typedef OnAccountingIgnore = void Function(SmartAccountingMessageData data);
-
 class _SmartAccountingContent extends StatefulWidget {
   final SmartAccountingMessageData data;
-  final OnAccountingConfirm? onConfirm;
-  final OnAccountingIgnore? onIgnore;
 
   const _SmartAccountingContent({
     required this.data,
-    this.onConfirm,
-    this.onIgnore,
   });
 
   @override
@@ -90,11 +80,10 @@ class _SmartAccountingContentState extends State<_SmartAccountingContent> {
 
   void _handleConfirm() {
     setState(() => _isConfirmed = true);
-    widget.onConfirm?.call(widget.data);
   }
 
   void _handleIgnore() {
-    widget.onIgnore?.call(widget.data);
+    // TODO: Remove from parent message list
   }
 
   @override
