@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_linux
   emoji_picker_flutter
   file_selector_linux
+  flutter_webrtc
   gtk
   record_linux
   rive_native
