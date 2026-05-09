@@ -5,3 +5,5 @@ export 'water_capsule_message_data.dart';
 export 'calendar_message_data.dart';
 export 'ask_message_data.dart';
 export 'selection_message_data.dart';
+export 'smart_accounting_message_data.dart';
+export 'bill_overview_message_data.dart';
