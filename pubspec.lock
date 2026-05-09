@@ -345,14 +345,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.1.7"
-  dart_webrtc:
-    dependency: transitive
-    description:
-      name: dart_webrtc
-      sha256: f6d615bddea5e458ce180a914f3055c234ffb52fb7397a51b3491e76d6d7edb2
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.8.1"
   dbus:
     dependency: transitive
     description:
@@ -624,14 +616,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_webrtc:
-    dependency: "direct main"
-    description:
-      name: flutter_webrtc
-      sha256: b832dc76c0d1577f14aaf35e9c38d4ed7667cbc89c492b7bf4505d8d5f62e08b
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "0.12.12+hotfix.1"
   flutter_widget_from_html:
     dependency: "direct main"
     description:
@@ -2045,14 +2029,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.0.3"
-  webrtc_interface:
-    dependency: transitive
-    description:
-      name: webrtc_interface
-      sha256: c6f100eac5057d9a817a60473126f9828c796d42884d498af4f339c97b21014f
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "1.5.1"
   webview_flutter:
     dependency: "direct main"
     description:
