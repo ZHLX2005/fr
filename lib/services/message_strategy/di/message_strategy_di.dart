@@ -15,6 +15,8 @@ void registerMessageStrategies() {
     CalendarMessageWidgetStrategy(),
     AskMessageWidgetStrategy(),
     SelectionMessageWidgetStrategy(),
+    SmartAccountingMessageWidgetStrategy(),
+    BillOverviewMessageWidgetStrategy(),
   ];
 
   final strategies = <String, MessageWidgetStrategy<IMessageData>>{};
