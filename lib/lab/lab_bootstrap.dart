@@ -20,7 +20,6 @@ import 'demos/localnet_demo.dart';
 import 'demos/my_diary_header_demo.dart';
 import 'demos/network_demo.dart';
 import 'demos/network_env_demo.dart';
-import 'demos/notebook_demo_ai_proto.dart';
 import 'demos/novel_reader_demo.dart';
 import 'demos/overlay_demo.dart';
 import 'demos/pigment_palette_demo.dart';
@@ -35,11 +34,11 @@ import 'demos/volume_decay_demo.dart';
 import 'demos/web_bookmark_demo.dart';
 import 'demos/word_drag_demo.dart';
 import 'demos/rive_pendulum_demo.dart';
+import 'demos/note_editor_demo.dart';
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
   registerGridDashboardDemo();
-  registerNotebookDemoAiProto();
   registerClockDemo();
   registerCrashLogDemo();
   registerNetworkDemo();
@@ -70,6 +69,7 @@ void registerAllDemos() {
   registerArcSelectorDemo();
   registerDemoLaboratoryDemo();
   registerRivePendulumDemo();
+  registerNoteEditorDemo();
   registerPigmentPaletteDemo();
 }
 
