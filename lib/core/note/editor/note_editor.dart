@@ -4,18 +4,14 @@ import '../embed/embed_card_builder.dart';
 import '../services/ai_service.dart';
 import 'md_actions.dart';
 import 'space_ai_trigger.dart';
+import 'md_priority_input.dart';
 
 /// 笔记编辑器页面
 ///
 /// 仿 wolai/息流/Notion 的编辑原型
 class NoteEditorPage extends StatefulWidget {
-  /// AI 服务配置
   final AiService? aiService;
-
-  /// 初始文档内容
   final String? initialContent;
-
-  /// 页面标题
   final String? title;
 
   const NoteEditorPage({
@@ -26,23 +22,33 @@ class NoteEditorPage extends StatefulWidget {
   });
 
   @override
-  State<NoteEditorPage> createState() => NoteEditorPageState();
+  State<NoteEditorPage> createState() => _NoteEditorPageState();
 }
 
-class NoteEditorPageState extends State<NoteEditorPage> {
+class _NoteEditorPageState extends State<NoteEditorPage> {
   late final QuillController _controller;
   final FocusNode _editorFocus = FocusNode();
-  late final NewLineSpaceDetector _detector;
-  late final AiService _ai;
+
+  // AI 输入框
+  final TextEditingController _aiInputController = TextEditingController();
+  bool _aiBarVisible = false;
+
+  // MD 优先输入控制器
+  late final MarkdownPriorityInputController _mdCtrl;
+
+  // 新行空格唤醒 AI 触发器
+  late final NewLineSpaceAiBarTrigger _aiTrigger;
+
   late final MdActions _mdActions;
-  bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    _ai = widget.aiService ?? AiService();
 
-    final initialText = widget.initialContent ?? '新起一行，在行首输入一个空格唤醒 AI。\n';
+    final initialText = widget.initialContent ??
+        'MD 优先输入：行首输入 # 空格、- 空格、> 空格 试试。\n'
+            '新行行首输入一个空格唤醒 AI 输入框。\n';
+
     _controller = QuillController(
       document: Document()..insert(0, initialText),
       selection: const TextSelection.collapsed(offset: 0),
@@ -53,50 +59,44 @@ class NoteEditorPageState extends State<NoteEditorPage> {
       onFormat: () => _editorFocus.requestFocus(),
     );
 
-    _detector = NewLineSpaceDetector(
+    // 启动 MD 优先输入
+    _mdCtrl = MarkdownPriorityInputController(controller: _controller)..start();
+
+    // 启动 AI 触发器
+    _aiTrigger = NewLineSpaceAiBarTrigger(
       controller: _controller,
-      onInvoke: _handleAiInvoke,
+      onShowAiBar: _showAiBar,
     )..start();
   }
 
   @override
   void dispose() {
-    _detector.dispose();
+    _mdCtrl.dispose();
+    _aiTrigger.dispose();
     _controller.dispose();
     _editorFocus.dispose();
+    _aiInputController.dispose();
     super.dispose();
   }
 
-  /// 处理 AI 唤醒
-  Future<void> _handleAiInvoke(NewLineInvokeContext ctx) async {
-    if (_busy) return;
+  void _showAiBar() {
+    setState(() => _aiBarVisible = true);
+  }
 
-    setState(() => _busy = true);
-    try {
-      final reply = await _ai.complete(prompt: '''
-你是笔记编辑器内的 AI。
-根据用户光标前的上下文，输出一段可直接插入的 Markdown（简洁、有结构）。
+  void _hideAiBar() {
+    setState(() => _aiBarVisible = false);
+    _aiInputController.clear();
+    _editorFocus.requestFocus();
+  }
 
-上下文：
-${ctx.beforeCursor}
-''');
-
-      _insertTextAtCursor('\n${reply.trim()}\n');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('AI 生成失败: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-        _editorFocus.requestFocus();
-      }
+  void _commitAiCommand() {
+    final cmd = _aiInputController.text.trim();
+    if (cmd.isEmpty) {
+      _hideAiBar();
+      return;
     }
+    _insertTextAtCursor('ai:$cmd\n');
+    _hideAiBar();
   }
 
   /// 在光标位置插入文本
@@ -108,7 +108,6 @@ ${ctx.beforeCursor}
       _controller.document.delete(sel.start, sel.end - sel.start);
     }
     _controller.document.insert(index, text);
-
     _controller.updateSelection(
       TextSelection.collapsed(offset: index + text.length),
       ChangeSource.local,
@@ -151,19 +150,6 @@ ${ctx.beforeCursor}
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title ?? '笔记编辑器'),
-        actions: [
-          if (_busy)
-            const Padding(
-              padding: EdgeInsets.only(right: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-        ],
       ),
       body: Column(
         children: [
@@ -180,8 +166,62 @@ ${ctx.beforeCursor}
               ),
             ),
           ),
+
+          // AI 输入框（被空格唤醒）
+          if (_aiBarVisible) _buildAiInputBar(),
+
+          // 底部功能栏
           _buildBottomBar(mdButtons),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAiInputBar() {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          border: Border(
+            top: BorderSide(color: Theme.of(context).colorScheme.primary),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Colors.amber.shade700, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'AI:',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _aiInputController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: '输入命令，回车提交，例如：总结上文',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onSubmitted: (_) => _commitAiCommand(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _commitAiCommand,
+              icon: const Icon(Icons.send),
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            IconButton(
+              onPressed: _hideAiBar,
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -201,38 +241,22 @@ ${ctx.beforeCursor}
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              // AI 按钮
+              // AI 按钮（手动唤醒）
               FilledButton.tonal(
-                onPressed: _busy ? null : () => _handleAiInvoke(
-                  NewLineInvokeContext(
-                    beforeCursor: _controller.document.toPlainText(),
-                    triggerOffset: _controller.selection.baseOffset,
-                  ),
-                ),
-                child: Row(
+                onPressed: _aiBarVisible ? null : _showAiBar,
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (_busy)
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      const Icon(Icons.auto_awesome, size: 16),
-                    const SizedBox(width: 6),
-                    const Text('AI'),
+                    Icon(Icons.auto_awesome, size: 16),
+                    SizedBox(width: 6),
+                    Text('AI'),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
-              // 分隔线
-              Container(
-                width: 1,
-                height: 24,
-                color: Theme.of(context).dividerColor,
-              ),
+              Container(width: 1, height: 24, color: Theme.of(context).dividerColor),
               const SizedBox(width: 12),
+
               // Markdown 格式按钮
               ...mdButtons.map((btn) => Padding(
                     padding: const EdgeInsets.only(right: 6),
@@ -241,7 +265,9 @@ ${ctx.beforeCursor}
                       child: Text(btn.label),
                     ),
                   )),
+
               const SizedBox(width: 8),
+
               // 嵌入卡片按钮
               OutlinedButton(
                 onPressed: _insertEmbedCard,
@@ -255,6 +281,7 @@ ${ctx.beforeCursor}
                 ),
               ),
               const SizedBox(width: 6),
+
               // 分割线按钮
               OutlinedButton(
                 onPressed: _insertDivider,
