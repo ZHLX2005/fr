@@ -19,12 +19,22 @@ import android.provider.Settings
 import android.view.*
 import android.widget.*
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.ColorUtils
 import io.github.xiaodouzi.fr.native.overlay.FloatingWindowScreenshot
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
 class PigmentFloatingManager : Service() {
+    private val panelWhite = Color.parseColor("#FFFFFF")
+    private val panelWhiteSoft = Color.parseColor("#FFFFFF")
+    private val panelWhiteMuted = Color.parseColor("#FFFFFF")
+    private val panelBorder = Color.parseColor("#E7E7E3")
+    private val panelDivider = Color.parseColor("#F0F0ED")
+    private val panelTextPrimary = Color.parseColor("#111111")
+    private val panelTextSecondary = Color.parseColor("#6B6B6B")
+    private val panelAccent = Color.parseColor("#1F7AFF")
+
     private val pickerCaptureDelayMs = 80L
     private lateinit var handler: Handler
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -167,6 +177,7 @@ class PigmentFloatingManager : Service() {
         val view = FrameLayout(this)
         view.layoutParams = FrameLayout.LayoutParams(dp(56), dp(56))
         view.background = BubbleDrawable { currentColor }
+        view.elevation = dp(10).toFloat()
 
         val icon = ImageView(this).apply {
             setImageResource(android.R.drawable.ic_menu_edit)
@@ -260,8 +271,9 @@ class PigmentFloatingManager : Service() {
     private fun createPanelView(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(16), dp(16), dp(16))
+            setPadding(dp(14), dp(14), dp(14), dp(14))
             background = PanelDrawable()
+            elevation = dp(16).toFloat()
         }
 
         var downX = 0f
@@ -299,96 +311,81 @@ class PigmentFloatingManager : Service() {
             }
         }
 
-        val title = TextView(this).apply {
-            text = "调色板"
-            textSize = 18f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.parseColor("#231A16"))
+        val colorIndicator = createColorIndicator()
+        val titleGroup = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        header.addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleRow.addView(colorIndicator)
+        titleRow.addView(TextView(this).apply {
+            text = "Pigment 画板"
+            setTextColor(panelTextPrimary)
+            textSize = 16f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            setPadding(dp(10), 0, 0, 0)
+        })
+        currentColorLabel = TextView(this).apply {
+            text = currentColorText()
+            setTextColor(panelTextSecondary)
+            textSize = 12f
+            setPadding(dp(2), dp(4), 0, 0)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+        }
+        titleGroup.addView(titleRow)
+        titleGroup.addView(currentColorLabel)
+        header.addView(titleGroup, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        val collapseToggle = ImageButton(this).apply {
-            setImageResource(
-                if (panelCollapsed) {
-                    android.R.drawable.arrow_down_float
-                } else {
-                    android.R.drawable.arrow_up_float
-                },
-            )
-            background = null
-            setOnClickListener { togglePanelCollapsed() }
-        }
+        val collapseToggle = createIconButton(
+            if (panelCollapsed) android.R.drawable.arrow_down_float else android.R.drawable.arrow_up_float
+        ) { togglePanelCollapsed() }
         header.addView(collapseToggle)
 
-        val close = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            background = null
-            setOnClickListener { hidePanel() }
-        }
+        val close = createIconButton(android.R.drawable.ic_menu_close_clear_cancel) { hidePanel() }
         header.addView(close)
         root.addView(header)
 
-        val current = TextView(this).apply {
-            text = currentColorText()
-            setTextColor(Color.parseColor("#6B5B4E"))
-            textSize = 12f
-        }
-        currentColorLabel = current
-        root.addView(current)
+        root.addView(space(8))
 
         val tools = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val pickerBtn = panelButton("取色") { enterPickerMode() }
-        tools.addView(pickerBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
+        val pickerBtn = createIconButton(android.R.drawable.ic_menu_edit) { enterPickerMode() }
+        tools.addView(pickerBtn)
         if (!panelCollapsed) {
-            val undoBtn = panelButton("撤销") { undoStroke() }
-            val redoBtn = panelButton("重做") { redoStroke() }
-            val clearBtn = panelButton("清空") { clearCanvas() }
-            tools.addView(undoBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
-            tools.addView(redoBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
-            tools.addView(clearBtn, LinearLayout.LayoutParams(0, dp(40), 1f))
+            val undoBtn = createIconTextButton("↶") { undoStroke() }
+            val redoBtn = createIconTextButton("↷") { redoStroke() }
+            val clearBtn = createIconTextButton("×") { clearCanvas() }
+            tools.addView(undoBtn)
+            tools.addView(redoBtn)
+            tools.addView(clearBtn)
         }
-        root.addView(space(12))
+        tools.addView(createSpace(), LinearLayout.LayoutParams(0, 1, 1f))
         root.addView(tools)
 
         if (!panelCollapsed) {
-            val brushLabel = TextView(this).apply {
-                text = "笔触 ${brushRadius.toInt()}"
-                setTextColor(Color.parseColor("#56483D"))
-            }
-            root.addView(space(12))
-            root.addView(brushLabel)
-            val brushSeek = SeekBar(this).apply {
-                max = 26
-                progress = (brushRadius - 8).toInt()
-                setOnSeekBarChangeListener(simpleSeek { value ->
-                    brushRadius = 8f + value
-                    brushLabel.text = "笔触 ${brushRadius.toInt()}"
-                })
-            }
-            root.addView(brushSeek)
+            root.addView(space(8))
 
-            val wetLabel = TextView(this).apply {
-                text = "湿度 ${(wetness * 100).toInt()}"
-                setTextColor(Color.parseColor("#56483D"))
+            val brushRow = createSliderRow("●") { value ->
+                brushRadius = 8f + value * 26f
             }
-            root.addView(wetLabel)
-            val wetSeek = SeekBar(this).apply {
-                max = 80
-                progress = (wetness * 100).toInt()
-                setOnSeekBarChangeListener(simpleSeek { value ->
-                    wetness = value / 100f
-                    wetLabel.text = "湿度 ${(wetness * 100).toInt()}"
-                })
+            root.addView(brushRow)
+
+            root.addView(space(4))
+
+            val wetRow = createSliderRow("💧") { value ->
+                wetness = value
             }
-            root.addView(wetSeek)
+            root.addView(wetRow)
         }
 
-        root.addView(space(12))
+        root.addView(space(8))
         val canvas = PigmentCanvasView(this).apply {
-            minimumHeight = dp(220)
+            minimumHeight = dp(180)
             onColorConsumed = { sampled ->
                 currentColor = sampled
                 refreshCurrentColorUi()
@@ -402,13 +399,7 @@ class PigmentFloatingManager : Service() {
         ))
 
         if (!panelCollapsed) {
-            root.addView(space(12))
-            val paletteTitle = TextView(this).apply {
-                text = "色板"
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(Color.parseColor("#2E241D"))
-            }
-            root.addView(paletteTitle)
+            root.addView(space(8))
 
             val scroll = HorizontalScrollView(this).apply {
                 isHorizontalScrollBarEnabled = false
@@ -418,10 +409,9 @@ class PigmentFloatingManager : Service() {
             }
             paletteChipsRow = chips
             palette.forEach { color ->
-                chips.addView(createColorChip(color, current, canvas))
+                chips.addView(createColorChip(color))
             }
             scroll.addView(chips)
-            root.addView(space(8))
             root.addView(scroll)
         }
         return root
@@ -429,20 +419,132 @@ class PigmentFloatingManager : Service() {
 
     private lateinit var canvas: PigmentCanvasView
 
-    private fun createColorChip(color: Int, current: TextView, canvas: PigmentCanvasView): View {
+    private fun createColorIndicator(): View {
         return FrameLayout(this).apply {
-            val lp = LinearLayout.LayoutParams(dp(44), dp(44))
-            lp.marginEnd = dp(10)
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+            background = object : android.graphics.drawable.Drawable() {
+                override fun draw(canvas: android.graphics.Canvas) {
+                    val density = resources.displayMetrics.density
+                    val outer = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = panelWhiteSoft
+                        style = Paint.Style.FILL
+                    }
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = currentColor
+                        style = Paint.Style.FILL
+                    }
+                    val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = panelBorder
+                        style = Paint.Style.STROKE
+                        strokeWidth = density
+                    }
+                    val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = ColorUtils.setAlphaComponent(Color.BLACK, 16)
+                        maskFilter = BlurMaskFilter(10f * density, BlurMaskFilter.Blur.NORMAL)
+                    }
+                    val cx = bounds.exactCenterX()
+                    val cy = bounds.exactCenterY()
+                    val radius = bounds.width() / 2f - 2f * density
+                    canvas.drawCircle(cx, cy + 2f * density, radius - density, shadow)
+                    canvas.drawCircle(cx, cy, radius, outer)
+                    canvas.drawCircle(cx, cy, radius * 0.62f, paint)
+                    canvas.drawCircle(cx, cy, radius, border)
+                }
+                override fun setAlpha(alpha: Int) {}
+                override fun setColorFilter(colorFilter: ColorFilter?) {}
+                override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
+            }
+        }
+    }
+
+    private fun createIconButton(iconRes: Int, onClick: () -> Unit): View {
+        return ImageButton(this).apply {
+            setImageResource(iconRes)
+            background = roundedRectDrawable(panelWhiteMuted, panelBorder, 18f)
+            setColorFilter(panelTextPrimary)
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply {
+                marginStart = dp(8)
+            }
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            elevation = dp(1).toFloat()
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun createIconTextButton(text: String, onClick: () -> Unit): View {
+        return TextView(this).apply {
+            this.text = text
+            textSize = 18f
+            gravity = Gravity.CENTER
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            setTextColor(panelTextPrimary)
+            background = roundedRectDrawable(panelWhiteMuted, panelBorder, 18f)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            layoutParams = LinearLayout.LayoutParams(dp(42), dp(40)).apply {
+                marginStart = dp(8)
+            }
+            elevation = dp(1).toFloat()
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun createSpace(): View {
+        return Space(this)
+    }
+
+    private fun createSliderRow(icon: String, onValueChange: (Float) -> Unit): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = roundedRectDrawable(panelWhiteSoft, panelDivider, 20f)
+        }
+
+        val iconView = TextView(this).apply {
+            text = icon
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setTextColor(panelTextPrimary)
+            setPadding(0, 0, dp(10), 0)
+        }
+        row.addView(iconView)
+
+        val seekBar = SeekBar(this).apply {
+            max = 100
+            progress = 50
+            setPadding(0, 0, 0, 0)
+            progressTintList = android.content.res.ColorStateList.valueOf(panelAccent)
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(panelBorder)
+            thumbTintList = android.content.res.ColorStateList.valueOf(panelAccent)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) onValueChange(progress / 100f)
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
+        row.addView(seekBar, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        return row
+    }
+
+    private fun createColorChip(color: Int): View {
+        return FrameLayout(this).apply {
+            val lp = LinearLayout.LayoutParams(dp(40), dp(40))
+            lp.marginEnd = dp(8)
             layoutParams = lp
             background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
+                cornerRadius = dp(20).toFloat()
                 setColor(color)
-                setStroke(dp(1), Color.WHITE)
+                setStroke(dp(1), if (isLightColor(color)) panelBorder else ColorUtils.setAlphaComponent(Color.WHITE, 180))
             }
+            elevation = dp(1).toFloat()
             setOnClickListener {
                 currentColor = color
                 refreshCurrentColorUi()
-                canvas.invalidate()
+                if (::canvas.isInitialized) canvas.invalidate()
             }
             setOnLongClickListener {
                 if (palette.size > 1) {
@@ -456,11 +558,13 @@ class PigmentFloatingManager : Service() {
 
     private fun enterPickerMode() {
         hidePanel()
+
         if (!screenshot.captureInitialized) {
             pendingPickerAfterPermission = true
             onScreenshotPermissionNeeded?.invoke()
             return
         }
+
         captureFreshFrameAndShowPicker()
     }
 
@@ -565,14 +669,6 @@ class PigmentFloatingManager : Service() {
         }
     }
 
-    private fun panelButton(label: String, onClick: () -> Unit): Button {
-        return Button(this).apply {
-            text = label
-            isAllCaps = false
-            setOnClickListener { onClick() }
-        }
-    }
-
     private fun simpleSeek(onChange: (Float) -> Unit): SeekBar.OnSeekBarChangeListener {
         return object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -596,14 +692,17 @@ class PigmentFloatingManager : Service() {
 
     private fun refreshCurrentColorUi() {
         bubbleView?.background?.invalidateSelf()
+        (bubbleView as? ViewGroup)?.getChildAt(0)?.let { icon ->
+            if (icon is ImageView) {
+                icon.setColorFilter(bestOnColor(currentColor))
+            }
+        }
         currentColorLabel?.text = currentColorText()
     }
 
     private fun prependPaletteChip(color: Int) {
-        val current = currentColorLabel ?: return
-        val canvasView = if (::canvas.isInitialized) canvas else return
         val chips = paletteChipsRow ?: return
-        chips.addView(createColorChip(color, current, canvasView), 0)
+        chips.addView(createColorChip(color), 0)
     }
 
     private fun panelHeightForState(): Int = if (panelCollapsed) dp(360) else dp(560)
@@ -642,6 +741,7 @@ class PigmentFloatingManager : Service() {
         val lastIndex = strokes.lastIndex
         if (lastIndex < 0) return
         redo.add(strokes.removeAt(lastIndex))
+        canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
     }
 
@@ -650,6 +750,7 @@ class PigmentFloatingManager : Service() {
         val lastIndex = redo.lastIndex
         if (lastIndex < 0) return
         strokes.add(redo.removeAt(lastIndex))
+        canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
     }
 
@@ -657,6 +758,7 @@ class PigmentFloatingManager : Service() {
         if (!::canvas.isInitialized) return
         strokes.clear()
         redo.clear()
+        canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
     }
 
@@ -678,28 +780,79 @@ class PigmentFloatingManager : Service() {
         return String.format("#%02X%02X%02X", Color.red(color), Color.green(color), Color.blue(color))
     }
 
+    private fun roundedRectDrawable(fillColor: Int, strokeColor: Int, radiusDp: Float): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(radiusDp.toInt()).toFloat()
+            setColor(fillColor)
+            setStroke(dp(1), strokeColor)
+        }
+    }
+
+    private fun isLightColor(color: Int): Boolean {
+        return ColorUtils.calculateLuminance(color) > 0.82
+    }
+
     inner class PigmentCanvasView(context: Context) : View(context) {
         var onColorConsumed: ((Int) -> Unit)? = null
         private var active = mutableListOf<PaintStamp>()
         private var lastTouchX = 0f
         private var lastTouchY = 0f
+        private var lastTouchTime = 0L
         private val blurPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val bridgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             strokeCap = Paint.Cap.ROUND
         }
 
+        private var strokeCache: Bitmap? = null
+        private var cacheCanvas: Canvas? = null
+        private val dirtyRect = Rect()
+        private var cacheValid = false
+
         init {
             background = GradientDrawable().apply {
                 cornerRadius = dp(24).toFloat()
-                setColor(Color.WHITE)
-                setStroke(dp(1), Color.parseColor("#EDEDED"))
+                setColor(panelWhite)
+                setStroke(dp(1), panelBorder)
             }
+        }
+
+        private fun ensureCache() {
+            if (strokeCache == null && width > 0 && height > 0) {
+                strokeCache = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                cacheCanvas = Canvas(strokeCache!!)
+                cacheCanvas?.drawColor(Color.TRANSPARENT)
+            }
+        }
+
+        internal fun invalidateCache() {
+            cacheValid = false
+        }
+
+        private fun rebuildCache() {
+            if (cacheValid) return
+            ensureCache() ?: return
+            val canvas = cacheCanvas ?: return
+            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+            for (stroke in strokes) {
+                drawStrokeToCache(canvas, stroke)
+            }
+            cacheValid = true
+        }
+
+        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+            super.onSizeChanged(w, h, oldw, oldh)
+            strokeCache?.recycle()
+            strokeCache = null
+            cacheCanvas = null
+            invalidateCache()
         }
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    lastTouchTime = event.eventTime
                     active = mutableListOf(createStamp(event.x, event.y))
                     lastTouchX = event.x
                     lastTouchY = event.y
@@ -707,17 +860,22 @@ class PigmentFloatingManager : Service() {
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    appendInterpolatedStamps(lastTouchX, lastTouchY, event.x, event.y)
+                    val currentTime = event.eventTime
+                    appendInterpolatedStamps(lastTouchX, lastTouchY, event.x, event.y, currentTime - lastTouchTime)
                     lastTouchX = event.x
                     lastTouchY = event.y
+                    lastTouchTime = currentTime
                     invalidate()
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (active.isNotEmpty()) {
-                        strokes.add(PaintStroke(active.toList()))
+                        val newStroke = PaintStroke(active.toList())
+                        strokes.add(newStroke)
                         redo.clear()
                         active = mutableListOf()
+                        commitStrokeToCache(newStroke)
+                        invalidateCache()
                         invalidate()
                     }
                     return true
@@ -726,7 +884,13 @@ class PigmentFloatingManager : Service() {
             return super.onTouchEvent(event)
         }
 
-        private fun appendInterpolatedStamps(fromX: Float, fromY: Float, toX: Float, toY: Float) {
+        private fun commitStrokeToCache(stroke: PaintStroke) {
+            ensureCache() ?: return
+            val canvas = cacheCanvas ?: return
+            drawStrokeToCache(canvas, stroke)
+        }
+
+        private fun appendInterpolatedStamps(fromX: Float, fromY: Float, toX: Float, toY: Float, deltaTimeMs: Long) {
             val dx = toX - fromX
             val dy = toY - fromY
             val distance = kotlin.math.sqrt(dx * dx + dy * dy)
@@ -735,17 +899,23 @@ class PigmentFloatingManager : Service() {
                 return
             }
 
-            val sampled = sampleExistingColor(toX, toY)
-            val mixed = if (sampled == null) currentColor else pigmentMix(currentColor, sampled, wetness)
-            onColorConsumed?.invoke(mixed)
+            val velocity = if (deltaTimeMs > 0) distance / max(deltaTimeMs, 1L) * 1000f else 0f
+            val velocityFactor = (velocity / 1000f).coerceIn(0f, 1f)
 
-            val spacing = max(brushRadius * 0.48f, 4.5f)
-            val steps = max(1, kotlin.math.ceil(distance / spacing).toInt())
+            val dynamicSpacing = max(brushRadius * 0.48f * (1f + velocityFactor * 0.8f), 4.5f)
+            val dynamicRadius = brushRadius * (1f - velocityFactor * 0.15f).coerceIn(0.6f, 1f)
+
+            val steps = max(1, kotlin.math.ceil(distance / dynamicSpacing).toInt())
+
+            val sampled = sampleExistingColor(toX, toY)
+            val strokeColor = if (sampled == null) currentColor else pigmentMix(currentColor, sampled, wetness)
+            onColorConsumed?.invoke(strokeColor)
+
             for (step in 1..steps) {
                 val t = step / steps.toFloat()
                 val x = fromX + dx * t
                 val y = fromY + dy * t
-                active.add(PaintStamp(x, y, brushRadius, mixed))
+                active.add(PaintStamp(x, y, dynamicRadius, strokeColor))
             }
         }
 
@@ -757,28 +927,60 @@ class PigmentFloatingManager : Service() {
         }
 
         private fun sampleExistingColor(x: Float, y: Float): Int? {
-            val all = strokes.flatMap { it.stamps }
             var best: PaintStamp? = null
             var bestDistance = Float.MAX_VALUE
-            for (stamp in all.asReversed()) {
-                val dx = stamp.x - x
-                val dy = stamp.y - y
-                val d = kotlin.math.sqrt(dx * dx + dy * dy)
-                if (d <= stamp.radius * 1.4f && d < bestDistance) {
-                    bestDistance = d
-                    best = stamp
+
+            fun checkStamps(stampList: List<PaintStamp>): Boolean {
+                for (stamp in stampList.asReversed()) {
+                    val dx = stamp.x - x
+                    val dy = stamp.y - y
+                    val d = kotlin.math.sqrt(dx * dx + dy * dy)
+                    if (d <= stamp.radius * 1.4f && d < bestDistance) {
+                        bestDistance = d
+                        best = stamp
+                    }
                 }
+                return best != null
             }
+
+            val recentStrokes = strokes.takeLast(3)
+            for (stroke in recentStrokes.reversed()) {
+                if (checkStamps(stroke.stamps)) return best?.color
+            }
+
             return best?.color
         }
 
         override fun onDraw(canvasRef: Canvas) {
             super.onDraw(canvasRef)
-            for (stroke in strokes) drawStroke(canvasRef, stroke)
+            rebuildCache()
+            strokeCache?.let { canvasRef.drawBitmap(it, 0f, 0f, null) }
             if (active.isNotEmpty()) drawStroke(canvasRef, PaintStroke(active))
         }
 
         private fun drawStroke(canvasRef: Canvas, stroke: PaintStroke) {
+            val stamps = stroke.stamps
+            stamps.forEachIndexed { index, stamp ->
+                blurPaint.color = stamp.color
+                blurPaint.alpha = 224
+                blurPaint.maskFilter = BlurMaskFilter(4.2f, BlurMaskFilter.Blur.NORMAL)
+                canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius, blurPaint)
+
+                corePaint.color = stamp.color
+                canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius * 0.9f, corePaint)
+
+                if (index > 0) {
+                    val prev = stamps[index - 1]
+                    bridgePaint.color = pigmentMix(prev.color, stamp.color, 0.5f)
+                    bridgePaint.alpha = 180
+                    bridgePaint.strokeWidth = stamp.radius * 1.65f
+                    bridgePaint.maskFilter = BlurMaskFilter(4f, BlurMaskFilter.Blur.NORMAL)
+                    canvasRef.drawLine(prev.x, prev.y, stamp.x, stamp.y, bridgePaint)
+                }
+            }
+        }
+
+        private fun drawStrokeToCache(canvasRef: Canvas, stroke: PaintStroke) {
             val stamps = stroke.stamps
             stamps.forEachIndexed { index, stamp ->
                 blurPaint.color = stamp.color
@@ -818,7 +1020,7 @@ private class PigmentPickerOverlay(
 
     init {
         setWillNotDraw(false)
-        setBackgroundColor(Color.argb(120, 0, 0, 0))
+        setBackgroundColor(Color.argb(84, 255, 255, 255))
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
@@ -860,29 +1062,45 @@ private class PigmentPickerOverlay(
         canvas.drawCircle(loupeCx, loupeCy, radius, paint)
 
         val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(46, 255, 255, 255)
+            color = Color.argb(34, 255, 255, 255)
         }
         canvas.drawCircle(loupeCx, loupeCy, radius, tintPaint)
 
         val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = density * 2
-            color = Color.WHITE
+            color = Color.parseColor("#F5F5F2")
         }
         canvas.drawCircle(loupeCx, loupeCy, radius, border)
 
         val cross = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
+            color = Color.parseColor("#FCFCFA")
             strokeWidth = density * 1.5f
         }
         canvas.drawLine(loupeCx - 24f, loupeCy, loupeCx + 24f, loupeCy, cross)
         canvas.drawLine(loupeCx, loupeCy - 24f, loupeCx, loupeCy + 24f, cross)
 
-        val pillRect = RectF(pointerX - 118f, pointerY + 26f, pointerX + 118f, pointerY + 80f)
-        val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        val pillRect = RectF(pointerX - 124f, pointerY + 26f, pointerX + 124f, pointerY + 84f)
+        val pillShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ColorUtils.setAlphaComponent(Color.BLACK, 18)
+            maskFilter = BlurMaskFilter(density * 14f, BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawRoundRect(
+            RectF(pillRect.left, pillRect.top + density * 3f, pillRect.right, pillRect.bottom + density * 3f),
+            28f,
+            28f,
+            pillShadow,
+        )
+        val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FFFFFF") }
         canvas.drawRoundRect(pillRect, 24f, 24f, pillPaint)
+        val pillBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = density
+            color = Color.parseColor("#E9E7E2")
+        }
+        canvas.drawRoundRect(pillRect, 24f, 24f, pillBorder)
         val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#2E241D")
+            color = Color.parseColor("#111111")
             textSize = context.resources.displayMetrics.scaledDensity * 14f
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
@@ -894,7 +1112,7 @@ private class PigmentPickerOverlay(
             text,
         )
         val caption = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#7A6A5D")
+            color = Color.parseColor("#6B6B6B")
             textSize = context.resources.displayMetrics.scaledDensity * 10f
             textAlign = Paint.Align.CENTER
         }
@@ -957,7 +1175,7 @@ private class PigmentPickerOverlay(
         val ringInner = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = context.resources.displayMetrics.density
-            color = Color.parseColor("#2E241D")
+            color = Color.parseColor("#B9B5AE")
         }
         val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = hoverColor }
         canvas.drawCircle(x, y, context.resources.displayMetrics.density * 12f, ringOuter)
@@ -980,24 +1198,25 @@ private data class PaintStamp(val x: Float, val y: Float, val radius: Float, val
 private class BubbleDrawable(private val colorProvider: () -> Int) : android.graphics.drawable.Drawable() {
     override fun draw(canvas: Canvas) {
         val color = colorProvider()
+        val outer = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.parseColor("#FFFFFF") }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
         val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            alpha = 90
-            maskFilter = BlurMaskFilter(18f, BlurMaskFilter.Blur.NORMAL)
+            this.color = ColorUtils.setAlphaComponent(Color.BLACK, 22)
+            maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
         }
         val rect = bounds
         val cx = rect.exactCenterX()
         val cy = rect.exactCenterY()
-        canvas.drawCircle(cx, cy + 8f, rect.width() / 2f - 2f, shadow)
-        canvas.drawCircle(cx, cy, rect.width() / 2f - 2f, paint)
+        val radius = rect.width() / 2f - 2f
+        canvas.drawCircle(cx, cy + 6f, radius, shadow)
+        canvas.drawCircle(cx, cy, radius, outer)
+        canvas.drawCircle(cx, cy, radius * 0.72f, paint)
         val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = 1.4f
-            this.color = Color.WHITE
-            alpha = 180
+            this.color = Color.parseColor("#E9E7E2")
         }
-        canvas.drawCircle(cx, cy, rect.width() / 2f - 2f, border)
+        canvas.drawCircle(cx, cy, radius, border)
     }
     override fun setAlpha(alpha: Int) {}
     override fun setColorFilter(colorFilter: ColorFilter?) {}
@@ -1007,16 +1226,21 @@ private class BubbleDrawable(private val colorProvider: () -> Int) : android.gra
 private class PanelDrawable : android.graphics.drawable.Drawable() {
     override fun draw(canvas: Canvas) {
         val rect = RectF(bounds)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(238, 255, 255, 255)
+        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ColorUtils.setAlphaComponent(Color.BLACK, 12)
+            maskFilter = BlurMaskFilter(28f, BlurMaskFilter.Blur.NORMAL)
         }
-        canvas.drawRoundRect(rect, 30f, 30f, paint)
+        canvas.drawRoundRect(RectF(rect.left, rect.top + 8f, rect.right, rect.bottom + 8f), 32f, 32f, shadow)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#FFFFFF")
+        }
+        canvas.drawRoundRect(rect, 32f, 32f, paint)
         val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = 1f
-            color = Color.argb(170, 255, 255, 255)
+            color = Color.parseColor("#E7E7E3")
         }
-        canvas.drawRoundRect(rect, 30f, 30f, border)
+        canvas.drawRoundRect(rect, 32f, 32f, border)
     }
     override fun setAlpha(alpha: Int) {}
     override fun setColorFilter(colorFilter: ColorFilter?) {}
