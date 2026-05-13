@@ -12,7 +12,7 @@ struct _MyApplication {
   char** dart_entrypoint_arguments;
 };
 
-G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+G_DEFINE_TYPE(MyApplication, my_applica`tion, GTK_TYPE_APPLICATION)
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {

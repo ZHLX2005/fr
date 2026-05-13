@@ -6,13 +6,15 @@ typedef MessageWidgetStrategyMap = Map<String, MessageWidgetStrategy<IMessageDat
 
 /// Factory for creating message widgets based on type
 /// Uses O(1) lookup via Map
+/// All widgets are wrapped in RepaintBoundary for performance isolation
 class MessageWidgetFactory {
+  MessageWidgetFactory(this._strategies, this._mockData);
+
   final MessageWidgetStrategyMap _strategies;
   final Map<String, IMessageData> _mockData;
 
-  MessageWidgetFactory(this._strategies, this._mockData);
-
   /// Create widget for the given message data
+  /// Wraps result in RepaintBoundary for performance isolation
   /// Throws UnsupportedError if no strategy found for type
   Widget create(BuildContext context, IMessageData data) {
     final strategy = _strategies[data.type];
@@ -21,7 +23,10 @@ class MessageWidgetFactory {
         'No widget strategy for type: ${data.type}',
       );
     }
-    return strategy.build(context, data);
+    // RepaintBoundary isolates each message widget's rendering
+    return RepaintBoundary(
+      child: strategy.build(context, data),
+    );
   }
 
   /// Get mock data by type

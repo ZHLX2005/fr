@@ -261,4 +261,3 @@ const _kAccentDeepColor = Color(0xFF8B5E3C);
 const _kPanelTextColor = Color(0xFF5E4735);
 const _kPanelMutedTextColor = Color(0xFF8E7561);
 const _kAnimationDuration = Duration(milliseconds: 260);
-const _kWaveDuration = Duration(seconds: 2);
