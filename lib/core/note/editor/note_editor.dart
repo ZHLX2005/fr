@@ -34,6 +34,9 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   final TextEditingController _aiInputController = TextEditingController();
   bool _aiBarVisible = false;
 
+  // 更多功能面板
+  bool _morePanelVisible = false;
+
   // MD 优先输入控制器
   late final MarkdownPriorityInputController _mdCtrl;
 
@@ -41,6 +44,19 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   late final NewLineSpaceAiBarTrigger _aiTrigger;
 
   late final MdActions _mdActions;
+
+  /// 检查当前格式是否激活
+  bool _isBoldActive() => _controller.getSelectionStyle().attributes.containsKey(Attribute.bold.key);
+  bool _isItalicActive() => _controller.getSelectionStyle().attributes.containsKey(Attribute.italic.key);
+  bool _isInlineCodeActive() => _controller.getSelectionStyle().attributes.containsKey(Attribute.inlineCode.key);
+  bool _isQuoteActive() => _controller.getSelectionStyle().attributes.containsKey(Attribute.blockQuote.key);
+  bool _isBulletListActive() => _controller.getSelectionStyle().attributes[Attribute.list.key]?.value == Attribute.ul.value;
+  bool _isOrderedListActive() => _controller.getSelectionStyle().attributes[Attribute.list.key]?.value == Attribute.ol.value;
+  int _getHeaderLevel() {
+    final attrs = _controller.getSelectionStyle().attributes;
+    final header = attrs[Attribute.header.key];
+    return header?.value as int? ?? 0;
+  }
 
   @override
   void initState() {
@@ -81,13 +97,24 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   }
 
   void _showAiBar() {
-    setState(() => _aiBarVisible = true);
+    setState(() {
+      _aiBarVisible = true;
+      _morePanelVisible = false;
+    });
   }
 
   void _hideAiBar() {
     setState(() => _aiBarVisible = false);
     _aiInputController.clear();
     _editorFocus.requestFocus();
+  }
+
+  void _toggleMorePanel() {
+    FocusScope.of(context).unfocus(); // 退出输入法
+    setState(() {
+      _morePanelVisible = !_morePanelVisible;
+      _aiBarVisible = false;
+    });
   }
 
   void _commitAiCommand() {
@@ -185,6 +212,9 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
 
             // AI 输入框（被空格唤醒）
             if (_aiBarVisible) _buildAiInputBar(),
+
+            // 更多功能面板
+            if (_morePanelVisible) _buildMorePanel(isDark),
 
             // 底部功能栏
             _buildBottomBar(mdButtons),
@@ -351,6 +381,120 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     );
   }
 
+  /// 更多功能面板 - 双列网格布局
+  Widget _buildMorePanel(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2D2D2D) : const Color(0xFFFAFAFA),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0xFF3D3D3D) : const Color(0xFFE0E0E0),
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 面板标题
+              Text(
+                '标题级别',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 监听选区变化，动态更新激活状态
+              ListenableBuilder(
+                listenable: _controller,
+                builder: (context, _) => GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 2.5,
+                  children: [
+                    _buildPanelButton('H1', '标题 1', () => _mdActions.setHeader(1), _getHeaderLevel() == 1, isDark),
+                    _buildPanelButton('H2', '标题 2', () => _mdActions.setHeader(2), _getHeaderLevel() == 2, isDark),
+                    _buildPanelButton('H3', '标题 3', () => _mdActions.setHeader(3), _getHeaderLevel() == 3, isDark),
+                    _buildPanelButton('H4', '标题 4', () => _mdActions.setHeader(4), _getHeaderLevel() == 4, isDark),
+                    _buildPanelButton('H5', '标题 5', () => _mdActions.setHeader(5), _getHeaderLevel() == 5, isDark),
+                    _buildPanelButton('H6', '标题 6', () => _mdActions.setHeader(6), _getHeaderLevel() == 6, isDark),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // 段落操作
+              Text(
+                '段落',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListenableBuilder(
+                listenable: _controller,
+                builder: (context, _) => GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 2.5,
+                  children: [
+                    _buildPanelButton('P', '正文', () => _mdActions.setHeader(0), _getHeaderLevel() == 0, isDark),
+                    _buildPanelButton('" "', '引用块', () { _mdActions.toggleQuoteBlock(); _toggleMorePanel(); }, _isQuoteActive(), isDark),
+                    _buildPanelButton('---', '分割线', () { _insertDivider(); _toggleMorePanel(); }, false, isDark),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 面板按钮组件
+  Widget _buildPanelButton(String label, String tooltip, VoidCallback onTap, bool isActive, bool isDark) {
+    final activeColor = isDark ? const Color(0xFF64B5F6) : const Color(0xFF1976D2);
+    final defaultColor = isDark ? const Color(0xFF3D3D3D) : const Color(0xFFE0E0E0);
+    final textColor = isDark ? const Color(0xFFE0E0E0) : const Color(0xFF2D2D2D);
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: isActive ? activeColor.withValues(alpha: 0.15) : defaultColor,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                  color: isActive ? activeColor : textColor,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomBar(List<MdButtonDef> mdButtons) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -384,40 +528,119 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
               _buildDivider(isDark),
               const SizedBox(width: 8),
 
-              // Markdown 格式按钮组
+              // Markdown 格式按钮组（响应选区变化）
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      ...mdButtons.map((btn) => Padding(
+                  child: ListenableBuilder(
+                    listenable: _controller,
+                    builder: (context, _) {
+                      return Row(
+                        children: [
+                          // 粗体
+                          Padding(
                             padding: const EdgeInsets.only(right: 4),
                             child: _buildToolbarButton(
-                              icon: btn.icon,
-                              label: btn.label,
-                              tooltip: btn.tooltip ?? '',
-                              onPressed: btn.onTap,
+                              icon: Icons.format_bold,
+                              tooltip: '粗体',
+                              onPressed: _mdActions.toggleBold,
+                              isActive: _isBoldActive(),
                             ),
-                          )),
+                          ),
+                          // 斜体
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: _buildToolbarButton(
+                              icon: Icons.format_italic,
+                              tooltip: '斜体',
+                              onPressed: _mdActions.toggleItalic,
+                              isActive: _isItalicActive(),
+                            ),
+                          ),
+                          // 行内代码
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: _buildToolbarButton(
+                              icon: Icons.code,
+                              tooltip: '行内代码',
+                              onPressed: _mdActions.toggleInlineCode,
+                              isActive: _isInlineCodeActive(),
+                            ),
+                          ),
+                          // 标题
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: _buildToolbarButton(
+                              icon: Icons.title,
+                              label: 'H',
+                              tooltip: '标题',
+                              onPressed: () => _mdActions.setHeader(1),
+                              isActive: _getHeaderLevel() == 1,
+                            ),
+                          ),
+                          // 引用
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: _buildToolbarButton(
+                              icon: Icons.format_quote,
+                              tooltip: '引用',
+                              onPressed: _mdActions.toggleQuoteBlock,
+                              isActive: _isQuoteActive(),
+                            ),
+                          ),
+                          // 无序列表
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: _buildToolbarButton(
+                              icon: Icons.format_list_bulleted,
+                              tooltip: '无序列表',
+                              onPressed: _mdActions.toggleBulletList,
+                              isActive: _isBulletListActive(),
+                            ),
+                          ),
+                          // 有序列表
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: _buildToolbarButton(
+                              icon: Icons.format_list_numbered,
+                              tooltip: '有序列表',
+                              onPressed: _mdActions.toggleOrderedList,
+                              isActive: _isOrderedListActive(),
+                            ),
+                          ),
 
-                      const SizedBox(width: 8),
-                      _buildDivider(isDark),
-                      const SizedBox(width: 8),
+                          const SizedBox(width: 8),
+                          _buildDivider(isDark),
+                          const SizedBox(width: 8),
 
-                      // 嵌入卡片按钮
-                      _buildToolbarButton(
-                        icon: Icons.add_box_outlined,
-                        tooltip: '嵌入卡片',
-                        onPressed: _insertEmbedCard,
-                      ),
+                          // 嵌入卡片按钮
+                          _buildToolbarButton(
+                            icon: Icons.add_box_outlined,
+                            tooltip: '嵌入卡片',
+                            onPressed: _insertEmbedCard,
+                          ),
 
-                      // 分割线按钮
-                      _buildToolbarButton(
-                        icon: Icons.horizontal_rule,
-                        tooltip: '分割线',
-                        onPressed: _insertDivider,
-                      ),
-                    ],
+                          // 分割线按钮
+                          _buildToolbarButton(
+                            icon: Icons.horizontal_rule,
+                            tooltip: '分割线',
+                            onPressed: _insertDivider,
+                          ),
+
+                          const SizedBox(width: 8),
+                          _buildDivider(isDark),
+                          const SizedBox(width: 8),
+
+                          // 更多功能按钮
+                          _buildToolbarButton(
+                            icon: Icons.add,
+                            tooltip: '更多格式',
+                            onPressed: _toggleMorePanel,
+                            isActive: _morePanelVisible,
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -435,6 +658,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     required VoidCallback? onPressed,
     bool isHighlight = false,
     Color? highlightColor,
+    bool isActive = false,
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -443,6 +667,11 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     final activeColor = isHighlight
         ? (highlightColor ?? defaultColor)
         : (isDark ? const Color(0xFF64B5F6) : const Color(0xFF1976D2));
+    // 激活状态使用更鲜艳的主题色
+    final checkedColor = isDark ? const Color(0xFF64B5F6) : const Color(0xFF1976D2);
+    final finalIconColor = onPressed == null
+        ? defaultColor.withValues(alpha: 0.4)
+        : (isActive ? checkedColor : activeColor);
 
     if (icon != null) {
       return Tooltip(
@@ -457,9 +686,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
               child: Icon(
                 icon,
                 size: 22,
-                color: onPressed == null
-                    ? defaultColor.withValues(alpha: 0.4)
-                    : activeColor,
+                color: finalIconColor,
               ),
             ),
           ),
