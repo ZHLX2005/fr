@@ -65,8 +65,8 @@ class PigmentFloatingManager : Service() {
     private var currentColor: Int = Color.parseColor("#0D1B44")
     private val strokes = mutableListOf<PaintStroke>()
     private val redo = mutableListOf<PaintStroke>()
-    private val strokeLayers = mutableListOf<StrokeLayer>()
-    private val redoLayers = mutableListOf<StrokeLayer>()
+    private val strokeLayerGroups = mutableListOf<List<StrokeLayer>>()
+    private val redoLayerGroups = mutableListOf<List<StrokeLayer>>()
     private val palette = mutableListOf(
         Color.parseColor("#0D1B44"),
         Color.parseColor("#FFEC04"),
@@ -797,8 +797,8 @@ class PigmentFloatingManager : Service() {
         val lastIndex = strokes.lastIndex
         if (lastIndex < 0) return
         redo.add(strokes.removeAt(lastIndex))
-        if (strokeLayers.isNotEmpty()) {
-            redoLayers.add(strokeLayers.removeAt(strokeLayers.lastIndex))
+        if (strokeLayerGroups.isNotEmpty()) {
+            redoLayerGroups.add(strokeLayerGroups.removeAt(strokeLayerGroups.lastIndex))
         }
         canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
@@ -809,8 +809,8 @@ class PigmentFloatingManager : Service() {
         val lastIndex = redo.lastIndex
         if (lastIndex < 0) return
         strokes.add(redo.removeAt(lastIndex))
-        if (redoLayers.isNotEmpty()) {
-            strokeLayers.add(redoLayers.removeAt(redoLayers.lastIndex))
+        if (redoLayerGroups.isNotEmpty()) {
+            strokeLayerGroups.add(redoLayerGroups.removeAt(redoLayerGroups.lastIndex))
         }
         canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
@@ -820,10 +820,10 @@ class PigmentFloatingManager : Service() {
         if (!::canvas.isInitialized) return
         strokes.clear()
         redo.clear()
-        strokeLayers.forEach { it.bitmap.recycle() }
-        redoLayers.forEach { it.bitmap.recycle() }
-        strokeLayers.clear()
-        redoLayers.clear()
+        strokeLayerGroups.flatten().forEach { it.bitmap.recycle() }
+        redoLayerGroups.flatten().forEach { it.bitmap.recycle() }
+        strokeLayerGroups.clear()
+        redoLayerGroups.clear()
         canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
     }
@@ -888,8 +888,12 @@ class PigmentFloatingManager : Service() {
         private val markerFlow = 0.2f
         private val colorUiUpdateIntervalMs = 16L
         private val sampleReuseDistance = 3f
+        private val strokeChunkStampThreshold = 180
+        private val strokeChunkOverlap = 10
         var onColorConsumed: ((Int) -> Unit)? = null
         private var active = mutableListOf<PaintStamp>()
+        private var currentStrokeStamps = mutableListOf<PaintStamp>()
+        private val pendingRenderedStrokes = mutableListOf<PaintStroke>()
         private var lastTouchX = 0f
         private var lastTouchY = 0f
         private var lastColorUiUpdateAt = 0L
@@ -939,8 +943,10 @@ class PigmentFloatingManager : Service() {
             ensureCache() ?: return
             val canvas = cacheCanvas ?: return
             canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-            for (layer in strokeLayers) {
-                drawLayerToComposite(canvas, layer)
+            for (group in strokeLayerGroups) {
+                for (layer in group) {
+                    drawLayerToComposite(canvas, layer)
+                }
             }
             cacheValid = true
         }
@@ -958,7 +964,9 @@ class PigmentFloatingManager : Service() {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     resetSamplingCache()
+                    currentStrokeStamps = mutableListOf()
                     active = mutableListOf(createStamp(event.x, event.y))
+                    currentStrokeStamps.addAll(active)
                     lastTouchX = event.x
                     lastTouchY = event.y
                     invalidate()
@@ -972,14 +980,16 @@ class PigmentFloatingManager : Service() {
                     return true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (active.isNotEmpty()) {
-                        val newStroke = PaintStroke(active.toList())
+                    if (currentStrokeStamps.isNotEmpty()) {
+                        val newStroke = PaintStroke(currentStrokeStamps.toList())
                         strokes.add(newStroke)
                         redo.clear()
-                        redoLayers.forEach { it.bitmap.recycle() }
-                        redoLayers.clear()
+                        redoLayerGroups.flatten().forEach { it.bitmap.recycle() }
+                        redoLayerGroups.clear()
+                        pendingRenderedStrokes.add(newStroke)
                         active = mutableListOf()
-                        commitStrokeToCache(newStroke)
+                        currentStrokeStamps = mutableListOf()
+                        enqueueStrokeCommit(newStroke)
                         resetSamplingCache()
                         invalidate()
                     }
@@ -989,16 +999,16 @@ class PigmentFloatingManager : Service() {
             return super.onTouchEvent(event)
         }
 
-        private fun commitStrokeToCache(stroke: PaintStroke) {
-            ensureCache() ?: return
+        private fun commitStrokeChunkToCache(stroke: PaintStroke): StrokeLayer? {
+            ensureCache() ?: return null
             if (!cacheValid) {
                 rebuildCache()
             }
-            val layer = createStrokeLayer(stroke) ?: return
-            strokeLayers.add(layer)
-            val canvas = cacheCanvas ?: return
+            val layer = createStrokeLayer(stroke) ?: return null
+            val canvas = cacheCanvas ?: return null
             drawLayerToComposite(canvas, layer)
             cacheValid = true
+            return layer
         }
 
         private fun appendInterpolatedStamps(fromX: Float, fromY: Float, toX: Float, toY: Float) {
@@ -1025,7 +1035,9 @@ class PigmentFloatingManager : Service() {
             while (t <= 1f - tStep) {
                 val x = fromX + dx * t
                 val y = fromY + dy * t
-                active.add(PaintStamp(x, y, markerSize / 2f, strokeColor))
+                val stamp = PaintStamp(x, y, markerSize / 2f, strokeColor)
+                active.add(stamp)
+                currentStrokeStamps.add(stamp)
                 t += tStep
             }
         }
@@ -1057,6 +1069,17 @@ class PigmentFloatingManager : Service() {
                 val d = kotlin.math.sqrt(dx * dx + dy * dy)
                 if (d <= stamp.radius * 1.25f) {
                     return stamp.color
+                }
+            }
+
+            pendingRenderedStrokes.asReversed().forEach { stroke ->
+                stroke.stamps.asReversed().forEach { stamp ->
+                    val dx = stamp.x - x
+                    val dy = stamp.y - y
+                    val d = kotlin.math.sqrt(dx * dx + dy * dy)
+                    if (d <= stamp.radius * 1.25f) {
+                        return stamp.color
+                    }
                 }
             }
 
@@ -1109,12 +1132,29 @@ class PigmentFloatingManager : Service() {
             lastSampleColor = null
         }
 
+        private fun enqueueStrokeCommit(stroke: PaintStroke) {
+            handler.post {
+                val layers = createStrokeLayersForStroke(stroke)
+                mainHandler.post {
+                    pendingRenderedStrokes.remove(stroke)
+                    if (!strokes.contains(stroke)) {
+                        layers.forEach { it.bitmap.recycle() }
+                        return@post
+                    }
+                    strokeLayerGroups.add(layers)
+                    invalidateCache()
+                    postInvalidateOnAnimation()
+                }
+            }
+        }
+
         override fun onDraw(canvasRef: Canvas) {
             super.onDraw(canvasRef)
             rebuildCache()
             strokeCache?.let { bitmap ->
                 canvasRef.drawBitmap(bitmap, null, bitmapDrawRect, null)
             }
+            pendingRenderedStrokes.forEach { drawStroke(canvasRef, it) }
             if (active.isNotEmpty()) drawStroke(canvasRef, PaintStroke(active))
         }
 
@@ -1162,18 +1202,22 @@ class PigmentFloatingManager : Service() {
             markerStampCache?.let { cached ->
                 if (markerStampCacheSize == size) return cached
             }
+            val resized = createResizedMarkerStamp(size)
+            markerStampCache = resized
+            markerStampCacheSize = size
+            return resized
+        }
+
+        private fun createResizedMarkerStamp(size: Int): Bitmap {
             val source = markerStampSource
             val scale = size.toFloat() / min(source.width, source.height)
             val width = max(1, (source.width * scale).roundToInt())
             val height = max(1, (source.height * scale).roundToInt())
-            val resized = if (width == source.width && height == source.height) {
+            return if (width == source.width && height == source.height) {
                 source
             } else {
                 Bitmap.createScaledBitmap(source, width, height, true)
             }
-            markerStampCache = resized
-            markerStampCacheSize = size
-            return resized
         }
 
         private fun createStrokeLayer(stroke: PaintStroke): StrokeLayer? {
@@ -1205,8 +1249,47 @@ class PigmentFloatingManager : Service() {
                 scale(renderScale, renderScale)
                 translate(-boundedLeft, -boundedTop)
             }
-            drawStrokeToCache(layerCanvas, stroke)
+            drawBrushStrokeLocally(layerCanvas, stroke)
             return StrokeLayer(bitmap, boundedLeft, boundedTop, boundedRight, boundedBottom)
+        }
+
+        private fun createStrokeLayersForStroke(stroke: PaintStroke): List<StrokeLayer> {
+            if (stroke.stamps.isEmpty()) return emptyList()
+            if (stroke.stamps.size <= strokeChunkStampThreshold) {
+                return listOfNotNull(createStrokeLayer(stroke))
+            }
+
+            val result = mutableListOf<StrokeLayer>()
+            var index = 0
+            while (index < stroke.stamps.size) {
+                val endExclusive = min(stroke.stamps.size, index + strokeChunkStampThreshold)
+                val chunk = stroke.stamps.subList(index, endExclusive).toList()
+                createStrokeLayer(PaintStroke(chunk))?.let { result.add(it) }
+                index = if (endExclusive >= stroke.stamps.size) {
+                    endExclusive
+                } else {
+                    max(index + 1, endExclusive - strokeChunkOverlap)
+                }
+            }
+            return result
+        }
+
+        private fun drawBrushStrokeLocally(canvasRef: Canvas, stroke: PaintStroke) {
+            val localPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+            val localMatrix = Matrix()
+            val bitmap = createResizedMarkerStamp(markerSizePixels())
+
+            stroke.stamps.forEach { stamp ->
+                localPaint.colorFilter = PorterDuffColorFilter(
+                    stamp.color,
+                    PorterDuff.Mode.SRC_IN,
+                )
+                localPaint.alpha = (255 * markerFlow).roundToInt().coerceIn(0, 255)
+                localMatrix.reset()
+                localMatrix.postTranslate(-bitmap.width / 2f, -bitmap.height / 2f)
+                localMatrix.postTranslate(stamp.x, stamp.y)
+                canvasRef.drawBitmap(bitmap, localMatrix, localPaint)
+            }
         }
 
     }
