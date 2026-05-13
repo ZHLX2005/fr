@@ -901,8 +901,7 @@ class PigmentFloatingManager : Service() {
         init {
             background = GradientDrawable().apply {
                 cornerRadius = dp(24).toFloat()
-                setColor(panelWhite)
-                setStroke(dp(1), panelBorder)
+                setColor(ColorUtils.setAlphaComponent(panelWhite, 232))
             }
         }
 
