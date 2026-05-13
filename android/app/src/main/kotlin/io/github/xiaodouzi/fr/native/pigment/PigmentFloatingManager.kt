@@ -65,6 +65,8 @@ class PigmentFloatingManager : Service() {
     private var currentColor: Int = Color.parseColor("#0D1B44")
     private val strokes = mutableListOf<PaintStroke>()
     private val redo = mutableListOf<PaintStroke>()
+    private val strokeLayers = mutableListOf<StrokeLayer>()
+    private val redoLayers = mutableListOf<StrokeLayer>()
     private val palette = mutableListOf(
         Color.parseColor("#0D1B44"),
         Color.parseColor("#FFEC04"),
@@ -795,6 +797,9 @@ class PigmentFloatingManager : Service() {
         val lastIndex = strokes.lastIndex
         if (lastIndex < 0) return
         redo.add(strokes.removeAt(lastIndex))
+        if (strokeLayers.isNotEmpty()) {
+            redoLayers.add(strokeLayers.removeAt(strokeLayers.lastIndex))
+        }
         canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
     }
@@ -804,6 +809,9 @@ class PigmentFloatingManager : Service() {
         val lastIndex = redo.lastIndex
         if (lastIndex < 0) return
         strokes.add(redo.removeAt(lastIndex))
+        if (redoLayers.isNotEmpty()) {
+            strokeLayers.add(redoLayers.removeAt(redoLayers.lastIndex))
+        }
         canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
     }
@@ -812,6 +820,10 @@ class PigmentFloatingManager : Service() {
         if (!::canvas.isInitialized) return
         strokes.clear()
         redo.clear()
+        strokeLayers.forEach { it.bitmap.recycle() }
+        redoLayers.forEach { it.bitmap.recycle() }
+        strokeLayers.clear()
+        redoLayers.clear()
         canvas.invalidateCache()
         canvas.postInvalidateOnAnimation()
     }
@@ -927,8 +939,8 @@ class PigmentFloatingManager : Service() {
             ensureCache() ?: return
             val canvas = cacheCanvas ?: return
             canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-            for (stroke in strokes) {
-                drawStrokeToCache(canvas, stroke)
+            for (layer in strokeLayers) {
+                drawLayerToComposite(canvas, layer)
             }
             cacheValid = true
         }
@@ -964,6 +976,8 @@ class PigmentFloatingManager : Service() {
                         val newStroke = PaintStroke(active.toList())
                         strokes.add(newStroke)
                         redo.clear()
+                        redoLayers.forEach { it.bitmap.recycle() }
+                        redoLayers.clear()
                         active = mutableListOf()
                         commitStrokeToCache(newStroke)
                         resetSamplingCache()
@@ -980,8 +994,10 @@ class PigmentFloatingManager : Service() {
             if (!cacheValid) {
                 rebuildCache()
             }
+            val layer = createStrokeLayer(stroke) ?: return
+            strokeLayers.add(layer)
             val canvas = cacheCanvas ?: return
-            drawStrokeToCache(canvas, stroke)
+            drawLayerToComposite(canvas, layer)
             cacheValid = true
         }
 
@@ -1110,6 +1126,15 @@ class PigmentFloatingManager : Service() {
             drawBrushStroke(canvasRef, stroke)
         }
 
+        private fun drawLayerToComposite(canvasRef: Canvas, layer: StrokeLayer) {
+            canvasRef.drawBitmap(
+                layer.bitmap,
+                null,
+                RectF(layer.left, layer.top, layer.right, layer.bottom),
+                null,
+            )
+        }
+
         private fun drawBrushStroke(canvasRef: Canvas, stroke: PaintStroke) {
             stroke.stamps.forEach { stamp ->
                 drawBrushStampBitmap(canvasRef, stamp)
@@ -1149,6 +1174,39 @@ class PigmentFloatingManager : Service() {
             markerStampCache = resized
             markerStampCacheSize = size
             return resized
+        }
+
+        private fun createStrokeLayer(stroke: PaintStroke): StrokeLayer? {
+            if (stroke.stamps.isEmpty()) return null
+
+            val padding = markerSizePixels() * 2f
+            var left = Float.MAX_VALUE
+            var top = Float.MAX_VALUE
+            var right = -Float.MAX_VALUE
+            var bottom = -Float.MAX_VALUE
+
+            stroke.stamps.forEach { stamp ->
+                left = min(left, stamp.x - stamp.radius - padding)
+                top = min(top, stamp.y - stamp.radius - padding)
+                right = max(right, stamp.x + stamp.radius + padding)
+                bottom = max(bottom, stamp.y + stamp.radius + padding)
+            }
+
+            val boundedLeft = left.coerceIn(0f, width.toFloat())
+            val boundedTop = top.coerceIn(0f, height.toFloat())
+            val boundedRight = right.coerceIn(0f, width.toFloat())
+            val boundedBottom = bottom.coerceIn(0f, height.toFloat())
+            if (boundedRight <= boundedLeft || boundedBottom <= boundedTop) return null
+
+            val layerWidth = max(1, ((boundedRight - boundedLeft) * renderScale).roundToInt())
+            val layerHeight = max(1, ((boundedBottom - boundedTop) * renderScale).roundToInt())
+            val bitmap = Bitmap.createBitmap(layerWidth, layerHeight, Bitmap.Config.ARGB_8888)
+            val layerCanvas = Canvas(bitmap).apply {
+                scale(renderScale, renderScale)
+                translate(-boundedLeft, -boundedTop)
+            }
+            drawStrokeToCache(layerCanvas, stroke)
+            return StrokeLayer(bitmap, boundedLeft, boundedTop, boundedRight, boundedBottom)
         }
 
     }
@@ -1344,6 +1402,13 @@ private class PigmentPickerOverlay(
 
 private data class PaintStroke(val stamps: List<PaintStamp>)
 private data class PaintStamp(val x: Float, val y: Float, val radius: Float, val color: Int)
+private data class StrokeLayer(
+    val bitmap: Bitmap,
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+)
 
 private class BubbleDrawable(private val colorProvider: () -> Int) : android.graphics.drawable.Drawable() {
     override fun draw(canvas: Canvas) {
