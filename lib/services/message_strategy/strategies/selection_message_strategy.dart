@@ -6,7 +6,9 @@ import '../data/selection_message_data.dart';
 class SelectionMessageWidgetStrategy extends MessageWidgetStrategy<SelectionMessageData> {
   @override
   Widget build(BuildContext context, SelectionMessageData data) {
-    return _SelectionMessageContent(data: data);
+    return RepaintBoundary(
+      child: _SelectionMessageContent(data: data),
+    );
   }
 
   @override

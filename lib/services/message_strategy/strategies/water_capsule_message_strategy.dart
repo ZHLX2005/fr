@@ -212,7 +212,10 @@ class WaterCapsuleMessageWidgetStrategy
     extends MessageWidgetStrategy<WaterCapsuleMessageData> {
   @override
   Widget build(BuildContext context, WaterCapsuleMessageData data) {
-    return _WaveCapsule(level: data.level, dev: data.dev);
+    // RepaintBoundary isolates the animated wave from rest of UI
+    return RepaintBoundary(
+      child: _WaveCapsule(level: data.level, dev: data.dev),
+    );
   }
 
   @override

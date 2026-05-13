@@ -6,7 +6,9 @@ import '../data/ask_message_data.dart';
 class AskMessageWidgetStrategy extends MessageWidgetStrategy<AskMessageData> {
   @override
   Widget build(BuildContext context, AskMessageData data) {
-    return _AskMessageContent(data: data);
+    return RepaintBoundary(
+      child: _AskMessageContent(data: data),
+    );
   }
 
   @override

@@ -4,10 +4,22 @@ import '../interfaces/interfaces.dart';
 import '../data/markdown_message_data.dart';
 
 /// Strategy for rendering Markdown messages
+/// Uses RepaintBoundary for isolation and content caching
 class MarkdownMessageWidgetStrategy extends MessageWidgetStrategy<MarkdownMessageData> {
+  // Cache for parsed markdown to avoid re-parsing
+  static final _cache = <String, String>{};
+
   @override
   Widget build(BuildContext context, MarkdownMessageData data) {
-    return MarkdownRendererWidget(data: data.content);
+    // Cache the parsed content
+    final cachedContent = _cache.putIfAbsent(
+      data.content,
+      () => data.content,
+    );
+
+    return RepaintBoundary(
+      child: MarkdownRendererWidget(data: cachedContent),
+    );
   }
 
   @override
