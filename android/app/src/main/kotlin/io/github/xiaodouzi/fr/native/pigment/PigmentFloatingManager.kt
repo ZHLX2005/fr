@@ -54,6 +54,12 @@ class PigmentFloatingManager : Service() {
     private lateinit var screenshot: FloatingWindowScreenshot
     private var currentColorLabel: TextView? = null
     private var paletteChipsRow: LinearLayout? = null
+    private var collapseGlyphView: TextView? = null
+    private var expandedToolsContainer: LinearLayout? = null
+    private var brushRowView: View? = null
+    private var paletteScrollView: View? = null
+    private var expandedSpacingTop: View? = null
+    private var expandedSpacingBottom: View? = null
     private var panelCollapsed = false
 
     private var currentColor: Int = Color.parseColor("#0D1B44")
@@ -268,6 +274,12 @@ class PigmentFloatingManager : Service() {
         panelParams = null
         currentColorLabel = null
         paletteChipsRow = null
+        collapseGlyphView = null
+        expandedToolsContainer = null
+        brushRowView = null
+        paletteScrollView = null
+        expandedSpacingTop = null
+        expandedSpacingBottom = null
         bubbleView?.visibility = View.VISIBLE
     }
 
@@ -342,13 +354,28 @@ class PigmentFloatingManager : Service() {
         titleGroup.addView(currentColorLabel)
         header.addView(titleGroup, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        val collapseToggle = createIconButton(
-            if (panelCollapsed) android.R.drawable.arrow_down_float else android.R.drawable.arrow_up_float
+        val headerActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = roundedRectDrawable(
+                ColorUtils.setAlphaComponent(Color.WHITE, 176),
+                ColorUtils.setAlphaComponent(panelBorder, 232),
+                20f,
+            )
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            elevation = dp(1).toFloat()
+        }
+        val collapseToggle = createHeaderGlyphButton(
+            if (panelCollapsed) "▾" else "▴",
+            "收起",
         ) { togglePanelCollapsed() }
-        header.addView(collapseToggle)
+        collapseGlyphView = collapseToggle as TextView
+        headerActions.addView(collapseToggle)
 
-        val close = createIconButton(android.R.drawable.ic_menu_close_clear_cancel) { hidePanel() }
-        header.addView(close)
+        val close = createHeaderGlyphButton("×", "关闭") { hidePanel() }
+        (close.layoutParams as? LinearLayout.LayoutParams)?.marginStart = dp(4)
+        headerActions.addView(close)
+        header.addView(headerActions)
         root.addView(header)
 
         root.addView(space(8))
@@ -359,32 +386,24 @@ class PigmentFloatingManager : Service() {
         }
         val pickerBtn = createIconButton(android.R.drawable.ic_menu_edit) { enterPickerMode() }
         tools.addView(pickerBtn)
-        if (!panelCollapsed) {
-            val undoBtn = createIconTextButton("↶") { undoStroke() }
-            val redoBtn = createIconTextButton("↷") { redoStroke() }
-            val clearBtn = createIconTextButton("×") { clearCanvas() }
-            tools.addView(undoBtn)
-            tools.addView(redoBtn)
-            tools.addView(clearBtn)
+        expandedToolsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
+        expandedToolsContainer?.addView(createIconTextButton("↶") { undoStroke() })
+        expandedToolsContainer?.addView(createIconTextButton("↷") { redoStroke() })
+        expandedToolsContainer?.addView(createIconTextButton("×") { clearCanvas() })
+        tools.addView(expandedToolsContainer)
         tools.addView(createSpace(), LinearLayout.LayoutParams(0, 1, 1f))
         root.addView(tools)
 
-        if (!panelCollapsed) {
-            root.addView(space(8))
+        expandedSpacingTop = space(8)
+        root.addView(expandedSpacingTop)
 
-            val brushRow = createSliderRow("●") { value ->
-                brushRadius = 8f + value * 26f
-            }
-            root.addView(brushRow)
-
-            root.addView(space(4))
-
-            val wetRow = createSliderRow("💧") { value ->
-                wetness = value
-            }
-            root.addView(wetRow)
+        brushRowView = createSliderRow("●") { value ->
+            brushRadius = 8f + value * 26f
         }
+        root.addView(brushRowView)
 
         root.addView(space(8))
         val canvas = PigmentCanvasView(this).apply {
@@ -401,22 +420,23 @@ class PigmentFloatingManager : Service() {
             1f,
         ))
 
-        if (!panelCollapsed) {
-            root.addView(space(8))
+        expandedSpacingBottom = space(8)
+        root.addView(expandedSpacingBottom)
 
-            val scroll = HorizontalScrollView(this).apply {
-                isHorizontalScrollBarEnabled = false
-            }
-            val chips = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-            }
-            paletteChipsRow = chips
-            palette.forEach { color ->
-                chips.addView(createColorChip(color))
-            }
-            scroll.addView(chips)
-            root.addView(scroll)
+        val scroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
         }
+        val chips = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        paletteChipsRow = chips
+        palette.forEach { color ->
+            chips.addView(createColorChip(color))
+        }
+        scroll.addView(chips)
+        paletteScrollView = scroll
+        root.addView(scroll)
+        updatePanelCollapsedUi()
         return root
     }
 
@@ -463,7 +483,11 @@ class PigmentFloatingManager : Service() {
     private fun createIconButton(iconRes: Int, onClick: () -> Unit): View {
         return ImageButton(this).apply {
             setImageResource(iconRes)
-            background = roundedRectDrawable(panelWhiteMuted, panelBorder, 18f)
+            background = roundedRectDrawable(
+                ColorUtils.setAlphaComponent(panelWhiteMuted, 214),
+                ColorUtils.setAlphaComponent(panelBorder, 235),
+                18f,
+            )
             setColorFilter(panelTextPrimary)
             setPadding(dp(8), dp(8), dp(8), dp(8))
             layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply {
@@ -475,6 +499,26 @@ class PigmentFloatingManager : Service() {
         }
     }
 
+    private fun createHeaderGlyphButton(glyph: String, contentDescriptionText: String, onClick: () -> Unit): View {
+        return TextView(this).apply {
+            text = glyph
+            textSize = if (glyph == "×") 20f else 18f
+            gravity = Gravity.CENTER
+            minWidth = dp(36)
+            minHeight = dp(36)
+            setTextColor(panelTextPrimary)
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            background = roundedRectDrawable(
+                ColorUtils.setAlphaComponent(Color.WHITE, 164),
+                Color.TRANSPARENT,
+                16f,
+            )
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
+            contentDescription = contentDescriptionText
+            setOnClickListener { onClick() }
+        }
+    }
+
     private fun createIconTextButton(text: String, onClick: () -> Unit): View {
         return TextView(this).apply {
             this.text = text
@@ -482,7 +526,11 @@ class PigmentFloatingManager : Service() {
             gravity = Gravity.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             setTextColor(panelTextPrimary)
-            background = roundedRectDrawable(panelWhiteMuted, panelBorder, 18f)
+            background = roundedRectDrawable(
+                ColorUtils.setAlphaComponent(panelWhiteMuted, 214),
+                ColorUtils.setAlphaComponent(panelBorder, 235),
+                18f,
+            )
             setPadding(dp(12), dp(8), dp(12), dp(8))
             layoutParams = LinearLayout.LayoutParams(dp(42), dp(40)).apply {
                 marginStart = dp(8)
@@ -501,7 +549,11 @@ class PigmentFloatingManager : Service() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
-            background = roundedRectDrawable(panelWhiteSoft, panelDivider, 20f)
+            background = roundedRectDrawable(
+                ColorUtils.setAlphaComponent(panelWhiteSoft, 206),
+                ColorUtils.setAlphaComponent(panelDivider, 235),
+                20f,
+            )
         }
 
         val iconView = TextView(this).apply {
@@ -712,10 +764,11 @@ class PigmentFloatingManager : Service() {
 
     private fun togglePanelCollapsed() {
         panelCollapsed = !panelCollapsed
-        rebuildPanelForState()
+        updatePanelCollapsedUi()
+        updatePanelLayoutForState()
     }
 
-    private fun rebuildPanelForState() {
+    private fun updatePanelLayoutForState() {
         val existingView = panelView ?: return
         val params = panelParams ?: return
         val metrics = resources.displayMetrics
@@ -724,19 +777,17 @@ class PigmentFloatingManager : Service() {
         params.height = targetHeight
         params.y = currentBottom.coerceAtLeast(dp(96) + targetHeight) - targetHeight
         params.y = params.y.coerceIn(dp(96), metrics.heightPixels - targetHeight - dp(12))
+        safeUpdate(existingView, params)
+    }
 
-        val parent = existingView.parent
-        if (parent != null) {
-            try {
-                windowManager?.removeView(existingView)
-            } catch (_: Exception) {
-            }
-        }
-
-        currentColorLabel = null
-        paletteChipsRow = null
-        panelView = createPanelView()
-        windowManager?.addView(panelView, params)
+    private fun updatePanelCollapsedUi() {
+        val expandedVisibility = if (panelCollapsed) View.GONE else View.VISIBLE
+        collapseGlyphView?.text = if (panelCollapsed) "▾" else "▴"
+        expandedToolsContainer?.visibility = expandedVisibility
+        expandedSpacingTop?.visibility = expandedVisibility
+        brushRowView?.visibility = expandedVisibility
+        expandedSpacingBottom?.visibility = expandedVisibility
+        paletteScrollView?.visibility = expandedVisibility
     }
 
     private fun undoStroke() {
@@ -1332,13 +1383,13 @@ private class PanelDrawable : android.graphics.drawable.Drawable() {
         }
         canvas.drawRoundRect(RectF(rect.left, rect.top + 8f, rect.right, rect.bottom + 8f), 32f, 32f, shadow)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#FFFFFF")
+            color = Color.argb(204, 255, 255, 255)
         }
         canvas.drawRoundRect(rect, 32f, 32f, paint)
         val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = 1f
-            color = Color.parseColor("#E7E7E3")
+            color = Color.argb(235, 231, 231, 227)
         }
         canvas.drawRoundRect(rect, 32f, 32f, border)
     }
