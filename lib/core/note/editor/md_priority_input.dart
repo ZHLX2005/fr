@@ -41,8 +41,16 @@ class MarkdownPriorityInputController {
       final lineStart = _findLineStart(plain, cursor - 1);
       final prefix = plain.substring(lineStart, cursor);
 
-      // 按优先级匹配
-      if (prefix == '## ') {
+      // 按优先级匹配（从长到短，避免前缀覆盖）
+      if (prefix == '###### ') {
+        _applyBlockAndRemovePrefix(lineStart, 7, quill.Attribute.h6);
+      } else if (prefix == '##### ') {
+        _applyBlockAndRemovePrefix(lineStart, 6, quill.Attribute.h5);
+      } else if (prefix == '#### ') {
+        _applyBlockAndRemovePrefix(lineStart, 5, quill.Attribute.h4);
+      } else if (prefix == '### ') {
+        _applyBlockAndRemovePrefix(lineStart, 4, quill.Attribute.h3);
+      } else if (prefix == '## ') {
         _applyBlockAndRemovePrefix(lineStart, 3, quill.Attribute.h2);
       } else if (prefix == '# ') {
         _applyBlockAndRemovePrefix(lineStart, 2, quill.Attribute.h1);

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 
 /// Markdown 格式化操作类
@@ -95,8 +96,11 @@ class MdActions {
 
 /// Markdown 格式化操作的按钮定义
 class MdButtonDef {
-  /// 按钮文本
-  final String label;
+  /// 按钮图标
+  final IconData? icon;
+
+  /// 按钮文本（备选，当没有图标时使用）
+  final String? label;
 
   /// 按钮提示
   final String? tooltip;
@@ -108,58 +112,50 @@ class MdButtonDef {
   final bool isToggle;
 
   const MdButtonDef({
-    required this.label,
+    this.icon,
+    this.label,
     this.tooltip,
     required this.onTap,
     this.isToggle = true,
   });
 }
 
-/// 预定义的 Markdown 按钮列表
+/// 预定义的 Markdown 按钮列表（使用图标）
 List<MdButtonDef> createMdButtons(MdActions actions) {
   return [
     MdButtonDef(
-      label: 'B',
+      icon: Icons.format_bold,
       tooltip: '粗体',
       onTap: actions.toggleBold,
     ),
     MdButtonDef(
-      label: 'I',
+      icon: Icons.format_italic,
       tooltip: '斜体',
       onTap: actions.toggleItalic,
     ),
     MdButtonDef(
-      label: '</>',
+      icon: Icons.code,
       tooltip: '行内代码',
       onTap: actions.toggleInlineCode,
     ),
     MdButtonDef(
-      label: 'H1',
-      tooltip: '一级标题',
+      icon: Icons.title,
+      label: 'H',
+      tooltip: '标题',
       onTap: () => actions.setHeader(1),
     ),
     MdButtonDef(
-      label: 'H2',
-      tooltip: '二级标题',
-      onTap: () => actions.setHeader(2),
-    ),
-    MdButtonDef(
-      label: 'H3',
-      tooltip: '三级标题',
-      onTap: () => actions.setHeader(3),
-    ),
-    MdButtonDef(
-      label: '"""',
+      icon: Icons.format_quote,
       tooltip: '引用',
       onTap: actions.toggleQuoteBlock,
     ),
     MdButtonDef(
-      label: '•',
+      icon: Icons.format_list_bulleted,
       tooltip: '无序列表',
       onTap: actions.toggleBulletList,
     ),
     MdButtonDef(
-      label: '1.',
+      icon: Icons.format_list_numbered,
       tooltip: '有序列表',
       onTap: actions.toggleOrderedList,
     ),
