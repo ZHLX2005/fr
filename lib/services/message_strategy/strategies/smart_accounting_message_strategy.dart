@@ -7,9 +7,7 @@ class SmartAccountingMessageWidgetStrategy
     extends MessageWidgetStrategy<SmartAccountingMessageData> {
   @override
   Widget build(BuildContext context, SmartAccountingMessageData data) {
-    return RepaintBoundary(
-      child: _SmartAccountingContent(data: data),
-    );
+    return _SmartAccountingContent(data: data);
   }
 
   @override
