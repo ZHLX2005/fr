@@ -79,6 +79,7 @@ class PigmentFloatingManager : Service() {
     private var brushRadius = 18f
     private var wetness = 0.36f
     private var pendingPickerAfterPermission = false
+    private var pickerCaptureRetries = 0
 
     companion object {
         const val CHANNEL_ID = "PigmentFloatingChannel"
@@ -124,7 +125,7 @@ class PigmentFloatingManager : Service() {
     }
 
     fun promoteToForeground() {
-        startForeground(NOTIFICATION_ID, createNotification())
+        startForeground(NOTIFICATION_ID, createNotification(), 0x00000020)
     }
 
     private fun createNotificationChannel() {
@@ -631,7 +632,8 @@ class PigmentFloatingManager : Service() {
             screenshot.initPersistentCapture(mediaProjection)
             if (pendingPickerAfterPermission) {
                 pendingPickerAfterPermission = false
-                mainHandler.post { captureFreshFrameAndShowPicker() }
+                pickerCaptureRetries = 0
+                mainHandler.postDelayed({ captureFreshFrameAndShowPicker() }, 500)
             }
         }
     }
@@ -639,6 +641,7 @@ class PigmentFloatingManager : Service() {
     fun handleScreenshotPermissionDenied() {
         if (!pendingPickerAfterPermission) return
         pendingPickerAfterPermission = false
+        pickerCaptureRetries = 0
         mainHandler.post {
             hidePickerOverlay()
             showPanel()
@@ -678,8 +681,14 @@ class PigmentFloatingManager : Service() {
             screenshot.awaitNextFrame { bitmap ->
                 mainHandler.post {
                     if (bitmap != null) {
+                        pickerCaptureRetries = 0
                         showPickerOverlay(bitmap)
+                    } else if (pickerCaptureRetries < 5) {
+                        pickerCaptureRetries++
+                        android.util.Log.d("PigmentFloating", "awaitNextFrame null, retry $pickerCaptureRetries")
+                        captureFreshFrameAndShowPicker()
                     } else {
+                        pickerCaptureRetries = 0
                         showPickerOverlay(null)
                         Toast.makeText(this, "取色帧获取失败，已使用备用取色层", Toast.LENGTH_SHORT).show()
                     }

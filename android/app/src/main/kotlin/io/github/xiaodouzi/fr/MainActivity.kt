@@ -102,18 +102,18 @@ class MainActivity : FlutterActivity() {
     private fun handleScreenCaptureResult(resultCode: Int, data: Intent?, service: String) {
         if (resultCode == Activity.RESULT_OK && data != null) {
             try {
+                when (service) {
+                    "overlay" -> FloatingWindowManager.getInstance()?.promoteToForeground()
+                    "pigment" -> PigmentFloatingManager.getInstance()?.promoteToForeground()
+                }
+
                 val mpManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                val mediaProjection = mpManager.getMediaProjection(resultCode, data!!)
+                val mediaProjection = mpManager.getMediaProjection(resultCode, data)
 
                 when (service) {
                     "overlay" -> {
                         val floatingManager = FloatingWindowManager.getInstance()
                         // Android 14+ 必须先提升前台服务，再获取 MediaProjection
-                        try {
-                            floatingManager?.promoteToForeground()
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "promoteToForeground failed: ${e.message}", e)
-                        }
                         floatingManager?.setMediaProjection(mediaProjection)
                         // 确保 floatingView 已创建（Service 重启后需要重建）
                         if (floatingManager != null && !floatingManager.isFloatingWindowShowing()) {
@@ -122,6 +122,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "pigment" -> {
                         val pigmentManager = PigmentFloatingManager.getInstance()
+                        // Android 14+ 必须先提升前台服务，再设置 MediaProjection
                         pigmentManager?.setMediaProjection(mediaProjection)
                     }
                 }
