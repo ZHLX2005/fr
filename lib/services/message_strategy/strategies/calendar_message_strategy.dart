@@ -328,7 +328,9 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
 class CalendarMessageWidgetStrategy extends MessageWidgetStrategy<CalendarMessageData> {
   @override
   Widget build(BuildContext context, CalendarMessageData data) {
-    return const _CalendarMessageWidget();
+    return RepaintBoundary(
+      child: const _CalendarMessageWidget(),
+    );
   }
 
   @override

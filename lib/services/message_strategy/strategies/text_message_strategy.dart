@@ -4,9 +4,16 @@ import '../data/text_message_data.dart';
 
 /// Strategy for rendering plain text messages
 class TextMessageWidgetStrategy extends MessageWidgetStrategy<TextMessageData> {
+  // Static const cache for identical text
+  static final _cache = <String, Text>{};
+
   @override
   Widget build(BuildContext context, TextMessageData data) {
-    return Text(data.text);
+    // Use cached const Text widget if available
+    return _cache.putIfAbsent(
+      data.text,
+      () => Text(data.text),
+    );
   }
 
   @override
