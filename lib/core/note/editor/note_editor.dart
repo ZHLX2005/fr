@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import '../const_note_theme.dart';
 import '../embed/embed_card_builder.dart';
 import '../services/ai_service.dart';
 import 'md_actions.dart';
@@ -195,63 +196,14 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
 
   /// 获取编辑器自定义样式
   DefaultStyles _getEditorStyles(bool isDark) {
-    if (isDark) {
-      return DefaultStyles(
-        h1: DefaultTextBlockStyle(
-          TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF64B5F6),
-            height: 1.3,
-          ),
-          const HorizontalSpacing(0, 0),
-          const VerticalSpacing(16, 8),
-          const VerticalSpacing(0, 0),
-          null,
-        ),
-        h2: DefaultTextBlockStyle(
-          TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF81D4FA),
-            height: 1.3,
-          ),
-          const HorizontalSpacing(0, 0),
-          const VerticalSpacing(14, 6),
-          const VerticalSpacing(0, 0),
-          null,
-        ),
-        h3: DefaultTextBlockStyle(
-          TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF4FC3F7),
-            height: 1.3,
-          ),
-          const HorizontalSpacing(0, 0),
-          const VerticalSpacing(12, 4),
-          const VerticalSpacing(0, 0),
-          null,
-        ),
-        paragraph: DefaultTextBlockStyle(
-          TextStyle(
-            fontSize: 15,
-            color: const Color(0xFFE0E0E0),
-            height: 1.6,
-          ),
-          const HorizontalSpacing(0, 0),
-          const VerticalSpacing(6, 6),
-          const VerticalSpacing(0, 0),
-          null,
-        ),
-      );
-    }
+    final colors = NoteEditorTheme.getColors(isDark ? Brightness.dark : Brightness.light);
+
     return DefaultStyles(
       h1: DefaultTextBlockStyle(
         TextStyle(
-          fontSize: 28,
+          fontSize: NoteEditorTheme.h1FontSize,
           fontWeight: FontWeight.bold,
-          color: const Color(0xFF1565C0),
+          color: colors.h1,
           height: 1.3,
         ),
         const HorizontalSpacing(0, 0),
@@ -261,9 +213,9 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       ),
       h2: DefaultTextBlockStyle(
         TextStyle(
-          fontSize: 24,
+          fontSize: NoteEditorTheme.h2FontSize,
           fontWeight: FontWeight.bold,
-          color: const Color(0xFF1976D2),
+          color: colors.h2,
           height: 1.3,
         ),
         const HorizontalSpacing(0, 0),
@@ -273,9 +225,9 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
       ),
       h3: DefaultTextBlockStyle(
         TextStyle(
-          fontSize: 20,
+          fontSize: NoteEditorTheme.h3FontSize,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF2196F3),
+          color: colors.h3,
           height: 1.3,
         ),
         const HorizontalSpacing(0, 0),
@@ -283,10 +235,46 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
         const VerticalSpacing(0, 0),
         null,
       ),
+      h4: DefaultTextBlockStyle(
+        TextStyle(
+          fontSize: NoteEditorTheme.h4FontSize,
+          fontWeight: FontWeight.w600,
+          color: colors.h4,
+          height: 1.3,
+        ),
+        const HorizontalSpacing(0, 0),
+        const VerticalSpacing(10, 4),
+        const VerticalSpacing(0, 0),
+        null,
+      ),
+      h5: DefaultTextBlockStyle(
+        TextStyle(
+          fontSize: NoteEditorTheme.h5FontSize,
+          fontWeight: FontWeight.w500,
+          color: colors.h5,
+          height: 1.3,
+        ),
+        const HorizontalSpacing(0, 0),
+        const VerticalSpacing(8, 4),
+        const VerticalSpacing(0, 0),
+        null,
+      ),
+      h6: DefaultTextBlockStyle(
+        TextStyle(
+          fontSize: NoteEditorTheme.h6FontSize,
+          fontWeight: FontWeight.w500,
+          color: colors.h6,
+          height: 1.3,
+        ),
+        const HorizontalSpacing(0, 0),
+        const VerticalSpacing(6, 4),
+        const VerticalSpacing(0, 0),
+        null,
+      ),
       paragraph: DefaultTextBlockStyle(
         TextStyle(
           fontSize: 15,
-          color: const Color(0xFF2D2D2D),
+          color: colors.onSurface,
           height: 1.6,
         ),
         const HorizontalSpacing(0, 0),
