@@ -146,66 +146,199 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   @override
   Widget build(BuildContext context) {
     final mdButtons = createMdButtons(_mdActions);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title ?? '笔记编辑器'),
+        title: Text(
+          widget.title ?? '笔记编辑器',
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: isDark ? const Color(0xFF242424) : const Color(0xFFFAFAFA),
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: QuillEditor.basic(
-              controller: _controller,
-              config: QuillEditorConfig(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                autoFocus: true,
-                expands: false,
-                embedBuilders: [
-                  EmbedCardBuilder(),
-                ],
+      body: Container(
+        color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFFFFFFF),
+        child: Column(
+          children: [
+            Expanded(
+              child: QuillEditor.basic(
+                controller: _controller,
+                config: QuillEditorConfig(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  autoFocus: true,
+                  expands: false,
+                  embedBuilders: [
+                    EmbedCardBuilder(),
+                  ],
+                  customStyles: _getEditorStyles(isDark),
+                ),
               ),
             ),
+
+            // AI 输入框（被空格唤醒）
+            if (_aiBarVisible) _buildAiInputBar(),
+
+            // 底部功能栏
+            _buildBottomBar(mdButtons),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 获取编辑器自定义样式
+  DefaultStyles _getEditorStyles(bool isDark) {
+    if (isDark) {
+      return DefaultStyles(
+        h1: DefaultTextBlockStyle(
+          TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF64B5F6),
+            height: 1.3,
           ),
-
-          // AI 输入框（被空格唤醒）
-          if (_aiBarVisible) _buildAiInputBar(),
-
-          // 底部功能栏
-          _buildBottomBar(mdButtons),
-        ],
+          const HorizontalSpacing(0, 0),
+          const VerticalSpacing(16, 8),
+          const VerticalSpacing(0, 0),
+          null,
+        ),
+        h2: DefaultTextBlockStyle(
+          TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF81D4FA),
+            height: 1.3,
+          ),
+          const HorizontalSpacing(0, 0),
+          const VerticalSpacing(14, 6),
+          const VerticalSpacing(0, 0),
+          null,
+        ),
+        h3: DefaultTextBlockStyle(
+          TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF4FC3F7),
+            height: 1.3,
+          ),
+          const HorizontalSpacing(0, 0),
+          const VerticalSpacing(12, 4),
+          const VerticalSpacing(0, 0),
+          null,
+        ),
+        paragraph: DefaultTextBlockStyle(
+          TextStyle(
+            fontSize: 15,
+            color: const Color(0xFFE0E0E0),
+            height: 1.6,
+          ),
+          const HorizontalSpacing(0, 0),
+          const VerticalSpacing(6, 6),
+          const VerticalSpacing(0, 0),
+          null,
+        ),
+      );
+    }
+    return DefaultStyles(
+      h1: DefaultTextBlockStyle(
+        TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF1565C0),
+          height: 1.3,
+        ),
+        const HorizontalSpacing(0, 0),
+        const VerticalSpacing(16, 8),
+        const VerticalSpacing(0, 0),
+        null,
+      ),
+      h2: DefaultTextBlockStyle(
+        TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF1976D2),
+          height: 1.3,
+        ),
+        const HorizontalSpacing(0, 0),
+        const VerticalSpacing(14, 6),
+        const VerticalSpacing(0, 0),
+        null,
+      ),
+      h3: DefaultTextBlockStyle(
+        TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF2196F3),
+          height: 1.3,
+        ),
+        const HorizontalSpacing(0, 0),
+        const VerticalSpacing(12, 4),
+        const VerticalSpacing(0, 0),
+        null,
+      ),
+      paragraph: DefaultTextBlockStyle(
+        TextStyle(
+          fontSize: 15,
+          color: const Color(0xFF2D2D2D),
+          height: 1.6,
+        ),
+        const HorizontalSpacing(0, 0),
+        const VerticalSpacing(6, 6),
+        const VerticalSpacing(0, 0),
+        null,
       ),
     );
   }
 
   Widget _buildAiInputBar() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final aiColor = isDark ? const Color(0xFFFFCA28) : const Color(0xFFFFD54F);
+
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: isDark ? const Color(0xFF2D2D2D) : const Color(0xFFFFF8E1),
           border: Border(
-            top: BorderSide(color: Theme.of(context).colorScheme.primary),
+            top: BorderSide(
+              color: aiColor.withValues(alpha: 0.5),
+              width: 1,
+            ),
           ),
         ),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome, color: Colors.amber.shade700, size: 20),
-            const SizedBox(width: 8),
-            const Text(
-              'AI:',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(width: 8),
+            Icon(Icons.auto_awesome, color: aiColor, size: 22),
+            const SizedBox(width: 12),
             Expanded(
               child: TextField(
                 controller: _aiInputController,
                 autofocus: true,
-                decoration: const InputDecoration(
+                style: TextStyle(
+                  color: isDark ? const Color(0xFFE0E0E0) : const Color(0xFF2D2D2D),
+                ),
+                decoration: InputDecoration(
                   hintText: '输入命令，回车提交，例如：总结上文',
+                  hintStyle: TextStyle(
+                    color: isDark ? const Color(0xFF757575) : const Color(0xFF9E9E9E),
+                  ),
                   isDense: true,
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 onSubmitted: (_) => _commitAiCommand(),
               ),
@@ -213,12 +346,16 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
             const SizedBox(width: 8),
             IconButton(
               onPressed: _commitAiCommand,
-              icon: const Icon(Icons.send),
-              color: Theme.of(context).colorScheme.primary,
+              icon: Icon(Icons.send_rounded, color: aiColor),
+              tooltip: '发送',
             ),
             IconButton(
               onPressed: _hideAiBar,
-              icon: const Icon(Icons.close),
+              icon: Icon(
+                Icons.close,
+                color: isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575),
+              ),
+              tooltip: '关闭',
             ),
           ],
         ),
@@ -227,70 +364,150 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   }
 
   Widget _buildBottomBar(List<MdButtonDef> mdButtons) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: isDark ? const Color(0xFF2D2D2D) : const Color(0xFFFAFAFA),
         border: Border(
-          top: BorderSide(color: Theme.of(context).dividerColor),
+          top: BorderSide(
+            color: isDark ? const Color(0xFF3D3D3D) : const Color(0xFFE0E0E0),
+          ),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+        bottom: true,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(
             children: [
-              // AI 按钮（手动唤醒）
-              FilledButton.tonal(
+              // AI 按钮
+              _buildToolbarButton(
+                icon: Icons.auto_awesome,
+                tooltip: 'AI 助手',
                 onPressed: _aiBarVisible ? null : _showAiBar,
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.auto_awesome, size: 16),
-                    SizedBox(width: 6),
-                    Text('AI'),
-                  ],
-                ),
+                isHighlight: true,
+                highlightColor: isDark ? const Color(0xFFFFCA28) : const Color(0xFFFFD54F),
               ),
-              const SizedBox(width: 12),
-              Container(width: 1, height: 24, color: Theme.of(context).dividerColor),
-              const SizedBox(width: 12),
-
-              // Markdown 格式按钮
-              ...mdButtons.map((btn) => Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: OutlinedButton(
-                      onPressed: btn.onTap,
-                      child: Text(btn.label),
-                    ),
-                  )),
 
               const SizedBox(width: 8),
+              _buildDivider(isDark),
+              const SizedBox(width: 8),
 
-              // 嵌入卡片按钮
-              OutlinedButton(
-                onPressed: _insertEmbedCard,
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_box_outlined, size: 16),
-                    SizedBox(width: 4),
-                    Text('Embed'),
-                  ],
+              // Markdown 格式按钮组
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ...mdButtons.map((btn) => Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: _buildToolbarButton(
+                              icon: btn.icon,
+                              label: btn.label,
+                              tooltip: btn.tooltip ?? '',
+                              onPressed: btn.onTap,
+                            ),
+                          )),
+
+                      const SizedBox(width: 8),
+                      _buildDivider(isDark),
+                      const SizedBox(width: 8),
+
+                      // 嵌入卡片按钮
+                      _buildToolbarButton(
+                        icon: Icons.add_box_outlined,
+                        tooltip: '嵌入卡片',
+                        onPressed: _insertEmbedCard,
+                      ),
+
+                      // 分割线按钮
+                      _buildToolbarButton(
+                        icon: Icons.horizontal_rule,
+                        tooltip: '分割线',
+                        onPressed: _insertDivider,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-
-              // 分割线按钮
-              OutlinedButton(
-                onPressed: _insertDivider,
-                child: const Text('---'),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildToolbarButton({
+    IconData? icon,
+    String? label,
+    required String tooltip,
+    required VoidCallback? onPressed,
+    bool isHighlight = false,
+    Color? highlightColor,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final defaultColor = isDark ? const Color(0xFF9E9E9E) : const Color(0xFF757575);
+    final activeColor = isHighlight
+        ? (highlightColor ?? defaultColor)
+        : (isDark ? const Color(0xFF64B5F6) : const Color(0xFF1976D2));
+
+    if (icon != null) {
+      return Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onPressed,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              child: Icon(
+                icon,
+                size: 22,
+                color: onPressed == null
+                    ? defaultColor.withValues(alpha: 0.4)
+                    : activeColor,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 文字按钮（备选）
+    return Tooltip(
+      message: tooltip,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(
+          label ?? '',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: onPressed == null
+                ? defaultColor.withValues(alpha: 0.4)
+                : activeColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider(bool isDark) {
+    return Container(
+      width: 1,
+      height: 24,
+      color: isDark ? const Color(0xFF3D3D3D) : const Color(0xFFE0E0E0),
     );
   }
 }
