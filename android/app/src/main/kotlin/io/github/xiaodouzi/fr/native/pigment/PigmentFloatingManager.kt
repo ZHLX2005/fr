@@ -20,10 +20,12 @@ import android.view.*
 import android.widget.*
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.ColorUtils
+import io.github.xiaodouzi.fr.R
 import io.github.xiaodouzi.fr.native.overlay.FloatingWindowScreenshot
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 class PigmentFloatingManager : Service() {
     private val panelWhite = Color.parseColor("#FFFFFF")
@@ -794,20 +796,24 @@ class PigmentFloatingManager : Service() {
     }
 
     inner class PigmentCanvasView(context: Context) : View(context) {
+        private val renderScale = 2f
+        private val markerSpacingRatio = 0.15f
+        private val markerFlow = 0.2f
         var onColorConsumed: ((Int) -> Unit)? = null
         private var active = mutableListOf<PaintStamp>()
         private var lastTouchX = 0f
         private var lastTouchY = 0f
-        private var lastTouchTime = 0L
-        private val blurPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val bridgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            strokeCap = Paint.Cap.ROUND
+        private val stampPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
+        private val stampMatrix = Matrix()
+        private val markerStampSource by lazy {
+            BitmapFactory.decodeResource(resources, R.drawable.stamp_marker)
         }
+        private var markerStampCacheSize = -1
+        private var markerStampCache: Bitmap? = null
 
         private var strokeCache: Bitmap? = null
         private var cacheCanvas: Canvas? = null
-        private val dirtyRect = Rect()
+        private val bitmapDrawRect = Rect()
         private var cacheValid = false
 
         init {
@@ -820,9 +826,14 @@ class PigmentFloatingManager : Service() {
 
         private fun ensureCache() {
             if (strokeCache == null && width > 0 && height > 0) {
-                strokeCache = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                cacheCanvas = Canvas(strokeCache!!)
+                val bitmapWidth = max(1, (width * renderScale).toInt())
+                val bitmapHeight = max(1, (height * renderScale).toInt())
+                strokeCache = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888)
+                cacheCanvas = Canvas(strokeCache!!).apply {
+                    scale(renderScale, renderScale)
+                }
                 cacheCanvas?.drawColor(Color.TRANSPARENT)
+                bitmapDrawRect.set(0, 0, width, height)
             }
         }
 
@@ -846,13 +857,13 @@ class PigmentFloatingManager : Service() {
             strokeCache?.recycle()
             strokeCache = null
             cacheCanvas = null
+            bitmapDrawRect.set(0, 0, w, h)
             invalidateCache()
         }
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    lastTouchTime = event.eventTime
                     active = mutableListOf(createStamp(event.x, event.y))
                     lastTouchX = event.x
                     lastTouchY = event.y
@@ -860,11 +871,9 @@ class PigmentFloatingManager : Service() {
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val currentTime = event.eventTime
-                    appendInterpolatedStamps(lastTouchX, lastTouchY, event.x, event.y, currentTime - lastTouchTime)
+                    appendInterpolatedStamps(lastTouchX, lastTouchY, event.x, event.y)
                     lastTouchX = event.x
                     lastTouchY = event.y
-                    lastTouchTime = currentTime
                     invalidate()
                     return true
                 }
@@ -890,7 +899,7 @@ class PigmentFloatingManager : Service() {
             drawStrokeToCache(canvas, stroke)
         }
 
-        private fun appendInterpolatedStamps(fromX: Float, fromY: Float, toX: Float, toY: Float, deltaTimeMs: Long) {
+        private fun appendInterpolatedStamps(fromX: Float, fromY: Float, toX: Float, toY: Float) {
             val dx = toX - fromX
             val dy = toY - fromY
             val distance = kotlin.math.sqrt(dx * dx + dy * dy)
@@ -899,23 +908,23 @@ class PigmentFloatingManager : Service() {
                 return
             }
 
-            val velocity = if (deltaTimeMs > 0) distance / max(deltaTimeMs, 1L) * 1000f else 0f
-            val velocityFactor = (velocity / 1000f).coerceIn(0f, 1f)
-
-            val dynamicSpacing = max(brushRadius * 0.48f * (1f + velocityFactor * 0.8f), 4.5f)
-            val dynamicRadius = brushRadius * (1f - velocityFactor * 0.15f).coerceIn(0.6f, 1f)
-
-            val steps = max(1, kotlin.math.ceil(distance / dynamicSpacing).toInt())
-
             val sampled = sampleExistingColor(toX, toY)
             val strokeColor = if (sampled == null) currentColor else pigmentMix(currentColor, sampled, wetness)
             onColorConsumed?.invoke(strokeColor)
 
-            for (step in 1..steps) {
-                val t = step / steps.toFloat()
+            val markerSize = markerSizePixels()
+            val step = max((markerSize * markerSpacingRatio).roundToInt().toFloat(), 1f)
+            if (distance < step) {
+                return
+            }
+
+            val tStep = step / distance
+            var t = 0f
+            while (t <= 1f - tStep) {
                 val x = fromX + dx * t
                 val y = fromY + dy * t
-                active.add(PaintStamp(x, y, dynamicRadius, strokeColor))
+                active.add(PaintStamp(x, y, markerSize / 2f, strokeColor))
+                t += tStep
             }
         }
 
@@ -923,7 +932,7 @@ class PigmentFloatingManager : Service() {
             val sampled = sampleExistingColor(x, y)
             val mixed = if (sampled == null) currentColor else pigmentMix(currentColor, sampled, wetness)
             onColorConsumed?.invoke(mixed)
-            return PaintStamp(x, y, brushRadius, mixed)
+            return PaintStamp(x, y, markerSizePixels() / 2f, mixed)
         }
 
         private fun sampleExistingColor(x: Float, y: Float): Int? {
@@ -954,53 +963,61 @@ class PigmentFloatingManager : Service() {
         override fun onDraw(canvasRef: Canvas) {
             super.onDraw(canvasRef)
             rebuildCache()
-            strokeCache?.let { canvasRef.drawBitmap(it, 0f, 0f, null) }
+            strokeCache?.let { bitmap ->
+                canvasRef.drawBitmap(bitmap, null, bitmapDrawRect, null)
+            }
             if (active.isNotEmpty()) drawStroke(canvasRef, PaintStroke(active))
         }
 
         private fun drawStroke(canvasRef: Canvas, stroke: PaintStroke) {
-            val stamps = stroke.stamps
-            stamps.forEachIndexed { index, stamp ->
-                blurPaint.color = stamp.color
-                blurPaint.alpha = 224
-                blurPaint.maskFilter = BlurMaskFilter(4.2f, BlurMaskFilter.Blur.NORMAL)
-                canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius, blurPaint)
-
-                corePaint.color = stamp.color
-                canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius * 0.9f, corePaint)
-
-                if (index > 0) {
-                    val prev = stamps[index - 1]
-                    bridgePaint.color = pigmentMix(prev.color, stamp.color, 0.5f)
-                    bridgePaint.alpha = 180
-                    bridgePaint.strokeWidth = stamp.radius * 1.65f
-                    bridgePaint.maskFilter = BlurMaskFilter(4f, BlurMaskFilter.Blur.NORMAL)
-                    canvasRef.drawLine(prev.x, prev.y, stamp.x, stamp.y, bridgePaint)
-                }
-            }
+            drawBrushStroke(canvasRef, stroke)
         }
 
         private fun drawStrokeToCache(canvasRef: Canvas, stroke: PaintStroke) {
-            val stamps = stroke.stamps
-            stamps.forEachIndexed { index, stamp ->
-                blurPaint.color = stamp.color
-                blurPaint.alpha = 224
-                blurPaint.maskFilter = BlurMaskFilter(4.2f, BlurMaskFilter.Blur.NORMAL)
-                canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius, blurPaint)
+            drawBrushStroke(canvasRef, stroke)
+        }
 
-                corePaint.color = stamp.color
-                canvasRef.drawCircle(stamp.x, stamp.y, stamp.radius * 0.9f, corePaint)
-
-                if (index > 0) {
-                    val prev = stamps[index - 1]
-                    bridgePaint.color = pigmentMix(prev.color, stamp.color, 0.5f)
-                    bridgePaint.alpha = 180
-                    bridgePaint.strokeWidth = stamp.radius * 1.65f
-                    bridgePaint.maskFilter = BlurMaskFilter(4f, BlurMaskFilter.Blur.NORMAL)
-                    canvasRef.drawLine(prev.x, prev.y, stamp.x, stamp.y, bridgePaint)
-                }
+        private fun drawBrushStroke(canvasRef: Canvas, stroke: PaintStroke) {
+            stroke.stamps.forEach { stamp ->
+                drawBrushStampBitmap(canvasRef, stamp)
             }
         }
+
+        private fun drawBrushStampBitmap(canvasRef: Canvas, stamp: PaintStamp) {
+            val bitmap = getMarkerStamp(markerSizePixels())
+            stampPaint.colorFilter = PorterDuffColorFilter(
+                stamp.color,
+                PorterDuff.Mode.SRC_IN,
+            )
+            stampPaint.alpha = (255 * markerFlow).roundToInt().coerceIn(0, 255)
+            stampMatrix.reset()
+            stampMatrix.postTranslate(-bitmap.width / 2f, -bitmap.height / 2f)
+            stampMatrix.postTranslate(stamp.x, stamp.y)
+            canvasRef.drawBitmap(bitmap, stampMatrix, stampPaint)
+        }
+
+        private fun markerSizePixels(): Int {
+            return max(1, (brushRadius * 2f).roundToInt())
+        }
+
+        private fun getMarkerStamp(size: Int): Bitmap {
+            markerStampCache?.let { cached ->
+                if (markerStampCacheSize == size) return cached
+            }
+            val source = markerStampSource
+            val scale = size.toFloat() / min(source.width, source.height)
+            val width = max(1, (source.width * scale).roundToInt())
+            val height = max(1, (source.height * scale).roundToInt())
+            val resized = if (width == source.width && height == source.height) {
+                source
+            } else {
+                Bitmap.createScaledBitmap(source, width, height, true)
+            }
+            markerStampCache = resized
+            markerStampCacheSize = size
+            return resized
+        }
+
     }
 }
 
