@@ -4,22 +4,10 @@ import '../interfaces/interfaces.dart';
 import '../data/html_message_data.dart';
 
 /// Strategy for rendering HTML messages
-/// Uses RepaintBoundary for isolation and content caching
 class HtmlMessageWidgetStrategy extends MessageWidgetStrategy<HtmlMessageData> {
-  // Cache for parsed HTML to avoid re-parsing
-  static final _cache = <String, String>{};
-
   @override
   Widget build(BuildContext context, HtmlMessageData data) {
-    // Cache the parsed content
-    final cachedContent = _cache.putIfAbsent(
-      data.content,
-      () => data.content,
-    );
-
-    return RepaintBoundary(
-      child: HtmlRendererWidget(data: cachedContent),
-    );
+    return HtmlRendererWidget(data: data.content);
   }
 
   @override

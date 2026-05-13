@@ -7,9 +7,7 @@ class BillOverviewMessageWidgetStrategy
     extends MessageWidgetStrategy<BillOverviewMessageData> {
   @override
   Widget build(BuildContext context, BillOverviewMessageData data) {
-    return RepaintBoundary(
-      child: _BillOverviewContent(data: data),
-    );
+    return _BillOverviewContent(data: data);
   }
 
   @override
