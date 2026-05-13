@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.*
 import android.widget.*
@@ -765,12 +766,35 @@ class PigmentFloatingManager : Service() {
     }
 
     private fun pigmentMix(a: Int, b: Int, t: Float): Int {
-        val base = android.animation.ArgbEvaluator().evaluate(t, a, b) as Int
+        if (a == b) return a
+
+        val mixT = t.coerceIn(0f, 1f)
+        val base = android.animation.ArgbEvaluator().evaluate(mixT, a, b) as Int
         val hsv = FloatArray(3)
         Color.colorToHSV(base, hsv)
-        hsv[1] = (hsv[1] * (0.92f + kotlin.math.sin(t * Math.PI).toFloat() * 0.08f)).coerceIn(0f, 1f)
-        hsv[2] = (hsv[2] - kotlin.math.sin(t * Math.PI).toFloat() * 0.05f).coerceIn(0f, 1f)
+
+        val aHsv = FloatArray(3)
+        val bHsv = FloatArray(3)
+        Color.colorToHSV(a, aHsv)
+        Color.colorToHSV(b, bHsv)
+
+        val hueDistance = circularHueDistance(aHsv[0], bHsv[0]) / 180f
+        val satDistance = kotlin.math.abs(aHsv[1] - bHsv[1])
+        val valueDistance = kotlin.math.abs(aHsv[2] - bHsv[2])
+        val colorDifference = ((hueDistance * 0.55f) + (satDistance * 0.3f) + (valueDistance * 0.15f))
+            .coerceIn(0f, 1f)
+
+        val darkenAmount = (mixT * colorDifference * 0.018f).coerceIn(0f, 0.018f)
+        val saturateBoost = (mixT * colorDifference * 0.035f).coerceIn(0f, 0.035f)
+
+        hsv[1] = (hsv[1] * (1f + saturateBoost)).coerceIn(0f, 1f)
+        hsv[2] = (hsv[2] * (1f - darkenAmount)).coerceIn(0f, 1f)
         return Color.HSVToColor(hsv)
+    }
+
+    private fun circularHueDistance(a: Float, b: Float): Float {
+        val diff = kotlin.math.abs(a - b) % 360f
+        return min(diff, 360f - diff)
     }
 
     private fun bestOnColor(color: Int): Int {
@@ -799,10 +823,17 @@ class PigmentFloatingManager : Service() {
         private val renderScale = 2f
         private val markerSpacingRatio = 0.15f
         private val markerFlow = 0.2f
+        private val colorUiUpdateIntervalMs = 16L
+        private val sampleReuseDistance = 3f
         var onColorConsumed: ((Int) -> Unit)? = null
         private var active = mutableListOf<PaintStamp>()
         private var lastTouchX = 0f
         private var lastTouchY = 0f
+        private var lastColorUiUpdateAt = 0L
+        private var lastConsumedColor: Int? = null
+        private var lastSampleX = Float.NaN
+        private var lastSampleY = Float.NaN
+        private var lastSampleColor: Int? = null
         private val stampPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
         private val stampMatrix = Matrix()
         private val markerStampSource by lazy {
@@ -864,6 +895,7 @@ class PigmentFloatingManager : Service() {
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    resetSamplingCache()
                     active = mutableListOf(createStamp(event.x, event.y))
                     lastTouchX = event.x
                     lastTouchY = event.y
@@ -884,7 +916,7 @@ class PigmentFloatingManager : Service() {
                         redo.clear()
                         active = mutableListOf()
                         commitStrokeToCache(newStroke)
-                        invalidateCache()
+                        resetSamplingCache()
                         invalidate()
                     }
                     return true
@@ -895,8 +927,12 @@ class PigmentFloatingManager : Service() {
 
         private fun commitStrokeToCache(stroke: PaintStroke) {
             ensureCache() ?: return
+            if (!cacheValid) {
+                rebuildCache()
+            }
             val canvas = cacheCanvas ?: return
             drawStrokeToCache(canvas, stroke)
+            cacheValid = true
         }
 
         private fun appendInterpolatedStamps(fromX: Float, fromY: Float, toX: Float, toY: Float) {
@@ -908,9 +944,9 @@ class PigmentFloatingManager : Service() {
                 return
             }
 
-            val sampled = sampleExistingColor(toX, toY)
+            val sampled = sampleExistingColorCached(toX, toY)
             val strokeColor = if (sampled == null) currentColor else pigmentMix(currentColor, sampled, wetness)
-            onColorConsumed?.invoke(strokeColor)
+            dispatchConsumedColor(strokeColor)
 
             val markerSize = markerSizePixels()
             val step = max((markerSize * markerSpacingRatio).roundToInt().toFloat(), 1f)
@@ -929,35 +965,82 @@ class PigmentFloatingManager : Service() {
         }
 
         private fun createStamp(x: Float, y: Float): PaintStamp {
-            val sampled = sampleExistingColor(x, y)
+            val sampled = sampleExistingColorCached(x, y)
             val mixed = if (sampled == null) currentColor else pigmentMix(currentColor, sampled, wetness)
-            onColorConsumed?.invoke(mixed)
+            dispatchConsumedColor(mixed)
             return PaintStamp(x, y, markerSizePixels() / 2f, mixed)
         }
 
-        private fun sampleExistingColor(x: Float, y: Float): Int? {
-            var best: PaintStamp? = null
-            var bestDistance = Float.MAX_VALUE
+        private fun sampleExistingColorCached(x: Float, y: Float): Int? {
+            val dx = x - lastSampleX
+            val dy = y - lastSampleY
+            if (!lastSampleX.isNaN() && (dx * dx + dy * dy) <= sampleReuseDistance * sampleReuseDistance) {
+                return lastSampleColor
+            }
+            return sampleExistingColor(x, y).also { sampled ->
+                lastSampleX = x
+                lastSampleY = y
+                lastSampleColor = sampled
+            }
+        }
 
-            fun checkStamps(stampList: List<PaintStamp>): Boolean {
-                for (stamp in stampList.asReversed()) {
-                    val dx = stamp.x - x
-                    val dy = stamp.y - y
-                    val d = kotlin.math.sqrt(dx * dx + dy * dy)
-                    if (d <= stamp.radius * 1.4f && d < bestDistance) {
-                        bestDistance = d
-                        best = stamp
+        private fun sampleExistingColor(x: Float, y: Float): Int? {
+            active.asReversed().forEach { stamp ->
+                val dx = stamp.x - x
+                val dy = stamp.y - y
+                val d = kotlin.math.sqrt(dx * dx + dy * dy)
+                if (d <= stamp.radius * 1.25f) {
+                    return stamp.color
+                }
+            }
+
+            return sampleExistingColorFromCache(x, y)
+        }
+
+        private fun sampleExistingColorFromCache(x: Float, y: Float): Int? {
+            val bitmap = strokeCache ?: return null
+            if (!cacheValid) return null
+            if (bitmap.width <= 0 || bitmap.height <= 0) return null
+
+            val px = (x * renderScale).roundToInt().coerceIn(0, bitmap.width - 1)
+            val py = (y * renderScale).roundToInt().coerceIn(0, bitmap.height - 1)
+
+            var bestColor: Int? = null
+            var bestAlpha = 0
+            val sampleRadius = max(1, (brushRadius * renderScale * 0.18f).roundToInt())
+
+            for (sy in max(0, py - sampleRadius)..min(bitmap.height - 1, py + sampleRadius)) {
+                for (sx in max(0, px - sampleRadius)..min(bitmap.width - 1, px + sampleRadius)) {
+                    val color = bitmap.getPixel(sx, sy)
+                    val alpha = Color.alpha(color)
+                    if (alpha > bestAlpha) {
+                        bestAlpha = alpha
+                        bestColor = color
                     }
                 }
-                return best != null
             }
 
-            val recentStrokes = strokes.takeLast(3)
-            for (stroke in recentStrokes.reversed()) {
-                if (checkStamps(stroke.stamps)) return best?.color
-            }
+            return if (bestAlpha > 12) bestColor else null
+        }
 
-            return best?.color
+        private fun dispatchConsumedColor(color: Int) {
+            val now = SystemClock.uptimeMillis()
+            if (lastConsumedColor == color && now - lastColorUiUpdateAt < colorUiUpdateIntervalMs) {
+                return
+            }
+            if (now - lastColorUiUpdateAt < colorUiUpdateIntervalMs) {
+                lastConsumedColor = color
+                return
+            }
+            lastConsumedColor = color
+            lastColorUiUpdateAt = now
+            onColorConsumed?.invoke(color)
+        }
+
+        private fun resetSamplingCache() {
+            lastSampleX = Float.NaN
+            lastSampleY = Float.NaN
+            lastSampleColor = null
         }
 
         override fun onDraw(canvasRef: Canvas) {
