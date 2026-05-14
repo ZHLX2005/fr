@@ -12,9 +12,9 @@ type: workflow
 ---
 # 请加载/sc:index-repo这个skill !!!!!!!!!
 
-处理.claude/repo当中的项目,每个项目隔离
+处理{当前项目}/.claude/repo当中的项目,每个项目隔离
 
-检查不存在PROJECT_INDEX.md 和 PROJECT_INDEX.json的仓库,对于没有index的仓库 进行并发/sc:index-repo 
+检查不存在PROJECT_INDEX.md 和 PROJECT_INDEX.json的仓库,对于没有index的仓库 进行并发   /sc:index-repo
 
 # Index Repos - 多仓库并行索引创建
 
