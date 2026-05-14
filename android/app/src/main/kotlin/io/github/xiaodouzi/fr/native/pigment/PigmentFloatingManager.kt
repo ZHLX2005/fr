@@ -125,7 +125,12 @@ class PigmentFloatingManager : Service() {
     }
 
     fun promoteToForeground() {
-        startForeground(NOTIFICATION_ID, createNotification(), 0x00000020)
+        if (Build.VERSION.SDK_INT >= 34) {
+            // FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION = 0x00000004
+            startForeground(NOTIFICATION_ID, createNotification(), 0x00000004)
+        } else {
+            startForeground(NOTIFICATION_ID, createNotification(), 0x00000020)
+        }
     }
 
     private fun createNotificationChannel() {
