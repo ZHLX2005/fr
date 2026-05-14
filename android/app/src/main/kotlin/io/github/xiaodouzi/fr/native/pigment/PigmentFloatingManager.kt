@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
+import android.content.pm.ServiceInfo
 import android.content.Intent
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
@@ -107,7 +108,6 @@ class PigmentFloatingManager : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                promoteToForeground()
                 showBubble()
             }
             ACTION_STOP -> stopSelf()
@@ -125,11 +125,14 @@ class PigmentFloatingManager : Service() {
     }
 
     fun promoteToForeground() {
-        if (Build.VERSION.SDK_INT >= 34) {
-            // FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION = 0x00000004
-            startForeground(NOTIFICATION_ID, createNotification(), 0x00000004)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                createNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+            )
         } else {
-            startForeground(NOTIFICATION_ID, createNotification(), 0x00000020)
+            startForeground(NOTIFICATION_ID, createNotification())
         }
     }
 
