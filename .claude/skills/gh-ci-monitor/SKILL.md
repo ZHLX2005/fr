@@ -2,7 +2,6 @@
 name: gh-ci-monitor
 description: GitHub Actions CI 流水线监控，直到构建成功或失败。自动重试失败的构建，监控直到完成。
 ---
-
 # GH CI Monitor Skill
 
 监控 GitHub Actions 构建状态，直到成功或用户干预。
@@ -22,6 +21,7 @@ gh run list --limit 1
 ```
 
 判断状态：
+
 - `in_progress` → 构建进行中，开始监控
 - `completed success` → 构建已成功，通知用户
 - `completed failure` → 构建失败，询问是否重试
@@ -70,24 +70,13 @@ gh pr checkout <pr_number> && git push
 
 ### 危险节点识别
 
-Flutter Android 构建关键时间点：
-- **40s 内** → Gradle kotlin-dsl 解析阶段，失败通常为插件仓库问题
-- **40s 后** → Gradle 编译阶段，失败通常为代码问题
-- **5-7min** → Kotlin 编译阶段
-- **10-13min** → APK 打包阶段
+通过gh run  list 发现之前的失败的时间
 
 ### 常见错误诊断
 
 ```
-Plugin [id: 'org.gradle.kotlin.kotlin-dsl', version: '5.2.0'] was not found
-→ CI 环境问题，Gradle 插件仓库网络问题，重新触发可能解决
+xxxxx
 
-FAILURE: Build failed with an exception
-BUILD FAILED in Xs
-→ 代码或配置问题，需要查看具体错误
-
-Gradle task assembleRelease failed with exit code 1
-→ 构建失败，需要分析日志
 ```
 
 ### 日志查看技巧
@@ -105,7 +94,6 @@ gh run view <run_id>  # 显示 ANNOTATIONS
 
 ### 重试策略
 
-- **kotlin-dsl 插件错误** → 直接重试，通常是临时网络问题
 - **代码错误** → 先修复代码再重试
 - **超时不响应** → 可能是 gradle daemon 卡死，直接 rerun
 
