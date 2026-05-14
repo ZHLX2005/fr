@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.media.projection.MediaProjection
@@ -165,7 +166,15 @@ class FloatingWindowManager : Service() {
         try {
             // 始终使用带 foregroundServiceType 的版本，不依赖 SDK_INT 判断
             // 部分厂商 Android 14 设备 SDK_INT 可能不等于 34 但仍要求该参数
-            startForeground(NOTIFICATION_ID, createNotification(), 0x00000020)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    createNotification(),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, createNotification())
+            }
         } catch (e: Exception) {
             android.util.Log.e("FloatingWindow", "promoteToForeground failed: ${e.message}", e)
         }
