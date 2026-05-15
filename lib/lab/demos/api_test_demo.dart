@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../lab_container.dart';
 import '../../services/api_client.dart';
 import 'api_download_manager.dart';
+import 'api_speech_tab.dart';
 
 /// API 测试 Demo
 class ApiTestDemo extends DemoPage {
@@ -277,7 +278,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
     return SafeArea(
       child: DefaultTabController(
-        length: 3,
+        length: 4,
         child: Column(
           children: [
             // 标题栏
@@ -314,6 +315,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                 Tab(text: 'APK 更新'),
                 Tab(text: 'KV 存储'),
                 Tab(text: '文件管理'),
+                Tab(text: '语音合成'),
               ],
             ),
             // Tab内容
@@ -326,6 +328,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                   _buildKvTab(),
                   // 文件管理
                   _buildFileTab(),
+                  // 语音合成
+                  const ApiSpeechTabPage(),
                 ],
               ),
             ),
