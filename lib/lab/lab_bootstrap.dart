@@ -26,7 +26,6 @@ import 'demos/qr_demo.dart';
 import 'demos/schema_demo.dart';
 import 'demos/sensor_demo.dart';
 import 'demos/snake_game_demo.dart';
-import 'demos/speech_synthesis_demo.dart';
 import 'demos/storage_analyze_demo.dart';
 import 'demos/torch_demo.dart';
 import 'demos/volume_decay_demo.dart';
@@ -47,7 +46,6 @@ void registerAllDemos() {
   registerStorageAnalyzeDemo();
   registerSnakeGameDemo();
   registerApiTestDemo();
-  registerSpeechSynthesisDemo();
   registerLineDemo();
   registerTorchDemo();
   registerSensorDemo();
