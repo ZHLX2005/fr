@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../lab_container.dart';
 import '../../services/api_client.dart';
+import 'api_download_manager.dart';
 
 /// API 测试 Demo
 class ApiTestDemo extends DemoPage {
@@ -41,59 +41,27 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   File? _selectedFile;
   String? _uploadResult;
   String? _downloadResult;
+  final _downloadIdController = TextEditingController();
 
-  // APK 更新状态
-  String? _apkMetadata;
-  String? _apkUpdateTime;
-  bool _isCheckingUpdate = false;
-  String? _downloadStatus;
-  double _downloadProgress = 0.0; // 下载进度 0.0-1.0
-  bool _isDownloading = false;
-  DownloadController? _downloadController;
-
-  // 已下载的 APK 文件信息
-  String? _downloadedApkPath;
-  int? _downloadedApkSize;
-
-  static const _kDownloadedApkPathKey = 'downloaded_apk_path';
-  static const _kDownloadedApkSizeKey = 'downloaded_apk_size';
+  // APK 下载管理器
+  final _apkManager = ApkDownloadManager();
 
   @override
   void initState() {
     super.initState();
     _loadKvList();
-    _loadDownloadedApk();
-  }
-
-  Future<void> _loadDownloadedApk() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(_kDownloadedApkPathKey);
-    if (path != null) {
-      final file = File(path);
-      final exists = await file.exists();
-      setState(() {
-        _downloadedApkPath = exists ? path : null;
-        _downloadedApkSize = exists
-            ? prefs.getInt(_kDownloadedApkSizeKey)
-            : null;
-      });
-    }
-  }
-
-  Future<void> _saveDownloadedApk(String path, int size) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kDownloadedApkPathKey, path);
-    await prefs.setInt(_kDownloadedApkSizeKey, size);
+    _apkManager.loadSavedState();
   }
 
   @override
   void dispose() {
     _keyController.dispose();
     _valueController.dispose();
+    _downloadIdController.dispose();
     super.dispose();
   }
 
-  // 加载KV列表
+  // ===== KV 操作 =====
   Future<void> _loadKvList() async {
     setState(() => _isLoading = true);
     final items = await ApiService.listKv(limit: 20);
@@ -113,7 +81,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     });
   }
 
-  // 设置KV
   Future<void> _setKv() async {
     if (_keyController.text.isEmpty || _valueController.text.isEmpty) return;
 
@@ -131,7 +98,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     _loadKvList();
   }
 
-  // 获取KV
   Future<void> _getKv() async {
     if (_keyController.text.isEmpty) return;
 
@@ -146,7 +112,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     });
   }
 
-  // 删除KV
   Future<void> _deleteKv(String key) async {
     final success = await ApiService.deleteKv(key);
     setState(() {
@@ -155,7 +120,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     _loadKvList();
   }
 
-  // 选择文件
+  // ===== 文件操作 =====
   Future<void> _pickFile() async {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery);
@@ -167,7 +132,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 上传文件
   Future<void> _uploadFile() async {
     if (_selectedFile == null) return;
 
@@ -184,9 +148,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     });
   }
 
-  // 下载文件
-  final _downloadIdController = TextEditingController();
-
   Future<void> _downloadFile() async {
     if (_downloadIdController.text.isEmpty) return;
 
@@ -202,7 +163,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     });
   }
 
-  // 删除文件
   Future<void> _deleteFile() async {
     if (_downloadIdController.text.isEmpty) return;
 
@@ -214,132 +174,38 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     });
   }
 
-  // 检查APK更新
+  // ===== APK 操作 =====
   Future<void> _checkApkUpdate() async {
-    setState(() {
-      _isCheckingUpdate = true;
-      _downloadStatus = '正在检查更新...';
-    });
-
-    final metadata = await ApiService.getApkMetadata();
-    setState(() {
-      _isCheckingUpdate = false;
-      if (metadata != null) {
-        _apkMetadata = '大小: ${_formatFileSize(metadata.size ?? 0)}';
-        _apkUpdateTime = metadata.uploadTime;
-        _downloadStatus =
-            '发现新版本 (${metadata.uploadTime?.substring(0, 10) ?? ""})';
-      } else {
-        _downloadStatus = '未找到APK或服务器错误';
-      }
-    });
+    await _apkManager.checkUpdate();
   }
 
-  // 用浏览器下载APK
+  Future<void> _downloadApkInternal() async {
+    await _apkManager.startDownload();
+  }
+
+  Future<void> _cancelDownload() async {
+    await _apkManager.cancelDownload();
+  }
+
   Future<void> _downloadApkWithBrowser() async {
     const url = 'http://47.110.80.47:8988/api/v1/file/fr_latest_apk';
     final uri = Uri.parse(url);
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-      setState(() {
-        _downloadStatus = '请在浏览器下载面板查看进度';
-      });
-    } catch (e) {
-      setState(() {
-        _downloadStatus = '打开浏览器失败: $e';
-      });
-    }
-  }
-
-  // 内部下载APK（支持断点续传和取消）
-  Future<void> _downloadApkInternal() async {
-    if (_isDownloading) return;
-
-    setState(() {
-      _isDownloading = true;
-      _downloadProgress = 0.0;
-      _downloadStatus = '开始下载...';
-    });
-
-    // 创建下载控制器
-    _downloadController = DownloadController();
-
-    try {
-      final filePath = await ApiService.downloadApkToLocal(
-        onProgress: (received, total) {
-          if (mounted && total > 0 && _downloadController != null && !_downloadController!.isCancelled) {
-            setState(() {
-              _downloadProgress = received / total;
-              _downloadStatus = '下载中: ${(_downloadProgress * 100).toStringAsFixed(1)}%';
-            });
-          }
-        },
-        controller: _downloadController,
-      );
-
-      if (_downloadController != null && _downloadController!.isCancelled) {
-        // 用户取消，不显示错误
-        if (mounted) {
-          setState(() {
-            _downloadStatus = '已取消下载';
-            _isDownloading = false;
-          });
-        }
-        return;
-      }
-
-      if (filePath != null && mounted) {
-        final file = File(filePath);
-        try {
-          // 验证文件存在并获取大小
-          if (!await file.exists()) {
-            throw Exception('文件不存在');
-          }
-          final size = await file.length();
-          await _saveDownloadedApk(filePath, size);
-          setState(() {
-            _downloadStatus = '下载完成';
-            _isDownloading = false;
-            _downloadedApkPath = filePath;
-            _downloadedApkSize = size;
-          });
-        } catch (e) {
-          // 文件访问出错，尝试清理并重新下载
-          try {
-            if (await file.exists()) {
-              await file.delete();
-            }
-          } catch (_) {}
-          setState(() {
-            _downloadStatus = '文件访问出错，请重新下载';
-            _isDownloading = false;
-            _downloadedApkPath = null;
-            _downloadedApkSize = null;
-          });
-        }
-      } else if (mounted) {
-        setState(() {
-          _downloadStatus = '下载失败，请重试';
-          _isDownloading = false;
-        });
-      }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _downloadStatus = '下载出错: $e';
-          _isDownloading = false;
-        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开浏览器失败: $e')));
       }
-    } finally {
-      _downloadController = null;
     }
   }
 
-  // 用系统方式打开文件（分享兜底）
   Future<void> _openApk() async {
-    if (_downloadedApkPath == null) return;
+    final path = _apkManager.state.value.downloadedPath;
+    if (path == null) return;
     try {
-      final file = XFile(_downloadedApkPath!);
+      final file = XFile(path);
       await Share.shareXFiles([file], text: 'FR APK 安装包');
     } catch (e) {
       if (mounted) {
@@ -350,60 +216,61 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  // 取消下载
-  Future<void> _cancelDownload() async {
-    if (_downloadController != null) {
-      _downloadController!.cancel();
-      // 注意：不在这里设置状态，由 _downloadApkInternal 的 finally 块统一处理
-    }
-  }
-
-  // 尝试用 open_filex 直接唤起安装器（方案四：原生 Intent + FileProvider）
   Future<void> _openApkInstall() async {
-    if (_downloadedApkPath == null) return;
+    final path = _apkManager.state.value.downloadedPath;
+    if (path == null) return;
 
-    final file = File(_downloadedApkPath!);
+    final file = File(path);
     if (!await file.exists()) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('APK 文件不存在')));
+      }
       return;
     }
 
     try {
-      // 不指定 type，让 open_filex 根据 .apk 扩展名自动识别 MIME
-      final result = await OpenFilex.open(_downloadedApkPath!);
+      final result = await OpenFilex.open(path);
       if (mounted) {
-        if (result.type == ResultType.done) {
-          // 成功唤起
-        } else if (result.type == ResultType.noAppToOpen) {
+        if (result.type == ResultType.noAppToOpen) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('没有找到可安装的应用')));
-        } else {
+        } else if (result.type != ResultType.done) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('唤起失败: ${result.message}')));
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('唤起异常: $e')));
+      }
     }
   }
 
-  // 格式化文件大小
+  Future<void> _clearDownloadedApk() async {
+    await _apkManager.clearDownloaded();
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已清除下载记录')));
+    }
+  }
+
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
+  // ===== Build =====
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -426,33 +293,39 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
-                  if (_isLoading || _isCheckingUpdate)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+                  ValueListenableBuilder<ApkDownloadState>(
+                    valueListenable: _apkManager.state,
+                    builder: (context, apkState, child) {
+                      final isBusy = _isLoading || apkState.isCheckingUpdate;
+                      if (!isBusy) return const SizedBox.shrink();
+                      return const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
-            // Tab栏
+            // Tab栏 - APK更新放在第一位
             const TabBar(
               tabs: [
+                Tab(text: 'APK 更新'),
                 Tab(text: 'KV 存储'),
                 Tab(text: '文件管理'),
-                Tab(text: 'APK 更新'),
               ],
             ),
             // Tab内容
             Expanded(
               child: TabBarView(
                 children: [
+                  // APK 更新
+                  _buildApkTab(),
                   // KV 存储
                   _buildKvTab(),
                   // 文件管理
                   _buildFileTab(),
-                  // APK 更新
-                  _buildApkTab(),
                 ],
               ),
             ),
@@ -462,13 +335,296 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     );
   }
 
+  // --- APK 更新 Tab ---
+  Widget _buildApkTab() {
+    return ValueListenableBuilder<ApkDownloadState>(
+      valueListenable: _apkManager.state,
+      builder: (context, apkState, child) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // APK 更新卡片
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.update, size: 32, color: Colors.blue),
+                          SizedBox(width: 12),
+                          Text(
+                            'FR 最新版 APK',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // APK 信息
+                      if (apkState.apkMetadata != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('文件大小: ${apkState.apkMetadata}'),
+                              if (apkState.apkUpdateTime != null)
+                                Text('上传时间: ${apkState.apkUpdateTime}'),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      // 状态信息
+                      if (apkState.statusMessage != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: apkState.statusMessage!.contains('完成')
+                                ? Colors.green[50]
+                                : Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            apkState.statusMessage!,
+                            style: TextStyle(
+                              color: apkState.statusMessage!.contains('完成')
+                                  ? Colors.green[700]
+                                  : Colors.blue[700],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      // 下载进度条
+                      if (apkState.isDownloading) ...[
+                        LinearProgressIndicator(value: apkState.progress),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${(apkState.progress * 100).toStringAsFixed(1)}%',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      // 操作按钮
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed:
+                                apkState.isCheckingUpdate ? null : _checkApkUpdate,
+                            icon: apkState.isCheckingUpdate
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.refresh),
+                            label: const Text('检查更新'),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: _downloadApkWithBrowser,
+                            icon: const Icon(Icons.open_in_browser),
+                            label: const Text('浏览器下载'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: apkState.isDownloading
+                                ? _cancelDownload
+                                : _downloadApkInternal,
+                            icon: apkState.isDownloading
+                                ? const Icon(Icons.cancel)
+                                : const Icon(Icons.download_for_offline),
+                            label: Text(
+                                apkState.isDownloading ? '取消下载' : '内部下载'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: apkState.isDownloading
+                                  ? Colors.orange
+                                  : Colors.green,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // 已下载的 APK 文件卡片
+                      if (apkState.downloadedPath != null) ...[
+                        _buildApkFileCard(apkState),
+                        const SizedBox(height: 12),
+                      ],
+                      // 下载地址信息
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '下载地址:',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            SizedBox(height: 4),
+                            SelectableText(
+                              'http://47.110.80.47:8988/api/v1/file/fr_latest_apk',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Key: fr_latest_apk (覆盖更新) | TTL: 30天',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // 安装说明
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                          SizedBox(width: 8),
+                          Text(
+                            '安装步骤',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '1. 点击"内部下载"下载 APK\n'
+                        '2. 下载完成后点击绿色卡片的"安装"按钮\n'
+                        '3. 系统弹出应用选择面板，选择 APK 安装器\n'
+                        '4. 如遇问题，点击"分享"按钮用其他方式打开',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildApkFileCard(ApkDownloadState apkState) {
+    final path = apkState.downloadedPath!;
+    final name = path.split('/').last.split('\\').last;
+    final sizeStr =
+        apkState.downloadedSize != null
+            ? _formatFileSize(apkState.downloadedSize!)
+            : '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green[200]!),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.green.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.android, color: Colors.green),
+        ),
+        title: Text(
+          name,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '$sizeStr\n$path',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FilledButton(
+              onPressed: _openApkInstall,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('安装'),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              onPressed: _openApk,
+              icon: const Icon(Icons.share),
+              tooltip: '分享',
+              color: Colors.blue,
+            ),
+            IconButton(
+              onPressed: _clearDownloadedApk,
+              icon: const Icon(Icons.delete_outline),
+              tooltip: '清除',
+              color: Colors.red,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- KV 存储 Tab ---
   Widget _buildKvTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 输入区域
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -521,7 +677,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
             ),
           ),
           const SizedBox(height: 16),
-          // KV 列表
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -556,13 +711,13 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     );
   }
 
+  // --- 文件管理 Tab ---
   Widget _buildFileTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 上传区域
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -570,7 +725,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                 children: [
                   const Text(
                     '文件上传',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
@@ -599,14 +757,16 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                   ),
                   if (_uploadResult != null) ...[
                     const SizedBox(height: 8),
-                    Text(_uploadResult!, style: const TextStyle(fontSize: 12)),
+                    Text(
+                      _uploadResult!,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ],
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          // 下载/删除区域
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -614,7 +774,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                 children: [
                   const Text(
                     '文件下载/删除',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -659,274 +822,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildApkTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // APK 更新卡片
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.update, size: 32, color: Colors.blue),
-                      SizedBox(width: 12),
-                      Text(
-                        'FR 最新版 APK',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // APK 信息
-                  if (_apkMetadata != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('文件大小: $_apkMetadata'),
-                          if (_apkUpdateTime != null)
-                            Text('上传时间: $_apkUpdateTime'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // 状态信息
-                  if (_downloadStatus != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _downloadStatus!.contains('完成')
-                            ? Colors.green[50]
-                            : Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _downloadStatus!,
-                        style: TextStyle(
-                          color: _downloadStatus!.contains('完成')
-                              ? Colors.green[700]
-                              : Colors.blue[700],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // 操作按钮
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isCheckingUpdate ? null : _checkApkUpdate,
-                          icon: _isCheckingUpdate
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.refresh),
-                          label: const Text('检查更新'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _downloadApkWithBrowser,
-                          icon: const Icon(Icons.download),
-                          label: const Text('浏览器下载'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isDownloading
-                              ? _cancelDownload
-                              : _downloadApkInternal,
-                          icon: _isDownloading
-                              ? SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    value: _downloadProgress > 0
-                                        ? _downloadProgress
-                                        : null,
-                                  ),
-                                )
-                              : const Icon(Icons.download_for_offline),
-                          label: Text(_isDownloading ? '取消' : '内部下载'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // 显示下载进度条
-                  if (_isDownloading) ...[
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(value: _downloadProgress),
-                  ],
-                  const SizedBox(height: 12),
-                  // 已下载的 APK 文件卡片
-                  if (_downloadedApkPath != null) ...[
-                    _buildApkFileCard(),
-                    const SizedBox(height: 12),
-                  ],
-                  // 下载地址信息
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '下载地址:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          'http://47.110.80.47:8988/api/v1/file/fr_latest_apk',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue[700],
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Key: fr_latest_apk (覆盖更新) | TTL: 30天',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // 安装说明
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 20, color: Colors.blue),
-                      SizedBox(width: 8),
-                      Text(
-                        '安装步骤',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '1. 点击"内部下载"下载 APK\n'
-                    '2. 下载完成后点击绿色卡片的"安装"按钮\n'
-                    '3. 系统弹出应用选择面板，选择 APK 安装器\n'
-                    '4. 如遇问题，点击"分享"按钮用其他方式打开',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 已下载 APK 文件卡片
-  Widget _buildApkFileCard() {
-    final name = _downloadedApkPath!.split('/').last.split('\\').last;
-    final sizeStr = _downloadedApkSize != null
-        ? _formatFileSize(_downloadedApkSize!)
-        : '';
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.green[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green[200]!),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.android, color: Colors.green),
-        ),
-        title: Text(
-          name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          '$sizeStr\n$_downloadedApkPath',
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FilledButton(
-              onPressed: _openApkInstall,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-              child: const Text('安装'),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: _openApk,
-              icon: const Icon(Icons.share),
-              tooltip: '分享',
-              color: Colors.blue,
-            ),
-          ],
-        ),
       ),
     );
   }
