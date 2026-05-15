@@ -17,7 +17,6 @@ import 'demos/github_demo.dart';
 import 'demos/grid_dashboard_demo.dart';
 import 'demos/line_demo.dart';
 import 'demos/localnet_demo.dart';
-import 'demos/my_diary_header_demo.dart';
 import 'demos/network_demo.dart';
 import 'demos/network_env_demo.dart';
 import 'demos/novel_reader_demo.dart';
@@ -48,7 +47,6 @@ void registerAllDemos() {
   registerStorageAnalyzeDemo();
   registerSnakeGameDemo();
   registerApiTestDemo();
-  registerMyDiaryHeaderDemo();
   registerSpeechSynthesisDemo();
   registerLineDemo();
   registerTorchDemo();
