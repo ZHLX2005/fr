@@ -6,6 +6,7 @@ import '../../workspace/workspace_provider.dart';
 import '../../../../models/ai_chat_message.dart' show AISettings;
 import '../ai/ai_tools.dart';
 import '../ai/note_ai_service.dart';
+import '../ai/prompts/prompts.dart';
 import '../block.dart';
 import '../block_id.dart';
 import '../block_editor_controller.dart';
@@ -332,15 +333,25 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
       return;
     }
 
-    final systemPrompt = _buildSystemPrompt(ws);
+    final systemPrompt = buildSystemPrompt(ws, _controller);
     final apiMessages = _buildApiMessages();
     final allToolCalls = <ToolCallInfo>[];
     String? finalReply;
     String? finalError;
+    bool wroteContent = false;
+    int turn;
 
     // Agent 循环：最大 5 轮防止无限循环
-    for (int turn = 0; turn < 5; turn++) {
+    for (turn = 0; turn < 5; turn++) {
       setState(() => _aiStatusText = turn == 0 ? '正在思考…' : '继续处理…');
+
+      // 最后一轮使用最强力的提示
+      if (turn == 4 && !wroteContent && isActionRequest(text)) {
+        apiMessages.add({
+          'role': 'user',
+          'content': '这是最后一次机会，必须立即直接调用 write_content 工具将内容写入当前页面。不要读取、不要回复文字、不要犹豫，直接写入。',
+        });
+      }
 
       final result = await _aiService.chat(
         messages: apiMessages,
@@ -354,15 +365,31 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
       }
 
       if (!result.hasToolCalls) {
+        if (turn > 0 && isActionRequest(text) && onlyReadTools(allToolCalls)) {
+          setState(() => _aiStatusText = '强制写入…');
+          apiMessages.add({
+            'role': 'user',
+            'content':
+                '你刚刚只是读取了内容，没有实际写入。请使用 write_content 向当前页面写入 Markdown 内容，或使用 ai_create_page 创建新页面。不要只回复文字。',
+          });
+          continue;
+        }
+        if (turn == 0 && isActionRequest(text) && allToolCalls.isEmpty) {
+          setState(() => _aiStatusText = '强制使用工具…');
+          apiMessages.add({
+            'role': 'user',
+            'content':
+                '请使用可用的工具来实际执行操作。只回复文字不算真正执行——必须调用工具才能完成。不要回复"Why are you sending this again"类疑问——直接执行你被要求执行的操作。',
+          });
+          continue;
+        }
         // 无更多工具调用 —— 本轮回复为最终消息
         finalReply = result.reply;
         break;
       }
 
-      // 执行工具调用
       allToolCalls.addAll(result.toolCalls);
 
-      // 将 assistant 消息（含 tool_calls）加入 API 历史
       apiMessages.add({
         'role': 'assistant',
         'content': result.reply,
@@ -370,10 +397,15 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
             result.toolCalls.map((tc) => tc.toAssistantMessageMap()).toList(),
       });
 
-      // 逐个执行工具
       for (final tc in result.toolCalls) {
         setState(() => _aiStatusText = '执行: ${tc.name}…');
         final toolResult = await _executeToolCall(tc, ws);
+        if (_isWriteTool(tc.name) &&
+            !toolResult.startsWith('操作失败') &&
+            !toolResult.startsWith('工具') &&
+            !toolResult.startsWith('未知工具')) {
+          wroteContent = true;
+        }
         apiMessages.add({
           'role': 'tool',
           'tool_call_id': tc.id,
@@ -382,16 +414,23 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
       }
     }
 
+    // turn >= 5 表示循环耗尽（未 break）
+    final bool loopExhausted = turn >= 5;
+
     if (mounted) {
       setState(() {
         if (finalError != null) {
           _conversationMessages.add(
             ConversationMessage.assistant('出错了: $finalError'),
           );
+        } else if (loopExhausted && !wroteContent && isActionRequest(text)) {
+          _conversationMessages.add(
+            ConversationMessage.assistant('AI 未能完成操作，请重试或检查 AI 设置是否正常。'),
+          );
         } else {
           _conversationMessages.add(
             ConversationMessage.assistant(
-              finalReply ?? '已完成',
+              finalReply ?? (wroteContent ? '已完成' : '未能完成操作'),
               toolCalls: allToolCalls.isNotEmpty ? allToolCalls : null,
             ),
           );
@@ -399,6 +438,16 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
         _aiLoading = false;
       });
     }
+  }
+
+  /// 判断工具名称是否为写入型工具
+  bool _isWriteTool(String name) {
+    const writeTools = {
+      'write_content', 'insert_block', 'update_block',
+      'ai_create_page', 'merge_blocks', 'split_block',
+      'move_block', 'delete_block',
+    };
+    return writeTools.contains(name);
   }
 
   /// 执行单个工具调用
@@ -450,12 +499,37 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
             String? prevId;
             for (final line in lines) {
               if (line.trim().isEmpty) continue;
-              final block = _parseMdLine(line);
+              final block = parseMdLine(line);
               newCtrl.tree.insert(block, parentId: BlockTree.rootId, afterId: prevId);
               prevId = block.id;
             }
           }
           return '已创建页面「$title」${content.isNotEmpty ? '，已填入内容' : ''}，已自动切换。';
+        }
+
+        // ── 高层次的 Markdown 写入工具 ──
+        case 'write_content': {
+          final content = args['content'] as String? ?? '';
+          final replace = args['replace'] as bool? ?? false;
+          if (content.isEmpty) return '内容为空';
+          if (replace) {
+            for (final childId
+                in _controller.tree.childIdsOf(BlockTree.rootId).toList()) {
+              _controller.tree.remove(childId);
+            }
+          }
+          final lines = content.split('\n');
+          String? prevId;
+          int count = 0;
+          for (final line in lines) {
+            if (line.trim().isEmpty) continue;
+            final block = parseMdLine(line);
+            _controller.tree.insert(
+                block, parentId: BlockTree.rootId, afterId: prevId);
+            prevId = block.id;
+            count++;
+          }
+          return '已写入 $count 个块';
         }
 
         // ── 占位工具 ──
@@ -525,124 +599,6 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
   }
 
   // ── 工具方法 ──
-
-  /// 构建系统提示词
-  String _buildSystemPrompt(WorkspaceProvider ws) {
-    final buf = StringBuffer();
-    buf.writeln('你是笔记编辑器中的 AI 助手。你通过「工具」来执行所有读写操作——不要只给出文字建议，必须实际调用工具。');
-    buf.writeln();
-    buf.writeln('工作流：');
-    buf.writeln('1. 先使用 read_subtree 或 read_block 读取内容');
-    buf.writeln('2. 然后使用 insert_block / update_block / ai_create_page 等写入工具执行修改');
-    buf.writeln('3. 如果用户说"先不修改"，只需读取和分析，等待用户确认后再修改');
-    buf.writeln();
-    buf.writeln(ws.manager.buildWorkspaceOverview());
-    buf.writeln();
-
-    if (ws.activePage != null) {
-      buf.writeln('## 当前页面块列表（含 ID，供工具调用时引用）');
-      String fullContext;
-      if (_controller.selectedBlockId != null) {
-        fullContext =
-            _controller.aiAgent.contextBuilder.build(_controller.selectedBlockId!);
-      } else {
-        // 无选中块时显示全页面概览
-        fullContext = _buildFullBlockList();
-      }
-      buf.writeln(fullContext);
-    }
-
-    buf.writeln();
-    buf.writeln('使用注意：');
-    buf.writeln('- insert_block 的 after_id 不传则插入到末尾，type 用 tag 字符串');
-    buf.writeln('- 删除操作不可撤销，请谨慎使用');
-    buf.writeln('- ai_create_page 创建新页面并填入 Markdown 内容');
-    return buf.toString();
-  }
-
-  /// 构建当前页面所有块的文本列表（含 ID）
-  String _buildFullBlockList() {
-    final buf = StringBuffer();
-    _flatBlockList(BlockTree.rootId, 0, buf);
-    return buf.toString();
-  }
-
-  void _flatBlockList(String parentId, int depth, StringBuffer buf) {
-    for (final childId in _controller.tree.childIdsOf(parentId)) {
-      final block = _controller.tree.get(childId);
-      if (block == null) continue;
-      final indent = '  ' * depth;
-      final text = block.content.toPlainText();
-      buf.writeln('$indent- [${block.type.tag}] id=$childId: $text');
-      if (block.canHaveChildren) {
-        _flatBlockList(childId, depth + 1, buf);
-      }
-    }
-  }
-
-  /// 将一行 Markdown 文本解析为 Block
-  Block _parseMdLine(String line) {
-    final trimmed = line.trimLeft();
-
-    // 标题 # ~ ######
-    final headingMatch = RegExp(r'^(#{1,6})\s+(.*)$').firstMatch(trimmed);
-    if (headingMatch != null) {
-      return Block(
-        id: BlockId.generate(),
-        type: BlockType.heading,
-        content: RichText.text(headingMatch.group(2) ?? ''),
-        data: BlockData.fromMap({'level': headingMatch.group(1)!.length}),
-      );
-    }
-
-    // 引用 >
-    if (trimmed.startsWith('> ')) {
-      return Block(
-        id: BlockId.generate(),
-        type: BlockType.quote,
-        content: RichText.text(trimmed.substring(2)),
-      );
-    }
-
-    // 无序列表 -
-    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      return Block(
-        id: BlockId.generate(),
-        type: BlockType.bulletListItem,
-        content: RichText.text(trimmed.substring(2)),
-      );
-    }
-
-    // 有序列表 1.
-    final olMatch = RegExp(r'^(\d+)\.\s+(.*)$').firstMatch(trimmed);
-    if (olMatch != null) {
-      return Block(
-        id: BlockId.generate(),
-        type: BlockType.orderedListItem,
-        content: RichText.text(olMatch.group(2) ?? ''),
-        data: BlockData.fromMap({'number': int.tryParse(olMatch.group(1) ?? '') ?? 1}),
-      );
-    }
-
-    // 待办 [ ] / [x]
-    final todoMatch = RegExp(r'^\[([ xX])\]\s+(.*)$').firstMatch(trimmed);
-    if (todoMatch != null) {
-      final checked = todoMatch.group(1)!.toLowerCase() == 'x';
-      return Block(
-        id: BlockId.generate(),
-        type: BlockType.todo,
-        content: RichText.text(todoMatch.group(2) ?? ''),
-        data: BlockData.fromMap({'checked': checked}),
-      );
-    }
-
-    // 默认：段落
-    return Block(
-      id: BlockId.generate(),
-      type: BlockType.paragraph,
-      content: RichText.text(line),
-    );
-  }
 
   /// 从对话历史构建 API 消息列表（不含 system 消息）
   List<Map<String, dynamic>> _buildApiMessages() {
