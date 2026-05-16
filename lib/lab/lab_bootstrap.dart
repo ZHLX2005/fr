@@ -18,7 +18,6 @@ import 'demos/grid_dashboard_demo.dart';
 import 'demos/line_demo.dart';
 import 'demos/localnet_demo.dart';
 import 'demos/network_demo.dart';
-import 'demos/network_env_demo.dart';
 import 'demos/novel_reader_demo.dart';
 import 'demos/overlay_demo.dart';
 import 'demos/pigment_palette_demo.dart';
@@ -40,7 +39,6 @@ void registerAllDemos() {
   registerClockDemo();
   registerCrashLogDemo();
   registerNetworkDemo();
-  registerNetworkEnvDemo();
   registerGame2048Demo();
   registerFreeCanvasDemo();
   registerStorageAnalyzeDemo();
