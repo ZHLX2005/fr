@@ -25,6 +25,9 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   LabClockProvider() {
     _startTimer();
     WidgetsBinding.instance.addObserver(this);
+    // 启动即加载数据并同步到桌面小组件
+    // 之前要等 ClockDemo 页打开才 loadClocks，导致冷启动时 widget 看到的是空状态
+    loadClocks();
   }
 
   @override
@@ -32,6 +35,8 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // 应用恢复时重新计算所有运行中的时钟
       _recalculateRunningClocks();
+      // 无论是否变化都强制同步一次：widget 可能已被系统 30 分钟周期拉新过
+      _syncToWidget();
     }
   }
 
@@ -154,6 +159,10 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       durationSeconds: clock.durationSeconds ?? 0,
       isRunning: clock.isRunning,
       color: clock.color ?? '#2196F3',
+      // 把 startTime / startRemainingSeconds 透传给 widget，
+      // 让原生侧能基于 startTime 实时算 remaining，避免 Flutter 死掉后时间冻结
+      startTime: clock.startTime,
+      startRemainingSeconds: clock.startRemainingSeconds,
     );
 
     ClockWidgetService.updateClockWidget(widgetData);
@@ -167,6 +176,10 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       _clocks = list.map((e) => LabClock.fromJson(e)).toList();
     }
     await loadRecords();
+    // 加载完做一次"基于 startTime 重算"——
+    // 如果用户在 app 死掉的时候有 running 的钟，重新打开后 remaining 已经过期了
+    _recalculateRunningClocks();
+    _syncToWidget();
     notifyListeners();
   }
 

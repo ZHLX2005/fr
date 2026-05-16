@@ -9,6 +9,7 @@ import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
 import io.github.xiaodouzi.fr.MainActivity
 import io.github.xiaodouzi.fr.R
+import kotlin.math.abs
 
 class ClockWidgetProvider : AppWidgetProvider() {
 
@@ -30,10 +31,28 @@ class ClockWidgetProvider : AppWidgetProvider() {
         ) {
             val widgetData = HomeWidgetPlugin.getData(context)
 
-            val title = widgetData.getString("clock_title", "暂无倒计时")
-            val formattedTime = widgetData.getString("clock_formatted_time", "00:00:00")
+            val title = widgetData.getString("clock_title", "暂无倒计时") ?: "暂无倒计时"
             val isRunning = widgetData.getString("clock_is_running", "0") == "1"
-            val isOvertime = widgetData.getString("clock_is_overtime", "0") == "1"
+            val savedRemaining =
+                widgetData.getString("clock_remaining_seconds", "0")?.toIntOrNull() ?: 0
+            val startTimeMs =
+                widgetData.getString("clock_start_time_ms", "0")?.toLongOrNull() ?: 0L
+            val startRemaining =
+                widgetData.getString("clock_start_remaining_seconds", "0")?.toIntOrNull()
+                    ?: savedRemaining
+
+            // 实时计算 remaining：如果在跑且有合法 startTime，按当前时间推算，
+            // 否则退回到 Flutter 端最后保存的快照值。
+            // 这样即使 Flutter 进程被杀，widget 下次刷新仍能显示正确时间。
+            val remaining = if (isRunning && startTimeMs > 0) {
+                val elapsedSec = (System.currentTimeMillis() - startTimeMs) / 1000
+                (startRemaining - elapsedSec).toInt()
+            } else {
+                savedRemaining
+            }
+
+            val isOvertime = remaining < 0
+            val formattedTime = formatHms(remaining)
 
             val (statusText, statusIcon, _) = when {
                 isOvertime -> Triple("已超时", "🌙", "#FF5722")
@@ -63,6 +82,18 @@ class ClockWidgetProvider : AppWidgetProvider() {
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
+
+        private fun formatHms(remainingSeconds: Int): String {
+            val isOvertime = remainingSeconds < 0
+            val abs = abs(remainingSeconds)
+            val h = abs / 3600
+            val m = (abs % 3600) / 60
+            val s = abs % 60
+            val sign = if (isOvertime) "-" else ""
+            return "$sign${pad(h)}:${pad(m)}:${pad(s)}"
+        }
+
+        private fun pad(v: Int): String = if (v < 10) "0$v" else v.toString()
     }
 
     override fun onEnabled(context: Context) {}
