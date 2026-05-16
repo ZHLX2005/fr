@@ -23,7 +23,9 @@
       "Read(//tmp/**)",
       "Read(//d/tmp/**)",
       "Bash(tasklist //FI \"PID eq 2339\")",
-      "Bash(flutter install:*)"
+      "Bash(flutter install:*)",
+      "Bash(mkdir -p .claude/repo)",
+      "Bash(git clone *)"
     ]
   }
 }

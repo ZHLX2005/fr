@@ -40,7 +40,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   late final AnimationController _animationController;
   late final rive.FileLoader _douziFileLoader = rive.FileLoader.fromAsset(
     'assets/rive/douzi.riv',
-    riveFactory: rive.Factory.rive,
+    riveFactory: rive.Factory.flutter,
   );
   bool _isLongPressed = false;
 
