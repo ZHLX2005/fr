@@ -62,12 +62,10 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
   void initState() {
     super.initState();
 
-    final initialText = widget.initialContent ??
-        'MD 优先输入：行首输入 # 空格、- 空格、> 空格 试试。\n'
-            '新行行首输入一个空格唤醒 AI 输入框。\n';
-
     _controller = QuillController(
-      document: Document()..insert(0, initialText),
+      document: widget.initialContent != null
+          ? (Document()..insert(0, widget.initialContent!))
+          : Document(),
       selection: const TextSelection.collapsed(offset: 0),
     );
 
@@ -199,6 +197,7 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
               child: QuillEditor.basic(
                 controller: _controller,
                 config: QuillEditorConfig(
+                  placeholder: 'MD 优先输入：行首输入 # 空格、- 空格、> 空格 试试。新行行首输入一个空格唤醒 AI 输入框。',
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   autoFocus: true,
                   expands: false,
