@@ -88,25 +88,11 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
-            child: Stack(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PageView(
-                  controller: _pageController,
-                  onPageChanged: _onSectionChanged,
-                  children: [
-                    _CharacterDetailPanel(
-                      profile: profile,
-                      fileLoader: _douziFileLoader,
-                      hexagonItems: hexagonItems,
-                    ),
-                    _StoryDetailPanel(
-                      story: profile.story,
-                    ),
-                  ],
-                ),
-                Positioned(
-                  top: 16,
-                  left: 20,
+                Padding(
+                  padding: const EdgeInsets.only(left: 20),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -120,6 +106,23 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
                         active: _activeSection == _ProfileSection.story,
                         color: colorScheme.secondary,
                         onTap: () => _goToPage(1),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: _onSectionChanged,
+                    children: [
+                      _CharacterDetailPanel(
+                        profile: profile,
+                        fileLoader: _douziFileLoader,
+                        hexagonItems: hexagonItems,
+                      ),
+                      _StoryDetailPanel(
+                        story: profile.story,
                       ),
                     ],
                   ),
