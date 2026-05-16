@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/api_client.dart';
+import '../../../services/api_client.dart';
 
 /// APK 下载状态
 class ApkDownloadState {
