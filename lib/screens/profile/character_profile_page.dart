@@ -19,7 +19,7 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
   late final Future<CharacterProfileData> _profileFuture = _loadProfile();
   late final rive.FileLoader _douziFileLoader = rive.FileLoader.fromAsset(
     'assets/rive/douzi.riv',
-    riveFactory: rive.Factory.rive,
+    riveFactory: rive.Factory.flutter,
   );
   _ProfileSection _activeSection = _ProfileSection.character;
 
