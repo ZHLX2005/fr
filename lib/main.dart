@@ -120,7 +120,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         classic_provider.ChangeNotifierProvider(
           create: (_) => LabNoteProvider(),
         ),
+        // lazy:false → 冷启动即创建，立即 loadClocks + _syncToWidget。
+        // 否则桌面 widget 要等用户进入 ClockDemo 页面才会被同步。
         classic_provider.ChangeNotifierProvider(
+          lazy: false,
           create: (_) => LabClockProvider(),
         ),
         classic_provider.ChangeNotifierProvider(
