@@ -7,7 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../lab_container.dart';
-import 'const_torch.dart';
+import 'torch/const_torch.dart';
 
 /// 手电筒 Demo
 class TorchDemo extends DemoPage {
