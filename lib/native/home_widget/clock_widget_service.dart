@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 import 'clock_widget_data.dart';
 
@@ -15,11 +16,13 @@ class ClockWidgetService {
   static const String _keyColor = 'clock_color';
   static const String _keyFormattedTime = 'clock_formatted_time';
   static const String _keyIsOvertime = 'clock_is_overtime';
+  static const String _keyStartTimeMs = 'clock_start_time_ms';
+  static const String _keyStartRemainingSeconds = 'clock_start_remaining_seconds';
 
   /// 更新桌面时钟小组件数据
   static Future<void> updateClockWidget(ClockWidgetData data) async {
     try {
-      // 保存数据到原生存储
+      // 保存数据到原生存储（一次性 await 全部，避免并发写入丢字段）
       await HomeWidget.saveWidgetData(_keyTitle, data.title);
       await HomeWidget.saveWidgetData(
         _keyRemainingSeconds,
@@ -39,14 +42,23 @@ class ClockWidgetService {
         _keyIsOvertime,
         data.isOvertime ? '1' : '0',
       );
+      await HomeWidget.saveWidgetData(
+        _keyStartTimeMs,
+        data.startTimeMs.toString(),
+      );
+      await HomeWidget.saveWidgetData(
+        _keyStartRemainingSeconds,
+        data.startRemainingSeconds.toString(),
+      );
 
       // 触发 Widget 更新
       await HomeWidget.updateWidget(
         name: _androidWidgetName,
         androidName: _androidWidgetName,
       );
-    } catch (e) {
-      // 静默处理错误，Widget 更新失败不影响主应用
+    } catch (e, stack) {
+      // 之前是静默吞掉，现在打日志方便定位为什么不同步
+      debugPrint('[ClockWidgetService] updateClockWidget failed: $e\n$stack');
     }
   }
 

@@ -22,6 +22,13 @@ class ClockWidgetData {
   /// 是否已超时
   final bool isOvertime;
 
+  /// 启动时刻的毫秒时间戳（0 表示未启动）
+  /// Android 端利用此值实时计算 remaining，避免 Flutter 进程死亡后时间冻结
+  final int startTimeMs;
+
+  /// 启动时刻的剩余秒数（配合 startTimeMs 用于实时计算）
+  final int startRemainingSeconds;
+
   const ClockWidgetData({
     required this.title,
     required this.remainingSeconds,
@@ -30,6 +37,8 @@ class ClockWidgetData {
     required this.color,
     required this.formattedTime,
     required this.isOvertime,
+    required this.startTimeMs,
+    required this.startRemainingSeconds,
   });
 
   /// 从 LabClock 转换
@@ -39,6 +48,8 @@ class ClockWidgetData {
     required int durationSeconds,
     required bool isRunning,
     required String color,
+    DateTime? startTime,
+    int? startRemainingSeconds,
   }) {
     final isOvertime = remainingSeconds < 0;
     final absSeconds = remainingSeconds.abs();
@@ -56,6 +67,8 @@ class ClockWidgetData {
       formattedTime:
           '$sign${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}',
       isOvertime: isOvertime,
+      startTimeMs: startTime?.millisecondsSinceEpoch ?? 0,
+      startRemainingSeconds: startRemainingSeconds ?? remainingSeconds,
     );
   }
 
@@ -68,6 +81,8 @@ class ClockWidgetData {
     color: '#2196F3',
     formattedTime: '00:00:00',
     isOvertime: false,
+    startTimeMs: 0,
+    startRemainingSeconds: 0,
   );
 
   /// 转换为 Map 用于存储
@@ -80,6 +95,8 @@ class ClockWidgetData {
       'color': color,
       'formattedTime': formattedTime,
       'isOvertime': isOvertime ? 1 : 0,
+      'startTimeMs': startTimeMs,
+      'startRemainingSeconds': startRemainingSeconds,
     };
   }
 }
