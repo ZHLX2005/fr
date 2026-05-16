@@ -609,17 +609,9 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
           msgs.add({'role': 'user', 'content': m.content});
           break;
         case 'assistant':
-          if (m.toolCalls != null && m.toolCalls!.isNotEmpty) {
-            msgs.add({
-              'role': 'assistant',
-              'content': m.content,
-              'tool_calls': m.toolCalls!
-                  .map((tc) => tc.toAssistantMessageMap())
-                  .toList(),
-            });
-          } else {
-            msgs.add({'role': 'assistant', 'content': m.content});
-          }
+          // 只传文字内容，不传历史 tool_calls（旧 tool_calls 对应的 tool result
+          // 未持久化到 _conversationMessages，传出去会导致 API 格式错误）
+          msgs.add({'role': 'assistant', 'content': m.content});
           break;
         case 'tool':
           msgs.add({
