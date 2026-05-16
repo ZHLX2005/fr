@@ -22,11 +22,27 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
     riveFactory: rive.Factory.flutter,
   );
   _ProfileSection _activeSection = _ProfileSection.character;
+  final PageController _pageController = PageController();
 
   @override
   void dispose() {
     _douziFileLoader.dispose();
+    _pageController.dispose();
     super.dispose();
+  }
+
+  void _onSectionChanged(int index) {
+    setState(() {
+      _activeSection = index == 0 ? _ProfileSection.character : _ProfileSection.story;
+    });
+  }
+
+  void _goToPage(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   Future<CharacterProfileData> _loadProfile() async {
@@ -73,87 +89,39 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
           return Padding(
             padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
             child: Stack(
-              clipBehavior: Clip.none,
               children: [
-                Positioned.fill(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 420),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ...previousChildren,
-                          ...?switch (currentChild) {
-                            final child? => [child],
-                            null => null,
-                          },
-                        ],
-                      );
-                    },
-                    transitionBuilder: (child, animation) {
-                      final isCharacter =
-                          child.key == const ValueKey('character-panel');
-                      final begin = isCharacter
-                          ? const Offset(-0.08, 0)
-                          : const Offset(0.08, 0);
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: begin,
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: _activeSection == _ProfileSection.character
-                        ? _CharacterDetailPanel(
-                            key: const ValueKey('character-panel'),
-                            profile: profile,
-                            fileLoader: _douziFileLoader,
-                            hexagonItems: hexagonItems,
-                          )
-                        : _StoryDetailPanel(
-                            key: const ValueKey('story-panel'),
-                            story: profile.story,
-                          ),
-                  ),
+                PageView(
+                  controller: _pageController,
+                  onPageChanged: _onSectionChanged,
+                  children: [
+                    _CharacterDetailPanel(
+                      profile: profile,
+                      fileLoader: _douziFileLoader,
+                      hexagonItems: hexagonItems,
+                    ),
+                    _StoryDetailPanel(
+                      story: profile.story,
+                    ),
+                  ],
                 ),
                 Positioned(
-                  left: -12,
-                  top: 54,
-                  child: _BookmarkTab(
-                    label: '人物',
-                    side: _BookmarkSide.left,
-                    active: _activeSection == _ProfileSection.character,
-                    accentColor: colorScheme.primary,
-                    onTap: () {
-                      if (_activeSection != _ProfileSection.character) {
-                        setState(() {
-                          _activeSection = _ProfileSection.character;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                Positioned(
-                  right: -12,
-                  top: 54,
-                  child: _BookmarkTab(
-                    label: '故事',
-                    side: _BookmarkSide.right,
-                    active: _activeSection == _ProfileSection.story,
-                    accentColor: colorScheme.secondary,
-                    onTap: () {
-                      if (_activeSection != _ProfileSection.story) {
-                        setState(() {
-                          _activeSection = _ProfileSection.story;
-                        });
-                      }
-                    },
+                  top: 16,
+                  left: 20,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ProfileDot(
+                        active: _activeSection == _ProfileSection.character,
+                        color: colorScheme.primary,
+                        onTap: () => _goToPage(0),
+                      ),
+                      const SizedBox(width: 8),
+                      _ProfileDot(
+                        active: _activeSection == _ProfileSection.story,
+                        color: colorScheme.secondary,
+                        onTap: () => _goToPage(1),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -167,183 +135,37 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
 
 enum _ProfileSection { character, story }
 
-enum _BookmarkSide { left, right }
-
-class _BookmarkTab extends StatelessWidget {
-  const _BookmarkTab({
-    required this.label,
-    required this.side,
+class _ProfileDot extends StatelessWidget {
+  const _ProfileDot({
     required this.active,
-    required this.accentColor,
-    required this.onTap,
+    required this.color,
+    this.onTap,
   });
 
-  final String label;
-  final _BookmarkSide side;
   final bool active;
-  final Color accentColor;
-  final VoidCallback onTap;
+  final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final backgroundColor = active
-        ? accentColor
-        : Color.alphaBlend(
-            accentColor.withValues(alpha: 0.14),
-            colorScheme.surfaceContainerHigh,
-          );
-    final foregroundColor = active
-        ? colorScheme.onPrimary
-        : colorScheme.onSurface;
-    final notchShadowColor = Colors.black.withValues(
-      alpha: active ? 0.12 : 0.08,
-    );
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      width: 60,
-      height: 68,
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.horizontal(
-          left: Radius.circular(side == _BookmarkSide.left ? 16 : 12),
-          right: Radius.circular(side == _BookmarkSide.right ? 16 : 12),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: (active ? accentColor : colorScheme.shadow).withValues(
-              alpha: active ? 0.28 : 0.10,
-            ),
-            blurRadius: active ? 20 : 12,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipPath(
-        clipper: _BookmarkTabClipper(side: side),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              left: side == _BookmarkSide.left ? null : 0,
-              right: side == _BookmarkSide.left ? 0 : null,
-              child: IgnorePointer(
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: side == _BookmarkSide.left
-                          ? Alignment.topRight
-                          : Alignment.topLeft,
-                      end: side == _BookmarkSide.left
-                          ? Alignment.bottomLeft
-                          : Alignment.bottomRight,
-                      colors: [
-                        notchShadowColor,
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: active ? color : Colors.transparent,
+          border: active
+              ? null
+              : Border.all(
+                  color: color.withValues(alpha: 0.4),
+                  width: 1.5,
                 ),
-              ),
-            ),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: 10,
-                      left: side == _BookmarkSide.left ? 10 : 12,
-                      right: side == _BookmarkSide.left ? 12 : 10,
-                      child: IgnorePointer(
-                        child: Container(
-                          height: 1.2,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(
-                              alpha: active ? 0.36 : 0.46,
-                            ),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Text(
-                        label,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: foregroundColor,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
-  }
-}
-
-class _BookmarkTabClipper extends CustomClipper<Path> {
-  const _BookmarkTabClipper({required this.side});
-
-  final _BookmarkSide side;
-
-  @override
-  Path getClip(Size size) {
-    const cut = 14.0;
-    const radius = 14.0;
-    final path = Path();
-
-    if (side == _BookmarkSide.left) {
-      path.moveTo(cut, 0);
-      path.lineTo(size.width - radius, 0);
-      path.quadraticBezierTo(size.width, 0, size.width, radius);
-      path.lineTo(size.width, size.height - radius);
-      path.quadraticBezierTo(
-        size.width,
-        size.height,
-        size.width - radius,
-        size.height,
-      );
-      path.lineTo(radius, size.height);
-      path.quadraticBezierTo(0, size.height, 0, size.height - radius);
-      path.lineTo(0, cut);
-      path.close();
-    } else {
-      path.moveTo(0, 0);
-      path.lineTo(size.width - cut, 0);
-      path.lineTo(size.width, cut);
-      path.lineTo(size.width, size.height - radius);
-      path.quadraticBezierTo(
-        size.width,
-        size.height,
-        size.width - radius,
-        size.height,
-      );
-      path.lineTo(radius, size.height);
-      path.quadraticBezierTo(0, size.height, 0, size.height - radius);
-      path.lineTo(0, radius);
-      path.quadraticBezierTo(0, 0, radius, 0);
-      path.close();
-    }
-
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant _BookmarkTabClipper oldClipper) {
-    return side != oldClipper.side;
   }
 }
 
