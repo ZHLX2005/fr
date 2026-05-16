@@ -63,13 +63,13 @@ class AiToolbox {
     ),
     AiTool(
       'insert_block',
-      '在指定位置插入新块',
+      '在页面中插入新块。不传 after_id 则追加到末尾，不传 type 默认为 paragraph。大段文字推荐用 write_content。',
       {
-        'after_id': ToolParam('string', '在哪个块之后插入'),
-        'parent_id': ToolParam('string', '父块 ID'),
-        'type': ToolParam('string', '块类型：paragraph/heading/todo/toggle/quote/code/divider/callout/bullet_list_item/ordered_list_item'),
         'content': ToolParam('string', '块的文字内容'),
-        'data': ToolParam('string', 'JSON 格式的类型专属数据，如 {"level": 2} 或 {"checked": true}', required: false),
+        'type': ToolParam('string', '可选：paragraph/heading/todo/quote/code/divider/bullet_list_item/ordered_list_item', required: false),
+        'after_id': ToolParam('string', '在哪个块之后插入，不传则追加到末尾', required: false),
+        'parent_id': ToolParam('string', '父块 ID，不传则为根节点', required: false),
+        'data': ToolParam('string', 'JSON 格式的类型专属数据', required: false),
       },
     ),
     AiTool(
@@ -129,6 +129,14 @@ class AiToolbox {
         'title': ToolParam('string', '页面标题'),
         'content': ToolParam('string', 'Markdown 格式的页面内容，会被解析为块插入', required: false),
         'after_page_id': ToolParam('string', '在哪个页面之后创建，不传则追加到最后', required: false),
+      },
+    ),
+    AiTool(
+      'write_content',
+      '将 Markdown 内容写入当前页面。自动解析 # 标题、- 列表、> 引用等语法为对应块。写作类任务首选此工具。',
+      {
+        'content': ToolParam('string', 'Markdown 格式的内容'),
+        'replace': ToolParam('boolean', '是否替换当前页面所有内容（默认 false 表示追加）', required: false),
       },
     ),
   ];

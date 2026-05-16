@@ -67,44 +67,54 @@ class NoteAiService {
       return AiConversationResult(error: '请正确配置 API URL');
     }
 
-    try {
-      final body = <String, dynamic>{
-        'model': _model.isNotEmpty ? _model : 'glm-4v-flash',
-        'messages': [
-          {'role': 'system', 'content': systemPrompt},
-          ...messages,
-        ],
-        'stream': false,
-        'temperature': 0.3,
-      };
+    final body = <String, dynamic>{
+      'model': _model.isNotEmpty ? _model : 'glm-4v-flash',
+      'messages': [
+        {'role': 'system', 'content': systemPrompt},
+        ...messages,
+      ],
+      'stream': false,
+      'temperature': 0.3,
+    };
 
-      if (tools != null && tools.isNotEmpty) {
-        body['tools'] = tools;
-        body['tool_choice'] = 'auto';
-      }
-
-      final response = await http
-          .post(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_apiKey',
-            },
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 120));
-
-      if (response.statusCode != 200) {
-        final errorBody = _tryExtractError(response.body);
-        return AiConversationResult(
-          error: 'API 返回错误 (${response.statusCode}): $errorBody',
-        );
-      }
-
-      return _parseResponse(response.body);
-    } catch (e) {
-      return AiConversationResult(error: '请求失败: $e');
+    if (tools != null && tools.isNotEmpty) {
+      body['tools'] = tools;
+      body['tool_choice'] = 'auto';
     }
+
+    // 网络错误时自动重试一次
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await http
+            .post(
+              url,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $_apiKey',
+              },
+              body: jsonEncode(body),
+            )
+            .timeout(const Duration(seconds: 90));
+
+        if (response.statusCode != 200) {
+          final errorBody = _tryExtractError(response.body);
+          return AiConversationResult(
+            error: 'API 返回错误 (${response.statusCode}): $errorBody',
+          );
+        }
+
+        return _parseResponse(response.body);
+      } catch (e) {
+        final isLastAttempt = attempt == 1;
+        if (isLastAttempt) {
+          return AiConversationResult(error: '请求失败: $e');
+        }
+        // 第一次失败：等 1s 后重试
+        await Future.delayed(const Duration(seconds: 1));
+      }
+    }
+
+    return AiConversationResult(error: '请求失败（未知错误）');
   }
 
   // ──────────── 内部 ────────────
