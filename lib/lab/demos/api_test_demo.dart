@@ -6,8 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../lab_container.dart';
 import '../../services/api_client.dart';
-import 'api_download_manager.dart';
-import 'api_speech_tab.dart';
+import 'api_test/api_download_manager.dart';
+import 'api_test/api_speech_tab.dart';
 
 /// API 测试 Demo
 class ApiTestDemo extends DemoPage {
