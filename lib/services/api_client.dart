@@ -26,18 +26,28 @@ class ApiResponse<T> {
   }
 }
 
-// 下载控制器，用于支持取消/中断下载
+// 下载控制器，用于支持取消/暂停/中断下载
+// - cancel: 终止并丢弃已下载的临时文件
+// - pause:  终止但保留临时文件，下次可基于 HTTP Range 续传
 class DownloadController {
   bool _isCancelled = false;
+  bool _isPaused = false;
 
   bool get isCancelled => _isCancelled;
+  bool get isPaused => _isPaused;
+  bool get shouldStop => _isCancelled || _isPaused;
 
   void cancel() {
     _isCancelled = true;
   }
 
+  void pause() {
+    _isPaused = true;
+  }
+
   void reset() {
     _isCancelled = false;
+    _isPaused = false;
   }
 }
 
@@ -307,18 +317,24 @@ class ApiService {
         int received = existingLength;
 
         await for (final chunk in streamedResponse.stream) {
-          // 检查是否已取消
+          // 取消：丢弃临时文件
           if (controller != null && controller.isCancelled) {
             await raf.close();
-            // 清理临时文件
             if (await tempFile.exists()) {
               await tempFile.delete();
             }
             return null;
           }
+          // 暂停：保留临时文件，下次基于 Range 续传
+          if (controller != null && controller.isPaused) {
+            await raf.close();
+            return null;
+          }
           await raf.writeFrom(chunk);
           received += chunk.length;
-          if (onProgress != null && totalSize > 0 && (controller == null || !controller.isCancelled)) {
+          if (onProgress != null &&
+              totalSize > 0 &&
+              (controller == null || !controller.shouldStop)) {
             onProgress(received, totalSize);
           }
         }
@@ -373,6 +389,34 @@ class ApiService {
     } catch (e) {
       return null;
     }
+  }
+
+  // 获取下载临时文件（用于检测是否存在可续传的暂停下载）
+  // 返回 null 表示没有未完成的下载；返回路径和已下载字节数
+  static Future<({String path, int size})?> getApkTempFileInfo() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return null;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final tempFile = File('${dir.path}/download_fr_latest_apk.tmp');
+      if (await tempFile.exists()) {
+        return (path: tempFile.path, size: await tempFile.length());
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // 删除下载临时文件（取消已暂停的下载）
+  static Future<void> clearApkTempFile() async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final tempFile = File('${dir.path}/download_fr_latest_apk.tmp');
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+    } catch (_) {}
   }
 
   // 文件元数据

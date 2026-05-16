@@ -184,6 +184,14 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     await _apkManager.startDownload();
   }
 
+  Future<void> _pauseDownload() async {
+    await _apkManager.pauseDownload();
+  }
+
+  Future<void> _resumeDownload() async {
+    await _apkManager.resumeDownload();
+  }
+
   Future<void> _cancelDownload() async {
     await _apkManager.cancelDownload();
   }
@@ -269,6 +277,17 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  /// 进度条下方的文字：百分比 + 已下载/总大小（若可知）
+  String _buildProgressText(ApkDownloadState apkState) {
+    final pct = (apkState.progress * 100).toStringAsFixed(1);
+    if (apkState.totalBytes > 0) {
+      final received = _formatFileSize(apkState.receivedBytes);
+      final total = _formatFileSize(apkState.totalBytes);
+      return '$pct%  ($received / $total)';
+    }
+    return '$pct%';
   }
 
   // ===== Build =====
@@ -409,12 +428,12 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      // 下载进度条
-                      if (apkState.isDownloading) ...[
+                      // 下载进度条（下载中或已暂停都显示，便于查看续传进度）
+                      if (apkState.isDownloading || apkState.isPaused) ...[
                         LinearProgressIndicator(value: apkState.progress),
                         const SizedBox(height: 8),
                         Text(
-                          '${(apkState.progress * 100).toStringAsFixed(1)}%',
+                          _buildProgressText(apkState),
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.grey,
@@ -452,22 +471,48 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                               foregroundColor: Colors.white,
                             ),
                           ),
-                          ElevatedButton.icon(
-                            onPressed: apkState.isDownloading
-                                ? _cancelDownload
-                                : _downloadApkInternal,
-                            icon: apkState.isDownloading
-                                ? const Icon(Icons.cancel)
-                                : const Icon(Icons.download_for_offline),
-                            label: Text(
-                                apkState.isDownloading ? '取消下载' : '内部下载'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: apkState.isDownloading
-                                  ? Colors.orange
-                                  : Colors.green,
-                              foregroundColor: Colors.white,
+                          // 三态主操作：内部下载 / 暂停 / 继续
+                          if (apkState.isDownloading)
+                            ElevatedButton.icon(
+                              onPressed: _pauseDownload,
+                              icon: const Icon(Icons.pause),
+                              label: const Text('暂停'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                              ),
+                            )
+                          else if (apkState.isPaused)
+                            ElevatedButton.icon(
+                              onPressed: _resumeDownload,
+                              icon: const Icon(Icons.play_arrow),
+                              label: const Text('继续下载'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                            )
+                          else
+                            ElevatedButton.icon(
+                              onPressed: _downloadApkInternal,
+                              icon: const Icon(Icons.download_for_offline),
+                              label: const Text('内部下载'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
                             ),
-                          ),
+                          // 取消按钮：下载中或暂停时都可用
+                          if (apkState.isDownloading || apkState.isPaused)
+                            ElevatedButton.icon(
+                              onPressed: _cancelDownload,
+                              icon: const Icon(Icons.cancel),
+                              label: const Text('取消'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
