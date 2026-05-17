@@ -44,6 +44,9 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
   String _aiStatusText = '正在思考…';
   final NoteAiService _aiService = NoteAiService();
 
+  // 双击唤起 AI
+  int _lastTapTime = 0;
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -80,12 +83,29 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: AppBar(
+    return Listener(
+      onPointerDown: (_) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (now - _lastTapTime < 300) {
+          _lastTapTime = 0;
+          _controller.aiBarVisible = true;
+          _controller.morePanelVisible = false;
+          setState(() {});
+        } else {
+          _lastTapTime = now;
+        }
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        appBar: AppBar(
         title: Text(
           ws.activePage?.title ?? widget.title ?? '笔记编辑器',
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: '返回',
+          onPressed: () => Navigator.pop(context),
         ),
         centerTitle: true,
         backgroundColor: isDark ? const Color(0xFF242424) : const Color(0xFFFAFAFA),
@@ -93,13 +113,13 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
         scrolledUnderElevation: 0.5,
         actions: [
           IconButton(
-            icon: const Icon(Icons.chevron_left),
-            tooltip: '展开侧边栏',
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            icon: const Icon(Icons.chevron_right),
+            tooltip: '展开右边栏',
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
       ),
-      drawer: const Sidebar(),
+      endDrawer: const Sidebar(),
       body: Container(
         color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFFFFFFF),
         child: Column(
@@ -109,6 +129,7 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
             if (_controller.morePanelVisible) _buildMorePanel(isDark),
             _buildBottomBar(isDark),
           ],
+        ),
         ),
       ),
     );
