@@ -5,15 +5,18 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_background">
 
-    <!-- 装饰元素：右上角太阳/月亮 -->
+    <!-- 右上角云朵/太阳/月亮：兼做刷新按钮（点击触发 ACTION_REFRESH，原生侧基于
+         startTimeMs 立即重算最新时间，不依赖 Flutter 进程） -->
     <TextView
         android:id="@+id/widget_icon"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:layout_gravity="top|end"
-        android:layout_margin="12dp"
+        android:layout_margin="8dp"
+        android:gravity="center"
         android:text="☀️"
-        android:textSize="18sp" />
+        android:textSize="20sp"
+        android:contentDescription="刷新时钟" />
 
     <!-- 主内容区域 -->
     <LinearLayout
@@ -60,17 +63,5 @@
             android:layout_marginTop="10dp" />
 
     </LinearLayout>
-
-    <!-- 左下角刷新按钮：不依赖 Flutter 进程，基于 startTimeMs 立即重算最新时间 -->
-    <TextView
-        android:id="@+id/widget_refresh"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_gravity="bottom|start"
-        android:layout_margin="6dp"
-        android:text="🔄"
-        android:textSize="14sp"
-        android:gravity="center"
-        android:contentDescription="刷新时钟" />
 
 </FrameLayout>
