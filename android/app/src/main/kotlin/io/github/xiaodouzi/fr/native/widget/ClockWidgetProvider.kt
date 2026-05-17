@@ -95,7 +95,8 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 )
                 setOnClickPendingIntent(R.id.widget_container, pendingIntent)
 
-                // 刷新按钮：仅本地重算，不打开 app（用 appWidgetId 做 requestCode 区分多 widget 实例）
+                // 右上角图标兼做刷新按钮：仅本地重算，不打开 app
+                // （用 appWidgetId 做 requestCode 区分多 widget 实例）
                 val refreshIntent = Intent(context, ClockWidgetProvider::class.java).apply {
                     action = ACTION_REFRESH
                 }
@@ -105,7 +106,7 @@ class ClockWidgetProvider : AppWidgetProvider() {
                     refreshIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                setOnClickPendingIntent(R.id.widget_refresh, refreshPi)
+                setOnClickPendingIntent(R.id.widget_icon, refreshPi)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
