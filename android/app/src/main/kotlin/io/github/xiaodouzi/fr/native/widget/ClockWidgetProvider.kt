@@ -3,6 +3,7 @@ package io.github.xiaodouzi.fr.native.widget
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
@@ -23,7 +24,21 @@ class ClockWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        // 兜底刷新按钮：Flutter 进程死亡时，用户也能强制让 widget 基于 startTimeMs 重算最新时间
+        if (intent.action == ACTION_REFRESH) {
+            val mgr = AppWidgetManager.getInstance(context)
+            val ids = mgr.getAppWidgetIds(ComponentName(context, ClockWidgetProvider::class.java))
+            for (id in ids) {
+                updateAppWidget(context, mgr, id)
+            }
+        }
+    }
+
     companion object {
+        const val ACTION_REFRESH = "io.github.xiaodouzi.fr.action.CLOCK_WIDGET_REFRESH"
+
         internal fun updateAppWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -66,6 +81,7 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 setTextViewText(R.id.widget_status, statusText)
                 setTextViewText(R.id.widget_icon, statusIcon)
 
+                // 主体点击：打开 app
                 val intent = Intent(context, MainActivity::class.java).apply {
                     action = Intent.ACTION_VIEW
                     data = android.net.Uri.parse("fr://lab")
@@ -78,6 +94,19 @@ class ClockWidgetProvider : AppWidgetProvider() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 setOnClickPendingIntent(R.id.widget_container, pendingIntent)
+
+                // 右上角图标兼做刷新按钮：仅本地重算，不打开 app
+                // （用 appWidgetId 做 requestCode 区分多 widget 实例）
+                val refreshIntent = Intent(context, ClockWidgetProvider::class.java).apply {
+                    action = ACTION_REFRESH
+                }
+                val refreshPi = PendingIntent.getBroadcast(
+                    context,
+                    appWidgetId,
+                    refreshIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                setOnClickPendingIntent(R.id.widget_icon, refreshPi)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)

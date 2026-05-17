@@ -153,6 +153,19 @@
                 android:resource="@xml/clock_widget_info" />
         </receiver>
 
+        <!-- 日历桌面小组件 -->
+        <receiver
+            android:name=".native.widget.CalendarWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="io.github.xiaodouzi.fr.action.CALENDAR_WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/calendar_widget_info" />
+        </receiver>
+
         <!-- image_picker FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"

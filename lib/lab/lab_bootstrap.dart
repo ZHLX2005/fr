@@ -5,6 +5,7 @@ import '../core/schema/schema.dart' show initSchemaRegistry;
 import 'demos/api_test_demo.dart';
 import 'demos/arc_selector_demo.dart';
 import 'demos/body_map_demo.dart';
+import 'demos/calendar_demo.dart';
 import 'demos/clock_demo.dart';
 import 'demos/crash_log_demo.dart';
 import 'demos/color_palette_demo.dart';
@@ -37,6 +38,7 @@ import 'demos/note_editor_demo.dart';
 void registerAllDemos() {
   registerGridDashboardDemo();
   registerClockDemo();
+  registerCalendarDemo();
   registerCrashLogDemo();
   registerNetworkDemo();
   registerGame2048Demo();
