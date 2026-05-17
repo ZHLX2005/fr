@@ -44,6 +44,9 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
   String _aiStatusText = '正在思考…';
   final NoteAiService _aiService = NoteAiService();
 
+  // 双击唤起 AI
+  int _lastTapTime = 0;
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -80,9 +83,21 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: AppBar(
+    return Listener(
+      onPointerDown: (_) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (now - _lastTapTime < 300) {
+          _lastTapTime = 0;
+          _controller.aiBarVisible = true;
+          _controller.morePanelVisible = false;
+          setState(() {});
+        } else {
+          _lastTapTime = now;
+        }
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        appBar: AppBar(
         title: Text(
           ws.activePage?.title ?? widget.title ?? '笔记编辑器',
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
@@ -114,6 +129,7 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
             if (_controller.morePanelVisible) _buildMorePanel(isDark),
             _buildBottomBar(isDark),
           ],
+        ),
         ),
       ),
     );
