@@ -87,19 +87,24 @@ class _BlockEditorPageState extends State<BlockEditorPage> {
           ws.activePage?.title ?? widget.title ?? '笔记编辑器',
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: '返回',
+          onPressed: () => Navigator.pop(context),
+        ),
         centerTitle: true,
         backgroundColor: isDark ? const Color(0xFF242424) : const Color(0xFFFAFAFA),
         elevation: 0,
         scrolledUnderElevation: 0.5,
         actions: [
           IconButton(
-            icon: const Icon(Icons.chevron_left),
-            tooltip: '展开侧边栏',
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            icon: const Icon(Icons.chevron_right),
+            tooltip: '展开右边栏',
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
         ],
       ),
-      drawer: const Sidebar(),
+      endDrawer: const Sidebar(),
       body: Container(
         color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFFFFFFF),
         child: Column(
