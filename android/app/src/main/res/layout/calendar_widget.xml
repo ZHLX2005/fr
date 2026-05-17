@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/calendar_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background">
+
+    <!-- 顶部标题：YYYY年MM月（点击触发 ACTION_REFRESH，原生侧基于 SharedPreferences 重画） -->
+    <TextView
+        android:id="@+id/calendar_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="6dp"
+        android:text="日历"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="2dp"
+        android:contentDescription="刷新日历" />
+
+    <!-- 日历位图：整个网格用 Canvas 绘制 -->
+    <ImageView
+        android:id="@+id/calendar_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="28dp"
+        android:layout_marginHorizontal="4dp"
+        android:layout_marginBottom="4dp"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
+        android:contentDescription="日历网格" />
+
+</FrameLayout>

@@ -16,6 +16,7 @@ import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
 import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
+import 'lab/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/repository/chart_repository.dart';
 import 'services/message_strategy/di/di.dart';
@@ -125,6 +126,11 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         classic_provider.ChangeNotifierProvider(
           lazy: false,
           create: (_) => LabClockProvider(),
+        ),
+        // 同理：日历 widget 也要冷启动同步
+        classic_provider.ChangeNotifierProvider(
+          lazy: false,
+          create: (_) => LabCalendarProvider(),
         ),
         classic_provider.ChangeNotifierProvider(
           create: (_) => AIChatProvider(),
