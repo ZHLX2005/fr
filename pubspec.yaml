@@ -183,6 +183,7 @@ flutter:
     - assets/rive/smiley_stress_reliever.riv
     - assets/rive/douzi.riv
     - assets/rive/pendulum/
+    - assets/rive/input_machine/
     - assets/data/character_profiles/douzi_profile.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
