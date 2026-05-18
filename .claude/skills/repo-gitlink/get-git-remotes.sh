@@ -26,7 +26,7 @@ if [ "$FORCE" = true ] && [ -f "$OUTPUT_FILE" ]; then
     rm -f "$OUTPUT_FILE"
 fi
 
-> "$OUTPUT_FILE"
+touch "$OUTPUT_FILE"
 
 if [ ! -d "$REPO_DIR" ]; then
     echo "Error: Repository directory not found: $REPO_DIR" >&2
