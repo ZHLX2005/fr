@@ -64,4 +64,12 @@ class EditorState extends ChangeNotifier {
     _blocks[idx] = _blocks[idx].copyWith(content: RichText.text(newText));
     notifyListeners();
   }
+
+  void moveBlock(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    if (newIndex > oldIndex) newIndex--;
+    final block = _blocks.removeAt(oldIndex);
+    _blocks.insert(newIndex, block);
+    notifyListeners();
+  }
 }

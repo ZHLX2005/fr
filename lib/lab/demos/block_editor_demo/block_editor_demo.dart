@@ -23,6 +23,23 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
     });
   }
 
+  Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.blue.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+          ),
+          child: child,
+        );
+      },
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -44,12 +61,16 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
           ),
           body: blocks.isEmpty
               ? const Center(child: Text('暂无内容，点击 + 新增块'))
-              : ListView.builder(
+              : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: blocks.length,
+                  onReorder: _editorState.moveBlock,
+                  proxyDecorator: _proxyDecorator,
                   itemBuilder: (context, index) {
                     return BlockCard(
+                      key: ValueKey(blocks[index].id),
                       block: blocks[index],
+                      index: index,
                       isSelected: blocks[index].id == selectedId,
                       editorState: _editorState,
                     );

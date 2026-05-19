@@ -6,12 +6,14 @@ import 'renderer.dart';
 
 class BlockCard extends StatefulWidget {
   final Block block;
+  final int index;
   final bool isSelected;
   final EditorState editorState;
 
   const BlockCard({
     super.key,
     required this.block,
+    required this.index,
     required this.isSelected,
     required this.editorState,
   });
@@ -52,37 +54,47 @@ class _BlockCardState extends State<BlockCard> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => widget.editorState.select(widget.block.id),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: widget.isSelected ? Colors.blue.withValues(alpha: 0.08) : null,
-          borderRadius: BorderRadius.circular(4),
-          border: widget.isSelected
-              ? Border.all(color: Colors.blue.withValues(alpha: 0.3))
-              : null,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: widget.isSelected ? Colors.blue.withValues(alpha: 0.08) : null,
+        borderRadius: BorderRadius.circular(4),
+        border: widget.isSelected
+            ? Border.all(color: Colors.blue.withValues(alpha: 0.3))
+            : null,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ReorderableDragStartListener(
+            index: widget.index,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2, right: 2),
+              child: Icon(Icons.drag_handle, size: 16, color: Colors.grey[400]),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => widget.editorState.select(widget.block.id),
+            child: Padding(
               padding: const EdgeInsets.only(top: 2, right: 4),
               child: Icon(_typeIcon(widget.block.type), size: 14, color: Colors.grey[400]),
             ),
-            Expanded(
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => widget.editorState.select(widget.block.id),
               child: widget.isSelected && !widget.block.type.containerOnly
                   ? _buildTextField()
                   : renderBlockContent(widget.block),
             ),
-            if (widget.isSelected) ...[
-              _typeDropdown(context),
-              const SizedBox(width: 4),
-              _deleteButton(context),
-            ],
+          ),
+          if (widget.isSelected) ...[
+            _typeDropdown(context),
+            const SizedBox(width: 4),
+            _deleteButton(context),
           ],
-        ),
+        ],
       ),
     );
   }
