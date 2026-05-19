@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide RichText;
+import '../../../core/note/core/block_type.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'data.dart';
@@ -21,6 +22,111 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _editorState.load(createDemoBlocks());
     });
+  }
+
+  Widget _buildBottomToolbar() {
+    return Container(
+      color: Theme.of(context).canvasColor,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _toolbarTypeButton('P', BlockType.paragraph, Icons.text_fields),
+                      const SizedBox(width: 2),
+                      _toolbarHeadingButtons(),
+                      const SizedBox(width: 2),
+                      _toolbarTypeButton('☐', BlockType.todo, Icons.check_box_outline_blank),
+                      const SizedBox(width: 2),
+                      _toolbarTypeButton('•', BlockType.bulletListItem, Icons.format_list_bulleted),
+                      const SizedBox(width: 2),
+                      _toolbarTypeButton('1.', BlockType.orderedListItem, Icons.format_list_numbered),
+                      const SizedBox(width: 2),
+                      _toolbarTypeButton('"', BlockType.quote, Icons.format_quote),
+                      const SizedBox(width: 2),
+                      _toolbarTypeButton('<>', BlockType.code, Icons.code),
+                      const SizedBox(width: 2),
+                      _toolbarTypeButton('—', BlockType.divider, Icons.horizontal_rule),
+                      const SizedBox(width: 2),
+                      _toolbarTypeButton('💡', BlockType.callout, Icons.info_outline),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 20),
+                color: Colors.red[300],
+                onPressed: () => _editorState.deleteBlock(),
+                tooltip: '删除块',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _toolbarTypeButton(String label, BlockType type, IconData icon) {
+    final block = _editorState.selectedBlock;
+    final active = block != null && type == block.type;
+    return Material(
+      color: active ? Colors.blue.withValues(alpha: 0.12) : null,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () => _editorState.toggleType(type),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Icon(icon, size: 18, color: active ? Colors.blue : Colors.grey[600]),
+        ),
+      ),
+    );
+  }
+
+  Widget _toolbarHeadingButtons() {
+    final block = _editorState.selectedBlock;
+    final isHeading = block != null && block.type == BlockType.heading;
+    final level = block?.data.get<int>('level') ?? 1;
+    return SizedBox(
+      height: 32,
+      child: Row(
+        children: [1, 2, 3].map((l) {
+          final isActive = isHeading && level == l;
+          return Padding(
+            padding: const EdgeInsets.only(right: 2),
+            child: Material(
+              color: isActive ? Colors.blue.withValues(alpha: 0.12) : null,
+              borderRadius: BorderRadius.circular(6),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: block != null ? () => _editorState.changeHeading(block.id, l) : null,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 30.0),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'H$l',
+                    style: TextStyle(
+                      fontSize: [16.0, 14.0, 13.0][l - 1],
+                      fontWeight: FontWeight.bold,
+                      color: isActive ? Colors.blue : Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
@@ -59,6 +165,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
               ),
             ],
           ),
+          bottomNavigationBar: _buildBottomToolbar(),
           body: blocks.isEmpty
               ? const Center(child: Text('暂无内容，点击 + 新增块'))
               : ReorderableListView.builder(
@@ -70,7 +177,6 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                     return BlockCard(
                       key: ValueKey(blocks[index].id),
                       block: blocks[index],
-                      index: index,
                       isSelected: blocks[index].id == selectedId,
                       editorState: _editorState,
                     );

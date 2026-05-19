@@ -65,6 +65,14 @@ class EditorState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void changeHeading(String id, int level) {
+    final idx = _blocks.indexWhere((b) => b.id == id);
+    if (idx < 0) return;
+    _blocks[idx] = _blocks[idx]
+        .copyWith(type: BlockType.heading, data: _blocks[idx].data.merge({'level': level}));
+    notifyListeners();
+  }
+
   void toggleTodo(String id) {
     final idx = _blocks.indexWhere((b) => b.id == id);
     if (idx < 0) return;

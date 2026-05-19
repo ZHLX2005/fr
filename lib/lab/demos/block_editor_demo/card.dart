@@ -6,14 +6,12 @@ import 'renderer.dart';
 
 class BlockCard extends StatefulWidget {
   final Block block;
-  final int index;
   final bool isSelected;
   final EditorState editorState;
 
   const BlockCard({
     super.key,
     required this.block,
-    required this.index,
     required this.isSelected,
     required this.editorState,
   });
@@ -67,13 +65,6 @@ class _BlockCardState extends State<BlockCard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ReorderableDragStartListener(
-            index: widget.index,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2, right: 2),
-              child: Icon(Icons.drag_handle, size: 16, color: Colors.grey[400]),
-            ),
-          ),
           GestureDetector(
             onTap: () => widget.editorState.select(widget.block.id),
             child: Padding(
@@ -93,9 +84,13 @@ class _BlockCardState extends State<BlockCard> {
             ),
           ),
           if (widget.isSelected) ...[
-            _typeDropdown(context),
-            const SizedBox(width: 4),
-            _deleteButton(context),
+            IconButton(
+              icon: Icon(Icons.close, size: 16, color: Colors.grey[400]),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              onPressed: () => widget.editorState.deleteBlock(),
+              tooltip: '删除块',
+            ),
           ],
         ],
       ),
@@ -113,35 +108,6 @@ class _BlockCardState extends State<BlockCard> {
         contentPadding: EdgeInsets.zero,
       ),
       onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
-    );
-  }
-
-  Widget _typeDropdown(BuildContext context) {
-    return PopupMenuButton<BlockType>(
-      tooltip: '切换类型',
-      icon: Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey[500]),
-      onSelected: (type) => widget.editorState.toggleType(type),
-      itemBuilder: (_) => const [
-        PopupMenuItem(value: BlockType.paragraph, child: Text('段落')),
-        PopupMenuItem(value: BlockType.heading, child: Text('标题')),
-        PopupMenuItem(value: BlockType.todo, child: Text('待办')),
-        PopupMenuItem(value: BlockType.bulletListItem, child: Text('无序列表')),
-        PopupMenuItem(value: BlockType.orderedListItem, child: Text('有序列表')),
-        PopupMenuItem(value: BlockType.quote, child: Text('引用')),
-        PopupMenuItem(value: BlockType.code, child: Text('代码')),
-        PopupMenuItem(value: BlockType.callout, child: Text('提示框')),
-        PopupMenuItem(value: BlockType.divider, child: Text('分割线')),
-      ],
-    );
-  }
-
-  Widget _deleteButton(BuildContext context) {
-    return IconButton(
-      icon: Icon(Icons.close, size: 16, color: Colors.grey[400]),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-      onPressed: () => widget.editorState.deleteBlock(),
-      tooltip: '删除块',
     );
   }
 
