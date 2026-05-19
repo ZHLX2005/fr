@@ -59,15 +59,6 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20),
-                color: Colors.red[300],
-                onPressed: () => _editorState.deleteBlock(),
-                tooltip: '删除块',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              ),
             ],
           ),
         ),
@@ -76,39 +67,31 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
   }
 
   Widget _toolbarTypeButton(String label, BlockType type, IconData icon) {
-    final block = _editorState.selectedBlock;
-    final active = block != null && type == block.type;
     return Material(
-      color: active ? Colors.blue.withValues(alpha: 0.12) : null,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
-        onTap: () => _editorState.toggleType(type),
+        onTap: () => _editorState.addBlockWithType(type),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Icon(icon, size: 18, color: active ? Colors.blue : Colors.grey[600]),
+          child: Icon(icon, size: 18, color: Colors.grey[600]),
         ),
       ),
     );
   }
 
   Widget _toolbarHeadingButtons() {
-    final block = _editorState.selectedBlock;
-    final isHeading = block != null && block.type == BlockType.heading;
-    final level = block?.data.get<int>('level') ?? 1;
     return SizedBox(
       height: 32,
       child: Row(
         children: [1, 2, 3].map((l) {
-          final isActive = isHeading && level == l;
           return Padding(
             padding: const EdgeInsets.only(right: 2),
             child: Material(
-              color: isActive ? Colors.blue.withValues(alpha: 0.12) : null,
               borderRadius: BorderRadius.circular(6),
               child: InkWell(
                 borderRadius: BorderRadius.circular(6),
-                onTap: block != null ? () => _editorState.changeHeading(block.id, l) : null,
+                onTap: () => _editorState.addBlockWithType(BlockType.heading, level: l),
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 30.0),
                   alignment: Alignment.center,
@@ -117,7 +100,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                     style: TextStyle(
                       fontSize: [16.0, 14.0, 13.0][l - 1],
                       fontWeight: FontWeight.bold,
-                      color: isActive ? Colors.blue : Colors.grey[600],
+                      color: Colors.grey[600],
                     ),
                   ),
                 ),

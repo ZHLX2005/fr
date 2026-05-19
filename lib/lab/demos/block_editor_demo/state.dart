@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/note/core/block.dart';
+import '../../../core/note/core/block_data.dart';
 import '../../../core/note/core/block_id.dart';
 import '../../../core/note/core/block_type.dart';
 import '../../../core/note/core/rich_text.dart';
@@ -65,11 +66,24 @@ class EditorState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void changeHeading(String id, int level) {
-    final idx = _blocks.indexWhere((b) => b.id == id);
-    if (idx < 0) return;
-    _blocks[idx] = _blocks[idx]
-        .copyWith(type: BlockType.heading, data: _blocks[idx].data.merge({'level': level}));
+  void addBlockWithType(BlockType type, {int? level}) {
+    final block = Block(
+      id: BlockId.generate(),
+      type: type,
+      content: type.containerOnly ? RichText.empty() : RichText.text(''),
+      data: level != null ? BlockData.fromMap({'level': level}) : BlockData.empty(),
+    );
+    if (_selectedId != null) {
+      final idx = _blocks.indexWhere((b) => b.id == _selectedId);
+      if (idx >= 0) {
+        _blocks.insert(idx + 1, block);
+        _selectedId = block.id;
+        notifyListeners();
+        return;
+      }
+    }
+    _blocks.add(block);
+    _selectedId = block.id;
     notifyListeners();
   }
 
