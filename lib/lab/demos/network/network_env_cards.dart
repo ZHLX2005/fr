@@ -60,7 +60,11 @@ class NetworkEnvCards {
             ),
       children: [
         if (info.error != null)
-          NetworkWidgets.infoRow(context, '错误', info.error!)
+          NetworkWidgets.infoRow(
+            context,
+            '错误',
+            _sanitizeError(info.error!),
+          )
         else ...[
           NetworkWidgets.infoRow(context, '公网 IP', info.ip ?? '查询中...'),
           NetworkWidgets.infoRow(context, '国家', info.country ?? '—'),
@@ -363,5 +367,20 @@ class NetworkEnvCards {
           )
           .toList(),
     );
+  }
+
+  /// 简化错误信息，移除技术细节（如 SocketException 的 port、uri 等）
+  static String _sanitizeError(String raw) {
+    // 移除 ClientException/SocketException 前缀
+    var msg = raw.replaceAll(RegExp(r'^ClientException with\s*'), '');
+    // 移除 uri=... 部分
+    msg = msg.replaceAll(RegExp(r',?\s*uri=[^\s,\)]+'), '');
+    // 移除 port=... 部分
+    msg = msg.replaceAll(RegExp(r',?\s*port=\d+'), '');
+    // 移除 address=... 部分（保留地址本身用于调试）
+    msg = msg.replaceAll(RegExp(r',?\s*address=[^\s,\)]+'), '');
+    // 清理多余逗号和空格
+    msg = msg.replaceAll(RegExp(r'^\s*,\s*'), '').trim();
+    return msg.isEmpty ? '网络请求失败' : msg;
   }
 }
