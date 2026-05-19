@@ -2,7 +2,6 @@
 name: rive-flutter-binding
 description: Flutter 项目集成 Rive 0.14.x 动画与 DataBind 数据绑定。触发词：Rive 动画、Rive 数据绑定、ViewModel 绑定、in_input、状态机输入、Rive 面板、Rive Demo。
 ---
-
 # Rive Flutter 数据绑定 Skill
 
 ## 触发场景
@@ -106,6 +105,7 @@ void dispose() {
    ```bash
    flutter analyze | grep error
    ```
+
    无报错后 `git add` 特定文件 → `git commit` → `git push`
 
 ## 完整代码模板
@@ -207,14 +207,14 @@ void registerRiveDataBindDemo() {
 
 ## 错误案例
 
-| 错误操作 | 实际后果 | 正确做法 |
-|---------|---------|---------|
-| 使用 `state.controller.stateMachine.boolean('in_input')` | IDE 报 deprecated，运行时报弃用警告，未来版本可能移除 | 使用 `state.controller.dataBind(rive.DataBind.auto()).boolean('in_input')` |
-| 未 `dispose()` `ViewModelInstanceBoolean` | 原生层内存泄漏 | 在 `dispose()` 中调用 `_inInput?.dispose()` |
-| 在 `RiveWidgetBuilder` 的 `builder` 里直接 `setState` 初始化 | 触发 build 阶段 setState 异常 | 使用 `WidgetsBinding.instance.addPostFrameCallback` 延迟初始化 |
-| 忘记在 `pubspec.yaml` 注册新的 Rive 资产路径 | 运行时 `FileLoader` 抛异常找不到文件 | 每次新增 .riv 文件都检查并添加 `assets/` 路径 |
-| 未在 `lab_bootstrap.dart` 注册 Demo | Lab 列表中看不到新 Demo | 新增 demo 后必须 import 并调用 `registerXxxDemo()` |
-| 混用 `rive.Factory.rive` 和 `rive.Factory.flutter` | 渲染行为异常或部分特性不支持 | 根据 Rive 文件设计选择对应 Factory，通常 `Factory.rive` |
+| 错误操作                                                           | 实际后果                                              | 正确做法                                                                     |
+| ------------------------------------------------------------------ | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 使用 `state.controller.stateMachine.boolean('in_input')`         | IDE 报 deprecated，运行时报弃用警告，未来版本可能移除 | 使用 `state.controller.dataBind(rive.DataBind.auto()).boolean('in_input')` |
+| 未 `dispose()` `ViewModelInstanceBoolean`                      | 原生层内存泄漏                                        | 在 `dispose()` 中调用 `_inInput?.dispose()`                              |
+| 在 `RiveWidgetBuilder` 的 `builder` 里直接 `setState` 初始化 | 触发 build 阶段 setState 异常                         | 使用 `WidgetsBinding.instance.addPostFrameCallback` 延迟初始化             |
+| 忘记在 `pubspec.yaml` 注册新的 Rive 资产路径                     | 运行时 `FileLoader` 抛异常找不到文件                | 每次新增 .riv 文件都检查并添加 `assets/` 路径                              |
+| 未在 `lab_bootstrap.dart` 注册 Demo                              | Lab 列表中看不到新 Demo                               | 新增 demo 后必须 import 并调用 `registerXxxDemo()`                         |
+| 混用 `rive.Factory.rive` 和 `rive.Factory.flutter`             | 渲染行为异常或部分特性不支持                          | 根据 Rive 文件设计选择对应 Factory，通常 `Factory.rive`                    |
 
 ## 版本兼容性说明
 
