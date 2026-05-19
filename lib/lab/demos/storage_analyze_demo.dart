@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/storage/storage_manager.dart';
+import '../../core/note/persistence/note_repository.dart';
 import '../lab_container.dart';
 
 /// 存储分析 Demo
@@ -34,6 +35,8 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   bool _isLoading = true;
   late TabController _tabController;
   final Set<String> _expandedKeys = {};
+  List<NoteInfo> _noteList = [];
+  NoteSummary _noteSummary = const NoteSummary(noteCount: 0, totalBlocks: 0, totalSize: 0);
 
   static const _mediaExtensions = {
     'jpg',
@@ -82,11 +85,16 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       }
 
       final mediaFiles = await _scanMediaFiles();
+      final repo = NoteRepository();
+      final noteList = await repo.listAllNotes();
+      final noteSummary = await repo.getSummary();
 
       setState(() {
         _storageList = list;
         _keyDetails = keyDetails;
         _mediaFiles = mediaFiles;
+        _noteList = noteList;
+        _noteSummary = noteSummary;
         _isLoading = false;
       });
     } catch (e) {
@@ -191,6 +199,11 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _StatItem(
+                  label: '笔记文件',
+                  value: '${_noteList.length}',
+                  icon: Icons.article,
+                ),
+                _StatItem(
                   label: '存储类型',
                   value: '${_storageList.length}',
                   icon: Icons.storage,
@@ -198,7 +211,8 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                 _StatItem(
                   label: '总数据量',
                   value: _formatSize(
-                    _storageList.fold(0, (sum, info) => sum + info.size),
+                    _storageList.fold(0, (sum, info) => sum + info.size) +
+                        _noteSummary.totalSize,
                   ),
                   icon: Icons.data_usage,
                 ),
@@ -248,47 +262,77 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
           ),
         ),
         Expanded(
-          child: _storageList.isEmpty
+          child: _storageList.isEmpty && _noteList.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
                       const SizedBox(height: 16),
-                      Text('暂无存储数据', style: TextStyle(color: Colors.grey[600])),
+                      Text('暂无数据', style: TextStyle(color: Colors.grey[600])),
                     ],
                   ),
                 )
-              : ListView.builder(
+              : ListView(
                   padding: const EdgeInsets.all(12),
-                  itemCount: _storageList.length,
-                  itemBuilder: (context, index) {
-                    final info = _storageList[index];
-                    final keys = _keyDetails[info.name] ?? [];
-                    return _StorageCard(
-                      info: info,
-                      keys: keys,
-                      expandedKeys: _expandedKeys,
-                      formatSize: _formatSize,
-                      getSizeColor: _getSizeColor,
-                      onKeyTap: (detail) =>
-                          _showKeyDetail(context, info, detail),
-                      onDeleteKey: (key) => _deleteKey(info, key),
-                      onClear: () => _clearStorage(info),
-                      onToggleExpand: (key) {
-                        setState(() {
-                          if (_expandedKeys.contains(key)) {
-                            _expandedKeys.remove(key);
-                          } else {
-                            _expandedKeys.add(key);
-                          }
-                        });
-                      },
-                    );
-                  },
+                  children: [
+                    ..._storageList.map((info) {
+                      final keys = _keyDetails[info.name] ?? [];
+                      return _StorageCard(
+                        info: info,
+                        keys: keys,
+                        expandedKeys: _expandedKeys,
+                        formatSize: _formatSize,
+                        getSizeColor: _getSizeColor,
+                        onKeyTap: (detail) =>
+                            _showKeyDetail(context, info, detail),
+                        onDeleteKey: (key) => _deleteKey(info, key),
+                        onClear: () => _clearStorage(info),
+                        onToggleExpand: (key) {
+                          setState(() {
+                            if (_expandedKeys.contains(key)) {
+                              _expandedKeys.remove(key);
+                            } else {
+                              _expandedKeys.add(key);
+                            }
+                          });
+                        },
+                      );
+                    }),
+                    if (_noteList.isNotEmpty)
+                      _NotesGroupCard(
+                        notes: _noteList,
+                        noteSummary: _noteSummary,
+                        isExpanded: _expandedKeys.contains('__notes__'),
+                        formatSize: _formatSize,
+                        onToggleExpand: () {
+                          setState(() {
+                            if (_expandedKeys.contains('__notes__')) {
+                              _expandedKeys.remove('__notes__');
+                            } else {
+                              _expandedKeys.add('__notes__');
+                            }
+                          });
+                        },
+                        onNoteTap: (note) =>
+                            _showNotePreview(context, note),
+                      ),
+                  ],
                 ),
         ),
       ],
+    );
+  }
+
+  void _showNotePreview(BuildContext context, NoteInfo note) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _NotePreviewSheet(
+        note: note,
+        formatSize: _formatSize,
+      ),
     );
   }
 
@@ -1091,6 +1135,327 @@ class _MediaFileCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NotesGroupCard extends StatelessWidget {
+  final List<NoteInfo> notes;
+  final NoteSummary noteSummary;
+  final bool isExpanded;
+  final String Function(int) formatSize;
+  final VoidCallback onToggleExpand;
+  final void Function(NoteInfo) onNoteTap;
+
+  const _NotesGroupCard({
+    required this.notes,
+    required this.noteSummary,
+    required this.isExpanded,
+    required this.formatSize,
+    required this.onToggleExpand,
+    required this.onNoteTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: onToggleExpand,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.article,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '笔记文件',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '笔记',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${noteSummary.noteCount} 篇',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatSize(noteSummary.totalSize),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Icon(
+                        isExpanded ? Icons.expand_less : Icons.expand_more,
+                        size: 20,
+                        color: Colors.grey[600],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            ...notes.map((note) => _NoteListTile(
+              note: note,
+              formatSize: formatSize,
+              onTap: () => onNoteTap(note),
+            )),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NoteListTile extends StatelessWidget {
+  final NoteInfo note;
+  final String Function(int) formatSize;
+  final VoidCallback onTap;
+
+  const _NoteListTile({
+    required this.note,
+    required this.formatSize,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(
+                Icons.description,
+                size: 14,
+                color: Colors.blue,
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    note.title,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${note.blockCount} 块',
+                    style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              formatSize(note.fileSize),
+              style: const TextStyle(fontSize: 10),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right, size: 18),
+              onPressed: onTap,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotePreviewSheet extends StatefulWidget {
+  final NoteInfo note;
+  final String Function(int) formatSize;
+
+  const _NotePreviewSheet({required this.note, required this.formatSize});
+
+  @override
+  State<_NotePreviewSheet> createState() => _NotePreviewSheetState();
+}
+
+class _NotePreviewSheetState extends State<_NotePreviewSheet> {
+  String _content = '';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContent();
+  }
+
+  Future<void> _loadContent() async {
+    final repo = NoteRepository();
+    final content = await repo.readRawContent(widget.note.filePath);
+    if (mounted) {
+      setState(() {
+        _content = content;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.note.title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                '${widget.note.blockCount} 块',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                widget.formatSize(widget.note.fileSize),
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: SelectableText(
+                            _content,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
