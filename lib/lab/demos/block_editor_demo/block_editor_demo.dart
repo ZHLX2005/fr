@@ -179,6 +179,9 @@ class BlockEditorDemoPage extends DemoPage {
   String get description => '结构化块树笔记编辑器原型 — 类型切换、删除、新增';
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) => const BlockEditorDemo();
 }
 
