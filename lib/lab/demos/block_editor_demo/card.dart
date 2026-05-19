@@ -102,6 +102,7 @@ class _BlockCardState extends State<BlockCard> {
   Widget _buildTextField() {
     return TextField(
       controller: _controller,
+      maxLines: null,
       style: textStyleForType(widget.block) ?? const TextStyle(fontSize: 14),
       decoration: const InputDecoration(
         border: InputBorder.none,
