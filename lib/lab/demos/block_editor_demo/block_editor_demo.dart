@@ -2,10 +2,10 @@ import 'package:flutter/material.dart' hide RichText;
 import '../../../core/note/core/block_type.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
-import 'data.dart';
 import 'card.dart';
+import 'note_panel.dart';
 
-/// 块编辑器 Demo（Phase 1：核心编辑）
+/// 块编辑器 Demo（持久化版）
 class BlockEditorDemo extends StatefulWidget {
   const BlockEditorDemo({super.key});
 
@@ -15,12 +15,13 @@ class BlockEditorDemo extends StatefulWidget {
 
 class _BlockEditorDemoState extends State<BlockEditorDemo> {
   final _editorState = EditorState();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _editorState.load(createDemoBlocks());
+      _editorState.init();
     });
   }
 
@@ -142,15 +143,19 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             title: const Text('块编辑器'),
             actions: [
               IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: () => _editorState.addBlock(),
-                tooltip: '新增块',
+                icon: const Icon(Icons.menu_open),
+                onPressed: () {
+                  _scaffoldKey.currentState?.openEndDrawer();
+                },
+                tooltip: '笔记列表',
               ),
             ],
           ),
+          key: _scaffoldKey,
+          endDrawer: NotePanel(editorState: _editorState),
           bottomNavigationBar: _buildBottomToolbar(),
           body: blocks.isEmpty
-              ? const Center(child: Text('暂无内容，点击 + 新增块'))
+              ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
               : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: blocks.length,
@@ -176,7 +181,7 @@ class BlockEditorDemoPage extends DemoPage {
   String get title => '块编辑器';
 
   @override
-  String get description => '结构化块树笔记编辑器原型 — 类型切换、删除、新增';
+  String get description => '结构化块树笔记编辑器 — 持久化存储';
 
   @override
   bool get preferFullScreen => true;
