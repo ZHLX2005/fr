@@ -57,4 +57,11 @@ class EditorState extends ChangeNotifier {
     _selectedId = block.id;
     notifyListeners();
   }
+
+  void updateContent(String id, String newText) {
+    final idx = _blocks.indexWhere((b) => b.id == id);
+    if (idx < 0) return;
+    _blocks[idx] = _blocks[idx].copyWith(content: RichText.text(newText));
+    notifyListeners();
+  }
 }

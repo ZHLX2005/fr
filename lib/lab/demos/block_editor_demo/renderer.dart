@@ -2,6 +2,27 @@ import 'package:flutter/material.dart';
 import '../../../core/note/core/block.dart';
 import '../../../core/note/core/block_type.dart';
 
+/// 根据 BlockType 返回编辑时使用的 TextStyle。
+TextStyle? textStyleForType(Block block) {
+  return switch (block.type) {
+    BlockType.heading => _headingStyle(block),
+    BlockType.code => const TextStyle(fontFamily: 'monospace', fontSize: 13),
+    BlockType.page => const TextStyle(fontWeight: FontWeight.w600),
+    BlockType.quote => TextStyle(color: Colors.grey[700], fontStyle: FontStyle.italic),
+    _ => null,
+  };
+}
+
+TextStyle _headingStyle(Block block) {
+  final level = block.data.get<int>('level') ?? 1;
+  final sizes = [28.0, 22.0, 18.0, 16.0, 14.0, 13.0];
+  return TextStyle(
+    fontSize: sizes[level.clamp(1, 6) - 1],
+    fontWeight: FontWeight.bold,
+    height: 1.3,
+  );
+}
+
 /// 根据 BlockType 返回类型专属的 Widget。
 Widget renderBlockContent(Block block) {
   final text = block.content.toPlainText();
