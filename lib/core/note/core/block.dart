@@ -1,8 +1,14 @@
+import 'block_data.dart';
 import 'block_id.dart';
 import 'block_type.dart';
 import 'rich_text.dart';
 
-/// 块（Block）—— 文档树的原子单位
+/// 文档树的基本单元。
+///
+/// [id] 全局唯一，[type] 决定渲染方式和 data schema，
+/// [content] 为富文本，[children] 仅在序列化时携带（运行时的父子关系由 BlockTree 的双索引管理）。
+///
+/// 同一性由 [id] 决定（== / hashCode），不可变风格通过 [copyWith] 更新。
 class Block {
   final String id;
   final BlockType type;
