@@ -65,6 +65,15 @@ class EditorState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleTodo(String id) {
+    final idx = _blocks.indexWhere((b) => b.id == id);
+    if (idx < 0) return;
+    final block = _blocks[idx];
+    final checked = block.data.get<bool>('checked') ?? false;
+    _blocks[idx] = block.copyWith(data: block.data.merge({'checked': !checked}));
+    notifyListeners();
+  }
+
   void moveBlock(int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
     if (newIndex > oldIndex) newIndex--;

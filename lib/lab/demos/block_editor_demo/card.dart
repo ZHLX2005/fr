@@ -86,7 +86,10 @@ class _BlockCardState extends State<BlockCard> {
               onTap: () => widget.editorState.select(widget.block.id),
               child: widget.isSelected && !widget.block.type.containerOnly
                   ? _buildTextField()
-                  : renderBlockContent(widget.block),
+                  : renderBlockContent(
+                      widget.block,
+                      onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
+                    ),
             ),
           ),
           if (widget.isSelected) ...[

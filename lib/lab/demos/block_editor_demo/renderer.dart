@@ -24,13 +24,13 @@ TextStyle _headingStyle(Block block) {
 }
 
 /// 根据 BlockType 返回类型专属的 Widget。
-Widget renderBlockContent(Block block) {
+Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo}) {
   final text = block.content.toPlainText();
 
   return switch (block.type) {
     BlockType.page => _pageContent(block),
     BlockType.heading => _headingContent(block),
-    BlockType.todo => _todoContent(block),
+    BlockType.todo => _todoContent(block, onToggleTodo: onToggleTodo),
     BlockType.divider => const Divider(height: 1, thickness: 1),
     BlockType.bulletListItem => _bulletContent(text),
     BlockType.orderedListItem => _orderedContent(block),
@@ -62,15 +62,18 @@ Widget _headingContent(Block block) {
   );
 }
 
-Widget _todoContent(Block block) {
+Widget _todoContent(Block block, {VoidCallback? onToggleTodo}) {
   final checked = block.data.get<bool>('checked') ?? false;
   final text = block.content.toPlainText();
   return Row(
     children: [
-      Icon(
-        checked ? Icons.check_box : Icons.check_box_outline_blank,
-        size: 18,
-        color: checked ? Colors.blue : Colors.grey,
+      GestureDetector(
+        onTap: onToggleTodo,
+        child: Icon(
+          checked ? Icons.check_box : Icons.check_box_outline_blank,
+          size: 18,
+          color: checked ? Colors.blue : Colors.grey,
+        ),
       ),
       const SizedBox(width: 6),
       Expanded(
