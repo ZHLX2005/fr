@@ -113,6 +113,16 @@ class EditorState extends ChangeNotifier {
     _save();
   }
 
+  void updateImageSrc(String id, String src) {
+    final idx = _blocks.indexWhere((b) => b.id == id);
+    if (idx < 0) return;
+    _blocks[idx] = _blocks[idx].copyWith(
+      data: _blocks[idx].data.merge({'src': src}),
+    );
+    notifyListeners();
+    _save();
+  }
+
   void addBlockWithType(BlockType type, {int? level}) {
     final block = Block(
       id: BlockId.generate(),

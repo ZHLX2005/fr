@@ -80,6 +80,9 @@ class _BlockCardState extends State<BlockCard> {
                   : renderBlockContent(
                       widget.block,
                       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
+                      onTapAddImage: widget.block.type == BlockType.image
+                          ? () => _showAddImageDialog()
+                          : null,
                     ),
             ),
           ),
@@ -109,6 +112,36 @@ class _BlockCardState extends State<BlockCard> {
       ),
       onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
     );
+  }
+
+  Future<void> _showAddImageDialog() async {
+    final controller = TextEditingController(
+      text: widget.block.data.get<String>('src') ?? '',
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('添加图片'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: '输入图片 URL',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('添加'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      widget.editorState.updateImageSrc(widget.block.id, result);
+    }
   }
 
   IconData _typeIcon(BlockType type) {

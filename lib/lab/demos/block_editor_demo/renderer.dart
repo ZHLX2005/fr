@@ -24,7 +24,7 @@ TextStyle _headingStyle(Block block) {
 }
 
 /// 根据 BlockType 返回类型专属的 Widget。
-Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo}) {
+Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo, VoidCallback? onTapAddImage}) {
   final text = block.content.toPlainText();
 
   return switch (block.type) {
@@ -37,7 +37,7 @@ Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo}) {
     BlockType.quote => _quoteContent(text),
     BlockType.code => _codeContent(block),
     BlockType.callout => _calloutContent(block),
-    BlockType.image => _imageContent(block),
+    BlockType.image => _imageContent(block, onTapAddImage: onTapAddImage),
     _ => Text(text),
   };
 }
@@ -149,27 +149,30 @@ Widget _codeContent(Block block) {
   );
 }
 
-Widget _imageContent(Block block) {
+Widget _imageContent(Block block, {VoidCallback? onTapAddImage}) {
   final src = block.data.get<String>('src') ?? '';
   final caption = block.data.get<String>('caption');
   final width = block.data.get<double>('width');
   final height = block.data.get<double>('height');
 
   if (src.isEmpty) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.image_outlined, size: 32, color: Colors.grey[400]),
-          const SizedBox(height: 4),
-          Text('点击以添加图片', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-        ],
+    return GestureDetector(
+      onTap: onTapAddImage,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.image_outlined, size: 32, color: Colors.grey[400]),
+            const SizedBox(height: 4),
+            Text('点击以添加图片', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
