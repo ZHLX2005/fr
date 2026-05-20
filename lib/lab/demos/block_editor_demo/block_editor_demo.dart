@@ -56,6 +56,8 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                       _toolbarTypeButton('—', BlockType.divider, Icons.horizontal_rule),
                       const SizedBox(width: 2),
                       _toolbarTypeButton('💡', BlockType.callout, Icons.info_outline),
+                      const SizedBox(width: 2),
+                      _toolbarTypeButton('🖼', BlockType.image, Icons.image),
                     ],
                   ),
                 ),

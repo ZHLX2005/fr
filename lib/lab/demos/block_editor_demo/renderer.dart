@@ -37,6 +37,7 @@ Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo}) {
     BlockType.quote => _quoteContent(text),
     BlockType.code => _codeContent(block),
     BlockType.callout => _calloutContent(block),
+    BlockType.image => _imageContent(block),
     _ => Text(text),
   };
 }
@@ -145,6 +146,66 @@ Widget _codeContent(Block block) {
         Text(text, style: const TextStyle(fontFamily: 'monospace', fontSize: 13)),
       ],
     ),
+  );
+}
+
+Widget _imageContent(Block block) {
+  final src = block.data.get<String>('src') ?? '';
+  final caption = block.data.get<String>('caption');
+  final width = block.data.get<double>('width');
+  final height = block.data.get<double>('height');
+
+  if (src.isEmpty) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.image_outlined, size: 32, color: Colors.grey[400]),
+          const SizedBox(height: 4),
+          Text('点击以添加图片', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.network(
+          src,
+          width: width,
+          height: height,
+          fit: width != null || height != null ? BoxFit.cover : null,
+          errorBuilder: (context, error, stackTrace) => Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.broken_image, color: Colors.grey[400]),
+                const SizedBox(width: 8),
+                Text('加载失败', style: TextStyle(color: Colors.grey[500])),
+              ],
+            ),
+          ),
+        ),
+      ),
+      if (caption != null && caption.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(caption, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        ),
+    ],
   );
 }
 

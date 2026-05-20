@@ -75,7 +75,7 @@ class _BlockCardState extends State<BlockCard> {
           Expanded(
             child: GestureDetector(
               onTap: () => widget.editorState.select(widget.block.id),
-              child: widget.isSelected && !widget.block.type.containerOnly
+              child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type != BlockType.image
                   ? _buildTextField()
                   : renderBlockContent(
                       widget.block,
