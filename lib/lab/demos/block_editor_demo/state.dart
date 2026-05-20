@@ -176,6 +176,19 @@ class EditorState extends ChangeNotifier {
     await _repo.saveNote(root);
   }
 
+  /// 删除指定笔记。若是当前笔记，自动切换到下一笔记或新建。
+  Future<void> deleteNote(String id) async {
+    await _repo.deleteNote(id);
+    if (id == _noteId) {
+      final notes = await _repo.listAllNotes();
+      if (notes.isNotEmpty) {
+        await switchNote(notes.first.id);
+      } else {
+        await createNewNote();
+      }
+    }
+  }
+
   String _extractTitle() {
     for (final block in _blocks) {
       if (block.type == BlockType.heading) {

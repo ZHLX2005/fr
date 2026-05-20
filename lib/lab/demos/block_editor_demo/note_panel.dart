@@ -93,13 +93,51 @@ class _NotePanelState extends State<NotePanel> {
                           itemBuilder: (context, index) {
                             final note = _notes[index];
                             final isCurrent = note.id == currentId;
-                            return _NoteListTile(
-                              note: note,
-                              isCurrent: isCurrent,
-                              onTap: () async {
-                                await widget.editorState.switchNote(note.id);
-                                if (context.mounted) Navigator.pop(context);
+                            return Dismissible(
+                              key: ValueKey(note.id),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 20),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.delete, color: Colors.white),
+                              ),
+                              confirmDismiss: (_) async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('删除笔记'),
+                                    content: Text('确定要删除「${note.title}」吗？'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: const Text('取消'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('删除'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed == true) {
+                                  await widget.editorState.deleteNote(note.id);
+                                  await _loadNotes();
+                                  return true;
+                                }
+                                return false;
                               },
+                              child: _NoteListTile(
+                                note: note,
+                                isCurrent: isCurrent,
+                                onTap: () async {
+                                  await widget.editorState.switchNote(note.id);
+                                  if (context.mounted) Navigator.pop(context);
+                                },
+                              ),
                             );
                           },
                         ),
