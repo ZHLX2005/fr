@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/note/core/block.dart';
 import '../../../core/note/core/block_type.dart';
+import '../../../services/media_service.dart';
 import 'state.dart';
 import 'renderer.dart';
 
@@ -115,17 +116,62 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Future<void> _showAddImageDialog() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('从相册选择'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('拍照'),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('输入 URL'),
+              onTap: () => Navigator.pop(ctx, 'url'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null) return;
+
+    switch (result) {
+      case 'gallery':
+        final path = await MediaService.pickImageFromGallery();
+        if (path != null) {
+          widget.editorState.updateImageSrc(widget.block.id, path);
+        }
+      case 'camera':
+        final path = await MediaService.takePicture();
+        if (path != null) {
+          widget.editorState.updateImageSrc(widget.block.id, path);
+        }
+      case 'url':
+        _showUrlDialog();
+    }
+  }
+
+  Future<void> _showUrlDialog() async {
     final controller = TextEditingController(
       text: widget.block.data.get<String>('src') ?? '',
     );
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('添加图片'),
+        title: const Text('输入图片 URL'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
-            hintText: '输入图片 URL',
+            hintText: 'https://...',
             border: OutlineInputBorder(),
           ),
           autofocus: true,
