@@ -16,17 +16,6 @@ type: workflow
 
 检查不存在PROJECT_INDEX.md 和 PROJECT_INDEX.json的仓库,对于没有index的仓库 进行并发   /sc:index-repo
 
-system: 排除_read目录 这个目录用于存放一些专门的参考分析代码 不需要进行处理
-
-> **⚠️ 重要提醒：`.claude/repo/` 下的仓库通常被 `.gitignore` 排除，git 工具无法获取这些文件。**
->
-> 检查仓库列表时必须使用**直接的文件系统工具**：
-> - `Bash: ls .claude/repo/`
-> - `PowerShell: Get-ChildItem .claude/repo/`
-> - `Glob: .claude/repo/*`
->
-> **不要使用** `git ls-files`、`git status` 或任何依赖 git 索引的命令。
-
 # Index Repos - 多仓库并行索引创建
 
 ## 核心功能
@@ -105,10 +94,9 @@ Generated: {timestamp}
 
 ### ⚠️ 错误教训
 
-1. **git 工具无法看到被排除的仓库**：`.claude/repo/` 下的仓库被 `.gitignore` 排除，使用 `git ls-files` 或 `git status` 会误以为目录为空。必须使用 `ls`、`Glob` 或 `Get-ChildItem` 等直接文件系统工具。
-2. **跨会话历史不可用**：新会话无法访问之前 subagent 的具体输出
-3. **耗时差异大**：大型仓库（如 eino）耗时约 125s，小型仓库约 60s
-4. **结果保存**：关键输出应保存到共享位置供后续访问
+1. **跨会话历史不可用**：新会话无法访问之前 subagent 的具体输出
+2. **耗时差异大**：大型仓库（如 eino）耗时约 125s，小型仓库约 60s
+3. **结果保存**：关键输出应保存到共享位置供后续访问
 
 ## 输出文件
 
