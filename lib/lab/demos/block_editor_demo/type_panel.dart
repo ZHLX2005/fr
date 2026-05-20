@@ -47,7 +47,6 @@ class TypePanel extends StatelessWidget {
                       _typeTile(context, Icons.check_box_outline_blank, '待办', BlockType.todo),
                       _typeTile(context, Icons.format_list_bulleted, '无序列表', BlockType.bulletListItem),
                       _typeTile(context, Icons.format_list_numbered, '有序列表', BlockType.orderedListItem),
-                      _typeTile(context, Icons.unfold_more, '折叠', BlockType.toggle),
                     ]),
                     _buildCategory('文本', [
                       _typeTile(context, Icons.text_fields, '段落', BlockType.paragraph),
@@ -58,15 +57,6 @@ class TypePanel extends StatelessWidget {
                     _buildCategory('媒体', [
                       _typeTile(context, Icons.image, '图片', BlockType.image),
                       _typeTile(context, Icons.horizontal_rule, '分割线', BlockType.divider),
-                      _typeTile(context, Icons.bookmark, '书签', BlockType.bookmark),
-                      _typeTile(context, Icons.functions, '公式', BlockType.equation),
-                    ]),
-                    _buildCategory('布局', [
-                      _typeTile(context, Icons.article, '页面', BlockType.page),
-                      _typeTile(context, Icons.view_column, '多栏', BlockType.columnList),
-                      _typeTile(context, Icons.table_view, '数据库', BlockType.database),
-                      _typeTile(context, Icons.widgets, '嵌入卡片', BlockType.embedCard),
-                      _typeTile(context, Icons.sync, '同步块', BlockType.syncedBlock),
                     ]),
                   ],
                 ),
