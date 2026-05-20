@@ -4,6 +4,7 @@ import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';
 import 'note_panel.dart';
+import 'type_panel.dart';
 
 /// 块编辑器 Demo（持久化版）
 class BlockEditorDemo extends StatefulWidget {
@@ -59,6 +60,18 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                       const SizedBox(width: 2),
                       _toolbarTypeButton('🖼', BlockType.image, Icons.image),
                     ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              Material(
+                borderRadius: BorderRadius.circular(6),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () => TypePanel.show(context, _editorState),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    child: Icon(Icons.expand_less, size: 20, color: Colors.grey[600]),
                   ),
                 ),
               ),
