@@ -32,7 +32,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
             children: [
               Expanded(
@@ -70,8 +70,8 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                   borderRadius: BorderRadius.circular(6),
                   onTap: () => TypePanel.show(context, _editorState),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                    child: Icon(Icons.expand_less, size: 20, color: Colors.grey[600]),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Icon(Icons.expand_less, size: 22, color: Colors.grey[600]),
                   ),
                 ),
               ),
@@ -89,8 +89,8 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
         borderRadius: BorderRadius.circular(6),
         onTap: () => _editorState.addBlockWithType(type),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: Icon(icon, size: 18, color: Colors.grey[600]),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Icon(icon, size: 20, color: Colors.grey[600]),
         ),
       ),
     );
@@ -98,7 +98,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
 
   Widget _toolbarHeadingButtons() {
     return SizedBox(
-      height: 32,
+      height: 36,
       child: Row(
         children: [1, 2, 3].map((l) {
           return Padding(
