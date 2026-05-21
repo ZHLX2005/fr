@@ -18,7 +18,7 @@ import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'lab/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
-import 'core/line/repository/chart_repository.dart';
+import 'core/line/io/chart_repository.dart';
 import 'services/message_strategy/di/di.dart';
 
 void main() async {
