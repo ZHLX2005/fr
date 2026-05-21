@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models/line_models.dart';
 import 'models/game_result.dart';
 import 'settings/line_settings.dart';
+import 'engine/judge_service.dart';
+import 'engine/touch_state.dart';
 
 /// 音频与游戏同步器 — 定期校准 Stopwatch 消除漂移
 class _AudioSyncGuard {
@@ -106,15 +108,17 @@ class GameController {
   final List<ExplodeAnimation> explodes = [];
   final List<JudgeFeedback> judgeFeedbacks = [];
 
-  int score = 0;
-  double health = 1.0;
   int highScore = 0;
-  int perfectCount = 0;
-  int greatCount = 0;
-  int goodCount = 0;
-  int missCount = 0;
-  int maxCombo = 0;
-  int currentCombo = 0;
+  final GameEngine _engine = GameEngine();
+
+  int get score => _engine.score;
+  double get health => _engine.health;
+  int get perfectCount => _engine.perfectCount;
+  int get greatCount => _engine.greatCount;
+  int get goodCount => _engine.goodCount;
+  int get missCount => _engine.missCount;
+  int get maxCombo => _engine.maxCombo;
+  int get currentCombo => _engine.combo;
 
   // ── 音频 ──
   AudioPlayer? audioPlayer;
@@ -159,6 +163,7 @@ class GameController {
     pointers.clear();
     heldColumns.clear();
     holdCompletedColumns.clear();
+    _engine.reset();
   }
 
   void dispose() {
@@ -395,25 +400,11 @@ class GameController {
 
   // ── 手势处理 ──
 
-  int? _getColumnFromX(double x) {
-    final colWidth = screenWidth / columnCount;
-    for (int i = 0; i < columnCount; i++) {
-      if (x >= colWidth * i && x < colWidth * (i + 1)) return i;
-    }
-    return null;
-  }
+  int? _getColumnFromX(double x) =>
+      columnFromX(x, screenWidth, columnCount);
 
-  SlideDirection? _getSwipeDirection(Offset velocity) {
-    const threshold = 100.0;
-    final dx = velocity.dx.abs();
-    final dy = velocity.dy.abs();
-    if (dx < threshold && dy < threshold) return null;
-    if (dx > dy) {
-      return velocity.dx > 0 ? SlideDirection.right : SlideDirection.left;
-    } else {
-      return velocity.dy > 0 ? SlideDirection.down : SlideDirection.up;
-    }
-  }
+  SlideDirection? _getSwipeDirection(Offset velocity) =>
+      swipeDirection(velocity.dx, velocity.dy);
 
   void handlePointerDown(PointerDownEvent event) {
     if (isExiting || isCountingDown) return;
@@ -560,61 +551,21 @@ class GameController {
     note.judged = true;
     note.removeMe = true;
 
-    String judgeText;
-    double judgeAlpha;
-    int points;
-    double healthChange;
-    final healthScale = 1.0 / timingScale;
-
-    if (timeDiffMs <= (perfectWindow * timingScale).round()) {
-      judgeText = 'Perfect';
-      judgeAlpha = 0.6;
-      points = 3;
-      healthChange = 0.05 * healthScale;
-    } else if (timeDiffMs <= (greatWindow * timingScale).round()) {
-      judgeText = 'Great';
-      judgeAlpha = 0.4;
-      points = 2;
-      healthChange = 0.02 * healthScale;
-    } else if (timeDiffMs <= (goodWindow * timingScale).round()) {
-      judgeText = 'Good';
-      judgeAlpha = 0.25;
-      points = 1;
-      healthChange = 0.0;
-    } else {
-      judgeText = 'Good';
-      judgeAlpha = 0.25;
-      points = 1;
-      healthChange = 0.0;
-    }
+    final result = judge(timeDiffMs, timingScale);
+    _engine.applyJudge(result);
 
     final colWidth = screenWidth / columnCount;
     final centerX = colWidth * col + colWidth / 2;
 
     final feedbackController = AnimationController(duration: const Duration(milliseconds: 600), vsync: vsync);
     final feedback = JudgeFeedback(
-      text: judgeText,
+      text: result.text,
       x: centerX,
       y: judgeY - radius * 3,
       color: themeColor,
-      baseAlpha: judgeAlpha,
+      baseAlpha: result.alpha,
       controller: feedbackController,
     );
-
-    if (judgeText == 'Perfect') {
-      perfectCount++;
-      currentCombo++;
-    } else if (judgeText == 'Great') {
-      greatCount++;
-      currentCombo++;
-    } else {
-      goodCount++;
-      currentCombo++;
-    }
-    maxCombo = math.max(maxCombo, currentCombo);
-
-    score += points;
-    health = (health + healthChange).clamp(0.0, 1.0);
     judgeFeedbacks.add(feedback);
 
     feedbackController.forward().then((_) {
@@ -623,7 +574,7 @@ class GameController {
     });
 
     createExplode(col, centerX, note.currentY);
-    if (health <= 0.0) {
+    if (_engine.isGameOver) {
       _gameOver();
       return;
     }
@@ -643,12 +594,9 @@ class GameController {
   void onNoteMissed(int col, FallingNote note) {
     if (note.judged) return;
     note.judged = true;
-    missCount++;
-    currentCombo = 0;
-    final healthScale = 1.0 / timingScale;
-    health = (health - 0.15 * healthScale).clamp(0.0, 1.0);
+    _engine.applyMiss(timingScale);
     onStateChanged?.call();
-    if (health <= 0.0) {
+    if (_engine.isGameOver) {
       _gameOver();
       return;
     }
