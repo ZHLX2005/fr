@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
-
-/// 游戏结果数据
+/// 游戏结果数据（不可变）
 class GameResult {
   final String songName;
   final int score;
@@ -46,21 +44,21 @@ class GameResult {
   /// 是否新纪录
   bool get isNewRecord => score > highScore;
 
-  /// 等级对应颜色
-  Color gradeColor(Color themeColor) {
+  /// 等级对应 ARGB 色值
+  int get gradeArgb {
     switch (grade) {
       case 'P':
-        return const Color(0xFFc44dff);
+        return 0xFFc44dff;
       case 'S':
-        return const Color(0xFFffd700);
+        return 0xFFffd700;
       case 'A':
-        return const Color(0xFF4fc3f7);
+        return 0xFF4fc3f7;
       case 'B':
-        return const Color(0xFF81c784);
+        return 0xFF81c784;
       case 'C':
-        return const Color(0xFFffb74d);
+        return 0xFFffb74d;
       default:
-        return const Color(0xFFe57373);
+        return 0xFFe57373;
     }
   }
 

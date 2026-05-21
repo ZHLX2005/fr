@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/line_models.dart';
-import 'line_cache_manager.dart';
-import 'song_record.dart';
+import '../cache/line_cache_manager.dart';
+import '../domain/note_event.dart';
+import '../domain/song_data.dart';
+import '../domain/song_record.dart';
 
 /// 乐谱数据仓库（远程 Supabase + 本地文件缓存）
 class ChartRepository {

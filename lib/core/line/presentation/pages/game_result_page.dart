@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../models/game_result.dart';
-import '../models/line_models.dart';
-import 'line_demo_page.dart';
+import '../../domain/chart_data.dart';
+import '../../domain/game_result.dart';
+import 'game_page.dart' show GamePage;
 import 'song_select_page.dart';
-import 'line_page.dart';
+import '../painters/water_effect_painter.dart';
 
 class GameResultPage extends StatefulWidget {
   final GameResult result;
@@ -54,10 +54,10 @@ class _GameResultPageState extends State<GameResultPage>
   void _retry() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => LineDemo(
+        builder: (_) => GamePage(
           chart: widget.chart,
           audioPath: widget.audioPath,
-        ).buildPage(context),
+        ),
       ),
     );
   }
@@ -185,8 +185,7 @@ class _GameResultPageState extends State<GameResultPage>
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
-                        color: result
-                            .gradeColor(theme.colorScheme.primary)
+                        color: Color(result.gradeArgb)
                             .withValues(alpha: 0.7),
                         letterSpacing: 1,
                       ),
@@ -272,7 +271,7 @@ class _GameResultPageState extends State<GameResultPage>
       style: TextStyle(
         fontSize: 96 * w / 750,
         fontWeight: FontWeight.w100,
-        color: result.gradeColor(const Color(0xFF4fc3f7)),
+        color: Color(result.gradeArgb),
         height: 1,
       ),
     );
