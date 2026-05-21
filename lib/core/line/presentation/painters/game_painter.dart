@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../models/line_models.dart';
+import '../../domain/constants.dart';
+import '../../domain/note_event.dart';
+import '../falling_note.dart';
 
 /// 游戏主绘制器：背景 + 血条 + 三种音符 + 炸开动画 + 判定文字
 class GamePainter extends CustomPainter {

@@ -3,8 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'io/audio_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'models/line_models.dart';
-import 'models/game_result.dart';
+import 'domain/chart_data.dart';
+import 'domain/constants.dart';
+import 'domain/note_event.dart';
+import 'domain/particle.dart';
+import 'domain/game_result.dart';
+import 'presentation/falling_note.dart';
 import 'settings/line_settings.dart';
 import 'engine/judge_service.dart';
 import 'engine/touch_state.dart';
@@ -99,7 +103,7 @@ class GameController {
 
   // ── 手势追踪 ──
   final Set<int> heldColumns = {};
-  final Map<int, _PointerState> pointers = {};
+  final Map<int, _PointerState> _pointers = {};
   final Set<int> holdCompletedColumns = {};
 
   // ── 生命周期 ──
@@ -131,7 +135,7 @@ class GameController {
       fb.controller.dispose();
     }
     judgeFeedbacks.clear();
-    pointers.clear();
+    _pointers.clear();
     heldColumns.clear();
     holdCompletedColumns.clear();
     _engine.reset();
@@ -151,7 +155,7 @@ class GameController {
     for (final fb in judgeFeedbacks) {
       fb.controller.dispose();
     }
-    pointers.clear();
+    _pointers.clear();
     heldColumns.clear();
     holdCompletedColumns.clear();
     onStateChanged = null;
@@ -346,7 +350,7 @@ class GameController {
     final col = _getColumnFromX(event.localPosition.dx);
     if (col == null) return;
 
-    pointers[event.pointer] = _PointerState(
+    _pointers[event.pointer] = _PointerState(
       pointerId: event.pointer,
       column: col,
       startPosition: event.position,
@@ -358,13 +362,13 @@ class GameController {
   }
 
   void handlePointerMove(PointerMoveEvent event) {
-    final state = pointers[event.pointer];
+    final state = _pointers[event.pointer];
     if (state == null) return;
     state.lastPosition = event.position;
   }
 
   void handlePointerUp(PointerUpEvent event) {
-    final state = pointers.remove(event.pointer);
+    final state = _pointers.remove(event.pointer);
     if (state == null) return;
 
     final col = state.column;
@@ -387,7 +391,7 @@ class GameController {
   }
 
   void handlePointerCancel(PointerCancelEvent event) {
-    final state = pointers.remove(event.pointer);
+    final state = _pointers.remove(event.pointer);
     if (state == null) return;
     _handleColumnRelease(state.column);
   }

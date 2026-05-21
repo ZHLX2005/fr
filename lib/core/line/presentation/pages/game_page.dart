@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import '../models/line_models.dart';
-import '../models/game_result.dart';
+import '../../domain/chart_data.dart';
+import '../../domain/game_result.dart';
 import '../painters/game_painter.dart';
 import '../painters/water_effect_painter.dart';
-import '../game_controller.dart';
+import '../../game_controller.dart';
 import 'game_result_page.dart';
 import 'song_select_page.dart';
-import '../settings/line_settings.dart';
+import '../../settings/line_settings.dart';
 
 class _LineDemoPage extends StatefulWidget {
   final ChartData chart;

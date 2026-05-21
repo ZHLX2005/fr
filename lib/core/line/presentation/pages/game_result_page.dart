@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/game_result.dart';
-import '../models/line_models.dart';
-import 'line_demo_page.dart' show GamePage;
+import '../../domain/chart_data.dart';
+import '../../domain/game_result.dart';
+import 'game_page.dart' show GamePage;
 import 'song_select_page.dart';
 import '../painters/water_effect_painter.dart';
 

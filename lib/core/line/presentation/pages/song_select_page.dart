@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../models/line_models.dart';
-import '../repository/chart_repository.dart';
-import '../settings/line_settings.dart';
+import '../../domain/chart_data.dart';
+import '../../domain/song_data.dart';
+import '../../io/chart_repository.dart';
+import '../../settings/line_settings.dart';
 import '../widgets/song_detail_panel.dart';
-import 'line_demo_page.dart' show GamePage;
+import 'game_page.dart' show GamePage;
 
 /// 选歌界面
 class SongSelectPage extends StatefulWidget {
