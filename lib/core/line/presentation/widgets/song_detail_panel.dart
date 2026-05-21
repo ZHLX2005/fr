@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/line_models.dart';
-import '../repository/chart_repository.dart';
-import '../repository/line_cache_manager.dart';
+import '../../domain/song_data.dart';
+import '../../io/chart_repository.dart';
+import '../../cache/line_cache_manager.dart';
 import 'rotating_cover.dart';
 import 'song_list_tile.dart';
 

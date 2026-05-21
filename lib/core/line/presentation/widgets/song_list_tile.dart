@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'rotating_cover.dart';
-import '../models/line_models.dart';
+import '../../domain/song_data.dart';
 
 /// 难度星级显示
 class DifficultyStars extends StatelessWidget {
