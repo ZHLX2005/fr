@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/providers.dart';
 import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
@@ -18,7 +17,7 @@ import 'lab/providers/lab_note_provider.dart';
 import 'lab/providers/lab_clock_provider.dart';
 import 'lab/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
-import 'core/line/io/chart_repository.dart';
+import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 
 void main() async {
@@ -32,15 +31,7 @@ void main() async {
   await bodyRecordRepo.init();
 
   // 初始化 Supabase
-  await Supabase.initialize(
-    url: 'https://kklrbynhqpwwhtfanqwt.supabase.co',
-    anonKey:
-        'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P', // TODO: 替换为实际 anon key
-  );
-  ChartRepository.initSupabase(
-    'https://kklrbynhqpwwhtfanqwt.supabase.co',
-    'sb_publishable_LMz3PGBaEJ3lJzMiS1BP1A_RajRck4P',
-  );
+  await SupabaseConfig.init();
 
   // 初始化 Lab 模块（注册所有 Demo + Schema）
   bootstrapLab();
