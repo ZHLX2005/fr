@@ -22,13 +22,14 @@ class _LineDemoPageState extends State<_LineDemoPage>
     with TickerProviderStateMixin {
   // ── 水入场动画（UI 专属，非游戏逻辑） ──
   bool _isWaterEntering = true;
+  bool _didInit = false;
 
   late AnimationController _exitController;
   late AnimationController _enterController;
   late AnimationController _healthController;
   late AnimationController _renderTicker;
 
-  late final GameController _controller;
+  late GameController _controller;
 
   @override
   void initState() {
@@ -50,6 +51,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
       duration: const Duration(milliseconds: 16),
       vsync: this,
     )..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didInit) return;
+    _didInit = true;
 
     final screenSize = MediaQuery.of(context).size;
 
