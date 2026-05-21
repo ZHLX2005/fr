@@ -3,7 +3,8 @@
 // 导出所有 line 模块的核心组件
 
 export 'models/line_models.dart';
-export 'pages/line_page.dart';
+export 'painters/game_painter.dart';
+export 'painters/water_effect_painter.dart';
 export 'settings/line_settings.dart';
 export 'pages/line_demo_page.dart';
 export 'pages/song_select_page.dart';

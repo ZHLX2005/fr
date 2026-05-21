@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/line_models.dart';
 import 'line_cache_manager.dart';
-import 'song_record.dart';
+import '../models/song_record.dart';
 
 /// 乐谱数据仓库（远程 Supabase + 本地文件缓存）
 class ChartRepository {

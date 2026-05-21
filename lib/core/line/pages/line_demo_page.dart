@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../lab/lab_container.dart';
 import '../models/line_models.dart';
-import 'line_page.dart';
+import '../painters/game_painter.dart';
+import '../painters/water_effect_painter.dart';
 import '../models/game_result.dart';
 import 'game_result_page.dart';
 import 'song_select_page.dart';
@@ -49,28 +49,6 @@ class _AudioSyncGuard {
 
   void dispose() {
     stop();
-  }
-}
-
-/// 线 Demo
-class LineDemo extends DemoPage {
-  final ChartData? chart;
-  final String? audioPath;
-
-  LineDemo({this.chart, this.audioPath});
-
-  @override
-  String get title => '线';
-
-  @override
-  String get description => '线';
-
-  @override
-  bool get preferFullScreen => true;
-
-  @override
-  Widget buildPage(BuildContext context) {
-    return _LineDemoPage(chart: chart!, audioPath: audioPath);
   }
 }
 
@@ -1207,17 +1185,14 @@ class _LineDemoPageState extends State<_LineDemoPage>
 }
 
 /// Public-facing widget that accepts ChartData parameter
-class LineDemoPage extends StatelessWidget {
+class GamePage extends StatelessWidget {
   final ChartData chart;
+  final String? audioPath;
 
-  const LineDemoPage({super.key, required this.chart});
+  const GamePage({super.key, required this.chart, this.audioPath});
 
   @override
   Widget build(BuildContext context) {
-    return _LineDemoPage(chart: chart);
+    return _LineDemoPage(chart: chart, audioPath: audioPath);
   }
-}
-
-void registerLineDemo() {
-  demoRegistry.register(LineDemo());
 }

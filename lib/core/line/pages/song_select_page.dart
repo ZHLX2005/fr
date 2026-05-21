@@ -3,7 +3,7 @@ import '../models/line_models.dart';
 import '../repository/chart_repository.dart';
 import '../settings/line_settings.dart';
 import '../widgets/song_detail_panel.dart';
-import 'line_demo_page.dart';
+import 'line_demo_page.dart' show GamePage;
 
 /// 选歌界面
 class SongSelectPage extends StatefulWidget {
@@ -63,12 +63,12 @@ class _SongSelectPageState extends State<SongSelectPage> {
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (context) => LineDemo(
+        builder: (context) => GamePage(
           chart: chart,
           audioPath: _selectedSong!.audioPath.isNotEmpty
               ? _selectedSong!.audioPath
               : null,
-        ).buildPage(context),
+        ),
       ),
     );
   }
