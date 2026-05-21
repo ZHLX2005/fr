@@ -8,6 +8,7 @@ import 'models/game_result.dart';
 import 'settings/line_settings.dart';
 import 'engine/judge_service.dart';
 import 'engine/touch_state.dart';
+import 'engine/game_engine.dart';
 
 /// 音频与游戏同步器 — 定期校准 Stopwatch 消除漂移
 class _AudioSyncGuard {
