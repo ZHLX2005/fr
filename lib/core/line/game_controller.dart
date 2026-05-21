@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
+import 'io/audio_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/line_models.dart';
 import 'models/game_result.dart';
@@ -9,40 +9,6 @@ import 'settings/line_settings.dart';
 import 'engine/judge_service.dart';
 import 'engine/touch_state.dart';
 import 'engine/game_engine.dart';
-
-/// 音频与游戏同步器 — 定期校准 Stopwatch 消除漂移
-class _AudioSyncGuard {
-  final AudioPlayer player;
-  final Stopwatch stopwatch;
-  Timer? _timer;
-  int _lastCorrectionTarget = -1;
-
-  _AudioSyncGuard({required this.player, required this.stopwatch});
-
-  void start() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) => _correct());
-  }
-
-  void stop() {
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  void _correct() {
-    final audioMs = player.position.inMilliseconds;
-    final swMs = stopwatch.elapsedMilliseconds;
-    final diff = audioMs - swMs;
-    if (diff.abs() > 50 && _lastCorrectionTarget != swMs) {
-      player.seek(Duration(milliseconds: swMs));
-      _lastCorrectionTarget = swMs;
-    }
-  }
-
-  void dispose() {
-    stop();
-  }
-}
 
 /// 每根手指的触摸状态
 class _PointerState {
@@ -122,9 +88,7 @@ class GameController {
   int get currentCombo => _engine.combo;
 
   // ── 音频 ──
-  AudioPlayer? audioPlayer;
-  StreamSubscription? audioCompletionSub;
-  _AudioSyncGuard? syncGuard;
+  AudioService? _audioService;
 
   // ── 设置 ──
   BackgroundStyle backgroundStyle = BackgroundStyle.none;
@@ -142,7 +106,13 @@ class GameController {
 
   Future<void> init() async {
     await _loadSettings();
-    _initAudio();
+    if (audioPath != null) {
+      _audioService = AudioService(gameStopwatch: gameStopwatch, audioPath: audioPath!);
+      _audioService!.init();
+      _audioService!.onCompletion = () {
+        if (!isExiting) _gameOver();
+      };
+    }
     clearAll();
   }
 
@@ -169,8 +139,7 @@ class GameController {
 
   void dispose() {
     gameStopwatch.stop();
-    audioCompletionSub?.cancel();
-    syncGuard?.dispose();
+    _audioService?.dispose();
     for (final col in notes) {
       for (final note in col) {
         note.controller.dispose();
@@ -182,45 +151,10 @@ class GameController {
     for (final fb in judgeFeedbacks) {
       fb.controller.dispose();
     }
-    audioPlayer?.dispose();
     pointers.clear();
     heldColumns.clear();
     holdCompletedColumns.clear();
     onStateChanged = null;
-  }
-
-  // ── 音频 ──
-
-  void _initAudio() {
-    if (audioPath == null) return;
-    audioPlayer = AudioPlayer();
-    final path = audioPath!;
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      audioPlayer!.setUrl(path);
-    } else {
-      audioPlayer!.setAsset(path);
-    }
-  }
-
-  void _startAudio() {
-    audioPlayer?.play();
-    audioCompletionSub?.cancel();
-    audioCompletionSub = audioPlayer?.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed && !isExiting) {
-        _gameOver();
-      }
-    });
-    if (audioPlayer != null) {
-      syncGuard?.stop();
-      syncGuard = _AudioSyncGuard(player: audioPlayer!, stopwatch: gameStopwatch);
-      syncGuard!.start();
-    }
-  }
-
-  void _stopAudio() {
-    gameStopwatch.stop();
-    syncGuard?.stop();
-    audioPlayer?.pause();
   }
 
   // ── 设置持久化 ──
@@ -260,11 +194,12 @@ class GameController {
     gameStopwatch.reset();
     gameStopwatch.start();
     spawnPendingNotes();
-    _startAudio();
+    _audioService?.play();
   }
 
   void stopGame() {
-    _stopAudio();
+    gameStopwatch.stop();
+    _audioService?.pause();
     for (final col in notes) {
       for (final note in col) {
         note.controller.stop();
@@ -296,9 +231,8 @@ class GameController {
       return;
     }
     gameStopwatch.start();
-    audioPlayer?.seek(Duration(milliseconds: gameStopwatch.elapsedMilliseconds));
-    audioPlayer?.play();
-    syncGuard?.start();
+    _audioService?.seek(Duration(milliseconds: gameStopwatch.elapsedMilliseconds));
+    _audioService?.play();
     for (final col in notes) {
       for (final note in col) {
         if (!note.judged) note.controller.forward();
