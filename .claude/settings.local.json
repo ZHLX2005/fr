@@ -25,7 +25,8 @@
       "Bash(tasklist //FI \"PID eq 2339\")",
       "Bash(flutter install:*)",
       "Bash(mkdir -p .claude/repo)",
-      "Bash(git clone *)"
+      "Bash(git clone *)",
+      "Bash(Select-String -Pattern \"error\" -SimpleMatch)"
     ]
   }
 }
