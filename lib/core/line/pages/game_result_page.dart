@@ -185,8 +185,7 @@ class _GameResultPageState extends State<GameResultPage>
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
-                        color: result
-                            .gradeColor(theme.colorScheme.primary)
+                        color: Color(result.gradeArgb)
                             .withValues(alpha: 0.7),
                         letterSpacing: 1,
                       ),
@@ -272,7 +271,7 @@ class _GameResultPageState extends State<GameResultPage>
       style: TextStyle(
         fontSize: 96 * w / 750,
         fontWeight: FontWeight.w100,
-        color: result.gradeColor(const Color(0xFF4fc3f7)),
+        color: Color(result.gradeArgb),
         height: 1,
       ),
     );
