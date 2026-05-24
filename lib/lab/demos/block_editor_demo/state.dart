@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
-import '../../../core/note/core/block.dart';
-import '../../../core/note/core/block_data.dart';
-import '../../../core/note/core/block_id.dart';
-import '../../../core/note/core/block_type.dart';
-import '../../../core/note/core/rich_text.dart';
+import '../../../core/note/core/models/block.dart';
+import '../../../core/note/core/models/block_data.dart';
+import '../../../core/note/core/identity/block_id.dart';
+import '../../../core/note/core/models/block_type.dart';
+import '../../../core/note/core/text/rich_text.dart';
+import '../../../core/note/convert/md_to_block.dart';
 import '../../../core/note/persistence/note_repository.dart';
 
 /// 编辑器状态管理，支持持久化。
@@ -161,6 +162,18 @@ class EditorState extends ChangeNotifier {
     if (newIndex > oldIndex) newIndex--;
     final block = _blocks.removeAt(oldIndex);
     _blocks.insert(newIndex, block);
+    notifyListeners();
+    _save();
+  }
+
+  /// 导入 markdown 内容，替换当前笔记的所有块。
+  void importMd(String source) {
+    final blocks = MdToBlock.parse(source);
+    if (blocks.isEmpty) return;
+    _blocks
+      ..clear()
+      ..addAll(blocks);
+    _selectedId = _blocks.first.id;
     notifyListeners();
     _save();
   }

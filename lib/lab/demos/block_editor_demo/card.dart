@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/note/core/block.dart';
-import '../../../core/note/core/block_type.dart';
+import '../../../core/note/core/models/block.dart';
+import '../../../core/note/core/models/block_type.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
 import 'renderer.dart';
@@ -53,18 +53,16 @@ class _BlockCardState extends State<BlockCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: widget.isSelected ? Colors.blue.withValues(alpha: 0.08) : null,
-        borderRadius: BorderRadius.circular(4),
-        border: widget.isSelected
-            ? Border.all(color: Colors.blue.withValues(alpha: 0.3))
-            : null,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
             onTap: () => widget.editorState.select(widget.block.id),
@@ -98,6 +96,7 @@ class _BlockCardState extends State<BlockCard> {
           ],
         ],
       ),
+    ),
     );
   }
 

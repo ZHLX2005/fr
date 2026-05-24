@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
-import '../../../core/note/core/block_type.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../../core/note/core/models/block_type.dart';
+import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';
@@ -59,6 +63,12 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                       _toolbarTypeButton('💡', BlockType.callout, Icons.info_outline),
                       const SizedBox(width: 2),
                       _toolbarTypeButton('🖼', BlockType.image, Icons.image),
+                      const SizedBox(width: 8),
+                      _toolbarButton(
+                        label: '导入 MD',
+                        icon: Icons.description,
+                        onTap: () => _importMdFile(),
+                      ),
                     ],
                   ),
                 ),
@@ -68,7 +78,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                 borderRadius: BorderRadius.circular(6),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(6),
-                  onTap: () => TypePanel.show(context, _editorState),
+                  onTap: () => TypePanel.show(context, _editorState, onImportMd: () => _importMdFile()),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     child: Icon(Icons.expand_less, size: 22, color: Colors.grey[600]),
@@ -126,6 +136,47 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
         }).toList(),
       ),
     );
+  }
+
+  Widget _toolbarButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 2),
+      child: Material(
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Icon(icon, size: 20, color: Colors.grey[600]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _importMdFile() async {
+    final result = await MediaService.pickFile(
+      type: FileType.custom,
+      allowedExtensions: ['md'],
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+
+    String source;
+    if (file.bytes != null) {
+      source = utf8.decode(file.bytes!);
+    } else if (file.path != null) {
+      source = await File(file.path!).readAsString();
+    } else {
+      return;
+    }
+
+    _editorState.importMd(source);
   }
 
   Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
