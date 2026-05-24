@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../../core/note/core/block.dart';
-import '../../../core/note/core/block_type.dart';
+import '../../../core/note/core/models/block.dart';
+import '../../../core/note/core/models/block_type.dart';
 
 /// 根据 BlockType 返回编辑时使用的 TextStyle。
 TextStyle? textStyleForType(Block block) {
