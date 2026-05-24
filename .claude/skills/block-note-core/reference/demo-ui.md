@@ -11,7 +11,7 @@ lib/lab/demos/block_editor_demo/
 ├── card.dart                 # BlockCard 块卡片
 ├── renderer.dart             # 类型专属渲染器
 ├── note_panel.dart           # 笔记列表侧边栏
-└── type_panel.dart           # 类型选择面板
+└── type_panel.dart           # 类型 + 工具操作面板
 ```
 
 ---
@@ -45,6 +45,7 @@ String? _noteId;         // 当前笔记 ID
 | `updateImageSrc(id, src)` | 添加图片 | 更新 data.src |
 | `toggleTodo(id)` | 复选框 | 切换 checked 状态 |
 | `moveBlock(old, new)` | 拖拽排序 | ReorderableListView |
+| `importMd(source)` | MD 导入 | 解析 markdown 替换当前笔记 |
 
 **统一模式**：`find → transform(copyWith) → notifyListeners() + _save()`
 
@@ -80,7 +81,7 @@ String? _noteId;         // 当前笔记 ID
 
 ### 选中高亮
 
-当前点击不显示整块高亮，直接进入编辑模式（前次修改已将 `BoxDecoration` 中的 color/border 移除）。
+当前点击不显示整块高亮，直接进入编辑模式。已将 `BoxDecoration` 中的 color/border 移除。
 
 ---
 
@@ -116,19 +117,15 @@ toggle, embedCard, bookmark, equation, database, columnList, column, syncedBlock
 
 ### 当前按钮
 
-两行布局（实际是水平 ScrollView 内的一行）：
+水平滚动条内一行：
 
 **类型插入区**：P / H1 H2 H3 / ☐ / • / 1. / " / <> / — / 💡 / 🖼
+
+**导入 MD**：📄 导入 MD
 
 **展开按钮**：↓ 显示 TypePanel 全部类型
 
 ### 添加新工具的三层模板
-
-调用链路：
-
-```
-Toolbar 按钮 → EditorState.方法() → 模型层操作
-```
 
 ```
 UI                           State                         模型
@@ -146,11 +143,7 @@ void doSomething(String id, /* 工具参数 */) {
   final idx = _blocks.indexWhere((b) => b.id == (id ?? _selectedId));
   if (idx < 0) return;
   final block = _blocks[idx];
-
-  _blocks[idx] = block.copyWith(
-    // 改 content / type / data / properties
-  );
-
+  _blocks[idx] = block.copyWith(/* 改 content / type / data */);
   notifyListeners();
   _save();
 }
@@ -167,7 +160,7 @@ _toolbarButton(
 ),
 ```
 
-`_toolbarButton` 复用现有 `Material + InkWell` 结构：
+`_toolbarButton` 通用实现：
 
 ```dart
 Widget _toolbarButton({
@@ -194,6 +187,46 @@ Widget _toolbarButton({
 
 ---
 
+## MD Import — Markdown 导入
+
+### 文件结构
+
+| 文件 | 职责 |
+|------|------|
+| `lib/core/note/convert/md_to_block.dart` | 纯函数，md 文本 → List<Block> |
+| `state.dart` | `importMd()` 方法，解析后替换 _blocks |
+| `block_editor_demo.dart` | `_importMdFile()` 文件选取 → 读取 → 导入 |
+| `type_panel.dart` | 面板 "工具 → 导入 MD" 磁贴 |
+
+### 调用流程
+
+```
+Toolbar (📄) / TypePanel → _importMdFile()
+  → MediaService.pickFile(.md)
+  → 读取文件内容 (bytes / File)
+  → EditorState.importMd(source)
+    → MdToBlock.parse(source)
+    → 替换 _blocks → notifyListeners → _save()
+```
+
+### 支持语法
+
+| Markdown | → BlockType | data |
+|----------|-------------|------|
+| `# ~ ###### 标题` | heading | level: 1-6 |
+| `- 无序列表` | bulletListItem | — |
+| `1. 有序列表` | orderedListItem | number: N |
+| `- [x] 完成` | todo | checked: true |
+| `- [ ] 待办` | todo | checked: false |
+| `> 引用` | quote | — |
+| `` ```lang `` | code | language: lang |
+| `---` | divider | — |
+| 其他 | paragraph | — |
+
+内联格式（粗体/斜体/链接）暂存为纯文本。
+
+---
+
 ## NotePanel / TypePanel
 
 ### NotePanel
@@ -205,9 +238,18 @@ Widget _toolbarButton({
 
 ### TypePanel
 
-`type_panel.dart`，底部弹出面板（showModalBottomSheet）。
-- 列出全部 BlockType 供选择
-- 选择后调用 editorState.toggleType()
+`type_panel.dart`，底部弹出面板（`showModalBottomSheet`）。
+
+结构：
+- **标题**：H1 ~ H6
+- **列表**：待办 / 无序列表 / 有序列表
+- **文本**：段落 / 引用 / 代码 / 提示框
+- **媒体**：图片 / 分割线
+- **工具**：导入 MD（通过 `onImportMd` 回调，仅在传入时显示）
+
+`_actionTile(context, icon, label, onTap)` — 通用操作磁贴，用于非 BlockType 的操作（如导入 MD），点击后执行回调并关闭面板。
+
+TypePanel 通过 `onImportMd` 回调接收 UI 操作（文件选取），不直接依赖 EditorState 以外的逻辑。
 
 ---
 
@@ -215,16 +257,17 @@ Widget _toolbarButton({
 
 | 功能 | 状态 | 位置 |
 |------|:----:|------|
-| Block 渲染 | ✅ | card.dart + renderer.dart |
+| Block 渲染（12种类型） | ✅ | card.dart + renderer.dart |
 | BlockType 切换 | ✅ | type_panel.dart |
 | 选中编辑 | ✅ | card.dart |
 | 删除 | ✅ | card.dart |
 | 拖拽排序 | ✅ | ReorderableListView |
+| Markdown 导入 | ✅ | md_to_block.dart + state + toolbar + panel |
 | 富文本 Span | ❌ | — |
 | 格式工具栏 | ❌ | — |
 | BlockData 编辑 | ❌ | — |
 | 撤销/重做 | ❌ | — |
-| Markdown | ❌ | — |
+| Markdown 导出 | ❌ | — |
 | AI 集成 | ❌ | — |
 
 ## 扩展方向（按优先级）
@@ -233,4 +276,4 @@ Widget _toolbarButton({
 2. 富文本 Span 编辑器 + 格式工具栏
 3. 撤销/重做
 4. 补齐未实现 BlockType 渲染器
-5. Markdown 导入/导出
+5. Markdown 导出

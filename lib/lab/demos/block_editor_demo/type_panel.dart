@@ -5,13 +5,14 @@ import 'state.dart';
 /// 分类展示所有 BlockType 的展开面板（底部弹出）。
 class TypePanel extends StatelessWidget {
   final EditorState editorState;
+  final VoidCallback? onImportMd;
 
-  const TypePanel({super.key, required this.editorState});
+  const TypePanel({super.key, required this.editorState, this.onImportMd});
 
-  static Future<void> show(BuildContext context, EditorState editorState) {
+  static Future<void> show(BuildContext context, EditorState editorState, {VoidCallback? onImportMd}) {
     return showModalBottomSheet(
       context: context,
-      builder: (_) => TypePanel(editorState: editorState),
+      builder: (_) => TypePanel(editorState: editorState, onImportMd: onImportMd),
     );
   }
 
@@ -58,6 +59,10 @@ class TypePanel extends StatelessWidget {
                       _typeTile(context, Icons.image, '图片', BlockType.image),
                       _typeTile(context, Icons.horizontal_rule, '分割线', BlockType.divider),
                     ]),
+                    if (onImportMd != null)
+                      _buildCategory('工具', [
+                        _actionTile(context, Icons.description, '导入 MD', onImportMd!),
+                      ]),
                   ],
                 ),
               ),
@@ -91,6 +96,31 @@ class TypePanel extends StatelessWidget {
       final level = i + 1;
       return _HeadingTile(level: level, editorState: editorState);
     });
+  }
+
+  Widget _actionTile(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    return Material(
+      borderRadius: BorderRadius.circular(8),
+      color: Colors.grey[50],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          onTap();
+          Navigator.of(context).maybePop();
+        },
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 72),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Column(
+            children: [
+              Icon(icon, size: 20, color: Colors.grey[700]),
+              const SizedBox(height: 2),
+              Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _typeTile(BuildContext context, IconData icon, String label, BlockType type) {

@@ -1,6 +1,28 @@
 # 数据模型层
 
-来源：`lib/core/note/core/*`
+来源：`lib/core/note/core/`
+
+## 目录结构
+
+```
+core/
+├── core.dart                     # barrel (export models + text + identity)
+├── models/
+│   ├── models.dart               # barrel
+│   ├── block.dart                # Block
+│   ├── block_data.dart           # BlockData
+│   ├── block_type.dart           # BlockType (19种)
+│   └── flat_block.dart           # FlatBlock
+├── text/
+│   ├── text.dart                 # barrel
+│   ├── rich_text.dart            # RichText
+│   ├── span.dart                 # Span
+│   └── inline_format.dart        # InlineFormat (sealed class)
+└── identity/
+    ├── identity.dart             # barrel
+    ├── block_id.dart             # BlockId (UUID v4)
+    └── block_path.dart           # BlockPath
+```
 
 ## Block — 文档树的原子单位
 
@@ -111,6 +133,8 @@ class BlockId {
   static String generate();   // xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
 }
 ```
+
+纯 Dart 实现，无外部依赖。
 
 ## BlockPath — 树路径寻址
 
