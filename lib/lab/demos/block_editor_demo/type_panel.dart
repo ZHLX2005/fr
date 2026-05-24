@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/note/core/block_type.dart';
+import '../../../core/note/core/models/block_type.dart';
 import 'state.dart';
 
 /// 分类展示所有 BlockType 的展开面板（底部弹出）。

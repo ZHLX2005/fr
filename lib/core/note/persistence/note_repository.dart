@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import '../core/block.dart';
-import '../core/block_id.dart';
-import '../core/block_type.dart';
-import '../core/rich_text.dart';
+import '../core/models/block.dart';
+import '../core/identity/block_id.dart';
+import '../core/models/block_type.dart';
+import '../core/text/rich_text.dart';
 
 /// 单篇笔记的元数据。
 class NoteInfo {

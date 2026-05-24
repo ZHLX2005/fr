@@ -1,7 +1,7 @@
 import 'block_data.dart';
-import 'block_id.dart';
 import 'block_type.dart';
-import 'rich_text.dart';
+import '../identity/block_id.dart';
+import '../text/rich_text.dart';
 
 /// 文档树的基本单元。
 ///

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/note/core/block.dart';
-import '../../../core/note/core/block_type.dart';
+import '../../../core/note/core/models/block.dart';
+import '../../../core/note/core/models/block_type.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
 import 'renderer.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart' hide RichText;
-import '../../../core/note/core/block_type.dart';
+import '../../../core/note/core/models/block_type.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';

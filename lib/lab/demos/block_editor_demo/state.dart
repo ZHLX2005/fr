@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
-import '../../../core/note/core/block.dart';
-import '../../../core/note/core/block_data.dart';
-import '../../../core/note/core/block_id.dart';
-import '../../../core/note/core/block_type.dart';
-import '../../../core/note/core/rich_text.dart';
+import '../../../core/note/core/models/block.dart';
+import '../../../core/note/core/models/block_data.dart';
+import '../../../core/note/core/identity/block_id.dart';
+import '../../../core/note/core/models/block_type.dart';
+import '../../../core/note/core/text/rich_text.dart';
 import '../../../core/note/persistence/note_repository.dart';
 
 /// 编辑器状态管理，支持持久化。

@@ -1,8 +1,8 @@
-import '../../../core/note/core/block.dart';
-import '../../../core/note/core/block_data.dart';
-import '../../../core/note/core/block_id.dart';
-import '../../../core/note/core/block_type.dart';
-import '../../../core/note/core/rich_text.dart';
+import '../../../core/note/core/models/block.dart';
+import '../../../core/note/core/models/block_data.dart';
+import '../../../core/note/core/identity/block_id.dart';
+import '../../../core/note/core/models/block_type.dart';
+import '../../../core/note/core/text/rich_text.dart';
 
 /// Phase 1 示例数据：覆盖 6 种常用 BlockType
 List<Block> createDemoBlocks() {
