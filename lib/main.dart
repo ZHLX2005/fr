@@ -19,6 +19,7 @@ import 'lab/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
+import 'core/note/core/type/di/di.dart';
 
 void main() async {
   // 确保 Flutter 绑定初始化
@@ -38,6 +39,9 @@ void main() async {
 
   // 初始化消息策略
   registerMessageStrategies();
+
+  // 初始化 BlockType 反序列化工厂
+  registerBlockTypes();
 
   // 使用 ProviderScope 包装应用，注入 Repository
   runApp(
