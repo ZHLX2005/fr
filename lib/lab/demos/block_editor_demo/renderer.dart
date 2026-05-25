@@ -1,21 +1,21 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/note/core/models/block.dart';
-import '../../../core/note/core/models/block_type.dart';
+import '../../../core/note/core/type/type.dart';
 
 /// 根据 BlockType 返回编辑时使用的 TextStyle。
 TextStyle? textStyleForType(Block block) {
   return switch (block.type) {
-    BlockType.heading => _headingStyle(block),
-    BlockType.code => const TextStyle(fontFamily: 'monospace', fontSize: 13),
-    BlockType.page => const TextStyle(fontWeight: FontWeight.w600),
-    BlockType.quote => TextStyle(color: Colors.grey[700], fontStyle: FontStyle.italic),
+    HeadingType() => _headingStyle(block),
+    CodeType() => const TextStyle(fontFamily: 'monospace', fontSize: 13),
+    PageType() => const TextStyle(fontWeight: FontWeight.w600),
+    QuoteType() => TextStyle(color: Colors.grey[700], fontStyle: FontStyle.italic),
     _ => null,
   };
 }
 
 TextStyle _headingStyle(Block block) {
-  final level = block.data.get<int>('level') ?? 1;
+  final level = (block.type as HeadingType).level;
   final sizes = [28.0, 22.0, 18.0, 16.0, 14.0, 13.0];
   return TextStyle(
     fontSize: sizes[level.clamp(1, 6) - 1],
@@ -29,16 +29,16 @@ Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo, VoidCallback
   final text = block.content.toPlainText();
 
   return switch (block.type) {
-    BlockType.page => _pageContent(block),
-    BlockType.heading => _headingContent(block),
-    BlockType.todo => _todoContent(block, onToggleTodo: onToggleTodo),
-    BlockType.divider => const Divider(height: 1, thickness: 1),
-    BlockType.bulletListItem => _bulletContent(text),
-    BlockType.orderedListItem => _orderedContent(block),
-    BlockType.quote => _quoteContent(text),
-    BlockType.code => _codeContent(block),
-    BlockType.callout => _calloutContent(block),
-    BlockType.image => _imageContent(block, onTapAddImage: onTapAddImage),
+    PageType() => _pageContent(block),
+    HeadingType() => _headingContent(block),
+    TodoType() => _todoContent(block, onToggleTodo: onToggleTodo),
+    DividerType() => const Divider(height: 1, thickness: 1),
+    BulletListItemType() => _bulletContent(text),
+    OrderedListItemType() => _orderedContent(block),
+    QuoteType() => _quoteContent(text),
+    CodeType() => _codeContent(block),
+    CalloutType() => _calloutContent(block),
+    ImageType() => _imageContent(block, onTapAddImage: onTapAddImage),
     _ => Text(text),
   };
 }
@@ -51,7 +51,7 @@ Widget _pageContent(Block block) {
 }
 
 Widget _headingContent(Block block) {
-  final level = block.data.get<int>('level') ?? 1;
+  final level = (block.type as HeadingType).level;
   final text = block.content.toPlainText();
   final sizes = [28.0, 22.0, 18.0, 16.0, 14.0, 13.0];
   return Text(
@@ -65,7 +65,7 @@ Widget _headingContent(Block block) {
 }
 
 Widget _todoContent(Block block, {VoidCallback? onToggleTodo}) {
-  final checked = block.data.get<bool>('checked') ?? false;
+  final checked = (block.type as TodoType).checked;
   final text = block.content.toPlainText();
   return Row(
     children: [
@@ -102,7 +102,7 @@ Widget _bulletContent(String text) {
 }
 
 Widget _orderedContent(Block block) {
-  final number = block.data.get<int>('number') ?? 1;
+  final number = (block.type as OrderedListItemType).number;
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -126,7 +126,7 @@ Widget _quoteContent(String text) {
 }
 
 Widget _codeContent(Block block) {
-  final lang = block.data.get<String>('language') ?? '';
+  final lang = (block.type as CodeType).language;
   final text = block.content.toPlainText();
   return Container(
     width: double.infinity,
@@ -151,10 +151,11 @@ Widget _codeContent(Block block) {
 }
 
 Widget _imageContent(Block block, {VoidCallback? onTapAddImage}) {
-  final src = block.data.get<String>('src') ?? '';
-  final caption = block.data.get<String>('caption');
-  final width = block.data.get<double>('width');
-  final height = block.data.get<double>('height');
+  final imgType = block.type as ImageType;
+  final src = imgType.src;
+  final caption = imgType.caption;
+  final width = imgType.width;
+  final height = imgType.height;
 
   if (src.isEmpty) {
     return GestureDetector(
@@ -228,7 +229,7 @@ Widget _imageErrorPlaceholder() {
 }
 
 Widget _calloutContent(Block block) {
-  final icon = block.data.get<String>('icon') ?? '💡';
+  final icon = (block.type as CalloutType).icon;
   final text = block.content.toPlainText();
   return Container(
     width: double.infinity,

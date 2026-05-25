@@ -1,6 +1,5 @@
 import '../core/models/block.dart';
-import '../core/models/block_data.dart';
-import '../core/models/block_type.dart';
+import '../core/type/type.dart';
 import '../core/text/rich_text.dart';
 
 /// Markdown → List<Block> 转换。
@@ -38,11 +37,8 @@ class MdToBlock {
         i++; // 跳过结束 ``` 或文件尾
         blocks.add(Block(
           id: _nextId(),
-          type: BlockType.code,
+          type: lang.isNotEmpty ? CodeType(language: lang) : const CodeType(),
           content: RichText.text(codeLines.join('\n')),
-          data: lang.isNotEmpty
-              ? BlockData.fromMap({'language': lang})
-              : BlockData.empty(),
         ));
         continue;
       }
@@ -54,9 +50,8 @@ class MdToBlock {
         final text = headingMatch.group(2)!.trim();
         blocks.add(Block(
           id: _nextId(),
-          type: BlockType.heading,
+          type: HeadingType(level: level),
           content: RichText.text(text),
-          data: BlockData.fromMap({'level': level}),
         ));
         i++;
         continue;
@@ -66,7 +61,7 @@ class MdToBlock {
       if (RegExp(r'^-{3,}$').hasMatch(trimmed)) {
         blocks.add(Block(
           id: _nextId(),
-          type: BlockType.divider,
+          type: const DividerType(),
         ));
         i++;
         continue;
@@ -79,9 +74,8 @@ class MdToBlock {
         final text = todoMatch.group(2)!.trim();
         blocks.add(Block(
           id: _nextId(),
-          type: BlockType.todo,
+          type: TodoType(checked: checked),
           content: RichText.text(text),
-          data: BlockData.fromMap({'checked': checked}),
         ));
         i++;
         continue;
@@ -92,7 +86,7 @@ class MdToBlock {
       if (bulletMatch != null) {
         blocks.add(Block(
           id: _nextId(),
-          type: BlockType.bulletListItem,
+          type: const BulletListItemType(),
           content: RichText.text(bulletMatch.group(1)!.trim()),
         ));
         i++;
@@ -105,9 +99,8 @@ class MdToBlock {
         final number = int.tryParse(orderMatch.group(1)!) ?? 1;
         blocks.add(Block(
           id: _nextId(),
-          type: BlockType.orderedListItem,
+          type: OrderedListItemType(number: number),
           content: RichText.text(orderMatch.group(2)!.trim()),
-          data: BlockData.fromMap({'number': number}),
         ));
         i++;
         continue;
@@ -117,7 +110,7 @@ class MdToBlock {
       if (trimmed.startsWith('> ')) {
         blocks.add(Block(
           id: _nextId(),
-          type: BlockType.quote,
+          type: const QuoteType(),
           content: RichText.text(trimmed.substring(2).trim()),
         ));
         i++;
@@ -127,7 +120,7 @@ class MdToBlock {
       // 默认 → paragraph
       blocks.add(Block(
         id: _nextId(),
-        type: BlockType.paragraph,
+        type: const ParagraphType(),
         content: RichText.text(trimmed),
       ));
       i++;

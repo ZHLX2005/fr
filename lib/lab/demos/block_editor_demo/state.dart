@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/note/core/models/block.dart';
-import '../../../core/note/core/models/block_data.dart';
 import '../../../core/note/core/identity/block_id.dart';
-import '../../../core/note/core/models/block_type.dart';
+import '../../../core/note/core/type/type.dart';
 import '../../../core/note/core/text/rich_text.dart';
 import '../../../core/note/convert/md_to_block.dart';
 import '../../../core/note/persistence/note_repository.dart';
@@ -57,7 +56,7 @@ class EditorState extends ChangeNotifier {
     _blocks.clear();
     _blocks.add(Block(
       id: BlockId.generate(),
-      type: BlockType.paragraph,
+      type: const ParagraphType(),
       content: RichText.text(''),
     ));
     _selectedId = _blocks.first.id;
@@ -97,7 +96,7 @@ class EditorState extends ChangeNotifier {
   void addBlock() {
     final block = Block(
       id: BlockId.generate(),
-      type: BlockType.paragraph,
+      type: const ParagraphType(),
       content: RichText.text(''),
     );
     _blocks.add(block);
@@ -117,19 +116,17 @@ class EditorState extends ChangeNotifier {
   void updateImageSrc(String id, String src) {
     final idx = _blocks.indexWhere((b) => b.id == id);
     if (idx < 0) return;
-    _blocks[idx] = _blocks[idx].copyWith(
-      data: _blocks[idx].data.merge({'src': src}),
-    );
+    final oldType = _blocks[idx].type as ImageType;
+    _blocks[idx] = _blocks[idx].copyWith(type: oldType.copyWith(src: src));
     notifyListeners();
     _save();
   }
 
-  void addBlockWithType(BlockType type, {int? level}) {
+  void addBlockWithType(BlockType type) {
     final block = Block(
       id: BlockId.generate(),
       type: type,
       content: type.containerOnly ? RichText.empty() : RichText.text(''),
-      data: level != null ? BlockData.fromMap({'level': level}) : BlockData.empty(),
     );
     if (_selectedId != null) {
       final idx = _blocks.indexWhere((b) => b.id == _selectedId);
@@ -151,8 +148,8 @@ class EditorState extends ChangeNotifier {
     final idx = _blocks.indexWhere((b) => b.id == id);
     if (idx < 0) return;
     final block = _blocks[idx];
-    final checked = block.data.get<bool>('checked') ?? false;
-    _blocks[idx] = block.copyWith(data: block.data.merge({'checked': !checked}));
+    final checked = (block.type as TodoType).checked;
+    _blocks[idx] = block.copyWith(type: TodoType(checked: !checked));
     notifyListeners();
     _save();
   }
@@ -182,7 +179,7 @@ class EditorState extends ChangeNotifier {
     if (_noteId == null) return;
     final root = Block(
       id: _noteId!,
-      type: BlockType.page,
+      type: const PageType(),
       content: RichText.text(_extractTitle()),
       children: List.of(_blocks),
     );
@@ -204,7 +201,7 @@ class EditorState extends ChangeNotifier {
 
   String _extractTitle() {
     for (final block in _blocks) {
-      if (block.type == BlockType.heading) {
+      if (block.type is HeadingType) {
         final t = block.content.toPlainText().trim();
         if (t.isNotEmpty) return t;
       }

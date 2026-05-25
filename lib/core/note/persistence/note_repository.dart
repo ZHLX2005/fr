@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../core/models/block.dart';
 import '../core/identity/block_id.dart';
-import '../core/models/block_type.dart';
+import '../core/type/type.dart';
 import '../core/text/rich_text.dart';
 
 /// 单篇笔记的元数据。
@@ -115,7 +115,7 @@ class NoteRepository {
   /// 从根 block 中提取标题。
   String _extractTitle(Block block) {
     // 页面标题：如果根是 page 类型，取 content 文本
-    if (block.type == BlockType.page) {
+    if (block.type is PageType) {
       final text = block.content.toPlainText().trim();
       if (text.isNotEmpty) return text;
     }
@@ -137,7 +137,7 @@ class NoteRepository {
   }
 
   String? _findFirstHeading(Block block) {
-    if (block.type == BlockType.heading) {
+    if (block.type is HeadingType) {
       final t = block.content.toPlainText().trim();
       if (t.isNotEmpty) return t;
     }
@@ -161,7 +161,7 @@ class NoteRepository {
   Block createNote(String title) {
     return Block(
       id: BlockId.generate(),
-      type: BlockType.page,
+      type: const PageType(),
       content: RichText.text(title),
     );
   }

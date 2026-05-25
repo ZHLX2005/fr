@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/note/core/models/block_type.dart';
+import '../../../core/note/core/type/type.dart';
 import 'state.dart';
 
 /// 分类展示所有 BlockType 的展开面板（底部弹出）。
@@ -45,19 +45,19 @@ class TypePanel extends StatelessWidget {
                   children: [
                     _buildCategory('标题', _headingTiles()),
                     _buildCategory('列表', [
-                      _typeTile(context, Icons.check_box_outline_blank, '待办', BlockType.todo),
-                      _typeTile(context, Icons.format_list_bulleted, '无序列表', BlockType.bulletListItem),
-                      _typeTile(context, Icons.format_list_numbered, '有序列表', BlockType.orderedListItem),
+                      _typeTile(context, Icons.check_box_outline_blank, '待办', const TodoType()),
+                      _typeTile(context, Icons.format_list_bulleted, '无序列表', const BulletListItemType()),
+                      _typeTile(context, Icons.format_list_numbered, '有序列表', const OrderedListItemType()),
                     ]),
                     _buildCategory('文本', [
-                      _typeTile(context, Icons.text_fields, '段落', BlockType.paragraph),
-                      _typeTile(context, Icons.format_quote, '引用', BlockType.quote),
-                      _typeTile(context, Icons.code, '代码', BlockType.code),
-                      _typeTile(context, Icons.info_outline, '提示框', BlockType.callout),
+                      _typeTile(context, Icons.text_fields, '段落', const ParagraphType()),
+                      _typeTile(context, Icons.format_quote, '引用', const QuoteType()),
+                      _typeTile(context, Icons.code, '代码', const CodeType()),
+                      _typeTile(context, Icons.info_outline, '提示框', const CalloutType()),
                     ]),
                     _buildCategory('媒体', [
-                      _typeTile(context, Icons.image, '图片', BlockType.image),
-                      _typeTile(context, Icons.horizontal_rule, '分割线', BlockType.divider),
+                      _typeTile(context, Icons.image, '图片', const ImageType(src: '')),
+                      _typeTile(context, Icons.horizontal_rule, '分割线', const DividerType()),
                     ]),
                     if (onImportMd != null)
                       _buildCategory('工具', [
@@ -164,7 +164,7 @@ class _HeadingTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
-          editorState.addBlockWithType(BlockType.heading, level: level);
+          editorState.addBlockWithType(HeadingType(level: level));
           Navigator.of(context).maybePop();
         },
         child: Container(

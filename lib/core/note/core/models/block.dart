@@ -1,5 +1,4 @@
-import 'block_data.dart';
-import 'block_type.dart';
+import '../type/type.dart';
 import '../identity/block_id.dart';
 import '../text/rich_text.dart';
 
@@ -14,7 +13,6 @@ class Block {
   final BlockType type;
   final RichText content;
   final List<Block> children;
-  final BlockData data;
   final Map<String, dynamic> properties;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -24,13 +22,11 @@ class Block {
     required this.type,
     RichText? content,
     List<Block>? children,
-    BlockData? data,
     Map<String, dynamic>? properties,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : content = content ?? RichText.empty(),
         children = children ?? const [],
-        data = data ?? BlockData.empty(),
         properties = properties ?? const {},
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -42,7 +38,6 @@ class Block {
     BlockType? type,
     RichText? content,
     List<Block>? children,
-    BlockData? data,
     Map<String, dynamic>? properties,
     DateTime? updatedAt,
   }) =>
@@ -51,7 +46,6 @@ class Block {
         type: type ?? this.type,
         content: content ?? this.content,
         children: children ?? this.children,
-        data: data ?? this.data,
         properties: properties ?? this.properties,
         createdAt: createdAt,
         updatedAt: updatedAt ?? DateTime.now(),
@@ -62,7 +56,7 @@ class Block {
         'type': type.tag,
         'content': content.toJson(),
         'children': children.map((c) => c.toJson()).toList(),
-        'data': data.toMap(),
+        'data': type.toJson(),
         'properties': Map.of(properties),
         'created_at': createdAt.millisecondsSinceEpoch,
         'updated_at': updatedAt.millisecondsSinceEpoch,
@@ -70,7 +64,10 @@ class Block {
 
   factory Block.fromJson(Map<String, dynamic> json) => Block(
         id: json['id'] as String? ?? BlockId.generate(),
-        type: BlockType.fromTag(json['type'] as String? ?? 'paragraph'),
+        type: BlockType.fromTag(
+            json['type'] as String? ?? 'paragraph',
+            _castMapOrEmpty(json['data']),
+          ),
         content: json['content'] != null
             ? RichText.fromJson(_castMap(json['content']!))
             : RichText.empty(),
@@ -78,7 +75,6 @@ class Block {
                 ?.map((c) => Block.fromJson(_castMap(c)))
                 .toList() ??
             [],
-        data: BlockData.fromMap(_castMapOrEmpty(json['data'])),
         properties: _castMapOrEmpty(json['properties']),
         createdAt: json['created_at'] != null
             ? DateTime.fromMillisecondsSinceEpoch(json['created_at'] as int)

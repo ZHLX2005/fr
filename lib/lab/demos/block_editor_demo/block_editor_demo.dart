@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:file_picker/file_picker.dart';
-import '../../../core/note/core/models/block_type.dart';
+import '../../../core/note/core/type/type.dart';
 import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
@@ -44,25 +44,25 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _toolbarTypeButton('P', BlockType.paragraph, Icons.text_fields),
+                      _toolbarTypeButton('P', const ParagraphType(), Icons.text_fields),
                       const SizedBox(width: 2),
                       _toolbarHeadingButtons(),
                       const SizedBox(width: 2),
-                      _toolbarTypeButton('☐', BlockType.todo, Icons.check_box_outline_blank),
+                      _toolbarTypeButton('☐', const TodoType(), Icons.check_box_outline_blank),
                       const SizedBox(width: 2),
-                      _toolbarTypeButton('•', BlockType.bulletListItem, Icons.format_list_bulleted),
+                      _toolbarTypeButton('•', const BulletListItemType(), Icons.format_list_bulleted),
                       const SizedBox(width: 2),
-                      _toolbarTypeButton('1.', BlockType.orderedListItem, Icons.format_list_numbered),
+                      _toolbarTypeButton('1.', const OrderedListItemType(), Icons.format_list_numbered),
                       const SizedBox(width: 2),
-                      _toolbarTypeButton('"', BlockType.quote, Icons.format_quote),
+                      _toolbarTypeButton('"', const QuoteType(), Icons.format_quote),
                       const SizedBox(width: 2),
-                      _toolbarTypeButton('<>', BlockType.code, Icons.code),
+                      _toolbarTypeButton('<>', const CodeType(), Icons.code),
                       const SizedBox(width: 2),
-                      _toolbarTypeButton('—', BlockType.divider, Icons.horizontal_rule),
+                      _toolbarTypeButton('—', const DividerType(), Icons.horizontal_rule),
                       const SizedBox(width: 2),
-                      _toolbarTypeButton('💡', BlockType.callout, Icons.info_outline),
+                      _toolbarTypeButton('💡', const CalloutType(), Icons.info_outline),
                       const SizedBox(width: 2),
-                      _toolbarTypeButton('🖼', BlockType.image, Icons.image),
+                      _toolbarTypeButton('🖼', const ImageType(src: ''), Icons.image),
                       const SizedBox(width: 8),
                       _toolbarButton(
                         label: '导入 MD',
@@ -117,7 +117,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
               borderRadius: BorderRadius.circular(6),
               child: InkWell(
                 borderRadius: BorderRadius.circular(6),
-                onTap: () => _editorState.addBlockWithType(BlockType.heading, level: l),
+                onTap: () => _editorState.addBlockWithType(HeadingType(level: l)),
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 30.0),
                   alignment: Alignment.center,

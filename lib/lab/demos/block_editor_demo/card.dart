@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/note/core/models/block.dart';
-import '../../../core/note/core/models/block_type.dart';
+import '../../../core/note/core/type/type.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
 import 'renderer.dart';
@@ -74,12 +74,12 @@ class _BlockCardState extends State<BlockCard> {
           Expanded(
             child: GestureDetector(
               onTap: () => widget.editorState.select(widget.block.id),
-              child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type != BlockType.image
+              child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType
                   ? _buildTextField()
                   : renderBlockContent(
                       widget.block,
                       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
-                      onTapAddImage: widget.block.type == BlockType.image
+                      onTapAddImage: widget.block.type is ImageType
                           ? () => _showAddImageDialog()
                           : null,
                     ),
@@ -161,7 +161,7 @@ class _BlockCardState extends State<BlockCard> {
 
   Future<void> _showUrlDialog() async {
     final controller = TextEditingController(
-      text: widget.block.data.get<String>('src') ?? '',
+      text: (widget.block.type as ImageType).src,
     );
     final result = await showDialog<String>(
       context: context,
@@ -191,14 +191,14 @@ class _BlockCardState extends State<BlockCard> {
 
   IconData _typeIcon(BlockType type) {
     return switch (type) {
-      BlockType.heading => Icons.title,
-      BlockType.todo => Icons.check_box_outline_blank,
-      BlockType.bulletListItem => Icons.format_list_bulleted,
-      BlockType.orderedListItem => Icons.format_list_numbered,
-      BlockType.quote => Icons.format_quote,
-      BlockType.code => Icons.code,
-      BlockType.divider => Icons.horizontal_rule,
-      BlockType.callout => Icons.info_outline,
+      HeadingType() => Icons.title,
+      TodoType() => Icons.check_box_outline_blank,
+      BulletListItemType() => Icons.format_list_bulleted,
+      OrderedListItemType() => Icons.format_list_numbered,
+      QuoteType() => Icons.format_quote,
+      CodeType() => Icons.code,
+      DividerType() => Icons.horizontal_rule,
+      CalloutType() => Icons.info_outline,
       _ => Icons.text_fields,
     };
   }
