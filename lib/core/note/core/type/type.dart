@@ -40,21 +40,35 @@ sealed class BlockType {
   /// 序列化类型专属数据（不含 tag 本身）。
   Map<String, dynamic> toJson();
 
-  /// 工厂注册表。每个 tag 对应一个工厂函数，由 [register] 注入。
-  static final Map<String, BlockTypeFactory> _registry = {};
-
-  /// 注册 tag 对应的反序列化工厂。
-  static void register(String tag, BlockTypeFactory factory) {
-    _registry[tag] = factory;
-  }
+  /// 工厂注册表。tag → 反序列化工厂，与 [part] 指令一一对应。
+  /// 新增类型时在此加一行即可（同时加 [part] 指令）。
+  static final Map<String, BlockTypeFactory> _registry = {
+    'page': (_) => const PageType(),
+    'paragraph': (_) => const ParagraphType(),
+    'heading': HeadingType.fromData,
+    'todo': TodoType.fromData,
+    'toggle': (_) => const ToggleType(),
+    'bullet_list_item': (_) => const BulletListItemType(),
+    'ordered_list_item': OrderedListItemType.fromData,
+    'quote': (_) => const QuoteType(),
+    'code': CodeType.fromData,
+    'divider': (_) => const DividerType(),
+    'callout': CalloutType.fromData,
+    'image': ImageType.fromData,
+    'embed_card': EmbedCardType.fromData,
+    'bookmark': BookmarkType.fromData,
+    'equation': EquationType.fromData,
+    'database': (_) => const DatabaseType(),
+    'column_list': (_) => const ColumnListType(),
+    'column': ColumnType.fromData,
+    'synced_block': SyncedBlockType.fromData,
+  };
 
   /// 从 [tag] 及可选 [data] 反查具体子类实例。
-  /// 反序列化前必须先调用 [register] 或全局初始化函数。
   static BlockType fromTag(String tag, [Map<String, dynamic> data = const {}]) {
     final factory = _registry[tag];
     if (factory == null) {
-      throw ArgumentError('Unknown block type tag: "$tag". '
-          'Did you forget to call registerBlockTypes()?');
+      throw ArgumentError('Unknown block type tag: "$tag".');
     }
     return factory(data);
   }
