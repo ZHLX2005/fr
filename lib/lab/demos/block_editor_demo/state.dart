@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/note/core/models/block.dart';
-import '../../../core/note/core/identity/block_id.dart';
+import '../../../core/note/core/identity/identity.dart';
 import '../../../core/note/core/type/type.dart';
 import '../../../core/note/core/text/rich_text.dart';
 import '../../../core/note/convert/md_to_block.dart';
@@ -31,7 +31,7 @@ class EditorState extends ChangeNotifier {
       }
     }
     if (_blocks.isEmpty) {
-      _noteId = BlockId.generate();
+      _noteId = BlockIdentityFactory.generateId();
     }
     if (_blocks.isNotEmpty) {
       _selectedId = _blocks.first.id;
@@ -52,10 +52,10 @@ class EditorState extends ChangeNotifier {
 
   /// 创建一篇空白新笔记（含一个空段落，立即保存到磁盘）。
   Future<void> createNewNote() async {
-    _noteId = BlockId.generate();
+    _noteId = BlockIdentityFactory.generateId();
     _blocks.clear();
     _blocks.add(Block(
-      id: BlockId.generate(),
+      id: BlockIdentityFactory.generateId(),
       type: const ParagraphType(),
       content: RichText.text(''),
     ));
@@ -95,7 +95,7 @@ class EditorState extends ChangeNotifier {
 
   void addBlock() {
     final block = Block(
-      id: BlockId.generate(),
+      id: BlockIdentityFactory.generateId(),
       type: const ParagraphType(),
       content: RichText.text(''),
     );
@@ -124,7 +124,7 @@ class EditorState extends ChangeNotifier {
 
   void addBlockWithType(BlockType type) {
     final block = Block(
-      id: BlockId.generate(),
+      id: BlockIdentityFactory.generateId(),
       type: type,
       content: type.containerOnly ? RichText.empty() : RichText.text(''),
     );

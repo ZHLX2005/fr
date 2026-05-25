@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../core/models/block.dart';
-import '../core/identity/block_id.dart';
+import '../core/identity/identity.dart';
 import '../core/type/type.dart';
 import '../core/text/rich_text.dart';
 
@@ -160,7 +160,7 @@ class NoteRepository {
   /// 创建一篇新笔记，返回根 page block。
   Block createNote(String title) {
     return Block(
-      id: BlockId.generate(),
+      id: BlockIdentityFactory.generateId(),
       type: const PageType(),
       content: RichText.text(title),
     );
