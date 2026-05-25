@@ -1,4 +1,5 @@
 import '../type/type.dart';
+import '../type/deserialize.dart';
 import '../identity/identity.dart';
 import '../text/rich_text.dart';
 
@@ -64,7 +65,7 @@ class Block {
 
   factory Block.fromJson(Map<String, dynamic> json) => Block(
         id: json['id'] as String? ?? BlockIdentityFactory.generateId(),
-        type: BlockType.fromTag(
+        type: deserializeBlockType(
             json['type'] as String? ?? 'paragraph',
             _castMapOrEmpty(json['data']),
           ),
