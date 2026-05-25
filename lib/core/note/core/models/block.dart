@@ -1,5 +1,5 @@
 import '../type/type.dart';
-import '../type/deserialize.dart';
+import 'block_serializer.dart';
 import '../identity/identity.dart';
 import '../text/rich_text.dart';
 
