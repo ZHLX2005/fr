@@ -40,3 +40,28 @@ sealed class BlockType {
   /// 序列化类型专属数据（不含 tag 本身）。
   Map<String, dynamic> toJson();
 }
+
+/// 运行时 tag → 构造工厂映射，与 [part] 指令一一对应。
+/// 新增类型时在此相邻加两行：[part] + [typeRegistry] 条目。
+typedef BlockTypeFactory = BlockType Function(Map<String, dynamic>);
+final Map<String, BlockTypeFactory> typeRegistry = {
+  'page': (_) => const PageType(),
+  'paragraph': (_) => const ParagraphType(),
+  'heading': HeadingType.fromData,
+  'todo': TodoType.fromData,
+  'toggle': (_) => const ToggleType(),
+  'bullet_list_item': (_) => const BulletListItemType(),
+  'ordered_list_item': OrderedListItemType.fromData,
+  'quote': (_) => const QuoteType(),
+  'code': CodeType.fromData,
+  'divider': (_) => const DividerType(),
+  'callout': CalloutType.fromData,
+  'image': ImageType.fromData,
+  'embed_card': EmbedCardType.fromData,
+  'bookmark': BookmarkType.fromData,
+  'equation': EquationType.fromData,
+  'database': (_) => const DatabaseType(),
+  'column_list': (_) => const ColumnListType(),
+  'column': ColumnType.fromData,
+  'synced_block': SyncedBlockType.fromData,
+};
