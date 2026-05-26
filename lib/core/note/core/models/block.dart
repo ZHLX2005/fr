@@ -1,6 +1,4 @@
 import '../type/type.dart';
-import 'block_serializer.dart';
-import '../identity/identity.dart';
 import '../text/rich_text.dart';
 
 /// 文档树的基本单元。
@@ -9,6 +7,7 @@ import '../text/rich_text.dart';
 /// [content] 为富文本，[children] 仅在序列化时携带（运行时的父子关系由 BlockTree 的双索引管理）。
 ///
 /// 同一性由 [id] 决定（== / hashCode），不可变风格通过 [copyWith] 更新。
+/// 纯数据容器，不持有序列化逻辑（见 [BlockCodec]）。
 class Block {
   final String id;
   final BlockType type;
@@ -51,45 +50,6 @@ class Block {
         createdAt: createdAt,
         updatedAt: updatedAt ?? DateTime.now(),
       );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type.tag,
-        'content': content.toJson(),
-        'children': children.map((c) => c.toJson()).toList(),
-        'data': type.toJson(),
-        'properties': Map.of(properties),
-        'created_at': createdAt.millisecondsSinceEpoch,
-        'updated_at': updatedAt.millisecondsSinceEpoch,
-      };
-
-  factory Block.fromJson(Map<String, dynamic> json) => Block(
-        id: json['id'] as String? ?? BlockIdentityFactory.generateId(),
-        type: deserializeBlockType(
-            json['type'] as String? ?? 'paragraph',
-            _castMapOrEmpty(json['data']),
-          ),
-        content: json['content'] != null
-            ? RichText.fromJson(_castMap(json['content']!))
-            : RichText.empty(),
-        children: (json['children'] as List<dynamic>?)
-                ?.map((c) => Block.fromJson(_castMap(c)))
-                .toList() ??
-            [],
-        properties: _castMapOrEmpty(json['properties']),
-        createdAt: json['created_at'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(json['created_at'] as int)
-            : null,
-        updatedAt: json['updated_at'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(json['updated_at'] as int)
-            : null,
-      );
-
-  static Map<String, dynamic> _castMap(dynamic value) =>
-      Map<String, dynamic>.from(value as Map);
-
-  static Map<String, dynamic> _castMapOrEmpty(dynamic value) =>
-      value != null ? Map<String, dynamic>.from(value as Map) : {};
 
   @override
   bool operator ==(Object other) =>

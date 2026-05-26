@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/note/core/models/block.dart';
-import '../../../core/note/core/identity/identity.dart';
 import '../../../core/note/core/type/type.dart';
 import '../../../core/note/core/text/rich_text.dart';
+import '../../../core/note/core/identity/identity.dart';
 import '../../../core/note/convert/md_to_block.dart';
 import '../../../core/note/persistence/note_repository.dart';
 
@@ -11,7 +11,12 @@ class EditorState extends ChangeNotifier {
   final List<Block> _blocks = [];
   String? _selectedId;
   String? _noteId;
-  final _repo = NoteRepository();
+  final BlockIdentityFactory _idFactory;
+  final NoteRepository _repo;
+
+  EditorState({BlockIdentityFactory? idFactory, NoteRepository? repo})
+    : _idFactory = idFactory ?? const BlockIdentityFactory(),
+      _repo = repo ?? NoteRepository.withDefaults();
 
   List<Block> get blocks => List.unmodifiable(_blocks);
   String? get selectedId => _selectedId;

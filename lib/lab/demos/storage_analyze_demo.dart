@@ -85,7 +85,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       }
 
       final mediaFiles = await _scanMediaFiles();
-      final repo = NoteRepository();
+      final repo = NoteRepository.withDefaults();
       final noteList = await repo.listAllNotes();
       final noteSummary = await repo.getSummary();
 
@@ -1352,7 +1352,7 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
   }
 
   Future<void> _loadContent() async {
-    final repo = NoteRepository();
+    final repo = NoteRepository.withDefaults();
     final content = await repo.readRawContent(widget.note.filePath);
     if (mounted) {
       setState(() {

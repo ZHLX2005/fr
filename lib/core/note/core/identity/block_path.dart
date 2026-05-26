@@ -20,3 +20,4 @@ class BlockPath {
 
   static const root = BlockPath(['__root__']);
 }
+

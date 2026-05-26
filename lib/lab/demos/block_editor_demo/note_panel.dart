@@ -13,7 +13,7 @@ class NotePanel extends StatefulWidget {
 }
 
 class _NotePanelState extends State<NotePanel> {
-  final _repo = NoteRepository();
+  final _repo = NoteRepository.withDefaults();
   List<NoteInfo> _notes = [];
   bool _isLoading = true;
 

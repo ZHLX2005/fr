@@ -6,14 +6,14 @@ import 'block_path.dart';
 /// 所有 ID 生成和路径构造都通过此工厂收敛，
 /// 底层实现可随时替换（如从纯 Dart UUID 切换到平台 UUID）。
 class BlockIdentityFactory {
-  const BlockIdentityFactory._();
+  const BlockIdentityFactory();
 
   /// 生成全局唯一块 ID。
-  static String generateId() => BlockId.generate();
+  String generateId() => BlockId.generate();
 
   /// 构造树路径。
-  static BlockPath path(List<String> ids) => BlockPath(ids);
+  BlockPath path(List<String> ids) => BlockPath(ids);
 
   /// 从路径字符串反构造。
-  static BlockPath pathFromString(String path) => BlockPath.fromString(path);
+  BlockPath pathFromString(String path) => BlockPath.fromString(path);
 }
