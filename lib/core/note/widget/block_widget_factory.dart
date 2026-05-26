@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../core/models/block.dart';
-import '../core/type/type.dart';
 import 'block_widget_strategy.dart';
 
 /// Block widget 工厂。

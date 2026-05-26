@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../core/type/type.dart';
 import '../core/models/block.dart';
 
 /// 块 widget 所需的外部回调。

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/note/composition_root.dart';
 import '../../../core/note/core/core.dart';
 import '../../../core/note/widget/widget.dart';
-
-/// 全局共享的工厂实例。
-final BlockWidgetFactory _factory = BlockWidgetBuilder().build();
 
 /// 根据 BlockType 返回编辑时使用的 TextStyle。
 TextStyle? textStyleForType(Block block) {
@@ -29,7 +27,7 @@ TextStyle _headingStyle(Block block) {
 /// 根据 BlockType 返回类型专属的 Widget。
 /// 委托给 [BlockWidgetFactory] 进行 O(1) 策略查找。
 Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo, VoidCallback? onTapAddImage}) {
-  return _factory.build(
+  return noteCompositionRoot.widgetFactory.build(
     block,
     BlockCallbacks(onToggleTodo: onToggleTodo, onTapAddImage: onTapAddImage),
   );

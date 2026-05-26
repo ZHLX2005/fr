@@ -7,7 +7,7 @@ import 'block_path.dart';
 class BlockIdentityFactory {
   final _IdGenerator _idGenerator;
 
-  const BlockIdentityFactory() : _idGenerator = const _IdGenerator();
+  BlockIdentityFactory() : _idGenerator = _IdGenerator();
 
   /// 生成全局唯一块 ID。
   String generateId() => _idGenerator.v4();
@@ -21,7 +21,7 @@ class BlockIdentityFactory {
 
 /// UUID v4 生成器。纯 Dart 实现，无外部依赖。
 class _IdGenerator {
-  const _IdGenerator();
+  _IdGenerator();
 
   String v4() {
     final bytes = List<int>.generate(16, (_) => _randomByte());

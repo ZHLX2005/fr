@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:file_picker/file_picker.dart';
+import '../../../core/note/composition_root.dart';
 import '../../../core/note/core/core.dart';
 import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
@@ -19,7 +20,10 @@ class BlockEditorDemo extends StatefulWidget {
 }
 
 class _BlockEditorDemoState extends State<BlockEditorDemo> {
-  final _editorState = EditorState();
+  final _editorState = EditorState(
+    idFactory: noteCompositionRoot.idFactory,
+    repo: noteCompositionRoot.noteRepository,
+  );
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override

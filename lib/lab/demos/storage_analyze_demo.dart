@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/storage/storage_manager.dart';
+import '../../core/note/composition_root.dart';
 import '../../core/note/persistence/note_repository.dart';
 import '../lab_container.dart';
 
@@ -85,7 +86,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       }
 
       final mediaFiles = await _scanMediaFiles();
-      final repo = NoteRepository.withDefaults();
+      final repo = noteCompositionRoot.noteRepository;
       final noteList = await repo.listAllNotes();
       final noteSummary = await repo.getSummary();
 
@@ -1352,7 +1353,7 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
   }
 
   Future<void> _loadContent() async {
-    final repo = NoteRepository.withDefaults();
+    final repo = noteCompositionRoot.noteRepository;
     final content = await repo.readRawContent(widget.note.filePath);
     if (mounted) {
       setState(() {

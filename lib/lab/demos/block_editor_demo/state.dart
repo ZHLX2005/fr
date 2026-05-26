@@ -12,10 +12,10 @@ class EditorState extends ChangeNotifier {
   final NoteRepository _repo;
   final MdToBlock _mdToBlock;
 
-  EditorState({BlockIdentityFactory? idFactory, NoteRepository? repo})
-    : _idFactory = idFactory ?? const BlockIdentityFactory(),
-      _repo = repo ?? NoteRepository.withDefaults(),
-      _mdToBlock = MdToBlock(idFactory: _idFactory);
+  EditorState({required BlockIdentityFactory idFactory, required NoteRepository repo})
+    : _idFactory = idFactory,
+      _repo = repo,
+      _mdToBlock = MdToBlock();
 
   List<Block> get blocks => List.unmodifiable(_blocks);
   String? get selectedId => _selectedId;

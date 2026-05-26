@@ -1,17 +1,14 @@
 import '../core/models/block.dart';
 import '../core/type/type.dart';
 import '../core/text/rich_text.dart';
-import '../core/identity/identity_factory.dart';
 
-/// Markdown → List<Block> 转换。
+/// Markdown → `List<Block>` 转换。
 ///
 /// 仅支持行级语法，内联格式（粗体/斜体/链接）存为纯文本。
 class MdToBlock {
-  final BlockIdentityFactory _idFactory;
   int _counter = 0;
 
-  MdToBlock({BlockIdentityFactory? idFactory})
-    : _idFactory = idFactory ?? BlockIdentityFactory();
+  MdToBlock();
 
   /// 解析 markdown 文本，返回 blocks。
   /// 空输入或解析失败返回空列表。

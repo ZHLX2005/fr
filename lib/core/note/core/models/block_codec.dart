@@ -11,7 +11,7 @@ class BlockCodec {
   final BlockIdentityFactory _idFactory;
 
   BlockCodec(this._typeRegistry, this._richTextCodec, {BlockIdentityFactory? idFactory})
-    : _idFactory = idFactory ?? const BlockIdentityFactory();
+    : _idFactory = idFactory ?? BlockIdentityFactory();
 
   /// Block → JSON Map
   Map<String, dynamic> encode(Block block) => {

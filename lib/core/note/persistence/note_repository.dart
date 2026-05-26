@@ -4,11 +4,8 @@ import 'package:path_provider/path_provider.dart';
 import '../core/models/block.dart';
 import '../core/models/block_codec.dart';
 import '../core/type/type.dart';
-import '../core/type/type_registry.dart';
 import '../core/identity/identity.dart';
-import '../core/text/inline_format_registry.dart';
 import '../core/text/rich_text.dart';
-import '../core/text/rich_text_codec.dart';
 
 /// 单篇笔记的元数据。
 class NoteInfo {
@@ -50,19 +47,6 @@ class NoteRepository {
   final BlockIdentityFactory _idFactory;
 
   NoteRepository(this._codec, this._idFactory);
-
-  /// 使用默认注册表 + ID 工厂 + 内联格式注册表的便利构造器。
-  factory NoteRepository.withDefaults() {
-    final idFactory = BlockIdentityFactory();
-    return NoteRepository(
-      BlockCodec(
-        BlockTypeRegistry(BlockTypeRegistrar().createFactories()),
-        RichTextCodec(InlineFormatRegistry(InlineFormatRegistrar().createFactories())),
-        idFactory: idFactory,
-      ),
-      idFactory,
-    );
-  }
 
   Future<Directory> _getNotesDir() async {
     final docDir = await getApplicationDocumentsDirectory();
