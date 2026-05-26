@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:file_picker/file_picker.dart';
-import '../../../core/note/composition_root.dart';
 import '../../../core/note/core/core.dart';
+import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
@@ -20,15 +20,17 @@ class BlockEditorDemo extends StatefulWidget {
 }
 
 class _BlockEditorDemoState extends State<BlockEditorDemo> {
-  final _editorState = EditorState(
-    idFactory: noteCompositionRoot.idFactory,
-    repo: noteCompositionRoot.noteRepository,
-  );
+  late final EditorState _editorState;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
+    final root = NoteRootScope.of(context).noteRoot;
+    _editorState = EditorState(
+      idFactory: root.idFactory,
+      repo: root.noteRepository,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _editorState.init();
     });

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/storage/storage_manager.dart';
-import '../../core/note/composition_root.dart';
+import '../../core/note/note_root_scope.dart';
 import '../../core/note/persistence/persistence.dart';
 import '../lab_container.dart';
 
@@ -35,6 +35,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   List<FileItem> _mediaFiles = [];
   bool _isLoading = true;
   late TabController _tabController;
+  late final NoteRepository _noteRepo;
   final Set<String> _expandedKeys = {};
   List<NoteInfo> _noteList = [];
   NoteSummary _noteSummary = const NoteSummary(noteCount: 0, totalBlocks: 0, totalSize: 0);
@@ -63,6 +64,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _noteRepo = NoteRootScope.of(context).noteRoot.noteRepository;
     _loadStorageData();
   }
 
@@ -86,7 +88,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       }
 
       final mediaFiles = await _scanMediaFiles();
-      final repo = noteCompositionRoot.noteRepository;
+      final repo = _noteRepo;
       final noteList = await repo.listAllNotes();
       final noteSummary = await repo.getSummary();
 
@@ -1353,7 +1355,7 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
   }
 
   Future<void> _loadContent() async {
-    final repo = noteCompositionRoot.noteRepository;
+    final repo = NoteRootScope.of(context).noteRoot.noteRepository;
     final content = await repo.readRawContent(widget.note.filePath);
     if (mounted) {
       setState(() {

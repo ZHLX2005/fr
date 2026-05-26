@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/note/core/core.dart';
+import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
-import 'renderer.dart';
 
 class BlockCard extends StatefulWidget {
   final Block block;
@@ -52,6 +52,7 @@ class _BlockCardState extends State<BlockCard> {
 
   @override
   Widget build(BuildContext context) {
+    final renderer = NoteRootScope.of(context).noteRoot.blockRenderer;
     return Material(
       type: MaterialType.transparency,
       child: Container(
@@ -75,7 +76,7 @@ class _BlockCardState extends State<BlockCard> {
               onTap: () => widget.editorState.select(widget.block.id),
               child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType
                   ? _buildTextField()
-                  : renderBlockContent(
+                  : renderer.renderBlockContent(
                       widget.block,
                       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
                       onTapAddImage: widget.block.type is ImageType
@@ -100,10 +101,11 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _buildTextField() {
+    final renderer = NoteRootScope.of(context).noteRoot.blockRenderer;
     return TextField(
       controller: _controller,
       maxLines: null,
-      style: textStyleForType(widget.block) ?? const TextStyle(fontSize: 14),
+      style: renderer.textStyleForType(widget.block) ?? const TextStyle(fontSize: 14),
       decoration: const InputDecoration(
         border: InputBorder.none,
         isDense: true,

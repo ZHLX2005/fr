@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/note/composition_root.dart';
+import '../../../core/note/note_root_scope.dart';
 import '../../../core/note/persistence/persistence.dart';
 import 'state.dart';
 
@@ -14,17 +14,19 @@ class NotePanel extends StatefulWidget {
 }
 
 class _NotePanelState extends State<NotePanel> {
+  late final NoteRepository _noteRepo;
   List<NoteInfo> _notes = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _noteRepo = NoteRootScope.of(context).noteRoot.noteRepository;
     _loadNotes();
   }
 
   Future<void> _loadNotes() async {
-    final notes = await noteCompositionRoot.noteRepository.listAllNotes();
+    final notes = await _noteRepo.listAllNotes();
     if (mounted) {
       setState(() {
         _notes = notes;
