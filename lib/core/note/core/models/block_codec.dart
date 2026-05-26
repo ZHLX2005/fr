@@ -1,5 +1,4 @@
 import '../type/type_registry.dart';
-import '../identity/identity.dart';
 import '../text/rich_text.dart';
 import '../text/rich_text_codec.dart';
 import 'block.dart';
@@ -8,10 +7,8 @@ import 'block.dart';
 class BlockCodec {
   final BlockTypeRegistry _typeRegistry;
   final RichTextCodec _richTextCodec;
-  final BlockIdentityFactory _idFactory;
 
-  BlockCodec(this._typeRegistry, this._richTextCodec, {BlockIdentityFactory? idFactory})
-    : _idFactory = idFactory ?? BlockIdentityFactory();
+  BlockCodec(this._typeRegistry, this._richTextCodec);
 
   /// Block → JSON Map
   Map<String, dynamic> encode(Block block) => {
@@ -27,7 +24,7 @@ class BlockCodec {
 
   /// JSON Map → Block
   Block decode(Map<String, dynamic> json) => Block(
-    id: json['id'] as String? ?? _idFactory.generateId(),
+    id: json['id'] as String,
     type: _typeRegistry.resolve(
       json['type'] as String? ?? 'paragraph',
       _castMapOrEmpty(json['data']),

@@ -26,10 +26,8 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
   @override
   void initState() {
     super.initState();
-    final root = NoteRootScope.of(context).noteRoot;
     _editorState = EditorState(
-      idFactory: root.idFactory,
-      repo: root.noteRepository,
+      noteFactory: NoteRootScope.of(context).noteRoot,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _editorState.init();

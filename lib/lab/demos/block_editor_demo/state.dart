@@ -1,21 +1,16 @@
 import 'package:flutter/foundation.dart';
-import '../../../core/note/convert/convert.dart';
 import '../../../core/note/core/core.dart';
-import '../../../core/note/persistence/persistence.dart';
+import '../../../core/note/factory.dart';
 
 /// 编辑器状态管理，支持持久化。
 class EditorState extends ChangeNotifier {
   final List<Block> _blocks = [];
   String? _selectedId;
   String? _noteId;
-  final BlockIdentityFactory _idFactory;
-  final NoteRepository _repo;
-  final MdToBlock _mdToBlock;
+  final NoteFactory _noteFactory;
 
-  EditorState({required BlockIdentityFactory idFactory, required NoteRepository repo})
-    : _idFactory = idFactory,
-      _repo = repo,
-      _mdToBlock = MdToBlock();
+  EditorState({required NoteFactory noteFactory})
+    : _noteFactory = noteFactory;
 
   List<Block> get blocks => List.unmodifiable(_blocks);
   String? get selectedId => _selectedId;
@@ -25,17 +20,17 @@ class EditorState extends ChangeNotifier {
 
   /// 从磁盘加载最近一篇笔记，无笔记则新建空状态。
   Future<void> init() async {
-    final notes = await _repo.listAllNotes();
+    final notes = await _noteFactory.listNotes();
     if (notes.isNotEmpty) {
       final first = notes.first;
       _noteId = first.id;
-      final root = await _repo.readNote(first.id);
+      final root = await _noteFactory.loadNote(first.id);
       if (root != null) {
         _blocks.addAll(root.children);
       }
     }
     if (_blocks.isEmpty) {
-      _noteId = _idFactory.generateId();
+      _noteId = _noteFactory.generateId();
     }
     if (_blocks.isNotEmpty) {
       _selectedId = _blocks.first.id;
@@ -45,7 +40,7 @@ class EditorState extends ChangeNotifier {
 
   /// 切换到指定笔记。
   Future<void> switchNote(String id) async {
-    final root = await _repo.readNote(id);
+    final root = await _noteFactory.loadNote(id);
     if (root == null) return;
     _noteId = id;
     _blocks.clear();
@@ -56,10 +51,10 @@ class EditorState extends ChangeNotifier {
 
   /// 创建一篇空白新笔记（含一个空段落，立即保存到磁盘）。
   Future<void> createNewNote() async {
-    _noteId = _idFactory.generateId();
+    _noteId = _noteFactory.generateId();
     _blocks.clear();
     _blocks.add(Block(
-      id: _idFactory.generateId(),
+      id: _noteFactory.generateId(),
       type: const ParagraphType(),
       content: RichText.text(''),
     ));
@@ -99,7 +94,7 @@ class EditorState extends ChangeNotifier {
 
   void addBlock() {
     final block = Block(
-      id: _idFactory.generateId(),
+      id: _noteFactory.generateId(),
       type: const ParagraphType(),
       content: RichText.text(''),
     );
@@ -128,7 +123,7 @@ class EditorState extends ChangeNotifier {
 
   void addBlockWithType(BlockType type) {
     final block = Block(
-      id: _idFactory.generateId(),
+      id: _noteFactory.generateId(),
       type: type,
       content: type.containerOnly ? RichText.empty() : RichText.text(''),
     );
@@ -169,7 +164,7 @@ class EditorState extends ChangeNotifier {
 
   /// 导入 markdown 内容，替换当前笔记的所有块。
   void importMd(String source) {
-    final blocks = _mdToBlock.parse(source);
+    final blocks = _noteFactory.parseMarkdown(source);
     if (blocks.isEmpty) return;
     _blocks
       ..clear()
@@ -187,14 +182,14 @@ class EditorState extends ChangeNotifier {
       content: RichText.text(_extractTitle()),
       children: List.of(_blocks),
     );
-    await _repo.saveNote(root);
+    await _noteFactory.saveNote(root);
   }
 
   /// 删除指定笔记。若是当前笔记，自动切换到下一笔记或新建。
   Future<void> deleteNote(String id) async {
-    await _repo.deleteNote(id);
+    await _noteFactory.deleteNote(id);
     if (id == _noteId) {
-      final notes = await _repo.listAllNotes();
+      final notes = await _noteFactory.listNotes();
       if (notes.isNotEmpty) {
         await switchNote(notes.first.id);
       } else {

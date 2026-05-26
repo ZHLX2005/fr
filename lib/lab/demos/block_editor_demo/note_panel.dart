@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/note/note_root_scope.dart';
-import '../../../core/note/persistence/persistence.dart';
+import '../../../core/note/persistence/persistence.dart' show NoteInfo;
 import 'state.dart';
 
 /// 右侧笔记列表面板（Scaffold endDrawer）。
@@ -14,19 +14,17 @@ class NotePanel extends StatefulWidget {
 }
 
 class _NotePanelState extends State<NotePanel> {
-  late final NoteRepository _noteRepo;
   List<NoteInfo> _notes = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _noteRepo = NoteRootScope.of(context).noteRoot.noteRepository;
     _loadNotes();
   }
 
   Future<void> _loadNotes() async {
-    final notes = await _noteRepo.listAllNotes();
+    final notes = await NoteRootScope.of(context).noteRoot.listNotes();
     if (mounted) {
       setState(() {
         _notes = notes;

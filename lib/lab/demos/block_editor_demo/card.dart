@@ -52,7 +52,6 @@ class _BlockCardState extends State<BlockCard> {
 
   @override
   Widget build(BuildContext context) {
-    final renderer = NoteRootScope.of(context).noteRoot.blockRenderer;
     return Material(
       type: MaterialType.transparency,
       child: Container(
@@ -76,7 +75,7 @@ class _BlockCardState extends State<BlockCard> {
               onTap: () => widget.editorState.select(widget.block.id),
               child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType
                   ? _buildTextField()
-                  : renderer.renderBlockContent(
+                  : NoteRootScope.of(context).noteRoot.renderBlock(
                       widget.block,
                       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
                       onTapAddImage: widget.block.type is ImageType
@@ -101,11 +100,10 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _buildTextField() {
-    final renderer = NoteRootScope.of(context).noteRoot.blockRenderer;
     return TextField(
       controller: _controller,
       maxLines: null,
-      style: renderer.textStyleForType(widget.block) ?? const TextStyle(fontSize: 14),
+      style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block) ?? const TextStyle(fontSize: 14),
       decoration: const InputDecoration(
         border: InputBorder.none,
         isDense: true,

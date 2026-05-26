@@ -19,7 +19,7 @@ import 'lab/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
-import 'core/note/composition_root.dart';
+import 'core/note/factory.dart';
 import 'core/note/note_root_scope.dart';
 void main() async {
   // 确保 Flutter 绑定初始化
@@ -41,7 +41,7 @@ void main() async {
   registerMessageStrategies();
 
   // 初始化笔记模块
-  final noteRoot = NoteCompositionRoot.create();
+  final noteRoot = NoteFactory.create();
 
   // 使用 NoteRootScope 包裹应用根节点
   runApp(

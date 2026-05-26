@@ -40,9 +40,8 @@ class NoteSummary {
 /// 笔记文件仓库 — 扫描 docDir/notes/ 下的 .json 笔记文件。
 class NoteRepository {
   final BlockCodec _codec;
-  final BlockIdentityFactory _idFactory;
 
-  NoteRepository(this._codec, this._idFactory);
+  NoteRepository(this._codec);
 
   Future<Directory> _getNotesDir() async {
     final docDir = await getApplicationDocumentsDirectory();
@@ -152,15 +151,6 @@ class NoteRepository {
       count += _countBlocks(child);
     }
     return count;
-  }
-
-  /// 创建一篇新笔记，返回根 page block。
-  Block createNote(String title) {
-    return Block(
-      id: _idFactory.generateId(),
-      type: const PageType(),
-      content: RichText.text(title),
-    );
   }
 
   /// 将根 block 保存为笔记文件。
