@@ -1,14 +1,15 @@
 import '../type/type_registry.dart';
 import '../identity/identity.dart';
-import '../text/rich_text.dart';
+import '../text/rich_text_codec.dart';
 import 'block.dart';
 
 /// Block ↔ JSON 互转编解码器。
 class BlockCodec {
   final BlockTypeRegistry _typeRegistry;
+  final RichTextCodec _richTextCodec;
   final BlockIdentityFactory _idFactory;
 
-  BlockCodec(this._typeRegistry, {BlockIdentityFactory? idFactory})
+  BlockCodec(this._typeRegistry, this._richTextCodec, {BlockIdentityFactory? idFactory})
     : _idFactory = idFactory ?? const BlockIdentityFactory();
 
   /// Block → JSON Map
@@ -31,7 +32,7 @@ class BlockCodec {
       _castMapOrEmpty(json['data']),
     ),
     content: json['content'] != null
-        ? RichText.fromJson(_castMap(json['content']!))
+        ? _richTextCodec.decode(_castMap(json['content']!))
         : RichText.empty(),
     children: (json['children'] as List<dynamic>?)
             ?.map((c) => decode(_castMap(c)))

@@ -13,27 +13,4 @@ sealed class InlineFormat {
   const InlineFormat();
 
   Map<String, dynamic> toJson();
-
-  /// 工厂注册表。type → 反序列化工厂，与 [part] 指令一一对应。
-  static final Map<String, InlineFormatFactory> _registry = {
-    'bold': (_) => const BoldFormat(),
-    'italic': (_) => const ItalicFormat(),
-    'inline_code': (_) => const InlineCodeFormat(),
-    'strikethrough': (_) => const StrikethroughFormat(),
-    'link': (d) => LinkFormat(d['url'] as String? ?? ''),
-    'mention': (d) => MentionFormat(d['block_id'] as String? ?? ''),
-    'color': (d) => ColorFormat(d['color'] as String? ?? ''),
-  };
-
-  factory InlineFormat.fromJson(Map<String, dynamic> json) {
-    final type = json['type'] as String? ?? '';
-    final factory = _registry[type];
-    if (factory == null) {
-      throw ArgumentError('Unknown inline format type: "$type".');
-    }
-    return factory(json);
-  }
 }
-
-/// 内联格式反序列化工厂类型。
-typedef InlineFormatFactory = InlineFormat Function(Map<String, dynamic> json);

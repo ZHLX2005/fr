@@ -24,13 +24,6 @@ class RichText {
   Map<String, dynamic> toJson() =>
       {'spans': spans.map((s) => s.toJson()).toList()};
 
-  factory RichText.fromJson(Map<String, dynamic> json) {
-    final list = json['spans'] as List<dynamic>?;
-    if (list == null || list.isEmpty) return RichText.empty();
-    return RichText(
-        list.map((s) => Span.fromJson(s as Map<String, dynamic>)).toList());
-  }
-
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
