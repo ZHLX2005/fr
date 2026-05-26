@@ -1,4 +1,3 @@
-import '../core/models/block.dart';
 import '../core/core.dart';
 
 /// Markdown → `List<Block>` 转换。

@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
+import '../block_type_info.dart';
 import '../block_widget_strategy.dart';
 
 class CodeWidgetStrategy extends BlockWidgetStrategy {
+  @override
+  List<BlockTypeInfo> get typeInfoList => const [
+    BlockTypeInfo(prototype: CodeType(), icon: Icons.code, label: '<>', category: BlockTypeCategory.text),
+  ];
+
   @override
   Widget build(Block block, BlockCallbacks callbacks) {
     final lang = (block.type as CodeType).language;

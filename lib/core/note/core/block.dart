@@ -1,5 +1,5 @@
-import '../type/type.dart';
-import '../text/rich_text.dart';
+import 'type/type.dart';
+import 'text/rich_text.dart';
 
 /// 文档树的基本单元。
 ///

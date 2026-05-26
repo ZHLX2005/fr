@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
+import '../block_type_info.dart';
 import '../block_widget_strategy.dart';
 
 class PageWidgetStrategy extends BlockWidgetStrategy {
+  @override
+  List<BlockTypeInfo> get typeInfoList => const [];
+
   @override
   Widget build(Block block, BlockCallbacks callbacks) {
     return Text(

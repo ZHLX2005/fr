@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import '../../../core/note/core/core.dart';
+import 'package:flutter/material.dart' hide RichText;
 import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';

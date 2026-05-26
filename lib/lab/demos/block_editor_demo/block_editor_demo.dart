@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:file_picker/file_picker.dart';
-import '../../../core/note/core/core.dart';
 import '../../../core/note/note_root_scope.dart';
+import '../../../core/note/widget/widget.dart';
 import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
@@ -48,25 +48,9 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _toolbarTypeButton('P', const ParagraphType(), Icons.text_fields),
-                      const SizedBox(width: 2),
-                      _toolbarHeadingButtons(),
-                      const SizedBox(width: 2),
-                      _toolbarTypeButton('☐', const TodoType(), Icons.check_box_outline_blank),
-                      const SizedBox(width: 2),
-                      _toolbarTypeButton('•', const BulletListItemType(), Icons.format_list_bulleted),
-                      const SizedBox(width: 2),
-                      _toolbarTypeButton('1.', const OrderedListItemType(), Icons.format_list_numbered),
-                      const SizedBox(width: 2),
-                      _toolbarTypeButton('"', const QuoteType(), Icons.format_quote),
-                      const SizedBox(width: 2),
-                      _toolbarTypeButton('<>', const CodeType(), Icons.code),
-                      const SizedBox(width: 2),
-                      _toolbarTypeButton('—', const DividerType(), Icons.horizontal_rule),
-                      const SizedBox(width: 2),
-                      _toolbarTypeButton('💡', const CalloutType(), Icons.info_outline),
-                      const SizedBox(width: 2),
-                      _toolbarTypeButton('🖼', const ImageType(src: ''), Icons.image),
+                      ...NoteRootScope.of(context).noteRoot.availableTypes.map(
+                        (info) => _toolbarTypeButton(info),
+                      ),
                       const SizedBox(width: 8),
                       _toolbarButton(
                         label: '导入 MD',
@@ -96,48 +80,22 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
     );
   }
 
-  Widget _toolbarTypeButton(String label, BlockType type, IconData icon) {
-    return Material(
-      borderRadius: BorderRadius.circular(6),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(6),
-        onTap: () => _editorState.addBlockWithType(type),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Icon(icon, size: 20, color: Colors.grey[600]),
-        ),
-      ),
-    );
-  }
-
-  Widget _toolbarHeadingButtons() {
-    return SizedBox(
-      height: 36,
-      child: Row(
-        children: [1, 2, 3].map((l) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 2),
-            child: Material(
-              borderRadius: BorderRadius.circular(6),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () => _editorState.addBlockWithType(HeadingType(level: l)),
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 30.0),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'H$l',
-                    style: TextStyle(
-                      fontSize: [16.0, 14.0, 13.0][l - 1],
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ),
-              ),
+  Widget _toolbarTypeButton(BlockTypeInfo info) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 2),
+      child: Tooltip(
+        message: info.label,
+        child: Material(
+          borderRadius: BorderRadius.circular(6),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => _editorState.addBlockWithType(info.prototype),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Icon(info.icon, size: 20, color: Colors.grey[600]),
             ),
-          );
-        }).toList(),
+          ),
+        ),
       ),
     );
   }

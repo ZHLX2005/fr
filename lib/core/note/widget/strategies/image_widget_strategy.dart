@@ -1,9 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
+import '../block_type_info.dart';
 import '../block_widget_strategy.dart';
 
 class ImageWidgetStrategy extends BlockWidgetStrategy {
+  @override
+  List<BlockTypeInfo> get typeInfoList => const [
+    BlockTypeInfo(prototype: ImageType(src: ''), icon: Icons.image, label: '🖼', category: BlockTypeCategory.media),
+  ];
+
   @override
   Widget build(Block block, BlockCallbacks callbacks) {
     final imgType = block.type as ImageType;

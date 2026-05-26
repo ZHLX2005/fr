@@ -1,6 +1,6 @@
-import '../type/type_registry.dart';
-import '../text/rich_text.dart';
-import '../text/rich_text_codec.dart';
+import 'type/type_registry.dart';
+import 'text/rich_text.dart';
+import 'text/rich_text_codec.dart';
 import 'block.dart';
 
 /// Block ↔ JSON 互转编解码器。

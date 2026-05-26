@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
+import '../block_type_info.dart';
 import '../block_widget_strategy.dart';
 
 class TodoWidgetStrategy extends BlockWidgetStrategy {
+  @override
+  List<BlockTypeInfo> get typeInfoList => const [
+    BlockTypeInfo(prototype: TodoType(), icon: Icons.check_box_outline_blank, label: '☐', category: BlockTypeCategory.list),
+  ];
+
   @override
   Widget build(Block block, BlockCallbacks callbacks) {
     final checked = (block.type as TodoType).checked;

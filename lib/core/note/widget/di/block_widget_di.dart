@@ -1,5 +1,4 @@
 import '../widget.dart';
-import '../strategies/strategies.dart';
 
 /// BlockWidgetFactory 构建器。
 class BlockWidgetBuilder {

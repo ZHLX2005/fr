@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'factory.dart';
+export 'factory.dart';
 
 /// 通过 InheritedWidget 向 widget 子树提供 [NoteFactory]。
 ///
@@ -9,6 +11,7 @@ class NoteRootScope extends InheritedWidget {
   final NoteFactory noteRoot;
 
   const NoteRootScope({
+    super.key,
     required this.noteRoot,
     required super.child,
   });

@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
-import '../../../core/note/core/core.dart';
-import '../../../core/note/factory.dart';
+import '../../../core/note/note_root_scope.dart';
 
 /// 编辑器状态管理，支持持久化。
 class EditorState extends ChangeNotifier {
@@ -53,11 +52,7 @@ class EditorState extends ChangeNotifier {
   Future<void> createNewNote() async {
     _noteId = _noteFactory.generateId();
     _blocks.clear();
-    _blocks.add(Block(
-      id: _noteFactory.generateId(),
-      type: const ParagraphType(),
-      content: RichText.text(''),
-    ));
+    _blocks.add(_noteFactory.createBlock(const ParagraphType()));
     _selectedId = _blocks.first.id;
     await _save();
     notifyListeners();
@@ -93,11 +88,7 @@ class EditorState extends ChangeNotifier {
   }
 
   void addBlock() {
-    final block = Block(
-      id: _noteFactory.generateId(),
-      type: const ParagraphType(),
-      content: RichText.text(''),
-    );
+    final block = _noteFactory.createBlock(const ParagraphType());
     _blocks.add(block);
     _selectedId = block.id;
     notifyListeners();
@@ -122,11 +113,7 @@ class EditorState extends ChangeNotifier {
   }
 
   void addBlockWithType(BlockType type) {
-    final block = Block(
-      id: _noteFactory.generateId(),
-      type: type,
-      content: type.containerOnly ? RichText.empty() : RichText.text(''),
-    );
+    final block = _noteFactory.createBlock(type);
     if (_selectedId != null) {
       final idx = _blocks.indexWhere((b) => b.id == _selectedId);
       if (idx >= 0) {
@@ -176,9 +163,9 @@ class EditorState extends ChangeNotifier {
 
   Future<void> _save() async {
     if (_noteId == null) return;
-    final root = Block(
+    final root = _noteFactory.createBlock(
+      const PageType(),
       id: _noteId!,
-      type: const PageType(),
       content: RichText.text(_extractTitle()),
       children: List.of(_blocks),
     );

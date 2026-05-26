@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RichText;
 import 'convert/convert.dart';
 import 'core/core.dart';
-import 'core/type/type_registry.dart';
+export 'core/core.dart';
+import 'identity/identity.dart';
 import 'persistence/persistence.dart';
 import 'widget/widget.dart';
 
@@ -43,6 +44,23 @@ class NoteFactory {
 
   String generateId() => _idFactory.generateId();
 
+  // === 块构造 ===
+
+  /// 创建 [Block] 实例，自动生成 ID（除非显式传入）。
+  Block createBlock(BlockType type, {
+    String? id,
+    RichText? content,
+    List<Block>? children,
+    Map<String, dynamic>? properties,
+  }) =>
+      Block(
+        id: id ?? _idFactory.generateId(),
+        type: type,
+        content: content,
+        children: children,
+        properties: properties,
+      );
+
   // === 笔记 CRUD ===
 
   Future<List<NoteInfo>> listNotes() => _repository.listAllNotes();
@@ -51,6 +69,11 @@ class NoteFactory {
   Future<void> saveNote(Block root) => _repository.saveNote(root);
   Future<void> deleteNote(String id) => _repository.deleteNote(id);
   Future<String> readRawNoteContent(String filePath) => _repository.readRawContent(filePath);
+
+  // === 类型元信息 ===
+
+  /// 所有策略提供的可创建类型列表，供工具栏等 UI 消费。
+  List<BlockTypeInfo> get availableTypes => _renderer.typeInfoList;
 
   // === 渲染 ===
 

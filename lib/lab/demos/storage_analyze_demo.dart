@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RichText;
 import 'package:path_provider/path_provider.dart';
 import '../../core/storage/storage_manager.dart';
 import '../../core/note/note_root_scope.dart';

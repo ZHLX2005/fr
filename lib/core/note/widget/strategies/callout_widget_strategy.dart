@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
+import '../block_type_info.dart';
 import '../block_widget_strategy.dart';
 
 class CalloutWidgetStrategy extends BlockWidgetStrategy {
+  @override
+  List<BlockTypeInfo> get typeInfoList => const [
+    BlockTypeInfo(prototype: CalloutType(), icon: Icons.info_outline, label: '💡', category: BlockTypeCategory.text),
+  ];
+
   @override
   Widget build(Block block, BlockCallbacks callbacks) {
     final icon = (block.type as CalloutType).icon;

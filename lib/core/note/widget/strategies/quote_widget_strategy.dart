@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../core/core.dart';
+import '../block_type_info.dart';
 import '../block_widget_strategy.dart';
 
 class QuoteWidgetStrategy extends BlockWidgetStrategy {
+  @override
+  List<BlockTypeInfo> get typeInfoList => const [
+    BlockTypeInfo(prototype: QuoteType(), icon: Icons.format_quote, label: '"', category: BlockTypeCategory.text),
+  ];
+
   @override
   Widget build(Block block, BlockCallbacks callbacks) {
     return Row(

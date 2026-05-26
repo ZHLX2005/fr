@@ -28,6 +28,9 @@ class BlockRenderer {
     );
   }
 
+  /// 所有策略提供的可创建类型列表。
+  List<BlockTypeInfo> get typeInfoList => _factory.typeInfoList;
+
   Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo, VoidCallback? onTapAddImage}) {
     return _factory.build(
       block,
