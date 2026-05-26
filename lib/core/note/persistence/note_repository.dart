@@ -53,13 +53,13 @@ class NoteRepository {
 
   /// 使用默认注册表 + ID 工厂 + 内联格式注册表的便利构造器。
   factory NoteRepository.withDefaults() {
-    final typeRegistry = BlockTypeRegistry();
-    BlockTypeRegistrar().registerAll(typeRegistry);
-    final formatRegistry = InlineFormatRegistry();
-    InlineFormatRegistrar().registerAll(formatRegistry);
     final idFactory = BlockIdentityFactory();
     return NoteRepository(
-      BlockCodec(typeRegistry, RichTextCodec(formatRegistry), idFactory: idFactory),
+      BlockCodec(
+        BlockTypeRegistry(BlockTypeRegistrar().createFactories()),
+        RichTextCodec(InlineFormatRegistry(InlineFormatRegistrar().createFactories())),
+        idFactory: idFactory,
+      ),
       idFactory,
     );
   }

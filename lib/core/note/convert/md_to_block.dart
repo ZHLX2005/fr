@@ -1,14 +1,21 @@
 import '../core/models/block.dart';
 import '../core/type/type.dart';
 import '../core/text/rich_text.dart';
+import '../core/identity/identity_factory.dart';
 
 /// Markdown → List<Block> 转换。
 ///
 /// 仅支持行级语法，内联格式（粗体/斜体/链接）存为纯文本。
 class MdToBlock {
+  final BlockIdentityFactory _idFactory;
+  int _counter = 0;
+
+  MdToBlock({BlockIdentityFactory? idFactory})
+    : _idFactory = idFactory ?? BlockIdentityFactory();
+
   /// 解析 markdown 文本，返回 blocks。
   /// 空输入或解析失败返回空列表。
-  static List<Block> parse(String source) {
+  List<Block> parse(String source) {
     if (source.trim().isEmpty) return [];
 
     final lines = source.split('\n');
@@ -19,13 +26,8 @@ class MdToBlock {
       final line = lines[i];
       final trimmed = line.trim();
 
-      // 跳过空行
-      if (trimmed.isEmpty) {
-        i++;
-        continue;
-      }
+      if (trimmed.isEmpty) { i++; continue; }
 
-      // 代码块 ```lang
       if (trimmed.startsWith('```')) {
         final lang = trimmed.substring(3).trim();
         final codeLines = <String>[];
@@ -34,7 +36,7 @@ class MdToBlock {
           codeLines.add(lines[i]);
           i++;
         }
-        i++; // 跳过结束 ``` 或文件尾
+        i++;
         blocks.add(Block(
           id: _nextId(),
           type: lang.isNotEmpty ? CodeType(language: lang) : const CodeType(),
@@ -43,7 +45,6 @@ class MdToBlock {
         continue;
       }
 
-      // heading # ~ ######
       final headingMatch = RegExp(r'^(#{1,6})\s+(.+)$').firstMatch(trimmed);
       if (headingMatch != null) {
         final level = headingMatch.group(1)!.length;
@@ -57,31 +58,24 @@ class MdToBlock {
         continue;
       }
 
-      // divider ---
       if (RegExp(r'^-{3,}$').hasMatch(trimmed)) {
-        blocks.add(Block(
-          id: _nextId(),
-          type: const DividerType(),
-        ));
+        blocks.add(Block(id: _nextId(), type: const DividerType()));
         i++;
         continue;
       }
 
-      // todo - [x] / - [ ]
       final todoMatch = RegExp(r'^-\s+\[(x| )\]\s+(.+)$', caseSensitive: false).firstMatch(trimmed);
       if (todoMatch != null) {
         final checked = todoMatch.group(1)!.toLowerCase() == 'x';
-        final text = todoMatch.group(2)!.trim();
         blocks.add(Block(
           id: _nextId(),
           type: TodoType(checked: checked),
-          content: RichText.text(text),
+          content: RichText.text(todoMatch.group(2)!.trim()),
         ));
         i++;
         continue;
       }
 
-      // bulletListItem - item
       final bulletMatch = RegExp(r'^-\s+(.+)$').firstMatch(trimmed);
       if (bulletMatch != null) {
         blocks.add(Block(
@@ -93,7 +87,6 @@ class MdToBlock {
         continue;
       }
 
-      // orderedListItem 1. item
       final orderMatch = RegExp(r'^(\d+)\.\s+(.+)$').firstMatch(trimmed);
       if (orderMatch != null) {
         final number = int.tryParse(orderMatch.group(1)!) ?? 1;
@@ -106,7 +99,6 @@ class MdToBlock {
         continue;
       }
 
-      // quote > text
       if (trimmed.startsWith('> ')) {
         blocks.add(Block(
           id: _nextId(),
@@ -117,7 +109,6 @@ class MdToBlock {
         continue;
       }
 
-      // 默认 → paragraph
       blocks.add(Block(
         id: _nextId(),
         type: const ParagraphType(),
@@ -129,6 +120,5 @@ class MdToBlock {
     return blocks;
   }
 
-  static int _counter = 0;
-  static String _nextId() => 'md_import_${++_counter}';
+  String _nextId() => 'md_import_${++_counter}';
 }

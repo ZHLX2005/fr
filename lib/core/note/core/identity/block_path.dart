@@ -17,7 +17,5 @@ class BlockPath {
   String toString() => ids.join('/');
 
   factory BlockPath.fromString(String path) => BlockPath(path.split('/'));
-
-  static const root = BlockPath(['__root__']);
 }
 

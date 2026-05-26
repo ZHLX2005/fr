@@ -10,10 +10,12 @@ class EditorState extends ChangeNotifier {
   String? _noteId;
   final BlockIdentityFactory _idFactory;
   final NoteRepository _repo;
+  final MdToBlock _mdToBlock;
 
   EditorState({BlockIdentityFactory? idFactory, NoteRepository? repo})
     : _idFactory = idFactory ?? const BlockIdentityFactory(),
-      _repo = repo ?? NoteRepository.withDefaults();
+      _repo = repo ?? NoteRepository.withDefaults(),
+      _mdToBlock = MdToBlock(idFactory: _idFactory);
 
   List<Block> get blocks => List.unmodifiable(_blocks);
   String? get selectedId => _selectedId;
@@ -167,7 +169,7 @@ class EditorState extends ChangeNotifier {
 
   /// 导入 markdown 内容，替换当前笔记的所有块。
   void importMd(String source) {
-    final blocks = MdToBlock.parse(source);
+    final blocks = _mdToBlock.parse(source);
     if (blocks.isEmpty) return;
     _blocks
       ..clear()

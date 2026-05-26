@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/note/core/core.dart';
-import '../../../core/note/widget/block_widget_factory.dart';
-import '../../../core/note/widget/block_widget_strategy.dart';
-import '../../../core/note/widget/di/block_widget_di.dart';
+import '../../../core/note/widget/widget.dart';
 
 /// 全局共享的工厂实例。
-final BlockWidgetFactory _factory = createBlockWidgetFactory();
+final BlockWidgetFactory _factory = BlockWidgetBuilder().build();
 
 /// 根据 BlockType 返回编辑时使用的 TextStyle。
 TextStyle? textStyleForType(Block block) {
