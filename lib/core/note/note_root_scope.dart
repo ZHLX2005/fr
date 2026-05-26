@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'factory.dart';
 export 'factory.dart';
+export 'core/core.dart';
+export 'persistence/persistence.dart' show NoteInfo, NoteSummary;
+export 'widget/block_type_info.dart';
 
 /// 通过 InheritedWidget 向 widget 子树提供 [NoteFactory]。
 ///

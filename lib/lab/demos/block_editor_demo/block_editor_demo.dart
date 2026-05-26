@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:file_picker/file_picker.dart';
 import '../../../core/note/note_root_scope.dart';
-import '../../../core/note/widget/widget.dart';
 import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
@@ -20,18 +19,27 @@ class BlockEditorDemo extends StatefulWidget {
 }
 
 class _BlockEditorDemoState extends State<BlockEditorDemo> {
-  late final EditorState _editorState;
+  late EditorState _editorState;
+  bool _editorStateReady = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_editorStateReady) {
+      _editorState = EditorState(
+        noteFactory: NoteRootScope.of(context).noteRoot,
+      );
+      _editorStateReady = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _editorState.init();
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _editorState = EditorState(
-      noteFactory: NoteRootScope.of(context).noteRoot,
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _editorState.init();
-    });
   }
 
   Widget _buildBottomToolbar() {

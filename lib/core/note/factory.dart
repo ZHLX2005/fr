@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart' hide RichText;
 import 'convert/convert.dart';
 import 'core/core.dart';
-export 'core/core.dart';
 import 'identity/identity.dart';
 import 'persistence/persistence.dart';
 import 'widget/widget.dart';

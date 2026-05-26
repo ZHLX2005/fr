@@ -3,7 +3,6 @@ import 'package:flutter/material.dart' hide RichText;
 import 'package:path_provider/path_provider.dart';
 import '../../core/storage/storage_manager.dart';
 import '../../core/note/note_root_scope.dart';
-import '../../core/note/persistence/persistence.dart' show NoteInfo, NoteSummary;
 import '../lab_container.dart';
 
 /// 存储分析 Demo

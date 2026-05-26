@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart' hide RichText;
 import '../../../core/note/note_root_scope.dart';
-import '../../../core/note/widget/widget.dart';
 import 'state.dart';
 
 /// 分类展示所有 BlockType 的展开面板（底部弹出）。
