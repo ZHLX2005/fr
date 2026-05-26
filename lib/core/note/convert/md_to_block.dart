@@ -1,6 +1,5 @@
 import '../core/models/block.dart';
-import '../core/type/type.dart';
-import '../core/text/rich_text.dart';
+import '../core/core.dart';
 
 /// Markdown → `List<Block>` 转换。
 ///
