@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/note/composition_root.dart';
-import '../../../core/note/persistence/note_repository.dart';
+import '../../../core/note/persistence/persistence.dart';
 import 'state.dart';
 
 /// 右侧笔记列表面板（Scaffold endDrawer）。

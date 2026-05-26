@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
+import '../../../core/note/convert/convert.dart';
 import '../../../core/note/core/core.dart';
-import '../../../core/note/convert/md_to_block.dart';
-import '../../../core/note/persistence/note_repository.dart';
+import '../../../core/note/persistence/persistence.dart';
 
 /// 编辑器状态管理，支持持久化。
 class EditorState extends ChangeNotifier {

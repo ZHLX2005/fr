@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/storage/storage_manager.dart';
 import '../../core/note/composition_root.dart';
-import '../../core/note/persistence/note_repository.dart';
+import '../../core/note/persistence/persistence.dart';
 import '../lab_container.dart';
 
 /// 存储分析 Demo

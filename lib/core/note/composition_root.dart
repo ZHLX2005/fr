@@ -1,11 +1,9 @@
-import 'core/models/block_codec.dart';
-import 'core/identity/identity_factory.dart';
-import 'core/text/inline_format_registry.dart';
-import 'core/text/rich_text_codec.dart';
+import 'core/core.dart' show BlockCodec;
+import 'core/identity/identity.dart' show BlockIdentityFactory;
+import 'core/text/text.dart' show InlineFormatRegistrar, InlineFormatRegistry, RichTextCodec;
 import 'core/type/type_registry.dart';
-import 'persistence/note_repository.dart';
-import 'widget/block_widget_factory.dart';
-import 'widget/di/block_widget_di.dart';
+import 'persistence/persistence.dart' show NoteRepository;
+import 'widget/widget.dart' show BlockWidgetBuilder, BlockWidgetFactory;
 
 /// 单一组装点——所有 note core 依赖在此构造并暴露。
 ///
