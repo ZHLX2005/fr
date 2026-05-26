@@ -1,3 +1,5 @@
+import 'inline_format.dart';
+
 /// 一段文字及其内联格式。最多一个 [InlineFormat] 附着其上。
 ///
 /// 复合格式（如粗体+红字）需拆为相邻的多个 Span。

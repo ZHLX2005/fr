@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/type/type.dart';
-import '../../core/models/block.dart';
+import '../../core/core.dart';
 import '../block_widget_strategy.dart';
 
 class DividerWidgetStrategy extends BlockWidgetStrategy {

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/note/core/models/block.dart';
-import '../../../core/note/core/type/type.dart';
+import '../../../core/note/core/core.dart';
 import '../../../core/note/widget/block_widget_factory.dart';
 import '../../../core/note/widget/block_widget_strategy.dart';
 import '../../../core/note/widget/di/block_widget_di.dart';

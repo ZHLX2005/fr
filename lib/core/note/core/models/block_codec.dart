@@ -1,5 +1,6 @@
 import '../type/type_registry.dart';
 import '../identity/identity.dart';
+import '../text/rich_text.dart';
 import '../text/rich_text_codec.dart';
 import 'block.dart';
 

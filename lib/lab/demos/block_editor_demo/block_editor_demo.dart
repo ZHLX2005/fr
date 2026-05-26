@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:file_picker/file_picker.dart';
-import '../../../core/note/core/type/type.dart';
+import '../../../core/note/core/core.dart';
 import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';

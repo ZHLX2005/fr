@@ -1,8 +1,5 @@
 import 'package:flutter/foundation.dart';
-import '../../../core/note/core/models/block.dart';
-import '../../../core/note/core/identity/identity_factory.dart';
-import '../../../core/note/core/type/type.dart';
-import '../../../core/note/core/text/rich_text.dart';
+import '../../../core/note/core/core.dart';
 
 final _idFactory = BlockIdentityFactory();
 
