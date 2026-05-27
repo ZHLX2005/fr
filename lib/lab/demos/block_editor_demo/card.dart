@@ -108,7 +108,7 @@ class _BlockCardState extends State<BlockCard> {
       child: TextField(
         focusNode: _focusNode,
         controller: _controller,
-        maxLines: null,
+        maxLines: 1,
         style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block) ?? const TextStyle(fontSize: 14),
         decoration: const InputDecoration(
           border: InputBorder.none,
