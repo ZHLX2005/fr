@@ -74,13 +74,6 @@ class _BlockCardState extends State<BlockCard> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => widget.editorState.select(widget.block.id),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2, right: 4),
-              child: Icon(_typeIcon(widget.block.type), size: 14, color: Colors.grey[400]),
-            ),
-          ),
           Expanded(
             child: GestureDetector(
               onTap: () => widget.editorState.select(widget.block.id),
@@ -202,17 +195,4 @@ class _BlockCardState extends State<BlockCard> {
     }
   }
 
-  IconData _typeIcon(BlockType type) {
-    return switch (type) {
-      HeadingType() => Icons.title,
-      TodoType() => Icons.check_box_outline_blank,
-      BulletListItemType() => Icons.format_list_bulleted,
-      OrderedListItemType() => Icons.format_list_numbered,
-      QuoteType() => Icons.format_quote,
-      CodeType() => Icons.code,
-      DividerType() => Icons.horizontal_rule,
-      CalloutType() => Icons.info_outline,
-      _ => Icons.text_fields,
-    };
-  }
 }
