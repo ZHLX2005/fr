@@ -153,6 +153,8 @@ class EditorState extends ChangeNotifier {
     _save();
   }
 
+  Future<void>? _pendingSave;
+
   /// 导入 markdown 内容，替换当前笔记的所有块。
   void importMd(String source) {
     final blocks = _noteFactory.parseMarkdown(source);
@@ -167,17 +169,26 @@ class EditorState extends ChangeNotifier {
 
   Future<void> _save() async {
     if (_noteId == null) return;
-    final root = _noteFactory.createBlock(
-      const PageType(),
-      id: _noteId!,
-      content: RichText.text(_extractTitle()),
-      children: List.of(_blocks),
+    final noteId = _noteId!;
+    final blocks = List<Block>.of(_blocks);
+    // 串联保存操作，防止并发写入竞争
+    _pendingSave = (_pendingSave ?? Future.value()).then((_) =>
+      _noteFactory.saveNote(
+        _noteFactory.createBlock(
+          const PageType(),
+          id: noteId,
+          content: RichText.text(_extractTitle()),
+          children: blocks,
+        ),
+      ),
     );
-    await _noteFactory.saveNote(root);
   }
 
   /// 删除指定笔记。若是当前笔记，自动切换到下一笔记或新建。
   Future<void> deleteNote(String id) async {
+    await _pendingSave;
+    await _noteFactory.deleteNote(id);
+    // 再次删除以捕获任何延迟写入
     await _noteFactory.deleteNote(id);
     if (id == _noteId) {
       final notes = await _noteFactory.listNotes();
