@@ -18,4 +18,7 @@ class ColumnType extends BlockType {
     other is ColumnType && other.ratio == ratio;
   @override
   int get hashCode => Object.hash(runtimeType, ratio);
+
+  @override
+  BlockType? get onEnterType => null;
 }

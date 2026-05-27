@@ -18,4 +18,7 @@ class SyncedBlockType extends BlockType {
     other is SyncedBlockType && other.refBlockId == refBlockId;
   @override
   int get hashCode => Object.hash(runtimeType, refBlockId);
+
+  @override
+  BlockType? get onEnterType => null;
 }

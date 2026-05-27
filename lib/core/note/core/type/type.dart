@@ -39,4 +39,10 @@ sealed class BlockType {
 
   /// 序列化类型专属数据（不含 tag 本身）。
   Map<String, dynamic> toJson();
+
+  /// 按下 Enter 时新插⼊块的类型。null 表示不创建新块。
+  BlockType? get onEnterType => const ParagraphType();
+
+  /// 此类型是否支持块内多行（如代码块）。
+  bool get multiline => false;
 }

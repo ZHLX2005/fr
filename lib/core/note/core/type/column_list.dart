@@ -10,4 +10,7 @@ class ColumnListType extends BlockType {
   bool operator ==(Object other) => other is ColumnListType;
   @override
   int get hashCode => runtimeType.hashCode;
+
+  @override
+  BlockType? get onEnterType => null;
 }

@@ -18,4 +18,7 @@ class OrderedListItemType extends BlockType {
     other is OrderedListItemType && other.number == number;
   @override
   int get hashCode => Object.hash(runtimeType, number);
+
+  @override
+  BlockType? get onEnterType => OrderedListItemType(number: number + 1);
 }

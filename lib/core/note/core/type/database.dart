@@ -10,4 +10,7 @@ class DatabaseType extends BlockType {
   bool operator ==(Object other) => other is DatabaseType;
   @override
   int get hashCode => runtimeType.hashCode;
+
+  @override
+  BlockType? get onEnterType => null;
 }

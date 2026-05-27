@@ -17,4 +17,7 @@ class TodoType extends BlockType {
     other is TodoType && other.checked == checked;
   @override
   int get hashCode => Object.hash(runtimeType, checked);
+
+  @override
+  BlockType? get onEnterType => const TodoType(checked: false);
 }

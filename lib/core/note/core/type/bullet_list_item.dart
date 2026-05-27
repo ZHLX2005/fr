@@ -10,4 +10,7 @@ class BulletListItemType extends BlockType {
   bool operator ==(Object other) => other is BulletListItemType;
   @override
   int get hashCode => runtimeType.hashCode;
+
+  @override
+  BlockType? get onEnterType => const BulletListItemType();
 }

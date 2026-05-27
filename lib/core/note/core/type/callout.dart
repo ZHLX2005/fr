@@ -17,4 +17,7 @@ class CalloutType extends BlockType {
     other is CalloutType && other.icon == icon;
   @override
   int get hashCode => Object.hash(runtimeType, icon);
+
+  @override
+  BlockType? get onEnterType => CalloutType(icon: icon);
 }

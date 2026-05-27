@@ -10,4 +10,7 @@ class DividerType extends BlockType {
   bool operator ==(Object other) => other is DividerType;
   @override
   int get hashCode => runtimeType.hashCode;
+
+  @override
+  BlockType? get onEnterType => null;
 }

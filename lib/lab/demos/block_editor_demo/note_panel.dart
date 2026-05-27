@@ -132,12 +132,15 @@ class _NotePanelState extends State<NotePanel> {
                                   ),
                                 );
                                 if (confirmed == true) {
+                                  setState(() {
+                                    _notes.removeWhere((n) => n.id == note.id);
+                                  });
                                   await widget.editorState.deleteNote(note.id);
-                                  await _loadNotes();
                                   return true;
                                 }
                                 return false;
                               },
+                              onDismissed: (_) {},
                               child: _NoteListTile(
                                 note: note,
                                 isCurrent: isCurrent,

@@ -97,6 +97,7 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _buildTextField() {
+    final ml = widget.block.type.multiline;
     return Focus(
       onKeyEvent: (node, event) {
         if (event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
@@ -108,7 +109,7 @@ class _BlockCardState extends State<BlockCard> {
       child: TextField(
         focusNode: _focusNode,
         controller: _controller,
-        maxLines: 1,
+        maxLines: ml ? null : 1,
         style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block) ?? const TextStyle(fontSize: 14),
         decoration: const InputDecoration(
           border: InputBorder.none,
@@ -116,6 +117,12 @@ class _BlockCardState extends State<BlockCard> {
           contentPadding: EdgeInsets.zero,
         ),
         onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
+        onSubmitted: ml ? null : (_) {
+          final newType = widget.block.type.onEnterType;
+          if (newType != null) {
+            widget.editorState.addBlockWithType(newType);
+          }
+        },
       ),
     );
   }

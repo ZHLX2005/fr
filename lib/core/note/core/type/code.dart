@@ -17,4 +17,10 @@ class CodeType extends BlockType {
     other is CodeType && other.language == language;
   @override
   int get hashCode => Object.hash(runtimeType, language);
+
+  @override
+  BlockType? get onEnterType => null;
+
+  @override
+  bool get multiline => true;
 }

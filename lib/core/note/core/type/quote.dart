@@ -10,4 +10,7 @@ class QuoteType extends BlockType {
   bool operator ==(Object other) => other is QuoteType;
   @override
   int get hashCode => runtimeType.hashCode;
+
+  @override
+  BlockType? get onEnterType => const QuoteType();
 }
