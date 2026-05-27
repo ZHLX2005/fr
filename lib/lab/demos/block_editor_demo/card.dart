@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide RichText;
+import 'package:flutter/services.dart';
 import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
@@ -21,31 +22,42 @@ class BlockCard extends StatefulWidget {
 
 class _BlockCardState extends State<BlockCard> {
   late TextEditingController _controller;
+  late FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.block.content.toPlainText());
+    _focusNode = FocusNode();
+    if (widget.isSelected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void didUpdateWidget(BlockCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.block.id != widget.block.id) {
-      // 选中的 block 切换了，直接替换
       _controller.text = widget.block.content.toPlainText();
     } else {
-      // 同一 block，检查外部是否有变更
       final newText = widget.block.content.toPlainText();
       if (newText != _controller.text) {
         _controller.text = newText;
       }
+    }
+    if (!oldWidget.isSelected && widget.isSelected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -83,15 +95,8 @@ class _BlockCardState extends State<BlockCard> {
                     ),
             ),
           ),
-          if (widget.isSelected) ...[
-            IconButton(
-              icon: Icon(Icons.close, size: 16, color: Colors.grey[400]),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              onPressed: () => widget.editorState.deleteBlock(),
-              tooltip: '删除块',
-            ),
-          ],
+          // 选中态指示器（占位保持布局对齐）
+          if (widget.isSelected) const SizedBox(width: 24),
         ],
       ),
     ),
@@ -99,16 +104,26 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _buildTextField() {
-    return TextField(
-      controller: _controller,
-      maxLines: null,
-      style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block) ?? const TextStyle(fontSize: 14),
-      decoration: const InputDecoration(
-        border: InputBorder.none,
-        isDense: true,
-        contentPadding: EdgeInsets.zero,
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
+          widget.editorState.deleteBlock();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: TextField(
+        focusNode: _focusNode,
+        controller: _controller,
+        maxLines: null,
+        style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block) ?? const TextStyle(fontSize: 14),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
       ),
-      onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
     );
   }
 
