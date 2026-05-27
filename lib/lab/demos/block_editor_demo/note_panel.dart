@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import '../../../core/note/persistence/note_repository.dart';
+import 'package:flutter/material.dart' hide RichText;
+import '../../../core/note/note_root_scope.dart';
 import 'state.dart';
 
 /// 右侧笔记列表面板（Scaffold endDrawer）。
@@ -13,23 +13,31 @@ class NotePanel extends StatefulWidget {
 }
 
 class _NotePanelState extends State<NotePanel> {
-  final _repo = NoteRepository();
   List<NoteInfo> _notes = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadNotes();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadNotes());
   }
 
   Future<void> _loadNotes() async {
-    final notes = await _repo.listAllNotes();
-    if (mounted) {
-      setState(() {
-        _notes = notes;
-        _isLoading = false;
-      });
+    try {
+      final notes = await NoteRootScope.of(context).noteRoot.listNotes();
+      if (mounted) {
+        setState(() {
+          _notes = notes;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载笔记列表失败: $e')),
+        );
+      }
     }
   }
 
@@ -124,12 +132,15 @@ class _NotePanelState extends State<NotePanel> {
                                   ),
                                 );
                                 if (confirmed == true) {
+                                  setState(() {
+                                    _notes.removeWhere((n) => n.id == note.id);
+                                  });
                                   await widget.editorState.deleteNote(note.id);
-                                  await _loadNotes();
                                   return true;
                                 }
                                 return false;
                               },
+                              onDismissed: (_) {},
                               child: _NoteListTile(
                                 note: note,
                                 isCurrent: isCurrent,
