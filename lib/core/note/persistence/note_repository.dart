@@ -54,10 +54,15 @@ class NoteRepository {
     if (!await dir.exists()) return [];
 
     final files = <File>[];
-    await for (final entity in dir.list()) {
-      if (entity is File && entity.path.endsWith('.json')) {
-        files.add(entity);
+    try {
+      final entities = dir.listSync();
+      for (final entity in entities) {
+        if (entity is File && entity.path.endsWith('.json')) {
+          files.add(entity);
+        }
       }
+    } catch (e) {
+      return [];
     }
 
     files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));

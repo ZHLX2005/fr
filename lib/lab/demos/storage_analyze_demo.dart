@@ -62,7 +62,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadStorageData();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadStorageData());
   }
 
   @override
@@ -75,19 +75,19 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     setState(() => _isLoading = true);
 
     try {
-      await _storage.init();
-      final list = await _storage.getAllStorageInfo();
+      await _storage.init().timeout(const Duration(seconds: 10));
+      final list = await _storage.getAllStorageInfo().timeout(const Duration(seconds: 10));
 
       final keyDetails = <String, List<KeyDetail>>{};
       for (final info in list) {
-        final details = await _storage.getKeyDetails(info.type);
+        final details = await _storage.getKeyDetails(info.type).timeout(const Duration(seconds: 10));
         keyDetails[info.name] = details;
       }
 
       final mediaFiles = await _scanMediaFiles();
       final noteRoot = NoteRootScope.of(context).noteRoot;
-      final noteList = await noteRoot.listNotes();
-      final noteSummary = await noteRoot.getNoteSummary();
+      final noteList = await noteRoot.listNotes().timeout(const Duration(seconds: 10));
+      final noteSummary = await noteRoot.getNoteSummary().timeout(const Duration(seconds: 10));
 
       setState(() {
         _storageList = list;
@@ -1348,16 +1348,25 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
   @override
   void initState() {
     super.initState();
-    _loadContent();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadContent());
   }
 
   Future<void> _loadContent() async {
-    final content = await NoteRootScope.of(context).noteRoot.readRawNoteContent(widget.note.filePath);
-    if (mounted) {
-      setState(() {
-        _content = content;
-        _isLoading = false;
-      });
+    try {
+      final content = await NoteRootScope.of(context).noteRoot.readRawNoteContent(widget.note.filePath);
+      if (mounted) {
+        setState(() {
+          _content = content;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _content = '加载失败: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 

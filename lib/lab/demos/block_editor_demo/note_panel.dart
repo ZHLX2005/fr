@@ -19,16 +19,25 @@ class _NotePanelState extends State<NotePanel> {
   @override
   void initState() {
     super.initState();
-    _loadNotes();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadNotes());
   }
 
   Future<void> _loadNotes() async {
-    final notes = await NoteRootScope.of(context).noteRoot.listNotes();
-    if (mounted) {
-      setState(() {
-        _notes = notes;
-        _isLoading = false;
-      });
+    try {
+      final notes = await NoteRootScope.of(context).noteRoot.listNotes();
+      if (mounted) {
+        setState(() {
+          _notes = notes;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载笔记列表失败: $e')),
+        );
+      }
     }
   }
 

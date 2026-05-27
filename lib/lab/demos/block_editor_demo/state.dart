@@ -19,20 +19,24 @@ class EditorState extends ChangeNotifier {
 
   /// 从磁盘加载最近一篇笔记，无笔记则新建空状态。
   Future<void> init() async {
-    final notes = await _noteFactory.listNotes();
-    if (notes.isNotEmpty) {
-      final first = notes.first;
-      _noteId = first.id;
-      final root = await _noteFactory.loadNote(first.id);
-      if (root != null) {
-        _blocks.addAll(root.children);
+    try {
+      final notes = await _noteFactory.listNotes();
+      if (notes.isNotEmpty) {
+        final first = notes.first;
+        _noteId = first.id;
+        final root = await _noteFactory.loadNote(first.id);
+        if (root != null) {
+          _blocks.addAll(root.children);
+        }
       }
-    }
-    if (_blocks.isEmpty) {
+      if (_blocks.isEmpty) {
+        _noteId = _noteFactory.generateId();
+      }
+      if (_blocks.isNotEmpty) {
+        _selectedId = _blocks.first.id;
+      }
+    } catch (e) {
       _noteId = _noteFactory.generateId();
-    }
-    if (_blocks.isNotEmpty) {
-      _selectedId = _blocks.first.id;
     }
     notifyListeners();
   }
