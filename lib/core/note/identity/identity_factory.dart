@@ -1,13 +1,20 @@
-/// 全局唯一块 ID。生成 UUID v4，无外部依赖。
+/// Identity 统一工厂。
 ///
-/// ID 是 Block 的身份标识，决定了 [Block.==] 和 [Block.hashCode]。
-/// 多人协作场景下保证 ID 不冲突。
-class BlockId {
-  static final _uuid = _Uuid();
-  static String generate() => _uuid.v4();
+/// 所有 ID 生成都通过此工厂收敛，
+/// 底层实现可随时替换（如从纯 Dart UUID 切换到平台 UUID）。
+class BlockIdentityFactory {
+  final _IdGenerator _idGenerator;
+
+  BlockIdentityFactory() : _idGenerator = _IdGenerator();
+
+  /// 生成全局唯一块 ID。
+  String generateId() => _idGenerator.v4();
 }
 
-class _Uuid {
+/// UUID v4 生成器。纯 Dart 实现，无外部依赖。
+class _IdGenerator {
+  _IdGenerator();
+
   String v4() {
     final bytes = List<int>.generate(16, (_) => _randomByte());
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
