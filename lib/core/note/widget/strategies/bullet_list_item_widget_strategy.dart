@@ -10,6 +10,20 @@ class BulletListItemWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
+  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 2),
+          child: Text('• ', style: TextStyle(fontSize: 16)),
+        ),
+        Expanded(child: textField),
+      ],
+    );
+  }
+
+  @override
   Widget build(Block block, BlockCallbacks callbacks) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

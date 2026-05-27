@@ -79,6 +79,9 @@ class NoteFactory {
   Widget renderBlock(Block block, {VoidCallback? onToggleTodo, VoidCallback? onTapAddImage}) =>
       _renderer.renderBlockContent(block, onToggleTodo: onToggleTodo, onTapAddImage: onTapAddImage);
 
+  Widget buildEditor(Block block, {required Widget textField, VoidCallback? onToggleTodo}) =>
+      _renderer.buildEditor(block, textField: textField, onToggleTodo: onToggleTodo);
+
   TextStyle? textStyleFor(Block block) => _renderer.textStyleForType(block);
 
   // === 转换 ===

@@ -16,7 +16,6 @@ class BlockWidgetFactory {
       _strategies.values.expand((s) => s.typeInfoList).toList();
 
   /// 根据 block.type.tag 查找策略并构建 widget。
-  /// 找不到对应策略时使用 fallback（paragraph 风格）。
   Widget build(Block block, [BlockCallbacks? callbacks]) {
     final strategy = _strategies[block.type.tag];
     if (strategy == null) {
@@ -25,5 +24,12 @@ class BlockWidgetFactory {
     return RepaintBoundary(
       child: strategy.build(block, callbacks ?? const BlockCallbacks()),
     );
+  }
+
+  /// 编辑态：将 [textField] 包裹上类型装饰。
+  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+    final strategy = _strategies[block.type.tag];
+    if (strategy == null) return textField;
+    return strategy.buildEditor(block, callbacks, textField: textField);
   }
 }

@@ -98,7 +98,7 @@ class _BlockCardState extends State<BlockCard> {
 
   Widget _buildTextField() {
     final ml = widget.block.type.multiline;
-    return Focus(
+    final textField = Focus(
       onKeyEvent: (node, event) {
         if (event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
           widget.editorState.deleteBlock();
@@ -124,6 +124,11 @@ class _BlockCardState extends State<BlockCard> {
           }
         },
       ),
+    );
+    return NoteRootScope.of(context).noteRoot.buildEditor(
+      widget.block,
+      textField: textField,
+      onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
     );
   }
 

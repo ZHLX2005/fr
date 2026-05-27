@@ -37,4 +37,12 @@ class BlockRenderer {
       BlockCallbacks(onToggleTodo: onToggleTodo, onTapAddImage: onTapAddImage),
     );
   }
+
+  Widget buildEditor(Block block, {required Widget textField, VoidCallback? onToggleTodo}) {
+    return _factory.buildEditor(
+      block,
+      BlockCallbacks(onToggleTodo: onToggleTodo),
+      textField: textField,
+    );
+  }
 }

@@ -10,6 +10,25 @@ class TodoWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
+  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+    final checked = (block.type as TodoType).checked;
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: callbacks.onToggleTodo,
+          child: Icon(
+            checked ? Icons.check_box : Icons.check_box_outline_blank,
+            size: 18,
+            color: checked ? Colors.blue : Colors.grey,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: textField),
+      ],
+    );
+  }
+
+  @override
   Widget build(Block block, BlockCallbacks callbacks) {
     final checked = (block.type as TodoType).checked;
     final text = block.content.toPlainText();

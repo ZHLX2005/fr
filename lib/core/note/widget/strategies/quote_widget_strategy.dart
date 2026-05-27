@@ -10,6 +10,21 @@ class QuoteWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
+  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 3,
+          margin: const EdgeInsets.only(right: 8),
+          color: Colors.grey[400],
+        ),
+        Expanded(child: textField),
+      ],
+    );
+  }
+
+  @override
   Widget build(Block block, BlockCallbacks callbacks) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

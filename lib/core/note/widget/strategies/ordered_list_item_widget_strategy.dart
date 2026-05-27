@@ -10,6 +10,24 @@ class OrderedListItemWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
+  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+    final number = (block.type as OrderedListItemType).number;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(
+            '$number. ',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ),
+        Expanded(child: textField),
+      ],
+    );
+  }
+
+  @override
   Widget build(Block block, BlockCallbacks callbacks) {
     final number = (block.type as OrderedListItemType).number;
     return Row(

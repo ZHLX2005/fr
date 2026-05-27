@@ -16,6 +16,12 @@ class BlockCallbacks {
 abstract class BlockWidgetStrategy {
   Widget build(Block block, BlockCallbacks callbacks);
 
+  /// 编辑态：将 [textField] 包裹上类型装饰后返回。
+  /// 默认直接返回 textField，子类可覆写添加前缀/后缀/背景等。
+  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+    return textField;
+  }
+
   /// 该策略提供的可创建类型列表。
   /// 大部分策略返回单元素列表，Heading 返回 3 个（H1/H2/H3），Page 返回空。
   List<BlockTypeInfo> get typeInfoList;
