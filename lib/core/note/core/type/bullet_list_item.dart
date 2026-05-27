@@ -13,4 +13,9 @@ class BulletListItemType extends BlockType {
 
   @override
   BlockType? get onEnterType => const BulletListItemType();
+
+  static TypeConversionRule<BlockType> get inputTrigger => TypeConversionRule(
+    pattern: RegExp(r'^[-*] '),
+    createType: (_) => const BulletListItemType(),
+  );
 }

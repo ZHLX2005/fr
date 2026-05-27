@@ -1,3 +1,5 @@
+import 'type_conversion_rule.dart';
+
 part 'page.dart';
 part 'paragraph.dart';
 part 'heading.dart';

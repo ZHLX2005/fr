@@ -23,4 +23,10 @@ class CodeType extends BlockType {
 
   @override
   bool get multiline => true;
+
+  static TypeConversionRule<BlockType> get inputTrigger => TypeConversionRule(
+    pattern: RegExp(r'^```(\w*)'),
+    createType: (m) => CodeType(language: m.group(1) ?? ''),
+    clearContent: true,
+  );
 }

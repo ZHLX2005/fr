@@ -13,4 +13,10 @@ class DividerType extends BlockType {
 
   @override
   BlockType? get onEnterType => null;
+
+  static TypeConversionRule<BlockType> get inputTrigger => TypeConversionRule(
+    pattern: RegExp(r'^---$'),
+    createType: (_) => const DividerType(),
+    clearContent: true,
+  );
 }

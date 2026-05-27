@@ -102,6 +102,22 @@ class EditorState extends ChangeNotifier {
   void updateContent(String id, String newText) {
     final idx = _blocks.indexWhere((b) => b.id == id);
     if (idx < 0) return;
+
+    // 仅 ParagraphType 检查类型转换
+    if (_blocks[idx].type is ParagraphType) {
+      final result = _noteFactory.tryConvert(newText);
+      if (result != null) {
+        final (type, rest) = result;
+        _blocks[idx] = _blocks[idx].copyWith(
+          type: type,
+          content: RichText.text(rest),
+        );
+        notifyListeners();
+        _save();
+        return;
+      }
+    }
+
     _blocks[idx] = _blocks[idx].copyWith(content: RichText.text(newText));
     notifyListeners();
     _save();

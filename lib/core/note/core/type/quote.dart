@@ -13,4 +13,9 @@ class QuoteType extends BlockType {
 
   @override
   BlockType? get onEnterType => const QuoteType();
+
+  static TypeConversionRule<BlockType> get inputTrigger => TypeConversionRule(
+    pattern: RegExp(r'^> '),
+    createType: (_) => const QuoteType(),
+  );
 }

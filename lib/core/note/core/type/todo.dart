@@ -20,4 +20,9 @@ class TodoType extends BlockType {
 
   @override
   BlockType? get onEnterType => const TodoType(checked: false);
+
+  static TypeConversionRule<BlockType> get inputTrigger => TypeConversionRule(
+    pattern: RegExp(r'^\[( |x)\] '),
+    createType: (m) => TodoType(checked: m.group(1) == 'x'),
+  );
 }

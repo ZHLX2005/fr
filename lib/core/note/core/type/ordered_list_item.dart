@@ -21,4 +21,9 @@ class OrderedListItemType extends BlockType {
 
   @override
   BlockType? get onEnterType => OrderedListItemType(number: number + 1);
+
+  static TypeConversionRule<BlockType> get inputTrigger => TypeConversionRule(
+    pattern: RegExp(r'^(\d+)\. '),
+    createType: (m) => OrderedListItemType(number: int.parse(m.group(1)!)),
+  );
 }

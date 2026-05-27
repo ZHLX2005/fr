@@ -17,4 +17,10 @@ class HeadingType extends BlockType {
     other is HeadingType && other.level == level;
   @override
   int get hashCode => Object.hash(runtimeType, level);
+
+  static List<TypeConversionRule<BlockType>> get inputTriggers => [
+    TypeConversionRule(pattern: RegExp(r'^### '), createType: (_) => const HeadingType(level: 3)),
+    TypeConversionRule(pattern: RegExp(r'^## '), createType: (_) => const HeadingType(level: 2)),
+    TypeConversionRule(pattern: RegExp(r'^# '), createType: (_) => const HeadingType(level: 1)),
+  ];
 }

@@ -14,15 +14,18 @@ class NoteFactory {
   final NoteRepository _repository;
   final BlockRenderer _renderer;
   final MdToBlock _mdToBlock;
+  final TypeConversionRegistry _conversionRegistry;
 
   NoteFactory._({
     required BlockIdentityFactory idFactory,
     required NoteRepository repository,
     required BlockRenderer renderer,
+    required TypeConversionRegistry conversionRegistry,
   })  : _idFactory = idFactory,
         _repository = repository,
         _renderer = renderer,
-        _mdToBlock = MdToBlock();
+        _mdToBlock = MdToBlock(),
+        _conversionRegistry = conversionRegistry;
 
   /// 创建并组装 NoteFactory 所需的所有内部服务。
   static NoteFactory create() {
@@ -32,10 +35,12 @@ class NoteFactory {
     final richTextCodec = RichTextCodec(formatRegistry);
     final blockCodec = BlockCodec(typeRegistry, richTextCodec);
     final widgetFactory = BlockWidgetBuilder().build();
+    final conversionRegistry = TypeConversionRegistry.createDefault();
     return NoteFactory._(
       idFactory: idFactory,
       repository: NoteRepository(blockCodec),
       renderer: BlockRenderer(widgetFactory),
+      conversionRegistry: conversionRegistry,
     );
   }
 
@@ -87,4 +92,10 @@ class NoteFactory {
   // === 转换 ===
 
   List<Block> parseMarkdown(String source) => _mdToBlock.parse(source);
+
+  // === 输入类型转换 ===
+
+  /// 根据输入文本匹配类型转换规则。
+  (BlockType type, String rest)? tryConvert(String text) =>
+      _conversionRegistry.tryConvert(text);
 }
