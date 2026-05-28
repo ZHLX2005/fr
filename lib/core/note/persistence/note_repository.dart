@@ -1,10 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import '../core/models/block.dart';
-import '../core/identity/block_id.dart';
-import '../core/models/block_type.dart';
-import '../core/text/rich_text.dart';
+import '../core/core.dart';
 
 /// 单篇笔记的元数据。
 class NoteInfo {
@@ -42,6 +39,10 @@ class NoteSummary {
 
 /// 笔记文件仓库 — 扫描 docDir/notes/ 下的 .json 笔记文件。
 class NoteRepository {
+  final BlockCodec _codec;
+
+  NoteRepository(this._codec);
+
   Future<Directory> _getNotesDir() async {
     final docDir = await getApplicationDocumentsDirectory();
     return Directory('${docDir.path}${Platform.pathSeparator}notes');
@@ -53,10 +54,15 @@ class NoteRepository {
     if (!await dir.exists()) return [];
 
     final files = <File>[];
-    await for (final entity in dir.list()) {
-      if (entity is File && entity.path.endsWith('.json')) {
-        files.add(entity);
+    try {
+      final entities = dir.listSync();
+      for (final entity in entities) {
+        if (entity is File && entity.path.endsWith('.json')) {
+          files.add(entity);
+        }
       }
+    } catch (e) {
+      return [];
     }
 
     files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
@@ -65,7 +71,7 @@ class NoteRepository {
     for (final file in files) {
       try {
         final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-        final block = Block.fromJson(json);
+        final block = _codec.decode(json);
         final title = _extractTitle(block);
         final count = _countBlocks(block);
 
@@ -79,7 +85,6 @@ class NoteRepository {
           filePath: file.path,
         ));
       } catch (e) {
-        // 文件解析失败，用文件名作为标题
         notes.add(NoteInfo(
           id: file.path,
           title: file.path.split(Platform.pathSeparator).last,
@@ -114,17 +119,14 @@ class NoteRepository {
 
   /// 从根 block 中提取标题。
   String _extractTitle(Block block) {
-    // 页面标题：如果根是 page 类型，取 content 文本
-    if (block.type == BlockType.page) {
+    if (block.type is PageType) {
       final text = block.content.toPlainText().trim();
       if (text.isNotEmpty) return text;
     }
 
-    // 查找第一个 heading 块
     final heading = _findFirstHeading(block);
     if (heading != null) return heading;
 
-    // 如果没有 page/heading，从 root content 取前 40 字符
     final rootText = block.content.toPlainText().trim();
     if (rootText.isNotEmpty) {
       return rootText.length > 40
@@ -132,12 +134,11 @@ class NoteRepository {
           : rootText;
     }
 
-    // 最终 fallback
     return '未命名笔记';
   }
 
   String? _findFirstHeading(Block block) {
-    if (block.type == BlockType.heading) {
+    if (block.type is HeadingType) {
       final t = block.content.toPlainText().trim();
       if (t.isNotEmpty) return t;
     }
@@ -157,15 +158,6 @@ class NoteRepository {
     return count;
   }
 
-  /// 创建一篇新笔记，返回根 page block。
-  Block createNote(String title) {
-    return Block(
-      id: BlockId.generate(),
-      type: BlockType.page,
-      content: RichText.text(title),
-    );
-  }
-
   /// 将根 block 保存为笔记文件。
   Future<void> saveNote(Block block) async {
     final dir = await _getNotesDir();
@@ -175,7 +167,7 @@ class NoteRepository {
     final file = File(
       '${dir.path}${Platform.pathSeparator}${block.id}.json',
     );
-    await file.writeAsString(jsonEncode(block.toJson()));
+    await file.writeAsString(jsonEncode(_codec.encode(block)));
   }
 
   /// 按 id 删除笔记文件。
@@ -196,7 +188,7 @@ class NoteRepository {
     if (!await file.exists()) return null;
     try {
       final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      return Block.fromJson(json);
+      return _codec.decode(json);
     } catch (_) {
       return null;
     }

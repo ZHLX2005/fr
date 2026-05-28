@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +19,7 @@ import 'lab/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
-
+import 'core/note/note_root_scope.dart';
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,11 +39,17 @@ void main() async {
   // 初始化消息策略
   registerMessageStrategies();
 
-  // 使用 ProviderScope 包装应用，注入 Repository
+  // 初始化笔记模块
+  final noteRoot = NoteFactory.create();
+
+  // 使用 NoteRootScope 包裹应用根节点
   runApp(
-    ProviderScope(
-      overrides: [TimetableStore.repoProvider.overrideWithValue(hiveRepo)],
-      child: const MyApp(),
+    NoteRootScope(
+      noteRoot: noteRoot,
+      child: ProviderScope(
+        overrides: [TimetableStore.repoProvider.overrideWithValue(hiveRepo)],
+        child: const MyApp(),
+      ),
     ),
   );
 }

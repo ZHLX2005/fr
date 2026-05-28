@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-import '../../../core/note/core/models/block.dart';
-import '../../../core/note/core/models/block_type.dart';
+import 'package:flutter/material.dart' hide RichText;
+import 'package:flutter/services.dart';
+import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
-import 'renderer.dart';
 
 class BlockCard extends StatefulWidget {
   final Block block;
@@ -23,31 +22,42 @@ class BlockCard extends StatefulWidget {
 
 class _BlockCardState extends State<BlockCard> {
   late TextEditingController _controller;
+  late FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.block.content.toPlainText());
+    _focusNode = FocusNode();
+    if (widget.isSelected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void didUpdateWidget(BlockCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.block.id != widget.block.id) {
-      // 选中的 block 切换了，直接替换
       _controller.text = widget.block.content.toPlainText();
     } else {
-      // 同一 block，检查外部是否有变更
       final newText = widget.block.content.toPlainText();
       if (newText != _controller.text) {
         _controller.text = newText;
       }
+    }
+    if (!oldWidget.isSelected && widget.isSelected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -64,36 +74,22 @@ class _BlockCardState extends State<BlockCard> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => widget.editorState.select(widget.block.id),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2, right: 4),
-              child: Icon(_typeIcon(widget.block.type), size: 14, color: Colors.grey[400]),
-            ),
-          ),
           Expanded(
             child: GestureDetector(
               onTap: () => widget.editorState.select(widget.block.id),
-              child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type != BlockType.image
+              child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType
                   ? _buildTextField()
-                  : renderBlockContent(
+                  : NoteRootScope.of(context).noteRoot.renderBlock(
                       widget.block,
                       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
-                      onTapAddImage: widget.block.type == BlockType.image
+                      onTapAddImage: widget.block.type is ImageType
                           ? () => _showAddImageDialog()
                           : null,
                     ),
             ),
           ),
-          if (widget.isSelected) ...[
-            IconButton(
-              icon: Icon(Icons.close, size: 16, color: Colors.grey[400]),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              onPressed: () => widget.editorState.deleteBlock(),
-              tooltip: '删除块',
-            ),
-          ],
+          // 选中态指示器（占位保持布局对齐）
+          if (widget.isSelected) const SizedBox(width: 24),
         ],
       ),
     ),
@@ -101,16 +97,38 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _buildTextField() {
-    return TextField(
-      controller: _controller,
-      maxLines: null,
-      style: textStyleForType(widget.block) ?? const TextStyle(fontSize: 14),
-      decoration: const InputDecoration(
-        border: InputBorder.none,
-        isDense: true,
-        contentPadding: EdgeInsets.zero,
+    final ml = widget.block.type.multiline;
+    final textField = Focus(
+      onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
+          widget.editorState.deleteBlock();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: TextField(
+        focusNode: _focusNode,
+        controller: _controller,
+        maxLines: ml ? null : 1,
+        style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block) ?? const TextStyle(fontSize: 14),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
+        onSubmitted: ml ? null : (_) {
+          final newType = widget.block.type.onEnterType;
+          if (newType != null) {
+            widget.editorState.addBlockWithType(newType);
+          }
+        },
       ),
-      onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
+    );
+    return NoteRootScope.of(context).noteRoot.buildEditor(
+      widget.block,
+      textField: textField,
+      onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
     );
   }
 
@@ -161,7 +179,7 @@ class _BlockCardState extends State<BlockCard> {
 
   Future<void> _showUrlDialog() async {
     final controller = TextEditingController(
-      text: widget.block.data.get<String>('src') ?? '',
+      text: (widget.block.type as ImageType).src,
     );
     final result = await showDialog<String>(
       context: context,
@@ -189,17 +207,4 @@ class _BlockCardState extends State<BlockCard> {
     }
   }
 
-  IconData _typeIcon(BlockType type) {
-    return switch (type) {
-      BlockType.heading => Icons.title,
-      BlockType.todo => Icons.check_box_outline_blank,
-      BlockType.bulletListItem => Icons.format_list_bulleted,
-      BlockType.orderedListItem => Icons.format_list_numbered,
-      BlockType.quote => Icons.format_quote,
-      BlockType.code => Icons.code,
-      BlockType.divider => Icons.horizontal_rule,
-      BlockType.callout => Icons.info_outline,
-      _ => Icons.text_fields,
-    };
-  }
 }

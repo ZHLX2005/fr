@@ -9,3 +9,5 @@ class TextMessageData implements IMessageData {
   @override
   String get type => 'text';
 }
+
+
