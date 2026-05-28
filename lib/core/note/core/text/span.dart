@@ -21,14 +21,6 @@ class Span {
         if (format != null) 'format': format!.toJson(),
       };
 
-  factory Span.fromJson(Map<String, dynamic> json) {
-    final formatJson = json['format'] as Map<String, dynamic>?;
-    return Span(
-      json['text'] as String? ?? '',
-      format: formatJson != null ? InlineFormat.fromJson(formatJson) : null,
-    );
-  }
-
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
