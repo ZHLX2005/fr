@@ -3,7 +3,6 @@
 
 import '../core/schema/schema.dart' show initSchemaRegistry;
 import 'demos/api_test_demo.dart';
-import 'demos/arc_selector_demo.dart';
 import 'demos/body_map_demo.dart';
 import 'demos/calendar_demo.dart';
 import 'demos/clock_demo.dart';
@@ -34,6 +33,7 @@ import 'demos/word_drag_demo.dart';
 import 'demos/rive_pendulum_demo.dart';
 import 'demos/rive_data_bind_demo.dart';
 import 'demos/block_editor_demo.dart';
+import 'demos/set_tracker_demo.dart';
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -63,12 +63,12 @@ void registerAllDemos() {
   registerDoubleTimeDemo();
   registerNovelReaderDemo();
   registerVolumeDecayDemo();
-  registerArcSelectorDemo();
   registerDemoLaboratoryDemo();
   registerRivePendulumDemo();
   registerRiveDataBindDemo();
   registerBlockEditorDemo();
   registerPigmentPaletteDemo();
+  registerSetTrackerDemo();
 }
 
 // 初始化 Schema 注册表
