@@ -48,9 +48,7 @@ class _BlockCardState extends State<BlockCard> {
       }
     }
     if (!oldWidget.isSelected && widget.isSelected) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _focusNode.requestFocus();
-      });
+      _focusNode.requestFocus();
     }
   }
 
@@ -104,6 +102,13 @@ class _BlockCardState extends State<BlockCard> {
           widget.editorState.deleteBlock();
           return KeyEventResult.handled;
         }
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter && !ml) {
+          final newType = widget.block.type.onEnterType;
+          if (newType != null) {
+            widget.editorState.addBlockWithType(newType);
+          }
+          return KeyEventResult.handled;
+        }
         return KeyEventResult.ignored;
       },
       child: TextField(
@@ -116,12 +121,17 @@ class _BlockCardState extends State<BlockCard> {
           isDense: true,
           contentPadding: EdgeInsets.zero,
         ),
-        onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
-        onSubmitted: ml ? null : (_) {
-          final newType = widget.block.type.onEnterType;
-          if (newType != null) {
-            widget.editorState.addBlockWithType(newType);
+        textInputAction: TextInputAction.newline,
+        onChanged: (value) {
+          if (!ml && value.endsWith('\n')) {
+            widget.editorState.updateContent(widget.block.id, value.trimRight());
+            final newType = widget.block.type.onEnterType;
+            if (newType != null) {
+              widget.editorState.addBlockWithType(newType);
+            }
+            return;
           }
+          widget.editorState.updateContent(widget.block.id, value);
         },
       ),
     );
