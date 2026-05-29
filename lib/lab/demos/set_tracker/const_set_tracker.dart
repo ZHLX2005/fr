@@ -49,20 +49,20 @@ class SetTrackerConst {
     '5', '6', '8', '10', '12', '15', '20', '25', '30'
   ];
 
-  // ===== 上弧线：圆心在屏幕上方（外），向下拱，半圆感 =====
-  static const double topArcStartAngle = 25 * 3.14159265 / 180;
-  static const double topArcSweepAngle = 130 * 3.14159265 / 180;
-  static const double topArcCenterYFactor = -0.45;
-  static const double topArcLift = 38;
+  // ===== 上弧线：圆心在区域上方（外），向下拱，半圆感 =====
+  static const double topArcStartAngle = 20 * 3.14159265 / 180;
+  static const double topArcSweepAngle = 140 * 3.14159265 / 180;
+  static const double topArcCenterYFactor = -0.55;
+  static const double topArcLift = 36;
 
-  // ===== 下弧线：圆心在屏幕下方（外），向上拱，半圆感 =====
-  static const double bottomArcStartAngle = 205 * 3.14159265 / 180;
-  static const double bottomArcSweepAngle = 130 * 3.14159265 / 180;
-  static const double bottomArcCenterYFactor = 1.45;
-  static const double bottomArcLift = 38;
+  // ===== 下弧线：圆心在区域下方（外），向上拱，半圆感 =====
+  static const double bottomArcStartAngle = 200 * 3.14159265 / 180;
+  static const double bottomArcSweepAngle = 140 * 3.14159265 / 180;
+  static const double bottomArcCenterYFactor = 1.55;
+  static const double bottomArcLift = 36;
 
   // ===== 圆环通用参数 =====
-  static const double arcRadiusFactor = 1.05;
+  static const double arcRadiusFactor = 0.9;
   static const double arcStrokeWidth = 20;
   static const double arcHighlightWidth = 12;
   static const int arcVisibleCount = 5;
