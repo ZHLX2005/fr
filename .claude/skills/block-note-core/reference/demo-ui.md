@@ -10,7 +10,8 @@ lib/lab/demos/block_editor_demo/
 ├── state.dart                # EditorState (ChangeNotifier)
 ├── card.dart                 # BlockCard 块卡片
 ├── note_panel.dart           # 笔记列表侧边栏
-└── type_panel.dart           # 类型 + 工具操作面板
+├── type_panel.dart           # 类型 + 工具操作面板
+└── message_dialog.dart       # 消息 / 引用对话框
 
 lib/core/note/widget/                          # 策略渲染体系
 ├── widget.dart                # barrel
@@ -200,7 +201,7 @@ Future<void>? _pendingSave;  // 待处理保存（串联防竞争）
 | `updateImageSrc(id, src)` | 添加图片 |
 | `toggleTodo(id)` | 切换 `TodoType.checked` |
 | `moveBlock(old, new)` | 拖拽排序 |
-| `importMd(source)` | 解析 markdown 替换当前笔记 |
+| `importMd(source)` | 解析 markdown **插入到选中块后** |
 | `deleteNote(id)` | 删除笔记文件 + 切换笔记 |
 
 **统一模式**：`find → transform(copyWith) → notifyListeners() + _save()`
@@ -253,49 +254,162 @@ void updateContent(String id, String newText) {
 
 - **选中与编辑**：`isSelected=true` → `buildEditor()` 包裹 `TextField`
 - **非选中态**：`NoteRootScope.of(context).noteRoot.renderBlock(block, ...)` 渲染
-- **Backspace 删除**：`Focus.onKeyEvent` 捕获 Backspace，空内容时调用 `deleteBlock()`
-- **Enter 行为**：`onSubmitted` 捕获软键盘 Enter，调用 `addBlockWithType(block.type.onEnterType)`
 - **容器类型**（`containerOnly = true` 如 PageType/ImageType/DividerType）跳过编辑态
 - **自动聚焦**：`didUpdateWidget` 检测选中状态变化，`FocusNode.requestFocus()`
 
-### 编辑态构建
+### 键盘事件（Focus.onKeyEvent）
+
+硬件键盘事件统一在 `Focus.onKeyEvent` 中处理：
 
 ```dart
-Widget _buildTextField() {
-  final ml = widget.block.type.multiline;
-  final textField = Focus(
-    onKeyEvent: (node, event) {
-      if (event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
-        widget.editorState.deleteBlock();
-        return KeyEventResult.handled;
-      }
-      return KeyEventResult.ignored;
-    },
-    child: TextField(
-      focusNode: _focusNode,
-      controller: _controller,
-      maxLines: ml ? null : 1,
-      style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block) ?? ...,
-      decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
-      onChanged: (value) => widget.editorState.updateContent(widget.block.id, value),
-      onSubmitted: ml ? null : (_) {
-        final newType = widget.block.type.onEnterType;
-        if (newType != null) widget.editorState.addBlockWithType(newType);
+Focus(
+  onKeyEvent: (node, event) {
+    // 1. Backspace 删除空块
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
+      widget.editorState.deleteBlock();
+      return KeyEventResult.handled;
+    }
+    // 2. Enter 创建新块（非 multiline 类型）
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter && !ml) {
+      final newType = widget.block.type.onEnterType;
+      if (newType != null) widget.editorState.addBlockWithType(newType);
+      return KeyEventResult.handled;
+    }
+    // 3. 空格（空块弹出消息对话框）
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space && _controller.text.isEmpty) {
+      _showMessageDialog();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  },
+  child: TextField(...)
+)
+```
+
+> ⚠️ `Focus.onKeyEvent` 仅捕获硬件键盘事件。软键盘（IME）的 Enter 和 空格通过 `onChanged` 检测。
+
+### onChanged 软键盘事件
+
+```dart
+onChanged: (value) {
+  // 软键盘 Enter（非 multiline 类型）
+  if (!ml && value.endsWith('\n')) {
+    widget.editorState.updateContent(widget.block.id, value.trimRight());
+    final newType = widget.block.type.onEnterType;
+    if (newType != null) widget.editorState.addBlockWithType(newType);
+    return;
+  }
+  // 软键盘空格触发对话框（空块时）
+  if (value.length == 1 && (value == ' ' || value == ' ')) {
+    _controller.text = '';
+    _showMessageDialog();
+    return;
+  }
+  widget.editorState.updateContent(widget.block.id, value);
+},
+```
+
+### 关键边界处理
+
+| 场景 | 处理方式 |
+|------|----------|
+| 硬件 Backspace 删空块 | `KeyDownEvent` 守卫，防止 `KeyUp` 二次触发 |
+| 硬件 Enter 创建新块 | `onKeyEvent` + `!ml` 守卫 |
+| 软键盘 Enter 创建新块 | `onChanged` 检测 `\n` 后缀 |
+| 硬件空格（空块）→ 对话框 | `onKeyEvent space + text.isEmpty` |
+| 软键盘空格（空块）→ 对话框 | `onChanged` 检测单字符空格 |
+| 输入类型转换 | 仅 `ParagraphType` 调用 `tryConvert` |
+| 多行块（CodeType） | `multiline=true` → `maxLines: null`，不处理 Enter |
+
+---
+
+## Context Menu — 文本选择引用
+
+`_buildContextMenu()` 在系统上下文菜单末尾添加 "引用" 按钮。
+
+```dart
+Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
+  final items = List<ContextMenuButtonItem>.from(editableTextState.contextMenuButtonItems);
+  final value = editableTextState.textEditingValue;
+  if (value.selection.isValid && !value.selection.isCollapsed) {
+    items.add(ContextMenuButtonItem(
+      label: '引用',
+      onPressed: () {
+        final selectedText = value.text.substring(value.selection.start, value.selection.end);
+        final noteRoot = NoteRootScope.of(context).noteRoot;
+        // 创建带 originalBlockId 的临时 Block
+        final quotedBlock = noteRoot.createBlock(
+          const ParagraphType(),
+          content: RichText.text(selectedText),
+          properties: {'originalBlockId': widget.block.id},
+        );
+        _showMessageDialog(quoteData: noteRoot.serializeBlock(quotedBlock));
       },
-    ),
-  );
-  return NoteRootScope.of(context).noteRoot.buildEditor(
-    widget.block,
-    textField: textField,
-    onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
+    ));
+  }
+  return AdaptiveTextSelectionToolbar.buttonItems(
+    anchors: editableTextState.contextMenuAnchors,
+    buttonItems: items,
   );
 }
 ```
 
-### ⚠️ Material 祖先问题
+### 引用数据格式
 
-`ReorderableListView` 为每个 item 包裹 `LookupBoundary`，阻断 `TextField` 查找外部 `Material`。
-解决方案：BlockCard 根节点包 `Material(type: MaterialType.transparency)`。
+**quoteData** 是完整的 Block 序列化 JSON，含 `properties.originalBlockId`：
+
+```json
+{
+  "id": "<new-uuid>",
+  "type": "paragraph",
+  "content": {"spans": [{"text": "选中的文本", "format": null}]},
+  "properties": {"originalBlockId": "<源 block 的 id>"}
+}
+```
+
+`originalBlockId` 保留源 block ID，为未来 Agent 集成时定位源数据。
+
+---
+
+## MessageDialog — 消息 / 引用对话框
+
+`message_dialog.dart`，底部弹出（`showModalBottomSheet`）。
+
+### 触发方式
+
+| 触发 | 条件 | 位置 |
+|------|------|------|
+| 硬件空格 | 空 block 选中 + 硬件键盘空格 | `Focus.onKeyEvent` |
+| 软键盘空格 | 空 block 选中 + 软键盘空格 | `TextField.onChanged` |
+| 文本选择"引用" | 选中文本 → 右键菜单 → 引用 | `contextMenuBuilder` |
+
+### UI 结构
+
+```
+┌────────────────────────────────────┐
+│    ───  (拖拽条)                    │
+│  💬 发送消息              关闭      │
+│  ─────────────────────────          │
+│  ┌──────────────────────────┐      │
+│  │ ║ 引用文本（灰色左边框）  │      │
+│  └──────────────────────────┘      │
+│  ┌──────────────────────┐          │
+│  │      消息气泡         │ → 右对齐 │
+│  └──────────────────────┘          │
+│  ─────────────────────────          │
+│  ┌─ 圆角输入框 ────┐ [➤]          │
+│  └────────────────┘                │
+└────────────────────────────────────┘
+```
+
+### 关键设计
+
+- **引用只发送一次**：`_pendingQuote` 第一次发送后置 null，后续消息不携带
+- **自动滚动**：发送后 `ScrollController.animateTo(maxScrollExtent)`
+- **消息气泡**：蓝色背景、右对齐、最大宽度 75%
+- **引用块**：灰色背景 + 蓝色左边框 + 最多 3 行溢出省略
+- **键盘适配**：`margin: EdgeInsets.only(bottom: viewInsets.bottom)` 整体上移
+- `showModalBottomSheet` 使用 `isScrollControlled: true` + `useSafeArea: true`
 
 ---
 
@@ -308,11 +422,59 @@ Widget _buildTextField() {
 水平滚动条内一行：
 
 **类型插入区**（从 `NoteFactory.availableTypes` 动态生成）：
-`P / H1 H2 H3 / ☐ / • / 1. / " / <> / — / 💡 / 🖼`
+`P / H1(1) H2(2) H3(3) / ☐ / • / 1. / " / <> / — / 💡 / 🖼`
 
-**导入 MD**：📄 导入 MD
+> 注意：H1/H2/H3 图标分别使用 `Icons.looks_one`/`looks_two`/`looks_3`，不再共用 `Icons.title`。
 
-**展开按钮**：↓ 显示 TypePanel 全部类型
+**导入工具**：
+- `📄` 导入文件 (`_importMdFile`)
+- `📋` 导入文字 (`_showImportMdTextDialog`)
+
+**展开按钮**：`↓` 显示 TypePanel 全部类型
+
+### `_proxyDecorator` — 拖拽预览
+
+```dart
+Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
+  return AnimatedBuilder(
+    animation: animation,
+    builder: (context, child) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.blue.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+        ),
+        child: child,
+      );
+    },
+    child: child,
+  );
+}
+```
+
+### 底部空白添加块
+
+`ReorderableListView.builder` 的 `itemCount = blocks.length + 1`，最后一项为空白点击区：
+
+```dart
+itemCount: blocks.length + 1,
+onReorder: (oldIndex, newIndex) {
+  if (oldIndex == blocks.length || newIndex == blocks.length) return;
+  _editorState.moveBlock(oldIndex, newIndex);
+},
+itemBuilder: (context, index) {
+  if (index == blocks.length) {
+    return GestureDetector(
+      key: const ValueKey('__add_block__'),
+      onTap: () => _editorState.addBlock(),
+      behavior: HitTestBehavior.translucent,
+      child: const SizedBox(height: 60),
+    );
+  }
+  return BlockCard(...);
+},
+```
 
 ### 添加新工具的三层模板
 
@@ -380,19 +542,44 @@ Widget _toolbarButton({
 | 文件 | 职责 |
 |------|------|
 | `lib/core/note/convert/md_to_block.dart` | 纯函数，md 文本 → `List<Block>` |
-| `state.dart` | `importMd()` 方法，解析后替换 `_blocks` |
-| `block_editor_demo.dart` | `_importMdFile()` 文件选取 + 读取 + 导入 |
+| `state.dart` | `importMd()` 方法，解析后**插入到选中块之后** |
+| `block_editor_demo.dart` | `_importMdFile()` 文件选取 + `_showImportMdTextDialog()` 文字导入 |
 | `type_panel.dart` | 面板 "工具 → 导入 MD" 磁贴 |
 
 ### 调用流程
 
 ```
-Toolbar (📄) / TypePanel → _importMdFile()
+Toolbar (📄) → _importMdFile()
   → MediaService.pickFile(.md)
   → 读取文件内容
   → EditorState.importMd(source)
     → MdToBlock.parse(source)
-    → 替换 _blocks → notifyListeners → _save()
+    → 插入选中块后 / 追加文末 → notifyListeners → _save()
+
+Toolbar (📋) → _showImportMdTextDialog()
+  → showDialog 粘贴文本
+  → EditorState.importMd(text)
+```
+
+### 插入模式
+
+```dart
+void importMd(String source) {
+  final blocks = _noteFactory.parseMarkdown(source);
+  if (blocks.isEmpty) return;
+
+  if (_selectedId != null) {
+    final idx = _blocks.indexWhere((b) => b.id == _selectedId);
+    if (idx >= 0) {
+      _blocks.insertAll(idx + 1, blocks);     // 插入到选中块后
+      _selectedId = blocks.last.id;
+      notifyListeners(); _save(); return;
+    }
+  }
+  _blocks.addAll(blocks);                      // 无选中 → 追加文末
+  _selectedId = blocks.last.id;
+  notifyListeners(); _save();
+}
 ```
 
 ### 支持语法
@@ -413,16 +600,13 @@ Toolbar (📄) / TypePanel → _importMdFile()
 
 ---
 
-## NotePanel / TypePanel
-
-### NotePanel
+## NotePanel
 
 `note_panel.dart`，Scaffold endDrawer。
 - 显示 `NoteFactory.listNotes()` 列表
 - 点击切换笔记
 - 新建笔记按钮
 - `Dismissible` 滑动删除
-- **异步安全**：`NoteRootScope.of(context)` 包裹在 `addPostFrameCallback` 中
 
 ### ⚠️ NotePanel 删除竞争
 
@@ -439,7 +623,13 @@ confirmDismiss: (_) async {
 
 必须**先同步移除列表项再 await**，否则 Dismissible 完整动画后 rebuild 会导致 "still part of tree" 错误。
 
-### TypePanel
+### ⚠️ 异步安全
+
+`NoteRootScope.of(context)` 必须在 `addPostFrameCallback` 中调用，因为 `InheritedWidget` 在 `initState()` 时不可用。
+
+---
+
+## TypePanel
 
 `type_panel.dart`，底部弹出面板（`showModalBottomSheet`）。
 
@@ -448,7 +638,7 @@ confirmDismiss: (_) async {
 - **列表**：待办 / 无序列表 / 有序列表
 - **文本**：段落 / 引用 / 代码 / 提示框
 - **媒体**：图片 / 分割线
-- **工具**：导入 MD（通过 `onImportMd` 回调）
+- **工具**：导入文件 / 导入文字（通过 `onImportMdFile`/`onImportMdText` 回调）
 
 ---
 
@@ -460,12 +650,16 @@ confirmDismiss: (_) async {
 | Editor 模式装饰（6种类型） | ✅ | `buildEditor()` 在各策略 |
 | BlockType 切换 | ✅ | `type_panel.dart` |
 | 选中编辑 | ✅ | `card.dart` |
-| Backspace 删除空块 | ✅ | `card.dart` — Focus.onKeyEvent |
-| Enter 创建新块（含类型策略） | ✅ | `BlockType.onEnterType` |
+| Backspace 删除空块 | ✅ | `card.dart` — Focus.onKeyEvent KeyDown 守卫 |
+| Enter 创建新块（硬件/软键盘） | ✅ | `Focus.onKeyEvent` + `onChanged` `\n` 检测 |
+| 空格（空块）→ 消息对话框 | ✅ | 硬件: `onKeyEvent` / 软键盘: `onChanged` |
+| 文本选择引用 | ✅ | `contextMenuBuilder` + originalBlockId |
+| 消息对话框（底部弹出） | ✅ | `message_dialog.dart` |
 | 输入触发类型转换 | ✅ | `TypeConversionRule` + `updateContent()` |
 | 拖拽排序 | ✅ | ReorderableListView |
-| Markdown 导入 | ✅ | `md_to_block.dart` + state + toolbar + panel |
+| Markdown 导入文件 + 文字 | ✅ | `md_to_block.dart` + insert-at-cursor |
 | 笔记 CRUD | ✅ | `NoteRepository` + listSync |
+| H1/H2/H3 独立图标 | ✅ | `Icons.looks_one`/`looks_two`/`looks_3` |
 | 富文本 Span / 格式工具栏 | ❌ | — |
 | 撤销/重做 | ❌ | — |
 | Markdown 导出 | ❌ | — |
