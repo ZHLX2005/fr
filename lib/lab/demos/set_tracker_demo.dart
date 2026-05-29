@@ -150,37 +150,18 @@ class _SetTrackerPageState extends State<SetTrackerPage>
   Widget build(BuildContext context) {
     final theme = SetTrackerConst.themes[_themeIndex];
     final reps = SetTrackerConst.repsValues[_repsIndex];
-    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: SetTrackerConst.bgColor,
-      body: Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: screenHeight * 0.38,
-            child: _buildTopArc(),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: screenHeight * 0.38,
-            child: _buildBottomArc(),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(),
-                const Expanded(child: SizedBox.shrink()),
-                _buildCenterSection(theme, reps),
-                const Expanded(child: SizedBox.shrink()),
-              ],
-            ),
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(flex: 5, child: _buildTopArc()),
+            _buildCenterSection(theme, reps),
+            Expanded(flex: 5, child: _buildBottomArc()),
+          ],
+        ),
       ),
     );
   }
@@ -233,14 +214,13 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  // ===== 上弧线：圆心在屏幕上方（外），向下拱，半圆感 =====
+  // ===== 上弧线：圆心在区域上方（外），向下拱，半圆感 =====
   Widget _buildTopArc() {
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = constraints.biggest;
-        final screenHeight = MediaQuery.of(context).size.height;
         final cx = size.width / 2;
-        final cy = screenHeight * SetTrackerConst.topArcCenterYFactor;
+        final cy = size.height * SetTrackerConst.topArcCenterYFactor;
         final radius = size.width * SetTrackerConst.arcRadiusFactor;
 
         return Stack(
@@ -491,14 +471,13 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  // ===== 下弧线：圆心在屏幕下方（外），向上拱，半圆感 =====
+  // ===== 下弧线：圆心在区域下方（外），向上拱，半圆感 =====
   Widget _buildBottomArc() {
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = constraints.biggest;
-        final screenHeight = MediaQuery.of(context).size.height;
         final cx = size.width / 2;
-        final cy = screenHeight * SetTrackerConst.bottomArcCenterYFactor;
+        final cy = size.height * SetTrackerConst.bottomArcCenterYFactor;
         final radius = size.width * SetTrackerConst.arcRadiusFactor;
 
         final highlightColor =
