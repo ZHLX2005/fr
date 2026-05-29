@@ -194,10 +194,21 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
               ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
               : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: blocks.length,
-                  onReorder: _editorState.moveBlock,
+                  itemCount: blocks.length + 1,
+                  onReorder: (oldIndex, newIndex) {
+                    if (oldIndex == blocks.length || newIndex == blocks.length) return;
+                    _editorState.moveBlock(oldIndex, newIndex);
+                  },
                   proxyDecorator: _proxyDecorator,
                   itemBuilder: (context, index) {
+                    if (index == blocks.length) {
+                      return GestureDetector(
+                        key: const ValueKey('__add_block__'),
+                        onTap: () => _editorState.addBlock(),
+                        behavior: HitTestBehavior.translucent,
+                        child: const SizedBox(height: 60),
+                      );
+                    }
                     return BlockCard(
                       key: ValueKey(blocks[index].id),
                       block: blocks[index],
