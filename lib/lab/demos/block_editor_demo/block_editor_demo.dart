@@ -61,9 +61,14 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                       ),
                       const SizedBox(width: 8),
                       _toolbarButton(
-                        label: '导入 MD',
+                        label: '导入文件',
                         icon: Icons.description,
                         onTap: () => _importMdFile(),
+                      ),
+                      _toolbarButton(
+                        label: '导入文字',
+                        icon: Icons.paste,
+                        onTap: () => _showImportMdTextDialog(),
                       ),
                     ],
                   ),
@@ -74,7 +79,10 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                 borderRadius: BorderRadius.circular(6),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(6),
-                  onTap: () => TypePanel.show(context, _editorState, onImportMd: () => _importMdFile()),
+                  onTap: () => TypePanel.show(context, _editorState,
+                    onImportMdFile: () => _importMdFile(),
+                    onImportMdText: () => _showImportMdTextDialog(),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     child: Icon(Icons.expand_less, size: 22, color: Colors.grey[600]),
@@ -147,6 +155,41 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
     }
 
     _editorState.importMd(source);
+  }
+
+  Future<void> _showImportMdTextDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('导入 Markdown'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: TextField(
+            controller: controller,
+            maxLines: 10,
+            decoration: const InputDecoration(
+              hintText: '粘贴 Markdown 文本...',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('导入'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      _editorState.importMd(result);
+    }
   }
 
   Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {

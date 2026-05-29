@@ -6,13 +6,19 @@ import 'state.dart';
 class TypePanel extends StatelessWidget {
   final EditorState editorState;
   final VoidCallback? onImportMd;
+  final VoidCallback? onImportMdText;
 
-  const TypePanel({super.key, required this.editorState, this.onImportMd});
+  const TypePanel({super.key, required this.editorState, this.onImportMd, this.onImportMdText});
 
-  static Future<void> show(BuildContext context, EditorState editorState, {VoidCallback? onImportMd}) {
+  static Future<void> show(BuildContext context, EditorState editorState,
+      {VoidCallback? onImportMdFile, VoidCallback? onImportMdText}) {
     return showModalBottomSheet(
       context: context,
-      builder: (_) => TypePanel(editorState: editorState, onImportMd: onImportMd),
+      builder: (_) => TypePanel(
+        editorState: editorState,
+        onImportMd: onImportMdFile,
+        onImportMdText: onImportMdText,
+      ),
     );
   }
 
@@ -53,9 +59,12 @@ class TypePanel extends StatelessWidget {
                         _buildCategory(cat.label,
                           grouped[cat]!.map((info) => _typeTile(context, info)).toList()),
                     ],
-                    if (onImportMd != null)
+                    if (onImportMd != null || onImportMdText != null)
                       _buildCategory('工具', [
-                        _actionTile(context, Icons.description, '导入 MD', onImportMd!),
+                        if (onImportMd != null)
+                          _actionTile(context, Icons.description, '导入文件', onImportMd!),
+                        if (onImportMdText != null)
+                          _actionTile(context, Icons.paste, '导入文字', onImportMdText!),
                       ]),
                   ],
                 ),
