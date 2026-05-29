@@ -49,21 +49,22 @@ class SetTrackerConst {
     '5', '6', '8', '10', '12', '15', '20', '25', '30'
   ];
 
-  // ===== 上弧线参数（类型选择，拱形向上）=====
-  static const double topArcStartAngle = 200 * 3.14159265 / 180;
-  static const double topArcSweepAngle = 140 * 3.14159265 / 180;
-  static const double topArcCenterYFactor = 1.35;
-  static const double topArcLift = 46;
+  // ===== 上弧线：圆心在上边，向下拱（轮盘上沿） =====
+  static const double topArcStartAngle = 55 * 3.14159265 / 180;
+  static const double topArcSweepAngle = 70 * 3.14159265 / 180;
+  static const double topArcCenterYFactor = -0.15;
+  static const double topArcLift = 44;
 
-  // ===== 下弧线参数（数值选择，拱形向下）=====
-  static const double bottomArcStartAngle = 160 * 3.14159265 / 180;
-  static const double bottomArcSweepAngle = -140 * 3.14159265 / 180;
-  static const double bottomArcCenterYFactor = -0.35;
-  static const double bottomArcLift = 46;
+  // ===== 下弧线：圆心在下边，向上拱（轮盘下沿） =====
+  static const double bottomArcStartAngle = 235 * 3.14159265 / 180;
+  static const double bottomArcSweepAngle = 70 * 3.14159265 / 180;
+  static const double bottomArcCenterYFactor = 1.15;
+  static const double bottomArcLift = 44;
 
-  // ===== 圆环视觉参数 =====
-  static const double arcStrokeWidth = 18;
-  static const double arcHighlightWidth = 10;
+  // ===== 圆环通用参数 =====
+  static const double arcRadiusFactor = 0.82;
+  static const double arcStrokeWidth = 20;
+  static const double arcHighlightWidth = 12;
   static const int arcVisibleCount = 5;
 
   // ===== 动画 =====
@@ -71,7 +72,7 @@ class SetTrackerConst {
   static const Duration buttonPressDuration = Duration(milliseconds: 150);
 
   // ===== 布局 =====
-  static const double recordButtonSize = 110;
+  static const double recordButtonSize = 100;
 
   // ===== 颜色 =====
   static const Color bgColor = Color(0xFFF8F9FA);

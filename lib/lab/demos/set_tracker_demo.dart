@@ -5,13 +5,13 @@ import 'set_tracker/const_set_tracker.dart';
 import 'set_tracker/set_tracker_ring_painter.dart';
 
 /// 训练组追踪器 Demo
-/// 双弧线布局：上弧选类型，下弧选次数，中间记录
+/// 双轮盘布局：上弧圆心在上（向下拱），下弧圆心在下（向上拱）
 class SetTrackerDemo extends DemoPage {
   @override
   String get title => '组数追踪';
 
   @override
-  String get description => '双弧线选择器，上选类型下选次数，一键记录';
+  String get description => '双轮盘选择器，上选类型下选次数，一键记录';
 
   @override
   bool get preferFullScreen => true;
@@ -54,10 +54,11 @@ class _SetTrackerPageState extends State<SetTrackerPage>
   final List<_SetRecord> _records = [];
 
   int _themeIndex = 0;
-  int _repsIndex = 4; // 默认 12
+  int _repsIndex = 4;
   bool _isRecording = false;
 
   late AnimationController _recordAnimController;
+  late AnimationController _glowController;
 
   @override
   void initState() {
@@ -66,6 +67,10 @@ class _SetTrackerPageState extends State<SetTrackerPage>
       vsync: this,
       duration: SetTrackerConst.buttonPressDuration,
     );
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -73,6 +78,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     _themeController.dispose();
     _repsController.dispose();
     _recordAnimController.dispose();
+    _glowController.dispose();
     super.dispose();
   }
 
@@ -150,25 +156,10 @@ class _SetTrackerPageState extends State<SetTrackerPage>
       body: SafeArea(
         child: Column(
           children: [
-            // ===== 头部 =====
             _buildHeader(),
-
-            // ===== 上弧线：类型选择 =====
-            Expanded(
-              flex: 4,
-              child: _buildTopArc(),
-            ),
-
-            // ===== 中间：当前信息 + 记录按钮 =====
+            Expanded(flex: 4, child: _buildTopArc()),
             _buildCenterSection(theme, reps),
-
-            // ===== 下弧线：次数选择 =====
-            Expanded(
-              flex: 4,
-              child: _buildBottomArc(),
-            ),
-
-            // ===== 底部今日统计 =====
+            Expanded(flex: 4, child: _buildBottomArc()),
             _buildTodayStats(),
           ],
         ),
@@ -194,7 +185,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
               ),
               const SizedBox(height: 2),
               Text(
-                '上选类型 · 下选次数 · 一键记录',
+                '双轮盘 · 滑动选择 · 一键记录',
                 style: TextStyle(
                   fontSize: 12,
                   color: SetTrackerConst.textSecondary,
@@ -224,13 +215,14 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
+  // ===== 上弧线：圆心在上，向下拱 =====
   Widget _buildTopArc() {
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = constraints.biggest;
         final cx = size.width / 2;
         final cy = size.height * SetTrackerConst.topArcCenterYFactor;
-        final radius = size.shortestSide * 0.75;
+        final radius = size.shortestSide * SetTrackerConst.arcRadiusFactor;
 
         return Stack(
           children: [
@@ -260,6 +252,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
                   .map((t) => (label: t.label, icon: t.icon, colors: t.gradient))
                   .toList(),
               selectedIndex: _themeIndex,
+              glowController: _glowController,
             ),
             PageView.builder(
               controller: _themeController,
@@ -273,28 +266,35 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
+  // ===== 中间：信息 + 记录按钮 =====
   Widget _buildCenterSection(WorkoutTheme theme, String reps) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 当前选中信息
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                 decoration: BoxDecoration(
                   gradient: theme.linearGradient,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.gradient[0].withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(theme.icon, color: Colors.white, size: 16),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 5),
                     Text(
                       theme.label,
                       style: const TextStyle(
@@ -309,27 +309,27 @@ class _SetTrackerPageState extends State<SetTrackerPage>
               const SizedBox(width: 10),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
                       color: SetTrackerConst.shadowColor,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.repeat, color: theme.gradient[0], size: 16),
-                    const SizedBox(width: 4),
+                    Icon(Icons.repeat, color: theme.gradient[1], size: 16),
+                    const SizedBox(width: 5),
                     Text(
                       '$reps 次',
                       style: TextStyle(
-                        color: theme.gradient[0],
+                        color: theme.gradient[1],
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
@@ -339,12 +339,11 @@ class _SetTrackerPageState extends State<SetTrackerPage>
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          // 记录按钮
+          const SizedBox(height: 12),
           AnimatedBuilder(
             animation: _recordAnimController,
             builder: (_, __) {
-              final scale = 1.0 - _recordAnimController.value * 0.14;
+              final scale = 1.0 - _recordAnimController.value * 0.16;
               return Transform.scale(
                 scale: scale,
                 child: GestureDetector(
@@ -357,14 +356,14 @@ class _SetTrackerPageState extends State<SetTrackerPage>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: theme.gradient[0].withValues(alpha: 0.4),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
+                          color: theme.gradient[0].withValues(alpha: 0.45),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
                         ),
                         BoxShadow(
-                          color: theme.gradient[1].withValues(alpha: 0.2),
-                          blurRadius: 40,
-                          offset: const Offset(0, 12),
+                          color: theme.gradient[1].withValues(alpha: 0.25),
+                          blurRadius: 48,
+                          offset: const Offset(0, 16),
                         ),
                       ],
                     ),
@@ -372,7 +371,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.add, color: Colors.white, size: 32),
+                          const Icon(Icons.add, color: Colors.white, size: 30),
                           const SizedBox(height: 2),
                           Text(
                             _isRecording ? '记录中...' : '记录',
@@ -395,15 +394,15 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
+  // ===== 下弧线：圆心在下，向上拱 =====
   Widget _buildBottomArc() {
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = constraints.biggest;
         final cx = size.width / 2;
         final cy = size.height * SetTrackerConst.bottomArcCenterYFactor;
-        final radius = size.shortestSide * 0.75;
+        final radius = size.shortestSide * SetTrackerConst.arcRadiusFactor;
 
-        // 下弧线高亮色跟随当前主题
         final highlightColor =
             SetTrackerConst.themes[_themeIndex].gradient[1];
 
@@ -439,6 +438,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
                       ))
                   .toList(),
               selectedIndex: _repsIndex,
+              glowController: _glowController,
             ),
             PageView.builder(
               controller: _repsController,
@@ -498,7 +498,8 @@ class _SetTrackerPageState extends State<SetTrackerPage>
                       '${t.label} $count',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isActive ? FontWeight.bold : FontWeight.normal,
                         color: isActive ? Colors.white : SetTrackerConst.textMuted,
                       ),
                     ),
@@ -528,7 +529,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
   }
 }
 
-// ===== 通用弧线标签层 =====
+// ===== 通用弧线标签层（带脉冲光晕） =====
 
 typedef _ArcItem = ({String label, IconData icon, List<Color> colors});
 
@@ -543,6 +544,7 @@ class _ArcLabelLayer extends StatelessWidget {
   final double lift;
   final List<_ArcItem> items;
   final int selectedIndex;
+  final AnimationController glowController;
 
   const _ArcLabelLayer({
     required this.controller,
@@ -555,6 +557,7 @@ class _ArcLabelLayer extends StatelessWidget {
     required this.lift,
     required this.items,
     required this.selectedIndex,
+    required this.glowController,
   });
 
   @override
@@ -562,9 +565,10 @@ class _ArcLabelLayer extends StatelessWidget {
     final k = (visibleCount - 1) / 2;
 
     return AnimatedBuilder(
-      animation: controller,
+      animation: Listenable.merge([controller, glowController]),
       builder: (_, __) {
         final t = controller.hasClients ? (controller.page ?? 0) : 0.0;
+        final glowValue = glowController.value;
         final children = <Widget>[];
 
         for (int i = 0; i < items.length; i++) {
@@ -581,7 +585,7 @@ class _ArcLabelLayer extends StatelessWidget {
           final ny = y - cy;
           final len = math.sqrt(nx * nx + ny * ny);
 
-          // 统一远离圆心方向偏移
+          // 远离圆心
           final ox = x + (nx / len) * lift;
           final oy = y + (ny / len) * lift;
 
@@ -590,6 +594,9 @@ class _ArcLabelLayer extends StatelessWidget {
           final opacity = 0.3 + 0.7 * emphasis;
           final item = items[i];
           final isCenter = emphasis > 0.7;
+
+          // 脉冲光晕大小
+          final glowSize = isCenter ? 16 + glowValue * 8 : 0.0;
 
           children.add(
             Positioned(
@@ -604,60 +611,79 @@ class _ArcLabelLayer extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: isCenter ? 52 : 40,
-                        height: isCenter ? 52 : 40,
-                        decoration: BoxDecoration(
-                          gradient: isCenter
-                              ? LinearGradient(
-                                  colors: item.colors,
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                )
-                              : null,
-                          color: isCenter ? null : Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: isCenter
-                              ? [
-                                  BoxShadow(
-                                    color: item.colors[0]
-                                        .withValues(alpha: 0.35),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ]
-                              : [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.06),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                          border: isCenter
-                              ? null
-                              : Border.all(
-                                  color: const Color(0xFFE8E8EC), width: 2),
-                        ),
-                        child: Center(
-                          child: item.icon == Icons.format_list_numbered
-                              ? Text(
-                                  item.label,
-                                  style: TextStyle(
-                                    fontSize: isCenter ? 18 : 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isCenter
-                                        ? Colors.white
-                                        : SetTrackerConst.textSecondary,
-                                  ),
-                                )
-                              : Icon(
-                                  item.icon,
-                                  size: isCenter ? 24 : 18,
-                                  color: isCenter
-                                      ? Colors.white
-                                      : SetTrackerConst.textSecondary,
-                                ),
-                        ),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // 脉冲光晕
+                          if (isCenter)
+                            Container(
+                              width: 52 + glowSize,
+                              height: 52 + glowSize,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: item.colors[0]
+                                    .withValues(alpha: 0.15 * (1 - glowValue)),
+                              ),
+                            ),
+                          // 主按钮
+                          Container(
+                            width: isCenter ? 52 : 40,
+                            height: isCenter ? 52 : 40,
+                            decoration: BoxDecoration(
+                              gradient: isCenter
+                                  ? LinearGradient(
+                                      colors: item.colors,
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : null,
+                              color: isCenter ? null : Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: isCenter
+                                  ? [
+                                      BoxShadow(
+                                        color: item.colors[0]
+                                            .withValues(alpha: 0.4),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ]
+                                  : [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.06),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                              border: isCenter
+                                  ? null
+                                  : Border.all(
+                                      color: const Color(0xFFE8E8EC),
+                                      width: 2),
+                            ),
+                            child: Center(
+                              child: item.icon == Icons.format_list_numbered
+                                  ? Text(
+                                      item.label,
+                                      style: TextStyle(
+                                        fontSize: isCenter ? 18 : 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: isCenter
+                                            ? Colors.white
+                                            : SetTrackerConst.textSecondary,
+                                      ),
+                                    )
+                                  : Icon(
+                                      item.icon,
+                                      size: isCenter ? 24 : 18,
+                                      color: isCenter
+                                          ? Colors.white
+                                          : SetTrackerConst.textSecondary,
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 5),
                       if (item.icon != Icons.format_list_numbered)
