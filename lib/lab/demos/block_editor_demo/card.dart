@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
+import 'message_dialog.dart';
 
 class BlockCard extends StatefulWidget {
   final Block block;
@@ -109,6 +110,10 @@ class _BlockCardState extends State<BlockCard> {
           }
           return KeyEventResult.handled;
         }
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space && _controller.text.isEmpty) {
+          _showMessageDialog();
+          return KeyEventResult.handled;
+        }
         return KeyEventResult.ignored;
       },
       child: TextField(
@@ -122,6 +127,7 @@ class _BlockCardState extends State<BlockCard> {
           contentPadding: EdgeInsets.zero,
         ),
         textInputAction: TextInputAction.newline,
+        contextMenuBuilder: _buildContextMenu,
         onChanged: (value) {
           if (!ml && value.endsWith('\n')) {
             widget.editorState.updateContent(widget.block.id, value.trimRight());
@@ -129,6 +135,12 @@ class _BlockCardState extends State<BlockCard> {
             if (newType != null) {
               widget.editorState.addBlockWithType(newType);
             }
+            return;
+          }
+          // 软键盘按空格（空白 block 触发对话框）
+          if (value.length == 1 && (value == ' ' || value == ' ')) {
+            _controller.text = '';
+            _showMessageDialog();
             return;
           }
           widget.editorState.updateContent(widget.block.id, value);
@@ -139,6 +151,44 @@ class _BlockCardState extends State<BlockCard> {
       widget.block,
       textField: textField,
       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
+    );
+  }
+
+  Future<void> _showMessageDialog({Map<String, dynamic>? quoteData}) async {
+    final noteRoot = NoteRootScope.of(context).noteRoot;
+    await MessageDialog.show(
+      context,
+      serializedBlock: noteRoot.serializeBlock(widget.block),
+      quoteData: quoteData,
+    );
+  }
+
+  Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
+    final items = List<ContextMenuButtonItem>.from(
+      editableTextState.contextMenuButtonItems,
+    );
+    final value = editableTextState.textEditingValue;
+    if (value.selection.isValid && !value.selection.isCollapsed) {
+      items.add(ContextMenuButtonItem(
+        label: '引用',
+        onPressed: () {
+          final selectedText = value.text.substring(
+            value.selection.start,
+            value.selection.end,
+          );
+          final noteRoot = NoteRootScope.of(context).noteRoot;
+          final quotedBlock = noteRoot.createBlock(
+            const ParagraphType(),
+            content: RichText.text(selectedText),
+            properties: {'originalBlockId': widget.block.id},
+          );
+          _showMessageDialog(quoteData: noteRoot.serializeBlock(quotedBlock));
+        },
+      ));
+    }
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: items,
     );
   }
 

@@ -74,6 +74,9 @@ class NoteFactory {
   Future<void> deleteNote(String id) => _repository.deleteNote(id);
   Future<String> readRawNoteContent(String filePath) => _repository.readRawContent(filePath);
 
+  /// 将 Block 序列化为 JSON Map。
+  Map<String, dynamic> serializeBlock(Block block) => _repository.encodeBlock(block);
+
   // === 类型元信息 ===
 
   /// 所有策略提供的可创建类型列表，供工具栏等 UI 消费。
