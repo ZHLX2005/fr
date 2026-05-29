@@ -6,9 +6,9 @@ import '../block_widget_strategy.dart';
 class HeadingWidgetStrategy extends BlockWidgetStrategy {
   @override
   List<BlockTypeInfo> get typeInfoList => const [
-    BlockTypeInfo(prototype: HeadingType(level: 1), icon: Icons.title, label: 'H1', category: BlockTypeCategory.heading),
-    BlockTypeInfo(prototype: HeadingType(level: 2), icon: Icons.title, label: 'H2', category: BlockTypeCategory.heading),
-    BlockTypeInfo(prototype: HeadingType(level: 3), icon: Icons.title, label: 'H3', category: BlockTypeCategory.heading),
+    BlockTypeInfo(prototype: HeadingType(level: 1), icon: Icons.looks_one, label: 'H1', category: BlockTypeCategory.heading),
+    BlockTypeInfo(prototype: HeadingType(level: 2), icon: Icons.looks_two, label: 'H2', category: BlockTypeCategory.heading),
+    BlockTypeInfo(prototype: HeadingType(level: 3), icon: Icons.looks_3, label: 'H3', category: BlockTypeCategory.heading),
   ];
 
   @override
