@@ -65,7 +65,7 @@ class MainActivity : FlutterActivity() {
         volumeChannel = VolumeChannel(messenger, this)
 
         // Novel Reader Volume Key Channel
-        novelVolumeKeyChannel = NovelVolumeKeyChannel(messenger, this)
+        novelVolumeKeyChannel = NovelVolumeKeyChannel(messenger)
     }
 
     private fun notifyFlutter(method: String, args: Any?) {
@@ -158,6 +158,15 @@ class MainActivity : FlutterActivity() {
             floatingChannel?.notifyPermissionDenied()
         }
         pendingPermissionService = null
+    }
+
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (::novelVolumeKeyChannel.isInitialized &&
+            novelVolumeKeyChannel.handleKeyEvent(keyCode, event)
+        ) {
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onNewIntent(intent: Intent) {
