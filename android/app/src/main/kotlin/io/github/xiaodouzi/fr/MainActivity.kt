@@ -16,6 +16,7 @@ import io.github.xiaodouzi.fr.native.overlay.FloatingChannel
 import io.github.xiaodouzi.fr.native.overlay.FloatingWindowManager
 import io.github.xiaodouzi.fr.native.pigment.PigmentFloatingManager
 import io.github.xiaodouzi.fr.native.system.SystemChannel
+import io.github.xiaodouzi.fr.native.novel.NovelVolumeKeyChannel
 import io.github.xiaodouzi.fr.native.volume.VolumeChannel
 import io.github.xiaodouzi.fr.native.widget.WidgetChannel
 
@@ -25,6 +26,7 @@ class MainActivity : FlutterActivity() {
     private lateinit var systemChannel: SystemChannel
     private lateinit var floatingChannel: FloatingChannel
     private lateinit var volumeChannel: VolumeChannel
+    private lateinit var novelVolumeKeyChannel: NovelVolumeKeyChannel
 
     private var mediaProjectionManager: MediaProjectionManager? = null
     private var regionCaptureReceiver: BroadcastReceiver? = null
@@ -61,6 +63,9 @@ class MainActivity : FlutterActivity() {
 
         // Volume Channel
         volumeChannel = VolumeChannel(messenger, this)
+
+        // Novel Reader Volume Key Channel
+        novelVolumeKeyChannel = NovelVolumeKeyChannel(messenger)
     }
 
     private fun notifyFlutter(method: String, args: Any?) {
@@ -153,6 +158,15 @@ class MainActivity : FlutterActivity() {
             floatingChannel?.notifyPermissionDenied()
         }
         pendingPermissionService = null
+    }
+
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (::novelVolumeKeyChannel.isInitialized &&
+            novelVolumeKeyChannel.handleKeyEvent(keyCode, event)
+        ) {
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onNewIntent(intent: Intent) {

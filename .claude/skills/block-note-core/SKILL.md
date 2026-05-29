@@ -62,6 +62,8 @@ lib/core/note/
 - **Demo UI 架构 / 新增渲染策略** → 读 `reference/demo-ui.md`
 - **工具栏添加新工具** → 读 `reference/demo-ui.md` Toolbar 章节
 - **选中高亮 / Material 错误** → 读 `reference/demo-ui.md` BlockCard 章节
+- **Backspace/Enter/空格键盘事件** → 读 `reference/demo-ui.md` BlockCard 键盘事件小节
+- **消息对话框 / 引用** → 读 `reference/demo-ui.md` MessageDialog 章节 + Context Menu 章节
 - **Markdown 导入** → 读 `reference/demo-ui.md` MD Import 章节
 - **输入触发类型转换** → 读 `reference/demo-ui.md` Input Conversion 章节
 - **文件结构 / 目录组织** → 回到本页代码结构
