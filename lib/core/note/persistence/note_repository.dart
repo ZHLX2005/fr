@@ -43,6 +43,9 @@ class NoteRepository {
 
   NoteRepository(this._codec);
 
+  /// 将 Block 序列化为 JSON Map。
+  Map<String, dynamic> encodeBlock(Block block) => _codec.encode(block);
+
   Future<Directory> _getNotesDir() async {
     final docDir = await getApplicationDocumentsDirectory();
     return Directory('${docDir.path}${Platform.pathSeparator}notes');

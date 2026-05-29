@@ -84,6 +84,9 @@ class NoteFactory {
   TextStyle? textStyleFor(Block block);
   List<BlockTypeInfo> get availableTypes;
 
+  // 序列化
+  Map<String, dynamic> serializeBlock(Block block);
+
   // 解析
   List<Block> parseMarkdown(String source);
 

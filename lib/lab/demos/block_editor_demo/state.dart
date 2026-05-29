@@ -171,14 +171,24 @@ class EditorState extends ChangeNotifier {
 
   Future<void>? _pendingSave;
 
-  /// 导入 markdown 内容，替换当前笔记的所有块。
+  /// 导入 markdown 内容，添加到当前光标位置之后。
+  /// 无选中块则追加到文末。
   void importMd(String source) {
     final blocks = _noteFactory.parseMarkdown(source);
     if (blocks.isEmpty) return;
-    _blocks
-      ..clear()
-      ..addAll(blocks);
-    _selectedId = _blocks.first.id;
+
+    if (_selectedId != null) {
+      final idx = _blocks.indexWhere((b) => b.id == _selectedId);
+      if (idx >= 0) {
+        _blocks.insertAll(idx + 1, blocks);
+        _selectedId = blocks.last.id;
+        notifyListeners();
+        _save();
+        return;
+      }
+    }
+    _blocks.addAll(blocks);
+    _selectedId = blocks.last.id;
     notifyListeners();
     _save();
   }
