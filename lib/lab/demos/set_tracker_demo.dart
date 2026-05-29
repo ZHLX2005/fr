@@ -5,13 +5,13 @@ import 'set_tracker/const_set_tracker.dart';
 import 'set_tracker/set_tracker_ring_painter.dart';
 
 /// 训练组追踪器 Demo
-/// 环形选择主题 + 多巴胺记录按钮 + 组数统计
+/// 双弧线布局：上弧选类型，下弧选次数，中间记录
 class SetTrackerDemo extends DemoPage {
   @override
   String get title => '组数追踪';
 
   @override
-  String get description => '环形选择训练主题，快捷记录每组动作';
+  String get description => '双弧线选择器，上选类型下选次数，一键记录';
 
   @override
   bool get preferFullScreen => true;
@@ -22,22 +22,19 @@ class SetTrackerDemo extends DemoPage {
   }
 }
 
-/// 单次记录
 class _SetRecord {
   final String id;
   final String themeId;
   final String themeLabel;
+  final String repsValue;
   final DateTime time;
-  int reps;
-  double weight;
 
   _SetRecord({
     required this.id,
     required this.themeId,
     required this.themeLabel,
+    required this.repsValue,
     required this.time,
-    this.reps = 10,
-    this.weight = 0,
   });
 }
 
@@ -50,16 +47,17 @@ class SetTrackerPage extends StatefulWidget {
 
 class _SetTrackerPageState extends State<SetTrackerPage>
     with TickerProviderStateMixin {
-  final PageController _pageController = PageController(viewportFraction: 0.28);
+  final PageController _themeController =
+      PageController(viewportFraction: 0.28);
+  final PageController _repsController =
+      PageController(viewportFraction: 0.28);
   final List<_SetRecord> _records = [];
 
-  int _selectedIndex = 0;
-  int _currentReps = 10;
-  double _currentWeight = 20.0;
+  int _themeIndex = 0;
+  int _repsIndex = 4; // 默认 12
   bool _isRecording = false;
 
   late AnimationController _recordAnimController;
-  late AnimationController _pulseController;
 
   @override
   void initState() {
@@ -68,37 +66,35 @@ class _SetTrackerPageState extends State<SetTrackerPage>
       vsync: this,
       duration: SetTrackerConst.buttonPressDuration,
     );
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: SetTrackerConst.recordPulseDuration,
-    );
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _themeController.dispose();
+    _repsController.dispose();
     _recordAnimController.dispose();
-    _pulseController.dispose();
     super.dispose();
   }
 
   int get _todaySetCount {
     final now = DateTime.now();
-    return _records.where((r) {
-      return r.time.year == now.year &&
-          r.time.month == now.month &&
-          r.time.day == now.day;
-    }).length;
+    return _records
+        .where((r) =>
+            r.time.year == now.year &&
+            r.time.month == now.month &&
+            r.time.day == now.day)
+        .length;
   }
 
   int _todayCountFor(String themeId) {
     final now = DateTime.now();
-    return _records.where((r) {
-      return r.themeId == themeId &&
-          r.time.year == now.year &&
-          r.time.month == now.month &&
-          r.time.day == now.day;
-    }).length;
+    return _records
+        .where((r) =>
+            r.themeId == themeId &&
+            r.time.year == now.year &&
+            r.time.month == now.month &&
+            r.time.day == now.day)
+        .length;
   }
 
   void _recordSet() async {
@@ -108,29 +104,28 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     await _recordAnimController.forward();
     await _recordAnimController.reverse();
 
-    final theme = SetTrackerConst.themes[_selectedIndex];
+    final theme = SetTrackerConst.themes[_themeIndex];
+    final reps = SetTrackerConst.repsValues[_repsIndex];
+
     final record = _SetRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       themeId: theme.id,
       themeLabel: theme.label,
+      repsValue: reps,
       time: DateTime.now(),
-      reps: _currentReps,
-      weight: _currentWeight,
     );
 
     setState(() {
       _records.insert(0, record);
       _isRecording = false;
     });
-
-    _pulseController.forward(from: 0);
   }
 
   void _deleteRecord(String id) {
-    setState(() {
-      _records.removeWhere((r) => r.id == id);
-    });
+    setState(() => _records.removeWhere((r) => r.id == id));
   }
+
+  void _clearRecords() => setState(() => _records.clear());
 
   void _showHistory() {
     showModalBottomSheet(
@@ -140,263 +135,41 @@ class _SetTrackerPageState extends State<SetTrackerPage>
       builder: (ctx) => _HistorySheet(
         records: _records,
         onDelete: _deleteRecord,
-        onClear: () => setState(() => _records.clear()),
+        onClear: _clearRecords,
       ),
     );
   }
 
-  void _adjustReps(int delta) {
-    setState(() {
-      _currentReps = (_currentReps + delta).clamp(1, 100);
-    });
-  }
-
-  void _adjustWeight(double delta) {
-    setState(() {
-      _currentWeight = (_currentWeight + delta).clamp(0, 500);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = SetTrackerConst.themes[_selectedIndex];
+    final theme = SetTrackerConst.themes[_themeIndex];
+    final reps = SetTrackerConst.repsValues[_repsIndex];
 
     return Scaffold(
       backgroundColor: SetTrackerConst.bgColor,
       body: SafeArea(
         child: Column(
           children: [
-            // ===== 自定义头部 =====
+            // ===== 头部 =====
             _buildHeader(),
 
-            // ===== 环形选择器区域 =====
-            Expanded(
-              flex: 5,
-              child: LayoutBuilder(
-                builder: (_, constraints) {
-                  final size = constraints.biggest;
-                  final cx = size.width / 2;
-                  final cy = size.height * 1.3;
-                  final radius = size.shortestSide * 0.72;
-
-                  return Stack(
-                    children: [
-                      // 轨道绘制
-                      CustomPaint(
-                        size: size,
-                        painter: SetTrackerRingPainter(
-                          cx: cx,
-                          cy: cy,
-                          radius: radius,
-                          startAngle: SetTrackerConst.arcStartAngle,
-                          sweepAngle: SetTrackerConst.arcSweepAngle,
-                          selectedIndex: _selectedIndex,
-                          themeCount: SetTrackerConst.themes.length,
-                        ),
-                      ),
-
-                      // 主题标签层
-                      _ThemeLabelLayer(
-                        controller: _pageController,
-                        cx: cx,
-                        cy: cy,
-                        radius: radius,
-                        startAngle: SetTrackerConst.arcStartAngle,
-                        sweepAngle: SetTrackerConst.arcSweepAngle,
-                        visibleCount: SetTrackerConst.arcVisibleCount,
-                      ),
-
-                      // 手势层
-                      PageView.builder(
-                        controller: _pageController,
-                        itemCount: SetTrackerConst.themes.length,
-                        onPageChanged: (i) => setState(() => _selectedIndex = i),
-                        itemBuilder: (_, __) => const SizedBox.expand(),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-
-            // ===== 当前主题信息 + 参数调节 =====
+            // ===== 上弧线：类型选择 =====
             Expanded(
               flex: 4,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 当前主题标签
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: theme.linearGradient,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.gradient[0].withValues(alpha: 0.35),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(theme.icon, color: Colors.white, size: 18),
-                          const SizedBox(width: 6),
-                          Text(
-                            theme.label,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // 参数调节行
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // 重量
-                        _buildParamCard(
-                          label: '重量',
-                          value: '${_currentWeight.toStringAsFixed(1)} kg',
-                          onDecrease: () => _adjustWeight(-2.5),
-                          onIncrease: () => _adjustWeight(2.5),
-                          color: theme.gradient[0],
-                        ),
-                        const SizedBox(width: 16),
-                        // 次数
-                        _buildParamCard(
-                          label: '次数',
-                          value: '$_currentReps',
-                          onDecrease: () => _adjustReps(-1),
-                          onIncrease: () => _adjustReps(1),
-                          color: theme.gradient[1],
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // 记录按钮
-                    _buildRecordButton(theme),
-                  ],
-                ),
-              ),
+              child: _buildTopArc(),
             ),
 
-            // ===== 今日统计 =====
+            // ===== 中间：当前信息 + 记录按钮 =====
+            _buildCenterSection(theme, reps),
+
+            // ===== 下弧线：次数选择 =====
             Expanded(
-              flex: 2,
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: SetTrackerConst.cardBg,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: SetTrackerConst.shadowColor,
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          '今日统计',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: SetTrackerConst.textPrimary,
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '共 $_todaySetCount 组',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFFF6B6B),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: Row(
-                        children: SetTrackerConst.themes.map((t) {
-                          final count = _todayCountFor(t.id);
-                          final isActive = count > 0;
-                          return Expanded(
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    gradient: isActive ? t.linearGradient : null,
-                                    color: isActive ? null : const Color(0xFFF0F0F2),
-                                    shape: BoxShape.circle,
-                                    boxShadow: isActive
-                                        ? [
-                                            BoxShadow(
-                                              color: t.gradient[0].withValues(alpha: 0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '$count',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: isActive ? Colors.white : SetTrackerConst.textMuted,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  t.label,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: isActive ? SetTrackerConst.textPrimary : SetTrackerConst.textMuted,
-                                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              flex: 4,
+              child: _buildBottomArc(),
             ),
+
+            // ===== 底部今日统计 =====
+            _buildTodayStats(),
           ],
         ),
       ),
@@ -405,7 +178,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+      padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
       child: Row(
         children: [
           Column(
@@ -421,16 +194,15 @@ class _SetTrackerPageState extends State<SetTrackerPage>
               ),
               const SizedBox(height: 2),
               Text(
-                '选择主题，记录每一组',
+                '上选类型 · 下选次数 · 一键记录',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: SetTrackerConst.textSecondary,
                 ),
               ),
             ],
           ),
           const Spacer(),
-          // 历史记录按钮
           Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -441,11 +213,8 @@ class _SetTrackerPageState extends State<SetTrackerPage>
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding: const EdgeInsets.all(10),
-                child: const Icon(
-                  Icons.history,
-                  color: SetTrackerConst.textPrimary,
-                  size: 22,
-                ),
+                child: const Icon(Icons.history,
+                    color: SetTrackerConst.textPrimary, size: 22),
               ),
             ),
           ),
@@ -455,133 +224,315 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  Widget _buildParamCard({
-    required String label,
-    required String value,
-    required VoidCallback onDecrease,
-    required VoidCallback onIncrease,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: SetTrackerConst.shadowColor,
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+  Widget _buildTopArc() {
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final size = constraints.biggest;
+        final cx = size.width / 2;
+        final cy = size.height * SetTrackerConst.topArcCenterYFactor;
+        final radius = size.shortestSide * 0.75;
+
+        return Stack(
+          children: [
+            CustomPaint(
+              size: size,
+              painter: ArcTrackPainter(
+                cx: cx,
+                cy: cy,
+                radius: radius,
+                startAngle: SetTrackerConst.topArcStartAngle,
+                sweepAngle: SetTrackerConst.topArcSweepAngle,
+                selectedIndex: _themeIndex,
+                itemCount: SetTrackerConst.themes.length,
+                highlightColor: SetTrackerConst.themes[_themeIndex].gradient[0],
+              ),
+            ),
+            _ArcLabelLayer(
+              controller: _themeController,
+              cx: cx,
+              cy: cy,
+              radius: radius,
+              startAngle: SetTrackerConst.topArcStartAngle,
+              sweepAngle: SetTrackerConst.topArcSweepAngle,
+              visibleCount: SetTrackerConst.arcVisibleCount,
+              lift: SetTrackerConst.topArcLift,
+              items: SetTrackerConst.themes
+                  .map((t) => (label: t.label, icon: t.icon, colors: t.gradient))
+                  .toList(),
+              selectedIndex: _themeIndex,
+            ),
+            PageView.builder(
+              controller: _themeController,
+              itemCount: SetTrackerConst.themes.length,
+              onPageChanged: (i) => setState(() => _themeIndex = i),
+              itemBuilder: (_, __) => const SizedBox.expand(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCenterSection(WorkoutTheme theme, String reps) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              color: SetTrackerConst.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 6),
+          // 当前选中信息
           Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildParamButton(onDecrease, Icons.remove, color),
-              const SizedBox(width: 12),
-              _buildParamButton(onIncrease, Icons.add, color),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildParamButton(VoidCallback onTap, IconData icon, Color color) {
-    return Material(
-      color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 16, color: color),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecordButton(WorkoutTheme theme) {
-    return AnimatedBuilder(
-      animation: _recordAnimController,
-      builder: (_, __) {
-        final scale = 1.0 - _recordAnimController.value * 0.12;
-        return Transform.scale(
-          scale: scale,
-          child: GestureDetector(
-            onTap: _recordSet,
-            child: Container(
-              width: SetTrackerConst.recordButtonSize,
-              height: SetTrackerConst.recordButtonSize,
-              decoration: BoxDecoration(
-                gradient: theme.linearGradient,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.gradient[0].withValues(alpha: 0.4),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                  BoxShadow(
-                    color: theme.gradient[1].withValues(alpha: 0.2),
-                    blurRadius: 40,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Column(
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: theme.linearGradient,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.add,
-                      color: Colors.white,
-                      size: 36,
-                    ),
-                    const SizedBox(height: 2),
+                    Icon(theme.icon, color: Colors.white, size: 16),
+                    const SizedBox(width: 4),
                     Text(
-                      _isRecording ? '记录中...' : '记录一组',
+                      theme.label,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: SetTrackerConst.shadowColor,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.repeat, color: theme.gradient[0], size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$reps 次',
+                      style: TextStyle(
+                        color: theme.gradient[0],
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 14),
+          // 记录按钮
+          AnimatedBuilder(
+            animation: _recordAnimController,
+            builder: (_, __) {
+              final scale = 1.0 - _recordAnimController.value * 0.14;
+              return Transform.scale(
+                scale: scale,
+                child: GestureDetector(
+                  onTap: _recordSet,
+                  child: Container(
+                    width: SetTrackerConst.recordButtonSize,
+                    height: SetTrackerConst.recordButtonSize,
+                    decoration: BoxDecoration(
+                      gradient: theme.linearGradient,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.gradient[0].withValues(alpha: 0.4),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                        BoxShadow(
+                          color: theme.gradient[1].withValues(alpha: 0.2),
+                          blurRadius: 40,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add, color: Colors.white, size: 32),
+                          const SizedBox(height: 2),
+                          Text(
+                            _isRecording ? '记录中...' : '记录',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomArc() {
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final size = constraints.biggest;
+        final cx = size.width / 2;
+        final cy = size.height * SetTrackerConst.bottomArcCenterYFactor;
+        final radius = size.shortestSide * 0.75;
+
+        // 下弧线高亮色跟随当前主题
+        final highlightColor =
+            SetTrackerConst.themes[_themeIndex].gradient[1];
+
+        return Stack(
+          children: [
+            CustomPaint(
+              size: size,
+              painter: ArcTrackPainter(
+                cx: cx,
+                cy: cy,
+                radius: radius,
+                startAngle: SetTrackerConst.bottomArcStartAngle,
+                sweepAngle: SetTrackerConst.bottomArcSweepAngle,
+                selectedIndex: _repsIndex,
+                itemCount: SetTrackerConst.repsValues.length,
+                highlightColor: highlightColor,
+              ),
+            ),
+            _ArcLabelLayer(
+              controller: _repsController,
+              cx: cx,
+              cy: cy,
+              radius: radius,
+              startAngle: SetTrackerConst.bottomArcStartAngle,
+              sweepAngle: SetTrackerConst.bottomArcSweepAngle,
+              visibleCount: SetTrackerConst.arcVisibleCount,
+              lift: SetTrackerConst.bottomArcLift,
+              items: SetTrackerConst.repsValues
+                  .map((v) => (
+                        label: v,
+                        icon: Icons.format_list_numbered,
+                        colors: [highlightColor, highlightColor]
+                      ))
+                  .toList(),
+              selectedIndex: _repsIndex,
+            ),
+            PageView.builder(
+              controller: _repsController,
+              itemCount: SetTrackerConst.repsValues.length,
+              onPageChanged: (i) => setState(() => _repsIndex = i),
+              itemBuilder: (_, __) => const SizedBox.expand(),
+            ),
+          ],
         );
       },
     );
   }
+
+  Widget _buildTodayStats() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: SetTrackerConst.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: SetTrackerConst.shadowColor,
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Text(
+            '今日',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: SetTrackerConst.textPrimary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: SetTrackerConst.themes.map((t) {
+                  final count = _todayCountFor(t.id);
+                  final isActive = count > 0;
+                  return Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: isActive ? t.linearGradient : null,
+                      color: isActive ? null : const Color(0xFFF0F0F2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${t.label} $count',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        color: isActive ? Colors.white : SetTrackerConst.textMuted,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '共 $_todaySetCount 组',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFF6B6B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// 弧线主题标签层
-class _ThemeLabelLayer extends StatelessWidget {
+// ===== 通用弧线标签层 =====
+
+typedef _ArcItem = ({String label, IconData icon, List<Color> colors});
+
+class _ArcLabelLayer extends StatelessWidget {
   final PageController controller;
   final double cx;
   final double cy;
@@ -589,8 +540,11 @@ class _ThemeLabelLayer extends StatelessWidget {
   final double startAngle;
   final double sweepAngle;
   final int visibleCount;
+  final double lift;
+  final List<_ArcItem> items;
+  final int selectedIndex;
 
-  const _ThemeLabelLayer({
+  const _ArcLabelLayer({
     required this.controller,
     required this.cx,
     required this.cy,
@@ -598,6 +552,9 @@ class _ThemeLabelLayer extends StatelessWidget {
     required this.startAngle,
     required this.sweepAngle,
     required this.visibleCount,
+    required this.lift,
+    required this.items,
+    required this.selectedIndex,
   });
 
   @override
@@ -610,7 +567,7 @@ class _ThemeLabelLayer extends StatelessWidget {
         final t = controller.hasClients ? (controller.page ?? 0) : 0.0;
         final children = <Widget>[];
 
-        for (int i = 0; i < SetTrackerConst.themes.length; i++) {
+        for (int i = 0; i < items.length; i++) {
           final d = i - t;
           if (d.abs() > k + 1) continue;
 
@@ -623,21 +580,21 @@ class _ThemeLabelLayer extends StatelessWidget {
           final nx = x - cx;
           final ny = y - cy;
           final len = math.sqrt(nx * nx + ny * ny);
-          const lift = 42.0;
 
+          // 统一远离圆心方向偏移
           final ox = x + (nx / len) * lift;
           final oy = y + (ny / len) * lift;
 
           final emphasis = (1 - (d.abs() / k)).clamp(0.0, 1.0);
           final scale = 0.55 + 0.55 * emphasis;
           final opacity = 0.3 + 0.7 * emphasis;
-          final theme = SetTrackerConst.themes[i];
+          final item = items[i];
           final isCenter = emphasis > 0.7;
 
           children.add(
             Positioned(
               left: ox - 40,
-              top: oy - 32,
+              top: oy - 30,
               width: 80,
               child: Opacity(
                 opacity: opacity,
@@ -648,51 +605,74 @@ class _ThemeLabelLayer extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: isCenter ? 56 : 44,
-                        height: isCenter ? 56 : 44,
+                        width: isCenter ? 52 : 40,
+                        height: isCenter ? 52 : 40,
                         decoration: BoxDecoration(
-                          gradient: isCenter ? theme.linearGradient : null,
+                          gradient: isCenter
+                              ? LinearGradient(
+                                  colors: item.colors,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : null,
                           color: isCenter ? null : Colors.white,
                           shape: BoxShape.circle,
                           boxShadow: isCenter
                               ? [
                                   BoxShadow(
-                                    color: theme.gradient[0].withValues(alpha: 0.4),
-                                    blurRadius: 16,
+                                    color: item.colors[0]
+                                        .withValues(alpha: 0.35),
+                                    blurRadius: 14,
                                     offset: const Offset(0, 4),
                                   ),
                                 ]
                               : [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.06),
-                                    blurRadius: 8,
+                                    blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
                           border: isCenter
                               ? null
                               : Border.all(
-                                  color: const Color(0xFFE8E8EC),
-                                  width: 2,
-                                ),
+                                  color: const Color(0xFFE8E8EC), width: 2),
                         ),
                         child: Center(
-                          child: Icon(
-                            theme.icon,
-                            size: isCenter ? 26 : 20,
-                            color: isCenter ? Colors.white : SetTrackerConst.textSecondary,
+                          child: item.icon == Icons.format_list_numbered
+                              ? Text(
+                                  item.label,
+                                  style: TextStyle(
+                                    fontSize: isCenter ? 18 : 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: isCenter
+                                        ? Colors.white
+                                        : SetTrackerConst.textSecondary,
+                                  ),
+                                )
+                              : Icon(
+                                  item.icon,
+                                  size: isCenter ? 24 : 18,
+                                  color: isCenter
+                                      ? Colors.white
+                                      : SetTrackerConst.textSecondary,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      if (item.icon != Icons.format_list_numbered)
+                        Text(
+                          item.label,
+                          style: TextStyle(
+                            color: isCenter
+                                ? item.colors[0]
+                                : SetTrackerConst.textSecondary,
+                            fontSize: isCenter ? 13 : 11,
+                            fontWeight: isCenter
+                                ? FontWeight.bold
+                                : FontWeight.w500,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        theme.label,
-                        style: TextStyle(
-                          color: isCenter ? theme.gradient[0] : SetTrackerConst.textSecondary,
-                          fontSize: isCenter ? 14 : 12,
-                          fontWeight: isCenter ? FontWeight.bold : FontWeight.w500,
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -707,7 +687,8 @@ class _ThemeLabelLayer extends StatelessWidget {
   }
 }
 
-/// 历史记录底部弹窗
+// ===== 历史记录弹窗 =====
+
 class _HistorySheet extends StatelessWidget {
   final List<_SetRecord> records;
   final ValueChanged<String> onDelete;
@@ -728,14 +709,13 @@ class _HistorySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.65,
+      height: MediaQuery.of(context).size.height * 0.6,
       decoration: const BoxDecoration(
         color: SetTrackerConst.bgColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
-          // 把手
           Container(
             margin: const EdgeInsets.only(top: 12),
             width: 40,
@@ -745,7 +725,6 @@ class _HistorySheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // 标题栏
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
             child: Row(
@@ -792,9 +771,7 @@ class _HistorySheet extends StatelessWidget {
                     },
                     icon: const Icon(Icons.delete_outline, size: 18),
                     label: const Text('清空'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
-                    ),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
                   ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
@@ -803,40 +780,28 @@ class _HistorySheet extends StatelessWidget {
               ],
             ),
           ),
-
-          // 记录列表
           Expanded(
             child: records.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.fitness_center,
-                          size: 56,
-                          color: Colors.grey.shade300,
-                        ),
+                        Icon(Icons.fitness_center,
+                            size: 56, color: Colors.grey.shade300),
                         const SizedBox(height: 12),
-                        Text(
-                          '还没有记录',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
+                        Text('还没有记录',
+                            style: TextStyle(
+                                fontSize: 16, color: Colors.grey.shade500)),
                         const SizedBox(height: 4),
-                        Text(
-                          '开始你的第一组训练吧！',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade400,
-                          ),
-                        ),
+                        Text('开始你的第一组训练吧！',
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey.shade400)),
                       ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: records.length,
                     itemBuilder: (context, index) {
                       final record = records[index];
@@ -861,17 +826,18 @@ class _HistorySheet extends StatelessWidget {
                         child: Row(
                           children: [
                             Container(
-                              width: 44,
-                              height: 44,
+                              width: 40,
+                              height: 40,
                               decoration: BoxDecoration(
                                 gradient: theme.linearGradient,
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
-                                child: Icon(theme.icon, color: Colors.white, size: 20),
+                                child: Icon(theme.icon,
+                                    color: Colors.white, size: 18),
                               ),
                             ),
-                            const SizedBox(width: 14),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -884,9 +850,9 @@ class _HistorySheet extends StatelessWidget {
                                       color: SetTrackerConst.textPrimary,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 2),
                                   Text(
-                                    '${record.weight.toStringAsFixed(1)} kg × ${record.reps} 次',
+                                    '${record.repsValue} 次',
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: SetTrackerConst.textSecondary,
@@ -911,11 +877,8 @@ class _HistorySheet extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                                 child: const Padding(
                                   padding: EdgeInsets.all(6),
-                                  child: Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                    color: Colors.red,
-                                  ),
+                                  child: Icon(Icons.delete_outline,
+                                      size: 18, color: Colors.red),
                                 ),
                               ),
                             ),
