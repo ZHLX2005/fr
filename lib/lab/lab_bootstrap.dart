@@ -3,7 +3,6 @@
 
 import '../core/schema/schema.dart' show initSchemaRegistry;
 import 'demos/api_test_demo.dart';
-import 'demos/arc_selector_demo.dart';
 import 'demos/body_map_demo.dart';
 import 'demos/calendar_demo.dart';
 import 'demos/clock_demo.dart';
@@ -64,7 +63,6 @@ void registerAllDemos() {
   registerDoubleTimeDemo();
   registerNovelReaderDemo();
   registerVolumeDecayDemo();
-  registerArcSelectorDemo();
   registerDemoLaboratoryDemo();
   registerRivePendulumDemo();
   registerRiveDataBindDemo();
