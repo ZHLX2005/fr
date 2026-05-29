@@ -98,7 +98,7 @@ class _BlockCardState extends State<BlockCard> {
     final ml = widget.block.type.multiline;
     final textField = Focus(
       onKeyEvent: (node, event) {
-        if (event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
           widget.editorState.deleteBlock();
           return KeyEventResult.handled;
         }
