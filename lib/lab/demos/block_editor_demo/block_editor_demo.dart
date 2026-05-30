@@ -8,9 +8,7 @@ import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';
 import 'note_panel.dart';
-import 'toolbar_mode.dart';
-import 'edit_toolbar.dart';
-import 'chat_bar.dart';
+
 
 /// 块编辑器 Demo（持久化版）
 class BlockEditorDemo extends StatefulWidget {
@@ -24,7 +22,6 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
   late EditorState _editorState;
   bool _editorStateReady = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  late final BottomToolbarFactory _toolbarFactory;
 
   @override
   void didChangeDependencies() {
@@ -34,8 +31,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
         noteFactory: NoteRootScope.of(context).noteRoot,
       );
       _editorStateReady = true;
-      final editMode = _toolbarFactory.get('edit') as EditToolbar?;
-      editMode?.setImportCallbacks(
+      _editorState.toolbarFactory.setImportCallbacks(
         onImportMdFile: _importMdFile,
         onImportMdText: _showImportMdTextDialog,
       );
@@ -48,9 +44,6 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
   @override
   void initState() {
     super.initState();
-    _toolbarFactory = BottomToolbarFactory()
-      ..register(EditToolbar())
-      ..register(ChatBar());
   }
 
   Future<void> _importMdFile() async {
@@ -128,7 +121,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _editorState,
+      listenable: Listenable.merge([_editorState, _editorState.toolbarFactory]),
       builder: (context, _) {
         final blocks = _editorState.blocks;
         final selectedId = _editorState.selectedId;
@@ -148,8 +141,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
           ),
           key: _scaffoldKey,
           endDrawer: NotePanel(editorState: _editorState),
-          bottomNavigationBar: _toolbarFactory.build(
-            _editorState.toolbarMode,
+          bottomNavigationBar: _editorState.toolbarFactory.build(
             context,
             _editorState,
           ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/note/note_root_scope.dart';
+import '../../../../core/note/note_root_scope.dart';
 import 'toolbar_mode.dart';
-import 'state.dart';
-import 'type_panel.dart';
+import '../state.dart';
+import '../type_panel.dart';
 
 class EditToolbar implements ToolbarMode {
   VoidCallback? onImportMdFile;

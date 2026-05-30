@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'toolbar_mode.dart';
-import 'state.dart';
+import '../state.dart';
 
 class ChatBar implements ToolbarMode {
   final _messages = <Map<String, dynamic>>[];
@@ -16,12 +16,10 @@ class ChatBar implements ToolbarMode {
 
   @override
   void onModeEnter() {
-    // 焦点自动聚焦输入框在 build 中处理
   }
 
   @override
   void onModeExit() {
-    // 不清空 _messages 和 _controller，保留状态
   }
 
   @override
@@ -114,7 +112,6 @@ class ChatBar implements ToolbarMode {
     });
     _controller.clear();
     _pendingQuote = null;
-    // 发送后保持 chat mode
   }
 
   String _extractQuoteText() {
