@@ -17,6 +17,12 @@ class EditToolbar implements ToolbarMode {
   String get name => 'edit';
 
   @override
+  void onModeEnter() {}
+
+  @override
+  void onModeExit() {}
+
+  @override
   Widget build(BuildContext context, EditorState editorState, VoidCallback onSwitchMode) {
     return Container(
       color: Theme.of(context).canvasColor,

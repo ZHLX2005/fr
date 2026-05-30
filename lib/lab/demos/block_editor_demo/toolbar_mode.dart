@@ -27,7 +27,7 @@ class BottomToolbarFactory {
     return mode.build(
       context,
       editorState,
-      onSwitchMode: () {
+      () {
         final modes = _registry.keys.toList();
         final idx = modes.indexOf(name);
         if (idx < 0) return;
