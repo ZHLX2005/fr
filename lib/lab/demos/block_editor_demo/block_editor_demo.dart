@@ -8,7 +8,9 @@ import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';
 import 'note_panel.dart';
-import 'type_panel.dart';
+import 'toolbar_mode.dart';
+import 'edit_toolbar.dart';
+import 'chat_bar.dart';
 
 /// 块编辑器 Demo（持久化版）
 class BlockEditorDemo extends StatefulWidget {
@@ -22,6 +24,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
   late EditorState _editorState;
   bool _editorStateReady = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final BottomToolbarFactory _toolbarFactory;
 
   @override
   void didChangeDependencies() {
@@ -31,6 +34,11 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
         noteFactory: NoteRootScope.of(context).noteRoot,
       );
       _editorStateReady = true;
+      final editMode = _toolbarFactory.get('edit') as EditToolbar?;
+      editMode?.setImportCallbacks(
+        onImportMdFile: _importMdFile,
+        onImportMdText: _showImportMdTextDialog,
+      );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _editorState.init();
       });
@@ -40,101 +48,9 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
   @override
   void initState() {
     super.initState();
-  }
-
-  Widget _buildBottomToolbar() {
-    return Container(
-      color: Theme.of(context).canvasColor,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      ...NoteRootScope.of(context).noteRoot.availableTypes.map(
-                        (info) => _toolbarTypeButton(info),
-                      ),
-                      const SizedBox(width: 8),
-                      _toolbarButton(
-                        label: '导入文件',
-                        icon: Icons.description,
-                        onTap: () => _importMdFile(),
-                      ),
-                      _toolbarButton(
-                        label: '导入文字',
-                        icon: Icons.paste,
-                        onTap: () => _showImportMdTextDialog(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 2),
-              Material(
-                borderRadius: BorderRadius.circular(6),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () => TypePanel.show(context, _editorState,
-                    onImportMdFile: () => _importMdFile(),
-                    onImportMdText: () => _showImportMdTextDialog(),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Icon(Icons.expand_less, size: 22, color: Colors.grey[600]),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _toolbarTypeButton(BlockTypeInfo info) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 2),
-      child: Tooltip(
-        message: info.label,
-        child: Material(
-          borderRadius: BorderRadius.circular(6),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(6),
-            onTap: () => _editorState.addBlockWithType(info.prototype),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Icon(info.icon, size: 20, color: Colors.grey[600]),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _toolbarButton({
-    required String label,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 2),
-      child: Material(
-        borderRadius: BorderRadius.circular(6),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Icon(icon, size: 20, color: Colors.grey[600]),
-          ),
-        ),
-      ),
-    );
+    _toolbarFactory = BottomToolbarFactory()
+      ..register(EditToolbar())
+      ..register(ChatBar());
   }
 
   Future<void> _importMdFile() async {
@@ -232,7 +148,11 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
           ),
           key: _scaffoldKey,
           endDrawer: NotePanel(editorState: _editorState),
-          bottomNavigationBar: _buildBottomToolbar(),
+          bottomNavigationBar: _toolbarFactory.build(
+            _editorState.toolbarMode,
+            context,
+            _editorState,
+          ),
           body: blocks.isEmpty
               ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
               : ReorderableListView.builder(
