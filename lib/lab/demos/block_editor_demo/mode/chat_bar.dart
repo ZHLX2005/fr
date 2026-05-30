@@ -13,7 +13,7 @@ import 'tools/explain_tool.dart';
 
 class ChatBar implements ToolbarMode {
   final _messages = <ChatMessage>[];
-  final _controller = TextEditingController();
+  final _controller = _ToolAwareTextController();
   final _focusNode = FocusNode();
   final _toolRegistry = ChatToolRegistry();
   Map<String, dynamic>? _pendingQuote;
@@ -41,11 +41,7 @@ class ChatBar implements ToolbarMode {
   String get name => 'chat';
 
   @override
-  void onModeEnter() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
-    });
-  }
+  void onModeEnter() {}
 
   @override
   void onModeExit() {
@@ -57,7 +53,11 @@ class ChatBar implements ToolbarMode {
     return ClipRect(
       child: Stack(
         children: [
-          body,
+          Focus(
+            canRequestFocus: false,
+            descendantsAreFocusable: false,
+            child: body,
+          ),
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 4),
             duration: const Duration(milliseconds: 200),
@@ -132,6 +132,7 @@ class ChatBar implements ToolbarMode {
                     child: TextField(
                       controller: _controller,
                       focusNode: _focusNode,
+                      autofocus: true,
                       maxLines: 1,
                       decoration: InputDecoration(
                         hintText: _pendingQuote != null ? '输入附加消息...' : '输入消息...',
@@ -206,7 +207,7 @@ class ChatBar implements ToolbarMode {
           children: [
             Icon(tool.icon, size: 20, color: Colors.grey[600]),
             const SizedBox(width: 12),
-            Text(tool.label, style: const TextStyle(fontSize: 14)),
+            Text(tool.label, style: TextStyle(fontSize: 14, color: Colors.grey[800])),
             if (tool.description != null) ...[
               const SizedBox(width: 8),
               Text(tool.description!, style: TextStyle(fontSize: 12, color: Colors.grey[400])),
@@ -260,6 +261,34 @@ class ChatBar implements ToolbarMode {
   }
 }
 
+class _ToolAwareTextController extends TextEditingController {
+  static const _gold = Color(0xFFFFB300);
+
+  @override
+  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+    final text = this.text;
+    if (text.startsWith('/')) {
+      final spaceIndex = text.indexOf(' ');
+      if (spaceIndex > 0) {
+        return TextSpan(
+          children: [
+            TextSpan(
+              text: text.substring(0, spaceIndex + 1),
+              style: style?.copyWith(color: _gold),
+            ),
+            TextSpan(
+              text: text.substring(spaceIndex + 1),
+              style: style,
+            ),
+          ],
+        );
+      }
+      return TextSpan(text: text, style: style?.copyWith(color: _gold));
+    }
+    return TextSpan(style: style, text: text);
+  }
+}
+
 class _ChatBubbleList extends StatelessWidget {
   final List<ChatMessage> messages;
 
@@ -283,6 +312,36 @@ class _ChatBubble extends StatelessWidget {
   final ChatMessage message;
 
   const _ChatBubble({required this.message});
+
+  static Widget _buildMessageContent(BuildContext context, ChatMessage message) {
+    const gold = Color(0xFFFFB300);
+    final content = message.content;
+    final textColor = message.isMe ? Colors.white : Colors.black87;
+    const fontSize = 14.0;
+
+    if (content.startsWith('/')) {
+      final spaceIndex = content.indexOf(' ');
+      if (spaceIndex > 0) {
+        return Text.rich(
+          TextSpan(
+            style: TextStyle(fontSize: fontSize, color: textColor),
+            children: [
+              TextSpan(
+                text: content.substring(0, spaceIndex + 1),
+                style: TextStyle(fontSize: fontSize, color: gold, fontStyle: FontStyle.normal),
+              ),
+              TextSpan(
+                text: content.substring(spaceIndex + 1),
+                style: TextStyle(fontSize: fontSize, color: textColor),
+              ),
+            ],
+          ),
+        );
+      }
+      return Text(content, style: TextStyle(color: gold, fontSize: fontSize));
+    }
+    return Text(content, style: TextStyle(color: textColor, fontSize: fontSize));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -311,13 +370,7 @@ class _ChatBubble extends StatelessWidget {
                   bottomRight: Radius.circular(message.isMe ? 4 : 16),
                 ),
               ),
-              child: Text(
-                message.content,
-                style: TextStyle(
-                  color: message.isMe ? Colors.white : Colors.black87,
-                  fontSize: 14,
-                ),
-              ),
+              child: _buildMessageContent(context, message),
             ),
           ),
           if (message.isMe)
