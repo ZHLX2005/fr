@@ -9,8 +9,10 @@ class BottomToolbarFactory extends ChangeNotifier {
   String _currentMode = 'edit';
 
   BottomToolbarFactory() {
+    final chat = ChatBar();
+    chat.onStateChanged = notifyListeners;
+    register(chat);
     register(EditToolbar());
-    register(ChatBar());
   }
 
   String get currentMode => _currentMode;
@@ -35,6 +37,12 @@ class BottomToolbarFactory extends ChangeNotifier {
       editorState,
       () => _switchToNext(),
     );
+  }
+
+  Widget buildBody(BuildContext context, EditorState editorState, Widget body) {
+    final mode = _registry[_currentMode];
+    if (mode == null) return body;
+    return mode.buildBody(context, editorState, body);
   }
 
   void _switchToNext() {

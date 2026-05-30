@@ -145,9 +145,12 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             context,
             _editorState,
           ),
-          body: blocks.isEmpty
-              ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
-              : ReorderableListView.builder(
+          body: _editorState.toolbarFactory.buildBody(
+            context,
+            _editorState,
+            blocks.isEmpty
+                ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
+                : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: blocks.length + 1,
                   onReorder: (oldIndex, newIndex) {
@@ -172,6 +175,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                     );
                   },
                 ),
+          ),
         );
       },
     );

@@ -1,11 +1,15 @@
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'toolbar_mode.dart';
 import '../state.dart';
+import 'chat_message.dart';
 
 class ChatBar implements ToolbarMode {
-  final _messages = <Map<String, dynamic>>[];
+  final _messages = <ChatMessage>[];
   final _controller = TextEditingController();
   Map<String, dynamic>? _pendingQuote;
+  VoidCallback? onStateChanged;
 
   void setPendingQuote(Map<String, dynamic>? quote) {
     _pendingQuote = quote;
@@ -23,6 +27,27 @@ class ChatBar implements ToolbarMode {
   }
 
   @override
+  Widget buildBody(BuildContext context, EditorState editorState, Widget body) {
+    return Stack(
+      children: [
+        RepaintBoundary(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+            child: body,
+          ),
+        ),
+        if (_messages.isNotEmpty)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _ChatBubbleList(messages: _messages),
+          ),
+      ],
+    );
+  }
+
+  @override
   Widget build(BuildContext context, EditorState editorState, VoidCallback onSwitchMode) {
     return Container(
       color: Theme.of(context).canvasColor,
@@ -32,7 +57,6 @@ class ChatBar implements ToolbarMode {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
             children: [
-              // 退出按钮
               Material(
                 borderRadius: BorderRadius.circular(6),
                 child: InkWell(
@@ -45,7 +69,6 @@ class ChatBar implements ToolbarMode {
                 ),
               ),
               const SizedBox(width: 4),
-              // 引用预览
               if (_pendingQuote != null)
                 Container(
                   constraints: const BoxConstraints(maxWidth: 80),
@@ -62,7 +85,6 @@ class ChatBar implements ToolbarMode {
                     style: const TextStyle(fontSize: 11, color: Colors.blue),
                   ),
                 ),
-              // 输入框
               Expanded(
                 child: TextField(
                   controller: _controller,
@@ -83,7 +105,6 @@ class ChatBar implements ToolbarMode {
                 ),
               ),
               const SizedBox(width: 4),
-              // 发送按钮
               Material(
                 borderRadius: BorderRadius.circular(20),
                 color: Colors.blue.withValues(alpha: 0.1),
@@ -106,12 +127,19 @@ class ChatBar implements ToolbarMode {
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty && _pendingQuote == null) return;
-    _messages.add({
-      if (text.isNotEmpty) 'content': text,
-      if (_pendingQuote != null) 'quote': _pendingQuote,
-    });
+    _messages.add(ChatMessage(content: text, isMe: true));
     _controller.clear();
     _pendingQuote = null;
+    onStateChanged?.call();
+
+    _mockReply();
+  }
+
+  void _mockReply() {
+    Future.delayed(const Duration(seconds: 1), () {
+      _messages.add(ChatMessage(content: '收到 ✅', isMe: false));
+      onStateChanged?.call();
+    });
   }
 
   String _extractQuoteText() {
@@ -123,5 +151,76 @@ class ChatBar implements ToolbarMode {
     return spans
         .map((s) => (s as Map<String, dynamic>)['text'] as String? ?? '')
         .join();
+  }
+}
+
+class _ChatBubbleList extends StatelessWidget {
+  final List<ChatMessage> messages;
+
+  const _ChatBubbleList({required this.messages});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 300),
+      child: ListView.builder(
+        reverse: true,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        itemCount: messages.length,
+        itemBuilder: (context, index) {
+          final msg = messages[messages.length - 1 - index];
+          return _ChatBubble(message: msg);
+        },
+      ),
+    );
+  }
+}
+
+class _ChatBubble extends StatelessWidget {
+  final ChatMessage message;
+
+  const _ChatBubble({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          if (!message.isMe)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: CircleAvatar(
+                radius: 12,
+                child: Icon(Icons.person, size: 14),
+              ),
+            ),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: message.isMe ? Colors.blue[500] : Colors.grey[100],
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(message.isMe ? 16 : 4),
+                  bottomRight: Radius.circular(message.isMe ? 4 : 16),
+                ),
+              ),
+              child: Text(
+                message.content,
+                style: TextStyle(
+                  color: message.isMe ? Colors.white : Colors.black87,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          if (message.isMe)
+            const SizedBox(width: 40),
+        ],
+      ),
+    );
   }
 }

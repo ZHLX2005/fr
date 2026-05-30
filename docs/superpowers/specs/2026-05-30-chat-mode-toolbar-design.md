@@ -4,92 +4,115 @@
 
 ## 背景
 
-当前 `block_editor_demo` 中，按空格弹出一个独立的 `MessageDialog` bottom sheet 用于发送消息。需要改为底部工具栏区域原位替换：编辑模式显示 block type 按钮，对话模式显示聊天输入框。
+当前 `block_editor_demo` 中，按空格弹出一个独立的 `MessageDialog` bottom sheet 用于发送消息。需要改为底部工具栏区域原位替换：编辑模式显示 block type 按钮，对话模式显示聊天输入框并接管 body（背景模糊 + 对话气泡）。
+
+## 设计原则
+
+- **Mode 自我描述**：每个 Mode 文件封装自己的完整 UI（工具栏 + body 装饰），宿主零判断
+- **数据内聚**：消息列表属于 ChatBar，由 `onStateChanged` 回调通知重建
+- **工厂负责生命周期**：`BottomToolbarFactory` 是 ChangeNotifier，`switchTo()` 统一控制 `onModeEnter/onModeExit`
 
 ## 文件架构
 
-所有文件位于 `lib/lab/demos/block_editor_demo/` 统一文件夹下。
+```
+lib/lab/demos/block_editor_demo/
+├── mode/
+│   ├── toolbar_mode.dart          ← ToolbarMode 抽象基类
+│   ├── toolbar_factory.dart       ← BottomToolbarFactory (ChangeNotifier)
+│   ├── edit_toolbar.dart          ← 编辑模式
+│   ├── chat_bar.dart              ← 对话模式（含消息状态 + 气泡渲染 + 背景模糊）
+│   └── chat_message.dart          ← 消息数据类
+├── block_editor_demo.dart         ← 宿主，body → factory.buildBody()
+├── card.dart                      ← 空格 → editorState.switchToChat()
+├── state.dart                     ← EditorState 持有 toolbarFactory，委托切换
+└── ...
+```
 
-| 文件 | 操作 | 说明 |
-|------|------|------|
-| `toolbar_mode.dart` | 新增 | 抽象基类 `ToolbarMode` + `BottomToolbarFactory` |
-| `edit_toolbar.dart` | 新增 | 编辑工具栏实现 |
-| `chat_bar.dart` | 新增 | 聊天输入工具栏实现 |
-| `state.dart` | 修改 | 增加 mode 切换状态 |
-| `block_editor_demo.dart` | 修改 | `bottomNavigationBar` 改为 factory 构建，init 注册 mode |
-| `card.dart` | 修改 | space 触发改为 `editorState.switchToChat()` |
-| `message_dialog.dart` | 保留后删 | 验证 ChatBar 工作正常后再删除 |
-
-## 类层次
-
-### ToolbarMode（抽象基类）
+## ToolbarMode 抽象基类
 
 ```dart
 abstract class ToolbarMode {
   String get name;
-  Widget build(
-    BuildContext context,
-    EditorState editorState,
-    VoidCallback onSwitchMode,
-  );
+
+  /// 构建底部工具栏
+  Widget build(BuildContext context, EditorState editorState, VoidCallback onSwitchMode);
+
+  /// 装饰 body 区域。默认原样返回，需要接管 body（模糊、气泡等）时覆盖。
+  Widget buildBody(BuildContext context, EditorState editorState, Widget body) => body;
+
   void onModeEnter() {}
   void onModeExit() {}
 }
 ```
 
-### BottomToolbarFactory
+宿主统一调用 `buildBody`，不再 if/else。
 
-注册式工厂，管理 `ToolbarMode` 实例。`build()` 方法根据 name 查找已注册的 mode 并委托构建，注入 `onSwitchMode` 回调实现模式切换。
+## BottomToolbarFactory
+
+- ChangeNotifier
+- 构造函数内自注册 `EditToolbar()` 和 `ChatBar()`（ChatBar 注册前注入 `onStateChanged`）
+- `switchTo(String)` 是唯一切换入口，内部调用 `onModeExit()` → 改 `_currentMode` → `onModeEnter()` → `notifyListeners()`
+- `build()` / `buildBody()` 委托给当前 mode
 
 ```dart
-class BottomToolbarFactory {
+class BottomToolbarFactory extends ChangeNotifier {
   final _registry = <String, ToolbarMode>{};
+  String _currentMode = 'edit';
 
-  void register(ToolbarMode mode);
-  ToolbarMode? get(String name);
-  Widget build(String name, BuildContext context, EditorState editorState);
+  BottomToolbarFactory() {
+    final chat = ChatBar();
+    chat.onStateChanged = notifyListeners;
+    register(chat);
+    register(EditToolbar());
+  }
+
+  void switchTo(String mode) {
+    if (mode == _currentMode) return;
+    _registry[_currentMode]?.onModeExit();
+    _currentMode = mode;
+    _registry[_currentMode]?.onModeEnter();
+    notifyListeners();
+  }
+
+  Widget buildBody(BuildContext context, EditorState editorState, Widget body) {
+    return _registry[_currentMode]?.buildBody(context, editorState, body) ?? body;
+  }
 }
 ```
 
-注册时机：`BlockEditorDemo.initState()` 或第一次 `didChangeDependencies` 中 one-time 注册。
+## EditorState
 
-### EditorState 新增 mode 状态
+持有 `toolbarFactory`，`switchToChat/switchToEdit` 委托给 factory。
 
 ```dart
 class EditorState extends ChangeNotifier {
-  String _toolbarMode = 'edit';
+  final BottomToolbarFactory toolbarFactory;
 
-  void switchToChat() { switchTo('chat'); }
-  void switchToEdit() { switchTo('edit'); }
-  void switchTo(String mode) { _toolbarMode = mode; notifyListeners(); }
-  String get toolbarMode => _toolbarMode;
+  void switchToChat() => toolbarFactory.switchTo('chat');
+  void switchToEdit() => toolbarFactory.switchTo('edit');
+
+  EditorState({..., BottomToolbarFactory? toolbarFactory})
+    : toolbarFactory = toolbarFactory ?? BottomToolbarFactory();
 }
 ```
 
-## 触发流
+## block_editor_demo.dart
 
+```dart
+ListenableBuilder(
+  listenable: Listenable.merge([_editorState, _editorState.toolbarFactory]),
+  builder: (context, _) {
+    return Scaffold(
+      body: _editorState.toolbarFactory.buildBody(context, _editorState, normalBody),
+      bottomNavigationBar: _editorState.toolbarFactory.build(context, _editorState),
+    );
+  },
+)
 ```
-用户操作                        card.dart                     EditorState           bottomNavigationBar
-───────                        ────────                      ───────────           ──────────────────
-space (硬/软键盘)  ────────→   editorState.switchToChat() →   _toolbarMode='chat' → factory.build('chat')
-                                                                                    ↓
-                                                                                   ChatBar
-
-点击 X 按钮  ────────────────→  onSwitchMode()  ───────────→  _toolbarMode='edit' → factory.build('edit')
-                                                                                    ↓
-                                                                                   EditToolbar
-```
-
-## EditToolbar 实现
-
-从 `block_editor_demo.dart` 的 `_buildBottomToolbar()` 提取，保持原有布局不变：
-- 水平滚动的 block type 按钮组
-- expand_less 按钮（TypePanel 入口）
-- 导入文件/文字按钮
 
 ## ChatBar 实现
 
-底部工具栏原位替换，布局：
+### 底部工具栏
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -97,79 +120,74 @@ space (硬/软键盘)  ────────→   editorState.switchToChat() 
 └─────────────────────────────────────────────────┘
 ```
 
-- **X 按钮**：调用 `onSwitchMode` 切回编辑模式
-- **输入框**：`TextField`，支持多行（maxLines: 4），回车发送
-- **发送按钮**：发送消息后不清空消息历史，保持 ChatMode
-- **内部状态**：`_messages` 列表、`_controller` 在 mode 切换时保留（`onModeExit` 不清空）
+### body 装饰
 
-## card.dart 修改
+- 模糊层：BackdropFilter 覆盖原内容
+- 气泡列表：显示在 body 底部、toolbar 上方
 
-### 硬键盘空格（_buildTextField 内）
+### 消息发送 + Mock 回复
 
 ```dart
-if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space && _controller.text.isEmpty) {
-  widget.editorState.switchToChat();
-  return KeyEventResult.handled;
+void _sendMessage() {
+  final text = _controller.text.trim();
+  if (text.isEmpty && _pendingQuote == null) return;
+  _messages.add(ChatMessage(content: text, isMe: true));
+  _controller.clear();
+  _pendingQuote = null;
+  onStateChanged?.call();
+
+  // mock 回复
+  Future.delayed(const Duration(seconds: 1), () {
+    _messages.add(ChatMessage(content: '收到 ✅', isMe: false));
+    onStateChanged?.call();
+  });
 }
 ```
 
-### 软键盘空格（onChanged）
+## ChatMessage 数据类
 
 ```dart
-if (value.length == 1 && (value == ' ' || value == ' ')) {
-  _controller.text = '';
-  widget.editorState.switchToChat();
-  return;
+class ChatMessage {
+  final String content;
+  final bool isMe;
+  final DateTime createdAt;
 }
 ```
 
-### 引用操作（context menu）
+## 触发流
 
-引用功能不再触发 `MessageDialog`，改为切换到 ChatMode 并将引用数据暂存到 ChatBar：
+```
+space (card.dart)
+    → editorState.switchToChat()
+    → toolbarFactory.switchTo('chat')
+    → onModeExit('edit') → _currentMode='chat' → onModeEnter('chat')
+    → notifyListeners()
+    → body 重建（ChatBar.buildBody → 模糊 + 气泡）
+    → bottomNavigationBar 重建（ChatBar.build → 输入框）
 
-```dart
-// card.dart context menu "引用" 按钮
-onPressed: () {
-  final chatMode = _toolbarFactory.get('chat') as ChatBar;
-  chatMode.setPendingQuote(quoteData);
-  editorState.switchToChat();
-}
+点击 X (ChatBar)
+    → onSwitchMode()
+    → toolbarFactory._switchToNext()
+    → toolbarFactory.switchTo('edit')
+    → onModeExit('chat') → _currentMode='edit' → onModeEnter('edit')
+    → notifyListeners()
+    → body 恢复原样
+    → bottomNavigationBar 恢复编辑工具栏
 ```
 
-`ChatBar` 需要暴露 `setPendingQuote(Map<String, dynamic>)` 方法，在 `build()` 中检查并显示引用预览。
+## 要点总结
 
-## block_editor_demo.dart 修改
+| 关注点 | 归属 |
+|--------|------|
+| 底部工具栏 | `mode.build()` — 每个 Mode 自己画 |
+| 模糊 + 气泡 | `mode.buildBody()` — 每个 Mode 自己决定 body 装饰 |
+| 消息列表 | ChatBar 内部持有，`onStateChanged` 通知重建 |
+| Mode 切换 | Factory 统一入口，保证生命周期一致性 |
+| 宿主 | 零判断，只做委托调用 |
 
-```dart
-class _BlockEditorDemoState extends State<BlockEditorDemo> {
-  late final BottomToolbarFactory _toolbarFactory = BottomToolbarFactory()
-    ..register(EditToolbar())
-    ..register(ChatBar());
+## 后续迭代
 
-  // ...
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      // ...
-      bottomNavigationBar: _toolbarFactory.build(
-        _editorState.toolbarMode,
-        context,
-        _editorState,
-      ),
-    );
-  }
-}
-```
-
-## message_dialog.dart 处置
-
-`MessageDialog` 不再由 card.dart 直接调用。原有引用功能可在 ChatBar 中重新实现。建议：
-1. 完成 ChatBar 重构并验证后删除 `message_dialog.dart`
-2. 若引用功能需要保留，在 ChatBar 中提供 `setPendingQuote(Map<String, dynamic>)` 方法
-
-## 未决事项（后续迭代）
-
-- 对话消息的持久化存储
-- 多轮对话历史展示
-- 引用 block 内容的预览
+- 持久化存储
+- 真实网络回复
+- 历史记录
+- 引用 block 内容的完整预览

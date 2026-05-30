@@ -8,6 +8,7 @@ abstract class ToolbarMode {
     EditorState editorState,
     VoidCallback onSwitchMode,
   );
+  Widget buildBody(BuildContext context, EditorState editorState, Widget body) => body;
   void onModeEnter() {}
   void onModeExit() {}
 }

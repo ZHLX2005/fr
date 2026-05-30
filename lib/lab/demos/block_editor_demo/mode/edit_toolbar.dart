@@ -23,6 +23,9 @@ class EditToolbar implements ToolbarMode {
   void onModeExit() {}
 
   @override
+  Widget buildBody(BuildContext context, EditorState editorState, Widget body) => body;
+
+  @override
   Widget build(BuildContext context, EditorState editorState, VoidCallback onSwitchMode) {
     return Container(
       color: Theme.of(context).canvasColor,
