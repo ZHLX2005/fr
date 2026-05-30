@@ -6,6 +6,19 @@ class EditorState extends ChangeNotifier {
   final List<Block> _blocks = [];
   String? _selectedId;
   String? _noteId;
+
+  // === ADD START ===
+  String _toolbarMode = 'edit';
+
+  void switchToChat() => switchTo('chat');
+  void switchToEdit() => switchTo('edit');
+  void switchTo(String mode) {
+    _toolbarMode = mode;
+    notifyListeners();
+  }
+  String get toolbarMode => _toolbarMode;
+  // === ADD END ===
+
   final NoteFactory _noteFactory;
 
   EditorState({required NoteFactory noteFactory})
