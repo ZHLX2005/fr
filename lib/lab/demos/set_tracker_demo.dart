@@ -150,19 +150,61 @@ class _SetTrackerPageState extends State<SetTrackerPage>
   Widget build(BuildContext context) {
     final theme = SetTrackerConst.themes[_themeIndex];
     final reps = SetTrackerConst.repsValues[_repsIndex];
+    final screenH = MediaQuery.of(context).size.height;
+
+    // 顶部区域高度：Header(≈72dp) + 弧线区(屏幕 28%)
+    final topZoneH = screenH * 0.28;
+    // 底部区域高度：屏幕 28%
+    final bottomZoneH = screenH * 0.28;
+    // Header 高度（含上下 padding）
+    const headerH = 72.0;
+    // 中间内容区高度：填满中间
+    final middleH = screenH - topZoneH - bottomZoneH;
 
     return Scaffold(
       backgroundColor: SetTrackerConst.bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(flex: 4, child: _buildTopArc()),
-            _buildCenterSection(theme, reps),
-            Expanded(flex: 4, child: _buildBottomArc()),
-            _buildTodayStats(),
-          ],
-        ),
+      body: Stack(
+        children: [
+          // === 顶部弧线区：Positioned 从屏幕顶部开始 ===
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: topZoneH,
+            child: ClipRect(
+              child: _buildTopArc(),
+            ),
+          ),
+          // === Header：叠在顶部弧线上方，底部伸入弧线区 ===
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: headerH,
+            child: SafeArea(
+              bottom: false,
+              child: _buildHeader(),
+            ),
+          ),
+          // === 底部弧线区：Positioned 从屏幕底部开始 ===
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: bottomZoneH,
+            child: ClipRect(
+              child: _buildBottomArc(),
+            ),
+          ),
+          // === 中间内容区：填满中间区域 ===
+          Positioned(
+            top: topZoneH,
+            left: 0,
+            right: 0,
+            height: middleH,
+            child: _buildCenterSection(theme, reps),
+          ),
+        ],
       ),
     );
   }
@@ -215,14 +257,15 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  // ===== 上弧线：圆心在上，向下拱 =====
+  // ===== 上弧线：圆心锚在 SizedBox 顶部外侧，向下拱，半圆感 =====
   Widget _buildTopArc() {
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = constraints.biggest;
         final cx = size.width / 2;
-        final cy = size.height * SetTrackerConst.topArcCenterYFactor;
-        final radius = size.shortestSide * SetTrackerConst.arcRadiusFactor;
+        // 圆心在区域顶部外侧：factor < 0 时圆心在区域上方
+        final cy = size.height * 0.55;
+        final radius = size.width * SetTrackerConst.arcRadiusFactor;
 
         return Stack(
           children: [
@@ -253,6 +296,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
                   .toList(),
               selectedIndex: _themeIndex,
               glowController: _glowController,
+              reverse: true,
             ),
             PageView.builder(
               controller: _themeController,
@@ -266,10 +310,10 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  // ===== 中间：信息 + 记录按钮 =====
+  // ===== 中间：信息 + 今日统计 + 记录按钮 =====
   Widget _buildCenterSection(WorkoutTheme theme, String reps) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -339,6 +383,8 @@ class _SetTrackerPageState extends State<SetTrackerPage>
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          _buildTodayStatsInline(),
           const SizedBox(height: 12),
           AnimatedBuilder(
             animation: _recordAnimController,
@@ -394,14 +440,90 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  // ===== 下弧线：圆心在下，向上拱 =====
+  Widget _buildTodayStatsInline() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: SetTrackerConst.shadowColor,
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Text(
+            '今日',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: SetTrackerConst.textPrimary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: SetTrackerConst.themes.map((t) {
+                  final count = _todayCountFor(t.id);
+                  final isActive = count > 0;
+                  return Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: isActive ? t.linearGradient : null,
+                      color: isActive ? null : const Color(0xFFF0F0F2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${t.label} $count',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isActive ? FontWeight.bold : FontWeight.normal,
+                        color: isActive ? Colors.white : SetTrackerConst.textMuted,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '共 $_todaySetCount 组',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFF6B6B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===== 下弧线：圆心锚在 SizedBox 底部外侧，向上拱，半圆感 =====
   Widget _buildBottomArc() {
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = constraints.biggest;
         final cx = size.width / 2;
-        final cy = size.height * SetTrackerConst.bottomArcCenterYFactor;
-        final radius = size.shortestSide * SetTrackerConst.arcRadiusFactor;
+        // 圆心在区域底部外侧：factor > 1 时圆心在区域下方
+        final cy = size.height * 1.55;
+        final radius = size.width * SetTrackerConst.arcRadiusFactor;
 
         final highlightColor =
             SetTrackerConst.themes[_themeIndex].gradient[1];
@@ -452,81 +574,6 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  Widget _buildTodayStats() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: SetTrackerConst.cardBg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: SetTrackerConst.shadowColor,
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Text(
-            '今日',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: SetTrackerConst.textPrimary,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: SetTrackerConst.themes.map((t) {
-                  final count = _todayCountFor(t.id);
-                  final isActive = count > 0;
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: isActive ? t.linearGradient : null,
-                      color: isActive ? null : const Color(0xFFF0F0F2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${t.label} $count',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight:
-                            isActive ? FontWeight.bold : FontWeight.normal,
-                        color: isActive ? Colors.white : SetTrackerConst.textMuted,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '共 $_todaySetCount 组',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFFF6B6B),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ===== 通用弧线标签层（带脉冲光晕） =====
@@ -545,6 +592,7 @@ class _ArcLabelLayer extends StatelessWidget {
   final List<_ArcItem> items;
   final int selectedIndex;
   final AnimationController glowController;
+  final bool reverse;
 
   const _ArcLabelLayer({
     required this.controller,
@@ -558,6 +606,7 @@ class _ArcLabelLayer extends StatelessWidget {
     required this.items,
     required this.selectedIndex,
     required this.glowController,
+    this.reverse = false,
   });
 
   @override
@@ -572,7 +621,7 @@ class _ArcLabelLayer extends StatelessWidget {
         final children = <Widget>[];
 
         for (int i = 0; i < items.length; i++) {
-          final d = i - t;
+          final d = reverse ? t - i : i - t;
           if (d.abs() > k + 1) continue;
 
           final u = ((d + k) / (2 * k)).clamp(0.0, 1.0);
