@@ -150,18 +150,61 @@ class _SetTrackerPageState extends State<SetTrackerPage>
   Widget build(BuildContext context) {
     final theme = SetTrackerConst.themes[_themeIndex];
     final reps = SetTrackerConst.repsValues[_repsIndex];
+    final screenH = MediaQuery.of(context).size.height;
+
+    // 顶部区域高度：Header(≈72dp) + 弧线区(屏幕 28%)
+    final topZoneH = screenH * 0.28;
+    // 底部区域高度：屏幕 28%
+    final bottomZoneH = screenH * 0.28;
+    // Header 高度（含上下 padding）
+    const headerH = 72.0;
+    // 中间内容区高度：填满中间
+    final middleH = screenH - topZoneH - bottomZoneH;
 
     return Scaffold(
       backgroundColor: SetTrackerConst.bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(flex: 5, child: _buildTopArc()),
-            _buildCenterSection(theme, reps),
-            Expanded(flex: 5, child: _buildBottomArc()),
-          ],
-        ),
+      body: Stack(
+        children: [
+          // === 顶部弧线区：Positioned 从屏幕顶部开始 ===
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: topZoneH,
+            child: ClipRect(
+              child: _buildTopArc(),
+            ),
+          ),
+          // === Header：叠在顶部弧线上方，底部伸入弧线区 ===
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: headerH,
+            child: SafeArea(
+              bottom: false,
+              child: _buildHeader(),
+            ),
+          ),
+          // === 底部弧线区：Positioned 从屏幕底部开始 ===
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: bottomZoneH,
+            child: ClipRect(
+              child: _buildBottomArc(),
+            ),
+          ),
+          // === 中间内容区：填满中间区域 ===
+          Positioned(
+            top: topZoneH,
+            left: 0,
+            right: 0,
+            height: middleH,
+            child: _buildCenterSection(theme, reps),
+          ),
+        ],
       ),
     );
   }
@@ -214,13 +257,14 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  // ===== 上弧线：圆心在区域上方（外），向下拱，半圆感 =====
+  // ===== 上弧线：圆心锚在 SizedBox 顶部外侧，向下拱，半圆感 =====
   Widget _buildTopArc() {
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = constraints.biggest;
         final cx = size.width / 2;
-        final cy = size.height * SetTrackerConst.topArcCenterYFactor;
+        // 圆心在区域顶部外侧：factor < 0 时圆心在区域上方
+        final cy = size.height * 0.55;
         final radius = size.width * SetTrackerConst.arcRadiusFactor;
 
         return Stack(
@@ -471,13 +515,14 @@ class _SetTrackerPageState extends State<SetTrackerPage>
     );
   }
 
-  // ===== 下弧线：圆心在区域下方（外），向上拱，半圆感 =====
+  // ===== 下弧线：圆心锚在 SizedBox 底部外侧，向上拱，半圆感 =====
   Widget _buildBottomArc() {
     return LayoutBuilder(
       builder: (_, constraints) {
         final size = constraints.biggest;
         final cx = size.width / 2;
-        final cy = size.height * SetTrackerConst.bottomArcCenterYFactor;
+        // 圆心在区域底部外侧：factor > 1 时圆心在区域下方
+        final cy = size.height * 1.55;
         final radius = size.width * SetTrackerConst.arcRadiusFactor;
 
         final highlightColor =
