@@ -26,7 +26,8 @@
       "Bash(flutter install:*)",
       "Bash(mkdir -p .claude/repo)",
       "Bash(git clone *)",
-      "Bash(Select-String -Pattern \"error\" -SimpleMatch)"
+      "Bash(Select-String -Pattern \"error\" -SimpleMatch)",
+      "Bash(git push *)"
     ]
   }
 }
