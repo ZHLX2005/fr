@@ -1,15 +1,23 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/note/note_root_scope.dart';
+import 'mode/toolbar_factory.dart';
 
 /// 编辑器状态管理，支持持久化。
 class EditorState extends ChangeNotifier {
   final List<Block> _blocks = [];
   String? _selectedId;
   String? _noteId;
+
+  final BottomToolbarFactory toolbarFactory;
+
+  void switchToChat() => toolbarFactory.switchTo('chat');
+  void switchToEdit() => toolbarFactory.switchTo('edit');
+
   final NoteFactory _noteFactory;
 
-  EditorState({required NoteFactory noteFactory})
-    : _noteFactory = noteFactory;
+  EditorState({required NoteFactory noteFactory, BottomToolbarFactory? toolbarFactory})
+    : _noteFactory = noteFactory,
+      toolbarFactory = toolbarFactory ?? BottomToolbarFactory();
 
   List<Block> get blocks => List.unmodifiable(_blocks);
   String? get selectedId => _selectedId;

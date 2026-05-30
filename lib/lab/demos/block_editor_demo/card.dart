@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
-import 'message_dialog.dart';
+
 
 class BlockCard extends StatefulWidget {
   final Block block;
@@ -111,7 +111,7 @@ class _BlockCardState extends State<BlockCard> {
           return KeyEventResult.handled;
         }
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space && _controller.text.isEmpty) {
-          _showMessageDialog();
+          widget.editorState.switchToChat();
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -140,7 +140,7 @@ class _BlockCardState extends State<BlockCard> {
           // 软键盘按空格（空白 block 触发对话框）
           if (value.length == 1 && (value == ' ' || value == ' ')) {
             _controller.text = '';
-            _showMessageDialog();
+            widget.editorState.switchToChat();
             return;
           }
           widget.editorState.updateContent(widget.block.id, value);
@@ -151,15 +151,6 @@ class _BlockCardState extends State<BlockCard> {
       widget.block,
       textField: textField,
       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
-    );
-  }
-
-  Future<void> _showMessageDialog({Map<String, dynamic>? quoteData}) async {
-    final noteRoot = NoteRootScope.of(context).noteRoot;
-    await MessageDialog.show(
-      context,
-      serializedBlock: noteRoot.serializeBlock(widget.block),
-      quoteData: quoteData,
     );
   }
 
@@ -177,12 +168,13 @@ class _BlockCardState extends State<BlockCard> {
             value.selection.end,
           );
           final noteRoot = NoteRootScope.of(context).noteRoot;
-          final quotedBlock = noteRoot.createBlock(
+          noteRoot.createBlock(
             const ParagraphType(),
             content: RichText.text(selectedText),
             properties: {'originalBlockId': widget.block.id},
           );
-          _showMessageDialog(quoteData: noteRoot.serializeBlock(quotedBlock));
+          widget.editorState.switchToChat();
+          // 引用由 ChatBar 内部处理，当前简化直接触发切换
         },
       ));
     }
