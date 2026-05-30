@@ -28,22 +28,23 @@ class ChatBar implements ToolbarMode {
 
   @override
   Widget buildBody(BuildContext context, EditorState editorState, Widget body) {
-    return Stack(
-      children: [
-        RepaintBoundary(
-          child: BackdropFilter(
+    return ClipRect(
+      child: Stack(
+        children: [
+          body,
+          BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-            child: body,
+            child: Container(color: Colors.transparent),
           ),
-        ),
-        if (_messages.isNotEmpty)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _ChatBubbleList(messages: _messages),
-          ),
-      ],
+          if (_messages.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _ChatBubbleList(messages: _messages),
+            ),
+        ],
+      ),
     );
   }
 
