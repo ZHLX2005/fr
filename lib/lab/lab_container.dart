@@ -35,20 +35,6 @@ class DemoRegistry {
   int get count => _demos.length;
 }
 
-/// 页面构建器 - 用于延迟构建页面
-class DemoPageBuilder {
-  final Widget Function(BuildContext) builder;
-  final String title;
-  final String description;
-  final IconData icon;
-
-  const DemoPageBuilder({
-    required this.builder,
-    required this.title,
-    required this.description,
-    this.icon = Icons.apps,
-  });
-}
 
 /// 全局 Demo 注册表 - 在 main.dart 初始化时注册
 final demoRegistry = DemoRegistry();
