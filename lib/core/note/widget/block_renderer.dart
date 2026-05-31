@@ -8,38 +8,44 @@ class BlockRenderer {
 
   BlockRenderer(this._factory);
 
-  TextStyle? textStyleForType(Block block) {
+  TextStyle? textStyleForType(Block block, BuildContext context) {
+    final theme = Theme.of(context);
     return switch (block.type) {
-      HeadingType() => _headingStyle(block),
-      CodeType() => const TextStyle(fontFamily: 'monospace', fontSize: 13),
-      PageType() => const TextStyle(fontWeight: FontWeight.w600),
-      QuoteType() => TextStyle(color: Colors.grey[700], fontStyle: FontStyle.italic),
+      HeadingType() => _headingStyle(block, theme),
+      CodeType() => TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 13,
+          color: theme.colorScheme.primary,
+        ),
+      PageType() => TextStyle(fontWeight: FontWeight.w600),
       _ => null,
     };
   }
 
-  TextStyle _headingStyle(Block block) {
+  TextStyle _headingStyle(Block block, ThemeData theme) {
     final level = (block.type as HeadingType).level;
-    final sizes = [28.0, 22.0, 18.0, 16.0, 14.0, 13.0];
-    return TextStyle(
-      fontSize: sizes[level.clamp(1, 6) - 1],
-      fontWeight: FontWeight.bold,
-      height: 1.3,
-    );
+    final style = switch (level) {
+      1 => theme.textTheme.headlineLarge,
+      2 => theme.textTheme.headlineMedium,
+      _ => theme.textTheme.headlineSmall,
+    };
+    return style?.copyWith(fontWeight: FontWeight.bold, height: 1.3) ?? const TextStyle(fontSize: 18, fontWeight: FontWeight.bold);
   }
 
   /// 所有策略提供的可创建类型列表。
   List<BlockTypeInfo> get typeInfoList => _factory.typeInfoList;
 
-  Widget renderBlockContent(Block block, {VoidCallback? onToggleTodo, VoidCallback? onTapAddImage}) {
+  Widget renderBlockContent(BuildContext context, Block block, {VoidCallback? onToggleTodo, VoidCallback? onTapAddImage}) {
     return _factory.build(
+      context,
       block,
       BlockCallbacks(onToggleTodo: onToggleTodo, onTapAddImage: onTapAddImage),
     );
   }
 
-  Widget buildEditor(Block block, {required Widget textField, VoidCallback? onToggleTodo}) {
+  Widget buildEditor(BuildContext context, Block block, {required Widget textField, VoidCallback? onToggleTodo}) {
     return _factory.buildEditor(
+      context,
       block,
       BlockCallbacks(onToggleTodo: onToggleTodo),
       textField: textField,

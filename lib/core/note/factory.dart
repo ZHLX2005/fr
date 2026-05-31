@@ -84,13 +84,13 @@ class NoteFactory {
 
   // === 渲染 ===
 
-  Widget renderBlock(Block block, {VoidCallback? onToggleTodo, VoidCallback? onTapAddImage}) =>
-      _renderer.renderBlockContent(block, onToggleTodo: onToggleTodo, onTapAddImage: onTapAddImage);
+  Widget renderBlock(BuildContext context, Block block, {VoidCallback? onToggleTodo, VoidCallback? onTapAddImage}) =>
+      _renderer.renderBlockContent(context, block, onToggleTodo: onToggleTodo, onTapAddImage: onTapAddImage);
 
-  Widget buildEditor(Block block, {required Widget textField, VoidCallback? onToggleTodo}) =>
-      _renderer.buildEditor(block, textField: textField, onToggleTodo: onToggleTodo);
+  Widget buildEditor(BuildContext context, Block block, {required Widget textField, VoidCallback? onToggleTodo}) =>
+      _renderer.buildEditor(context, block, textField: textField, onToggleTodo: onToggleTodo);
 
-  TextStyle? textStyleFor(Block block) => _renderer.textStyleForType(block);
+  TextStyle? textStyleFor(Block block, BuildContext context) => _renderer.textStyleForType(block, context);
 
   // === 转换 ===
 

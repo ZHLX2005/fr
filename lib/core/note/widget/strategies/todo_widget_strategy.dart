@@ -10,7 +10,7 @@ class TodoWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+  Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
     final checked = (block.type as TodoType).checked;
     return Row(
       children: [
@@ -29,7 +29,7 @@ class TodoWidgetStrategy extends BlockWidgetStrategy {
   }
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final checked = (block.type as TodoType).checked;
     final text = block.content.toPlainText();
     return Row(

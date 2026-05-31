@@ -14,11 +14,11 @@ class BlockCallbacks {
 ///
 /// 每个 BlockType 对应一个策略，负责该类型的 widget 构建和 UI 元信息。
 abstract class BlockWidgetStrategy {
-  Widget build(Block block, BlockCallbacks callbacks);
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks);
 
   /// 编辑态：将 [textField] 包裹上类型装饰后返回。
   /// 默认直接返回 textField，子类可覆写添加前缀/后缀/背景等。
-  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+  Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
     return textField;
   }
 

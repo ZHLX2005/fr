@@ -10,7 +10,10 @@ class ParagraphWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
-    return Text(block.content.toPlainText());
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
+    return Text(
+      block.content.toPlainText(),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
+    );
   }
 }

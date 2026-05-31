@@ -11,7 +11,7 @@ class ImageWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final imgType = block.type as ImageType;
     final src = imgType.src;
     final caption = imgType.caption;

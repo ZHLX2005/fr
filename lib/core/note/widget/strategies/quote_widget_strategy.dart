@@ -10,14 +10,14 @@ class QuoteWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+  Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 3,
+          width: 4,
           margin: const EdgeInsets.only(right: 8),
-          color: Colors.grey[400],
+          color: Theme.of(context).colorScheme.primary,
         ),
         Expanded(child: textField),
       ],
@@ -25,23 +25,17 @@ class QuoteWidgetStrategy extends BlockWidgetStrategy {
   }
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 3,
+          width: 4,
           margin: const EdgeInsets.only(right: 8),
-          color: Colors.grey[400],
+          color: Theme.of(context).colorScheme.primary,
         ),
         Expanded(
-          child: Text(
-            block.content.toPlainText(),
-            style: TextStyle(
-              color: Colors.grey[700],
-              fontStyle: FontStyle.italic,
-            ),
-          ),
+          child: Text(block.content.toPlainText()),
         ),
       ],
     );

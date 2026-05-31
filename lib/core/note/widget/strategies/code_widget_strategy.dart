@@ -10,14 +10,15 @@ class CodeWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+  Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
     final lang = (block.type as CodeType).language;
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(4),
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -29,7 +30,7 @@ class CodeWidgetStrategy extends BlockWidgetStrategy {
                 lang,
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[500],
+                  color: theme.colorScheme.primary,
                   fontFamily: 'monospace',
                 ),
               ),
@@ -41,15 +42,16 @@ class CodeWidgetStrategy extends BlockWidgetStrategy {
   }
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final lang = (block.type as CodeType).language;
     final text = block.content.toPlainText();
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(4),
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,14 +63,18 @@ class CodeWidgetStrategy extends BlockWidgetStrategy {
                 lang,
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[500],
+                  color: theme.colorScheme.primary,
                   fontFamily: 'monospace',
                 ),
               ),
             ),
           Text(
             text,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 13,
+              color: theme.colorScheme.primary,
+            ),
           ),
         ],
       ),

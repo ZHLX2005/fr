@@ -10,7 +10,7 @@ class DividerWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     return const Divider(height: 1, thickness: 1);
   }
 }

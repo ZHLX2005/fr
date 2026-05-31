@@ -10,7 +10,7 @@ class CalloutWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+  Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
     final icon = (block.type as CalloutType).icon;
     return Container(
       width: double.infinity,
@@ -30,7 +30,7 @@ class CalloutWidgetStrategy extends BlockWidgetStrategy {
   }
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final icon = (block.type as CalloutType).icon;
     final text = block.content.toPlainText();
     return Container(
