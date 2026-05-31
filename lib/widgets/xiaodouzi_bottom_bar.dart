@@ -73,11 +73,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final primaryColor = cs.primary;
-    final isDark = theme.brightness == Brightness.dark;
-    // 深色主题 primaryColor 偏亮 → 直接用 primaryColor
-    // 浅色主题 primaryColor 偏深 → 用 onSurface 避免暗沉
-    final activeColor = isDark ? primaryColor : cs.onSurface;
-    final inactiveColor = activeColor.withValues(alpha: 0.4);
+    final inactiveColor = primaryColor.withValues(alpha: 0.4);
     final itemW = _barWidth / _icons.length;
 
     double capsuleLeft(int idx) => idx * itemW + (itemW - _capsuleW) / 2;
@@ -137,7 +133,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                             child: Icon(
                               isActive ? _activeIcons[i] : _icons[i],
                               size: 22,
-                              color: isActive ? activeColor : inactiveColor,
+                              color: isActive ? primaryColor : inactiveColor,
                             ),
                           ),
                         ),
