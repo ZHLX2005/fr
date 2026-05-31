@@ -8,7 +8,7 @@ class _QQCurve extends Curve {
 
   @override
   double transform(double t) {
-    return 1 - exp(-4.5 * t) * cos(14.0 * t);
+    return 1 - exp(-4.5 * t) * cos(15.708 * t);
   }
 }
 
