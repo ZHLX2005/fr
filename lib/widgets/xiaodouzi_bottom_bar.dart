@@ -18,7 +18,7 @@ class XiaoDouZiBottomBar extends StatefulWidget {
 
 class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     with SingleTickerProviderStateMixin {
-  static const double _barWidth = 300;
+  static const double _barWidth = 328;
   static const double _barHeight = 58;
   static const double _capsuleW = 90;
   static const double _capsuleH = 50;
