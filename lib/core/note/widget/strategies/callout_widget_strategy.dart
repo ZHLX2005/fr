@@ -22,7 +22,7 @@ class CalloutWidgetStrategy extends BlockWidgetStrategy {
       ),
       child: Row(
         children: [
-          Text(icon.isEmpty ? '💡' : icon, style: const TextStyle(fontSize: 18)),
+          _calloutIcon(icon, theme),
           const SizedBox(width: 8),
           Expanded(child: textField),
         ],
@@ -44,8 +44,7 @@ class CalloutWidgetStrategy extends BlockWidgetStrategy {
       ),
       child: Row(
         children: [
-          Text(icon.isEmpty ? '💡' : icon,
-            style: const TextStyle(fontSize: 18)),
+          _calloutIcon(icon, theme),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
@@ -55,4 +54,12 @@ class CalloutWidgetStrategy extends BlockWidgetStrategy {
       ),
     );
   }
+}
+
+Widget _calloutIcon(String icon, ThemeData theme) {
+  if (icon.isEmpty) {
+    return Icon(Icons.lightbulb_outline, size: 20,
+      color: theme.colorScheme.primary);
+  }
+  return Text(icon, style: const TextStyle(fontSize: 18));
 }
