@@ -197,7 +197,7 @@ class _MainScreenState extends State<MainScreen>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       vsync: this,
     );
     _ctrl.addStatusListener((status) {
@@ -250,20 +250,27 @@ class _MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _isAnimating
-          ? Stack(
-              children: [
-                SlideTransition(
-                  position: _outAnim!,
-                  child: _pages[_fromIndex],
-                ),
-                SlideTransition(
-                  position: _inAnim!,
-                  child: _pages[_toIndex],
-                ),
-              ],
-            )
-          : _pages[_selectedIndex],
+      body: Stack(
+        children: [
+          // 当前页面常驻，动画期间作为背景
+          _pages[_selectedIndex],
+          // 动画期间：旧页滑出 + 新页滑入
+          if (_isAnimating) ...[
+            RepaintBoundary(
+              child: SlideTransition(
+                position: _outAnim!,
+                child: _pages[_fromIndex],
+              ),
+            ),
+            RepaintBoundary(
+              child: SlideTransition(
+                position: _inAnim!,
+                child: _pages[_toIndex],
+              ),
+            ),
+          ],
+        ],
+      ),
       bottomNavigationBar: XiaoDouZiBottomBar(
         currentIndex: _selectedIndex,
         onItemSelected: _onItemTapped,
