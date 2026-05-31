@@ -113,10 +113,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     return Container(
       decoration: BoxDecoration(
         color: _navBg,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
       ),
       padding: EdgeInsets.only(
         left: 8,
