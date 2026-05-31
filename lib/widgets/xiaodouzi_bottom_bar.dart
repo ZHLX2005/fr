@@ -43,7 +43,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 450),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
     _curve = CurvedAnimation(

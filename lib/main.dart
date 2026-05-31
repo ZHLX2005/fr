@@ -180,25 +180,28 @@ class _MainScreenState extends State<MainScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
 
+  // RepaintBoundary 缓存渲染层，Transform 平移时只移 GPU 图层
   final List<Widget> _pages = const [
-    ProfilePage(), // 0: 主页（用户页面）
-    HomePage(), // 1: 聊天
-    FocusHomePage(), // 2: O - 专注计时器
+    RepaintBoundary(child: ProfilePage()),
+    RepaintBoundary(child: HomePage()),
+    RepaintBoundary(child: FocusHomePage()),
   ];
 
   late final AnimationController _ctrl;
+  late final CurvedAnimation _pageCurve;
   bool _isAnimating = false;
-  int _fromIndex = 0;
   int _toIndex = 0;
-  Animation<Offset>? _outAnim;
-  Animation<Offset>? _inAnim;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
+    );
+    _pageCurve = CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeOutCubic,
     );
     _ctrl.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -213,6 +216,7 @@ class _MainScreenState extends State<MainScreen>
 
   @override
   void dispose() {
+    _pageCurve.dispose();
     _ctrl.dispose();
     super.dispose();
   }
@@ -228,21 +232,8 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _startTransition(int target) {
-    final forward = target > _selectedIndex;
-    _fromIndex = _selectedIndex;
     _toIndex = target;
     _isAnimating = true;
-
-    _outAnim = Tween<Offset>(
-      begin: Offset.zero,
-      end: Offset(forward ? -1.0 : 1.0, 0),
-    ).animate(_ctrl);
-
-    _inAnim = Tween<Offset>(
-      begin: Offset(forward ? 1.0 : -1.0, 0),
-      end: Offset.zero,
-    ).animate(_ctrl);
-
     setState(() {});
     _ctrl.forward(from: 0);
   }
@@ -250,29 +241,42 @@ class _MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // 当前页面常驻，动画期间作为背景
-          _pages[_selectedIndex],
-          // 动画期间：旧页滑出 + 新页滑入
-          if (_isAnimating) ...[
-            RepaintBoundary(
-              child: SlideTransition(
-                position: _outAnim!,
-                child: _pages[_fromIndex],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          return Stack(
+            children: [
+              // 底层：目标页面（静止不动）
+              SizedBox(
+                width: w,
+                child: _pages[_isAnimating ? _toIndex : _selectedIndex],
               ),
-            ),
-            RepaintBoundary(
-              child: SlideTransition(
-                position: _inAnim!,
-                child: _pages[_toIndex],
-              ),
-            ),
-          ],
-        ],
+              // 覆盖层：旧页面朝对应方向滑出
+              if (_isAnimating)
+                AnimatedBuilder(
+                  animation: _pageCurve,
+                  builder: (context, _) {
+                    final isForward = _toIndex > _selectedIndex;
+                    // 正向：旧页向左滑（露出下面的新页）
+                    // 反向：旧页向右滑
+                    final dx = isForward
+                        ? -_pageCurve.value * w
+                        : _pageCurve.value * w;
+                    return Transform.translate(
+                      offset: Offset(dx, 0),
+                      child: SizedBox(
+                        width: w,
+                        child: _pages[_selectedIndex],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          );
+        },
       ),
       bottomNavigationBar: XiaoDouZiBottomBar(
-        currentIndex: _selectedIndex,
+        currentIndex: _isAnimating ? _toIndex : _selectedIndex,
         onItemSelected: _onItemTapped,
         onAddPressed: _onAddPressed,
       ),
