@@ -264,7 +264,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
         final size = constraints.biggest;
         final cx = size.width / 2;
         // 圆心在区域顶部外侧：factor < 0 时圆心在区域上方
-        final cy = size.height * 0.55;
+        final cy = size.height * SetTrackerConst.topArcCenterYFactor;
         final radius = size.width * SetTrackerConst.arcRadiusFactor;
 
         return Stack(
@@ -522,7 +522,7 @@ class _SetTrackerPageState extends State<SetTrackerPage>
         final size = constraints.biggest;
         final cx = size.width / 2;
         // 圆心在区域底部外侧：factor > 1 时圆心在区域下方
-        final cy = size.height * 1.55;
+        final cy = size.height * SetTrackerConst.bottomArcCenterYFactor;
         final radius = size.width * SetTrackerConst.arcRadiusFactor;
 
         final highlightColor =
