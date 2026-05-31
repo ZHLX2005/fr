@@ -34,6 +34,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     with TickerProviderStateMixin {
   static const double _indicatorSize = 52.0;
   static const double _barHeight = 62.0;
+  static const Color _navBg = Color(0xFFFFFFFF);
 
   static const List<_BarItem> _items = [
     _BarItem(
@@ -107,12 +108,11 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final navBg = colorScheme.surfaceContainer;
     final pageBg = colorScheme.surface;
 
     return Container(
       decoration: BoxDecoration(
-        color: navBg,
+        color: _navBg,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
@@ -174,7 +174,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
 
   Widget _buildIndicator(ThemeData theme, Color pageBg) {
     final color = _items[widget.currentIndex].color;
-    final barBg = theme.colorScheme.surfaceContainer;
 
     return SizedBox(
       width: _indicatorSize,
@@ -184,13 +183,13 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
         children: [
           // Left notch ear — matches HTML ::before
           Positioned(
-            left: -16 - 2.5,
+            left: -14.5,
             top: 26,
             child: Container(
               width: 16,
               height: 16,
               decoration: BoxDecoration(
-                color: barBg,
+                color: _navBg,
                 borderRadius:
                     const BorderRadius.only(topRight: Radius.circular(10)),
                 boxShadow: [
@@ -205,13 +204,13 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
           ),
           // Right notch ear — matches HTML ::after
           Positioned(
-            right: -16 - 2.5,
+            right: -14.5,
             top: 26,
             child: Container(
               width: 16,
               height: 16,
               decoration: BoxDecoration(
-                color: barBg,
+                color: _navBg,
                 borderRadius:
                     const BorderRadius.only(topLeft: Radius.circular(10)),
                 boxShadow: [
@@ -278,9 +277,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               child: Icon(
                 isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
                 size: 22,
-                color: isSelected
-                    ? item.color
-                    : colorScheme.onSurfaceVariant,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ],
