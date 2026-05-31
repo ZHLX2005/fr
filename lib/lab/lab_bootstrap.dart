@@ -33,6 +33,7 @@ import 'demos/word_drag_demo.dart';
 import 'demos/rive_pendulum_demo.dart';
 import 'demos/rive_data_bind_demo.dart';
 import 'demos/block_editor_demo.dart';
+import 'demos/bottom_bar_demo.dart';
 import 'demos/set_tracker_demo.dart';
 
 // 注册所有 Demo 页面
@@ -69,6 +70,7 @@ void registerAllDemos() {
   registerBlockEditorDemo();
   registerPigmentPaletteDemo();
   registerSetTrackerDemo();
+  registerBottomBarDemo();
 }
 
 // 初始化 Schema 注册表
