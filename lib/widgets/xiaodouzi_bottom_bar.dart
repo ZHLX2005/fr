@@ -1,5 +1,3 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
 
 class XiaoDouZiBottomBar extends StatefulWidget {
@@ -94,27 +92,14 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
           height: _barHeight,
           child: Stack(
             children: [
-              // 毛玻璃背景
-              ClipRRect(
-                borderRadius: BorderRadius.circular(_barHeight / 2),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? primaryColor.withValues(alpha: 0.06)
-                          : Colors.white.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(_barHeight / 2),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0F000000),
-                          blurRadius: 6,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                  ),
+              // 背景（与菜单卡片完全一致）
+              Card(
+                elevation: 2,
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(_barHeight / 2),
                 ),
+                child: SizedBox(width: _barWidth, height: _barHeight),
               ),
               // 滑动胶囊指示器
               AnimatedBuilder(
