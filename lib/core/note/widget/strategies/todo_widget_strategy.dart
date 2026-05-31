@@ -12,6 +12,7 @@ class TodoWidgetStrategy extends BlockWidgetStrategy {
   @override
   Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
     final checked = (block.type as TodoType).checked;
+    final theme = Theme.of(context);
     return Row(
       children: [
         GestureDetector(
@@ -19,7 +20,7 @@ class TodoWidgetStrategy extends BlockWidgetStrategy {
           child: Icon(
             checked ? Icons.check_box : Icons.check_box_outline_blank,
             size: 18,
-            color: checked ? Colors.blue : Colors.grey,
+            color: checked ? theme.colorScheme.primary : theme.colorScheme.outline,
           ),
         ),
         const SizedBox(width: 6),
@@ -32,6 +33,7 @@ class TodoWidgetStrategy extends BlockWidgetStrategy {
   Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final checked = (block.type as TodoType).checked;
     final text = block.content.toPlainText();
+    final theme = Theme.of(context);
     return Row(
       children: [
         GestureDetector(
@@ -39,7 +41,7 @@ class TodoWidgetStrategy extends BlockWidgetStrategy {
           child: Icon(
             checked ? Icons.check_box : Icons.check_box_outline_blank,
             size: 18,
-            color: checked ? Colors.blue : Colors.grey,
+            color: checked ? theme.colorScheme.primary : theme.colorScheme.outline,
           ),
         ),
         const SizedBox(width: 6),
@@ -48,7 +50,7 @@ class TodoWidgetStrategy extends BlockWidgetStrategy {
             text,
             style: TextStyle(
               decoration: checked ? TextDecoration.lineThrough : null,
-              color: checked ? Colors.grey : null,
+              color: checked ? theme.colorScheme.onSurfaceVariant : null,
             ),
           ),
         ),

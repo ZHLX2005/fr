@@ -14,9 +14,14 @@ class BulletListItemWidgetStrategy extends BlockWidgetStrategy {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 2),
-          child: Text('• ', style: TextStyle(fontSize: 16)),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text('• ',
+            style: TextStyle(
+              fontSize: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
         ),
         Expanded(child: textField),
       ],
@@ -28,8 +33,18 @@ class BulletListItemWidgetStrategy extends BlockWidgetStrategy {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('• ', style: TextStyle(fontSize: 16)),
-        Expanded(child: Text(block.content.toPlainText())),
+        Text('• ',
+          style: TextStyle(
+            fontSize: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            block.content.toPlainText(),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
+          ),
+        ),
       ],
     );
   }

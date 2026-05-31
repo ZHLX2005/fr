@@ -19,7 +19,10 @@ class OrderedListItemWidgetStrategy extends BlockWidgetStrategy {
           padding: const EdgeInsets.only(top: 2),
           child: Text(
             '$number. ',
-            style: const TextStyle(fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         Expanded(child: textField),
@@ -35,9 +38,17 @@ class OrderedListItemWidgetStrategy extends BlockWidgetStrategy {
       children: [
         Text(
           '$number. ',
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.primary,
+          ),
         ),
-        Expanded(child: Text(block.content.toPlainText())),
+        Expanded(
+          child: Text(
+            block.content.toPlainText(),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
+          ),
+        ),
       ],
     );
   }
