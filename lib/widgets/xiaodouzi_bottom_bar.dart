@@ -101,7 +101,9 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                   filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: primaryColor.withValues(alpha: 0.06),
+                      color: isDark
+                          ? primaryColor.withValues(alpha: 0.06)
+                          : Colors.white.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(_barHeight / 2),
                       boxShadow: const [
                         BoxShadow(
