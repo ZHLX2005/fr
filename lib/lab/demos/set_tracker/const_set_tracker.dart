@@ -50,13 +50,17 @@ class SetTrackerConst {
   ];
 
   // ===== 上弧线：圆心锚在区域顶部外侧，向下拱，真正的半圆 =====
+  // cy = topArcCenterYFactor × 区域高度（负值 = 圆心在区域上方）
   static const double topArcStartAngle = 15 * 3.14159265 / 180;
   static const double topArcSweepAngle = 150 * 3.14159265 / 180;
+  static const double topArcCenterYFactor = -0.95;
   static const double topArcLift = 32;
 
   // ===== 下弧线：圆心锚在区域底部外侧，向上拱，真正的半圆 =====
+  // cy = bottomArcCenterYFactor × 区域高度（>1 = 圆心在区域下方）
   static const double bottomArcStartAngle = 195 * 3.14159265 / 180;
   static const double bottomArcSweepAngle = 150 * 3.14159265 / 180;
+  static const double bottomArcCenterYFactor = 1.95;
   static const double bottomArcLift = 32;
 
   // ===== 圆环通用参数 =====
