@@ -1,4 +1,16 @@
+import 'dart:math' show exp, cos;
+
 import 'package:flutter/material.dart';
+
+/// 弹跳曲线 — 指数衰减余弦震荡，比 elasticOut 更弹
+class _QQCurve extends Curve {
+  const _QQCurve();
+
+  @override
+  double transform(double t) {
+    return 1 - exp(-4.5 * t) * cos(14.0 * t);
+  }
+}
 
 class XiaoDouZiBottomBar extends StatefulWidget {
   final int currentIndex;
@@ -43,12 +55,12 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
     _curve = CurvedAnimation(
       parent: _ctrl,
-      curve: const Cubic(0.34, 1.5, 0.64, 1),
+      curve: const _QQCurve(),
     );
   }
 
