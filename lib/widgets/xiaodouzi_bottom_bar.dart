@@ -33,7 +33,7 @@ class XiaoDouZiBottomBar extends StatefulWidget {
 class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     with TickerProviderStateMixin {
   static const double _indicatorSize = 52.0;
-  static const double _barHeight = 62.0;
+  static const double _barHeight = 68.0;
   static const Color _navBg = Color(0xFFFFFFFF);
 
   static const List<_BarItem> _items = [
@@ -250,9 +250,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                     fontSize: 10,
                     fontWeight:
                         isSelected ? FontWeight.w600 : FontWeight.normal,
-                    color: isSelected
-                        ? item.color
-                        : colorScheme.onSurfaceVariant,
+                    color: Colors.black,
                   ),
                 ),
               ),
@@ -267,7 +265,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               child: Icon(
                 isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
                 size: 22,
-                color: colorScheme.onSurfaceVariant,
+                color: isSelected ? Colors.white : colorScheme.onSurfaceVariant,
               ),
             ),
           ],
