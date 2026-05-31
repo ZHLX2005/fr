@@ -10,7 +10,7 @@ class OrderedListItemWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+  Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
     final number = (block.type as OrderedListItemType).number;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -19,7 +19,10 @@ class OrderedListItemWidgetStrategy extends BlockWidgetStrategy {
           padding: const EdgeInsets.only(top: 2),
           child: Text(
             '$number. ',
-            style: const TextStyle(fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
         Expanded(child: textField),
@@ -28,16 +31,24 @@ class OrderedListItemWidgetStrategy extends BlockWidgetStrategy {
   }
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final number = (block.type as OrderedListItemType).number;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '$number. ',
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.primary,
+          ),
         ),
-        Expanded(child: Text(block.content.toPlainText())),
+        Expanded(
+          child: Text(
+            block.content.toPlainText(),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
+          ),
+        ),
       ],
     );
   }

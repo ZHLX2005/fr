@@ -11,12 +11,13 @@ class ImageWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final imgType = block.type as ImageType;
     final src = imgType.src;
     final caption = imgType.caption;
     final width = imgType.width;
     final height = imgType.height;
+    final theme = Theme.of(context);
 
     if (src.isEmpty) {
       return GestureDetector(
@@ -25,16 +26,21 @@ class ImageWidgetStrategy extends BlockWidgetStrategy {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: theme.colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
           ),
           child: Column(
             children: [
-              Icon(Icons.image_outlined, size: 32, color: Colors.grey[400]),
+              Icon(Icons.image_outlined, size: 32,
+                color: theme.colorScheme.onSurfaceVariant),
               const SizedBox(height: 4),
               Text('点击以添加图片',
-                style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
             ],
           ),
         ),
@@ -54,40 +60,44 @@ class ImageWidgetStrategy extends BlockWidgetStrategy {
                   width: width,
                   height: height,
                   fit: width != null || height != null ? BoxFit.cover : null,
-                  errorBuilder: (context, error, stackTrace) =>
-                      _imageErrorPlaceholder(),
+                  errorBuilder: (c, error, stackTrace) =>
+                      _imageErrorPlaceholder(theme),
                 )
               : Image.file(
                   File(src),
                   width: width,
                   height: height,
                   fit: width != null || height != null ? BoxFit.cover : null,
-                  errorBuilder: (context, error, stackTrace) =>
-                      _imageErrorPlaceholder(),
+                  errorBuilder: (c, error, stackTrace) =>
+                      _imageErrorPlaceholder(theme),
                 ),
         ),
         if (caption != null && caption.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(caption,
-              style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
           ),
       ],
     );
   }
 
-  Widget _imageErrorPlaceholder() {
+  Widget _imageErrorPlaceholder(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
-          Icon(Icons.broken_image, color: Colors.grey[400]),
+          Icon(Icons.broken_image, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: 8),
-          Text('加载失败', style: TextStyle(color: Colors.grey[500])),
+          Text('加载失败', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
         ],
       ),
     );

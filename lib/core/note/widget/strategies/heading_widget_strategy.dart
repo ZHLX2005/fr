@@ -12,17 +12,14 @@ class HeadingWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final level = (block.type as HeadingType).level;
     final text = block.content.toPlainText();
-    final sizes = [28.0, 22.0, 18.0, 16.0, 14.0, 13.0];
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: sizes[level.clamp(1, 6) - 1],
-        fontWeight: FontWeight.bold,
-        height: 1.3,
-      ),
-    );
+    final style = switch (level) {
+      1 => Theme.of(context).textTheme.headlineLarge,
+      2 => Theme.of(context).textTheme.headlineMedium,
+      _ => Theme.of(context).textTheme.headlineSmall,
+    };
+    return Text(text, style: style?.copyWith(fontWeight: FontWeight.bold, height: 1.3));
   }
 }
