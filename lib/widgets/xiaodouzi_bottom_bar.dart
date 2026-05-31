@@ -106,11 +106,13 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final barBg = colorScheme.surface;
+
+    final navBg = colorScheme.surfaceContainer;
+    final pageBg = colorScheme.surface;
 
     return Container(
       decoration: BoxDecoration(
-        color: barBg,
+        color: navBg,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
@@ -130,8 +132,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final contentWidth = constraints.maxWidth;
-          final itemWidth = contentWidth / _items.length;
+          final itemWidth = constraints.maxWidth / _items.length;
 
           double leftFor(int idx) =>
               idx * itemWidth + (itemWidth - _indicatorSize) / 2;
@@ -150,18 +151,18 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Tab items
+                // 1) Sliding indicator ring (painted first, sits BELOW icons)
+                Positioned(
+                  left: indicatorLeft,
+                  top: -_indicatorSize / 2,
+                  child: _buildIndicator(theme, pageBg),
+                ),
+                // 2) Tab items (painted second, icons on TOP of indicator)
                 Row(
                   children: List.generate(
                     _items.length,
                     (i) => _buildTabItem(i, theme, itemWidth),
                   ),
-                ),
-                // Sliding indicator circle (overflows above nav bar)
-                Positioned(
-                  left: indicatorLeft,
-                  top: -_indicatorSize / 2,
-                  child: _buildIndicator(theme),
                 ),
               ],
             ),
@@ -171,31 +172,67 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     );
   }
 
-  Widget _buildIndicator(ThemeData theme) {
-    final activeItem = _items[widget.currentIndex];
-    final color = activeItem.color;
-    final icon = activeItem.selectedIcon ?? activeItem.icon;
+  Widget _buildIndicator(ThemeData theme, Color pageBg) {
+    final color = _items[widget.currentIndex].color;
+    final barBg = theme.colorScheme.surfaceContainer;
 
     return SizedBox(
       width: _indicatorSize,
       height: _indicatorSize,
-      child: Container(
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: theme.colorScheme.surface.withOpacity(0.4),
-            width: 2.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.35),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Left notch ear — matches HTML ::before
+          Positioned(
+            left: -16 - 2.5,
+            top: 26,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: barBg,
+                borderRadius:
+                    const BorderRadius.only(topRight: Radius.circular(10)),
+                boxShadow: [
+                  BoxShadow(
+                    color: pageBg,
+                    offset: const Offset(0, -6),
+                    blurRadius: 0,
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          // Right notch ear — matches HTML ::after
+          Positioned(
+            right: -16 - 2.5,
+            top: 26,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: barBg,
+                borderRadius:
+                    const BorderRadius.only(topLeft: Radius.circular(10)),
+                boxShadow: [
+                  BoxShadow(
+                    color: pageBg,
+                    offset: const Offset(0, -6),
+                    blurRadius: 0,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Main circle
+          Container(
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: pageBg, width: 4),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -213,40 +250,37 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
         height: _barHeight,
         child: Stack(
           children: [
-            // Icon — centered when inactive, moves up into indicator when active
+            // Label — centered, fades in when active (same place as icon was)
+            Center(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: isSelected ? 1.0 : 0.0,
+                child: Text(
+                  item.label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected
+                        ? item.color
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+            // Icon — centered when inactive, moves up inside indicator when active
             AnimatedPositioned(
               duration: const Duration(milliseconds: 400),
               curve: const Cubic(0.34, 1.56, 0.64, 1),
               left: 0,
               right: 0,
-              top: isSelected ? -4 : (_barHeight - 22) / 2,
+              top: isSelected ? -6 : (_barHeight - 22) / 2,
               child: Icon(
                 isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
                 size: 22,
                 color: isSelected
                     ? item.color
                     : colorScheme.onSurfaceVariant,
-              ),
-            ),
-            // Label — centered, fades in when active
-            Center(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: isSelected ? 1.0 : 0.0,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: Text(
-                    item.label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
-                      color: isSelected
-                          ? item.color
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
               ),
             ),
           ],
