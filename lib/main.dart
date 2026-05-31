@@ -196,12 +196,12 @@ class _MainScreenState extends State<MainScreen>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
     _pageCurve = CurvedAnimation(
       parent: _ctrl,
-      curve: Curves.easeOutCubic,
+      curve: Curves.easeInOutQuint,
     );
     _ctrl.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
