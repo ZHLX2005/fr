@@ -256,16 +256,25 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
               ),
             ),
             // Icon — centered when inactive, moves up inside indicator when active
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 400),
-              curve: const Cubic(0.34, 1.56, 0.64, 1),
+            Positioned(
               left: 0,
               right: 0,
-              top: isSelected ? -6 : (_barHeight - 22) / 2,
-              child: Icon(
-                isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
-                size: 22,
-                color: isSelected ? Colors.white : colorScheme.onSurfaceVariant,
+              top: (_barHeight - 22) / 2,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                curve: const Cubic(0.34, 1.56, 0.64, 1),
+                transform: Matrix4.translationValues(
+                  0,
+                  isSelected ? -34.0 : 0.0,
+                  0,
+                ),
+                transformAlignment: Alignment.center,
+                child: Icon(
+                  isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
+                  size: 22,
+                  color:
+                      isSelected ? Colors.white : colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ],
