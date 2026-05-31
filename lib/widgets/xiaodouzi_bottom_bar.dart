@@ -117,13 +117,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
-          ),
-        ],
       ),
       padding: EdgeInsets.only(
         left: 8,
