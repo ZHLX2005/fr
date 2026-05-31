@@ -56,8 +56,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
       color: Color(0xFFFB923C),
     ),
     _BarItem(
-      label: 'LocalNet',
-      icon: Icons.wifi,
+      label: 'Game',
+      icon: Icons.sports_esports,
       color: Color(0xFF34D399),
     ),
     _BarItem(
