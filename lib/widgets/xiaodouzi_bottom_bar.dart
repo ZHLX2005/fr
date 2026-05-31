@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 class XiaoDouZiBottomBar extends StatefulWidget {
@@ -70,6 +72,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
     final itemW = _barWidth / _icons.length;
 
     double capsuleLeft(int idx) => idx * itemW + (itemW - _capsuleW) / 2;
@@ -84,18 +88,24 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
           height: _barHeight,
           child: Stack(
             children: [
-              // 背景药丸
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(_barHeight / 2),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0F000000),
-                      blurRadius: 6,
-                      offset: Offset(0, 1),
+              // 毛玻璃背景（极浅主题色底）
+              ClipRRect(
+                borderRadius: BorderRadius.circular(_barHeight / 2),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(_barHeight / 2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0F000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
               // 滑动胶囊指示器
@@ -112,7 +122,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                       width: _capsuleW,
                       height: _capsuleH,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE5E5EA),
+                        color: primaryColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(_capsuleH / 2),
                       ),
                     ),
@@ -135,8 +145,8 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
                               isActive ? _activeIcons[i] : _icons[i],
                               size: 22,
                               color: isActive
-                                  ? const Color(0xFF1C1C1E)
-                                  : const Color(0xFF8E8E93),
+                                  ? primaryColor
+                                  : primaryColor.withValues(alpha: 0.4),
                             ),
                           ),
                         ),
