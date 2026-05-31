@@ -166,7 +166,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   }
 
   Widget _buildIndicator(ThemeData theme, Color pageBg) {
-    final color = _items[widget.currentIndex].color;
+    final color = theme.colorScheme.primary;
 
     return SizedBox(
       width: _indicatorSize,
@@ -241,6 +241,7 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
         width: itemWidth,
         height: _barHeight,
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
             // Label — centered, fades in when active (same place as icon was)
             Center(
