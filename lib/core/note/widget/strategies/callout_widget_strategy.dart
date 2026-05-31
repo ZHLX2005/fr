@@ -10,18 +10,19 @@ class CalloutWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
+  Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
     final icon = (block.type as CalloutType).icon;
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(6),
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Text(icon.isEmpty ? '💡' : icon, style: const TextStyle(fontSize: 18)),
+          _calloutIcon(icon, theme),
           const SizedBox(width: 8),
           Expanded(child: textField),
         ],
@@ -30,24 +31,35 @@ class CalloutWidgetStrategy extends BlockWidgetStrategy {
   }
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     final icon = (block.type as CalloutType).icon;
     final text = block.content.toPlainText();
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.blue[50],
-        borderRadius: BorderRadius.circular(6),
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Text(icon.isEmpty ? '💡' : icon,
-            style: const TextStyle(fontSize: 18)),
+          _calloutIcon(icon, theme),
           const SizedBox(width: 8),
-          Expanded(child: Text(text)),
+          Expanded(
+            child: Text(text,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.4)),
+          ),
         ],
       ),
     );
   }
+}
+
+Widget _calloutIcon(String icon, ThemeData theme) {
+  if (icon.isEmpty) {
+    return Icon(Icons.lightbulb_outline, size: 20,
+      color: theme.colorScheme.primary);
+  }
+  return Text(icon, style: const TextStyle(fontSize: 18));
 }

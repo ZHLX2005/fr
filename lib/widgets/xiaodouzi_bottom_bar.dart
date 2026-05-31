@@ -1,34 +1,29 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:rive/rive.dart' as rive;
 
-import '../screens/profile/character_profile_page.dart';
-
-class BottomBarItem {
+class _BarItem {
   final String label;
   final IconData icon;
   final IconData? selectedIcon;
-  final bool isEnabled;
+  final Color color;
 
-  const BottomBarItem({
+  const _BarItem({
     required this.label,
     required this.icon,
     this.selectedIcon,
-    this.isEnabled = true,
+    this.color = Colors.blue,
   });
 }
 
 class XiaoDouZiBottomBar extends StatefulWidget {
   final int currentIndex;
   final Function(int) onItemSelected;
-  final VoidCallback onAddPressed;
+  final VoidCallback? onAddPressed;
 
   const XiaoDouZiBottomBar({
     super.key,
     required this.currentIndex,
     required this.onItemSelected,
-    required this.onAddPressed,
+    this.onAddPressed,
   });
 
   @override
@@ -37,56 +32,74 @@ class XiaoDouZiBottomBar extends StatefulWidget {
 
 class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     with TickerProviderStateMixin {
-  late final AnimationController _animationController;
-  late final rive.FileLoader _douziFileLoader = rive.FileLoader.fromAsset(
-    'assets/rive/douzi.riv',
-    riveFactory: rive.Factory.flutter,
-  );
-  bool _isLongPressed = false;
+  static const double _indicatorSize = 52.0;
+  static const double _barHeight = 68.0;
+  static const Color _navBg = Color(0xFFFFFFFF);
 
-  static const List<BottomBarItem> _items = [
-    BottomBarItem(
+  static const List<_BarItem> _items = [
+    _BarItem(
       label: '主页',
       icon: Icons.home_outlined,
       selectedIcon: Icons.home,
+      color: Color(0xFF6C63FF),
     ),
-    BottomBarItem(
+    _BarItem(
       label: '聊天',
       icon: Icons.chat_bubble_outline,
       selectedIcon: Icons.chat_bubble,
+      color: Color(0xFFF472B6),
     ),
-    BottomBarItem(
+    _BarItem(
       label: '专注',
       icon: Icons.radio_button_unchecked,
       selectedIcon: Icons.radio_button_checked,
-      isEnabled: true,
+      color: Color(0xFFFB923C),
     ),
-    BottomBarItem(
+    _BarItem(
       label: 'LocalNet',
       icon: Icons.wifi,
-      selectedIcon: Icons.wifi,
+      color: Color(0xFF34D399),
     ),
-    BottomBarItem(
+    _BarItem(
       label: '图库',
       icon: Icons.photo_library_outlined,
       selectedIcon: Icons.photo_library,
+      color: Color(0xFF60A5FA),
     ),
   ];
+
+  late final AnimationController _slideController;
+  late final CurvedAnimation _slideCurve;
+  int _previousIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 400),
       vsync: this,
-      duration: const Duration(milliseconds: 500),
-      value: 1.0,
+    )..addListener(() => setState(() {}));
+
+    _slideCurve = CurvedAnimation(
+      parent: _slideController,
+      curve: const Cubic(0.65, 0.0, 0.35, 1.0),
     );
   }
 
   @override
+  void didUpdateWidget(XiaoDouZiBottomBar old) {
+    super.didUpdateWidget(old);
+    if (old.currentIndex != widget.currentIndex) {
+      _previousIndex = old.currentIndex;
+      _slideController.forward(from: 0);
+    }
+  }
+
+  @override
   void dispose() {
-    _animationController.dispose();
-    _douziFileLoader.dispose();
+    _slideCurve.dispose();
+    _slideController.dispose();
     super.dispose();
   }
 
@@ -95,544 +108,178 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Stack(
-      alignment: AlignmentDirectional.bottomCenter,
-      children: [
-        AnimatedBuilder(
-          animation: _animationController,
-          builder: (context, child) {
-            return PhysicalShape(
-              color: colorScheme.surface,
-              elevation: 16.0,
-              clipper: _BottomBarClipper(
-                radius:
-                    Tween<double>(begin: 0.0, end: 1.0)
-                        .animate(
-                          CurvedAnimation(
-                            parent: _animationController,
-                            curve: Curves.fastOutSlowIn,
-                          ),
-                        )
-                        .value *
-                    38.0,
-              ),
-              child: child,
-            );
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 62,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8, right: 8, top: 4),
-                  child: Row(
-                    children: [
-                      Expanded(child: _buildTabItem(0, theme)),
-                      Expanded(child: _buildTabItem(1, theme)),
-                      SizedBox(
-                        width:
-                            Tween<double>(begin: 0.0, end: 1.0)
-                                .animate(
-                                  CurvedAnimation(
-                                    parent: _animationController,
-                                    curve: Curves.fastOutSlowIn,
-                                  ),
-                                )
-                                .value *
-                            64.0,
-                      ),
-                      Expanded(child: _buildTabItem(3, theme)),
-                      Expanded(child: _buildTabItem(4, theme)),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).padding.bottom),
-            ],
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).padding.bottom,
-          ),
-          child: SizedBox(
-            width: 76,
-            height: 76,
-            child: Container(
-              alignment: Alignment.topCenter,
-              color: Colors.transparent,
-              child: SizedBox(
-                width: 76,
-                height: 76,
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: ScaleTransition(
-                    alignment: Alignment.center,
-                    scale: Tween<double>(begin: 0.0, end: 1.0).animate(
-                      CurvedAnimation(
-                        parent: _animationController,
-                        curve: Curves.fastOutSlowIn,
-                      ),
-                    ),
-                    child: GestureDetector(
-                      onTap: widget.onAddPressed,
-                      onLongPressStart: (_) {
-                        setState(() => _isLongPressed = true);
-                        _showEasterEgg(context);
-                      },
-                      onLongPressEnd: (_) {
-                        setState(() => _isLongPressed = false);
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeInOut,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: widget.currentIndex == 2
-                                ? [colorScheme.primary, colorScheme.tertiary]
-                                : [colorScheme.primary, colorScheme.secondary],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: widget.currentIndex == 2
-                                  ? colorScheme.primary.withValues(alpha: 0.6)
-                                  : colorScheme.primary.withValues(alpha: 0.4),
-                              offset: const Offset(4.0, 8.0),
-                              blurRadius: widget.currentIndex == 2
-                                  ? 24.0
-                                  : 16.0,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeInOut,
-                            width: _isLongPressed
-                                ? 60
-                                : (widget.currentIndex == 2 ? 40 : 0),
-                            height: _isLongPressed
-                                ? 60
-                                : (widget.currentIndex == 2 ? 40 : 0),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _isLongPressed
-                                  ? colorScheme.surface.withValues(alpha: 0.5)
-                                  : colorScheme.surface.withValues(alpha: 0.3),
-                            ),
-                            child: _isLongPressed
-                                ? Icon(
-                                    Icons.auto_awesome,
-                                    color: colorScheme.onPrimary,
-                                    size: 28,
-                                  )
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+    final pageBg = colorScheme.surface;
 
-  void _showEasterEgg(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: _navBg,
+      ),
+      padding: EdgeInsets.only(
+        left: 8,
+        right: 8,
+        bottom: MediaQuery.of(context).padding.bottom + 2,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = constraints.maxWidth / _items.length;
 
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.42),
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: Container(
-          width: 316,
-          padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                colorScheme.surfaceBright,
-                colorScheme.surfaceContainerHigh,
-                Color.alphaBlend(
-                  colorScheme.primary.withValues(alpha: 0.14),
-                  colorScheme.surfaceContainer,
+          double leftFor(int idx) =>
+              idx * itemWidth + (itemWidth - _indicatorSize) / 2;
+
+          final double indicatorLeft;
+          if (_slideController.isAnimating) {
+            final t = _slideCurve.value;
+            indicatorLeft = leftFor(_previousIndex) +
+                (leftFor(widget.currentIndex) - leftFor(_previousIndex)) * t;
+          } else {
+            indicatorLeft = leftFor(widget.currentIndex);
+          }
+
+          return SizedBox(
+            height: _barHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // 1) Sliding indicator ring (painted first, sits BELOW icons)
+                Positioned(
+                  left: indicatorLeft,
+                  top: -_indicatorSize / 2,
+                  child: _buildIndicator(theme, pageBg),
+                ),
+                // 2) Tab items (painted second, icons on TOP of indicator)
+                Row(
+                  children: List.generate(
+                    _items.length,
+                    (i) => _buildTabItem(i, theme, itemWidth),
+                  ),
                 ),
               ],
             ),
-            border: Border.all(
-              color: Color.alphaBlend(
-                Colors.white.withValues(alpha: 0.42),
-                colorScheme.outlineVariant.withValues(alpha: 0.22),
-              ),
-              width: 1.4,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colorScheme.shadow.withValues(alpha: 0.18),
-                blurRadius: 40,
-                offset: const Offset(0, 18),
-              ),
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.14),
-                blurRadius: 10,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                right: -18,
-                top: -10,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: 0.26),
-                          Colors.white.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: -10,
-                bottom: 36,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          colorScheme.tertiary.withValues(alpha: 0.16),
-                          colorScheme.tertiary.withValues(alpha: 0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.auto_stories_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '人物小谱',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '看看豆子的角色设定与气质档案',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    height: 248,
-                    decoration: BoxDecoration(
-                      color: Color.alphaBlend(
-                        colorScheme.primary.withValues(alpha: 0.05),
-                        colorScheme.surface,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Color.alphaBlend(
-                          Colors.white.withValues(alpha: 0.52),
-                          colorScheme.outlineVariant.withValues(alpha: 0.24),
-                        ),
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: rive.RiveWidgetBuilder(
-                        fileLoader: _douziFileLoader,
-                        dataBind: rive.DataBind.auto(),
-                        builder: (context, state) => switch (state) {
-                          rive.RiveLoading() => const SizedBox.shrink(),
-                          rive.RiveFailed() => const SizedBox.shrink(),
-                          rive.RiveLoaded(:final controller) => rive.RiveWidget(
-                            controller: controller,
-                            fit: rive.Fit.contain,
-                            hitTestBehavior: rive.RiveHitTestBehavior.opaque,
-                          ),
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      minimumSize: const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      textStyle: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.pop(dialogContext);
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const CharacterProfilePage(),
-                          ),
-                        );
-                      });
-                    },
-                    child: const Text('查看人物小谱'),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildIndicator(ThemeData theme, Color pageBg) {
+    final color = theme.colorScheme.primary;
+
+    return SizedBox(
+      width: _indicatorSize,
+      height: _indicatorSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Left notch ear — matches HTML ::before
+          Positioned(
+            left: -14.5,
+            top: 26,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: _navBg,
+                borderRadius:
+                    const BorderRadius.only(topRight: Radius.circular(10)),
+                boxShadow: [
+                  BoxShadow(
+                    color: pageBg,
+                    offset: const Offset(0, -6),
+                    blurRadius: 0,
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-    ).then((_) {
-      if (mounted) {
-        setState(() => _isLongPressed = false);
-      }
-    });
-  }
-
-  Widget _buildTabItem(int index, ThemeData theme) {
-    final item = _items[index];
-    final isSelected = widget.currentIndex == index;
-    final colorScheme = theme.colorScheme;
-
-    if (index == 2) {
-      return GestureDetector(
-        onTap: () {
-          if (!isSelected) {
-            widget.onItemSelected(index);
-          }
-        },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              width: 40,
-              height: 40,
+          // Right notch ear — matches HTML ::after
+          Positioned(
+            right: -14.5,
+            top: 26,
+            child: Container(
+              width: 16,
+              height: 16,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected
-                    ? colorScheme.primary.withValues(alpha: 0.15)
-                    : colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.5,
-                      ),
-                border: Border.all(
-                  color: isSelected
-                      ? colorScheme.primary.withValues(alpha: 0.3)
-                      : Colors.transparent,
-                  width: 1.5,
-                ),
-              ),
-              child: Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  width: isSelected ? 24 : 20,
-                  height: isSelected ? 24 : 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: isSelected
-                        ? LinearGradient(
-                            colors: [colorScheme.primary, colorScheme.tertiary],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isSelected
-                        ? null
-                        : colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                color: _navBg,
+                borderRadius:
+                    const BorderRadius.only(topLeft: Radius.circular(10)),
+                boxShadow: [
+                  BoxShadow(
+                    color: pageBg,
+                    offset: const Offset(0, -6),
+                    blurRadius: 0,
                   ),
-                ),
+                ],
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              item.label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (!item.isEnabled) {
-      return Opacity(
-        opacity: 0.4,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(item.icon, size: 24, color: colorScheme.outline),
-            const SizedBox(height: 2),
-            Text(
-              item.label,
-              style: TextStyle(fontSize: 10, color: colorScheme.outline),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: () {
-        if (!isSelected) {
-          widget.onItemSelected(index);
-        }
-      },
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? colorScheme.primaryContainer
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
-              size: 24,
-              color: isSelected
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            item.label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              color: isSelected
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
+          // Main circle
+          Container(
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: pageBg, width: 4),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _BottomBarClipper extends CustomClipper<Path> {
-  _BottomBarClipper({this.radius = 38.0});
+  Widget _buildTabItem(int index, ThemeData theme, double itemWidth) {
+    final item = _items[index];
+    final isSelected = widget.currentIndex == index;
+    final colorScheme = theme.colorScheme;
 
-  final double radius;
-
-  @override
-  Path getClip(Size size) {
-    final Path path = Path();
-    final double v = radius * 2;
-
-    path.lineTo(0, 0);
-    path.arcTo(
-      Rect.fromLTWH(0, 0, radius, radius),
-      math.pi,
-      math.pi / 2,
-      false,
+    return GestureDetector(
+      onTap: () => widget.onItemSelected(index),
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: itemWidth,
+        height: _barHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Label — centered, fades in when active (same place as icon was)
+            Center(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: isSelected ? 1.0 : 0.0,
+                child: Text(
+                  item.label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+            // Icon — centered when inactive, moves up inside indicator when active
+            Positioned(
+              left: 0,
+              right: 0,
+              top: (_barHeight - 22) / 2,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                curve: const Cubic(0.34, 1.56, 0.64, 1),
+                transform: Matrix4.translationValues(
+                  0,
+                  isSelected ? -34.0 : 0.0,
+                  0,
+                ),
+                transformAlignment: Alignment.center,
+                child: Icon(
+                  isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
+                  size: 22,
+                  color:
+                      isSelected ? Colors.white : colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-
-    final double leftArcStartX = (size.width / 2) - v / 2 - radius + v * 0.04;
-    path.arcTo(
-      Rect.fromLTWH(leftArcStartX, 0, radius, radius),
-      math.pi * 1.5,
-      math.pi * 0.39,
-      false,
-    );
-
-    path.arcTo(
-      Rect.fromLTWH((size.width / 2) - v / 2, -v / 2, v, v),
-      math.pi * 0.89,
-      math.pi * -0.78,
-      false,
-    );
-
-    final double rightArcStartX =
-        (size.width - ((size.width / 2) - v / 2)) - v * 0.04;
-    path.arcTo(
-      Rect.fromLTWH(rightArcStartX, 0, radius, radius),
-      math.pi * 1.11,
-      math.pi * 0.39,
-      false,
-    );
-
-    path.arcTo(
-      Rect.fromLTWH(size.width - radius, 0, radius, radius),
-      math.pi * 1.5,
-      math.pi / 2,
-      false,
-    );
-
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
-
-    return path;
   }
-
-  @override
-  bool shouldReclip(_BottomBarClipper oldClipper) => true;
 }

@@ -10,40 +10,28 @@ class QuoteWidgetStrategy extends BlockWidgetStrategy {
   ];
 
   @override
-  Widget buildEditor(Block block, BlockCallbacks callbacks, {required Widget textField}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 3,
-          margin: const EdgeInsets.only(right: 8),
-          color: Colors.grey[400],
+  Widget buildEditor(BuildContext context, Block block, BlockCallbacks callbacks, {required Widget textField}) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
         ),
-        Expanded(child: textField),
-      ],
+      ),
+      padding: const EdgeInsets.only(left: 8),
+      child: textField,
     );
   }
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 3,
-          margin: const EdgeInsets.only(right: 8),
-          color: Colors.grey[400],
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
         ),
-        Expanded(
-          child: Text(
-            block.content.toPlainText(),
-            style: TextStyle(
-              color: Colors.grey[700],
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ),
-      ],
+      ),
+      padding: const EdgeInsets.only(left: 8),
+      child: Text(block.content.toPlainText()),
     );
   }
 }

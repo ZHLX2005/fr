@@ -79,6 +79,7 @@ class _BlockCardState extends State<BlockCard> {
               child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType
                   ? _buildTextField()
                   : NoteRootScope.of(context).noteRoot.renderBlock(
+                      context,
                       widget.block,
                       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
                       onTapAddImage: widget.block.type is ImageType
@@ -120,7 +121,7 @@ class _BlockCardState extends State<BlockCard> {
         focusNode: _focusNode,
         controller: _controller,
         maxLines: ml ? null : 1,
-        style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block) ?? const TextStyle(fontSize: 14),
+        style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block, context) ?? const TextStyle(fontSize: 14),
         decoration: const InputDecoration(
           border: InputBorder.none,
           isDense: true,
@@ -148,6 +149,7 @@ class _BlockCardState extends State<BlockCard> {
       ),
     );
     return NoteRootScope.of(context).noteRoot.buildEditor(
+      context,
       widget.block,
       textField: textField,
       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),

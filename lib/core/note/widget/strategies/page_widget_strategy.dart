@@ -8,10 +8,10 @@ class PageWidgetStrategy extends BlockWidgetStrategy {
   List<BlockTypeInfo> get typeInfoList => const [];
 
   @override
-  Widget build(Block block, BlockCallbacks callbacks) {
+  Widget build(BuildContext context, Block block, BlockCallbacks callbacks) {
     return Text(
       block.content.toPlainText(),
-      style: const TextStyle(fontWeight: FontWeight.w600),
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
     );
   }
 }
