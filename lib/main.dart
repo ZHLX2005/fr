@@ -251,22 +251,29 @@ class _MainScreenState extends State<MainScreen>
                 width: w,
                 child: _pages[_isAnimating ? _toIndex : _selectedIndex],
               ),
-              // 覆盖层：旧页面朝对应方向滑出
+              // 覆盖层：双页同时平移（传送带效果）
               if (_isAnimating)
                 AnimatedBuilder(
                   animation: _pageCurve,
                   builder: (context, _) {
                     final isForward = _toIndex > _selectedIndex;
-                    // 正向：旧页向左滑（露出下面的新页）
-                    // 反向：旧页向右滑
-                    final dx = isForward
-                        ? -_pageCurve.value * w
-                        : _pageCurve.value * w;
-                    return Transform.translate(
-                      offset: Offset(dx, 0),
-                      child: SizedBox(
-                        width: w,
-                        child: _pages[_selectedIndex],
+                    final t = _pageCurve.value;
+                    // 新页从异侧滑入，旧页往同侧滑出
+                    final newDx = isForward ? (1 - t) * w : -(1 - t) * w;
+                    final oldDx = isForward ? -t * w : t * w;
+                    return SizedBox(
+                      width: w,
+                      child: Stack(
+                        children: [
+                          Transform.translate(
+                            offset: Offset(newDx, 0),
+                            child: SizedBox(width: w, child: _pages[_toIndex]),
+                          ),
+                          Transform.translate(
+                            offset: Offset(oldDx, 0),
+                            child: SizedBox(width: w, child: _pages[_selectedIndex]),
+                          ),
+                        ],
                       ),
                     );
                   },
