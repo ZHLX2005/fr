@@ -2,7 +2,7 @@ import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rive/rive.dart';
+import 'package:rive/rive.dart' hide Animation;
 import 'providers/providers.dart';
 import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
@@ -176,9 +176,9 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
-  final PageController _pageController = PageController();
 
   final List<Widget> _pages = const [
     ProfilePage(), // 0: 主页（用户页面）
@@ -186,45 +186,84 @@ class _MainScreenState extends State<MainScreen> {
     FocusHomePage(), // 2: O - 专注计时器
   ];
 
+  late final AnimationController _ctrl;
+  bool _isAnimating = false;
+  int _fromIndex = 0;
+  int _toIndex = 0;
+  Animation<Offset>? _outAnim;
+  Animation<Offset>? _inAnim;
+
   @override
   void initState() {
     super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          _selectedIndex = _toIndex;
+          _isAnimating = false;
+        });
+        _ctrl.reset();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
-  void _onPageChanged(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   void _onItemTapped(int index) {
-    _pageController.jumpToPage(index);
+    if (index == _selectedIndex || _isAnimating) return;
+    _startTransition(index);
   }
 
   void _onAddPressed() {
-    // O按钮 - 导航到专注计时器页面（索引2）
-    _pageController.animateToPage(
-      2,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (_isAnimating) return;
+    _startTransition(2);
+  }
+
+  void _startTransition(int target) {
+    final forward = target > _selectedIndex;
+    _fromIndex = _selectedIndex;
+    _toIndex = target;
+    _isAnimating = true;
+
+    _outAnim = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset(forward ? -1.0 : 1.0, 0),
+    ).animate(_ctrl);
+
+    _inAnim = Tween<Offset>(
+      begin: Offset(forward ? 1.0 : -1.0, 0),
+      end: Offset.zero,
+    ).animate(_ctrl);
+
+    setState(() {});
+    _ctrl.forward(from: 0);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: _onPageChanged,
-        children: _pages,
-      ),
+      body: _isAnimating
+          ? Stack(
+              children: [
+                SlideTransition(
+                  position: _outAnim!,
+                  child: _pages[_fromIndex],
+                ),
+                SlideTransition(
+                  position: _inAnim!,
+                  child: _pages[_toIndex],
+                ),
+              ],
+            )
+          : _pages[_selectedIndex],
       bottomNavigationBar: XiaoDouZiBottomBar(
         currentIndex: _selectedIndex,
         onItemSelected: _onItemTapped,
