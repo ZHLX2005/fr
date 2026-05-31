@@ -55,17 +55,6 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
       selectedIcon: Icons.radio_button_checked,
       color: Color(0xFFFB923C),
     ),
-    _BarItem(
-      label: 'Game',
-      icon: Icons.sports_esports,
-      color: Color(0xFF34D399),
-    ),
-    _BarItem(
-      label: '图库',
-      icon: Icons.photo_library_outlined,
-      selectedIcon: Icons.photo_library,
-      color: Color(0xFF60A5FA),
-    ),
   ];
 
   late final AnimationController _slideController;

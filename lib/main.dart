@@ -184,8 +184,6 @@ class _MainScreenState extends State<MainScreen> {
     ProfilePage(), // 0: 主页（用户页面）
     HomePage(), // 1: 聊天
     FocusHomePage(), // 2: O - 专注计时器
-    _PlaceholderPage(icon: Icons.wifi, title: 'LocalNet', desc: '局域网发现功能开发中'),
-    _PlaceholderPage(icon: Icons.photo_library, title: '图库', desc: '图库管理功能开发中'),
   ];
 
   @override
@@ -236,38 +234,3 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-/// 占位页面 - 功能开发中
-class _PlaceholderPage extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String desc;
-
-  const _PlaceholderPage({
-    required this.icon,
-    required this.title,
-    required this.desc,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 80, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 24),
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text(
-              desc,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
