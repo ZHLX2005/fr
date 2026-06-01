@@ -2,7 +2,7 @@ import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rive/rive.dart';
+import 'package:rive/rive.dart' hide Animation;
 import 'providers/providers.dart';
 import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
@@ -176,59 +176,114 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
-  final PageController _pageController = PageController();
 
+  // RepaintBoundary 缓存渲染层，Transform 平移时只移 GPU 图层
   final List<Widget> _pages = const [
-    ProfilePage(), // 0: 主页（用户页面）
-    HomePage(), // 1: 聊天
-    FocusHomePage(), // 2: O - 专注计时器
-    _PlaceholderPage(icon: Icons.wifi, title: 'LocalNet', desc: '局域网发现功能开发中'),
-    _PlaceholderPage(icon: Icons.photo_library, title: '图库', desc: '图库管理功能开发中'),
+    RepaintBoundary(child: ProfilePage()),
+    RepaintBoundary(child: HomePage()),
+    RepaintBoundary(child: FocusHomePage()),
   ];
+
+  late final AnimationController _ctrl;
+  late final CurvedAnimation _pageCurve;
+  bool _isAnimating = false;
+  int _toIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _pageCurve = CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeInOutQuint,
+    );
+    _ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          _selectedIndex = _toIndex;
+          _isAnimating = false;
+        });
+        _ctrl.reset();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _pageCurve.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
-  void _onPageChanged(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   void _onItemTapped(int index) {
-    _pageController.jumpToPage(index);
+    if (index == _selectedIndex || _isAnimating) return;
+    _startTransition(index);
   }
 
   void _onAddPressed() {
-    // O按钮 - 导航到专注计时器页面（索引2）
-    _pageController.animateToPage(
-      2,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (_isAnimating) return;
+    _startTransition(2);
+  }
+
+  void _startTransition(int target) {
+    _toIndex = target;
+    _isAnimating = true;
+    setState(() {});
+    _ctrl.forward(from: 0);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: _onPageChanged,
-        children: _pages,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          return Stack(
+            children: [
+              // 底层：目标页面（静止不动）
+              SizedBox(
+                width: w,
+                child: _pages[_isAnimating ? _toIndex : _selectedIndex],
+              ),
+              // 覆盖层：双页同时平移（传送带效果）
+              if (_isAnimating)
+                AnimatedBuilder(
+                  animation: _pageCurve,
+                  builder: (context, _) {
+                    final isForward = _toIndex > _selectedIndex;
+                    final t = _pageCurve.value;
+                    // 新页从异侧滑入，旧页往同侧滑出
+                    final newDx = isForward ? (1 - t) * w : -(1 - t) * w;
+                    final oldDx = isForward ? -t * w : t * w;
+                    return SizedBox(
+                      width: w,
+                      child: Stack(
+                        children: [
+                          Transform.translate(
+                            offset: Offset(newDx, 0),
+                            child: SizedBox(width: w, child: _pages[_toIndex]),
+                          ),
+                          Transform.translate(
+                            offset: Offset(oldDx, 0),
+                            child: SizedBox(width: w, child: _pages[_selectedIndex]),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          );
+        },
       ),
       bottomNavigationBar: XiaoDouZiBottomBar(
-        currentIndex: _selectedIndex,
+        currentIndex: _isAnimating ? _toIndex : _selectedIndex,
         onItemSelected: _onItemTapped,
         onAddPressed: _onAddPressed,
       ),
@@ -236,38 +291,3 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-/// 占位页面 - 功能开发中
-class _PlaceholderPage extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String desc;
-
-  const _PlaceholderPage({
-    required this.icon,
-    required this.title,
-    required this.desc,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 80, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 24),
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text(
-              desc,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
