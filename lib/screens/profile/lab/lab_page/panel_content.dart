@@ -3,6 +3,7 @@ part of '../lab_page.dart';
 class _LabPanelContent extends StatefulWidget {
   final ScrollController scrollController;
   final List<MapEntry<String, DemoPage>> demos;
+  final LabPanelColors panelColors;
   final bool scrollable;
   final double progress;
   final bool readyToOpen;
@@ -16,6 +17,7 @@ class _LabPanelContent extends StatefulWidget {
   const _LabPanelContent({
     required this.scrollController,
     required this.demos,
+    required this.panelColors,
     required this.scrollable,
     required this.progress,
     required this.readyToOpen,
@@ -84,6 +86,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
     final contentOffset = (1.0 - widget.progress) * 16.0;
     final contentScale = 0.5 + (widget.progress * 0.5);
     final contentOpacity = widget.progress.clamp(0.0, 1.0);
+    final pc = widget.panelColors;
     final favoriteDemos = widget.demos
         .where((entry) => _provider.isFavorite(entry.value.title))
         .map((entry) => entry.value)
@@ -107,7 +110,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                       physics: const BouncingScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
                       children: [
-                        const _PanelTitleSection(),
+                        _PanelTitleSection(panelColors: pc),
                         const SizedBox(height: 16),
                         if (favoriteDemos.isNotEmpty)
                           Builder(
@@ -175,6 +178,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                                           data: title,
                                           child: _FavoriteDemoShortcut(
                                             key: ValueKey(title),
+                                            panelColors: pc,
                                             demo: demo,
                                             isDragActive:
                                                 _draggingFavoriteTitle ==
@@ -191,7 +195,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                             },
                           )
                         else
-                          const _PanelEmptyFavorites(),
+                          _PanelEmptyFavorites(panelColors: pc),
                       ],
                     ),
                   ),
@@ -243,6 +247,7 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                         child: SizedBox(
                           width: double.infinity,
                           child: _PanelHandle(
+                            panelColors: pc,
                             progress: widget.progress,
                             readyToOpen: widget.readyToOpen,
                             closeProgress: widget.closeProgress,
@@ -332,19 +337,22 @@ class _PanelDeleteZone extends StatelessWidget {
 }
 
 class _PanelTitleSection extends StatelessWidget {
-  const _PanelTitleSection();
+  final LabPanelColors panelColors;
+
+  const _PanelTitleSection({required this.panelColors});
 
   @override
   Widget build(BuildContext context) {
+    final pc = panelColors;
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.52),
+        color: pc.glassFill,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
+        border: Border.all(color: pc.glassBorder),
         boxShadow: [
           BoxShadow(
-            color: _kAccentDeepColor.withValues(alpha: 0.08),
+            color: pc.accentDeep.withValues(alpha: 0.08),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -356,13 +364,13 @@ class _PanelTitleSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: _kAccentSoftColor.withValues(alpha: 0.16),
+              color: pc.accentSoft.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               'LAB PANEL',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: _kAccentDeepColor,
+                color: pc.accentDeep,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.1,
               ),
@@ -378,12 +386,14 @@ class _FavoriteDemoShortcut extends StatefulWidget {
   final DemoPage demo;
   final bool isDragActive;
   final VoidCallback onTap;
+  final LabPanelColors panelColors;
 
   const _FavoriteDemoShortcut({
     super.key,
     required this.demo,
     required this.isDragActive,
     required this.onTap,
+    required this.panelColors,
   });
 
   @override
@@ -403,6 +413,7 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
   @override
   Widget build(BuildContext context) {
     final showOverlay = _isPressed || widget.isDragActive;
+    final pc = widget.panelColors;
 
     return Tooltip(
       message: widget.demo.title,
@@ -440,12 +451,12 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
                         width: 34,
                         height: 34,
                         decoration: BoxDecoration(
-                          color: _kAccentSoftColor.withValues(alpha: 0.16),
+                          color: pc.accentSoft.withValues(alpha: 0.16),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.star_rounded,
-                          color: _kAccentDeepColor,
+                          color: pc.accentDeep,
                           size: 18,
                         ),
                       ),
@@ -458,7 +469,7 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: _kPanelTextColor,
+                            color: pc.text,
                             fontWeight: FontWeight.w700,
                             height: 1.0,
                           ),
@@ -477,16 +488,19 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
 }
 
 class _PanelEmptyFavorites extends StatelessWidget {
-  const _PanelEmptyFavorites();
+  final LabPanelColors panelColors;
+
+  const _PanelEmptyFavorites({required this.panelColors});
 
   @override
   Widget build(BuildContext context) {
+    final pc = panelColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.48),
+        color: pc.glassFill,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
+        border: Border.all(color: pc.glassBorder),
       ),
       child: Column(
         children: [
@@ -494,12 +508,12 @@ class _PanelEmptyFavorites extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: _kAccentSoftColor.withValues(alpha: 0.16),
+              color: pc.accentSoft.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.star_border_rounded,
-              color: _kAccentDeepColor,
+              color: pc.accentDeep,
               size: 26,
             ),
           ),
@@ -507,7 +521,7 @@ class _PanelEmptyFavorites extends StatelessWidget {
           Text(
             'No favorite demos yet',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _kPanelTextColor,
+              color: pc.text,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -517,7 +531,7 @@ class _PanelEmptyFavorites extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: _kPanelMutedTextColor),
+            ).textTheme.bodyMedium?.copyWith(color: pc.mutedText),
           ),
         ],
       ),
@@ -526,12 +540,14 @@ class _PanelEmptyFavorites extends StatelessWidget {
 }
 
 class _PanelHandle extends StatelessWidget {
+  final LabPanelColors panelColors;
   final double progress;
   final bool readyToOpen;
   final double closeProgress;
   final bool showCloseCue;
 
   const _PanelHandle({
+    required this.panelColors,
     required this.progress,
     required this.readyToOpen,
     required this.closeProgress,
@@ -540,10 +556,11 @@ class _PanelHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pc = panelColors;
     final handleWidth = 40 + progress * 18 - closeProgress * 8;
     final handleHeight = 4 + progress * 2;
-    final strokeColor = _kAccentDeepColor;
-    final bgColor = _kAccentColor.withValues(alpha: 0.12);
+    final strokeColor = pc.accentDeep;
+    final bgColor = pc.accent.withValues(alpha: 0.12);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -557,13 +574,13 @@ class _PanelHandle extends StatelessWidget {
             gradient: LinearGradient(
               colors: [
                 Colors.white.withValues(alpha: 0.88),
-                _kAccentSoftColor.withValues(alpha: 0.68),
+                pc.accentSoft.withValues(alpha: 0.68),
               ],
             ),
             borderRadius: BorderRadius.circular(999),
             boxShadow: [
               BoxShadow(
-                color: _kAccentDeepColor.withValues(alpha: 0.10),
+                color: pc.accentDeep.withValues(alpha: 0.10),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -592,8 +609,9 @@ class _PanelHandle extends StatelessWidget {
 
 class _PanelSurfacePainter extends CustomPainter {
   final double progress;
+  final LabPanelColors colors;
 
-  _PanelSurfacePainter({required this.progress});
+  _PanelSurfacePainter({required this.progress, required this.colors});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -610,8 +628,8 @@ class _PanelSurfacePainter extends CustomPainter {
     final edgePaint = Paint()
       ..shader = LinearGradient(
         colors: [
-          Colors.white.withValues(alpha: 0.95),
-          _kAccentSoftColor.withValues(alpha: 0.38),
+          Colors.white.withValues(alpha: colors.isDark ? 0.18 : 0.95),
+          colors.accentSoft.withValues(alpha: 0.38),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, waveDepth));
     canvas.drawPath(
@@ -625,7 +643,7 @@ class _PanelSurfacePainter extends CustomPainter {
       ..shader =
           RadialGradient(
             colors: [
-              Colors.white.withValues(alpha: 0.42),
+              Colors.white.withValues(alpha: colors.isDark ? 0.10 : 0.42),
               Colors.white.withValues(alpha: 0.0),
             ],
           ).createShader(
