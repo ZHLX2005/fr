@@ -14,6 +14,7 @@ import '../../../lab/lab_container.dart';
 import '../../../lab/providers/lab_card_provider.dart';
 import '../../../services/lab_image_cache_service.dart';
 import '../../../widgets/image_picker_widget.dart';
+import '../../../core/color/color_utils.dart';
 
 part 'lab_page/components.dart';
 part 'lab_page/panel_content.dart';
@@ -304,6 +305,10 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final demos = demoRegistry.getAll();
     final theme = Theme.of(context);
+    final panelColors = LabPanelColors.resolve(
+      theme.colorScheme,
+      brightness: theme.brightness,
+    );
     final appBarReveal = (1.0 - _progress).clamp(0.0, 1.0);
 
     return PopScope(
@@ -390,16 +395,16 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                     child: ClipRect(
                       child: Stack(
                         children: [
-                          const Positioned.fill(
+                          Positioned.fill(
                             child: DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                   colors: [
-                                    _kPanelGradientTop,
-                                    _kPanelGradientMiddle,
-                                    _kPanelGradientBottom,
+                                    panelColors.gradientTop,
+                                    panelColors.gradientMiddle,
+                                    panelColors.gradientBottom,
                                   ],
                                 ),
                               ),
@@ -407,12 +412,16 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                           ),
                           Positioned.fill(
                             child: CustomPaint(
-                              painter: _PanelSurfacePainter(progress: _progress),
+                              painter: _PanelSurfacePainter(
+                                progress: _progress,
+                                colors: panelColors,
+                              ),
                             ),
                           ),
                           _LabPanelContent(
                             scrollController: _panelScrollController,
                             demos: demos,
+                            panelColors: panelColors,
                             scrollable: _sm.panelScrollable,
                             progress: _progress,
                             readyToOpen: _sm.readyToOpen,
