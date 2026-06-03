@@ -54,4 +54,7 @@ class ImageType extends BlockType {
     other.height == height;
   @override
   int get hashCode => Object.hash(runtimeType, src, caption, width, height);
+
+  @override
+  bool get showQuickDelete => true;
 }

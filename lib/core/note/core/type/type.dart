@@ -47,4 +47,10 @@ sealed class BlockType {
 
   /// 此类型是否支持块内多行（如代码块）。
   bool get multiline => false;
+
+  /// 选中态时是否支持快捷删除（长按菜单等）。
+  /// 文本块通过 TextField 的 Backspace 删除，不需要。
+  /// 容器块没有 TextField，需要额外操作入口。
+  /// 默认跟随 [containerOnly]；ImageType 等非 containerOnly 但无 TextField 的类型需单独覆写。
+  bool get showQuickDelete => containerOnly;
 }

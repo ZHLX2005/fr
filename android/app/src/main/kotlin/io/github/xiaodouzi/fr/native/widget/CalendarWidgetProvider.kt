@@ -83,10 +83,10 @@ class CalendarWidgetProvider : AppWidgetProvider() {
                 setTextViewText(R.id.calendar_title, "${viewYear}年${viewMonth}月")
                 setImageViewBitmap(R.id.calendar_image, bitmap)
 
-                // 主体点击：打开 app 到 /lab
+                // 主体点击：打开 app 到日历页面
                 val openIntent = Intent(context, MainActivity::class.java).apply {
                     action = Intent.ACTION_VIEW
-                    data = android.net.Uri.parse("fr://lab")
+                    data = android.net.Uri.parse("fr://calendar")
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
                 val openPi = PendingIntent.getActivity(

@@ -9,6 +9,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.github.xiaodouzi.fr.native.calendar.CalendarChannel
 import io.github.xiaodouzi.fr.native.clock.ClockChannel
 import io.github.xiaodouzi.fr.native.crash.CrashLogChannel
 import io.github.xiaodouzi.fr.native.crash.CrashLogHandler
@@ -23,6 +24,7 @@ import io.github.xiaodouzi.fr.native.widget.WidgetChannel
 class MainActivity : FlutterActivity() {
     private lateinit var widgetChannel: WidgetChannel
     private lateinit var clockChannel: ClockChannel
+    private lateinit var calendarChannel: CalendarChannel
     private lateinit var systemChannel: SystemChannel
     private lateinit var floatingChannel: FloatingChannel
     private lateinit var volumeChannel: VolumeChannel
@@ -50,6 +52,9 @@ class MainActivity : FlutterActivity() {
 
         // Clock Channel
         clockChannel = ClockChannel(messenger, this)
+
+        // Calendar Channel
+        calendarChannel = CalendarChannel(messenger, this)
 
         // System Channel
         systemChannel = SystemChannel(messenger, this)
@@ -189,7 +194,10 @@ class MainActivity : FlutterActivity() {
 
     private fun handleIntent(intent: Intent?) {
         intent?.data?.let { uri ->
-            if (uri.toString() == "fr://lab" || uri.path == "/lab") {
+            val uriStr = uri.toString()
+            if (uriStr == "fr://calendar" || uri.path == "/calendar") {
+                widgetChannel.notifyNavigateToCalendar()
+            } else if (uriStr == "fr://lab" || uri.path == "/lab") {
                 widgetChannel.notifyNavigateToLab()
             }
         }
