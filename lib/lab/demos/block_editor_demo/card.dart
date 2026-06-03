@@ -31,10 +31,6 @@ class _BlockCardState extends State<BlockCard> {
   Timer? _longPressTimer;
   Offset? _longPressOrigin;
 
-  // 内联浮动删除按钮（在 widget 树内，跟随拖拽）
-  bool _showDeleteMenu = false;
-  Timer? _autoHideTimer;
-
   @override
   void initState() {
     super.initState();
@@ -87,7 +83,7 @@ class _BlockCardState extends State<BlockCard> {
   @override
   void dispose() {
     _longPressTimer?.cancel();
-    _autoHideTimer?.cancel();
+    _longPressTimer?.cancel();
     _focusNode.removeListener(_onFocusChangeToShowKeyboard);
     _controller.dispose();
     _focusNode.dispose();
@@ -121,7 +117,7 @@ class _BlockCardState extends State<BlockCard> {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () {
-              _hideDeleteMenu();
+              widget.editorState.hideDeleteMenu();
               widget.editorState.select(widget.block.id);
             },
             child: content,
@@ -130,7 +126,10 @@ class _BlockCardState extends State<BlockCard> {
       );
     } else {
       content = GestureDetector(
-        onTap: () => widget.editorState.select(widget.block.id),
+        onTap: () {
+          widget.editorState.hideDeleteMenu();
+          widget.editorState.select(widget.block.id);
+        },
         child: content,
       );
     }
@@ -154,23 +153,31 @@ class _BlockCardState extends State<BlockCard> {
     );
 
     // 删除按钮直接渲染在 widget 树里，自然跟随 block 拖拽
-    if (canLongPress && _showDeleteMenu) {
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          body,
-          Positioned(
-            top: -32,
-            right: 4,
-            child: _DeletePill(
-              onDelete: () {
-                _hideDeleteMenu();
-                widget.editorState.select(widget.block.id);
-                widget.editorState.deleteBlock();
-              },
+    if (canLongPress && widget.editorState.isDeleteMenuShown(widget.block.id)) {
+      return Padding(
+        // 给顶部负偏移腾出 hit test 空间
+        padding: const EdgeInsets.only(top: 38),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // 抵消 padding 把 body 放回原位
+            Transform.translate(
+              offset: const Offset(0, -38),
+              child: body,
             ),
-          ),
-        ],
+            Positioned(
+              top: 0,
+              right: 4,
+              child: _DeletePill(
+                onDelete: () {
+                  widget.editorState.hideDeleteMenu();
+                  widget.editorState.select(widget.block.id);
+                  widget.editorState.deleteBlock();
+                },
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -180,8 +187,9 @@ class _BlockCardState extends State<BlockCard> {
   // === 长按检测 ===
 
   void _onPointerDown(PointerDownEvent event) {
-    if (_showDeleteMenu) {
-      _hideDeleteMenu();
+    // 菜单已显示在任意位置 → 任何点击都关闭
+    if (widget.editorState.deleteMenuBlockId != null) {
+      widget.editorState.hideDeleteMenu();
       return;
     }
     _longPressOrigin = event.position;
@@ -190,12 +198,7 @@ class _BlockCardState extends State<BlockCard> {
       _longPressOrigin = null;
       if (!mounted) return;
       HapticFeedback.mediumImpact();
-      setState(() => _showDeleteMenu = true);
-      // 3 秒后自动隐藏
-      _autoHideTimer?.cancel();
-      _autoHideTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) _hideDeleteMenu();
-      });
+      widget.editorState.showDeleteMenu(widget.block.id);
     });
   }
 
@@ -210,13 +213,6 @@ class _BlockCardState extends State<BlockCard> {
   void _onPointerCancel(PointerEvent event) {
     _longPressTimer?.cancel();
     _longPressOrigin = null;
-  }
-
-  void _hideDeleteMenu() {
-    _autoHideTimer?.cancel();
-    if (mounted && _showDeleteMenu) {
-      setState(() => _showDeleteMenu = false);
-    }
   }
 
   // === TextField ===
@@ -420,26 +416,26 @@ class _DeletePill extends StatelessWidget {
       children: [
         Material(
           elevation: 0,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(6),
           color: Colors.transparent,
           child: InkWell(
             onTap: onDelete,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
             splashColor: scheme.error.withValues(alpha: 0.10),
             highlightColor: scheme.error.withValues(alpha: 0.06),
             child: Container(
-              height: 26,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.delete_outline, size: 13, color: scheme.error),
-                  const SizedBox(width: 3),
+                  Icon(Icons.delete_outline, size: 15, color: scheme.error),
+                  const SizedBox(width: 5),
                   Text('删除', style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.0,
                     color: scheme.error,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                   )),
                 ],
               ),

@@ -8,6 +8,10 @@ class EditorState extends ChangeNotifier {
   String? _selectedId;
   String? _noteId;
 
+  /// 当前显示删除菜单的 block id（仅容器块有效）。
+  /// 共享状态：任意位置点击都可关闭。
+  String? _deleteMenuBlockId;
+
   final BottomToolbarFactory toolbarFactory;
 
   void switchToChat() => toolbarFactory.switchTo('chat');
@@ -24,6 +28,24 @@ class EditorState extends ChangeNotifier {
   String? get noteId => _noteId;
   Block? get selectedBlock =>
       _selectedId != null ? _blocks.where((b) => b.id == _selectedId).firstOrNull : null;
+
+  /// 删除菜单当前所在 block id。
+  String? get deleteMenuBlockId => _deleteMenuBlockId;
+  bool isDeleteMenuShown(String blockId) => _deleteMenuBlockId == blockId;
+
+  /// 显示某 block 的删除菜单。已显示则忽略。
+  void showDeleteMenu(String blockId) {
+    if (_deleteMenuBlockId == blockId) return;
+    _deleteMenuBlockId = blockId;
+    notifyListeners();
+  }
+
+  /// 关闭删除菜单（任意点击其他区域调用）。
+  void hideDeleteMenu() {
+    if (_deleteMenuBlockId == null) return;
+    _deleteMenuBlockId = null;
+    notifyListeners();
+  }
 
   /// 从磁盘加载最近一篇笔记，无笔记则新建空状态。
   Future<void> init() async {
@@ -72,11 +94,14 @@ class EditorState extends ChangeNotifier {
 
   void select(String id) {
     _selectedId = id;
+    // 选中其他 block 时，关闭删除菜单
+    _deleteMenuBlockId = null;
     notifyListeners();
   }
 
   void clearSelection() {
     _selectedId = null;
+    _deleteMenuBlockId = null;
     notifyListeners();
   }
 
@@ -98,6 +123,7 @@ class EditorState extends ChangeNotifier {
     _selectedId = _blocks.isNotEmpty
         ? _blocks[(idx - 1).clamp(0, _blocks.length - 1)].id
         : null;
+    _deleteMenuBlockId = null;
     if (!silent) notifyListeners();
     _save();
   }
