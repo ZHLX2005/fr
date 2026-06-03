@@ -88,26 +88,30 @@ class EditorState extends ChangeNotifier {
     _save();
   }
 
-  void deleteBlock() {
+  /// [silent] 为 true 时仅更新数据、保存，不触发 notifyListeners。
+  /// 用于键盘输入回调中：先静默更新，再由调用方在 postFrameCallback 中
+  /// 调用 [refresh] 延迟刷新 UI，避免打断 TextInputConnection。
+  void deleteBlock({bool silent = false}) {
     final idx = _blocks.indexWhere((b) => b.id == _selectedId);
     if (idx < 0) return;
     _blocks.removeAt(idx);
     _selectedId = _blocks.isNotEmpty
         ? _blocks[idx.clamp(0, _blocks.length - 1)].id
         : null;
-    notifyListeners();
+    if (!silent) notifyListeners();
     _save();
   }
 
-  void addBlock() {
+  void addBlock({bool silent = false}) {
     final block = _noteFactory.createBlock(const ParagraphType());
     _blocks.add(block);
     _selectedId = block.id;
-    notifyListeners();
+    if (!silent) notifyListeners();
     _save();
   }
 
-  void updateContent(String id, String newText) {
+  /// [silent] 见 [deleteBlock]。
+  void updateContent(String id, String newText, {bool silent = false}) {
     final idx = _blocks.indexWhere((b) => b.id == id);
     if (idx < 0) return;
 
@@ -120,14 +124,14 @@ class EditorState extends ChangeNotifier {
           type: type,
           content: RichText.text(rest),
         );
-        notifyListeners();
+        if (!silent) notifyListeners();
         _save();
         return;
       }
     }
 
     _blocks[idx] = _blocks[idx].copyWith(content: RichText.text(newText));
-    notifyListeners();
+    if (!silent) notifyListeners();
     _save();
   }
 
@@ -140,21 +144,22 @@ class EditorState extends ChangeNotifier {
     _save();
   }
 
-  void addBlockWithType(BlockType type) {
+  /// [silent] 见 [deleteBlock]。
+  void addBlockWithType(BlockType type, {bool silent = false}) {
     final block = _noteFactory.createBlock(type);
     if (_selectedId != null) {
       final idx = _blocks.indexWhere((b) => b.id == _selectedId);
       if (idx >= 0) {
         _blocks.insert(idx + 1, block);
         _selectedId = block.id;
-        notifyListeners();
+        if (!silent) notifyListeners();
         _save();
         return;
       }
     }
     _blocks.add(block);
     _selectedId = block.id;
-    notifyListeners();
+    if (!silent) notifyListeners();
     _save();
   }
 
@@ -233,6 +238,10 @@ class EditorState extends ChangeNotifier {
       }
     }
   }
+
+  /// 延迟刷新：用于键盘输入回调中，在 postFrameCallback 里调用，
+  /// 让 TextInputConnection 不被打断。
+  void refresh() => notifyListeners();
 
   String _extractTitle() {
     for (final block in _blocks) {

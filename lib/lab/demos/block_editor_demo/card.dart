@@ -24,6 +24,7 @@ class BlockCard extends StatefulWidget {
 class _BlockCardState extends State<BlockCard> {
   late TextEditingController _controller;
   late FocusNode _focusNode;
+  bool _pendingRefresh = false;
 
   @override
   void initState() {
@@ -41,20 +42,50 @@ class _BlockCardState extends State<BlockCard> {
   void didUpdateWidget(BlockCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.block.id != widget.block.id) {
+      // 不同 block → 全量替换
       _controller.text = widget.block.content.toPlainText();
-    } else {
+    } else if (!_focusNode.hasFocus) {
+      // 同一 block 但不是正在编辑 → 安全同步 controller
       final newText = widget.block.content.toPlainText();
       if (newText != _controller.text) {
         _controller.text = newText;
       }
     }
+    // 正在编辑时（hasFocus）不碰 controller，由 onChanged 全权管理
+
     if (!oldWidget.isSelected && widget.isSelected) {
-      _focusNode.requestFocus();
+      // 延迟到 build 完成后再聚焦，确保 TextField 已挂载
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _focusNode.requestFocus();
+        // 焦点就绪后再通知平台弹出键盘
+        _focusNode.addListener(_onFocusChangeToShowKeyboard);
+      });
     }
+  }
+
+  /// 当 FocusNode 获得焦点后，通知平台弹出软键盘。
+  void _onFocusChangeToShowKeyboard() {
+    if (_focusNode.hasFocus) {
+      _focusNode.removeListener(_onFocusChangeToShowKeyboard);
+      SystemChannels.textInput.invokeMethod('TextInput.show');
+    }
+  }
+
+  /// 安排一帧后刷新 UI（通知 toolbar 等）。
+  /// 用 _pendingRefresh 防止同一帧内多次调度。
+  void _scheduleRefresh() {
+    if (_pendingRefresh) return;
+    _pendingRefresh = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pendingRefresh = false;
+      if (mounted) widget.editorState.refresh();
+    });
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChangeToShowKeyboard);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -101,14 +132,16 @@ class _BlockCardState extends State<BlockCard> {
     final textField = Focus(
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
-          widget.editorState.deleteBlock();
+          widget.editorState.deleteBlock(silent: true);
+          _scheduleRefresh();
           return KeyEventResult.handled;
         }
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter && !ml) {
           final newType = widget.block.type.onEnterType;
           if (newType != null) {
-            widget.editorState.addBlockWithType(newType);
+            widget.editorState.addBlockWithType(newType, silent: true);
           }
+          _scheduleRefresh();
           return KeyEventResult.handled;
         }
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space && _controller.text.isEmpty) {
@@ -131,20 +164,27 @@ class _BlockCardState extends State<BlockCard> {
         contextMenuBuilder: _buildContextMenu,
         onChanged: (value) {
           if (!ml && value.endsWith('\n')) {
-            widget.editorState.updateContent(widget.block.id, value.trimRight());
+            widget.editorState.updateContent(widget.block.id, value.trimRight(), silent: true);
             final newType = widget.block.type.onEnterType;
             if (newType != null) {
-              widget.editorState.addBlockWithType(newType);
+              widget.editorState.addBlockWithType(newType, silent: true);
             }
+            _syncControllerFromState();
+            _scheduleRefresh();
             return;
           }
           // 软键盘按空格（空白 block 触发对话框）
-          if (value.length == 1 && (value == ' ' || value == ' ')) {
+          if (value.length == 1 && (value == ' ' || value == ' ')) {
             _controller.text = '';
             widget.editorState.switchToChat();
             return;
           }
-          widget.editorState.updateContent(widget.block.id, value);
+          // 静默更新状态（数据已保存到磁盘，但不触发 notifyListeners）
+          widget.editorState.updateContent(widget.block.id, value, silent: true);
+          // 如果发生了类型转换，controller 需要同步转换后的内容
+          _syncControllerFromState();
+          // 延迟到下一帧再刷新 UI（toolbar 等），不打断当前输入连接
+          _scheduleRefresh();
         },
       ),
     );
@@ -154,6 +194,21 @@ class _BlockCardState extends State<BlockCard> {
       textField: textField,
       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
     );
+  }
+
+  /// 从 EditorState 读取当前 block 的实际 content 并同步到 _controller。
+  /// 仅在 onChanged 内调用：类型转换后 content 已变但 _controller 还是旧值。
+  void _syncControllerFromState() {
+    final blocks = widget.editorState.blocks;
+    final idx = blocks.indexWhere((b) => b.id == widget.block.id);
+    if (idx < 0) return;
+    final actualText = blocks[idx].content.toPlainText();
+    if (_controller.text != actualText) {
+      _controller.value = TextEditingValue(
+        text: actualText,
+        selection: TextSelection.collapsed(offset: actualText.length),
+      );
+    }
   }
 
   Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
