@@ -2,6 +2,8 @@
 # get-git-remotes.sh
 # Extracts git remote URLs from .claude/repo subdirectories
 # Output: .claude/www/git.remote
+# Default: append + auto-dedup (preserves history, skips URLs already in file)
+# -f, --force: reset the file before writing (no dedup needed)
 
 FORCE=false
 while [[ "$1" == -* ]]; do
@@ -9,7 +11,7 @@ while [[ "$1" == -* ]]; do
         -f|--force) FORCE=true; shift ;;
         -h|--help)
             echo "Usage: $0 [-f|--force]"
-            echo "  -f, --force  Overwrite existing output file"
+            echo "  -f, --force  Reset existing output file before writing"
             exit 0
             ;;
         *) echo "Unknown option: $1"; exit 1 ;;
@@ -22,34 +24,51 @@ WWW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../www"
 
 mkdir -p "$WWW_DIR"
 
-if [ "$FORCE" = true ] && [ -f "$OUTPUT_FILE" ]; then
-    rm -f "$OUTPUT_FILE"
-fi
-
-touch "$OUTPUT_FILE"
-
 if [ ! -d "$REPO_DIR" ]; then
     echo "Error: Repository directory not found: $REPO_DIR" >&2
     exit 1
 fi
 
-found=0
-skipped=0
+if [ "$FORCE" = true ] && [ -f "$OUTPUT_FILE" ]; then
+    rm -f "$OUTPUT_FILE"
+fi
+touch "$OUTPUT_FILE"
+
+# Load existing URLs into an associative array (for dedup in append mode)
+declare -A existing=()
+if [ "$FORCE" = false ] && [ -s "$OUTPUT_FILE" ]; then
+    while IFS= read -r line; do
+        # Only consider lines that look like git URLs
+        if [[ "$line" =~ ^(git@|https?://) ]]; then
+            existing["$line"]=1
+        fi
+    done < "$OUTPUT_FILE"
+fi
+
+added=0
+deduped=0
+no_remote=0
+not_git=0
 
 for repo in "$REPO_DIR"/*/; do
-    if [ -d "$repo/.git" ]; then
-        remote_url=$(cd "$repo" && git remote get-url origin 2>/dev/null)
-        if [ -n "$remote_url" ]; then
-            echo "$remote_url" >> "$OUTPUT_FILE"
-            ((found++))
-        else
-            echo "Warning: $(basename "$repo") has no remote 'origin'" >&2
-            ((skipped++))
-        fi
-    else
-        ((skipped++))
+    [ -d "$repo/.git" ] || { ((not_git++)); continue; }
+
+    remote_url=$(cd "$repo" && git remote get-url origin 2>/dev/null)
+    if [ -z "$remote_url" ]; then
+        echo "Warning: $(basename "$repo") has no remote 'origin'" >&2
+        ((no_remote++))
+        continue
     fi
+
+    if [ "${existing[$remote_url]+_}" ]; then
+        ((deduped++))
+        continue
+    fi
+
+    echo "$remote_url" >> "$OUTPUT_FILE"
+    existing["$remote_url"]=1
+    ((added++))
 done
 
-echo "Done. Found: $found, Skipped: $skipped"
+echo "Added: $added, Deduped: $deduped, NoRemote: $no_remote, NotGit: $not_git"
 echo "Output: $OUTPUT_FILE"
