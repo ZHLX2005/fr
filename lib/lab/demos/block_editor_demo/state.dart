@@ -96,7 +96,7 @@ class EditorState extends ChangeNotifier {
     if (idx < 0) return;
     _blocks.removeAt(idx);
     _selectedId = _blocks.isNotEmpty
-        ? _blocks[idx.clamp(0, _blocks.length - 1)].id
+        ? _blocks[(idx - 1).clamp(0, _blocks.length - 1)].id
         : null;
     if (!silent) notifyListeners();
     _save();
