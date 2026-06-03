@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../../native/calendar/calendar_service.dart';
 import '../../native/home_widget/calendar_widget_data.dart';
 import '../../native/home_widget/calendar_widget_service.dart';
 import '../models/lab_calendar_event.dart';
@@ -123,10 +124,54 @@ class LabCalendarProvider with ChangeNotifier {
 
   /// 删除
   Future<void> deleteEvent(String id) async {
+    final event = _events.firstWhere((e) => e.id == id);
+    // 如果已同步到系统日历，一并删除
+    if (event.systemCalendarEventId != null) {
+      await CalendarService.deleteEvent(event.systemCalendarEventId!);
+    }
     _events.removeWhere((e) => e.id == id);
     await _persist();
     _syncToWidget();
     notifyListeners();
+  }
+
+  /// 同步事件到系统日历
+  ///
+  /// 返回 true 表示同步成功
+  Future<bool> syncToSystemCalendar(String id) async {
+    final i = _events.indexWhere((e) => e.id == id);
+    if (i == -1) return false;
+
+    final event = _events[i];
+
+    // 检查权限
+    final hasPermission = await CalendarService.checkPermission();
+    if (!hasPermission) {
+      await CalendarService.requestPermission();
+      // 请求后再次检查
+      final granted = await CalendarService.checkPermission();
+      if (!granted) return false;
+    }
+
+    // 如果已同步，先删除旧的系统日历事件
+    if (event.systemCalendarEventId != null) {
+      await CalendarService.deleteEvent(event.systemCalendarEventId!);
+    }
+
+    final systemId = await CalendarService.insertEvent(
+      title: event.title,
+      description: event.description ?? '',
+      year: event.year,
+      month: event.month,
+      day: event.day,
+    );
+
+    if (systemId == null) return false;
+
+    _events[i] = event.copyWith(systemCalendarEventId: systemId);
+    await _persist();
+    notifyListeners();
+    return true;
   }
 
   /// 清空某天

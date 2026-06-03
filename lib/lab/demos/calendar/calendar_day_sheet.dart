@@ -89,7 +89,9 @@ class _CalendarDayEventSheetState extends State<CalendarDayEventSheet> {
                     color: color,
                     title: e.title,
                     description: e.description,
+                    isSynced: e.isSyncedToSystemCalendar,
                     onDelete: () => p.deleteEvent(e.id),
+                    onSyncToCalendar: () => _syncEvent(p, e.id),
                   );
                 },
               ),
@@ -180,19 +182,34 @@ class _CalendarDayEventSheetState extends State<CalendarDayEventSheet> {
     );
     _titleController.clear();
   }
+
+  Future<void> _syncEvent(LabCalendarProvider p, String eventId) async {
+    final ok = await p.syncToSystemCalendar(eventId);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? '已同步到系统日历' : '同步失败，请检查日历权限'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 }
 
 class _EventTile extends StatelessWidget {
   final Color color;
   final String title;
   final String? description;
+  final bool isSynced;
   final VoidCallback onDelete;
+  final VoidCallback? onSyncToCalendar;
 
   const _EventTile({
     required this.color,
     required this.title,
     required this.description,
+    required this.isSynced,
     required this.onDelete,
+    this.onSyncToCalendar,
   });
 
   @override
@@ -216,14 +233,28 @@ class _EventTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isSynced) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 12,
+                        color: Color(0xFF4CAF50),
+                      ),
+                    ],
+                  ],
                 ),
                 if ((description ?? '').isNotEmpty)
                   Text(
@@ -238,6 +269,15 @@ class _EventTile extends StatelessWidget {
               ],
             ),
           ),
+          if (!isSynced && onSyncToCalendar != null)
+            IconButton(
+              icon: const Icon(Icons.sync_rounded, size: 18),
+              color: const Color(0xFF1976D2),
+              onPressed: onSyncToCalendar,
+              tooltip: '同步到系统日历',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded, size: 20),
             color: const Color(0xFF999999),
