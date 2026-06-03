@@ -221,12 +221,19 @@ class _BlockCardState extends State<BlockCard> {
     final ml = widget.block.type.multiline;
     final textField = Focus(
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        // 仅最后一个 block：空时拦截 ⌫ 删除整块，避免快速点击级联到其他 block
+        final blockEmpty = widget.block.content.toPlainText().isEmpty;
+        final controllerEmpty = _controller.text.isEmpty;
+        final isLastBlock = widget.editorState.blocks.last.id == widget.block.id;
+
+        if (event.logicalKey == LogicalKeyboardKey.backspace
+            && controllerEmpty && blockEmpty && isLastBlock) {
           widget.editorState.deleteBlock(silent: true);
           _scheduleRefresh();
           return KeyEventResult.handled;
         }
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter && !ml) {
+        if (event.logicalKey == LogicalKeyboardKey.enter && !ml) {
           final newType = widget.block.type.onEnterType;
           if (newType != null) {
             widget.editorState.addBlockWithType(newType, silent: true);
@@ -234,7 +241,8 @@ class _BlockCardState extends State<BlockCard> {
           _scheduleRefresh();
           return KeyEventResult.handled;
         }
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space && _controller.text.isEmpty) {
+        if (event.logicalKey == LogicalKeyboardKey.space
+            && controllerEmpty && blockEmpty && isLastBlock) {
           widget.editorState.switchToChat();
           return KeyEventResult.handled;
         }
@@ -414,31 +422,30 @@ class _DeletePill extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Material(
-          elevation: 0,
-          borderRadius: BorderRadius.circular(6),
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onDelete,
-            borderRadius: BorderRadius.circular(6),
-            splashColor: scheme.error.withValues(alpha: 0.10),
-            highlightColor: scheme.error.withValues(alpha: 0.06),
-            child: Container(
-              height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.delete_outline, size: 15, color: scheme.error),
-                  const SizedBox(width: 5),
-                  Text('删除', style: TextStyle(
-                    fontSize: 13,
-                    height: 1.0,
-                    color: scheme.error,
-                    fontWeight: FontWeight.w500,
-                  )),
-                ],
-              ),
+        // 按钮区域用 GestureDetector + HitTestBehavior.opaque 拦截，
+        // 防止外层 Listener 重复接收事件导致多次删除
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onDelete,
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              color: scheme.error.withValues(alpha: 0.04),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.delete_outline, size: 15, color: scheme.error),
+                const SizedBox(width: 5),
+                Text('删除', style: TextStyle(
+                  fontSize: 13,
+                  height: 1.0,
+                  color: scheme.error,
+                  fontWeight: FontWeight.w500,
+                )),
+              ],
             ),
           ),
         ),
