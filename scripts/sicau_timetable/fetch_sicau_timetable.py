@@ -51,6 +51,12 @@ DEFAULT_MAX_SLOT = 10  # SICAU 教务处实际每天最多 10 节
 # 因为现有 Dart 解析器 `_parseCycleList` 只支持 w1,3,5 这种逗号离散列表
 DEFAULT_EXPAND_WEEKS = True
 
+# SICAU 节次 → 项目 DSL 节次 的映射
+# SICAU 一节=2 个课时（12节=第1节，34节=第2节，56节=第3节，78节=第4节，910节=第5节）
+# 项目 DSL 一节=1 个 slot（slotsPerDay 默认 5）
+# 映射公式：project_slot = (sicau_slot + 1) // 2
+SICAU_TO_PROJECT_SLOT = lambda s: (s + 1) // 2
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -76,7 +82,7 @@ def login(session: requests.Session, user: str, password: str) -> None:
     # 1. 拉取登录页：拿到 sign / hour_key 这两个动态 token
     r = session.get(LOGIN_PAGE, headers=HEADERS, timeout=15)
     r.raise_for_status()
-    r.encoding = r.apparent_encoding  # 中文页面 encoding 兜底
+    r.encoding = "gbk"  # SICAU 一律 GBK
 
     soup = BeautifulSoup(r.text, "html.parser")
     form = soup.find("form", attrs={"name": "form1"})
@@ -109,7 +115,7 @@ def login(session: requests.Session, user: str, password: str) -> None:
         timeout=15,
     )
     r.raise_for_status()
-    r.encoding = r.apparent_encoding
+    r.encoding = "gbk"  # SICAU 一律 GBK
 
     # 3. 校验是否真的登录成功：登录后页面里包含学号或“学生-课业信息”
     if "index1.asp" not in r.url and "学生-课业信息" not in r.text and user not in r.text:
@@ -123,6 +129,23 @@ def login(session: requests.Session, user: str, password: str) -> None:
 
 # ----------------------------- 抓课表 -----------------------------
 
+def _decode_sicau_bytes(content: bytes) -> str:
+    """SICAU 教务处页面是 GBK/GB2312 编码。
+
+    不可靠 `r.encoding = r.apparent_encoding`（不同 chardet 版本、不同样本可能错判为 UTF-8），
+    直接走下面的策略：
+      1. 找 <meta charset=xxx> 声明
+      2. 没找到就 fallback 到 GBK（GBK 是 GB2312 的超集，能完整解码）
+    """
+    head = content[:2048]
+    m = re.search(rb'charset=([\w-]+)', head, re.IGNORECASE)
+    declared = m.group(1).decode("ascii", errors="ignore").lower() if m else ""
+    encoding = "gbk"  # SICAU 历史页面一律 GBK 兜底
+    if declared in ("gbk", "gb2312", "gb18030"):
+        encoding = declared
+    return content.decode(encoding, errors="replace")
+
+
 def fetch_timetable_html(session: requests.Session, semester: str) -> str:
     """登录后跳到指定学期的选课情况(课表)页面，返回 HTML 字符串"""
     # 中转页：切换学期
@@ -133,7 +156,8 @@ def fetch_timetable_html(session: requests.Session, semester: str) -> str:
         timeout=15,
     )
     r.raise_for_status()
-    r.encoding = r.apparent_encoding
+    # 不用 r.text，自己按 GBK 解码
+    intermediate_html = _decode_sicau_bytes(r.content)
 
     # 真实课表页
     r = session.get(
@@ -143,8 +167,7 @@ def fetch_timetable_html(session: requests.Session, semester: str) -> str:
         timeout=15,
     )
     r.raise_for_status()
-    r.encoding = r.apparent_encoding
-    return r.text
+    return _decode_sicau_bytes(r.content)
 
 
 def parse_courses(html: str, debug_html_path: Optional[str] = None) -> List[Dict[str, str]]:
@@ -227,6 +250,34 @@ def parse_courses(html: str, debug_html_path: Optional[str] = None) -> List[Dict
     return courses
 
 
+def is_online_course(course: Dict[str, str]) -> bool:
+    """线上课判定：教室字段为空（Mooc / 自行在线学习 / 任课教师自行安排 等都属此类）
+
+    依据：SICAU 教务处表格中，线下课教室一定有具体教室号（如 10-A309）；
+    线上课教室列为空白，标题通常带 (Mooc) 或上课时间为 "自行在线学习"。
+    """
+    classroom = (course.get("教室") or "").strip()
+    return not classroom
+
+
+def filter_online_courses(
+    courses: List[Dict[str, str]],
+    skip: bool = True,
+) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
+    """过滤线上课。
+
+    Returns:
+        (kept, dropped) — 保留的课程列表 + 被过滤掉的课程列表
+    """
+    kept, dropped = [], []
+    for c in courses:
+        if skip and is_online_course(c):
+            dropped.append(c)
+        else:
+            kept.append(c)
+    return kept, dropped
+
+
 # ----------------------------- DSL 转换 -----------------------------
 
 def parse_week_range(week_field: str) -> List[int]:
@@ -270,7 +321,13 @@ def parse_week_range(week_field: str) -> List[int]:
 
 def parse_time_segments(time_field: str) -> List[Tuple[int, int, int, Optional[str]]]:
     """
-    把 "2-9,2-10(单) 4-5,4-6" 这种上课时间字符串拆成段。
+    把 "2-9,2-10(单) 4-5,4-6" 这种 SICAU 上课时间字符串拆成段，
+    同时把 SICAU 节次（1-10）映射到项目 DSL 节次（1-5）：
+        SICAU 1-2  → 1
+        SICAU 3-4  → 2
+        SICAU 5-6  → 3
+        SICAU 7-8  → 4
+        SICAU 9-10 → 5
     返回: [(day, slot_start, slot_end, parity or None), ...]
           parity: '单' / '双' / None
     """
@@ -297,8 +354,10 @@ def parse_time_segments(time_field: str) -> List[Tuple[int, int, int, Optional[s
             mm = re.match(r"^(\d+)\s*[-—]\s*(\d+)$", token)
             if not mm:
                 continue
-            day, slot = int(mm.group(1)), int(mm.group(2))
-            slots.append((day, slot))
+            day, sicau_slot = int(mm.group(1)), int(mm.group(2))
+            # SICAU 节次 → 项目 DSL 节次
+            project_slot = SICAU_TO_PROJECT_SLOT(sicau_slot)
+            slots.append((day, project_slot))
 
         if not slots:
             continue
@@ -422,6 +481,8 @@ def main() -> int:
     p.add_argument("--json-output", default=None, help="可选，结构化 JSON 输出路径")
     p.add_argument("--debug-html", default=None,
                    help="解析失败时保存原始 HTML 到该路径，便于排查")
+    p.add_argument("--include-online", action="store_true",
+                   help="保留线上课（默认过滤掉：教室为空的 Mooc/在线学习等）")
     args = p.parse_args()
 
     session = requests.Session()
@@ -437,6 +498,15 @@ def main() -> int:
     print("[3/4] 解析课表 ...")
     courses = parse_courses(html, debug_html_path=args.debug_html)
     print(f"      解析到 {len(courses)} 门课程")
+
+    # 过滤线上课（教室为空 = 线上/Mooc/自学）
+    kept, dropped = filter_online_courses(courses, skip=not args.include_online)
+    if dropped:
+        print(f"      过滤 {len(dropped)} 门线上课：")
+        for c in dropped:
+            print(f"        - {c.get('课程名称', '?')} ({c.get('上课时间', '?')})")
+    courses = kept
+    print(f"      保留 {len(courses)} 门线下课")
 
     dsl = to_dsl(courses)
     with open(args.output, "w", encoding="utf-8") as f:
