@@ -19,10 +19,11 @@
     <!--
         课表单元格统一样式
         ─────────────────
-        - 两行排版：课程名 + 地点（由 Kotlin 端组装 \n 分隔），autoSize 撑满
-        - autoSize 范围 7~12sp，双行 Chinese 约 10sp 时 ~43dp 宽可容 4 字/行
-        - 兜底 textSize=10sp（无 autoSize 老设备）
-        - maxLines=2 显示两行，ellipsize 兜底行尾溢出
+        - 三行排版：课程名(2 行 × 4 字) + 地点(1 行)，由 Kotlin 端用 \n 拼好
+        - 标题 > 8 字会被 Kotlin 端截断为 7 字 + … 后再切两行
+        - autoSize 范围 7~11sp，三行 Chinese 约 8sp 时 ~45dp 宽可容 4 字/行
+        - 兜底 textSize=9sp（无 autoSize 老设备）
+        - maxLines=3 显示三行，ellipsize 兜底行尾溢出
         - 默认背景透明，Kotlin 端 setBackgroundColor 动态着色
     -->
     <style name="TimetableCell">
@@ -34,14 +35,15 @@
         <item name="android:gravity">center</item>
         <item name="android:text"></item>
         <item name="android:textColor">#FFFFFF</item>
-        <item name="android:textSize">10sp</item>
+        <item name="android:textSize">9sp</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:maxLines">2</item>
+        <item name="android:maxLines">3</item>
         <item name="android:ellipsize">end</item>
         <item name="android:includeFontPadding">false</item>
+        <item name="android:lineSpacingExtra">0dp</item>
         <item name="android:autoSizeTextType">uniform</item>
         <item name="android:autoSizeMinTextSize">7sp</item>
-        <item name="android:autoSizeMaxTextSize">12sp</item>
+        <item name="android:autoSizeMaxTextSize">11sp</item>
         <item name="android:autoSizeStepGranularity">1sp</item>
     </style>
 </resources>

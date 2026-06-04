@@ -206,13 +206,49 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             val location: String,
             val color: Int
         ) {
-            /// 两行排版文本：课程名 \n 地点（无地点则只显示课程名）
+            /// 三行排版文本：课程名(2 行 × 4 字) + 地点(1 行)
+            /// 标题 > 8 字时第 8 位变 …，与 app 端 core/timetable _splitEvenly 思路一致
+            /// 无地点则只显示标题两行
             val displayText: String
                 get() {
+                    val titleLines = formatTitleTwoLines(title)
+                    val titleText = if (titleLines.isEmpty()) "" else titleLines.joinToString("\n")
                     val loc = location.trim()
-                    if (loc.isEmpty()) return title
-                    return "$title\n$loc"
+                    return if (loc.isEmpty()) titleText else "$titleText\n$loc"
                 }
+        }
+
+        /**
+         * 把标题切成 2 行，每行最多 4 字。
+         *
+         * - 长度 <= 4：1 行返回
+         * - 长度 5~8：2 行均分（5->"AB"/"CDE"，6->"ABC"/"DEF"，7->"ABCD"/"EFG"，8->"ABCD"/"EFGH"）
+         * - 长度 > 8：截到 7 字 + …，再切成 2 行（如 "ABCD" + "EFG…"）
+         */
+        private fun formatTitleTwoLines(title: String): List<String> {
+            if (title.isEmpty()) return emptyList()
+
+            val maxChars = 8
+            val display = if (title.length > maxChars) {
+                title.substring(0, maxChars - 1) + "…"
+            } else {
+                title
+            }
+
+            val len = display.length
+            if (len <= 4) return listOf(display)
+
+            val lineCount = 2
+            val base = len / lineCount
+            val extra = len % lineCount
+            val lines = mutableListOf<String>()
+            var start = 0
+            for (i in 0 until lineCount) {
+                val count = base + (if (i < extra) 1 else 0)
+                lines.add(display.substring(start, start + count))
+                start += count
+            }
+            return lines
         }
 
         private data class Parsed(
