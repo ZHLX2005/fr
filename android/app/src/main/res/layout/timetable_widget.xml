@@ -19,16 +19,16 @@
     <!-- 顶部标题（点击触发 ACTION_REFRESH） -->
     <TextView
         android:id="@+id/timetable_title"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="10dp"
         android:text="课程表"
-        android:textSize="14sp"
+        android:textSize="16sp"
         android:textStyle="bold"
-        android:textColor="#333333"
-        android:paddingHorizontal="10dp"
-        android:paddingVertical="2dp"
+        android:textColor="#1A1A1A"
+        android:gravity="center"
+        android:paddingVertical="12dp"
         android:contentDescription="刷新课程表" />
 
     <!-- 网格容器：1 行表头 + 5 行数据 -->
@@ -37,7 +37,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:layout_marginTop="22dp"
+        android:layout_marginTop="48dp"
         android:paddingHorizontal="2dp"
         android:paddingBottom="2dp">
 
