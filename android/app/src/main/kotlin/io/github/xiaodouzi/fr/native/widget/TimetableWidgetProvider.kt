@@ -65,6 +65,29 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             0xFFC4B5A0.toInt()  // 灰棕
         )
 
+        // 8 课程色圆角 drawable（顺序与 COURSE_PALETTE 对应）
+        // 用 setBackgroundResource 走 RemoteViews 白名单，比 setColorFilter 安全
+        private val COURSE_PALETTE_DRAWABLES = intArrayOf(
+            R.drawable.rounded_cell_color_0,
+            R.drawable.rounded_cell_color_1,
+            R.drawable.rounded_cell_color_2,
+            R.drawable.rounded_cell_color_3,
+            R.drawable.rounded_cell_color_4,
+            R.drawable.rounded_cell_color_5,
+            R.drawable.rounded_cell_color_6,
+            R.drawable.rounded_cell_color_7
+        )
+
+        /**
+         * 把 cell 颜色映射到对应圆角 drawable 资源 id。
+         * 找不到匹配（如 Dart 端传了未知色）时回退到 empty 灰底。
+         */
+        private fun cellColorToDrawableRes(color: Int): Int {
+            val idx = COURSE_PALETTE.indexOf(color)
+            return if (idx >= 0) COURSE_PALETTE_DRAWABLES[idx]
+            else R.drawable.rounded_cell_empty
+        }
+
         // 单元格资源 ID 表（35 个 cell_0_0 .. cell_4_6）
         private val CELL_IDS: Array<IntArray> = arrayOf(
             intArrayOf(
@@ -98,7 +121,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             R.id.slot_0, R.id.slot_1, R.id.slot_2, R.id.slot_3, R.id.slot_4
         )
 
-        // 浅灰（无课单元格底色，用 setColorFilter 染 @drawable/rounded_cell）
+        // 浅灰（无课单元格底色，实际走 @drawable/rounded_cell_empty）
         private const val COLOR_EMPTY = 0xFFEEEEEE.toInt()
         // 蓝色（今天高亮）
         private const val COLOR_TODAY = 0xFF1976D2.toInt()
@@ -138,17 +161,18 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
                         if (cell == null) {
                             setTextViewText(cellId, "")
-                            // 无课：浅灰；今天列的话用更浅的蓝灰
-                            // 用 setColorFilter 染色（保留 drawable 圆角形状）
-                            val bg = if (d == todayDayOfCycle) COLOR_TODAY_COL_BG
-                            else COLOR_EMPTY
-                            setInt(cellId, "setColorFilter", bg)
+                            // 无课：用对应圆角 drawable（灰 / 今天列极浅蓝灰）
+                            val emptyDrawable = if (d == todayDayOfCycle)
+                                R.drawable.rounded_cell_today_col
+                            else
+                                R.drawable.rounded_cell_empty
+                            setInt(cellId, "setBackgroundResource", emptyDrawable)
                         } else {
                             // 三行排版：课程名(2 行 × 4 字) + 地点(1 行)
                             val displayText = cell.displayText
                             setTextViewText(cellId, displayText)
-                            // 用 setColorFilter 染色（保留 drawable 圆角形状）
-                            setInt(cellId, "setColorFilter", cell.color)
+                            // 用预制圆角 drawable 染色（RemoteViews 白名单内）
+                            setInt(cellId, "setBackgroundResource", cellColorToDrawableRes(cell.color))
                         }
                     }
                 }

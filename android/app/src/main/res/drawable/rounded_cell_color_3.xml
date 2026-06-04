@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  圆角方块：灰橘
+  与 rounded_cell.xml 同形状，仅颜色不同
+  6dp 圆角，配合 cell 1dp margin 形成"圆角方块网格"
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#C49A8B" />
+    <corners android:radius="6dp" />
+</shape>
