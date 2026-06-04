@@ -98,8 +98,8 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             R.id.slot_0, R.id.slot_1, R.id.slot_2, R.id.slot_3, R.id.slot_4
         )
 
-        // 透明（无课单元格不显示背景，靠 gap 形成网格线）
-        private const val COLOR_EMPTY = 0
+        // 浅灰（无课单元格底色，用 setColorFilter 染 @drawable/rounded_cell）
+        private const val COLOR_EMPTY = 0xFFEEEEEE.toInt()
         // 蓝色（今天高亮）
         private const val COLOR_TODAY = 0xFF1976D2.toInt()
         // 极浅蓝灰（今天列的非当日单元格底色）
@@ -139,14 +139,16 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                         if (cell == null) {
                             setTextViewText(cellId, "")
                             // 无课：浅灰；今天列的话用更浅的蓝灰
+                            // 用 setColorFilter 染色（保留 drawable 圆角形状）
                             val bg = if (d == todayDayOfCycle) COLOR_TODAY_COL_BG
                             else COLOR_EMPTY
-                            setInt(cellId, "setBackgroundColor", bg)
+                            setInt(cellId, "setColorFilter", bg)
                         } else {
-                            // 两行排版：课程名 + 地点（样式 TimetableCell 已设 maxLines=2）
+                            // 三行排版：课程名(2 行 × 4 字) + 地点(1 行)
                             val displayText = cell.displayText
                             setTextViewText(cellId, displayText)
-                            setInt(cellId, "setBackgroundColor", cell.color)
+                            // 用 setColorFilter 染色（保留 drawable 圆角形状）
+                            setInt(cellId, "setColorFilter", cell.color)
                         }
                     }
                 }
