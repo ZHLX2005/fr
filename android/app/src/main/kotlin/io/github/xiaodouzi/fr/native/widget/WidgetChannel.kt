@@ -26,4 +26,8 @@ class WidgetChannel(messenger: BinaryMessenger) {
     fun notifyNavigateToLab() {
         channel.invokeMethod("navigateToLab", null)
     }
+
+    fun notifyNavigateToCalendar() {
+        channel.invokeMethod("navigateToCalendar", null)
+    }
 }
