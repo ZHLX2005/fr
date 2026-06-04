@@ -2,11 +2,11 @@
 <!--
   课表桌面小组件布局
   ───────────────────
-  字号 / 单元格 比例硬编码在 XML 中（按用户要求）：
-  - 单元格宽 ≈ 38dp（5×4 widget，350dp / 8 列近似）
-  - 课程标题 textSize = 28sp，约占单元格宽的 0.74 ≈ 0.75
-  - 课程标题 1 字（Chinese 字符约 1:1 占满 textSize），用 ellipsize 截断
-  - 节数 / 星期 标签 textSize = 12sp（label 不需要填满 cell）
+  - 首标列 weight=0.4，占 0.4/7.4 ≈ 5.4%（仅够显示单个数字）
+  - 课程列 weight=1 × 7 = 7，占 7/7.4 ≈ 94.6%
+  - 行高等高：所有数据行 layout_weight="3"
+  - 课程单元格两行排版：课程名 + 地点（styles.xml 中 maxLines=2, autoSize 7~12sp）
+  - 节数 / 星期 标签 textSize = 11sp
   - 主标题 textSize = 14sp
   - 单元格 layout_margin = 1dp（格子间隙）
 -->
@@ -19,16 +19,16 @@
     <!-- 顶部标题（点击触发 ACTION_REFRESH） -->
     <TextView
         android:id="@+id/timetable_title"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="10dp"
         android:text="课程表"
-        android:textSize="14sp"
+        android:textSize="16sp"
         android:textStyle="bold"
-        android:textColor="#333333"
-        android:paddingHorizontal="10dp"
-        android:paddingVertical="2dp"
+        android:textColor="#1A1A1A"
+        android:gravity="center"
+        android:paddingVertical="12dp"
         android:contentDescription="刷新课程表" />
 
     <!-- 网格容器：1 行表头 + 5 行数据 -->
@@ -37,7 +37,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:layout_marginTop="22dp"
+        android:layout_marginTop="48dp"
         android:paddingHorizontal="2dp"
         android:paddingBottom="2dp">
 
@@ -47,12 +47,12 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:orientation="horizontal"
-            android:weightSum="7.5">
+            android:weightSum="7.4">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.5"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="" />
 
@@ -133,15 +133,15 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="4"
+            android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="7.5">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_0"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.5"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="1"
                 android:textColor="#374151"
@@ -177,17 +177,17 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="8.4">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_1"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1.2"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="2"
                 android:textColor="#374151"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -219,17 +219,17 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="8.4">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_2"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1.2"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="3"
                 android:textColor="#374151"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -261,17 +261,17 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="8.4">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_3"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1.2"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="4"
                 android:textColor="#374151"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -303,17 +303,17 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="8.4">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_4"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1.2"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="5"
                 android:textColor="#374151"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView

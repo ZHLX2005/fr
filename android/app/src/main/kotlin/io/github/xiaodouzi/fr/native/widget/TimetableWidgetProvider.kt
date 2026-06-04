@@ -98,12 +98,12 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             R.id.slot_0, R.id.slot_1, R.id.slot_2, R.id.slot_3, R.id.slot_4
         )
 
-        // 灰白色（无课默认背景）
-        private const val COLOR_EMPTY = 0xFFF0F0F0.toInt()
+        // 透明（无课单元格不显示背景，靠 gap 形成网格线）
+        private const val COLOR_EMPTY = 0
         // 蓝色（今天高亮）
         private const val COLOR_TODAY = 0xFF1976D2.toInt()
-        // 浅蓝色（今天列的非当日单元格底色，可选）
-        private const val COLOR_TODAY_COL_BG = 0xFFF0F4FA.toInt()
+        // 极浅蓝灰（今天列的非当日单元格底色）
+        private const val COLOR_TODAY_COL_BG = 0xFFF5F8FC.toInt()
 
         internal fun updateAppWidget(
             context: Context,
@@ -143,9 +143,9 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                             else COLOR_EMPTY
                             setInt(cellId, "setBackgroundColor", bg)
                         } else {
-                            // 课程标题：取 2 字符（按样式 textSize 28sp 在 ~38dp cell 中刚好 ≈ 0.75 占比）
-                            val title = cell.title.take(2)
-                            setTextViewText(cellId, title)
+                            // 两行排版：课程名 + 地点（样式 TimetableCell 已设 maxLines=2）
+                            val displayText = cell.displayText
+                            setTextViewText(cellId, displayText)
                             setInt(cellId, "setBackgroundColor", cell.color)
                         }
                     }
@@ -203,8 +203,17 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
         private data class Cell(
             val title: String,
+            val location: String,
             val color: Int
-        )
+        ) {
+            /// 两行排版文本：课程名 \n 地点（无地点则只显示课程名）
+            val displayText: String
+                get() {
+                    val loc = location.trim()
+                    if (loc.isEmpty()) return title
+                    return "$title\n$loc"
+                }
+        }
 
         private data class Parsed(
             val startDateIso: String,
@@ -237,9 +246,10 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                         cells.add(null)
                         continue
                     }
+                    val location = c.optString("location", "")
                     val colorHex = c.optString("color", "")
                     val colorInt = parseHexColor(colorHex) ?: 0xFF9E9E9E.toInt()
-                    cells.add(Cell(title = title, color = colorInt))
+                    cells.add(Cell(title = title, location = location, color = colorInt))
                 }
 
                 Parsed(startIso, days, slots, cells)
