@@ -210,9 +210,9 @@ class _MainScreenState extends State<MainScreen>
 
   // RepaintBoundary 缓存渲染层，Transform 平移时只移 GPU 图层
   final List<Widget> _pages = const [
-    RepaintBoundary(child: ProfilePage()),
-    RepaintBoundary(child: HomePage()),
-    RepaintBoundary(child: FocusHomePage()),
+    RepaintBoundary(child: ProfilePage()),    // 主页（左）
+    RepaintBoundary(child: FocusHomePage()),  // Time（中）
+    RepaintBoundary(child: HomePage()),       // AI 助手（右）
   ];
 
   late final AnimationController _ctrl;
