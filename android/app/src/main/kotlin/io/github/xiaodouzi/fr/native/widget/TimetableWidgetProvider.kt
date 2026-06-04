@@ -143,9 +143,9 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                             else COLOR_EMPTY
                             setInt(cellId, "setBackgroundColor", bg)
                         } else {
-                            // 课程标题：取 2 字符（按样式 textSize 28sp 在 ~38dp cell 中刚好 ≈ 0.75 占比）
-                            val title = cell.title.take(2)
-                            setTextViewText(cellId, title)
+                            // 两行排版：课程名 + 地点（样式 TimetableCell 已设 maxLines=2）
+                            val displayText = cell.displayText
+                            setTextViewText(cellId, displayText)
                             setInt(cellId, "setBackgroundColor", cell.color)
                         }
                     }
@@ -203,8 +203,17 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
         private data class Cell(
             val title: String,
+            val location: String,
             val color: Int
-        )
+        ) {
+            /// 两行排版文本：课程名 \n 地点（无地点则只显示课程名）
+            val displayText: String
+                get() {
+                    val loc = location.trim()
+                    if (loc.isEmpty()) return title
+                    return "$title\n$loc"
+                }
+        }
 
         private data class Parsed(
             val startDateIso: String,
@@ -237,9 +246,10 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                         cells.add(null)
                         continue
                     }
+                    val location = c.optString("location", "")
                     val colorHex = c.optString("color", "")
                     val colorInt = parseHexColor(colorHex) ?: 0xFF9E9E9E.toInt()
-                    cells.add(Cell(title = title, color = colorInt))
+                    cells.add(Cell(title = title, location = location, color = colorInt))
                 }
 
                 Parsed(startIso, days, slots, cells)

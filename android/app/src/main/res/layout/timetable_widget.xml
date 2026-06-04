@@ -2,10 +2,10 @@
 <!--
   课表桌面小组件布局
   ───────────────────
-  - 首标列 weight=0.5，占 0.5/7.5 ≈ 6.7%（不再宽于课程列）
-  - 课程列 weight=1 × 7 = 7，占 7/7.5 ≈ 93.3%
-  - 行高等高：所有数据行 layout_weight="3"（Row 0 以前误设为 4 已修正）
-  - 课程标题使用 autoSize（styles.xml 中 10~22sp），非 autoSize 设备兜底 16sp
+  - 首标列 weight=0.4，占 0.4/7.4 ≈ 5.4%（仅够显示单个数字）
+  - 课程列 weight=1 × 7 = 7，占 7/7.4 ≈ 94.6%
+  - 行高等高：所有数据行 layout_weight="3"
+  - 课程单元格两行排版：课程名 + 地点（styles.xml 中 maxLines=2, autoSize 7~12sp）
   - 节数 / 星期 标签 textSize = 11sp
   - 主标题 textSize = 14sp
   - 单元格 layout_margin = 1dp（格子间隙）
@@ -47,12 +47,12 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:orientation="horizontal"
-            android:weightSum="7.5">
+            android:weightSum="7.4">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.5"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="" />
 
@@ -135,13 +135,13 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="7.5">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_0"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.5"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="1"
                 android:textColor="#374151"
@@ -177,13 +177,13 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="7.5">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_1"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.5"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="2"
                 android:textColor="#374151"
@@ -219,13 +219,13 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="7.5">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_2"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.5"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="3"
                 android:textColor="#374151"
@@ -261,13 +261,13 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="7.5">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_3"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.5"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="4"
                 android:textColor="#374151"
@@ -303,13 +303,13 @@
             android:layout_height="0dp"
             android:layout_weight="3"
             android:orientation="horizontal"
-            android:weightSum="7.5">
+            android:weightSum="7.4">
 
             <TextView
                 android:id="@+id/slot_4"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.5"
+                android:layout_weight="0.4"
                 android:gravity="center"
                 android:text="5"
                 android:textColor="#374151"
