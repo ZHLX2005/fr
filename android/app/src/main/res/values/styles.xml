@@ -19,9 +19,9 @@
     <!--
         课表单元格统一样式
         ─────────────────
-        - 使用 autoSizeTextType（API 26+）让系统按 cell 实际宽度在 10~22sp
-          范围内自动挑最大可容纳的字号，单字 Chinese 永远能塞进 cell
-        - 默认 textSize=16sp（无 autoSize 的设备兜底，能塞进最小 300dp widget）
+        - 使用 autoSizeTextType（API 26+）让系统按 cell 实际宽度在 8~16sp
+          范围内自动挑最大可容纳的字号
+        - 兜底 textSize=12sp（无 autoSize 的老设备）
         - 默认背景 #F0F0F0（无课时显示），Kotlin 端 setBackgroundColor 覆盖
     -->
     <style name="TimetableCell">
@@ -33,14 +33,14 @@
         <item name="android:gravity">center</item>
         <item name="android:text"></item>
         <item name="android:textColor">#FFFFFF</item>
-        <item name="android:textSize">16sp</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:autoSizeTextType">uniform</item>
-        <item name="android:autoSizeMinTextSize">10sp</item>
-        <item name="android:autoSizeMaxTextSize">22sp</item>
+        <item name="android:autoSizeMinTextSize">8sp</item>
+        <item name="android:autoSizeMaxTextSize">16sp</item>
         <item name="android:autoSizeStepGranularity">1sp</item>
     </style>
 </resources>
