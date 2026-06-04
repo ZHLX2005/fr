@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/home_item.dart';
-import '../models/home_controller.dart';
+import '../demos/grid_dashboard/models/home_item.dart';
+import '../demos/grid_dashboard/models/home_controller.dart';
 
 /// 应用图标组件
 class HomeTile extends StatelessWidget {

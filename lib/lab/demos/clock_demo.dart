@@ -7,10 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
-import '../models/lab_clock.dart';
-import '../models/lab_clock_record.dart';
-import '../providers/lab_clock_provider.dart';
-import '../utils/clock_color_util.dart';
+import 'clock/models/lab_clock.dart';
+import 'clock/models/lab_clock_record.dart';
+import 'clock/providers/lab_clock_provider.dart';
+import 'clock/utils/clock_color_util.dart';
 
 /// 时钟 Demo
 class ClockDemo extends DemoPage {

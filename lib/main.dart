@@ -14,9 +14,8 @@ import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
-import 'lab/providers/lab_note_provider.dart';
-import 'lab/providers/lab_clock_provider.dart';
-import 'lab/providers/lab_calendar_provider.dart';
+import 'lab/demos/clock/providers/lab_clock_provider.dart';
+import 'lab/demos/calendar/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
@@ -130,9 +129,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         classic_provider.ChangeNotifierProvider.value(value: _themeProvider),
         classic_provider.ChangeNotifierProvider(
           create: (_) => MessageProvider(),
-        ),
-        classic_provider.ChangeNotifierProvider(
-          create: (_) => LabNoteProvider(),
         ),
         // lazy:false → 冷启动即创建，立即 loadClocks + _syncToWidget。
         // 否则桌面 widget 要等用户进入 ClockDemo 页面才会被同步。

@@ -9,8 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import '../lab_container.dart';
-import '../models/bookmark_item.dart';
-import '../providers/bookmark_provider.dart';
+import 'web_bookmark/models/bookmark_item.dart';
+import 'web_bookmark/providers/bookmark_provider.dart';
 
 /// Web Bookmark Demo
 class WebBookmarkDemo extends DemoPage {

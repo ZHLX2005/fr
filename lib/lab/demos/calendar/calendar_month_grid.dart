@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/lab_calendar_event.dart';
-import '../../providers/lab_calendar_provider.dart';
+import 'models/lab_calendar_event.dart';
+import 'providers/lab_calendar_provider.dart';
 import 'calendar_day_cell.dart';
 import 'calendar_day_sheet.dart';
 

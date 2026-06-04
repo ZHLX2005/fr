@@ -1,5 +1,5 @@
 import 'dart:convert';
-import '../../lab/models/lab_calendar_event.dart';
+import '../../lab/demos/calendar/models/lab_calendar_event.dart';
 
 /// 桌面日历小组件传递的数据
 ///
