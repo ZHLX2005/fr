@@ -24,8 +24,14 @@ class SchemaRoutes {
   /// Demo 路径
   static const String demo = '$base/demo';
 
+  /// Core 页面路径
+  static const String core = '$base/core';
+
   /// 构建 Demo 完整路径
   static String demoPath(String demoKey) => '$scheme:$demo/$demoKey';
+
+  /// 构建 Core 页面完整路径
+  static String corePath(String pageKey) => '$scheme:$core/$pageKey';
 
   /// 解析路径获取 demo key
   static String? parseDemoKey(String path) {
@@ -39,6 +45,20 @@ class SchemaRoutes {
   /// 检查是否是有效的 demo schema
   static bool isDemoSchema(String path) {
     return path.startsWith('$scheme:$demo/');
+  }
+
+  /// 解析路径获取 core page key
+  static String? parseCoreKey(String path) {
+    final prefix = '$scheme:$core/';
+    if (path.startsWith(prefix)) {
+      return path.substring(prefix.length);
+    }
+    return null;
+  }
+
+  /// 检查是否是有效的 core schema
+  static bool isCoreSchema(String path) {
+    return path.startsWith('$scheme:$core/');
   }
 }
 
@@ -65,7 +85,7 @@ class SchemaRegistry {
 
   final Map<String, SchemaEntry> _entries = {};
 
-  /// 初始化 - 从 DemoRegistry 自动发现
+  /// 初始化 - 从 DemoRegistry 自动发现 + 注册核心页面
   void discover() {
     _entries.clear();
     final demos = demoRegistry.getAll();
@@ -78,6 +98,40 @@ class SchemaRegistry {
         schema: SchemaRoutes.demoPath(demoKey),
         icon: Icons.apps,
       );
+    }
+    _registerCorePages();
+  }
+
+  /// 注册核心主页面
+  void _registerCorePages() {
+    final corePages = [
+      const SchemaEntry(
+        key: 'profile',
+        title: '个人中心',
+        schema: 'fr://lab/core/profile',
+        icon: Icons.person,
+      ),
+      const SchemaEntry(
+        key: 'focus',
+        title: '专注',
+        schema: 'fr://lab/core/focus',
+        icon: Icons.timer,
+      ),
+      const SchemaEntry(
+        key: 'home',
+        title: 'AI 助手',
+        schema: 'fr://lab/core/home',
+        icon: Icons.chat_bubble,
+      ),
+      const SchemaEntry(
+        key: 'timetable',
+        title: '课表',
+        schema: 'fr://lab/core/timetable',
+        icon: Icons.calendar_month,
+      ),
+    ];
+    for (final page in corePages) {
+      _entries[page.key] = page;
     }
   }
 

@@ -4,6 +4,10 @@
 
 import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';
+import '../../screens/profile/profile_page.dart';
+import '../../screens/chat/home_page.dart';
+import '../../core/focus/focus_home_page.dart';
+import '../../core/timetable/presentation/timetable_page.dart';
 
 /// Schema 导航服务（纯静态方法）
 class SchemaNavigator {
@@ -46,6 +50,10 @@ class SchemaNavigator {
       // 跳转到 Demo 页面
       final demoKey = path.substring('lab/demo/'.length);
       await navigateToDemo(demoKey, context);
+    } else if (path.startsWith('lab/core/')) {
+      // 跳转到核心页面
+      final pageKey = path.substring('lab/core/'.length);
+      await navigateToCorePage(pageKey, context);
     } else if (path == 'lab' || path == 'lab/') {
       // 跳转到 Lab 页面
       await navigateToLab(context);
@@ -82,6 +90,33 @@ class SchemaNavigator {
     }
 
     await _openDemoDetail(demoKey, context);
+  }
+
+  /// 跳转到核心页面
+  static Future<void> navigateToCorePage(
+    String pageKey,
+    BuildContext context,
+  ) async {
+    Widget? page;
+    switch (pageKey) {
+      case 'profile':
+        page = const ProfilePage();
+      case 'home':
+        page = const HomePage();
+      case 'focus':
+        page = const FocusHomePage();
+      case 'timetable':
+        page = const TimetablePage();
+      default:
+        _showError(context, '未知的核心页面: $pageKey');
+        return;
+    }
+    _navigatorState?.push(
+      MaterialPageRoute(
+        builder: (_) => page!,
+        settings: RouteSettings(name: '/core/$pageKey'),
+      ),
+    );
   }
 
   /// 跳转到 Lab 页面
