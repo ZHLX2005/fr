@@ -47,12 +47,12 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:orientation="horizontal"
-            android:weightSum="8.4">
+            android:weightSum="7.5">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1.2"
+                android:layout_weight="0.5"
                 android:gravity="center"
                 android:text="" />
 
@@ -64,7 +64,7 @@
                 android:gravity="center"
                 android:text="一"
                 android:textColor="#666666"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
             <TextView
                 android:id="@+id/day_1"
@@ -74,7 +74,7 @@
                 android:gravity="center"
                 android:text="二"
                 android:textColor="#666666"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
             <TextView
                 android:id="@+id/day_2"
@@ -84,7 +84,7 @@
                 android:gravity="center"
                 android:text="三"
                 android:textColor="#666666"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
             <TextView
                 android:id="@+id/day_3"
@@ -94,7 +94,7 @@
                 android:gravity="center"
                 android:text="四"
                 android:textColor="#666666"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
             <TextView
                 android:id="@+id/day_4"
@@ -104,7 +104,7 @@
                 android:gravity="center"
                 android:text="五"
                 android:textColor="#666666"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
             <TextView
                 android:id="@+id/day_5"
@@ -114,7 +114,7 @@
                 android:gravity="center"
                 android:text="六"
                 android:textColor="#666666"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
             <TextView
                 android:id="@+id/day_6"
@@ -124,7 +124,7 @@
                 android:gravity="center"
                 android:text="日"
                 android:textColor="#666666"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -133,19 +133,19 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="3"
+            android:layout_weight="4"
             android:orientation="horizontal"
-            android:weightSum="8.4">
+            android:weightSum="7.5">
 
             <TextView
                 android:id="@+id/slot_0"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1.2"
+                android:layout_weight="0.5"
                 android:gravity="center"
                 android:text="1"
                 android:textColor="#374151"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <TextView
