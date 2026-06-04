@@ -44,6 +44,13 @@ TIMETABLE_PAGE = f"{BASE}/xuesheng/gongxuan/gongxuan/kbbanji.asp"
 # 默认抓取学期，可通过 --semester 覆盖
 DEFAULT_SEMESTER = "2025-2026-2"
 
+# 段次上限不由 DSL 格式硬编码，而是 parseDsl 调用方传入的 defaultSlotCount 决定
+# （实际项目里从 TimetableConfig.slotsPerDay 取，默认 5，用户可在设置里改大到 10）
+DEFAULT_MAX_SLOT = 10  # SICAU 教务处实际每天最多 10 节
+# 周次范围 `w1-8` 强制展开为 `w1,2,3,...,8`
+# 因为现有 Dart 解析器 `_parseCycleList` 只支持 w1,3,5 这种逗号离散列表
+DEFAULT_EXPAND_WEEKS = True
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -273,10 +280,16 @@ def split_multi(value: str) -> List[str]:
     return [p for p in parts if p] or [""]
 
 
-def weeks_to_dsl(weeks: List[int]) -> str:
-    """[1,3,5,7,9,11,13] -> 'w1,3,5,7,9,11,13' 或 'w1-14'"""
+def weeks_to_dsl(weeks: List[int], expand: bool = DEFAULT_EXPAND_WEEKS) -> str:
+    """
+    [1,3,5,7,9,11,13] -> 'w1,3,5,7,9,11,13'
+    expand=False 时会合并连续段为 'w1-14'（但现有 Dart 解析器不识别，会报错）
+    expand=True  时强制展开为离散列表（最兼容）
+    """
     if not weeks:
         return ""
+    if expand:
+        return "w" + ",".join(str(w) for w in weeks)
     # 连续段合并
     runs: List[List[int]] = []
     for w in weeks:
