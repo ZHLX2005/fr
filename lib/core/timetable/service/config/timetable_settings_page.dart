@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import '../../presentation/timetable_colors.dart';
+import 'sicau_import_dialog.dart';
 import 'timetable_import_dialog.dart';
 import 'timetable_week_calculator.dart';
 
@@ -75,6 +76,18 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('已导入 $count 门课程')));
+    }
+  }
+
+  Future<void> _openSicauImport() async {
+    final count = await showDialog<int>(
+      context: context,
+      builder: (_) => const SicauImportDialog(),
+    );
+    if (count != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已从教务系统导入 $count 门课程')));
     }
   }
 
@@ -192,6 +205,25 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                 '批量导入课程',
                 style: TextStyle(
                   color: TimetableColors.accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openSicauImport,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: BorderSide(color: TimetableColors.accent.withValues(alpha: 0.6), width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: Icon(Icons.school, color: TimetableColors.accent.withValues(alpha: 0.8)),
+              label: Text(
+                'SICAU 课表导入',
+                style: TextStyle(
+                  color: TimetableColors.accent.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w600,
                 ),
               ),
