@@ -9,6 +9,9 @@ class LabCalendarEvent {
   final String? description;
   final DateTime createdAt;
 
+  /// 系统日历事件 ID，null 表示未同步到系统日历
+  final int? systemCalendarEventId;
+
   const LabCalendarEvent({
     required this.id,
     required this.year,
@@ -18,11 +21,15 @@ class LabCalendarEvent {
     required this.color,
     this.description,
     required this.createdAt,
+    this.systemCalendarEventId,
   });
 
   /// 该事件归属的日期键，用于按天分组
   String get dateKey =>
       '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+
+  /// 是否已同步到系统日历
+  bool get isSyncedToSystemCalendar => systemCalendarEventId != null;
 
   LabCalendarEvent copyWith({
     String? id,
@@ -33,6 +40,7 @@ class LabCalendarEvent {
     String? color,
     String? description,
     DateTime? createdAt,
+    int? systemCalendarEventId,
   }) {
     return LabCalendarEvent(
       id: id ?? this.id,
@@ -43,6 +51,7 @@ class LabCalendarEvent {
       color: color ?? this.color,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
+      systemCalendarEventId: systemCalendarEventId ?? this.systemCalendarEventId,
     );
   }
 
@@ -55,6 +64,8 @@ class LabCalendarEvent {
     'color': color,
     'description': description,
     'createdAt': createdAt.toIso8601String(),
+    if (systemCalendarEventId != null)
+      'systemCalendarEventId': systemCalendarEventId,
   };
 
   factory LabCalendarEvent.fromJson(Map<String, dynamic> j) => LabCalendarEvent(
@@ -66,6 +77,7 @@ class LabCalendarEvent {
     color: j['color'] as String,
     description: j['description'] as String?,
     createdAt: DateTime.parse(j['createdAt'] as String),
+    systemCalendarEventId: j['systemCalendarEventId'] as int?,
   );
 }
 

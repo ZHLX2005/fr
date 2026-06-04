@@ -6,6 +6,7 @@ import 'package:rive/rive.dart' hide Animation;
 import 'providers/providers.dart';
 import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
+import 'lab/lab_container.dart';
 import 'screens/profile/profile_page.dart';
 import 'screens/profile/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
@@ -89,6 +90,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == 'navigateToLab') {
       _navigateToLab();
+    } else if (call.method == 'navigateToCalendar') {
+      _navigateToCalendar();
     }
   }
 
@@ -97,6 +100,19 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       navigatorKey.currentState?.push(
         MaterialPageRoute(builder: (_) => const LabPage()),
+      );
+    });
+  }
+
+  void _navigateToCalendar() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 确保日历 demo 已注册
+      final calendarDemo = demoRegistry.get('日历待办');
+      if (calendarDemo == null) return;
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => _CalendarDeepLinkPage(demo: calendarDemo),
+        ),
       );
     });
   }
@@ -166,6 +182,18 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         },
       ),
     );
+  }
+}
+
+/// 桌面小组件深层链接：直接打开日历 demo 页面
+class _CalendarDeepLinkPage extends StatelessWidget {
+  final DemoPage demo;
+
+  const _CalendarDeepLinkPage({required this.demo});
+
+  @override
+  Widget build(BuildContext context) {
+    return demo.buildPage(context);
   }
 }
 

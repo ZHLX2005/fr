@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import '../../../core/note/note_root_scope.dart';
@@ -24,6 +25,11 @@ class BlockCard extends StatefulWidget {
 class _BlockCardState extends State<BlockCard> {
   late TextEditingController _controller;
   late FocusNode _focusNode;
+  bool _pendingRefresh = false;
+
+  // 长按检测
+  Timer? _longPressTimer;
+  Offset? _longPressOrigin;
 
   @override
   void initState() {
@@ -42,19 +48,43 @@ class _BlockCardState extends State<BlockCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.block.id != widget.block.id) {
       _controller.text = widget.block.content.toPlainText();
-    } else {
+    } else if (!_focusNode.hasFocus) {
       final newText = widget.block.content.toPlainText();
       if (newText != _controller.text) {
         _controller.text = newText;
       }
     }
+
     if (!oldWidget.isSelected && widget.isSelected) {
-      _focusNode.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _focusNode.requestFocus();
+        _focusNode.addListener(_onFocusChangeToShowKeyboard);
+      });
     }
+  }
+
+  void _onFocusChangeToShowKeyboard() {
+    if (_focusNode.hasFocus) {
+      _focusNode.removeListener(_onFocusChangeToShowKeyboard);
+      SystemChannels.textInput.invokeMethod('TextInput.show');
+    }
+  }
+
+  void _scheduleRefresh() {
+    if (_pendingRefresh) return;
+    _pendingRefresh = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pendingRefresh = false;
+      if (mounted) widget.editorState.refresh();
+    });
   }
 
   @override
   void dispose() {
+    _longPressTimer?.cancel();
+    _longPressTimer?.cancel();
+    _focusNode.removeListener(_onFocusChangeToShowKeyboard);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -62,7 +92,49 @@ class _BlockCardState extends State<BlockCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final canLongPress = widget.block.type.showQuickDelete;
+
+    Widget content = widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType
+        ? _buildTextField()
+        : NoteRootScope.of(context).noteRoot.renderBlock(
+            context,
+            widget.block,
+            onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
+            onTapAddImage: widget.block.type is ImageType
+                ? () => _showAddImageDialog()
+                : null,
+          );
+
+    if (canLongPress) {
+      content = ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
+          onPointerUp: _onPointerCancel,
+          onPointerCancel: _onPointerCancel,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              widget.editorState.hideDeleteMenu();
+              widget.editorState.select(widget.block.id);
+            },
+            child: content,
+          ),
+        ),
+      );
+    } else {
+      content = GestureDetector(
+        onTap: () {
+          widget.editorState.hideDeleteMenu();
+          widget.editorState.select(widget.block.id);
+        },
+        child: content,
+      );
+    }
+
+    final body = Material(
       type: MaterialType.transparency,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -72,46 +144,105 @@ class _BlockCardState extends State<BlockCard> {
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => widget.editorState.select(widget.block.id),
-              child: widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType
-                  ? _buildTextField()
-                  : NoteRootScope.of(context).noteRoot.renderBlock(
-                      context,
-                      widget.block,
-                      onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
-                      onTapAddImage: widget.block.type is ImageType
-                          ? () => _showAddImageDialog()
-                          : null,
-                    ),
-            ),
-          ),
-          // 选中态指示器（占位保持布局对齐）
-          if (widget.isSelected) const SizedBox(width: 24),
-        ],
+          children: [
+            Expanded(child: content),
+            if (widget.isSelected) const SizedBox(width: 24),
+          ],
+        ),
       ),
-    ),
     );
+
+    // 删除按钮直接渲染在 widget 树里，自然跟随 block 拖拽
+    if (canLongPress && widget.editorState.isDeleteMenuShown(widget.block.id)) {
+      return Padding(
+        // 给顶部负偏移腾出 hit test 空间
+        padding: const EdgeInsets.only(top: 38),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // 抵消 padding 把 body 放回原位
+            Transform.translate(
+              offset: const Offset(0, -38),
+              child: body,
+            ),
+            Positioned(
+              top: 0,
+              right: 4,
+              child: _DeletePill(
+                onDelete: () {
+                  widget.editorState.hideDeleteMenu();
+                  widget.editorState.select(widget.block.id);
+                  widget.editorState.deleteBlock();
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return body;
   }
+
+  // === 长按检测 ===
+
+  void _onPointerDown(PointerDownEvent event) {
+    // 菜单已显示在任意位置 → 任何点击都关闭
+    if (widget.editorState.deleteMenuBlockId != null) {
+      widget.editorState.hideDeleteMenu();
+      return;
+    }
+    _longPressOrigin = event.position;
+    _longPressTimer?.cancel();
+    _longPressTimer = Timer(const Duration(milliseconds: 400), () {
+      _longPressOrigin = null;
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+      widget.editorState.showDeleteMenu(widget.block.id);
+    });
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (_longPressOrigin != null &&
+        (event.position - _longPressOrigin!).distance > 20) {
+      _longPressTimer?.cancel();
+      _longPressOrigin = null;
+    }
+  }
+
+  void _onPointerCancel(PointerEvent event) {
+    _longPressTimer?.cancel();
+    _longPressOrigin = null;
+  }
+
+  // === TextField ===
 
   Widget _buildTextField() {
     final ml = widget.block.type.multiline;
     final textField = Focus(
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace && _controller.text.isEmpty) {
-          widget.editorState.deleteBlock();
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        // 仅最后一个 block：空时拦截 ⌫ 删除整块，避免快速点击级联到其他 block
+        final blockEmpty = widget.block.content.toPlainText().isEmpty;
+        final controllerEmpty = _controller.text.isEmpty;
+        final isLastBlock = widget.editorState.blocks.last.id == widget.block.id;
+
+        if (event.logicalKey == LogicalKeyboardKey.backspace
+            && controllerEmpty && blockEmpty && isLastBlock) {
+          widget.editorState.deleteBlock(silent: true);
+          _scheduleRefresh();
           return KeyEventResult.handled;
         }
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter && !ml) {
+        if (event.logicalKey == LogicalKeyboardKey.enter && !ml) {
           final newType = widget.block.type.onEnterType;
           if (newType != null) {
-            widget.editorState.addBlockWithType(newType);
+            widget.editorState.addBlockWithType(newType, silent: true);
           }
+          _scheduleRefresh();
           return KeyEventResult.handled;
         }
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space && _controller.text.isEmpty) {
+        if (event.logicalKey == LogicalKeyboardKey.space
+            && controllerEmpty && blockEmpty && isLastBlock) {
           widget.editorState.switchToChat();
           return KeyEventResult.handled;
         }
@@ -131,20 +262,23 @@ class _BlockCardState extends State<BlockCard> {
         contextMenuBuilder: _buildContextMenu,
         onChanged: (value) {
           if (!ml && value.endsWith('\n')) {
-            widget.editorState.updateContent(widget.block.id, value.trimRight());
+            widget.editorState.updateContent(widget.block.id, value.trimRight(), silent: true);
             final newType = widget.block.type.onEnterType;
             if (newType != null) {
-              widget.editorState.addBlockWithType(newType);
+              widget.editorState.addBlockWithType(newType, silent: true);
             }
+            _syncControllerFromState();
+            _scheduleRefresh();
             return;
           }
-          // 软键盘按空格（空白 block 触发对话框）
-          if (value.length == 1 && (value == ' ' || value == ' ')) {
+          if (value.length == 1 && (value == ' ' || value == ' ')) {
             _controller.text = '';
             widget.editorState.switchToChat();
             return;
           }
-          widget.editorState.updateContent(widget.block.id, value);
+          widget.editorState.updateContent(widget.block.id, value, silent: true);
+          _syncControllerFromState();
+          _scheduleRefresh();
         },
       ),
     );
@@ -154,6 +288,19 @@ class _BlockCardState extends State<BlockCard> {
       textField: textField,
       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
     );
+  }
+
+  void _syncControllerFromState() {
+    final blocks = widget.editorState.blocks;
+    final idx = blocks.indexWhere((b) => b.id == widget.block.id);
+    if (idx < 0) return;
+    final actualText = blocks[idx].content.toPlainText();
+    if (_controller.text != actualText) {
+      _controller.value = TextEditingValue(
+        text: actualText,
+        selection: TextSelection.collapsed(offset: actualText.length),
+      );
+    }
   }
 
   Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
@@ -176,7 +323,6 @@ class _BlockCardState extends State<BlockCard> {
             properties: {'originalBlockId': widget.block.id},
           );
           widget.editorState.switchToChat();
-          // 引用由 ChatBar 内部处理，当前简化直接触发切换
         },
       ));
     }
@@ -260,5 +406,78 @@ class _BlockCardState extends State<BlockCard> {
       widget.editorState.updateImageSrc(widget.block.id, result);
     }
   }
+}
 
+/// 删除按钮 + 小尖角指向 block — 直接在 widget 树内渲染。
+class _DeletePill extends StatelessWidget {
+  final VoidCallback onDelete;
+
+  const _DeletePill({required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 按钮区域用 GestureDetector + HitTestBehavior.opaque 拦截，
+        // 防止外层 Listener 重复接收事件导致多次删除
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onDelete,
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              color: scheme.error.withValues(alpha: 0.04),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.delete_outline, size: 15, color: scheme.error),
+                const SizedBox(width: 5),
+                Text('删除', style: TextStyle(
+                  fontSize: 13,
+                  height: 1.0,
+                  color: scheme.error,
+                  fontWeight: FontWeight.w500,
+                )),
+              ],
+            ),
+          ),
+        ),
+        // 小尖角指向下方 block
+        CustomPaint(
+          size: const Size(10, 5),
+          painter: _TrianglePainter(color: scheme.error.withValues(alpha: 0.6)),
+        ),
+      ],
+    );
+  }
+}
+
+/// 画一个小三角形（朝下），作为指向 block 的尖角。
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+
+  const _TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TrianglePainter oldDelegate) => oldDelegate.color != color;
 }
