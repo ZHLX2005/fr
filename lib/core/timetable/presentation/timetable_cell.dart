@@ -157,47 +157,96 @@ class _CourseContent extends StatelessWidget {
           ),
         ),
         // 内容
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ..._buildTitleLines(course.title, textColor),
-              if (course.location != null && course.location!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    course.location!,
-                    style: TextStyle(
-                      color: subTextColor,
-                      fontSize: 8,
-                      height: 1.1,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth - 4; // 减去 horizontal padding
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ..._buildTitleLines(course.title, textColor, maxWidth),
+                  if (course.location != null && course.location!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text(
+                        course.location!,
+                        style: TextStyle(
+                          color: subTextColor,
+                          fontSize: 8,
+                          height: 1.1,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-            ],
-          ),
+                ],
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
-  /// 按长度自动分行，每行最多3字
-  List<Widget> _buildTitleLines(String title, Color textColor) {
+  /// 最多 3 行、每行最多 3 字，最多容纳 9 字；超过则第 9 位变 …
+  /// 如果塞不下 3 字，会自动缩小字号直到放得下（最低 8）
+  List<Widget> _buildTitleLines(String title, Color textColor, double maxWidth) {
     final len = title.length;
     if (len == 0) return [];
 
-    final textStyle = TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1);
-    final lines = <Widget>[];
+    const int maxChars = 9;
 
-    // 每行最多3字，最多2行
-    lines.add(Text(title.substring(0, len.clamp(0, 3)), style: textStyle, maxLines: 1, overflow: TextOverflow.ellipsis));
-
-    if (len > 3) {
-      lines.add(Text(title.substring(3, len.clamp(3, 6)), style: textStyle, maxLines: 1, overflow: TextOverflow.ellipsis));
+    // 初始字号
+    double fontSize;
+    if (len <= 3) {
+      fontSize = 12;
+    } else if (len <= 6) {
+      fontSize = 11;
+    } else {
+      fontSize = 10;
     }
 
+    // 如果塞不下 3 个字，逐级缩小（每次 0.5），最低到 8
+    // 中文字实际渲染宽度 ≈ fontSize * 1.15，3 字 ≈ fontSize * 3.45
+    while (fontSize > 8 && fontSize * 3.45 > maxWidth) {
+      fontSize -= 0.5;
+    }
+
+    final textStyle = TextStyle(
+      color: textColor,
+      fontSize: fontSize,
+      fontWeight: FontWeight.w600,
+      height: 1.1,
+    );
+
+    // 超过 9 字：前 8 字正常，第 9 位换成 …
+    final String display =
+        len > maxChars ? '${title.substring(0, maxChars - 1)}…' : title;
+
+    // 把 display 尽量均匀地分到 1~3 行，每行最多 3 字
+    final lineTexts = _splitEvenly(display, maxCharsPerLine: 3);
+    return lineTexts
+        .map((t) => Text(t, style: textStyle, maxLines: 1, overflow: TextOverflow.clip))
+        .toList();
+  }
+
+  /// 将字符串尽量均匀分成多行，每行不超过 maxCharsPerLine，最多 3 行
+  List<String> _splitEvenly(String text, {required int maxCharsPerLine}) {
+    final len = text.length;
+    if (len <= maxCharsPerLine) return [text];
+
+    // 确定行数（1~3）
+    final lineCount = len <= maxCharsPerLine * 2 ? 2 : 3;
+    final base = len ~/ lineCount;
+    final extra = len % lineCount; // 前几行多 1 个字
+
+    final lines = <String>[];
+    int start = 0;
+    for (int i = 0; i < lineCount; i++) {
+      final count = base + (i < extra ? 1 : 0);
+      lines.add(text.substring(start, start + count));
+      start += count;
+    }
     return lines;
   }
 }
