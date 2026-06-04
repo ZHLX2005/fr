@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/timetable_repository.dart';
 import '../domain/models.dart';
+import '../../../native/home_widget/timetable_widget_syncer.dart';
 
 /// 课表系统状态
 class TimetableState {
@@ -31,8 +32,9 @@ class TimetableState {
 
 /// TimetableStore - 单一数据源 (SSOT)
 class TimetableStore extends StateNotifier<TimetableState> {
-  TimetableStore(this._repo)
-    : super(
+  TimetableStore(this._repo, {TimetableWidgetSyncer? syncer})
+    : _syncer = syncer ?? const NoopTimetableWidgetSyncer(),
+      super(
         const TimetableState(
           config: TimetableConfig.defaultConfig,
           items: {},
@@ -41,6 +43,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
       );
 
   final TimetableRepository _repo;
+  final TimetableWidgetSyncer _syncer;
 
   /// 初始化并加载数据
   Future<void> hydrate() async {
@@ -55,6 +58,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
       final itemsMap = await _repo.loadItems();
 
       state = TimetableState(config: config, items: itemsMap, isLoading: false);
+      _syncToWidget();
     } catch (e) {
       state = TimetableState(
         config: TimetableConfig.defaultConfig,
@@ -80,6 +84,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     newItems[cellKey] = existing;
 
     state = state.copyWith(items: newItems);
+    _syncToWidget();
 
     try {
       await _repo.upsertItems(cellKey, existing);
@@ -108,6 +113,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     newItems[cellKey] = existing;
 
     state = state.copyWith(items: newItems);
+    _syncToWidget();
 
     try {
       await _repo.upsertItems(cellKey, existing);
@@ -139,6 +145,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     }
 
     state = state.copyWith(items: newItems);
+    _syncToWidget();
 
     try {
       if (remaining.isEmpty) {
@@ -157,6 +164,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
   Future<void> clearAllItems() async {
     final newItems = <String, List<CourseItem>>{};
     state = state.copyWith(items: newItems);
+    _syncToWidget();
     try {
       await _repo.clearItems();
     } catch (e) {
@@ -263,6 +271,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     await _repo.saveItems(newItems.values.expand((list) => list).toList());
 
     state = state.copyWith(config: newConfig, items: newItems);
+    _syncToWidget();
 
     if (deletedKeys.isNotEmpty) {
       return '配置缩小，已删除 ${deletedKeys.length} 个超出范围的项目';
@@ -279,6 +288,15 @@ class TimetableStore extends StateNotifier<TimetableState> {
     );
     await _repo.saveConfig(newConfig);
     state = state.copyWith(config: newConfig);
+    _syncToWidget();
+  }
+
+  /// 推送当前课表到桌面小组件
+  ///
+  /// 委托给注入的 [TimetableWidgetSyncer]，
+  /// 即使主 app 进程被杀，下次系统 30 分钟周期或用户点刷新时仍能显示。
+  void _syncToWidget() {
+    _syncer.sync(config: state.config, items: state.items);
   }
 
   /// Repository Provider
@@ -286,11 +304,22 @@ class TimetableStore extends StateNotifier<TimetableState> {
     throw UnimplementedError('TimetableRepository must be provided in main()');
   });
 
+  /// 桌面小组件 Syncer Provider
+  ///
+  /// 默认 throw，主流程应在 ProviderScope.overrides 中注入 [DefaultTimetableWidgetSyncer]；
+  /// 单测可注入 [NoopTimetableWidgetSyncer] 跳过 widget 同步。
+  static final syncerProvider = Provider<TimetableWidgetSyncer>((ref) {
+    throw UnimplementedError(
+      'TimetableWidgetSyncer must be provided in main()',
+    );
+  });
+
   /// 初始化 Provider
   static final provider = StateNotifierProvider<TimetableStore, TimetableState>(
     (ref) {
       final repo = ref.watch(repoProvider);
-      return TimetableStore(repo);
+      final syncer = ref.watch(syncerProvider);
+      return TimetableStore(repo, syncer: syncer);
     },
   );
 

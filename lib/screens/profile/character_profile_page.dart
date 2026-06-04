@@ -174,7 +174,6 @@ class _ProfileDot extends StatelessWidget {
 
 class _CharacterDetailPanel extends StatelessWidget {
   const _CharacterDetailPanel({
-    super.key,
     required this.profile,
     required this.fileLoader,
     required this.hexagonItems,
@@ -320,7 +319,6 @@ class _CharacterDetailPanel extends StatelessWidget {
 
 class _StoryDetailPanel extends StatefulWidget {
   const _StoryDetailPanel({
-    super.key,
     required this.story,
   });
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../lab_container.dart';
-import '../providers/lab_calendar_provider.dart';
+import 'calendar/providers/lab_calendar_provider.dart';
 import 'calendar/calendar_month_grid.dart';
 
 /// 日历待办 Demo

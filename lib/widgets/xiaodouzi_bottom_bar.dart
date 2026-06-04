@@ -36,15 +36,15 @@ class _XiaoDouZiBottomBarState extends State<XiaoDouZiBottomBar>
   static const double _capsuleH = 50;
 
   static const List<IconData> _icons = [
-    Icons.dashboard_outlined,
-    Icons.chat_bubble_outline,
-    Icons.timer_outlined,
+    Icons.dashboard_outlined,   // 主页（左）
+    Icons.timer_outlined,       // Time（中）
+    Icons.chat_bubble_outline,  // AI 助手（右）
   ];
 
   static const List<IconData> _activeIcons = [
     Icons.dashboard,
-    Icons.chat_bubble,
     Icons.timer,
+    Icons.chat_bubble,
   ];
 
   late final AnimationController _ctrl;

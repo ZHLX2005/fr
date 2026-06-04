@@ -49,8 +49,8 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
     });
   }
 
-  void _insertDemoLink(String demoKey, String title) {
-    final link = '[$title](fr://lab/demo/$demoKey)';
+  void _insertDemoLink(SchemaEntry entry) {
+    final link = '[${entry.title}](${entry.schema})';
     final text = _inputController.text;
     final selection = _inputController.selection;
 
@@ -102,8 +102,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                         return ActionChip(
                           avatar: Icon(entry.icon, size: 16),
                           label: Text(entry.title),
-                          onPressed: () =>
-                              _insertDemoLink(entry.key, entry.title),
+                          onPressed: () => _insertDemoLink(entry),
                         );
                       }).toList(),
                     ),
@@ -230,8 +229,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                         return ActionChip(
                           avatar: Icon(entry.icon, size: 16),
                           label: Text(entry.title),
-                          onPressed: () =>
-                              _insertDemoLink(entry.key, entry.title),
+                          onPressed: () => _insertDemoLink(entry),
                         );
                       }).toList(),
                     ),

@@ -170,6 +170,19 @@
                 android:resource="@xml/calendar_widget_info" />
         </receiver>
 
+        <!-- 课表桌面小组件 -->
+        <receiver
+            android:name=".native.widget.TimetableWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="io.github.xiaodouzi.fr.action.TIMETABLE_WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/timetable_widget_info" />
+        </receiver>
+
         <!-- image_picker FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"
