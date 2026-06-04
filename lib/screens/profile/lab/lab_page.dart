@@ -11,7 +11,7 @@ import 'package:flutter_reorderable_grid_view/entities/reorderable_animation_con
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 
 import '../../../lab/lab_container.dart';
-import '../../../lab/demos/grid_dashboard/providers/lab_card_provider.dart';
+import 'providers/lab_card_provider.dart';
 import '../../../services/lab_image_cache_service.dart';
 import '../../../widgets/image_picker_widget.dart';
 import '../../../core/color/color_utils.dart';
