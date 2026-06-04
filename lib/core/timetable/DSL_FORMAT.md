@@ -72,9 +72,21 @@
 ```
 
 > 每天最多 N 节，N 由 `parseDsl` 调用方传入的 `defaultSlotCount` 决定；
-> 默认 6（参见 `lib/core/timetable/domain/models.dart::TimetableConfig.maxSlotsPerDay`），
-> 实际项目里从 `TimetableConfig.slotsPerDay` 取（用户可在课表设置里调到 10）。
-> SICAU 教务处每周每天最多 10 节，调用方需传 `defaultSlotCount: 10`。
+> 默认 5（参见 `lib/core/timetable/domain/models.dart::TimetableConfig.defaultConfig.slotsPerDay`），
+> 实际项目里从 `TimetableConfig.slotsPerDay` 取（用户可在课表设置里调到 6）。
+>
+> **与 SICAU 教务处"节次"的对应**（中国大学"两节连上"是 1 节课）：
+>
+> | SICAU 节次 | DSL slot | 说明 |
+> |------------|----------|------|
+> | `1-2` / `1` | 1 | 上午第一节（两节连上） |
+> | `3-4` / `3` | 2 | 上午第二节 |
+> | `5-6` / `5` | 3 | 下午第一节 |
+> | `7-8` / `7` | 4 | 下午第二节 |
+> | `9-10` / `9` | 5 | 晚上 |
+>
+> 公式：`project_slot = (sicau_slot + 1) // 2`
+> SICAU 抓取脚本 `scripts/sicau_timetable/fetch_sicau_timetable.py` 已自动做此映射。
 
 ### 4. 周次 `w`
 
