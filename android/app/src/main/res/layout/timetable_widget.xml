@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  课表桌面小组件布局
+  ───────────────────
+  字号 / 单元格 比例硬编码在 XML 中（按用户要求）：
+  - 单元格宽 ≈ 38dp（5×4 widget，350dp / 8 列近似）
+  - 课程标题 textSize = 28sp，约占单元格宽的 0.74 ≈ 0.75
+  - 课程标题 1 字（Chinese 字符约 1:1 占满 textSize），用 ellipsize 截断
+  - 节数 / 星期 标签 textSize = 12sp（label 不需要填满 cell）
+  - 主标题 textSize = 14sp
+  - 单元格 layout_margin = 1dp（格子间隙）
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/timetable_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background">
+
+    <!-- 顶部标题（点击触发 ACTION_REFRESH） -->
+    <TextView
+        android:id="@+id/timetable_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="2dp"
+        android:text="课程表"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="2dp"
+        android:contentDescription="刷新课程表" />
+
+    <!-- 网格容器：1 行表头 + 5 行数据 -->
+    <LinearLayout
+        android:id="@+id/timetable_grid"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:layout_marginTop="22dp"
+        android:paddingHorizontal="2dp"
+        android:paddingBottom="2dp">
+
+        <!-- ── 表头：1 列节数占位 + 7 列星期 ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:weightSum="8.4">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.2"
+                android:gravity="center"
+                android:text="" />
+
+            <TextView
+                android:id="@+id/day_0"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="一"
+                android:textColor="#666666"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/day_1"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="二"
+                android:textColor="#666666"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/day_2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="三"
+                android:textColor="#666666"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/day_3"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="四"
+                android:textColor="#666666"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/day_4"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="五"
+                android:textColor="#666666"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/day_5"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="六"
+                android:textColor="#666666"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/day_6"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="日"
+                android:textColor="#666666"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ── 数据行模板（5 行重复）── -->
+        <!-- Row 0: Slot 1 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="3"
+            android:orientation="horizontal"
+            android:weightSum="8.4">
+
+            <TextView
+                android:id="@+id/slot_0"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.2"
+                android:gravity="center"
+                android:text="1"
+                android:textColor="#374151"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/cell_0_0"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_0_1"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_0_2"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_0_3"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_0_4"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_0_5"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_0_6"
+                style="@style/TimetableCell" />
+        </LinearLayout>
+
+        <!-- Row 1: Slot 2 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="3"
+            android:orientation="horizontal"
+            android:weightSum="8.4">
+
+            <TextView
+                android:id="@+id/slot_1"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.2"
+                android:gravity="center"
+                android:text="2"
+                android:textColor="#374151"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/cell_1_0"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_1_1"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_1_2"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_1_3"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_1_4"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_1_5"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_1_6"
+                style="@style/TimetableCell" />
+        </LinearLayout>
+
+        <!-- Row 2: Slot 3 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="3"
+            android:orientation="horizontal"
+            android:weightSum="8.4">
+
+            <TextView
+                android:id="@+id/slot_2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.2"
+                android:gravity="center"
+                android:text="3"
+                android:textColor="#374151"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/cell_2_0"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_2_1"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_2_2"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_2_3"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_2_4"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_2_5"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_2_6"
+                style="@style/TimetableCell" />
+        </LinearLayout>
+
+        <!-- Row 3: Slot 4 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="3"
+            android:orientation="horizontal"
+            android:weightSum="8.4">
+
+            <TextView
+                android:id="@+id/slot_3"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.2"
+                android:gravity="center"
+                android:text="4"
+                android:textColor="#374151"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/cell_3_0"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_3_1"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_3_2"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_3_3"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_3_4"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_3_5"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_3_6"
+                style="@style/TimetableCell" />
+        </LinearLayout>
+
+        <!-- Row 4: Slot 5 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="3"
+            android:orientation="horizontal"
+            android:weightSum="8.4">
+
+            <TextView
+                android:id="@+id/slot_4"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.2"
+                android:gravity="center"
+                android:text="5"
+                android:textColor="#374151"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/cell_4_0"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_4_1"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_4_2"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_4_3"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_4_4"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_4_5"
+                style="@style/TimetableCell" />
+            <TextView
+                android:id="@+id/cell_4_6"
+                style="@style/TimetableCell" />
+        </LinearLayout>
+
+    </LinearLayout>
+</FrameLayout>

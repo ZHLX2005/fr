@@ -20,6 +20,7 @@ import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
+import 'native/home_widget/timetable_widget_syncer.dart';
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,7 +48,12 @@ void main() async {
     NoteRootScope(
       noteRoot: noteRoot,
       child: ProviderScope(
-        overrides: [TimetableStore.repoProvider.overrideWithValue(hiveRepo)],
+        overrides: [
+          TimetableStore.repoProvider.overrideWithValue(hiveRepo),
+          TimetableStore.syncerProvider.overrideWithValue(
+            const DefaultTimetableWidgetSyncer(),
+          ),
+        ],
         child: const MyApp(),
       ),
     ),
