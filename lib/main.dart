@@ -97,7 +97,17 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       _navigateToLab();
     } else if (call.method == 'navigateToCalendar') {
       _navigateToCalendar();
+    } else if (call.method == 'navigateToTimetable') {
+      _navigateToTimetable();
     }
+  }
+
+  void _navigateToTimetable() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => const TimetablePage()),
+      );
+    });
   }
 
   void _navigateToLab() {

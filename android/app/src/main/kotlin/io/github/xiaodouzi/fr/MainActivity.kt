@@ -48,6 +48,7 @@ class MainActivity : FlutterActivity() {
         // Widget Channel
         widgetChannel = WidgetChannel(messenger).apply {
             onNavigateToLab = { navigateToLab() }
+            onNavigateToTimetable = { navigateToTimetable() }
         }
 
         // Clock Channel
@@ -197,6 +198,8 @@ class MainActivity : FlutterActivity() {
             val uriStr = uri.toString()
             if (uriStr == "fr://calendar" || uri.path == "/calendar") {
                 widgetChannel.notifyNavigateToCalendar()
+            } else if (uriStr == "fr://timetable" || uri.path == "/timetable") {
+                widgetChannel.notifyNavigateToTimetable()
             } else if (uriStr == "fr://lab" || uri.path == "/lab") {
                 widgetChannel.notifyNavigateToLab()
             }
@@ -205,6 +208,10 @@ class MainActivity : FlutterActivity() {
 
     private fun navigateToLab() {
         widgetChannel.notifyNavigateToLab()
+    }
+
+    private fun navigateToTimetable() {
+        widgetChannel.notifyNavigateToTimetable()
     }
 
     private fun registerRegionCaptureReceiver() {
