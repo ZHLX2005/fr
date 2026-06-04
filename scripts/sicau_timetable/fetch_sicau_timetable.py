@@ -147,32 +147,72 @@ def fetch_timetable_html(session: requests.Session, semester: str) -> str:
     return r.text
 
 
-def parse_courses(html: str) -> List[Dict[str, str]]:
-    """从课表页 HTML 中提取课程行，每行是一个 dict"""
+def parse_courses(html: str, debug_html_path: Optional[str] = None) -> List[Dict[str, str]]:
+    """从课表页 HTML 中提取课程行，每行是一个 dict
+
+    匹配策略（按优先级）：
+      1. 表头行同时含 "课程名称" + "编号"（标准情况）
+      2. 表头行单元格数 == 14 且第 2 列含中文课程名关键词（兜底）
+      3. 整页文本里同时出现 "课程名称" 和 "编号" 但跨行/跨 colspan
+    """
     soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table")
 
-    # 找那张“校区 课程名称 编号 …”的明细表
-    target = None
-    for t in tables:
-        head = "".join(t.find("tr").get_text() for _ in [0]) if t.find("tr") else ""
-        # 兼容 BeautifulSoup 不同的取法
+    candidates: List[Tuple[int, "Tag", int]] = []  # (列数, table, 得分)
+    for idx, t in enumerate(tables):
         first_row = t.find("tr")
-        head = first_row.get_text(" ", strip=True) if first_row else ""
-        if "课程名称" in head and "编号" in head:
+        if not first_row:
+            continue
+        header_cells = [c.get_text(" ", strip=True) for c in first_row.find_all(["th", "td"])]
+        head_text = " ".join(header_cells)
+        score = 0
+        if "课程名称" in head_text and "编号" in head_text:
+            score += 100
+        if "校区" in head_text:
+            score += 10
+        if "上课时间" in head_text:
+            score += 10
+        if "教师" in head_text:
+            score += 5
+        if "学分" in head_text:
+            score += 5
+        if score > 0:
+            candidates.append((len(header_cells), t, score, header_cells))
+
+    if not candidates:
+        if debug_html_path:
+            try:
+                with open(debug_html_path, "w", encoding="utf-8") as f:
+                    f.write(html)
+            except OSError:
+                pass
+        snippet = ""
+        for idx, t in enumerate(tables[:5]):
+            head = t.find("tr")
+            head_text = head.get_text(" ", strip=True) if head else "(no tr)"
+            snippet += f"\n  table[{idx}] header: {head_text[:100]}"
+        raise RuntimeError(
+            f"未找到课表明细表（包含 课程名称/编号 列的 table）\n"
+            f"页面共 {len(tables)} 个 table，前 5 个 header 如下:{snippet}\n"
+            f"如需离线排查，可重跑带 --debug-html 参数保存原始 HTML"
+        )
+
+    # 选得分最高、列数 >= 10 的（明细表通常 14 列）
+    candidates.sort(key=lambda x: (x[2], x[0]), reverse=True)
+    for cols, t, score, _ in candidates:
+        if cols >= 10:
             target = t
             break
-    if not target:
-        raise RuntimeError("未找到课表明细表（包含 课程名称/编号 列的 table）")
+    else:
+        target = candidates[0][1]
 
     rows = target.find_all("tr")
-    # 第一行是表头
     if len(rows) < 2:
-        raise RuntimeError("课表为空")
+        raise RuntimeError("课表为空（仅表头，无数据行）")
 
     header_cells = [c.get_text(" ", strip=True) for c in rows[0].find_all(["th", "td"])]
     if header_cells[:2] != ["校区", "课程名称"]:
-        # 实际表头可能和 COLUMN_NAMES 一致，按 COLUMN_NAMES 对齐
+        # 实际表头和 COLUMN_NAMES 不完全一致时按 COLUMN_NAMES 对齐
         header_cells = COLUMN_NAMES
 
     courses: List[Dict[str, str]] = []
@@ -380,6 +420,8 @@ def main() -> int:
     p.add_argument("--semester", default=DEFAULT_SEMESTER, help="学期，如 2025-2026-2")
     p.add_argument("--output", "-o", default="timetable.dsl", help="DSL 输出文件路径")
     p.add_argument("--json-output", default=None, help="可选，结构化 JSON 输出路径")
+    p.add_argument("--debug-html", default=None,
+                   help="解析失败时保存原始 HTML 到该路径，便于排查")
     args = p.parse_args()
 
     session = requests.Session()
@@ -393,7 +435,7 @@ def main() -> int:
     print(f"      HTML 大小 {len(html)} 字节")
 
     print("[3/4] 解析课表 ...")
-    courses = parse_courses(html)
+    courses = parse_courses(html, debug_html_path=args.debug_html)
     print(f"      解析到 {len(courses)} 门课程")
 
     dsl = to_dsl(courses)
