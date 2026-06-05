@@ -5,6 +5,7 @@ import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
 import 'ai/ai_bar.dart';
+import 'ai/ai_conversation.dart' show AiConversationOverlay;
 
 
 
@@ -220,17 +221,33 @@ class _BlockCardState extends State<BlockCard> {
   // === TextField ===
 
   Widget _buildTextField() {
-    // AI Bar 模式：当前 block 处于激活态
-    if (widget.editorState.isAiBarForBlock(widget.block.id)) {
+    final blockId = widget.block.id;
+    final es = widget.editorState;
+
+    // AI Bar 模式
+    if (es.isAiBarForBlock(blockId)) {
       return AiBar(
-        blockId: widget.block.id,
-        onSend: (text) {
-          widget.editorState.sendAiPrompt(widget.block.id, text);
-        },
-        onCancel: () {
-          widget.editorState.deactivateAiBar();
-        },
+        blockId: blockId,
+        isLoading: false,
+        onSend: (text) => es.sendAiPrompt(blockId, text),
+        onCancel: () => es.deactivateAiBar(),
       );
+    }
+
+    // AI 正在加载 — 显示 loading bar inline
+    if (es.isAiLoading(blockId)) {
+      return AiBar(
+        blockId: blockId,
+        isLoading: true,
+        onSend: (_) {},
+        onCancel: () {},
+      );
+    }
+
+    // AI 已返回结果 — 显示结果 inline
+    final aiResult = es.getAiResult(blockId);
+    if (aiResult != null) {
+      return _buildAiResult(context, aiResult);
     }
 
     final ml = widget.block.type.multiline;
@@ -308,6 +325,87 @@ class _BlockCardState extends State<BlockCard> {
       widget.block,
       textField: textField,
       onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
+    );
+  }
+
+  Widget _buildAiResult(BuildContext context, String text) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.primary, width: 1.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            text,
+            style: TextStyle(fontSize: 14, color: colorScheme.onSurface, height: 1.5),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _aiResultBtn(context, Icons.forum, '对话', () {
+                final es = widget.editorState;
+                final text = es.getAiResult(widget.block.id) ?? '';
+                es.clearAiResult(widget.block.id);
+                final blockText = widget.block.content.toPlainText();
+                if (context.mounted) {
+                  AiConversationOverlay.show(
+                    context,
+                    blockId: widget.block.id,
+                    initialText: text,
+                    blockTitle: blockText,
+                  );
+                }
+              }),
+              const Spacer(),
+              _aiResultBtn(context, Icons.undo, null, null),
+              const SizedBox(width: 8),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  iconSize: 16,
+                  icon: const Icon(Icons.check, color: Colors.white),
+                  onPressed: () => widget.editorState.clearAiResult(widget.block.id),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _aiResultBtn(BuildContext context, IconData icon, String? label, VoidCallback? onTap) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: Container(
+          height: 28,
+          padding: label != null ? const EdgeInsets.symmetric(horizontal: 6) : EdgeInsets.zero,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
+              if (label != null) ...[
+                const SizedBox(width: 3),
+                Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 

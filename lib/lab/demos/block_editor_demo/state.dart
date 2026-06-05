@@ -27,6 +27,12 @@ class EditorState extends ChangeNotifier {
   /// 当前正在展示 AI Bar 的 block id
   String? _activeAiBarBlockId;
 
+  /// 当前正在加载 AI 的 block id（用于显示 loading 状态）
+  String? _aiLoadingBlockId;
+
+  /// AI 回复结果缓存：blockId → 回复文本
+  final Map<String, String> _aiResults = {};
+
   EditorState({required NoteFactory noteFactory, BottomToolbarFactory? toolbarFactory})
     : _noteFactory = noteFactory,
       toolbarFactory = toolbarFactory ?? BottomToolbarFactory();
@@ -53,6 +59,15 @@ class EditorState extends ChangeNotifier {
   bool hasAiBubble(String blockId) =>
       _aiConversations[blockId]?.hasConversation ?? false;
 
+  /// AI Bar 是否正在加载
+  bool isAiLoading(String blockId) => _aiLoadingBlockId == blockId;
+
+  /// 获取 AI 回复结果
+  String? getAiResult(String blockId) => _aiResults[blockId];
+
+  /// block 是否正在显示 AI 回复 inline
+  bool isAiShowingResult(String blockId) => _aiResults.containsKey(blockId);
+
   /// 激活 AI Bar（空格触发），同时选中该 block。
   void activateAiBar(String blockId) {
     _selectedId = blockId;
@@ -71,28 +86,24 @@ class EditorState extends ChangeNotifier {
   Future<void> sendAiPrompt(String blockId, String prompt) async {
     if (prompt.isEmpty) return;
 
-    // 关闭 AI Bar
+    // 关闭 AI Bar，进入 loading 态
     _activeAiBarBlockId = null;
-
-    // 获取或创建对话
-    final conv = _aiConversations.putIfAbsent(
-      blockId,
-      () => BlockAIConversation(blockId: blockId),
-    );
-
-    // 添加用户消息
-    conv.addMessage(AIChatMessage.user(prompt));
-
-    // 添加 loading
-    conv.addMessage(AIChatMessage.loading());
+    _aiLoadingBlockId = blockId;
+    _aiResults.remove(blockId);
 
     notifyListeners();
 
     // mock AI 回复
     await Future.delayed(const Duration(seconds: 1));
 
-    conv.removeLoading();
-    conv.addMessage(AIChatMessage.ai('已完成请求："$prompt"'));
+    _aiLoadingBlockId = null;
+    _aiResults[blockId] = '已完成请求："$prompt"';
+    notifyListeners();
+  }
+
+  /// 清除 AI 回复结果
+  void clearAiResult(String blockId) {
+    _aiResults.remove(blockId);
     notifyListeners();
   }
 
