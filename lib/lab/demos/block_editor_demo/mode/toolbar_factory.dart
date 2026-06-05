@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 import '../state.dart';
 import 'toolbar_mode.dart';
 import 'edit_toolbar.dart';
-import 'chat_bar.dart';
 
 class BottomToolbarFactory extends ChangeNotifier {
   final _registry = <String, ToolbarMode>{};
   String _currentMode = 'edit';
 
   BottomToolbarFactory() {
-    final chat = ChatBar();
-    chat.onStateChanged = notifyListeners;
-    register(chat);
     register(EditToolbar());
   }
 

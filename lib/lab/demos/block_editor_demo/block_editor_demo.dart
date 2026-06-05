@@ -145,12 +145,9 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             context,
             _editorState,
           ),
-          body: _editorState.toolbarFactory.buildBody(
-            context,
-            _editorState,
-            blocks.isEmpty
-                ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
-                : ReorderableListView.builder(
+          body: blocks.isEmpty
+              ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
+              : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: blocks.length + 1,
                   onReorder: (oldIndex, newIndex) {
@@ -167,15 +164,15 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                         child: const SizedBox(height: 60),
                       );
                     }
+                    final block = blocks[index];
                     return BlockCard(
-                      key: ValueKey(blocks[index].id),
-                      block: blocks[index],
-                      isSelected: blocks[index].id == selectedId,
+                      key: ValueKey(block.id),
+                      block: block,
+                      isSelected: block.id == selectedId,
                       editorState: _editorState,
                     );
                   },
                 ),
-          ),
         );
       },
     );
