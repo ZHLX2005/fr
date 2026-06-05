@@ -8,6 +8,8 @@ import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';
 import 'note_panel.dart';
+import 'ai/ai_bubble.dart';
+import 'ai/ai_conversation.dart' show AiConversationOverlay;
 
 
 /// 块编辑器 Demo（持久化版）
@@ -165,7 +167,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                       );
                     }
                     final block = blocks[index];
-                    return BlockCard(
+                    return _BlockWithBubble(
                       key: ValueKey(block.id),
                       block: block,
                       isSelected: block.id == selectedId,
@@ -175,6 +177,50 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                 ),
         );
       },
+    );
+  }
+}
+
+/// 一个 block 卡片 + 它的 AI 气泡（如果有）
+class _BlockWithBubble extends StatelessWidget {
+  final Block block;
+  final bool isSelected;
+  final EditorState editorState;
+
+  const _BlockWithBubble({
+    super.key,
+    required this.block,
+    required this.isSelected,
+    required this.editorState,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final conv = editorState.getConversation(block.id);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        BlockCard(
+          block: block,
+          isSelected: isSelected,
+          editorState: editorState,
+        ),
+        if (conv != null && conv.hasConversation)
+          AiBubble(
+            conversation: conv,
+            onOpenConversation: () {
+              final text = conv.latestResponseText;
+              conv.clearBubble();
+              editorState.refresh();
+              AiConversationOverlay.show(
+                context,
+                blockId: block.id,
+                initialText: text,
+                blockTitle: block.content.toPlainText(),
+              );
+            },
+          ),
+      ],
     );
   }
 }

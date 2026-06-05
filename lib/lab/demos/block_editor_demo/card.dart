@@ -5,7 +5,6 @@ import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
 import 'ai/ai_bar.dart';
-import 'ai/ai_conversation.dart' show AiConversationOverlay;
 
 
 
@@ -222,33 +221,17 @@ class _BlockCardState extends State<BlockCard> {
   // === TextField ===
 
   Widget _buildTextField() {
-    final blockId = widget.block.id;
-    final es = widget.editorState;
-
-    // AI Bar 模式
-    if (es.isAiBarForBlock(blockId)) {
+    // AI Bar 模式：当前 block 处于激活态
+    if (widget.editorState.isAiBarForBlock(widget.block.id)) {
       return AiBar(
-        blockId: blockId,
-        isLoading: false,
-        onSend: (text) => es.sendAiPrompt(blockId, text),
-        onCancel: () => es.deactivateAiBar(),
+        blockId: widget.block.id,
+        onSend: (text) {
+          widget.editorState.sendAiPrompt(widget.block.id, text);
+        },
+        onCancel: () {
+          widget.editorState.deactivateAiBar();
+        },
       );
-    }
-
-    // AI 正在加载 — 显示 loading bar inline
-    if (es.isAiLoading(blockId)) {
-      return AiBar(
-        blockId: blockId,
-        isLoading: true,
-        onSend: (_) {},
-        onCancel: () {},
-      );
-    }
-
-    // AI 已返回结果 — 显示结果 inline
-    final aiResult = es.getAiResult(blockId);
-    if (aiResult != null) {
-      return _buildAiResult(context, aiResult);
     }
 
     final ml = widget.block.type.multiline;
