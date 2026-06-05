@@ -34,8 +34,6 @@ class _BlockCardState extends State<BlockCard> {
   Timer? _longPressTimer;
   Offset? _longPressOrigin;
 
-  // Backspace 级联保护
-  DateTime? _lastBackspaceDelete;
 
   @override
   void initState() {
@@ -262,13 +260,9 @@ class _BlockCardState extends State<BlockCard> {
 
         if (event.logicalKey == LogicalKeyboardKey.backspace
             && controllerEmpty && blockEmpty) {
-          // 级联保护：300ms 内连续 Backspace 只生效一次
-          if (_lastBackspaceDelete != null &&
-              DateTime.now().difference(_lastBackspaceDelete!) <
-                  const Duration(milliseconds: 300)) {
+          if (widget.editorState.isBackspaceOnCooldown()) {
             return KeyEventResult.ignored;
           }
-          _lastBackspaceDelete = DateTime.now();
           widget.editorState.deleteBlock(silent: true);
           _scheduleRefresh();
           return KeyEventResult.handled;

@@ -33,6 +33,21 @@ class EditorState extends ChangeNotifier {
   /// AI 回复结果缓存：blockId → 解析后的 Block 列表
   final Map<String, List<Block>> _aiResults = {};
 
+  /// Backspace 级联保护（放在 EditorState 中不随 widget 销毁）
+  DateTime? _lastBackspaceDelete;
+  static const _backspaceCooldown = Duration(milliseconds: 400);
+
+  /// 检查是否处于 Backspace 冷却中，不在则记录时间并返回 false
+  bool isBackspaceOnCooldown() {
+    final now = DateTime.now();
+    if (_lastBackspaceDelete != null &&
+        now.difference(_lastBackspaceDelete!) < _backspaceCooldown) {
+      return true;
+    }
+    _lastBackspaceDelete = now;
+    return false;
+  }
+
   EditorState({required NoteFactory noteFactory, BottomToolbarFactory? toolbarFactory})
     : _noteFactory = noteFactory,
       toolbarFactory = toolbarFactory ?? BottomToolbarFactory();
@@ -233,7 +248,7 @@ class EditorState extends ChangeNotifier {
     final idx = _blocks.indexWhere((b) => b.id == _selectedId);
     if (idx < 0) return;
     _blocks.removeAt(idx);
-    _selectedId = _blocks.isNotEmpty
+    _selectedId = _blocks.isNotEmpty && idx > 0
         ? _blocks[(idx - 1).clamp(0, _blocks.length - 1)].id
         : null;
     _deleteMenuBlockId = null;
