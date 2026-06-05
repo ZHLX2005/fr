@@ -4,9 +4,10 @@ import 'overlay/overlay_geometry.dart';
 import 'overlay/overlay_manager.dart';
 
 OverlayEntry? _currentOverlay;
+OverlayEntry? _minimizeIconEntry;
+_ConversationStateHolder? _holder;
 
-/// 浮动对话窗口 — 可拖动、可缩放，点击"对话"按钮后弹出。
-/// 内部维护自己的消息列表，不共享 BlockAIConversation。
+/// 浮动对话窗口 — 可拖动、可缩放、可最小化为悬浮icon。
 class AiConversationOverlay {
   static void show(
     BuildContext context, {
@@ -14,7 +15,7 @@ class AiConversationOverlay {
     String initialText = '',
     String blockTitle = '',
   }) {
-    _currentOverlay?.remove();
+    dismissAll();
 
     final overlay = Overlay.of(context);
     final screenSize = MediaQuery.of(context).size;
@@ -28,48 +29,96 @@ class AiConversationOverlay {
           .clamp(8, screenSize.height - panelHeight - 8),
     );
 
-    // 将初始文本复制为本地消息列表，不引用 BlockAIConversation
-    final localMessages = <AIChatMessage>[];
+    // 保存状态
+    _holder = _ConversationStateHolder(
+      blockId: blockId,
+      blockTitle: blockTitle,
+      initialOffset: initialOffset,
+      initialSize: const Size(panelWidth, panelHeight),
+    );
     if (initialText.isNotEmpty) {
-      localMessages.add(AIChatMessage.ai(initialText));
+      _holder!.messages.add(AIChatMessage.ai(initialText));
     }
 
-    final overlayEntry = OverlayEntry(
-      builder: (ctx) => _AiConversationOverlayWidget(
-        localMessages: localMessages,
-        blockTitle: blockTitle,
-        initialOffset: initialOffset,
-        initialSize: const Size(panelWidth, panelHeight),
-        onClose: () {
-          _currentOverlay?.remove();
-          _currentOverlay = null;
-        },
-      ),
-    );
-
-    _currentOverlay = overlayEntry;
-    overlay.insert(overlayEntry);
+    _showWindow(overlay);
   }
 
-  static void dismiss() {
+  static void _showWindow(OverlayState overlay) {
+    _currentOverlay?.remove();
+    _currentOverlay = OverlayEntry(
+      builder: (ctx) => _AiConversationOverlayWidget(
+        holder: _holder!,
+      ),
+    );
+    overlay.insert(_currentOverlay!);
+  }
+
+  static void _minimize(OverlayState overlay) {
     _currentOverlay?.remove();
     _currentOverlay = null;
+
+    _minimizeIconEntry = OverlayEntry(
+      builder: (ctx) => Positioned(
+        right: 16,
+        bottom: 80,
+        child: GestureDetector(
+          onTap: () => _restore(overlay),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(24),
+            color: Theme.of(ctx).colorScheme.primary,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Theme.of(ctx).colorScheme.primary,
+              ),
+              child: Icon(Icons.forum, color: Colors.white, size: 20),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(_minimizeIconEntry!);
+  }
+
+  static void _restore(OverlayState overlay) {
+    _minimizeIconEntry?.remove();
+    _minimizeIconEntry = null;
+    _showWindow(overlay);
+  }
+
+  static void dismissAll() {
+    _currentOverlay?.remove();
+    _currentOverlay = null;
+    _minimizeIconEntry?.remove();
+    _minimizeIconEntry = null;
+    _holder = null;
   }
 }
 
-class _AiConversationOverlayWidget extends StatefulWidget {
-  final List<AIChatMessage> localMessages;
+/// 保存跨最小化/恢复的对话状态
+class _ConversationStateHolder {
+  final String blockId;
   final String blockTitle;
+  final List<AIChatMessage> messages;
   final Offset initialOffset;
   final Size initialSize;
-  final VoidCallback onClose;
 
-  const _AiConversationOverlayWidget({
-    required this.localMessages,
+  _ConversationStateHolder({
+    required this.blockId,
     required this.blockTitle,
     required this.initialOffset,
     required this.initialSize,
-    required this.onClose,
+  }) : messages = [];
+}
+
+class _AiConversationOverlayWidget extends StatefulWidget {
+  final _ConversationStateHolder holder;
+
+  const _AiConversationOverlayWidget({
+    required this.holder,
   });
 
   @override
@@ -82,18 +131,16 @@ class _AiConversationOverlayWidgetState
   late TextEditingController _inputController;
   late ScrollController _scrollController;
   late OverlayManager _manager;
-  late List<AIChatMessage> _messages;
 
   @override
   void initState() {
     super.initState();
     _inputController = TextEditingController();
     _scrollController = ScrollController();
-    _messages = List.of(widget.localMessages); // 独立副本
     _manager = OverlayManager(
       geo: OverlayGeometry(
-        position: widget.initialOffset,
-        size: widget.initialSize,
+        position: widget.holder.initialOffset,
+        size: widget.holder.initialSize,
       ),
     );
     _manager.addListener(_onGeometryChanged);
@@ -131,23 +178,24 @@ class _AiConversationOverlayWidgetState
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
 
-    final msg = AIChatMessage.user(text);
-    _messages.add(msg);
+    widget.holder.messages.add(AIChatMessage.user(text));
     _inputController.clear();
     setState(() {});
 
-    _messages.add(AIChatMessage.loading());
+    widget.holder.messages.add(AIChatMessage.loading());
     setState(() {});
     _scrollToBottom();
 
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
-      _messages.removeWhere((m) => m.isLoading);
-      _messages.add(AIChatMessage.ai('回复："$text"'));
+      widget.holder.messages.removeWhere((m) => m.isLoading);
+      widget.holder.messages.add(AIChatMessage.ai('回复："$text"'));
       setState(() {});
       _scrollToBottom();
     });
   }
+
+  OverlayState? _findOverlay() => Overlay.of(context, rootOverlay: true);
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +205,7 @@ class _AiConversationOverlayWidgetState
       children: [
         Positioned.fill(
           child: GestureDetector(
-            onTap: widget.onClose,
+            onTap: AiConversationOverlay.dismissAll,
             child: Container(color: Colors.black.withValues(alpha: 0.03)),
           ),
         ),
@@ -229,7 +277,7 @@ class _AiConversationOverlayWidgetState
 
   Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
@@ -245,29 +293,42 @@ class _AiConversationOverlayWidgetState
                   fontWeight: FontWeight.w500,
                   color: colorScheme.onSurface)),
           const Spacer(),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: widget.onClose,
-              child: Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                child: Icon(Icons.close,
-                    size: 16, color: colorScheme.onSurfaceVariant),
-              ),
-            ),
-          ),
+          // 最小化按钮
+          _headerBtn(context, Icons.minimize, colorScheme, onTap: () {
+            final overlay = _findOverlay();
+            if (overlay != null) AiConversationOverlay._minimize(overlay);
+          }),
+          const SizedBox(width: 2),
+          // 关闭按钮
+          _headerBtn(context, Icons.close, colorScheme,
+              onTap: AiConversationOverlay.dismissAll),
         ],
       ),
     );
   }
 
+  Widget _headerBtn(BuildContext context, IconData icon,
+      ColorScheme colorScheme, {required VoidCallback onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          child: Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBody(BuildContext context, ColorScheme colorScheme) {
+    final messages = widget.holder.messages;
     return Container(
       padding: const EdgeInsets.all(14),
-      child: _messages.isEmpty
+      child: messages.isEmpty
           ? Center(
               child: Text('开始对话',
                   style: TextStyle(
@@ -276,9 +337,9 @@ class _AiConversationOverlayWidgetState
           : ListView.builder(
               controller: _scrollController,
               shrinkWrap: true,
-              itemCount: _messages.length,
+              itemCount: messages.length,
               itemBuilder: (context, index) {
-                final msg = _messages[index];
+                final msg = messages[index];
                 if (msg.isLoading) {
                   return _buildLoadingBubble(colorScheme);
                 }
