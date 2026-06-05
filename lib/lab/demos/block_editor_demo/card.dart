@@ -34,6 +34,9 @@ class _BlockCardState extends State<BlockCard> {
   Timer? _longPressTimer;
   Offset? _longPressOrigin;
 
+  // Backspace 级联保护
+  DateTime? _lastBackspaceDelete;
+
   @override
   void initState() {
     super.initState();
@@ -254,13 +257,18 @@ class _BlockCardState extends State<BlockCard> {
     final textField = Focus(
       onKeyEvent: (node, event) {
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        // 仅最后一个 block：空时拦截 ⌫ 删除整块，避免快速点击级联到其他 block
         final blockEmpty = widget.block.content.toPlainText().isEmpty;
         final controllerEmpty = _controller.text.isEmpty;
-        final isLastBlock = widget.editorState.blocks.last.id == widget.block.id;
 
         if (event.logicalKey == LogicalKeyboardKey.backspace
-            && controllerEmpty && blockEmpty && isLastBlock) {
+            && controllerEmpty && blockEmpty) {
+          // 级联保护：300ms 内连续 Backspace 只生效一次
+          if (_lastBackspaceDelete != null &&
+              DateTime.now().difference(_lastBackspaceDelete!) <
+                  const Duration(milliseconds: 300)) {
+            return KeyEventResult.ignored;
+          }
+          _lastBackspaceDelete = DateTime.now();
           widget.editorState.deleteBlock(silent: true);
           _scheduleRefresh();
           return KeyEventResult.handled;
@@ -429,6 +437,8 @@ class _BlockCardState extends State<BlockCard> {
       );
     }
   }
+
+
 
   Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
     final items = List<ContextMenuButtonItem>.from(
