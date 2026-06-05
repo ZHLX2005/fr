@@ -328,8 +328,11 @@ class _BlockCardState extends State<BlockCard> {
     );
   }
 
-  Widget _buildAiResult(BuildContext context, String text) {
+  Widget _buildAiResult(BuildContext context, List<Block> blocks) {
     final colorScheme = Theme.of(context).colorScheme;
+    final noteRoot = NoteRootScope.of(context).noteRoot;
+    final blockText = widget.block.content.toPlainText();
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: colorScheme.primary, width: 1.5),
@@ -339,29 +342,34 @@ class _BlockCardState extends State<BlockCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            text,
-            style: TextStyle(fontSize: 14, color: colorScheme.onSurface, height: 1.5),
-          ),
+          // 逐个渲染每个 Block
+          for (final block in blocks)
+            noteRoot.renderBlock(
+              context,
+              block,
+              onToggleTodo: null,
+              onTapAddImage: null,
+            ),
           const SizedBox(height: 6),
           Row(
             children: [
               _aiResultBtn(context, Icons.forum, '对话', () {
                 final es = widget.editorState;
-                final text = es.getAiResult(widget.block.id) ?? '';
                 es.clearAiResult(widget.block.id);
-                final blockText = widget.block.content.toPlainText();
+                final firstText = blocks.isNotEmpty ? blocks.first.content.toPlainText() : '';
                 if (context.mounted) {
                   AiConversationOverlay.show(
                     context,
                     blockId: widget.block.id,
-                    initialText: text,
+                    initialText: firstText,
                     blockTitle: blockText,
                   );
                 }
               }),
               const Spacer(),
-              _aiResultBtn(context, Icons.undo, null, null),
+              _aiResultBtn(context, Icons.undo, null, () {
+                widget.editorState.clearAiResult(widget.block.id);
+              }),
               const SizedBox(width: 8),
               Container(
                 width: 28,
@@ -374,7 +382,7 @@ class _BlockCardState extends State<BlockCard> {
                   padding: EdgeInsets.zero,
                   iconSize: 16,
                   icon: const Icon(Icons.check, color: Colors.white),
-                  onPressed: () => widget.editorState.clearAiResult(widget.block.id),
+                  onPressed: () => widget.editorState.confirmAiResult(widget.block.id),
                 ),
               ),
             ],

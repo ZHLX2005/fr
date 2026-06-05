@@ -30,8 +30,8 @@ class EditorState extends ChangeNotifier {
   /// 当前正在加载 AI 的 block id（用于显示 loading 状态）
   String? _aiLoadingBlockId;
 
-  /// AI 回复结果缓存：blockId → 回复文本
-  final Map<String, String> _aiResults = {};
+  /// AI 回复结果缓存：blockId → 解析后的 Block 列表
+  final Map<String, List<Block>> _aiResults = {};
 
   EditorState({required NoteFactory noteFactory, BottomToolbarFactory? toolbarFactory})
     : _noteFactory = noteFactory,
@@ -62,8 +62,8 @@ class EditorState extends ChangeNotifier {
   /// AI Bar 是否正在加载
   bool isAiLoading(String blockId) => _aiLoadingBlockId == blockId;
 
-  /// 获取 AI 回复结果
-  String? getAiResult(String blockId) => _aiResults[blockId];
+  /// 获取 AI 回复的 Block 列表
+  List<Block>? getAiResult(String blockId) => _aiResults[blockId];
 
   /// block 是否正在显示 AI 回复 inline
   bool isAiShowingResult(String blockId) => _aiResults.containsKey(blockId);
@@ -97,8 +97,40 @@ class EditorState extends ChangeNotifier {
     await Future.delayed(const Duration(seconds: 1));
 
     _aiLoadingBlockId = null;
-    _aiResults[blockId] = '已完成请求："$prompt"';
+
+    // 用项目自带的 Markdown 解析器转成 Block 列表
+    final md = '''# 分析结果
+
+> 您查询的内容为：**$prompt**
+
+已完成以下操作：
+
+1. 📝 记录并分析输入
+2. 🔍 匹配相关上下文
+3. ✅ 生成回复报告
+
+---
+
+*由 AI 自动生成*''';
+    _aiResults[blockId] = _noteFactory.parseMarkdown(md);
+
     notifyListeners();
+  }
+
+  /// 确认 AI 回复：将预览的 blocks 插入到当前 block 之后并保存。
+  void confirmAiResult(String blockId) {
+    final blocks = _aiResults.remove(blockId);
+    if (blocks == null || blocks.isEmpty) return;
+    final idx = _blocks.indexWhere((b) => b.id == blockId);
+    if (idx >= 0) {
+      _blocks.insertAll(idx + 1, blocks);
+      _selectedId = blocks.last.id;
+    } else {
+      _blocks.addAll(blocks);
+      _selectedId = blocks.last.id;
+    }
+    notifyListeners();
+    _save();
   }
 
   /// 清除 AI 回复结果
