@@ -9,7 +9,7 @@ import 'state.dart';
 import 'card.dart';
 import 'note_panel.dart';
 import 'ai/ai_bubble.dart';
-import 'ai/ai_conversation.dart';
+import 'ai/ai_conversation.dart' show AiConversationOverlay;
 
 
 /// 块编辑器 Demo（持久化版）
@@ -209,7 +209,7 @@ class _BlockWithBubble extends StatelessWidget {
           AiBubble(
             conversation: conv,
             onOpenConversation: () {
-              AiConversationDialog.show(
+              AiConversationOverlay.show(
                 context,
                 conversation: conv,
                 blockTitle: block.content.toPlainText(),

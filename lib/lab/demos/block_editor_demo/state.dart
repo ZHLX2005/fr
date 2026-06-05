@@ -53,8 +53,10 @@ class EditorState extends ChangeNotifier {
   bool hasAiBubble(String blockId) =>
       _aiConversations[blockId]?.hasConversation ?? false;
 
-  /// 激活 AI Bar（空格触发）
+  /// 激活 AI Bar（空格触发），同时选中该 block。
   void activateAiBar(String blockId) {
+    _selectedId = blockId;
+    _deleteMenuBlockId = null;
     _activeAiBarBlockId = blockId;
     notifyListeners();
   }

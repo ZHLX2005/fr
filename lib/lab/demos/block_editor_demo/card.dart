@@ -258,7 +258,10 @@ class _BlockCardState extends State<BlockCard> {
         }
         if (event.logicalKey == LogicalKeyboardKey.space
             && controllerEmpty && blockEmpty) {
-          widget.editorState.activateAiBar(widget.block.id);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            widget.editorState.activateAiBar(widget.block.id);
+          });
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -288,7 +291,10 @@ class _BlockCardState extends State<BlockCard> {
           }
           if (value.length == 1 && (value == ' ' || value == ' ')) {
             _controller.text = '';
-            widget.editorState.activateAiBar(widget.block.id);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              widget.editorState.activateAiBar(widget.block.id);
+            });
             return;
           }
           widget.editorState.updateContent(widget.block.id, value, silent: true);

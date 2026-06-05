@@ -53,7 +53,10 @@ class _AiBarState extends State<AiBar> {
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
-          widget.onCancel();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            widget.onCancel();
+          });
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;

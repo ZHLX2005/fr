@@ -1,46 +1,88 @@
 import 'package:flutter/material.dart';
 import 'ai_models.dart';
 
-/// 浮动对话窗口 — 点击"对话"按钮后弹出
-class AiConversationDialog extends StatefulWidget {
-  final BlockAIConversation conversation;
-  final String blockTitle;
+OverlayEntry? _currentOverlay;
 
-  const AiConversationDialog({
-    super.key,
-    required this.conversation,
-    this.blockTitle = '',
-  });
-
-  static Future<void> show(
+/// 浮动对话窗口 — 可拖动，点击"对话"按钮后弹出
+class AiConversationOverlay {
+  static void show(
     BuildContext context, {
     required BlockAIConversation conversation,
     String blockTitle = '',
   }) {
-    return showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.03),
-      builder: (_) => AiConversationDialog(
+    // 关闭已存在的
+    _currentOverlay?.remove();
+
+    final overlay = Overlay.of(context);
+    final screenSize = MediaQuery.of(context).size;
+
+    // 初始位置：屏幕中央略偏右
+    final initialOffset = Offset(
+      (screenSize.width - 360) / 2 + 60,
+      (screenSize.height - 500) / 2 - 40,
+    );
+
+    final state = _AiConversationOverlayState();
+    final overlayEntry = OverlayEntry(
+      builder: (ctx) => _AiConversationOverlayWidget(
         conversation: conversation,
         blockTitle: blockTitle,
+        initialOffset: initialOffset,
+        state: state,
+        onClose: () {
+          _currentOverlay?.remove();
+          _currentOverlay = null;
+        },
       ),
     );
+
+    _currentOverlay = overlayEntry;
+    overlay.insert(overlayEntry);
   }
 
-  @override
-  State<AiConversationDialog> createState() => _AiConversationDialogState();
+  static void dismiss() {
+    _currentOverlay?.remove();
+    _currentOverlay = null;
+  }
 }
 
-class _AiConversationDialogState extends State<AiConversationDialog> {
+class _AiConversationOverlayState {
+  Offset offset = Offset.zero;
+  bool initialSet = false;
+}
+
+class _AiConversationOverlayWidget extends StatefulWidget {
+  final BlockAIConversation conversation;
+  final String blockTitle;
+  final Offset initialOffset;
+  final _AiConversationOverlayState state;
+  final VoidCallback onClose;
+
+  const _AiConversationOverlayWidget({
+    required this.conversation,
+    required this.blockTitle,
+    required this.initialOffset,
+    required this.state,
+    required this.onClose,
+  });
+
+  @override
+  State<_AiConversationOverlayWidget> createState() =>
+      _AiConversationOverlayWidgetState();
+}
+
+class _AiConversationOverlayWidgetState
+    extends State<_AiConversationOverlayWidget> {
   late TextEditingController _inputController;
   late ScrollController _scrollController;
+  late Offset _offset;
 
   @override
   void initState() {
     super.initState();
     _inputController = TextEditingController();
     _scrollController = ScrollController();
+    _offset = widget.initialOffset;
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
@@ -76,28 +118,49 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
     setState(() {});
 
     // mock AI reply
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      widget.conversation.removeLoading();
-      widget.conversation.addMessage(
-        AIChatMessage.ai('回复： "$text"'),
-      );
-      setState(() {});
-      _scrollToBottom();
-    });
-
     widget.conversation.addMessage(AIChatMessage.loading());
     setState(() {});
     _scrollToBottom();
+
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
+      widget.conversation.removeLoading();
+      widget.conversation.addMessage(AIChatMessage.ai('回复："$text"'));
+      setState(() {});
+      _scrollToBottom();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(40),
+    return Stack(
+      children: [
+        // 半透明遮罩 — 点击关闭
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: widget.onClose,
+            child: Container(color: Colors.black.withValues(alpha: 0.03)),
+          ),
+        ),
+        // 可拖动的对话窗口
+        Positioned(
+          left: _offset.dx,
+          top: _offset.dy,
+          child: GestureDetector(
+            onTap: () {}, // 阻止点击穿透
+            child: _buildPanel(context, colorScheme),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPanel(BuildContext context, ColorScheme colorScheme) {
+    return Material(
+      elevation: 0,
+      color: Colors.transparent,
       child: Container(
         width: 360,
         constraints: const BoxConstraints(maxHeight: 540),
@@ -106,21 +169,24 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 24,
               offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
+            // Header — 可拖动
             _buildHeader(context, colorScheme),
             // Body
-            Flexible(
-              child: _buildBody(context, colorScheme),
-            ),
+            Flexible(child: _buildBody(context, colorScheme)),
             // Input area
             _buildInputArea(context, colorScheme),
           ],
@@ -130,41 +196,49 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
   }
 
   Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.forum, size: 16, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Text(
-            '对话',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurface,
-            ),
+    return GestureDetector(
+      onPanUpdate: (details) {
+        setState(() {
+          _offset += details.delta;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
           ),
-          const Spacer(),
-          // Close button
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(6),
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                child: Icon(Icons.close, size: 16, color: colorScheme.onSurfaceVariant),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.forum, size: 16, color: colorScheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(
+              '对话',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
               ),
             ),
-          ),
-        ],
+            const Spacer(),
+            // Close button
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: widget.onClose,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  child: Icon(Icons.close,
+                      size: 16, color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -179,9 +253,7 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
               child: Text(
                 '开始对话',
                 style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                    fontSize: 13, color: colorScheme.onSurfaceVariant),
               ),
             )
           : ListView.builder(
@@ -217,24 +289,21 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome, size: 12, color: colorScheme.primary),
+                    Icon(Icons.auto_awesome,
+                        size: 12, color: colorScheme.primary),
                     const SizedBox(width: 3),
-                    Text(
-                      'AI',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.primary,
-                      ),
-                    ),
+                    Text('AI',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.primary)),
                   ],
                 ),
               ),
             Container(
-              constraints: BoxConstraints(
-                maxWidth: 280,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              constraints: const BoxConstraints(maxWidth: 280),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: isUser
                     ? colorScheme.primary
@@ -246,9 +315,7 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
                 style: TextStyle(
                   fontSize: 13,
                   height: 1.5,
-                  color: isUser
-                      ? colorScheme.onPrimary
-                      : colorScheme.onSurface,
+                  color: isUser ? colorScheme.onPrimary : colorScheme.onSurface,
                 ),
               ),
             ),
@@ -265,7 +332,8 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
@@ -285,9 +353,7 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
                 Text(
                   'AI 思考中...',
                   style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                      fontSize: 12, color: colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -324,14 +390,13 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
                     maxLines: 3,
                     minLines: 1,
                     style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurface,
-                    ),
+                        fontSize: 13, color: colorScheme.onSurface),
                     decoration: InputDecoration(
                       hintText: '使用 AI 处理各种任务...',
                       hintStyle: TextStyle(
                         fontSize: 13,
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        color: colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.5),
                       ),
                       border: InputBorder.none,
                       isDense: true,
@@ -352,7 +417,8 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     iconSize: 13,
-                    icon: const Icon(Icons.arrow_upward, color: Colors.white),
+                    icon:
+                        const Icon(Icons.arrow_upward, color: Colors.white),
                     onPressed: _sendMessage,
                   ),
                 ),
@@ -371,7 +437,8 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
                 'Auto',
                 style: TextStyle(
                   fontSize: 11,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  color:
+                      colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -381,7 +448,8 @@ class _AiConversationDialogState extends State<AiConversationDialog> {
     );
   }
 
-  Widget _footerBtn(BuildContext context, IconData icon, ColorScheme colorScheme) {
+  Widget _footerBtn(
+      BuildContext context, IconData icon, ColorScheme colorScheme) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
