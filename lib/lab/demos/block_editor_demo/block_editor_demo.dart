@@ -8,6 +8,8 @@ import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';
 import 'note_panel.dart';
+import 'ai/ai_bubble.dart';
+import 'ai/ai_conversation.dart';
 
 
 /// 块编辑器 Demo（持久化版）
@@ -145,12 +147,9 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             context,
             _editorState,
           ),
-          body: _editorState.toolbarFactory.buildBody(
-            context,
-            _editorState,
-            blocks.isEmpty
-                ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
-                : ReorderableListView.builder(
+          body: blocks.isEmpty
+              ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
+              : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: blocks.length + 1,
                   onReorder: (oldIndex, newIndex) {
@@ -167,17 +166,57 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                         child: const SizedBox(height: 60),
                       );
                     }
-                    return BlockCard(
-                      key: ValueKey(blocks[index].id),
-                      block: blocks[index],
-                      isSelected: blocks[index].id == selectedId,
+                    final block = blocks[index];
+                    return _BlockWithBubble(
+                      key: ValueKey(block.id),
+                      block: block,
+                      isSelected: block.id == selectedId,
                       editorState: _editorState,
                     );
                   },
                 ),
-          ),
         );
       },
+    );
+  }
+}
+
+/// 一个 block 卡片 + 它的 AI 气泡（如果有）
+class _BlockWithBubble extends StatelessWidget {
+  final Block block;
+  final bool isSelected;
+  final EditorState editorState;
+
+  const _BlockWithBubble({
+    super.key,
+    required this.block,
+    required this.isSelected,
+    required this.editorState,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final conv = editorState.getConversation(block.id);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        BlockCard(
+          block: block,
+          isSelected: isSelected,
+          editorState: editorState,
+        ),
+        if (conv != null && conv.hasConversation)
+          AiBubble(
+            conversation: conv,
+            onOpenConversation: () {
+              AiConversationDialog.show(
+                context,
+                conversation: conv,
+                blockTitle: block.content.toPlainText(),
+              );
+            },
+          ),
+      ],
     );
   }
 }

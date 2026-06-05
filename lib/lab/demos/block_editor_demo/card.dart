@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
+import 'ai/ai_bar.dart';
+
 
 
 class BlockCard extends StatefulWidget {
@@ -218,6 +220,19 @@ class _BlockCardState extends State<BlockCard> {
   // === TextField ===
 
   Widget _buildTextField() {
+    // AI Bar 模式：当前 block 处于激活态
+    if (widget.editorState.isAiBarForBlock(widget.block.id)) {
+      return AiBar(
+        blockId: widget.block.id,
+        onSend: (text) {
+          widget.editorState.sendAiPrompt(widget.block.id, text);
+        },
+        onCancel: () {
+          widget.editorState.deactivateAiBar();
+        },
+      );
+    }
+
     final ml = widget.block.type.multiline;
     final textField = Focus(
       onKeyEvent: (node, event) {
@@ -242,8 +257,8 @@ class _BlockCardState extends State<BlockCard> {
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.space
-            && controllerEmpty && blockEmpty && isLastBlock) {
-          widget.editorState.switchToChat();
+            && controllerEmpty && blockEmpty) {
+          widget.editorState.activateAiBar(widget.block.id);
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -273,7 +288,7 @@ class _BlockCardState extends State<BlockCard> {
           }
           if (value.length == 1 && (value == ' ' || value == ' ')) {
             _controller.text = '';
-            widget.editorState.switchToChat();
+            widget.editorState.activateAiBar(widget.block.id);
             return;
           }
           widget.editorState.updateContent(widget.block.id, value, silent: true);
@@ -322,7 +337,8 @@ class _BlockCardState extends State<BlockCard> {
             content: RichText.text(selectedText),
             properties: {'originalBlockId': widget.block.id},
           );
-          widget.editorState.switchToChat();
+          // 选中文本后激活 AI Bar
+          widget.editorState.activateAiBar(widget.block.id);
         },
       ));
     }

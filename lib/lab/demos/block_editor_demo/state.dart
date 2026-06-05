@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/note/note_root_scope.dart';
 import 'mode/toolbar_factory.dart';
+import 'ai/ai_models.dart';
 
 /// 编辑器状态管理，支持持久化。
 class EditorState extends ChangeNotifier {
@@ -14,10 +15,17 @@ class EditorState extends ChangeNotifier {
 
   final BottomToolbarFactory toolbarFactory;
 
-  void switchToChat() => toolbarFactory.switchTo('chat');
   void switchToEdit() => toolbarFactory.switchTo('edit');
 
   final NoteFactory _noteFactory;
+
+  // === AI 对话状态 ===
+
+  /// blockId → BlockAIConversation
+  final Map<String, BlockAIConversation> _aiConversations = {};
+
+  /// 当前正在展示 AI Bar 的 block id
+  String? _activeAiBarBlockId;
 
   EditorState({required NoteFactory noteFactory, BottomToolbarFactory? toolbarFactory})
     : _noteFactory = noteFactory,
@@ -32,6 +40,61 @@ class EditorState extends ChangeNotifier {
   /// 删除菜单当前所在 block id。
   String? get deleteMenuBlockId => _deleteMenuBlockId;
   bool isDeleteMenuShown(String blockId) => _deleteMenuBlockId == blockId;
+
+  /// 当前 block 是否为 AI Bar 模式
+  bool get isAiBarActive => _activeAiBarBlockId != null;
+  String? get activeAiBarBlockId => _activeAiBarBlockId;
+  bool isAiBarForBlock(String blockId) => _activeAiBarBlockId == blockId;
+
+  /// 获取 block 的 AI 对话
+  BlockAIConversation? getConversation(String blockId) => _aiConversations[blockId];
+
+  /// 是否有 AI 气泡
+  bool hasAiBubble(String blockId) =>
+      _aiConversations[blockId]?.hasConversation ?? false;
+
+  /// 激活 AI Bar（空格触发）
+  void activateAiBar(String blockId) {
+    _activeAiBarBlockId = blockId;
+    notifyListeners();
+  }
+
+  /// 取消 AI Bar（Escape）
+  void deactivateAiBar() {
+    _activeAiBarBlockId = null;
+    notifyListeners();
+  }
+
+  /// 发送 AI 请求
+  Future<void> sendAiPrompt(String blockId, String prompt) async {
+    if (prompt.isEmpty) return;
+
+    // 关闭 AI Bar
+    _activeAiBarBlockId = null;
+
+    // 获取或创建对话
+    final conv = _aiConversations.putIfAbsent(
+      blockId,
+      () => BlockAIConversation(blockId: blockId),
+    );
+
+    // 添加用户消息
+    conv.addMessage(AIChatMessage.user(prompt));
+
+    // 添加 loading
+    conv.addMessage(AIChatMessage.loading());
+
+    notifyListeners();
+
+    // mock AI 回复
+    await Future.delayed(const Duration(seconds: 1));
+
+    conv.removeLoading();
+    conv.addMessage(AIChatMessage.ai('已完成请求："$prompt"'));
+    notifyListeners();
+  }
+
+  // === 删除菜单 ===
 
   /// 显示某 block 的删除菜单。已显示则忽略。
   void showDeleteMenu(String blockId) {
@@ -96,12 +159,17 @@ class EditorState extends ChangeNotifier {
     _selectedId = id;
     // 选中其他 block 时，关闭删除菜单
     _deleteMenuBlockId = null;
+    // 选中其他 block 时，关闭 AI Bar
+    if (_activeAiBarBlockId != null && _activeAiBarBlockId != id) {
+      _activeAiBarBlockId = null;
+    }
     notifyListeners();
   }
 
   void clearSelection() {
     _selectedId = null;
     _deleteMenuBlockId = null;
+    _activeAiBarBlockId = null;
     notifyListeners();
   }
 
@@ -124,6 +192,7 @@ class EditorState extends ChangeNotifier {
         ? _blocks[(idx - 1).clamp(0, _blocks.length - 1)].id
         : null;
     _deleteMenuBlockId = null;
+    _activeAiBarBlockId = null;
     if (!silent) notifyListeners();
     _save();
   }
