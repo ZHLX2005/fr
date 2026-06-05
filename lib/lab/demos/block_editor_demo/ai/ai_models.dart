@@ -82,4 +82,7 @@ class BlockAIConversation {
     final bubble = lastBubble;
     return bubble?.content ?? '';
   }
+
+  /// 清空所有消息（用于点击对话时隐藏气泡）
+  void clearBubble() => _messages.clear();
 }

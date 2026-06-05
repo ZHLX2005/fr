@@ -5,11 +5,13 @@ import 'overlay/overlay_manager.dart';
 
 OverlayEntry? _currentOverlay;
 
-/// 浮动对话窗口 — 可拖动、可缩放，点击"对话"按钮后弹出
+/// 浮动对话窗口 — 可拖动、可缩放，点击"对话"按钮后弹出。
+/// 内部维护自己的消息列表，不共享 BlockAIConversation。
 class AiConversationOverlay {
   static void show(
     BuildContext context, {
-    required BlockAIConversation conversation,
+    required String blockId,
+    String initialText = '',
     String blockTitle = '',
   }) {
     _currentOverlay?.remove();
@@ -26,9 +28,15 @@ class AiConversationOverlay {
           .clamp(8, screenSize.height - panelHeight - 8),
     );
 
+    // 将初始文本复制为本地消息列表，不引用 BlockAIConversation
+    final localMessages = <AIChatMessage>[];
+    if (initialText.isNotEmpty) {
+      localMessages.add(AIChatMessage.ai(initialText));
+    }
+
     final overlayEntry = OverlayEntry(
       builder: (ctx) => _AiConversationOverlayWidget(
-        conversation: conversation,
+        localMessages: localMessages,
         blockTitle: blockTitle,
         initialOffset: initialOffset,
         initialSize: const Size(panelWidth, panelHeight),
@@ -50,14 +58,14 @@ class AiConversationOverlay {
 }
 
 class _AiConversationOverlayWidget extends StatefulWidget {
-  final BlockAIConversation conversation;
+  final List<AIChatMessage> localMessages;
   final String blockTitle;
   final Offset initialOffset;
   final Size initialSize;
   final VoidCallback onClose;
 
   const _AiConversationOverlayWidget({
-    required this.conversation,
+    required this.localMessages,
     required this.blockTitle,
     required this.initialOffset,
     required this.initialSize,
@@ -74,12 +82,14 @@ class _AiConversationOverlayWidgetState
   late TextEditingController _inputController;
   late ScrollController _scrollController;
   late OverlayManager _manager;
+  late List<AIChatMessage> _messages;
 
   @override
   void initState() {
     super.initState();
     _inputController = TextEditingController();
     _scrollController = ScrollController();
+    _messages = List.of(widget.localMessages); // 独立副本
     _manager = OverlayManager(
       geo: OverlayGeometry(
         position: widget.initialOffset,
@@ -122,18 +132,18 @@ class _AiConversationOverlayWidgetState
     if (text.isEmpty) return;
 
     final msg = AIChatMessage.user(text);
-    widget.conversation.addMessage(msg);
+    _messages.add(msg);
     _inputController.clear();
     setState(() {});
 
-    widget.conversation.addMessage(AIChatMessage.loading());
+    _messages.add(AIChatMessage.loading());
     setState(() {});
     _scrollToBottom();
 
     Future.delayed(const Duration(seconds: 1), () {
       if (!mounted) return;
-      widget.conversation.removeLoading();
-      widget.conversation.addMessage(AIChatMessage.ai('回复："$text"'));
+      _messages.removeWhere((m) => m.isLoading);
+      _messages.add(AIChatMessage.ai('回复："$text"'));
       setState(() {});
       _scrollToBottom();
     });
@@ -145,14 +155,12 @@ class _AiConversationOverlayWidgetState
 
     return Stack(
       children: [
-        // 遮罩
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
             child: Container(color: Colors.black.withValues(alpha: 0.03)),
           ),
         ),
-        // 窗口
         Positioned(
           left: _manager.geo.position.dx,
           top: _manager.geo.position.dy,
@@ -204,7 +212,6 @@ class _AiConversationOverlayWidgetState
                 _buildInputArea(context, colorScheme),
               ],
             ),
-            // 右下角缩放把手
             Positioned(
               right: 4,
               bottom: 4,
@@ -232,14 +239,11 @@ class _AiConversationOverlayWidgetState
         children: [
           Icon(Icons.forum, size: 16, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: 8),
-          Text(
-            '对话',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurface,
-            ),
-          ),
+          Text('对话',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface)),
           const Spacer(),
           Material(
             color: Colors.transparent,
@@ -261,24 +265,20 @@ class _AiConversationOverlayWidgetState
   }
 
   Widget _buildBody(BuildContext context, ColorScheme colorScheme) {
-    final messages = widget.conversation.messages;
-
     return Container(
       padding: const EdgeInsets.all(14),
-      child: messages.isEmpty
+      child: _messages.isEmpty
           ? Center(
-              child: Text(
-                '开始对话',
-                style: TextStyle(
-                    fontSize: 13, color: colorScheme.onSurfaceVariant),
-              ),
+              child: Text('开始对话',
+                  style: TextStyle(
+                      fontSize: 13, color: colorScheme.onSurfaceVariant)),
             )
           : ListView.builder(
               controller: _scrollController,
               shrinkWrap: true,
-              itemCount: messages.length,
+              itemCount: _messages.length,
               itemBuilder: (context, index) {
-                final msg = messages[index];
+                final msg = _messages[index];
                 if (msg.isLoading) {
                   return _buildLoadingBubble(colorScheme);
                 }
@@ -291,7 +291,6 @@ class _AiConversationOverlayWidgetState
   Widget _buildMessageBubble(
       BuildContext context, ColorScheme colorScheme, AIChatMessage msg) {
     final isUser = msg.isUser;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Align(
@@ -328,16 +327,13 @@ class _AiConversationOverlayWidgetState
                     : colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                msg.content,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: isUser
-                      ? colorScheme.onPrimary
-                      : colorScheme.onSurface,
-                ),
-              ),
+              child: Text(msg.content,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color:
+                        isUser ? colorScheme.onPrimary : colorScheme.onSurface,
+                  )),
             ),
           ],
         ),
@@ -352,8 +348,7 @@ class _AiConversationOverlayWidgetState
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
@@ -370,11 +365,9 @@ class _AiConversationOverlayWidgetState
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'AI 思考中...',
-                  style: TextStyle(
-                      fontSize: 12, color: colorScheme.onSurfaceVariant),
-                ),
+                Text('AI 思考中...',
+                    style: TextStyle(
+                        fontSize: 12, color: colorScheme.onSurfaceVariant)),
               ],
             ),
           ),
@@ -451,14 +444,12 @@ class _AiConversationOverlayWidgetState
               const SizedBox(width: 2),
               _footerBtn(context, Icons.palette, colorScheme),
               const Spacer(),
-              Text(
-                'Auto',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.6),
-                ),
-              ),
+              Text('Auto',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.6),
+                  )),
             ],
           ),
         ],

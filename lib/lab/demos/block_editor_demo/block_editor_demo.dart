@@ -209,9 +209,13 @@ class _BlockWithBubble extends StatelessWidget {
           AiBubble(
             conversation: conv,
             onOpenConversation: () {
+              final text = conv.latestResponseText;
+              conv.clearBubble();
+              editorState.refresh();
               AiConversationOverlay.show(
                 context,
-                conversation: conv,
+                blockId: block.id,
+                initialText: text,
                 blockTitle: block.content.toPlainText(),
               );
             },
