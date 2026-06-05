@@ -10,34 +10,34 @@
   - 主标题 textSize = 14sp
   - 单元格 layout_margin = 1dp（格子间隙）
 -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/timetable_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@drawable/widget_background">
 
-    <!-- 顶部标题（点击触发 ACTION_REFRESH） -->
+    <!-- 标题（居中 + 上下 padding） -->
     <TextView
         android:id="@+id/timetable_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="10dp"
+        android:gravity="center"
         android:text="课程表"
         android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="#1A1A1A"
-        android:gravity="center"
         android:paddingVertical="12dp"
+        android:layout_marginBottom="4dp"
         android:contentDescription="刷新课程表" />
 
     <!-- 网格容器：1 行表头 + 5 行数据 -->
     <LinearLayout
         android:id="@+id/timetable_grid"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:orientation="vertical"
-        android:layout_marginTop="48dp"
         android:paddingHorizontal="2dp"
         android:paddingBottom="2dp">
 
@@ -340,4 +340,4 @@
         </LinearLayout>
 
     </LinearLayout>
-</FrameLayout>
+</LinearLayout>
