@@ -200,7 +200,7 @@ class _AiConversationOverlayWidgetState
             Column(
               children: [
                 _buildHeader(context, colorScheme),
-                Flexible(child: _buildBody(context, colorScheme)),
+                Expanded(child: _buildBody(context, colorScheme)),
                 _buildInputArea(context, colorScheme),
               ],
             ),
