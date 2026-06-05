@@ -1,34 +1,37 @@
 import 'package:flutter/material.dart';
 import 'ai_models.dart';
+import 'overlay/overlay_geometry.dart';
+import 'overlay/overlay_manager.dart';
 
 OverlayEntry? _currentOverlay;
 
-/// 浮动对话窗口 — 可拖动，点击"对话"按钮后弹出
+/// 浮动对话窗口 — 可拖动、可缩放，点击"对话"按钮后弹出
 class AiConversationOverlay {
   static void show(
     BuildContext context, {
     required BlockAIConversation conversation,
     String blockTitle = '',
   }) {
-    // 关闭已存在的
     _currentOverlay?.remove();
 
     final overlay = Overlay.of(context);
     final screenSize = MediaQuery.of(context).size;
 
-    // 初始位置：屏幕中央略偏右
+    const panelWidth = 340.0;
+    const panelHeight = 480.0;
     final initialOffset = Offset(
-      (screenSize.width - 360) / 2 + 60,
-      (screenSize.height - 500) / 2 - 40,
+      ((screenSize.width - panelWidth) / 2)
+          .clamp(8, screenSize.width - panelWidth - 8),
+      ((screenSize.height - panelHeight) / 2 - 20)
+          .clamp(8, screenSize.height - panelHeight - 8),
     );
 
-    final state = _AiConversationOverlayState();
     final overlayEntry = OverlayEntry(
       builder: (ctx) => _AiConversationOverlayWidget(
         conversation: conversation,
         blockTitle: blockTitle,
         initialOffset: initialOffset,
-        state: state,
+        initialSize: const Size(panelWidth, panelHeight),
         onClose: () {
           _currentOverlay?.remove();
           _currentOverlay = null;
@@ -46,23 +49,18 @@ class AiConversationOverlay {
   }
 }
 
-class _AiConversationOverlayState {
-  Offset offset = Offset.zero;
-  bool initialSet = false;
-}
-
 class _AiConversationOverlayWidget extends StatefulWidget {
   final BlockAIConversation conversation;
   final String blockTitle;
   final Offset initialOffset;
-  final _AiConversationOverlayState state;
+  final Size initialSize;
   final VoidCallback onClose;
 
   const _AiConversationOverlayWidget({
     required this.conversation,
     required this.blockTitle,
     required this.initialOffset,
-    required this.state,
+    required this.initialSize,
     required this.onClose,
   });
 
@@ -75,22 +73,34 @@ class _AiConversationOverlayWidgetState
     extends State<_AiConversationOverlayWidget> {
   late TextEditingController _inputController;
   late ScrollController _scrollController;
-  late Offset _offset;
+  late OverlayManager _manager;
 
   @override
   void initState() {
     super.initState();
     _inputController = TextEditingController();
     _scrollController = ScrollController();
-    _offset = widget.initialOffset;
+    _manager = OverlayManager(
+      geo: OverlayGeometry(
+        position: widget.initialOffset,
+        size: widget.initialSize,
+      ),
+    );
+    _manager.addListener(_onGeometryChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   @override
   void dispose() {
+    _manager.removeListener(_onGeometryChanged);
+    _manager.dispose();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onGeometryChanged() {
+    if (mounted) setState(() {});
   }
 
   void _scrollToBottom() {
@@ -114,10 +124,8 @@ class _AiConversationOverlayWidgetState
     final msg = AIChatMessage.user(text);
     widget.conversation.addMessage(msg);
     _inputController.clear();
-
     setState(() {});
 
-    // mock AI reply
     widget.conversation.addMessage(AIChatMessage.loading());
     setState(() {});
     _scrollToBottom();
@@ -137,20 +145,27 @@ class _AiConversationOverlayWidgetState
 
     return Stack(
       children: [
-        // 半透明遮罩 — 点击关闭
+        // 遮罩
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
             child: Container(color: Colors.black.withValues(alpha: 0.03)),
           ),
         ),
-        // 可拖动的对话窗口
+        // 窗口
         Positioned(
-          left: _offset.dx,
-          top: _offset.dy,
-          child: GestureDetector(
-            onTap: () {}, // 阻止点击穿透
-            child: _buildPanel(context, colorScheme),
+          left: _manager.geo.position.dx,
+          top: _manager.geo.position.dy,
+          child: Listener(
+            onPointerDown: (e) =>
+                _manager.handlePointerDown(e.localPosition, e.position),
+            onPointerMove: (e) => _manager.handlePointerMove(e.position),
+            onPointerUp: (e) => _manager.handlePointerUp(),
+            onPointerCancel: (e) => _manager.handlePointerUp(),
+            child: GestureDetector(
+              onTap: () {},
+              child: _buildPanel(context, colorScheme),
+            ),
           ),
         ),
       ],
@@ -162,8 +177,8 @@ class _AiConversationOverlayWidgetState
       elevation: 0,
       color: Colors.transparent,
       child: Container(
-        width: 360,
-        constraints: const BoxConstraints(maxHeight: 540),
+        width: _manager.geo.size.width,
+        height: _manager.geo.size.height,
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
@@ -180,15 +195,25 @@ class _AiConversationOverlayWidgetState
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            // Header — 可拖动
-            _buildHeader(context, colorScheme),
-            // Body
-            Flexible(child: _buildBody(context, colorScheme)),
-            // Input area
-            _buildInputArea(context, colorScheme),
+            Column(
+              children: [
+                _buildHeader(context, colorScheme),
+                Flexible(child: _buildBody(context, colorScheme)),
+                _buildInputArea(context, colorScheme),
+              ],
+            ),
+            // 右下角缩放把手
+            Positioned(
+              right: 4,
+              bottom: 4,
+              child: Icon(
+                Icons.drag_handle,
+                size: 16,
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+            ),
           ],
         ),
       ),
@@ -196,49 +221,41 @@ class _AiConversationOverlayWidgetState
   }
 
   Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
-    return GestureDetector(
-      onPanUpdate: (details) {
-        setState(() {
-          _offset += details.delta;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.forum, size: 16, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Text(
+            '对话',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.forum, size: 16, color: colorScheme.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Text(
-              '对话',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface,
+          const Spacer(),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: widget.onClose,
+              child: Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                child: Icon(Icons.close,
+                    size: 16, color: colorScheme.onSurfaceVariant),
               ),
             ),
-            const Spacer(),
-            // Close button
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: widget.onClose,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  alignment: Alignment.center,
-                  child: Icon(Icons.close,
-                      size: 16, color: colorScheme.onSurfaceVariant),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -301,7 +318,8 @@ class _AiConversationOverlayWidgetState
                 ),
               ),
             Container(
-              constraints: const BoxConstraints(maxWidth: 280),
+              constraints:
+                  BoxConstraints(maxWidth: _manager.geo.size.width * 0.8),
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -315,7 +333,9 @@ class _AiConversationOverlayWidgetState
                 style: TextStyle(
                   fontSize: 13,
                   height: 1.5,
-                  color: isUser ? colorScheme.onPrimary : colorScheme.onSurface,
+                  color: isUser
+                      ? colorScheme.onPrimary
+                      : colorScheme.onSurface,
                 ),
               ),
             ),
@@ -374,7 +394,6 @@ class _AiConversationOverlayWidgetState
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Input field
           Container(
             decoration: BoxDecoration(
               border: Border.all(color: colorScheme.primary, width: 1.5),
@@ -426,7 +445,6 @@ class _AiConversationOverlayWidgetState
             ),
           ),
           const SizedBox(height: 6),
-          // Footer
           Row(
             children: [
               _footerBtn(context, Icons.attach_file, colorScheme),
@@ -437,8 +455,8 @@ class _AiConversationOverlayWidgetState
                 'Auto',
                 style: TextStyle(
                   fontSize: 11,
-                  color:
-                      colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  color: colorScheme.onSurfaceVariant
+                      .withValues(alpha: 0.6),
                 ),
               ),
             ],

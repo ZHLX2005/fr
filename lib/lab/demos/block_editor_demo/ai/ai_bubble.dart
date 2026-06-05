@@ -38,15 +38,9 @@ class AiBubble extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // 操作按钮行
+          // 操作按钮行 — 仅对话、撤回、确认
           Row(
             children: [
-              _actionBtn(context, Icons.thumb_up_outlined, null),
-              const SizedBox(width: 2),
-              _actionBtn(context, Icons.chat_bubble_outline, null),
-              const SizedBox(width: 2),
-              _actionBtn(context, Icons.more_horiz, null),
-              const Spacer(),
               // 对话按钮
               _actionBtn(
                 context,
@@ -54,35 +48,13 @@ class AiBubble extends StatelessWidget {
                 () => onOpenConversation(),
                 label: '对话',
               ),
-              const SizedBox(width: 2),
+              const Spacer(),
+              // 撤回
               _actionBtn(context, Icons.undo, null),
-              const SizedBox(width: 2),
-              // 确认按钮 — 蓝色圆形
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  iconSize: 14,
-                  icon: const Icon(Icons.check, color: Colors.white),
-                  onPressed: () {},
-                ),
-              ),
+              const SizedBox(width: 8),
+              // 确认按钮
+              _actionBtn(context, Icons.check, null, isPrimary: true),
             ],
-          ),
-          // footer 计数
-          const SizedBox(height: 4),
-          Text(
-            '${conversation.messages.length} 条消息',
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w500,
-            ),
           ),
         ],
       ),
@@ -90,28 +62,46 @@ class AiBubble extends StatelessWidget {
   }
 
   Widget _actionBtn(BuildContext context, IconData icon, VoidCallback? onTap,
-      {String? label}) {
+      {String? label, bool isPrimary = false}) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    if (isPrimary) {
+      return Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: colorScheme.primary,
+          shape: BoxShape.circle,
+        ),
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          iconSize: 18,
+          icon: const Icon(Icons.check, color: Colors.white),
+          onPressed: onTap ?? () {},
+        ),
+      );
+    }
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Container(
-          height: 28,
+          height: 32,
           padding: label != null
-              ? const EdgeInsets.symmetric(horizontal: 6)
+              ? const EdgeInsets.symmetric(horizontal: 8)
               : const EdgeInsets.all(0),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
+              Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
               if (label != null) ...[
-                const SizedBox(width: 3),
+                const SizedBox(width: 4),
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
