@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/note/note_root_scope.dart';
 import 'mode/toolbar_factory.dart';
+import 'ai/ai_models.dart';
 
 /// 编辑器状态管理，支持持久化。
 class EditorState extends ChangeNotifier {
@@ -14,10 +15,38 @@ class EditorState extends ChangeNotifier {
 
   final BottomToolbarFactory toolbarFactory;
 
-  void switchToChat() => toolbarFactory.switchTo('chat');
   void switchToEdit() => toolbarFactory.switchTo('edit');
 
   final NoteFactory _noteFactory;
+
+  // === AI 对话状态 ===
+
+  /// blockId → BlockAIConversation
+  final Map<String, BlockAIConversation> _aiConversations = {};
+
+  /// 当前正在展示 AI Bar 的 block id
+  String? _activeAiBarBlockId;
+
+  /// 当前正在加载 AI 的 block id（用于显示 loading 状态）
+  String? _aiLoadingBlockId;
+
+  /// AI 回复结果缓存：blockId → 解析后的 Block 列表
+  final Map<String, List<Block>> _aiResults = {};
+
+  /// Backspace 级联保护（放在 EditorState 中不随 widget 销毁）
+  DateTime? _lastBackspaceDelete;
+  static const _backspaceCooldown = Duration(milliseconds: 400);
+
+  /// 检查是否处于 Backspace 冷却中，不在则记录时间并返回 false
+  bool isBackspaceOnCooldown() {
+    final now = DateTime.now();
+    if (_lastBackspaceDelete != null &&
+        now.difference(_lastBackspaceDelete!) < _backspaceCooldown) {
+      return true;
+    }
+    _lastBackspaceDelete = now;
+    return false;
+  }
 
   EditorState({required NoteFactory noteFactory, BottomToolbarFactory? toolbarFactory})
     : _noteFactory = noteFactory,
@@ -32,6 +61,100 @@ class EditorState extends ChangeNotifier {
   /// 删除菜单当前所在 block id。
   String? get deleteMenuBlockId => _deleteMenuBlockId;
   bool isDeleteMenuShown(String blockId) => _deleteMenuBlockId == blockId;
+
+  /// 当前 block 是否为 AI Bar 模式
+  bool get isAiBarActive => _activeAiBarBlockId != null;
+  String? get activeAiBarBlockId => _activeAiBarBlockId;
+  bool isAiBarForBlock(String blockId) => _activeAiBarBlockId == blockId;
+
+  /// 获取 block 的 AI 对话
+  BlockAIConversation? getConversation(String blockId) => _aiConversations[blockId];
+
+  /// 是否有 AI 气泡
+  bool hasAiBubble(String blockId) =>
+      _aiConversations[blockId]?.hasConversation ?? false;
+
+  /// AI Bar 是否正在加载
+  bool isAiLoading(String blockId) => _aiLoadingBlockId == blockId;
+
+  /// 获取 AI 回复的 Block 列表
+  List<Block>? getAiResult(String blockId) => _aiResults[blockId];
+
+  /// block 是否正在显示 AI 回复 inline
+  bool isAiShowingResult(String blockId) => _aiResults.containsKey(blockId);
+
+  /// 激活 AI Bar（空格触发），同时选中该 block。
+  void activateAiBar(String blockId) {
+    _selectedId = blockId;
+    _deleteMenuBlockId = null;
+    _activeAiBarBlockId = blockId;
+    notifyListeners();
+  }
+
+  /// 取消 AI Bar（Escape）
+  void deactivateAiBar() {
+    _activeAiBarBlockId = null;
+    notifyListeners();
+  }
+
+  /// 发送 AI 请求
+  Future<void> sendAiPrompt(String blockId, String prompt) async {
+    if (prompt.isEmpty) return;
+
+    // 关闭 AI Bar，进入 loading 态
+    _activeAiBarBlockId = null;
+    _aiLoadingBlockId = blockId;
+    _aiResults.remove(blockId);
+
+    notifyListeners();
+
+    // mock AI 回复
+    await Future.delayed(const Duration(seconds: 1));
+
+    _aiLoadingBlockId = null;
+
+    // 用项目自带的 Markdown 解析器转成 Block 列表
+    final md = '''# 分析结果
+
+> 您查询的内容为：**$prompt**
+
+已完成以下操作：
+
+1. 📝 记录并分析输入
+2. 🔍 匹配相关上下文
+3. ✅ 生成回复报告
+
+---
+
+*由 AI 自动生成*''';
+    _aiResults[blockId] = _noteFactory.parseMarkdown(md);
+
+    notifyListeners();
+  }
+
+  /// 确认 AI 回复：将预览的 blocks 插入到当前 block 之后并保存。
+  void confirmAiResult(String blockId) {
+    final blocks = _aiResults.remove(blockId);
+    if (blocks == null || blocks.isEmpty) return;
+    final idx = _blocks.indexWhere((b) => b.id == blockId);
+    if (idx >= 0) {
+      _blocks.insertAll(idx + 1, blocks);
+      _selectedId = blocks.last.id;
+    } else {
+      _blocks.addAll(blocks);
+      _selectedId = blocks.last.id;
+    }
+    notifyListeners();
+    _save();
+  }
+
+  /// 清除 AI 回复结果
+  void clearAiResult(String blockId) {
+    _aiResults.remove(blockId);
+    notifyListeners();
+  }
+
+  // === 删除菜单 ===
 
   /// 显示某 block 的删除菜单。已显示则忽略。
   void showDeleteMenu(String blockId) {
@@ -96,12 +219,17 @@ class EditorState extends ChangeNotifier {
     _selectedId = id;
     // 选中其他 block 时，关闭删除菜单
     _deleteMenuBlockId = null;
+    // 选中其他 block 时，关闭 AI Bar
+    if (_activeAiBarBlockId != null && _activeAiBarBlockId != id) {
+      _activeAiBarBlockId = null;
+    }
     notifyListeners();
   }
 
   void clearSelection() {
     _selectedId = null;
     _deleteMenuBlockId = null;
+    _activeAiBarBlockId = null;
     notifyListeners();
   }
 
@@ -120,10 +248,11 @@ class EditorState extends ChangeNotifier {
     final idx = _blocks.indexWhere((b) => b.id == _selectedId);
     if (idx < 0) return;
     _blocks.removeAt(idx);
-    _selectedId = _blocks.isNotEmpty
+    _selectedId = _blocks.isNotEmpty && idx > 0
         ? _blocks[(idx - 1).clamp(0, _blocks.length - 1)].id
         : null;
     _deleteMenuBlockId = null;
+    _activeAiBarBlockId = null;
     if (!silent) notifyListeners();
     _save();
   }

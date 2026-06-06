@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import 'state.dart';
+import 'ai/ai_bar.dart';
+import 'ai/ai_conversation.dart' show AiConversationOverlay;
+
 
 
 class BlockCard extends StatefulWidget {
@@ -30,6 +33,7 @@ class _BlockCardState extends State<BlockCard> {
   // 长按检测
   Timer? _longPressTimer;
   Offset? _longPressOrigin;
+
 
   @override
   void initState() {
@@ -218,17 +222,47 @@ class _BlockCardState extends State<BlockCard> {
   // === TextField ===
 
   Widget _buildTextField() {
+    final blockId = widget.block.id;
+    final es = widget.editorState;
+
+    // AI Bar 模式
+    if (es.isAiBarForBlock(blockId)) {
+      return AiBar(
+        blockId: blockId,
+        isLoading: false,
+        onSend: (text) => es.sendAiPrompt(blockId, text),
+        onCancel: () => es.deactivateAiBar(),
+      );
+    }
+
+    // AI 正在加载 — 显示 loading bar inline
+    if (es.isAiLoading(blockId)) {
+      return AiBar(
+        blockId: blockId,
+        isLoading: true,
+        onSend: (_) {},
+        onCancel: () {},
+      );
+    }
+
+    // AI 已返回结果 — 显示结果 inline
+    final aiResult = es.getAiResult(blockId);
+    if (aiResult != null) {
+      return _buildAiResult(context, aiResult);
+    }
+
     final ml = widget.block.type.multiline;
     final textField = Focus(
       onKeyEvent: (node, event) {
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        // 仅最后一个 block：空时拦截 ⌫ 删除整块，避免快速点击级联到其他 block
         final blockEmpty = widget.block.content.toPlainText().isEmpty;
         final controllerEmpty = _controller.text.isEmpty;
-        final isLastBlock = widget.editorState.blocks.last.id == widget.block.id;
 
         if (event.logicalKey == LogicalKeyboardKey.backspace
-            && controllerEmpty && blockEmpty && isLastBlock) {
+            && controllerEmpty && blockEmpty) {
+          if (widget.editorState.isBackspaceOnCooldown()) {
+            return KeyEventResult.ignored;
+          }
           widget.editorState.deleteBlock(silent: true);
           _scheduleRefresh();
           return KeyEventResult.handled;
@@ -242,8 +276,11 @@ class _BlockCardState extends State<BlockCard> {
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.space
-            && controllerEmpty && blockEmpty && isLastBlock) {
-          widget.editorState.switchToChat();
+            && controllerEmpty && blockEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            widget.editorState.activateAiBar(widget.block.id);
+          });
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -273,7 +310,10 @@ class _BlockCardState extends State<BlockCard> {
           }
           if (value.length == 1 && (value == ' ' || value == ' ')) {
             _controller.text = '';
-            widget.editorState.switchToChat();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              widget.editorState.activateAiBar(widget.block.id);
+            });
             return;
           }
           widget.editorState.updateContent(widget.block.id, value, silent: true);
@@ -290,6 +330,95 @@ class _BlockCardState extends State<BlockCard> {
     );
   }
 
+  Widget _buildAiResult(BuildContext context, List<Block> blocks) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final noteRoot = NoteRootScope.of(context).noteRoot;
+    final blockText = widget.block.content.toPlainText();
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.primary, width: 1.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 逐个渲染每个 Block
+          for (final block in blocks)
+            noteRoot.renderBlock(
+              context,
+              block,
+              onToggleTodo: null,
+              onTapAddImage: null,
+            ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _aiResultBtn(context, Icons.forum, '对话', () {
+                final es = widget.editorState;
+                es.clearAiResult(widget.block.id);
+                final firstText = blocks.isNotEmpty ? blocks.first.content.toPlainText() : '';
+                if (context.mounted) {
+                  AiConversationOverlay.show(
+                    context,
+                    blockId: widget.block.id,
+                    initialText: firstText,
+                    blockTitle: blockText,
+                  );
+                }
+              }),
+              const Spacer(),
+              _aiResultBtn(context, Icons.undo, null, () {
+                widget.editorState.clearAiResult(widget.block.id);
+              }),
+              const SizedBox(width: 8),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  iconSize: 16,
+                  icon: const Icon(Icons.check, color: Colors.white),
+                  onPressed: () => widget.editorState.confirmAiResult(widget.block.id),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _aiResultBtn(BuildContext context, IconData icon, String? label, VoidCallback? onTap) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: Container(
+          height: 28,
+          padding: label != null ? const EdgeInsets.symmetric(horizontal: 6) : EdgeInsets.zero,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
+              if (label != null) ...[
+                const SizedBox(width: 3),
+                Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _syncControllerFromState() {
     final blocks = widget.editorState.blocks;
     final idx = blocks.indexWhere((b) => b.id == widget.block.id);
@@ -302,6 +431,8 @@ class _BlockCardState extends State<BlockCard> {
       );
     }
   }
+
+
 
   Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
     final items = List<ContextMenuButtonItem>.from(
@@ -322,7 +453,8 @@ class _BlockCardState extends State<BlockCard> {
             content: RichText.text(selectedText),
             properties: {'originalBlockId': widget.block.id},
           );
-          widget.editorState.switchToChat();
+          // 选中文本后激活 AI Bar
+          widget.editorState.activateAiBar(widget.block.id);
         },
       ));
     }
