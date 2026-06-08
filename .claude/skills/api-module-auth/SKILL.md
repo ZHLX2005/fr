@@ -96,9 +96,28 @@ lib/api/                                 33 files / 1424 lines
 | `minimax/` | MiniMax TTS 配置 + 模型定义 | HTTP 请求细节 |
 | `providers/` | Riverpod DI 组装 | 任何业务逻辑 |
 
-## 架构原则
+## 铁律（Hard Rules）
 
-### 1. 子目录 = 后端名称，同级排列
+### Rule 0：新增 API 请求必须走 `lib/api/`
+
+```dart
+// ❌ 禁止：在业务代码中直接 import http 发请求
+import 'package:http/http.dart' as http;
+class FooService {
+  Future<X> fetch() async {
+    final res = await http.get(Uri.parse('https://...')); // ❌ 散落
+  }
+}
+
+// ✅ 必须：在 lib/api/ 下加 endpoint，业务代码只 import api 层
+import '../api/goframe/kv/kv_endpoint.dart';
+class FooService {
+  final KvEndpoint _kv;
+  Future<X> fetch() => _kv.get('key');
+}
+```
+
+### Rule 1：子目录 = 后端名称，同级排列
 
 ```
 lib/api/goframe/   ← 自己后端的 API
@@ -108,9 +127,9 @@ lib/api/minimax/   ← MiniMax 的 API
 
 不看代码就知道依赖了哪些远端服务。新增后端直接加同级目录。
 
-### 2. 深目录、轻文件
+### Rule 2：深目录、轻文件
 
-每个端点（kv、file、download、article）各自是一个子目录，哪怕是 1 个 API 也占 1 个目录。文件控制在 200 行以内。
+每个端点（kv、file、download、article）各自是一个子目录，文件控制在 **200 行以内**。
 
 ```
 goframe/download/
@@ -121,7 +140,7 @@ goframe/download/
 
 barrel 文件只做 `export`，不含业务逻辑。
 
-### 3. 共享基础设施，不共享 baseUrl
+### Rule 3：共享基础设施，不共享 baseUrl
 
 | 后端 | baseUrl | HTTP 方式 |
 |------|---------|----------|
@@ -130,6 +149,27 @@ barrel 文件只做 `export`，不含业务逻辑。
 | minimax/ | 纯模型 + 配置（WS 会话在 service 层管理） | 不发起 HTTP |
 
 不同 baseUrl 的后端不强行套同一拦截器链，避免拦截器污染。
+
+### Rule 4：Provider 注入优先，手动 new 其次
+
+```dart
+// ✅ 优先：通过 Riverpod Provider 注入
+class SomeNotifier extends StateNotifier<X> {
+  SomeNotifier(this._kv) : super(...);
+  final KvEndpoint _kv;
+}
+
+// providers/api_providers.dart 已有全部 endpoint 的 Provider
+final someProvider = StateNotifierProvider<SomeNotifier, X>((ref) {
+  return SomeNotifier(ref.watch(kvEndpointProvider));
+});
+```
+
+```dart
+// ❌ 避免：业务代码中手动构造 ApiClient（除非 Lab Demo 等一次性场景）
+// 会导致 token 状态无法共享、拦截器链重复创建
+final client = ApiClient(config: ..., tokenManager: ...); // ❌
+```
 
 ---
 
@@ -223,40 +263,102 @@ class GithubActionsEndpoint {
 
 ---
 
-## 未来扩展
+## 日常工作流
 
-新增后端 API 时：
+### 新增一个 GoFrame 端点
 
-```bash
-# 1. 创建目录
-mkdir -p lib/api/xxx/
-echo "export 'xxx_endpoint.dart';" > lib/api/xxx/xxx.dart
+```dart
+// 1. lib/api/goframe/xxx/xxx.dart  ← barrel
+export 'xxx_endpoint.dart';
 
-# 2. 写端点
-cat > lib/api/xxx/xxx_endpoint.dart <<EOF
-import '../api_client.dart';
-import '../api_response.dart';
-
+// 2. lib/api/goframe/xxx/xxx_endpoint.dart  ← endpoint
 class XxxEndpoint {
   final ApiClient _client;
   XxxEndpoint(this._client);
-  // ...
+
+  Future<ApiResponse<XxxResult>> doSomething() =>
+      _client.request<XxxResult>(method: 'GET', path: '/api/v1/xxx', ...);
 }
-EOF
 
-# 3. 注册 barrel
-echo "export 'xxx/xxx.dart';" >> lib/api/api_module.dart
+// 3. lib/api/goframe/goframe.dart  ← 注册 barrel
+export 'xxx/xxx.dart';
 
-# 4. 注入 provider (如果用 Riverpod)
-# 在 providers/api_providers.dart 加一行 Provider<XxxEndpoint>
+// 4. lib/api/providers/api_providers.dart  ← 注入
+final xxxEndpointProvider = Provider<XxxEndpoint>((ref) {
+  return XxxEndpoint(ref.watch(apiClientProvider));
+});
 ```
 
-## 代码异味检测命令
+### 新增一个后端
 
 ```bash
-# 检查超 200 行的文件
+# 1. 创建目录（同级排列）
+mkdir -p lib/api/newbackend/
+
+# 2. 写 barrel + endpoint（参考 goframe/kv/ 的模式）
+
+# 3. 注册顶层 barrel
+echo "export 'newbackend/newbackend.dart';" >> lib/api/api_module.dart
+```
+
+### 业务代码中使用的正确姿势
+
+```dart
+// ✅ StateNotifier + Provider 注入（推荐）
+class FooNotifier extends StateNotifier<FooState> {
+  final KvEndpoint _kv;
+  FooNotifier(this._kv) : super(FooState.initial());
+
+  Future<void> load() async {
+    final res = await _kv.get('foo');
+    // ...
+  }
+}
+
+final fooProvider = StateNotifierProvider<FooNotifier, FooState>((ref) {
+  return FooNotifier(ref.watch(kvEndpointProvider));
+});
+
+// ✅ ConsumerWidget 中直接读取
+class FooPage extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final foo = ref.watch(fooProvider);
+    // ...
+  }
+}
+```
+
+## 代码异味自动检测命令
+
+以下命令应定期运行（或在 CI 中检查），防止 API 调用散落到业务代码中：
+
+```bash
+# 检测 1：业务代码中是否出现了 http.get/post 等裸调用
+# 业务代码不应直接使用 http 包
+grep -rn "http\.\(get\|post\|put\|delete\|patch\)" lib/ \
+  --include="*.dart" \
+  --exclude-dir=api --exclude-dir=generated \
+  --exclude-dir=services
+# ↑ 如果在 lib/core/、lib/providers/、lib/screens/ 等目录发现 http 调用，就是违规
+
+# 检测 2：业务代码中是否直接 import http 包
+grep -rn "package:http/http.dart" lib/ \
+  --include="*.dart" \
+  --exclude-dir=api --exclude-dir=generated
+# ↑ 只在 lib/api/ 下允许 import http
+
+# 检测 3：lib/api/ 中是否有文件超 200 行
 find lib/api -name "*.dart" -exec wc -l {} + | sort -rn | awk '$1 > 200'
 
-# 检查 barrel 文件是否混入业务逻辑
-grep -rn "class \|Future\|import 'package:" lib/api --include="*dart" | grep -E "/(goframe|github|minimax)/[a-z]+\.dart:" | grep -v "_endpoint\|_models\|_config\|_exception\|_controller"
+# 检测 4：barrel 文件是否混入了业务逻辑
+grep -rn "class \|Future\|import 'package:" lib/api --include="*dart" \
+  | grep -E "/(goframe|github|minimax)/[a-z]+\.dart:" \
+  | grep -v "_endpoint\|_models\|_config\|_exception\|_controller\|_test"
+
+# 检测 5：业务代码中是否硬编码了 API URL
+grep -rn "https\?://" lib/ \
+  --include="*.dart" \
+  --exclude-dir=api --exclude-dir=generated
+# ↑ URL 只能出现在 lib/api/*/xxx_config.dart 中
 ```
