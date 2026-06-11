@@ -61,19 +61,39 @@ class LocalnetConstants {
   // ========== 辅助方法 ==========
 
   /// 构建多播数据
-  static String buildMulticastData(String deviceId, int port) {
-    return '$deviceId,$port';
+  ///
+  /// [extras] 扩展字段，如 `['g:surround', 'r:roomA', 'p:1/2']`
+  /// 完整格式: `deviceId,port[,key:value,...]`
+  static String buildMulticastData(
+    String deviceId,
+    int port, [
+    List<String>? extras,
+  ]) {
+    if (extras == null || extras.isEmpty) {
+      return '$deviceId,$port';
+    }
+    return '$deviceId,$port,${extras.join(',')}';
   }
 
   /// 解析多播数据
-  /// 返回 [deviceId, port] 或 null (解析失败)
-  static ({String deviceId, int port})? parseMulticastData(String data) {
+  /// 返回 (deviceId, port, extrasMap) 或 null (解析失败)
+  static ({String deviceId, int port, Map<String, String> extras})?
+      parseMulticastData(String data) {
     final parts = data.split(',');
     if (parts.length < 2) return null;
     final deviceId = parts[0].trim();
     final port = int.tryParse(parts[1].trim());
     if (deviceId.isEmpty || port == null) return null;
-    return (deviceId: deviceId, port: port);
+
+    final extras = <String, String>{};
+    for (var i = 2; i < parts.length; i++) {
+      final kv = parts[i].split(':');
+      if (kv.length == 2) {
+        extras[kv[0].trim()] = kv[1].trim();
+      }
+    }
+
+    return (deviceId: deviceId, port: port, extras: extras);
   }
 
   /// 构建 HTTP Join 请求体 (application/x-www-form-urlencoded)

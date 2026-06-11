@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'models/localnet_config.dart';
 import 'models/localnet_device.dart';
 import 'models/localnet_message.dart';
@@ -5,6 +7,7 @@ import 'services/config_service.dart';
 import 'services/debug_log_service.dart';
 import 'services/discovery_service.dart';
 import 'services/message_service.dart';
+import '../../core/surround_game/surround_game_service.dart' show surroundGameService;
 
 /// LocalNet 服务 - 第一阶段：仅设备发现
 class LocalnetService {
@@ -117,6 +120,41 @@ class LocalnetService {
         message.addReceivedMessage(msg);
       };
 
+      // 初始化围追堵截游戏服务（注册 HTTP 路由 + 传递设备信息 + 钩入广播）
+      if (discovery.isHttpServerRunning) {
+        final myIp = await _detectLocalIp();
+        discovery.setLocalIp(myIp);
+
+        // 模拟器场景（10.0.2.x）：设置中继到宿主机 10.0.2.2
+        if (myIp != null && myIp.startsWith('10.0.2.')) {
+          discovery.setRelay('10.0.2.2', 53317);
+        }
+
+        surroundGameService.init(
+          registerRoute: discovery.registerRoute,
+          deviceId: discovery.deviceId,
+          deviceName: config.config.deviceAlias,
+          myIp: myIp,
+        );
+        // 钩入 UDP 广播扩展
+        discovery.onBuildBroadcastExtras =
+            surroundGameService.buildBroadcastExtras;
+        // 钩入 UDP 接收回调（接收其他设备的游戏房间）
+        discovery.onUdpBroadcastReceived = (
+          deviceId,
+          senderIp,
+          senderPort,
+          extras,
+        ) {
+          surroundGameService.onUdpBroadcastReceived(
+            deviceId: deviceId,
+            senderIp: senderIp,
+            senderPort: senderPort,
+            extras: extras,
+          );
+        };
+      }
+
       _logState(_serviceState, stateRunning, note: '服务已启动');
       _serviceState = stateRunning;
     } catch (e) {
@@ -182,6 +220,37 @@ class LocalnetService {
     stop();
     discovery.dispose();
     message.dispose();
+  }
+
+  /// 探测本机局域网 IP（用于联机游戏广播）
+  ///
+  /// 优先返回非回环的 IPv4 地址（192.168.x.x / 10.x.x.x / 172.16-31.x.x）。
+  Future<String?> _detectLocalIp() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+        includeLinkLocal: false,
+      );
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          final ip = addr.address;
+          // 优先选择 192.168.x.x 或 10.x.x.x
+          if (ip.startsWith('192.168.') || ip.startsWith('10.')) {
+            return ip;
+          }
+        }
+      }
+      // fallback: 任意非回环 IPv4
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          if (addr.address.isNotEmpty) return addr.address;
+        }
+      }
+    } catch (e) {
+      debugLog.w('Localnet', 'IP 探测失败: $e');
+    }
+    return null;
   }
 
   List<LocalnetDevice> get devices => discovery.devices;
