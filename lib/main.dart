@@ -104,18 +104,14 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
   void _navigateToTimetable() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (_) => const TimetablePage()),
-      );
+      _pushOnceIfNotOnTop('home-widget-timetable', (_) => const TimetablePage());
     });
   }
 
   void _navigateToLab() {
     // 延迟执行确保 navigatorKey 已初始化
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(builder: (_) => const LabPage()),
-      );
+      _pushOnceIfNotOnTop('home-widget-lab', (_) => const LabPage());
     });
   }
 
@@ -124,12 +120,34 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       // 确保日历 demo 已注册
       final calendarDemo = demoRegistry.get('日历待办');
       if (calendarDemo == null) return;
-      navigatorKey.currentState?.push(
-        MaterialPageRoute(
-          builder: (_) => _CalendarDeepLinkPage(demo: calendarDemo),
-        ),
+      _pushOnceIfNotOnTop(
+        'home-widget-calendar',
+        (_) => _CalendarDeepLinkPage(demo: calendarDemo),
       );
     });
+  }
+
+  /// 防重复堆叠：仅当栈顶不是同一目标页面时才 push。
+  ///
+  /// widget 回调、onNewIntent、onResume 任意一处重复触发都会让同一页面被多次 push，
+  /// 返回手势因此要折叠多次才能退出（"返回手势多重折叠"的成因）。
+  /// 用 RouteSettings.name 标记路由，复用 popUntil "谓词返回 true 立即停止、不 pop"
+  /// 的特性做只读探查当前栈顶名字。
+  void _pushOnceIfNotOnTop(String name, WidgetBuilder builder) {
+    final nav = navigatorKey.currentState;
+    if (nav == null) return;
+    String? currentName;
+    nav.popUntil((route) {
+      currentName = route.settings.name;
+      return true; // 立即停止，不会 pop 任何页面
+    });
+    if (currentName == name) return; // 栈顶已是该页面，跳过避免堆叠
+    nav.push(
+      MaterialPageRoute(
+        settings: RouteSettings(name: name),
+        builder: builder,
+      ),
+    );
   }
 
   @override

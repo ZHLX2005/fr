@@ -37,6 +37,13 @@ class MainActivity : FlutterActivity() {
     private val PIGMENT_SCREEN_CAPTURE_REQUEST_CODE = 1002
     private var pendingPermissionService: String? = null
 
+    // 冷启动深链是否已兜底处理过。
+    // 避免 widget 打开页面后页面被重复 push 导致返回手势多重折叠 / 页面堆叠：
+    // - warm start：深链由 onNewIntent 处理（每次 widget 点击回调一次）
+    // - cold start：onNewIntent 不回调，深链只能在首次 onResume 兜底一次
+    // - 普通前后台切换：不得重复处理，杜绝每次回到前台都再 push 一层
+    private var hasHandledInitialIntent = false
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
@@ -177,12 +184,20 @@ class MainActivity : FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Android 默认不会用新 Intent 覆盖 getIntent()，显式 setIntent
+        // 保证后续读取（含可能的二次回调）拿到的都是最新深链。
+        setIntent(intent)
         handleIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
-        handleIntent(intent)
+        // 仅在冷启动首次进入前台时兜底一次 launching Intent（widget 直接点开 app）。
+        // 此后所有普通的前后台切换都跳过，避免反复读取同一份 sticky Intent 而 push 多层页面。
+        if (!hasHandledInitialIntent) {
+            hasHandledInitialIntent = true
+            handleIntent(intent)
+        }
         registerRegionCaptureReceiver()
         registerAiQuestionReceiver()
     }
