@@ -1,2 +1,0 @@
-[Relay] LISTEN 0.0.0.0:53317
-[Relay] FWD TO PORTS: [53318, 53319]

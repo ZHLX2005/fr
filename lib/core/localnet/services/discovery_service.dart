@@ -42,41 +42,11 @@ class DiscoveryService {
   Timer? _cleanupTimer;
   final Map<String, LocalnetDevice> _devices = {};
   String _serviceState = stateInit;
-  String? _myLocalIp;
-
-  /// UDP 中继目标（模拟器场景：发一份单播到宿主机转发）
-  String? _relayHost;
-  int _relayPort = 53317;
-
-  /// 设置 UDP 中继（模拟器场景下桥接 NAT 隔离）
-  void setRelay(String host, int port) {
-    _relayHost = host;
-    _relayPort = port;
-    debugLog.i('Discovery', '  中继: $host:$port');
-  }
 
   final _devicesController = StreamController<List<LocalnetDevice>>.broadcast();
 
   // 消息回调
   void Function(LocalnetMessage)? onMessageReceived;
-
-  /// UDP 广播扩展字段回调 — 让游戏等模块追加自己的字段
-  /// 返回 null 表示无扩展
-  List<String>? Function()? onBuildBroadcastExtras;
-
-  /// UDP 广播接收回调 — 让游戏等模块解析自己的扩展字段
-  /// 参数: deviceId, senderIp, senderPort, extrasMap
-  void Function(String, String, int, Map<String, String>)? onUdpBroadcastReceived;
-
-  /// 扩展路由注册表 — 供游戏等模块注册自定义 HTTP 路径
-  final Map<String, Future<void> Function(HttpRequest)> _extraRoutes = {};
-
-  /// 注册扩展 HTTP 路径
-  /// [path] 如 '/api/game/info'，[handler] 处理函数
-  void registerRoute(String path, Future<void> Function(HttpRequest) handler) {
-    _extraRoutes[path] = handler;
-    debugLog.i('Discovery', '注册扩展路由: $path');
-  }
 
   Stream<List<LocalnetDevice>> get devicesStream => _devicesController.stream;
   List<LocalnetDevice> get devices => _devices.values.toList();
@@ -88,13 +58,7 @@ class DiscoveryService {
   bool get isUdpListenerRunning => _udpSocket != null;
   bool get isHttpServerRunning => _httpServer != null;
 
-  DiscoveryService() : deviceId = Uuid().v4();
-
-  /// 设置本机 IP（用于过滤回环）
-  void setLocalIp(String? ip) {
-    _myLocalIp = ip;
-    debugLog.i('Discovery', '  本机IP: $ip');
-  }
+  DiscoveryService() : deviceId = const Uuid().v4();
 
   void _logState(String from, String to, {String? note}) {
     debugLog.logState('Discovery', from, to, note: note);
@@ -263,8 +227,6 @@ class DiscoveryService {
             request.response.statusCode = 400;
             request.response.close();
           }
-        } else if (_extraRoutes.containsKey(path)) {
-          await _extraRoutes[path]!(request);
         } else {
           request.response.statusCode = 404;
           request.response.close();
@@ -319,14 +281,9 @@ class DiscoveryService {
         return;
       }
 
-      // 忽略自己（同时检查 deviceId 和 senderIp）
+      // 忽略自己
       if (parsed.deviceId == deviceId) {
-        debugLog.d('Discovery', '  忽略自己 (同 deviceId)');
-        return;
-      }
-      // Android 模拟器场景：多播包 loopback 回自己 IP 时
-      if (senderIp == _myLocalIp) {
-        debugLog.d('Discovery', '  忽略自己 (同 IP $senderIp)');
+        debugLog.d('Discovery', '  忽略自己');
         return;
       }
 
@@ -335,16 +292,6 @@ class DiscoveryService {
 
       // 发送 HTTP join 请求
       _sendHttpJoin(senderIp, parsed.port);
-
-      // 通知扩展模块（如游戏）处理扩展字段
-      if (parsed.extras.isNotEmpty) {
-        onUdpBroadcastReceived?.call(
-          parsed.deviceId,
-          senderIp,
-          parsed.port,
-          parsed.extras,
-        );
-      }
     } catch (e) {
       debugLog.w('Discovery', '  UDP 解析失败: $e');
     }
@@ -421,18 +368,13 @@ class DiscoveryService {
     if (_udpSocket == null) return;
 
     try {
-      // 收集扩展字段（如游戏房间信息）
-      final extras = onBuildBroadcastExtras?.call();
-
       // 使用常量构建多播数据
       final message = LocalnetConstants.buildMulticastData(
         deviceId,
         devicePort,
-        extras,
       );
       final data = utf8.encode(message);
 
-      // 发多播
       final sent = _udpSocket!.send(
         data,
         InternetAddress(multicastAddress),
@@ -441,20 +383,6 @@ class DiscoveryService {
 
       if (sent > 0) {
         debugLog.d('Discovery', '→ UDP 广播: "$message" ($sent bytes)');
-      }
-
-      // 模拟器场景：额外发单播到宿主机 10.0.2.2 做中继
-      if (_relayHost != null) {
-        try {
-          _udpSocket!.send(
-            data,
-            InternetAddress(_relayHost!),
-            _relayPort,
-          );
-          debugLog.d('Discovery', '→ UDP 中继: "$message" -> $_relayHost:$_relayPort');
-        } catch (e) {
-          debugLog.d('Discovery', '  UDP 中继失败: $e');
-        }
       }
     } catch (e) {
       debugLog.w('Discovery', '✗ UDP 广播失败: $e');
