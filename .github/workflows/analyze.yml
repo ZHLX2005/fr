@@ -1,0 +1,38 @@
+name: PR Check
+
+# PR 合并门槛：flutter analyze 必须通过。
+# 刻意不依赖任何 secret（无 keystore / 无 java），fork 与外部贡献者的 PR 也能正常运行。
+# 配合 master 分支保护（required status check = "flutter analyze"），
+# 未通过 analyze 的 PR 无法合并，避免他人提交编译失败的改动。
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  analyze:
+    name: flutter analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # 生成 Hive 等代码生成产物，analyze 才不会因缺失 .g.dart 报错。
+      # 不加 `|| true`：代码生成失败应当阻断合并，而非静默放过。
+      - name: Generate code (build_runner)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Flutter analyze
+        run: flutter analyze
