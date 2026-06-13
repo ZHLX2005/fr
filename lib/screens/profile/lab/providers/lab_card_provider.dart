@@ -29,6 +29,14 @@ class LabCardProvider with ChangeNotifier {
   final Set<String> _favorites = <String>{};
   final List<String> _favoritesOrder = [];
 
+  /// 标记本次 notifyListeners 变更的背景键，供 _DemoCard 监听器按需短路、
+  /// 避免全量卡片重建。语义：
+  /// - null：非背景变更（收藏 / 收藏排序），卡片不关心；
+  /// - 具体 demoTitle：该 demo 背景变了，仅该卡片关心；
+  /// - '__all__'：全局清空（clearAll），所有卡片都关心。
+  String? _lastChangedKey;
+  String? get lastChangedKey => _lastChangedKey;
+
   String? getBackground(String demoTitle) {
     return _backgrounds[demoTitle];
   }
@@ -61,12 +69,14 @@ class LabCardProvider with ChangeNotifier {
       _backgrounds[demoTitle] = imageUrl;
     }
     await _saveBackgrounds();
+    _lastChangedKey = demoTitle;
     notifyListeners();
   }
 
   Future<void> removeBackground(String demoTitle) async {
     _backgrounds.remove(demoTitle);
     await _saveBackgrounds();
+    _lastChangedKey = demoTitle;
     notifyListeners();
   }
 
@@ -78,6 +88,7 @@ class LabCardProvider with ChangeNotifier {
     }
     await _saveFavorites();
     await syncFavoritesOrder();
+    _lastChangedKey = null;
     notifyListeners();
   }
 
@@ -86,6 +97,7 @@ class LabCardProvider with ChangeNotifier {
       ..clear()
       ..addAll(ordered);
     await _saveFavoritesOrder();
+    _lastChangedKey = null;
     notifyListeners();
   }
 
@@ -101,6 +113,7 @@ class LabCardProvider with ChangeNotifier {
     await _saveBackgrounds();
     await _saveFavorites();
     await _saveFavoritesOrder();
+    _lastChangedKey = '__all__';
     notifyListeners();
   }
 

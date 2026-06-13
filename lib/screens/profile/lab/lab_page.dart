@@ -40,6 +40,10 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   final ScrollController _gridScrollController = ScrollController();
   final ScrollController _panelScrollController = ScrollController();
 
+  /// demos 在 main.dart bootstrapLab() 同步注册完成、早于本页构建，
+  /// 缓存一次即可，避免面板拖拽每帧 setState 时 getAll().toList() 重新分配。
+  late final List<MapEntry<String, DemoPage>> _demos;
+
   late final AnimationController _anim = AnimationController(
     vsync: this,
     duration: _kAnimationDuration,
@@ -56,6 +60,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _demos = demoRegistry.getAll();
     if (_kLabPanelPerfDebug && kDebugMode) {
       SchedulerBinding.instance.addTimingsCallback(_timingsCallback);
     }
@@ -303,7 +308,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final demos = demoRegistry.getAll();
+    final demos = _demos;
     final theme = Theme.of(context);
     final panelColors = LabPanelColors.resolve(
       theme.colorScheme,
@@ -376,13 +381,15 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                             fullHeight,
                           );
                         },
-                        child: Stack(
-                          children: [
-                            if (demos.isEmpty)
-                              _buildEmptyState(Theme.of(context))
-                            else
-                              _buildDemoGrid(demos),
-                          ],
+                        child: RepaintBoundary(
+                          child: Stack(
+                            children: [
+                              if (demos.isEmpty)
+                                _buildEmptyState(Theme.of(context))
+                              else
+                                _buildDemoGrid(demos),
+                            ],
+                          ),
                         ),
                       ),
                     ),

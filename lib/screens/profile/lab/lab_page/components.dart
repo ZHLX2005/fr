@@ -42,13 +42,14 @@ class _DemoCardState extends State<_DemoCard> {
   }
 
   void _onProviderChanged() async {
-    if (mounted) {
-      await _provider.onLoaded;
-      if (mounted) {
-        _preloadImage();
-        setState(() {});
-      }
-    }
+    final key = _provider.lastChangedKey;
+    // 收藏/排序变更(key==null) 或 其他 demo 背景变更 → 本卡无需重建
+    if (key != null && key != widget.title && key != '__all__') return;
+    if (!mounted) return;
+    await _provider.onLoaded;
+    if (!mounted) return;
+    _preloadImage();
+    setState(() {});
   }
 
   Future<void> _preloadImage() async {
