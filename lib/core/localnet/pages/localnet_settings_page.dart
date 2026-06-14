@@ -157,8 +157,8 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
             title: 'UDP 广播',
             icon: Icons.upload,
             enabled: _udpBroadcastEnabled,
-            port: '53317',
-            detail: '多播: 224.0.0.167',
+            port: '5678',
+            detail: '多播: 239.255.255.255',
             warning: '每3秒广播一次（电池消耗较高）',
             onChanged: (value) {
               setState(() {
@@ -174,7 +174,7 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
             title: 'UDP 监听',
             icon: Icons.download,
             enabled: _udpListenerEnabled,
-            port: '53317',
+            port: '5678',
             detail: null,
             warning: null,
             onChanged: (value) {
