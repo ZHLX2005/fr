@@ -6,12 +6,21 @@ class LocalnetConstants {
 
   // ========== 多播配置 ==========
 
-  /// UDP 多播地址 (LocalLink 范围 224.0.0.0/24)
-  /// 使用 224.0.0.167 作为应用专属地址
-  static const String multicastAddress = '224.0.0.167';
+  /// UDP 多播地址 (ADMINSCOPE 范围 239.0.0.0/8)
+  /// 相比 224.0.0.0/24 (LocalLink, TTL=1, 多数家用/办公路由器不转发)，
+  /// 239.0.0.0/8 是 IANA 分配给私有应用的多播段，
+  /// 路由器通常会正常转发。
+  /// 兜底：若路由器仍阻断，可改用 255.255.255.255（有限广播）。
+  static const String multicastAddress = '239.255.255.255';
 
-  /// UDP 多播端口
-  static const int multicastPort = 53317;
+  /// UDP 多播端口 — 故意与 httpPort 错开
+  ///
+  /// 历史原因：旧实现同端口跑 UDP 多播 + HTTP，依赖 Linux 同协议号可共享
+  /// 端口。实际场景下：
+  /// - Android 某些 ROM 会因为 TCP 占着 53317 导致 UDP bind 失败
+  /// - TIME_WAIT 状态下重启会撞 errno=98
+  /// 拆到 5678（IANA 临时端口段高位）避免冲突。
+  static const int multicastPort = 5678;
 
   /// 多播数据格式：deviceId,port (纯文本，逗号分隔)
   static const String multicastDataFormat = 'deviceId,port';
