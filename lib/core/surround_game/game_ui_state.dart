@@ -20,7 +20,7 @@ class GameUiState {
   final TouchPhase phase;
   final int? targetCellId;
   final ({int x, int y, WallOrientation o})? previewWall;
-  final Color wallColor;
+  final bool wallPreviewValid;
   final Offset? dragOffset;
 
   // 待确认的走棋/放墙
@@ -33,7 +33,7 @@ class GameUiState {
     this.phase = TouchPhase.idle,
     this.targetCellId,
     this.previewWall,
-    this.wallColor = const Color(0xFF7CFFE5),
+    this.wallPreviewValid = true,
     this.dragOffset,
     this.pendingTargetCellId,
     this.pendingWall,
@@ -58,7 +58,7 @@ class GameUiState {
     TouchPhase? phase,
     int? targetCellId,
     ({int x, int y, WallOrientation o})? previewWall,
-    Color? wallColor,
+    bool? wallPreviewValid,
     Offset? dragOffset,
     int? pendingTargetCellId,
     ({int x, int y, WallOrientation o})? pendingWall,
@@ -73,7 +73,7 @@ class GameUiState {
         phase: phase ?? this.phase,
         targetCellId: clearTarget ? null : (targetCellId ?? this.targetCellId),
         previewWall: clearPreview ? null : (previewWall ?? this.previewWall),
-        wallColor: wallColor ?? this.wallColor,
+        wallPreviewValid: wallPreviewValid ?? this.wallPreviewValid,
         dragOffset: clearDrag ? null : (dragOffset ?? this.dragOffset),
         pendingTargetCellId: clearPending
             ? null
@@ -99,7 +99,33 @@ class GameController {
     stateNotifier.value = GameUiState.initial();
   }
 
-  bool undoLastMove() => false;
+  /// 悔棋：撤销最后一步（走棋或放墙），回合回到该步的执行者。
+  ///
+  /// 实现 = 用 replayHistory(history, upTo: length-1) 从历史前缀重建完整状态，
+  /// 一次性恢复棋子位置/墙壁占用/墙计数/当前回合/validMoves/status。
+  /// "悔棋"= 弹出历史栈顶 + 重放，无需逆操作。
+  /// 空历史 → 无操作返回 false。重建一个干净 idle 的 GameUiState（清掉 pending）。
+  bool undoLastMove() {
+    final gs = state.gameState;
+    if (gs.history.isEmpty) return false;
+    final undone = QuoridorEngine.replayHistory(
+      gs.history,
+      upTo: gs.history.length - 1,
+    );
+    stateNotifier.value = GameUiState(gameState: undone);
+    return true;
+  }
+
+  /// 该玩家当前是否可请求悔棋。
+  ///
+  /// 仅当：该玩家刚下完一步（此时轮到对方，即 `currentPlayerIsTop != isTopPlayer`）、
+  /// 历史非空、对局仍在进行。满足时该玩家可在对方回合阶段点自己的悔棋按钮
+  /// 请求撤销自己刚下的那步（标准 takeback 语义），由对方裁决。
+  static bool canRequestUndo(GameState gs, {required bool isTopPlayer}) {
+    return gs.status == GameStatus.running &&
+        gs.history.isNotEmpty &&
+        gs.currentPlayerIsTop != isTopPlayer;
+  }
 
   void toggleMode() {
     final s = state;
@@ -259,9 +285,7 @@ class GameController {
 
     stateNotifier.value = s.copyWith(
       pendingWall: (x: w.x, y: w.y, o: newOrientation),
-      wallColor: valid
-          ? const Color(0xFF7CFFE5)
-          : const Color(0xFFFF7CB8),
+      wallPreviewValid: valid,
     );
   }
 
@@ -293,9 +317,7 @@ class GameController {
 
     stateNotifier.value = s.copyWith(
       previewWall: (x: wx, y: wy, o: orientation),
-      wallColor: valid
-          ? const Color(0xFF7CFFE5)
-          : const Color(0xFFFF7CB8),
+      wallPreviewValid: valid,
     );
   }
 }

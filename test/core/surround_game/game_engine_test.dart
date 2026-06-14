@@ -3,6 +3,7 @@ import 'package:xiaodouzi_fr/core/surround_game/engine/game_engine.dart';
 import 'package:xiaodouzi_fr/core/surround_game/engine/bfs_pathfinder.dart';
 import 'package:xiaodouzi_fr/core/surround_game/models/game_state.dart';
 import 'package:xiaodouzi_fr/core/surround_game/surround_game_constants.dart';
+import '_fixtures.dart';
 
 void main() {
   group('初始化与基础', () {
@@ -309,6 +310,112 @@ void main() {
         state.adjacency, 4, 76,
       );
       expect(status, GameStatus.running);
+    });
+  });
+
+  group('applyMoveRecord', () {
+    test('走棋 → 移动方 cellId 更新、history +1', () {
+      var s = QuoridorEngine.initialize();
+      // top 走到 cellId 13（初始 validMoves 含 13）
+      s = QuoridorEngine.applyMoveRecord(
+        s, MoveRecord.move(cellId: 13, isTopPlayer: true));
+      expect(s.topPlayerId, 13, reason: 'top 应移到 13');
+      expect(s.bottomPlayerId, 76, reason: 'bottom 不动');
+      expect(s.history.length, 1);
+      expect(s.history.last.isWall, false);
+    });
+
+    test('放墙 → wallGrid 3 格 true、邻接切断、计数 +1', () {
+      var s = QuoridorEngine.initialize();
+      s = QuoridorEngine.applyMoveRecord(
+        s, MoveRecord.wall(x: 3, y: 4, orientation: WallOrientation.horizontal, isTopPlayer: true));
+      // wallBaseId(3,4)=160 → horizontal 占 [159,160,161]
+      expect(s.wallGrid[159], true);
+      expect(s.wallGrid[160], true);
+      expect(s.wallGrid[161], true);
+      // 邻接切断 (39,48) 与 (40,49)
+      expect(s.adjacency[39].contains(48), false);
+      expect(s.adjacency[40].contains(49), false);
+      expect(s.topWallsPlaced, 1);
+      expect(s.bottomWallsPlaced, 0);
+      expect(s.history.length, 1);
+    });
+
+    test('按 record.isTopPlayer 应用，不看 state.currentPlayerIsTop', () {
+      // 故意把 state 的回合设成 bottom，但 record 声明 top
+      var s = QuoridorEngine.initialize().copyWith(currentPlayerIsTop: false);
+      s = QuoridorEngine.applyMoveRecord(
+        s, MoveRecord.move(cellId: 13, isTopPlayer: true));
+      expect(s.topPlayerId, 13, reason: 'record 说是 top，就动 top');
+      expect(s.currentPlayerIsTop, false, reason: 'applyMoveRecord 不翻回合');
+    });
+  });
+
+  group('replay', () {
+    test('replayHistory([]) == initialize()', () {
+      final r = QuoridorEngine.replayHistory(const []);
+      final init = QuoridorEngine.initialize();
+      expect(r.topPlayerId, init.topPlayerId);
+      expect(r.bottomPlayerId, init.bottomPlayerId);
+      expect(r.currentPlayerIsTop, true);
+      expect(r.status, GameStatus.running);
+      expect(r.wallGrid, equals(init.wallGrid));
+    });
+
+    test('upTo clamp：<0 → 0，>length → length', () {
+      final game = buildMixedGame();
+      final n = game.history.length;
+      expect(QuoridorEngine.replayHistory(game.history, upTo: -3).topPlayerId,
+             QuoridorEngine.replayHistory(game.history, upTo: 0).topPlayerId,
+             reason: 'upTo<0 等价 upTo=0');
+      expect(QuoridorEngine.replayHistory(game.history, upTo: n + 5).history.length, n,
+             reason: 'upTo>length 钳到 length');
+    });
+
+    test('replay ≡ live：逐手快照与 replayHistory(upTo:k) 完全一致', () {
+      final game = buildMixedGame();
+      expect(game.snapshots, isNotEmpty, reason: 'fixture 应产出至少 1 手');
+      for (var k = 0; k < game.snapshots.length; k++) {
+        final snap = game.snapshots[k];
+        final replayed = QuoridorEngine.replayHistory(game.history, upTo: k + 1);
+        expect(replayed.topPlayerId, snap.topPlayerId, reason: 'move ${k + 1} topId');
+        expect(replayed.bottomPlayerId, snap.bottomPlayerId, reason: 'move ${k + 1} botId');
+        expect(replayed.topWallsPlaced, snap.topWallsPlaced, reason: 'move ${k + 1} topWalls');
+        expect(replayed.bottomWallsPlaced, snap.bottomWallsPlaced, reason: 'move ${k + 1} botWalls');
+        expect(replayed.currentPlayerIsTop, snap.currentPlayerIsTop, reason: 'move ${k + 1} turn');
+        expect(replayed.status, snap.status, reason: 'move ${k + 1} status');
+        expect(replayed.validMoves, unorderedEquals(snap.validMoves), reason: 'move ${k + 1} validMoves');
+        expect(replayed.wallGrid, equals(snap.wallGrid), reason: 'move ${k + 1} wallGrid');
+        expect(replayed.history.length, snap.history.length, reason: 'move ${k + 1} history len');
+        for (var i = 0; i < 81; i++) {
+          expect(replayed.adjacency[i], unorderedEquals(snap.adjacency[i]),
+              reason: 'move ${k + 1} adjacency[$i]');
+        }
+      }
+    });
+
+    test('回放后回合：currentPlayerIsTop = !history[k-1].isTopPlayer', () {
+      final game = buildMixedGame();
+      expect(QuoridorEngine.replayHistory(game.history, upTo: 0).currentPlayerIsTop, true);
+      for (var k = 1; k <= game.history.length; k++) {
+        final lastTop = game.history[k - 1].isTopPlayer;
+        expect(QuoridorEngine.replayHistory(game.history, upTo: k).currentPlayerIsTop,
+               !lastTop, reason: 'upTo=$k');
+      }
+    });
+
+    test('fromJson + 调用方 replayHistory 闭环 → adjacency/wallGrid 复现', () {
+      final game = buildMixedGame();
+      final finalState = game.snapshots.last;
+      final decoded = GameState.fromJson(finalState.toJson());
+      expect(decoded.adjacency.every((s) => s.isEmpty), true, reason: 'fromJson 不重建 adjacency');
+      final rebuilt = QuoridorEngine.replayHistory(decoded.history);
+      expect(rebuilt.topPlayerId, finalState.topPlayerId);
+      expect(rebuilt.bottomPlayerId, finalState.bottomPlayerId);
+      expect(rebuilt.wallGrid, equals(finalState.wallGrid));
+      for (var i = 0; i < 81; i++) {
+        expect(rebuilt.adjacency[i], unorderedEquals(finalState.adjacency[i]));
+      }
     });
   });
 }

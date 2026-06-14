@@ -276,22 +276,14 @@ class QuoridorEngine {
 
   // ═══════════════════════ 换手 ═══════════════════════
 
-  /// 切换回合
+  /// 重算"某方回合"的派生量：currentPlayerIsTop + validMoves + status。
   ///
-  /// - 翻转 currentPlayerIsTop
-  /// - 重算 validMoves（调用 getValidMoves）
-  /// - 重算 status（调用 checkStatus）
-  ///
-  /// 不在 movePiece/placeWall 里自动换手是为了：
-  ///   1. 让单测能分别验证"动作"和"换手"
-  ///   2. 让网络层有机会在换手前广播状态
-  ///
-  /// Swift 参考：GameModel.swift:117-120 player 属性
-  ///   Swift 通过 gameStack.count 的奇偶判断，我们显式翻转 counter
-  static GameState switchTurn(GameState state) {
-    final nextIsTop = !state.currentPlayerIsTop;
-    final playerId = nextIsTop ? state.topPlayerId : state.bottomPlayerId;
-    final opponentId = nextIsTop ? state.bottomPlayerId : state.topPlayerId;
+  /// [switchTurn] 与 [replayHistory] 共用：前者翻手，后者按棋谱显式指定。
+  static GameState _recomputeTurn(GameState state, bool currentPlayerIsTop) {
+    final playerId =
+        currentPlayerIsTop ? state.topPlayerId : state.bottomPlayerId;
+    final opponentId =
+        currentPlayerIsTop ? state.bottomPlayerId : state.topPlayerId;
 
     final moves = getValidMoves(state.adjacency, playerId, opponentId);
     final status = checkStatus(
@@ -299,11 +291,22 @@ class QuoridorEngine {
     );
 
     return state.copyWith(
-      currentPlayerIsTop: nextIsTop,
+      currentPlayerIsTop: currentPlayerIsTop,
       validMoves: moves,
       status: status,
     );
   }
+
+  /// 切换回合 —— 委托 [_recomputeTurn]（行为与重构前完全一致）。
+  ///
+  /// 不在 movePiece/placeWall 里自动换手是为了：
+  ///   1. 让单测能分别验证"动作"和"换手"
+  ///   2. 让网络层有机会在换手前广播状态
+  ///
+  /// Swift 参考：GameModel.swift:117-120 player 属性
+  ///   Swift 通过 gameStack.count 的奇偶判断，我们显式翻转 counter
+  static GameState switchTurn(GameState state) =>
+      _recomputeTurn(state, !state.currentPlayerIsTop);
 
   // ═══════════════════════ 胜负判定 ═══════════════════════
 
@@ -411,6 +414,68 @@ class QuoridorEngine {
       topWallsPlaced: topPlaced,
       bottomWallsPlaced: bottomPlaced,
     );
+  }
+
+  // ═══════════════════════ 棋谱重放（信任棋谱，仅几何） ═══════════════════════
+
+  /// 应用单条 [MoveRecord] 重建棋盘几何 —— 信任棋谱、不复验合法性。
+  ///
+  /// 与 [movePiece]/[placeWall] 的区别：
+  ///   - 不校验合法性（棋谱来自合法对局，是权威）
+  ///   - 行动方取自 [MoveRecord.isTopPlayer]，而非 state.currentPlayerIsTop
+  ///   - 不翻回合、不算 validMoves（与"动作 vs 换手分离"约定一致）
+  ///
+  /// 走棋：解码 cellId = x + y*9，更新对应棋子位置。
+  /// 放墙：标记 wallGrid、切断邻接、墙计数 +1。
+  /// orientation 缺失（畸形棋谱）时仅追加 history、不改几何（防御）。
+  static GameState applyMoveRecord(GameState state, MoveRecord record) {
+    final newHistory = [...state.history, record];
+
+    if (!record.isWall) {
+      final cellId = record.x + record.y * 9;
+      if (record.isTopPlayer) {
+        return state.copyWith(topPlayerId: cellId, history: newHistory);
+      }
+      return state.copyWith(bottomPlayerId: cellId, history: newHistory);
+    }
+
+    final o = record.orientation;
+    if (o == null) {
+      return state.copyWith(history: newHistory);
+    }
+
+    final newWalls = [...state.wallGrid];
+    for (final wid in wallOccupiedCells(record.x, record.y, o)) {
+      newWalls[wid] = true;
+    }
+    final newAdj = applyWallToAdjacency(state.adjacency, record.x, record.y, o, true);
+    final topPlaced = record.isTopPlayer ? state.topWallsPlaced + 1 : state.topWallsPlaced;
+    final bottomPlaced = record.isTopPlayer ? state.bottomWallsPlaced : state.bottomWallsPlaced + 1;
+
+    return state.copyWith(
+      wallGrid: newWalls,
+      adjacency: newAdj,
+      history: newHistory,
+      topWallsPlaced: topPlaced,
+      bottomWallsPlaced: bottomPlaced,
+    );
+  }
+
+  /// 从棋谱 [history] 重建完整 GameState（信任棋谱、仅几何）。
+  ///
+  /// [upTo] = 光标（已应用步数）：0=开局、length=终局；缺省=全量。越界自动 clamp。
+  /// 步退无需逆操作：cursor 10→5 只需 `replayHistory(h, upTo: 5)`。
+  ///
+  /// 流程：initialize() → 逐条 applyMoveRecord → 末尾 [_recomputeTurn] 重算回合/可走/状态。
+  /// 回合派生自最后一手：n=0 → top 先手；否则 = !history[n-1].isTopPlayer。
+  static GameState replayHistory(List<MoveRecord> history, {int? upTo}) {
+    final n = upTo == null ? history.length : upTo.clamp(0, history.length);
+    var state = initialize();
+    for (var i = 0; i < n; i++) {
+      state = applyMoveRecord(state, history[i]);
+    }
+    final isTop = (n == 0) ? true : !history[n - 1].isTopPlayer;
+    return _recomputeTurn(state, isTop);
   }
 
   // ═══════════════════════ 墙壁合法性校验 ═══════════════════════

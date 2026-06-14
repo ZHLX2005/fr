@@ -187,17 +187,18 @@ class GameState {
         'history': history.map((m) => m.toJson()).toList(),
         'status': status.name,
         'validMoves': validMoves.toList(),
-        // 注意：adjacency 和 wallGrid 不序列化（由 QuoridorEngine 从
-        // history 重放重建）。validMoves 序列化作为 hints。
-        // 如果需要 full state 远程重建，需要序列化 wallGrid。
-        // 下轮 LAN 同步时补充。
+        // 注意：adjacency 和 wallGrid 不序列化。反序列化后由调用方
+        // 调用 QuoridorEngine.replayHistory(history) 重建（见 fromJson 注释）。
+        // validMoves 序列化作为 hints；权威值由 replayHistory 重算。
       };
 
   /// 反序列化
   ///
-  /// 注意：deserialize 后的 state **不保证** adjacency 和 wallGrid 正确。
-  /// 上轮要用 QuoridorEngine.replayHistory(history) 重建。
-  /// 这局限将在下轮 LAN 同步时解决。
+  /// **调用方须知（方案 A，保持 model 不依赖 engine）**：
+  /// 反序列化后 adjacency/wallGrid 为空、validMoves 仅为 hint。
+  /// 需要完整可玩状态时，由调用方显式调用：
+  ///   `QuoridorEngine.replayHistory(state.history)`
+  /// 重建 adjacency/wallGrid/validMoves/status。replayHistory 已在引擎层就绪。
   factory GameState.fromJson(Map<String, dynamic> json) => GameState(
         topPlayerId: json['topPlayerId'] as int,
         bottomPlayerId: json['bottomPlayerId'] as int,

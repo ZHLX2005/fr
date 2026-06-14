@@ -3,7 +3,8 @@
 /// 统一导出模块内所有公开 API，外部引用只需 `import` 此文件：
 ///
 /// 子模块分类：
-/// - 常量与主题：[surround_game_constants]、[game_theme]
+/// - 常量与主题：[surround_game_constants]
+/// - 主题令牌：[board_theme]（[BoardThemeData] / [BoardTheme]）
 /// - 状态管理：[game_ui_state]（GameController + GameUiState）
 /// - 游戏引擎：[engine/game_engine]、[engine/bfs_pathfinder]
 /// - 数据模型：[models/game_event]、[models/game_state]、[models/game_room]、[models/player_input]
@@ -23,7 +24,7 @@ export 'engine/game_engine.dart';
 export 'pages/game_lobby_page.dart';
 export 'pages/game_room_page.dart';
 export 'widgets/room_list_tile.dart';
-export 'game_theme.dart';
+export 'board_theme.dart';
 export 'game_ui_state.dart';
 export 'pages/game_page.dart';
 export 'widgets/chess_board.dart';
@@ -33,3 +34,5 @@ export 'widgets/player_prompt.dart';
 export 'widgets/wall_prompt.dart';
 export 'widgets/touch_view.dart';
 export 'widgets/player_panel.dart';
+export 'replay/replay_controller.dart';
+export 'pages/replay_page.dart';

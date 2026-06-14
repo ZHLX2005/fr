@@ -1,21 +1,29 @@
 /// 墙壁放置预览组件
 ///
 /// 当玩家拖拽墙壁时显示半透明的预览方块。
+/// 颜色与合法性来自 [BoardThemeData]：
+///   - isValid=true  → theme.wallPreviewValid
+///   - isValid=false → theme.wallPreviewInvalid
+///
+/// 几何定位与 [ChessWall] 严格一致，确保预览和实际放置无视觉错位。
 import 'package:flutter/material.dart';
+import '../board_theme.dart';
 import '../surround_game_constants.dart';
 
 /// 墙壁拖拽预览
 class WallPrompt extends StatelessWidget {
   final ({int x, int y, WallOrientation o})? wallData;
   final double cellSize;
-  final Color color;
+  final BoardThemeData theme;
+  final bool isValid;
   final bool visible;
 
   const WallPrompt({
     super.key,
     required this.wallData,
     required this.cellSize,
-    required this.color,
+    required this.theme,
+    this.isValid = true,
     this.visible = false,
   });
 
@@ -38,6 +46,8 @@ class WallPrompt extends StatelessWidget {
     final wallHeight = isHorizontal
         ? cellSize * 0.25 + borderOffset * 2
         : cellSize * 2.25 + borderOffset * 2;
+
+    final color = isValid ? theme.wallPreviewValid : theme.wallPreviewInvalid;
 
     return Positioned(
       left: left,

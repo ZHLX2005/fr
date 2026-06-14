@@ -1,21 +1,25 @@
-/// 墙壁渲染组件
-///
-/// 遍历 [MoveRecord] 历史中所有墙壁放置记录，将其渲染为
-/// 水平或垂直方向的条状方块。
 import 'package:flutter/material.dart';
-import '../game_theme.dart';
+import '../board_theme.dart';
 import '../models/game_state.dart';
 import '../surround_game_constants.dart';
 
-/// 墙壁渲染层
+/// 墙壁渲染组件 — 简洁版
 ///
-/// 使用 Swift 原始公式定位墙壁：
-///   横墙：left = wall.x*distance + cellSize-2,  w = cellSize*2.25+4, h = cellSize*0.25+4
-///   竖墙：left = wall.x*distance + cellSize-2,  w = cellSize*0.25+4, h = cellSize*2.25+4
+/// 遍历 [MoveRecord] 历史中所有墙壁放置记录，将其渲染为
+/// 水平或垂直方向的简洁条状方块。
+///
+/// 视觉拆解（每块墙由 2 层叠成）：
+///   1. drop shadow   — 下方柔影
+///   2. solid body   — 纯色主体（wallPlayerA/wallPlayerB）
+///   3. inner edge    — 极淡的白色内描边
+///
+/// 颜色全部从 [BoardThemeData] 语义令牌读取。
+
+/// 墙壁渲染层
 class ChessWall extends StatelessWidget {
   final List<MoveRecord> history;
   final double cellSize;
-  final GameTheme theme;
+  final BoardThemeData theme;
 
   const ChessWall({
     super.key,
@@ -54,9 +58,10 @@ class ChessWall extends StatelessWidget {
           ? cellSize * 0.25 + borderOffset * 2
           : cellSize * 2.25 + borderOffset * 2;
 
-      final wallColor = record.isTopPlayer
-          ? GameTheme.topWall
-          : GameTheme.bottomWall;
+      // 从语义令牌里取双方各自的颜色
+      final baseColor = record.isTopPlayer
+          ? theme.wallPlayerA
+          : theme.wallPlayerB;
 
       children.add(Positioned(
         left: left,
@@ -65,14 +70,22 @@ class ChessWall extends StatelessWidget {
           width: wallWidth,
           height: wallHeight,
           decoration: BoxDecoration(
-            color: wallColor,
+            // Layer 1 — 纯色主体
+            color: baseColor,
             borderRadius: BorderRadius.circular(wallRadius),
+            // Layer 0 — 投影：简单柔和的阴影
             boxShadow: [
               BoxShadow(
-                color: wallColor.withValues(alpha: 0.3),
+                color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
+            // Layer 2 — 极淡的白色内描边
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1.0,
+            ),
           ),
         ),
       ));
