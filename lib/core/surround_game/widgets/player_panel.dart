@@ -47,7 +47,6 @@ class PlayerPanel extends StatelessWidget {
   final bool canRequestUndo;
   final VoidCallback? onToggleMode;
   final VoidCallback? onUndoRequest;
-  final VoidCallback? onExitRequest;
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
   final VoidCallback? onRotate;
@@ -66,7 +65,6 @@ class PlayerPanel extends StatelessWidget {
     required this.canRequestUndo,
     this.onToggleMode,
     this.onUndoRequest,
-    this.onExitRequest,
     this.onConfirm,
     this.onCancel,
     this.onRotate,

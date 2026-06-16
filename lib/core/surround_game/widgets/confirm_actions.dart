@@ -113,7 +113,9 @@ class ConfirmActions extends StatelessWidget {
             icon: Icons.close,
             color: Colors.red.withValues(alpha: 0.85),
             onTap: onCancel,
-            isTopTurn: isTopTurn,
+            // isTopTurn 标志是否需要翻转图标方向
+            // false=bottom player视角, true=top player视角（已经翻转过）
+            needsFlip: isTopTurn,
           ),
           const SizedBox(width: 12),
           // 确定按钮
@@ -121,7 +123,7 @@ class ConfirmActions extends StatelessWidget {
             icon: Icons.check,
             color: theme.piecePlayerA,
             onTap: onConfirm,
-            isTopTurn: isTopTurn,
+            needsFlip: isTopTurn,
           ),
         ],
       ),
@@ -134,13 +136,13 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  final bool isTopTurn;
+  final bool needsFlip;
 
   const _ActionButton({
     required this.icon,
     required this.color,
     required this.onTap,
-    required this.isTopTurn,
+    required this.needsFlip,
   });
 
   @override
@@ -161,14 +163,20 @@ class _ActionButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Transform.rotate(
-          angle: isTopTurn ? 3.14159 : 0,
-          child: Icon(
-            icon,
-            size: 24,
-            color: Colors.white,
-          ),
-        ),
+        child: needsFlip
+            ? Transform.flip(
+                flipX: true,
+                child: Icon(
+                  icon,
+                  size: 24,
+                  color: Colors.white,
+                ),
+              )
+            : Icon(
+                icon,
+                size: 24,
+                color: Colors.white,
+              ),
       ),
     );
   }

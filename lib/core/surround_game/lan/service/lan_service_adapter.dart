@@ -22,7 +22,7 @@ import 'package:xiaodouzi_fr/core/surround_game/lan/protocol/lan_messages.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/persistence/player_profile_service.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/persistence/device_id_service.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/serializer/game_state_serializer.dart';
-import 'package:xiaodouzi_fr/core/surround_game/models/game_room.dart';
+import 'package:xiaodouzi_fr/core/surround_game/lan/game_room.dart';
 import 'package:xiaodouzi_fr/core/surround_game/models/game_state.dart';
 
 class LanServiceError {
@@ -51,7 +51,7 @@ abstract class LanServiceAdapter {
 
   Stream<LanRoomEvent> watchRoomEvents();
   Future<void> announceRoom(GameRoom room);
-  void stopRoom(String roomId);
+  Future<void> stopRoom(String roomId);
 
   Future<SendResult> sendJoinRequest({
     required String hostDeviceId,
@@ -198,8 +198,14 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
   }
 
   @override
-  void stopRoom(String roomId) {
+  Future<void> stopRoom(String roomId) async {
     _announceTimers.remove(roomId)?.cancel();
+    if (!_isRunning) return;
+    // 广播关房，让 client 知道 host 已离开
+    await _fw.sendMulticast(
+      key: 'room_announce',
+      payload: HostRoomClosed(roomId: roomId).toJson(),
+    );
   }
 
   Future<void> _sendOne(Map<String, dynamic> payload) async {

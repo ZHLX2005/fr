@@ -15,7 +15,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../board_theme.dart';
-import '../models/game_room.dart';
+import 'game_room.dart';
 import 'lan_room_page.dart';
 import 'lan_match_state.dart';
 import 'lan_match_event.dart';
@@ -110,6 +110,11 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
           ev,
         ];
       });
+    } else if (ev is HostRoomClosed) {
+      // 任何 host 关房都要从列表里移除（包括自己发出去的关房）
+      setState(() {
+        _rooms = _rooms.where((r) => r.room.roomId != ev.roomId).toList();
+      });
     }
   }
 
@@ -124,13 +129,13 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
     );
   }
 
-  void _onCreateRoom() {
+  void _onCreateRoom() async {
     // 建房前确保 alias 已保存
     _onAliasSubmitted(_aliasCtrl.text);
     _vm.dispatch(const HostCreateRoomPressed());
     final state = _vm.value;
     final roomId = state is HostWaiting ? state.room.roomId : 'new';
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => LanRoomPage(
@@ -142,6 +147,13 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
         ),
       ),
     );
+    // 从 RoomPage 回来：host 自己广播的 HostRoomClosed 收不到（UDP 多播不 loopback），
+    // 显式从本机房间列表里移除刚创建的房间。
+    if (mounted) {
+      setState(() {
+        _rooms = _rooms.where((r) => r.room.roomId != roomId).toList();
+      });
+    }
   }
 
   @override

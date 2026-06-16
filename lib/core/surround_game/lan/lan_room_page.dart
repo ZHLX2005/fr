@@ -13,7 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../board_theme.dart';
-import '../models/game_room.dart';
+import 'game_room.dart';
 import 'lan_host_game_page.dart';
 import 'lan_client_game_page.dart';
 import 'lan_match_state.dart';
@@ -44,6 +44,9 @@ class _LanRoomPageState extends State<LanRoomPage> {
   LanClientViewModel? _clientVm;
   StreamSubscription<LanRoomEvent>? _roomSub;
   String? _clientDeviceId; // 新增：缓存 Client 加入时的 deviceId
+  // 标记：是否已通过 _onCountdownFinished 过渡到 GamePage。
+  // dispose 据此区分「过渡到游戏」（不关房）与「放弃建房」（关房广播）。
+  bool _navigatedToGame = false;
 
   bool get _isHost => widget.role == 'host';
 
@@ -106,6 +109,15 @@ class _LanRoomPageState extends State<LanRoomPage> {
       } else {
         _clientVm?.dispatch(ClientJoinRejected(ev.reason ?? '拒绝'));
       }
+    } else if (ev is HostRoomClosed && !_isHost) {
+      // Host 关房 → 弹提示并退出
+      _clientVm?.dispatch(ClientJoinRejected('Host 关闭了房间'));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Host 关闭了房间')),
+        );
+        Navigator.of(context).pop();
+      }
     }
     // 本轮 YAGNI：不监听 HostStatePushed（它是 LanClientEvent，不是 LanRoomEvent）。
     // Client 跳 GamePage 由 Host 端倒计时结束后通过游戏状态通道（Task 16/17）触发，
@@ -114,6 +126,8 @@ class _LanRoomPageState extends State<LanRoomPage> {
 
   void _onCountdownFinished() {
     if (!mounted) return;
+    // 标记已过渡到 GamePage：dispose 时据此跳过 stopRoom（关房由 GamePage.dispose 负责）。
+    _navigatedToGame = true;
     final page = _isHost
         ? LanHostGamePage(
             roomId: widget.roomId,
@@ -131,8 +145,11 @@ class _LanRoomPageState extends State<LanRoomPage> {
     _roomSub?.cancel();
     _hostVm?.dispose();
     _clientVm?.dispose();
-    // Host 离开时停止房间广播
-    if (_isHost) {
+    // Host 从 RoomPage 跳到 GamePage（pushReplacement）是合法过渡，不关房——
+    // 关房由 LanHostGamePage.dispose 负责（host 真正退出游戏时）。
+    // 但若 Host 未进入游戏就返回（放弃建房），必须 stopRoom：否则 announce timer
+    // 会泄漏，房间一直在其他设备的列表里「挂着不销毁」。
+    if (_isHost && !_navigatedToGame) {
       LanServiceAdapter.instance.stopRoom(widget.roomId);
     }
     super.dispose();

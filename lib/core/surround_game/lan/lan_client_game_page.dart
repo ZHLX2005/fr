@@ -27,6 +27,7 @@ import '../models/game_state.dart';
 import 'widgets/lan_board_stack.dart';
 import 'widgets/touch_controller_factory.dart';
 import 'protocol/lan_channels.dart';
+import 'protocol/lan_messages.dart';
 import 'service/lan_service_adapter.dart';
 import 'victory_overlay.dart';
 
@@ -58,6 +59,8 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
   Session<ValueNotifier<GameState>>? _session;
   StreamSubscription<List<Device>>? _devicesSub;
   StreamSubscription<LanServiceError>? _errorSub;
+  StreamSubscription<LanRoomEvent>? _roomSub;
+  bool _roomClosedDialogShown = false;
 
   @override
   void initState() {
@@ -76,6 +79,15 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
     _devicesSub = LanServiceAdapter.instance.watchDevices().listen(_onDevices);
     // 错误 SnackBar
     _errorSub = LanServiceAdapter.instance.watchErrors().listen(_onError);
+    // Host 关房协议 — 优先于 deviceLost 兜底
+    _roomSub =
+        LanServiceAdapter.instance.watchRoomEvents().listen(_onRoomEvent);
+  }
+
+  void _onRoomEvent(LanRoomEvent ev) {
+    if (ev is HostRoomClosed) {
+      _showRoomClosedDialog();
+    }
   }
 
   void _onDevices(List<Device> devices) {
@@ -92,13 +104,19 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
   }
 
   void _showDisconnectDialog() {
-    if (!mounted) return;
+    if (!mounted || _roomClosedDialogShown) return;
+    _showRoomClosedDialog(message: '对手已掉线');
+  }
+
+  void _showRoomClosedDialog({String message = '房间已被 Host 关闭'}) {
+    if (!mounted || _roomClosedDialogShown) return;
+    _roomClosedDialogShown = true;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('对手已掉线'),
-        content: const Text('连接已断开，请返回房间列表。'),
+        title: const Text('房间已关闭'),
+        content: Text('$message，请返回房间列表。'),
         actions: [
           FilledButton(
             onPressed: () {
@@ -116,6 +134,7 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
   void dispose() {
     _devicesSub?.cancel();
     _errorSub?.cancel();
+    _roomSub?.cancel();
     _session?.dispose();
     _gameStateNotifier?.dispose();
     _touchController.reset();

@@ -174,12 +174,12 @@ class LanBoardStack extends StatelessWidget {
             theme,
           ),
         // ConfirmActions 放进翻转层 — 跟随翻转，视觉位置正确
+        // Host 端：外层已 flipY，内层图标需要再 flipY 抵消（双重翻转=正常）
+        // Client 端：不翻转，需要根据 isTopTurn 决定是否翻转
         ConfirmActions(
           phase: toc.phase,
           pendingTargetCellId: toc.pendingTargetCellId,
           pendingWall: toc.pendingWall,
-          // host 端 currentPlayerIsTop 恒 true，按钮 Icon 不再旋转；
-          // client 端不翻转，保持 isTopTurn 语义。
           isTopTurn: flipY ? true : gs.currentPlayerIsTop,
           cellSize: cellSize,
           boardSize: boardSize,

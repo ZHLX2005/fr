@@ -1,4 +1,4 @@
-import '../models/game_room.dart';
+import 'game_room.dart';
 import '../models/game_state.dart';
 import '../surround_game_constants.dart';
 

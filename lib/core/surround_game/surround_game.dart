@@ -12,12 +12,10 @@ export 'engine/game_engine.dart';
 
 // 数据模型
 export 'models/game_event.dart';
-export 'models/game_room.dart';
+export 'lan/game_room.dart';
 export 'models/game_state.dart';
-export 'models/player_input.dart';
 
 // 游戏模式类型与工厂
-export 'game_mode_type.dart';
 export 'mode_factory.dart';
 
 // 触摸交互
@@ -36,9 +34,6 @@ export 'widgets/confirm_actions.dart';
 // 回放
 export 'replay/replay_controller.dart';
 export 'replay/replay_page.dart';
-
-// 网络服务（本轮不动，保留 export）
-export 'surround_game_service.dart';
 
 // 单机热座
 export 'local/local_game_page.dart';

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../engine/game_engine.dart';
 import '../local/local_match_state.dart';
-import '../models/game_room.dart';
+import 'game_room.dart';
 import '../models/game_state.dart';
 import '../surround_game_constants.dart';
 import 'lan_client_protocol_bridge.dart';

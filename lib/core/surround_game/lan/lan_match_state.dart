@@ -1,5 +1,5 @@
 import '../local/local_match_state.dart';
-import '../models/game_room.dart';
+import 'game_room.dart';
 import '../models/game_state.dart';
 
 // ===== Host states =====

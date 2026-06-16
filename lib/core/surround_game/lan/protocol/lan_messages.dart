@@ -6,7 +6,7 @@
 // 序列化格式：
 //   { 'type': '<event-name>', ...payload }
 
-import '../../models/game_room.dart';
+import '../game_room.dart';
 
 sealed class LanRoomEvent {
   const LanRoomEvent();
@@ -66,7 +66,8 @@ class HostRoomAnnounced extends LanRoomEvent {
       };
 }
 
-/// Host → 广播：关房（本轮保留以便后续扩展，本轮 Page 不调）
+/// Host → 广播：关房。由 LanHostGamePage.dispose（退出游戏）与
+/// LanRoomPage.dispose（放弃建房）经 LanServiceAdapter.stopRoom 发出。
 class HostRoomClosed extends LanRoomEvent {
   HostRoomClosed({required this.roomId});
 
