@@ -17,7 +17,6 @@ import 'package:xiaodouzi_fr/core/localnet/device/device.dart';
 import 'package:xiaodouzi_fr/core/localnet/framework/framework_config.dart';
 import 'package:xiaodouzi_fr/core/localnet/framework/lan_framework.dart';
 import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
-import 'package:xiaodouzi_fr/core/surround_game/engine/game_engine.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/protocol/lan_channels.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/protocol/lan_messages.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/serializer/game_state_serializer.dart';
@@ -61,14 +60,8 @@ abstract class LanServiceAdapter {
   Session<ValueNotifier<GameState>> createGameSession({
     required String peerDeviceId,
     required ValueNotifier<GameState> state,
+    String? channelName,
   });
-
-  Future<SendResult> sendGameState({
-    required String hostDeviceId,
-    required GameState state,
-  });
-
-  Stream<GameState> watchGameState(String hostDeviceId);
 }
 
 class _LanServiceAdapterImpl implements LanServiceAdapter {
@@ -77,14 +70,11 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
       StreamController<LanServiceError>.broadcast();
   final StreamController<LanRoomEvent> _roomEventsCtrl =
       StreamController<LanRoomEvent>.broadcast();
-  final StreamController<GameState> _gameStateCtrl =
-      StreamController<GameState>.broadcast();
 
   final Map<String, Timer> _announceTimers = {};
   StreamSubscription<ChannelMessage>? _announceSub;
   StreamSubscription<ChannelMessage>? _joinSub;
   StreamSubscription<Map<String, dynamic>>? _multicastSub;
-  final Map<String, Stream<GameState>> _gameStateStreams = {};
 
   bool _isRunning = false;
   String _alias = '';
@@ -135,21 +125,6 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
           } catch (e) {
             _errorsCtrl.add(
               LanServiceError('multicast join parse failed', cause: e),
-            );
-          }
-        } else if (key == 'game_state') {
-          // GameState：只关心发给我的（定向）
-          final toDeviceId = payload['toDeviceId'] as String?;
-          if (toDeviceId == null || toDeviceId != myDeviceId) return;
-          final innerPayload = Map<String, dynamic>.from(payload)
-            ..remove('toDeviceId');
-          try {
-            final temp = GameState.fromJson(innerPayload);
-            final rebuilt = QuoridorEngine.replayHistory(temp.history);
-            _gameStateCtrl.add(rebuilt);
-          } catch (e) {
-            _errorsCtrl.add(
-              LanServiceError('game state parse failed', cause: e),
             );
           }
         }
@@ -244,36 +219,13 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
   Session<ValueNotifier<GameState>> createGameSession({
     required String peerDeviceId,
     required ValueNotifier<GameState> state,
+    String? channelName,
   }) {
     return _fw.createSession<ValueNotifier<GameState>>(
       peerId: peerDeviceId,
       state: state,
       serializer: const GameStateSerializer(),
-    );
-  }
-
-  @override
-  Future<SendResult> sendGameState({
-    required String hostDeviceId,
-    required GameState state,
-  }) {
-    return _fw.sendMulticast(
-      key: 'game_state',
-      payload: {
-        'toDeviceId': hostDeviceId,
-        ...state.toJson(),
-      },
-    );
-  }
-
-  @override
-  Stream<GameState> watchGameState(String hostDeviceId) {
-    return _gameStateStreams.putIfAbsent(
-      hostDeviceId,
-      () {
-        // 简单实现：所有 game state 推同一流，调用方按 hostDeviceId 过滤
-        return _gameStateCtrl.stream;
-      },
+      channelName: channelName,
     );
   }
 

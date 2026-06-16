@@ -13,27 +13,34 @@
 // │      自己的 PlayerPanel (isTop=false)   │  底部
 // └────────────────────────────────────────┘
 
-import 'package:flutter/material.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:xiaodouzi_fr/core/localnet/device/device.dart';
+import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
 import '../widgets/player_panel.dart';
 import '../widgets/touch_controller.dart';
 import '../engine/game_engine.dart';
-import '../models/game_room.dart';
 import '../models/game_state.dart';
-import '../local/local_match_state.dart';
-import 'lan_match_state.dart';
-import 'lan_match_event.dart';
-import 'lan_client_view_model.dart';
 import 'widgets/lan_board_stack.dart';
+import 'widgets/touch_controller_factory.dart';
+import 'protocol/lan_channels.dart';
 import 'service/lan_service_adapter.dart';
 
 /// LAN 客户端游戏页面
 ///
 /// 单面板布局：棋盘居中（不翻转），底部仅显示 client 自己的 PlayerPanel。
 /// touchController 使用普通 [TouchController]（不镜像 y 坐标）。
-/// isMyTurn = gs.currentPlayerIsTop == false（client 是 bottom player）。
+/// isMyTurn = !gs.currentPlayerIsTop（client 是 bottom player）。
+///
+/// 状态同步：通过 LanServiceAdapter.createGameSession 建立双端 Session，
+/// 走固定 channel 'surround/game/state'。任一端修改 ValueNotifier 都会自动
+/// serialize + 推送给对端；对端收到后用 serializer 在原 notifier 上反序列化，
+/// 触发 onChanged 回调刷新 UI。
+///
+/// Client 不主动 syncFull（等 Host 推初始 state）。
 class LanClientGamePage extends StatefulWidget {
   final String roomId;
   final String hostDeviceId;
@@ -45,52 +52,72 @@ class LanClientGamePage extends StatefulWidget {
 }
 
 class _LanClientGamePageState extends State<LanClientGamePage> {
-  late final LanClientViewModel _viewModel;
-  final _touchController = TouchController();
+  TouchController _touchController = TouchController();
   ValueNotifier<GameState>? _gameStateNotifier;
-  StreamSubscription<GameState>? _gameStateSub;
+  Session<ValueNotifier<GameState>>? _session;
+  StreamSubscription<List<Device>>? _devicesSub;
+  StreamSubscription<LanServiceError>? _errorSub;
 
   @override
   void initState() {
     super.initState();
-    _viewModel = LanClientViewModel();
-    _viewModel.attachPeer(widget.hostDeviceId);
-    // 跳过倒计时：LanRoomPage 已经跑完 3s 倒计时，这里直接 fast-forward 到 ClientInGame。
-    // 1) ClientIdle -> ClientJoining -> ClientWaiting（2 步：press join + accept）
-    _viewModel.dispatch(ClientJoinPressed(
-      GameRoom.placeholder(roomId: widget.roomId),
-    ));
-    _viewModel.dispatch(ClientJoinAccepted(
-      GameRoom.placeholder(roomId: widget.roomId),
-    ));
-    // 2) ClientWaiting -> ClientCountdown(3)
-    _viewModel.dispatch(const HostStartedCountdown(3));
-    // 3) ClientCountdown(3) -> (2) -> (1) -> (0) -> ClientInGame（4 次 tick）
-    for (var i = 0; i < 4; i++) {
-      _viewModel.dispatch(const ClientTick());
-    }
     _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
-    // 订阅 Host 发来的 GameState
-    _gameStateSub = LanServiceAdapter.instance
-        .watchGameState(widget.hostDeviceId)
-        .listen((gs) {
-      if (!mounted) return;
-      _gameStateNotifier!.value = gs;
-      // 同步给 VM（让 VM 的 ClientInGame.gameState 跟上 Host）
-      if (_viewModel.value is ClientInGame ||
-          _viewModel.value is ClientFinished) {
-        _viewModel.dispatch(ClientGameStatePushed(gs));
-      }
-      setState(() {});
-    });
+    _session = LanServiceAdapter.instance.createGameSession(
+      peerDeviceId: widget.hostDeviceId,
+      state: _gameStateNotifier!,
+      channelName: LanChannels.gameState,
+    );
+    _session!.onChanged = () {
+      if (mounted) setState(() {});
+    };
+    // Client 不调 syncFull — 等 Host 推初始 state
+    // deviceLost 检测
+    _devicesSub = LanServiceAdapter.instance.watchDevices().listen(_onDevices);
+    // 错误 SnackBar
+    _errorSub = LanServiceAdapter.instance.watchErrors().listen(_onError);
+  }
+
+  void _onDevices(List<Device> devices) {
+    if (!devices.any((d) => d.deviceId == widget.hostDeviceId)) {
+      _showDisconnectDialog();
+    }
+  }
+
+  void _onError(LanServiceError err) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('网络错误: $err')),
+    );
+  }
+
+  void _showDisconnectDialog() {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('对手已掉线'),
+        content: const Text('连接已断开，请返回房间列表。'),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).pop();
+            },
+            child: const Text('返回'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   void dispose() {
-    _gameStateSub?.cancel();
+    _devicesSub?.cancel();
+    _errorSub?.cancel();
+    _session?.dispose();
     _gameStateNotifier?.dispose();
     _touchController.reset();
-    _viewModel.dispose();
     super.dispose();
   }
 
@@ -102,24 +129,18 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
       backgroundColor: theme.boardSurface,
       appBar: _buildAppBar(theme),
       body: SafeArea(
-        child: ValueListenableBuilder<LanClientState>(
-          valueListenable: _viewModel,
-          builder: (_, state, __) => switch (state) {
-            ClientInGame() => _buildGameScreen(
-                state,
-                theme,
-              ),
-            ClientFinished(:final result) =>
-              _buildGameScreen(
-                state,
-                theme,
-                overlay: _buildVictoryOverlay(_gameStateNotifier!.value, result, theme),
-              ),
-            _ => _buildWaitingScreen(theme),
-          },
+        child: ValueListenableBuilder<GameState>(
+          valueListenable: _gameStateNotifier!,
+          builder: (_, gs, _) => _buildBody(gs, theme),
         ),
       ),
     );
+  }
+
+  Widget _buildBody(GameState gs, BoardThemeData theme) {
+    final isMyTurn = !gs.currentPlayerIsTop; // client 是 bottom player
+    final isRunning = gs.status == GameStatus.running;
+    return _buildGameScreen(gs, theme, isRunning: isRunning, isMyTurn: isMyTurn);
   }
 
   PreferredSizeWidget _buildAppBar(BoardThemeData theme) {
@@ -160,41 +181,21 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
     );
   }
 
-  Widget _buildWaitingScreen(BoardThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(
-            '等待游戏开始...',
-            style: TextStyle(fontSize: 18, color: theme.btnText),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '房间 ${widget.roomId}',
-            style: TextStyle(fontSize: 14, color: theme.btnSub),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildGameScreen(
-    LanClientState state,
+    GameState gs,
     BoardThemeData theme, {
     Widget? overlay,
+    required bool isRunning,
+    required bool isMyTurn,
   }) {
-    final gs = _gameStateNotifier!.value;
-    final isRunning = state is ClientInGame || state is ClientFinished;
-    // Client 是 bottom player，轮到 bottom 时为 myTurn
-    final isMyTurn = !gs.currentPlayerIsTop;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final cellSize = w / 11;
+        final boardSize = w; // = cellSize * 11
+
+        // 首次或 boardSize 变化时升级 touchController（client 用普通 TouchController）
+        _ensureClientTouchController(boardSize);
 
         return Stack(
           children: [
@@ -217,20 +218,19 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
                     ),
                   ),
                 ),
-                // 底部 PlayerPanel
+                // 底部操作行
                 Padding(
                   padding: const EdgeInsets.only(top: 6, bottom: 6),
                   child: Center(
                     child: _buildPlayerPanel(
                       gs: gs,
                       theme: theme,
-                      isTop: false,
+                      isTop: false, // client 是 bottom
                       isTopTurn: gs.currentPlayerIsTop,
                       isRunning: isRunning,
                     ),
                   ),
                 ),
-                // 退出按钮
                 Padding(
                   padding: const EdgeInsets.only(
                     left: 16,
@@ -251,11 +251,21 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
                 ),
               ],
             ),
-            if (overlay != null) overlay,
+            ?overlay,
           ],
         );
       },
     );
+  }
+
+  // ═══════════════════ TouchController 生命周期 ═══════════════════
+
+  void _ensureClientTouchController(double boardSize) {
+    // Client 用普通 TouchController — 不镜像 y 坐标。
+    // 这里仅在尺寸变化时 reset，避免布局变化导致旧 pending 状态残留。
+    if (_touchController is LanHostTouchController) {
+      _touchController = TouchController();
+    }
   }
 
   // ═══════════════════ PlayerPanel ═══════════════════
@@ -280,7 +290,7 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
         SurroundGameConstants.wallCountPerPlayer - wallsPlaced;
 
     return PlayerPanel(
-      rotated: false,
+      rotated: false, // 底部面板不旋转
       active: active,
       isTop: isTop,
       mode: toc.mode,
@@ -304,9 +314,11 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
     );
   }
 
-  // ═══════════════════ Touch 与 Action ═══════════════════
+  // ═══════════════════ Touch event forwarding ═══════════════════
 
-  // 触摸事件由 LanBoardStack 内部转发到 touchController。
+  // 注意：触摸 PDS 事件由 LanBoardStack 内部转发到 touchController。
+  // Page 级的 _onPointerDown 等不再需要（已迁移到 LanBoardStack）。
+  // 仅保留 confirm/cancel/rotate 操作（供 PlayerPanel 按钮和 LanBoardStack 内部使用）。
 
   bool _validateWall(
     GameState gs, int wx, int wy, WallOrientation o,
@@ -323,35 +335,22 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
       final toc = _touchController;
       if (toc.phase != TouchPhase.confirming) return;
 
-      int? wx, wy;
-      WallOrientation? wo;
+      final current = _gameStateNotifier!.value;
+      GameState? result;
       if (toc.pendingWall != null) {
-        wx = toc.pendingWall!.x;
-        wy = toc.pendingWall!.y;
-        wo = toc.pendingWall!.o;
+        final pw = toc.pendingWall!;
+        result = QuoridorEngine.placeWall(current, pw.x, pw.y, pw.o);
+      } else {
+        result = QuoridorEngine.movePiece(current, toc.pendingTargetCellId ?? 0);
       }
-
-      _viewModel.dispatch(ClientMoveCommitted((
-        toc.pendingTargetCellId ?? 0, wx, wy, wo,
-      )));
+      if (result == null) {
+        toc.reset();
+        setState(() {});
+        return;
+      }
+      final next = QuoridorEngine.switchTurn(result);
+      _gameStateNotifier!.value = next; // Session 自动 serialize + 发
       toc.reset();
-
-      // 同步 notifier + 显式 sendTo Host
-      final currentState = _viewModel.value;
-      if (currentState is ClientInGame) {
-        _gameStateNotifier!.value = currentState.gameState;
-        LanServiceAdapter.instance.sendGameState(
-          hostDeviceId: widget.hostDeviceId,
-          state: currentState.gameState,
-        );
-      } else if (currentState is ClientFinished) {
-        _gameStateNotifier!.value = currentState.finalState;
-        LanServiceAdapter.instance.sendGameState(
-          hostDeviceId: widget.hostDeviceId,
-          state: currentState.finalState,
-        );
-      }
-
       setState(() {});
     };
   }
@@ -479,66 +478,6 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  // ═══════════════════ Victory overlay ═══════════════════
-
-  Widget _buildVictoryOverlay(
-    GameState finalState,
-    GameResult result,
-    BoardThemeData theme,
-  ) {
-    final isTopWin = result == GameResult.topWin;
-    final winColor = isTopWin ? theme.piecePlayerA : theme.piecePlayerB;
-    final winLabel = isTopWin ? '上方获胜！' : '下方获胜！';
-
-    return Container(
-      color: Colors.black.withValues(alpha: 0.45),
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 40),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-          decoration: BoxDecoration(
-            color: theme.panelBg,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.emoji_events, size: 48, color: winColor),
-              const SizedBox(height: 12),
-              Text(winLabel,
-                  style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: winColor)),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () {
-                  _touchController.reset();
-                  Navigator.of(context).pop();
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: winColor,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24)),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 12),
-                ),
-                child: const Text('返回'),
-              ),
-            ],
-          ),
         ),
       ),
     );

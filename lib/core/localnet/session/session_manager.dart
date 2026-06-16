@@ -23,12 +23,14 @@ class SessionManager {
     required String peerId,
     required S state,
     required StateSerializer<S> serializer,
+    String? channelName,
   }) {
     final session = Session<S>(
       peerId: peerId,
       state: state,
       channelManager: _channelManager,
       serializer: serializer,
+      channelName: channelName,
     );
 
     final key = _sessionKey(peerId, state);

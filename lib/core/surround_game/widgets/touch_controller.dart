@@ -87,6 +87,10 @@ class TouchController {
     required WallValidator validateWall,
   }) {
     if (!isRunning) return;
+    // 当前已进入"待确认"阶段时，让出触摸权给 ConfirmActions 的按钮（✓/✘）
+    // 不处理 TouchView 的 PointerEvent，避免 phase 被覆盖回 beganMove/beganWall
+    // 导致后续 ConfirmActions 的 onTap 走 _onConfirm 时早退（phase != confirming）
+    if (phase == TouchPhase.confirming) return;
 
     if (mode == GameMode.move) {
       phase = TouchPhase.beganMove;
@@ -125,6 +129,8 @@ class TouchController {
     required WallValidator validateWall,
   }) {
     if (phase == TouchPhase.idle) return;
+    // 确认阶段不让出触摸权（与 handleTouchBegan 同因）
+    if (phase == TouchPhase.confirming) return;
 
     if (mode == GameMode.move) {
       phase = TouchPhase.dragging;
@@ -150,6 +156,8 @@ class TouchController {
     required Set<int> validMoves,
     required WallValidator validateWall,
   }) {
+    // 确认阶段不处理 PointerUp（避免 phase 状态被覆盖）
+    if (phase == TouchPhase.confirming) return;
     if (mode == GameMode.move) {
       final tx = ((localPosition.dx + cellSize * 0.125) / distance).floor().clamp(0, 8);
       final ty = ((localPosition.dy + cellSize * 0.125) / distance).floor().clamp(0, 8);

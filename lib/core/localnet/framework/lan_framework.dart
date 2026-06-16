@@ -163,12 +163,14 @@ class LanFramework {
     required String peerId,
     required S state,
     StateSerializer<S>? serializer,
+    String? channelName,
   }) {
     _assertRunning();
     return _core!.sessionManager.create(
       peerId: peerId,
       state: state,
       serializer: serializer ?? _defaultJsonSerializer<S>(),
+      channelName: channelName,
     );
   }
 

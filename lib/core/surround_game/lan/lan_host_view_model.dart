@@ -86,10 +86,6 @@ final class LanHostViewModel extends ValueNotifier<LanHostState> {
         _applyAndCheck(s, moveData),
       HostMoveCommitted(:final moveData) when s is HostInGame =>
         _applyAndCheck(s, moveData),
-      HostGameStatePushed(:final gameState) when s is HostInGame =>
-        HostInGame(gameState, s.room),
-      HostGameStatePushed(:final gameState) when s is HostFinished =>
-        HostFinished(gameState, s.room, s.result),
       HostAbortGame() when s is HostError => value,
       HostAbortGame() => s,
       HostRetryPressed() when s is HostError =>

@@ -55,6 +55,7 @@ class Session<StateT extends Listenable> {
     required this.state,
     required ChannelManager channelManager,
     required StateSerializer<StateT> serializer,
+    this.channelName,
   })  : _channelManager = channelManager,
         _serializer = serializer {
     _startMonitoring();
@@ -65,6 +66,9 @@ class Session<StateT extends Listenable> {
   final ChannelManager _channelManager;
   final StateSerializer<StateT> _serializer;
 
+  /// 自定义 channel 名（双端 Session 同步时使用固定 channel）
+  final String? channelName;
+
   /// Callback for UI refresh when state changes
   void Function()? onChanged;
 
@@ -72,7 +76,8 @@ class Session<StateT extends Listenable> {
   bool _suppressSync = false;
 
   /// Unique channel ID for this session
-  String get _sessionChannel => 'session/${peerId}_${state.hashCode}';
+  String get _sessionChannel =>
+      channelName ?? 'session/${peerId}_${state.hashCode}';
 
   StreamSubscription<ChannelMessage>? _channelSub;
   Timer? _syncTimer;
