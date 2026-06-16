@@ -40,7 +40,10 @@ abstract class LanServiceAdapter {
   Future<void> stop();
   bool get isRunning;
 
+  void updateAlias(String newAlias);
+
   Stream<LanServiceError> watchErrors();
+
   String get myDeviceId;
   String get myAlias;
 
@@ -89,6 +92,13 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
 
   @override
   String get myAlias => _alias;
+
+  @override
+  void updateAlias(String newAlias) {
+    if (newAlias.trim().isEmpty) return;
+    _alias = newAlias.trim();
+    PlayerProfileService.saveAlias(_alias);
+  }
 
   @override
   Future<void> start({String? myAlias}) async {
