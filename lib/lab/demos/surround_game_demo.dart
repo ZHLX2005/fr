@@ -15,7 +15,7 @@ class SurroundGameDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    return const GameLobbyPage();
+    return const LobbyPage();
   }
 }
 

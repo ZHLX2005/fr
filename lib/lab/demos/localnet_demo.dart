@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import '../../core/localnet/pages/localnet_discover_page.dart';
+import '../../core/localnet_biz/pages/localnet_discover_page.dart';
 
 /// LocalNet 局域网发现与聊天Demo
 class LocalnetDemo extends DemoPage {
