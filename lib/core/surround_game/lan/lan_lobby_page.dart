@@ -23,6 +23,7 @@ import 'lan_match_state.dart';
 import 'lan_match_event.dart';
 import 'lan_host_view_model.dart';
 import 'profile/alias_dialog.dart';
+import 'persistence/player_profile_service.dart';
 import 'service/lan_service_adapter.dart';
 import 'protocol/lan_messages.dart';
 import '../../localnet/device/device.dart' show Device;
@@ -55,31 +56,48 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
   }
 
   Future<void> _bootstrap() async {
-    final alias = await AliasDialog.show(context);
+    final savedAlias = await PlayerProfileService.loadAlias();
+    if (!mounted) return;
+
+    // 已有 alias → 直接用，不弹 dialog
+    if (savedAlias != null && savedAlias.isNotEmpty) {
+      await _startAdapter(alias: savedAlias);
+      return;
+    }
+
+    // 首次 → 弹 dialog
+    final alias = await AliasDialog.show(context, initialAlias: null);
     if (!mounted) return;
     if (alias == null || alias.isEmpty) {
       Navigator.of(context).pop();
       return;
     }
-    setState(() => _alias = alias);
+    await _startAdapter(alias: alias);
+  }
+
+  Future<void> _startAdapter({String? alias}) async {
+    if (alias != null) {
+      setState(() => _alias = alias);
+    }
     try {
+      // alias 为 null 时由 adapter 内部使用持久化值（T3 已支持）
       await LanServiceAdapter.instance.start(myAlias: alias);
       if (!mounted) return;
       setState(() => _adapterStarted = true);
+      // 订阅（adapter 启动成功后才订阅）
+      _roomSub =
+          LanServiceAdapter.instance.watchRoomEvents().listen(_onRoomEvent);
+      _deviceSub =
+          LanServiceAdapter.instance.watchDevices().listen(_onDeviceEvent);
+      _errorSub =
+          LanServiceAdapter.instance.watchErrors().listen(_onError);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('框架启动失败: $e')),
         );
       }
-      return;
     }
-    _roomSub =
-        LanServiceAdapter.instance.watchRoomEvents().listen(_onRoomEvent);
-    _deviceSub =
-        LanServiceAdapter.instance.watchDevices().listen(_onDeviceEvent);
-    _errorSub =
-        LanServiceAdapter.instance.watchErrors().listen(_onError);
   }
 
   void _onRoomEvent(LanRoomEvent ev) {

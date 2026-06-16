@@ -78,6 +78,8 @@ final class LanClientViewModel extends ValueNotifier<LanClientState> {
         _applyAndCheck(s, moveData),
       HostStatePushed(:final gameState) when s is ClientInGame =>
         ClientInGame(gameState, s.room),
+      HostStatePushed(:final gameState) when s is ClientFinished =>
+        ClientInGame(gameState, s.room),
       ClientReconnectPressed() when s is ClientDisconnected =>
         const ClientIdle(),
       _ => s,

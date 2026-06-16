@@ -19,6 +19,8 @@ import 'package:xiaodouzi_fr/core/localnet/framework/lan_framework.dart';
 import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/protocol/lan_channels.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/protocol/lan_messages.dart';
+import 'package:xiaodouzi_fr/core/surround_game/lan/persistence/player_profile_service.dart';
+import 'package:xiaodouzi_fr/core/surround_game/lan/persistence/device_id_service.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/serializer/game_state_serializer.dart';
 import 'package:xiaodouzi_fr/core/surround_game/models/game_room.dart';
 import 'package:xiaodouzi_fr/core/surround_game/models/game_state.dart';
@@ -34,7 +36,7 @@ class LanServiceError {
 abstract class LanServiceAdapter {
   static final LanServiceAdapter instance = _LanServiceAdapterImpl();
 
-  Future<void> start({required String myAlias});
+  Future<void> start({String? myAlias});
   Future<void> stop();
   bool get isRunning;
 
@@ -89,11 +91,23 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
   String get myAlias => _alias;
 
   @override
-  Future<void> start({required String myAlias}) async {
+  Future<void> start({String? myAlias}) async {
     if (_isRunning) return;
-    _alias = myAlias;
+    // 预加载持久化数据
+    final persistedAlias = await PlayerProfileService.loadAlias();
+    final aliasToUse = (myAlias != null && myAlias.isNotEmpty)
+        ? myAlias
+        : (persistedAlias ?? 'Player');
+    if (myAlias != null && myAlias.isNotEmpty && myAlias != persistedAlias) {
+      await PlayerProfileService.saveAlias(myAlias);
+    }
+    final deviceId = await DeviceIdService.load();
+    _alias = aliasToUse;
     try {
-      await _fw.start(FrameworkConfig(deviceAlias: myAlias));
+      await _fw.start(FrameworkConfig(
+        deviceAlias: aliasToUse,
+        deviceId: deviceId,
+      ));
       _isRunning = true;
       _announceSub =
           _fw.watchChannel(LanChannels.roomAnnounce).listen(_onRoomAnnounce);

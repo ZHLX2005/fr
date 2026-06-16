@@ -78,6 +78,8 @@ final class LanHostViewModel extends ValueNotifier<LanHostState> {
         )),
       HostStartGamePressed() when s is HostWaiting =>
         _startCountdown(s.room),
+      HostStartGamePressed() when s is HostFinished =>
+        _startCountdown(s.room),
       HostTick() when s is HostCountdown =>
         s.secondsLeft > 0
             ? HostCountdown(s.room, s.secondsLeft - 1)

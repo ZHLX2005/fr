@@ -6,13 +6,16 @@
 import 'package:flutter/material.dart';
 
 class AliasDialog extends StatefulWidget {
-  const AliasDialog({super.key});
+  /// 已记住的 alias（用于 prefill TextField）
+  final String? initialAlias;
 
-  static Future<String?> show(BuildContext context) {
+  const AliasDialog({super.key, this.initialAlias});
+
+  static Future<String?> show(BuildContext context, {String? initialAlias}) {
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const AliasDialog(),
+      builder: (_) => AliasDialog(initialAlias: initialAlias),
     );
   }
 
@@ -21,7 +24,8 @@ class AliasDialog extends StatefulWidget {
 }
 
 class _AliasDialogState extends State<AliasDialog> {
-  final _ctrl = TextEditingController(text: 'Player');
+  late final TextEditingController _ctrl =
+      TextEditingController(text: widget.initialAlias ?? 'Player');
   final _formKey = GlobalKey<FormState>();
 
   @override

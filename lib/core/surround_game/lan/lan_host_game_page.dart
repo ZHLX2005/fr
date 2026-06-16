@@ -28,6 +28,7 @@ import '../engine/game_engine.dart';
 import '../models/game_state.dart';
 import 'widgets/lan_board_stack.dart';
 import 'widgets/touch_controller_factory.dart';
+import 'victory_overlay.dart';
 
 /// LAN 主机游戏页面
 ///
@@ -130,7 +131,18 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
       body: SafeArea(
         child: ValueListenableBuilder<GameState>(
           valueListenable: _gameStateNotifier!,
-          builder: (_, gs, _) => _buildBody(gs, theme),
+          builder: (_, gs, _) => Stack(
+            children: [
+              _buildBody(gs, theme),
+              if (gs.status != GameStatus.running)
+                VictoryOverlay(
+                  theme: theme,
+                  status: gs.status,
+                  onRestart: _onRestart,
+                  onExit: _onExit,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -372,6 +384,17 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
       debugPrint('[HOST-CANCEL] AFTER: phase=${_touchController.phase} pendingTarget=${_touchController.pendingTargetCellId} pendingWall=${_touchController.pendingWall}');
       setState(() {});
     };
+  }
+
+  void _onRestart() {
+    // 重置 GameState（Session 会自动 serialize + 推送给 Client，两端 overlay 消失）。
+    // 不走 VM —— GamePage 的状态由 _gameStateNotifier + Session 驱动。
+    _touchController.reset();
+    _resetGameState();
+  }
+
+  void _onExit() {
+    Navigator.of(context).pop();
   }
 
   VoidCallback _onRotate(GameState gs) {

@@ -28,6 +28,7 @@ import 'widgets/lan_board_stack.dart';
 import 'widgets/touch_controller_factory.dart';
 import 'protocol/lan_channels.dart';
 import 'service/lan_service_adapter.dart';
+import 'victory_overlay.dart';
 
 /// LAN 客户端游戏页面
 ///
@@ -131,7 +132,18 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
       body: SafeArea(
         child: ValueListenableBuilder<GameState>(
           valueListenable: _gameStateNotifier!,
-          builder: (_, gs, _) => _buildBody(gs, theme),
+          builder: (_, gs, _) => Stack(
+            children: [
+              _buildBody(gs, theme),
+              if (gs.status != GameStatus.running)
+                VictoryOverlay(
+                  theme: theme,
+                  status: gs.status,
+                  onRestart: () {}, // Client 端无再来一局触发逻辑
+                  onExit: _onExit,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -360,6 +372,10 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
       _touchController.cancelAction();
       setState(() {});
     };
+  }
+
+  void _onExit() {
+    Navigator.of(context).pop();
   }
 
   VoidCallback _onRotate(GameState gs) {
