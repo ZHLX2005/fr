@@ -79,13 +79,17 @@ final class LanHostViewModel extends ValueNotifier<LanHostState> {
       HostStartGamePressed() when s is HostWaiting =>
         _startCountdown(s.room),
       HostTick() when s is HostCountdown =>
-        s.secondsLeft > 1
+        s.secondsLeft > 0
             ? HostCountdown(s.room, s.secondsLeft - 1)
             : HostInGame(QuoridorEngine.initialize(), s.room),
       HostMoveReceived(:final moveData) when s is HostInGame =>
         _applyAndCheck(s, moveData),
       HostMoveCommitted(:final moveData) when s is HostInGame =>
         _applyAndCheck(s, moveData),
+      HostGameStatePushed(:final gameState) when s is HostInGame =>
+        HostInGame(gameState, s.room),
+      HostGameStatePushed(:final gameState) when s is HostFinished =>
+        HostFinished(gameState, s.room, s.result),
       HostAbortGame() when s is HostError => value,
       HostAbortGame() => s,
       HostRetryPressed() when s is HostError =>

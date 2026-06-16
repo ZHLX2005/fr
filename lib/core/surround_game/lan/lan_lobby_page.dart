@@ -48,7 +48,10 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
   void initState() {
     super.initState();
     _vm = LanHostViewModel();
-    _bootstrap();
+    // 等第一帧渲染后再弹 dialog，避免 initState 中 context 未 attach 导致 showDialog 静默失败
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _bootstrap();
+    });
   }
 
   Future<void> _bootstrap() async {
@@ -257,14 +260,19 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
           title: Text('${r.hostAlias} 的房间'),
           subtitle: Text('ID: ${r.room.roomId}'),
           onTap: () {
-            // 跳到 LanRoomPage(role: 'client') — Task 13 改 LanRoomPage 后才完全可用
+            // 把 r.hostDeviceId（真 deviceId）写进 room.hostId，让 Client 端
+            // sendJoinRequest 拿到的 hostDeviceId 是真值（不是 placeholder 的 'host' 字面量）
+            final realRoom = r.room.copyWith(
+              hostId: r.hostDeviceId,
+              hostName: r.hostAlias,
+            );
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => LanRoomPage(
                   roomId: r.room.roomId,
                   role: 'client',
-                  initialRoom: r.room,
+                  initialRoom: realRoom,
                 ),
               ),
             );

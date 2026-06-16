@@ -16,13 +16,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/service/lan_service_adapter.dart';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
 import '../widgets/player_panel.dart';
 import '../widgets/touch_controller.dart';
 import '../engine/game_engine.dart';
+import '../models/game_room.dart';
 import '../models/game_state.dart';
 import '../local/local_match_state.dart';
 import 'lan_match_state.dart';
@@ -50,27 +50,40 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   late final LanHostViewModel _viewModel;
   TouchController _touchController = TouchController();
   ValueNotifier<GameState>? _gameStateNotifier;
-  Session<ValueNotifier<GameState>>? _session;
   StreamSubscription<GameState>? _gameStateSub;
 
   @override
   void initState() {
     super.initState();
     _viewModel = LanHostViewModel();
+    _viewModel.attachPeer(widget.peerDeviceId);
+    // 跳过倒计时：LanRoomPage 已经跑完 3s 倒计时，这里直接 fast-forward 到 HostInGame。
+    // 1) HostLobby -> HostWaiting（需要一个 GameRoom 才能接 StartGamePressed）
+    _viewModel.dispatch(HostCreateRoomWithRoom(
+      GameRoom.placeholder(roomId: widget.roomId),
+    ));
+    // 2) HostWaiting -> HostCountdown(3)
+    _viewModel.dispatch(const HostStartGamePressed());
+    // 3) HostCountdown(3) -> (2) -> (1) -> (0) -> HostInGame（4 次 tick）
+    for (var i = 0; i < 4; i++) {
+      _viewModel.dispatch(const HostTick());
+    }
     _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
-    _session = LanServiceAdapter.instance.createGameSession(
-      peerDeviceId: widget.peerDeviceId,
-      state: _gameStateNotifier!,
-    );
-    _session!.onChanged = () {
-      if (mounted) setState(() {});
-    };
-    // 兼容 Client 端显式 sendGameState（不走 Session 通道）
+    // Host 不创建 Session（Client 端不监听 session channel，Session 在此冗余）。
+    // 双方统一走显式 sendGameState / watchGameState 路径，避免异步发送与
+    // Client 回送交错导致 _gameStateNotifier 被旧 state 覆盖、回合错乱。
     _gameStateSub = LanServiceAdapter.instance
         .watchGameState(widget.peerDeviceId)
         .listen((gs) {
       if (!mounted) return;
       _gameStateNotifier!.value = gs;
+      // 同步给 VM（让 VM 的 HostInGame.gameState 跟上 Client 推来的 state），
+      // 否则 Host 下次 dispatch HostMoveCommitted 时会用 VM 里旧的 state 算 next，
+      // 丢弃 Client 的走子导致棋盘回退。
+      if (_viewModel.value is HostInGame ||
+          _viewModel.value is HostFinished) {
+        _viewModel.dispatch(HostGameStatePushed(gs));
+      }
       setState(() {});
     });
   }
@@ -78,7 +91,6 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   @override
   void dispose() {
     _gameStateSub?.cancel();
-    _session?.dispose();
     _gameStateNotifier?.dispose();
     _touchController.reset();
     _viewModel.dispose();
@@ -196,6 +208,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     final gs = _gameStateNotifier!.value;
     final isRunning = state is HostInGame || state is HostFinished;
     final isMyTurn = gs.currentPlayerIsTop; // host 是 top player
+    debugPrint('[HOST-GAME-SCREEN] build: currentPlayerIsTop=${gs.currentPlayerIsTop} isMyTurn=$isMyTurn topWalls=${gs.topWallsPlaced} bottomWalls=${gs.bottomWallsPlaced} history.len=${gs.history.length}');
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -351,18 +364,29 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
         wo = toc.pendingWall!.o;
       }
 
+      debugPrint('[HOST-CONFIRM] BEFORE dispatch: phase=${toc.phase} pendingWall=${toc.pendingWall} mode=${toc.mode} notifier.currentPlayerIsTop=${_gameStateNotifier!.value.currentPlayerIsTop}');
       _viewModel.dispatch(HostMoveCommitted((
         toc.pendingTargetCellId ?? 0, wx, wy, wo,
       )));
-      // 同步 notifier → Session 自动发
+      // 显式 sendGameState 到 'surround/game/state' 通道，让 Client watchGameState 收到。
+      // 不依赖 Session（Client 端不监听 session channel）。
       final currentState = _viewModel.value;
-      if (currentState is HostInGame) {
-        _gameStateNotifier!.value = currentState.gameState;
-      } else if (currentState is HostFinished) {
-        _gameStateNotifier!.value = currentState.finalState;
+      final newState = currentState is HostInGame
+          ? currentState.gameState
+          : currentState is HostFinished
+              ? currentState.finalState
+              : null;
+      debugPrint('[HOST-CONFIRM] AFTER dispatch: VM type=${currentState.runtimeType} newState.currentPlayerIsTop=${newState?.currentPlayerIsTop} topWalls=${newState?.topWallsPlaced}');
+      if (newState != null) {
+        _gameStateNotifier!.value = newState;
+        LanServiceAdapter.instance.sendGameState(
+          hostDeviceId: widget.peerDeviceId,
+          state: newState,
+        );
       }
       toc.reset();
       setState(() {});
+      debugPrint('[HOST-CONFIRM] AFTER setState: notifier.currentPlayerIsTop=${_gameStateNotifier!.value.currentPlayerIsTop} toc.phase=${toc.phase} toc.mode=${toc.mode}');
     };
   }
 

@@ -43,6 +43,7 @@ class _LanRoomPageState extends State<LanRoomPage> {
   LanHostViewModel? _hostVm;
   LanClientViewModel? _clientVm;
   StreamSubscription<LanRoomEvent>? _roomSub;
+  String? _clientDeviceId; // 新增：缓存 Client 加入时的 deviceId
 
   bool get _isHost => widget.role == 'host';
 
@@ -82,6 +83,9 @@ class _LanRoomPageState extends State<LanRoomPage> {
       if (ev.clientDeviceId == LanServiceAdapter.instance.myDeviceId) {
         return; // 忽略自己
       }
+      setState(() {
+        _clientDeviceId = ev.clientDeviceId;
+      });
       _hostVm?.dispatch(HostClientJoined(
         ev.clientDeviceId,
         ev.clientAlias,
@@ -111,15 +115,12 @@ class _LanRoomPageState extends State<LanRoomPage> {
   void _onCountdownFinished() {
     if (!mounted) return;
     final page = _isHost
-        ? () {
-            final hostState = _hostVm?.value;
-            final peerId = hostState is HostWaiting
-                ? (hostState.room.clientId ?? '')
-                : '';
-            return LanHostGamePage(
-                roomId: widget.roomId, peerDeviceId: peerId);
-          }()
-        : LanClientGamePage(roomId: widget.roomId, hostDeviceId: widget.initialRoom.hostId);
+        ? LanHostGamePage(
+            roomId: widget.roomId,
+            peerDeviceId: _clientDeviceId ?? '',
+          )
+        : LanClientGamePage(
+            roomId: widget.roomId, hostDeviceId: widget.initialRoom.hostId);
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => page),
     );

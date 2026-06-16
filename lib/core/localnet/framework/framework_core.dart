@@ -46,6 +46,12 @@ class FrameworkCore {
   late final ConnectionManager connectionManager;
   late final SessionManager sessionManager;
 
+  final StreamController<String> _multicastController =
+      StreamController<String>.broadcast();
+
+  /// 业务多播通道（任意 string payload）
+  Stream<String> get multicasts => _multicastController.stream;
+
   Timer? _broadcastTimer;
   Timer? _cleanupTimer;
   bool _isRunning = false;
@@ -106,6 +112,13 @@ class FrameworkCore {
     if (transportConfig.enableUdp) {
       udpTransport.datagrams.listen((dg) {
         final text = String.fromCharCodes(dg.data);
+        // 业务多播消息：任何文本（业务层自行决定 JSON 格式）
+        // 判定：含 '{' 字符视为业务多播
+        if (text.trimLeft().startsWith('{')) {
+          _multicastController.add(text);
+          return; // 业务多播，不走设备发现
+        }
+        // framework 心跳格式：deviceId,port[,extras]
         // 格式: "deviceId,port" 或 "deviceId,port,key:value,..."
         final parts = text.split(',');
         if (parts.length < 2) return;
@@ -189,5 +202,6 @@ class FrameworkCore {
   Future<void> dispose() async {
     await stop();
     eventBus.dispose();
+    await _multicastController.close();
   }
 }

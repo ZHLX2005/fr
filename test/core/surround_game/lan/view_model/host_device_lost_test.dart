@@ -28,7 +28,8 @@ void main() {
     );
     vm.dispatch(HostCreateRoomWithRoom(room));
     vm.dispatch(HostStartGamePressed());
-    // 跳过倒计时（手动 dispatch 3 次 HostTick，从 3 → 2 → 1 → InGame）
+    // 跳过倒计时（手动 dispatch 4 次 HostTick，从 3 → 2 → 1 → 0 → InGame）
+    vm.dispatch(const HostTick());
     vm.dispatch(const HostTick());
     vm.dispatch(const HostTick());
     vm.dispatch(const HostTick());

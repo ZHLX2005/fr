@@ -20,6 +20,7 @@ import '../surround_game_constants.dart';
 import '../widgets/player_panel.dart';
 import '../widgets/touch_controller.dart';
 import '../engine/game_engine.dart';
+import '../models/game_room.dart';
 import '../models/game_state.dart';
 import '../local/local_match_state.dart';
 import 'lan_match_state.dart';
@@ -53,6 +54,21 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
   void initState() {
     super.initState();
     _viewModel = LanClientViewModel();
+    _viewModel.attachPeer(widget.hostDeviceId);
+    // 跳过倒计时：LanRoomPage 已经跑完 3s 倒计时，这里直接 fast-forward 到 ClientInGame。
+    // 1) ClientIdle -> ClientJoining -> ClientWaiting（2 步：press join + accept）
+    _viewModel.dispatch(ClientJoinPressed(
+      GameRoom.placeholder(roomId: widget.roomId),
+    ));
+    _viewModel.dispatch(ClientJoinAccepted(
+      GameRoom.placeholder(roomId: widget.roomId),
+    ));
+    // 2) ClientWaiting -> ClientCountdown(3)
+    _viewModel.dispatch(const HostStartedCountdown(3));
+    // 3) ClientCountdown(3) -> (2) -> (1) -> (0) -> ClientInGame（4 次 tick）
+    for (var i = 0; i < 4; i++) {
+      _viewModel.dispatch(const ClientTick());
+    }
     _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
     // 订阅 Host 发来的 GameState
     _gameStateSub = LanServiceAdapter.instance
@@ -60,6 +76,11 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
         .listen((gs) {
       if (!mounted) return;
       _gameStateNotifier!.value = gs;
+      // 同步给 VM（让 VM 的 ClientInGame.gameState 跟上 Host）
+      if (_viewModel.value is ClientInGame ||
+          _viewModel.value is ClientFinished) {
+        _viewModel.dispatch(ClientGameStatePushed(gs));
+      }
       setState(() {});
     });
   }

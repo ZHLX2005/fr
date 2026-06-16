@@ -69,6 +69,22 @@ class UdpTransport extends Transport {
     );
   }
 
+  /// 发送任意 payload 到多播组（业务层通用广播通道）
+  ///
+  /// 与 [send] 不同：send 是 framework 内部设备发现用的（固定 deviceId,port,extras 格式），
+  /// sendRaw 是业务层通用通道（如房间公告、聊天广播等）。
+  void sendRaw(String payload) {
+    if (_socket == null) {
+      throw StateError('UdpTransport 未启动，无法发送');
+    }
+    final data = utf8.encode(payload);
+    _socket!.send(
+      data,
+      InternetAddress(config.multicastAddress),
+      config.multicastPort,
+    );
+  }
+
   @override
   Future<void> stop() async {
     await _subscription?.cancel();

@@ -83,7 +83,7 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
   final Map<String, Timer> _announceTimers = {};
   StreamSubscription<ChannelMessage>? _announceSub;
   StreamSubscription<ChannelMessage>? _joinSub;
-  StreamSubscription<ChannelMessage>? _gameStateSub;
+  StreamSubscription<Map<String, dynamic>>? _multicastSub;
   final Map<String, Stream<GameState>> _gameStateStreams = {};
 
   bool _isRunning = false;
@@ -108,9 +108,52 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
       _announceSub =
           _fw.watchChannel(LanChannels.roomAnnounce).listen(_onRoomAnnounce);
       _joinSub = _fw.watchChannel(LanChannels.roomJoin).listen(_onRoomJoin);
-      _gameStateSub = _fw
-          .watchChannel(LanChannels.gameState)
-          .listen(_onGameStateMessage);
+      _multicastSub = _fw.watchMulticast().listen((msg) {
+        final key = msg['key'] as String?;
+        final payload = msg['payload'] as Map<String, dynamic>?;
+        if (payload == null) return;
+
+        if (key == 'room_announce') {
+          // 房间公告：所有设备都关心
+          try {
+            final ev = LanRoomEvent.fromJson(payload);
+            _roomEventsCtrl.add(ev);
+          } catch (e) {
+            _errorsCtrl.add(
+              LanServiceError('multicast announce parse failed', cause: e),
+            );
+          }
+        } else if (key == 'room_join') {
+          // Join 消息：只关心发给我的
+          final toDeviceId = payload['toDeviceId'] as String?;
+          if (toDeviceId == null || toDeviceId != myDeviceId) return;
+          final innerPayload = Map<String, dynamic>.from(payload)
+            ..remove('toDeviceId');
+          try {
+            final ev = LanRoomEvent.fromJson(innerPayload);
+            _roomEventsCtrl.add(ev);
+          } catch (e) {
+            _errorsCtrl.add(
+              LanServiceError('multicast join parse failed', cause: e),
+            );
+          }
+        } else if (key == 'game_state') {
+          // GameState：只关心发给我的（定向）
+          final toDeviceId = payload['toDeviceId'] as String?;
+          if (toDeviceId == null || toDeviceId != myDeviceId) return;
+          final innerPayload = Map<String, dynamic>.from(payload)
+            ..remove('toDeviceId');
+          try {
+            final temp = GameState.fromJson(innerPayload);
+            final rebuilt = QuoridorEngine.replayHistory(temp.history);
+            _gameStateCtrl.add(rebuilt);
+          } catch (e) {
+            _errorsCtrl.add(
+              LanServiceError('game state parse failed', cause: e),
+            );
+          }
+        }
+      });
     } catch (e) {
       _errorsCtrl.add(LanServiceError('framework start failed', cause: e));
       rethrow;
@@ -126,7 +169,7 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
     _announceTimers.clear();
     await _announceSub?.cancel();
     await _joinSub?.cancel();
-    await _gameStateSub?.cancel();
+    await _multicastSub?.cancel();
     await _fw.stop();
     _isRunning = false;
   }
@@ -151,7 +194,7 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
     _announceTimers[room.roomId]?.cancel();
     _announceTimers[room.roomId] =
         Timer.periodic(const Duration(seconds: 5), (_) => _sendOne(payload));
-    // 立即发一次
+    // 立即发一次（走 UDP 多播）
     await _sendOne(payload);
   }
 
@@ -162,14 +205,7 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
 
   Future<void> _sendOne(Map<String, dynamic> payload) async {
     if (!_isRunning) return;
-    final devices = _fw.devices;
-    for (final d in devices) {
-      await _fw.sendTo(
-        d.deviceId,
-        LanChannels.roomAnnounce,
-        payload,
-      );
-    }
+    await _fw.sendMulticast(key: 'room_announce', payload: payload);
   }
 
   @override
@@ -182,7 +218,10 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
       clientAlias: clientAlias,
       roomId: '',
     ).toJson();
-    return _fw.sendTo(hostDeviceId, LanChannels.roomJoin, payload);
+    return _fw.sendMulticast(key: 'room_join', payload: {
+      'toDeviceId': hostDeviceId,
+      ...payload,
+    });
   }
 
   @override
@@ -195,7 +234,10 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
       clientDeviceId: clientDeviceId,
       accepted: true,
     ).toJson();
-    return _fw.sendTo(clientDeviceId, LanChannels.roomJoin, payload);
+    return _fw.sendMulticast(key: 'room_join', payload: {
+      'toDeviceId': clientDeviceId,
+      ...payload,
+    });
   }
 
   @override
@@ -215,10 +257,12 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
     required String hostDeviceId,
     required GameState state,
   }) {
-    return _fw.sendTo(
-      hostDeviceId,
-      LanChannels.gameState,
-      state.toJson(),
+    return _fw.sendMulticast(
+      key: 'game_state',
+      payload: {
+        'toDeviceId': hostDeviceId,
+        ...state.toJson(),
+      },
     );
   }
 
@@ -248,16 +292,6 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
       _roomEventsCtrl.add(ev);
     } catch (e) {
       _errorsCtrl.add(LanServiceError('join parse failed', cause: e));
-    }
-  }
-
-  void _onGameStateMessage(ChannelMessage msg) {
-    try {
-      final temp = GameState.fromJson(msg.payload);
-      final rebuilt = QuoridorEngine.replayHistory(temp.history);
-      _gameStateCtrl.add(rebuilt);
-    } catch (e) {
-      _errorsCtrl.add(LanServiceError('game state parse failed', cause: e));
     }
   }
 }

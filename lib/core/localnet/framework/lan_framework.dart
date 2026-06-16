@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -119,6 +120,40 @@ class LanFramework {
   Stream<ChannelMessage> watchChannel(String channel) {
     _assertRunning();
     return _channelManager().watchChannel(channel);
+  }
+
+  // ============ 业务多播 ============
+
+  /// 发送业务多播消息（UDP 多播，局域网内所有设备立即收到）
+  Future<SendResult> sendMulticast({
+    required String key, // 业务标识，仅用于日志/debug，不参与协议
+    required Map<String, dynamic> payload,
+  }) async {
+    _assertRunning();
+    final core = _core!;
+    final body = jsonEncode({
+      'key': key,
+      'payload': payload,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+    try {
+      core.udpTransport.sendRaw(body);
+      return SendResult.ok();
+    } catch (e) {
+      return SendResult.fail('multicast send failed: $e');
+    }
+  }
+
+  /// 订阅业务多播消息
+  Stream<Map<String, dynamic>> watchMulticast() {
+    _assertRunning();
+    return _core!.multicasts.map((text) {
+      try {
+        return jsonDecode(text) as Map<String, dynamic>;
+      } catch (e) {
+        return <String, dynamic>{'_raw': text};
+      }
+    });
   }
 
   // ============ Session 管理 ============

@@ -54,6 +54,12 @@ class HostMoveCommitted extends LanHostEvent {
   ) moveData;
 }
 
+/// Client 推送 GameState 同步（多播走 'game_state' 通道到达 Host）
+class HostGameStatePushed extends LanHostEvent {
+  const HostGameStatePushed(this.gameState);
+  final GameState gameState;
+}
+
 class HostTick extends LanHostEvent {
   const HostTick();
 }
@@ -91,6 +97,13 @@ class ClientJoinRejected extends LanClientEvent {
   const ClientJoinRejected(this.reason);
 
   final String reason;
+}
+
+/// Host 推送的 GameState 同步（多播走 'game_state' 通道到达）
+class ClientGameStatePushed extends LanClientEvent {
+  const ClientGameStatePushed(this.gameState);
+
+  final GameState gameState;
 }
 
 class HostStartedCountdown extends LanClientEvent {
