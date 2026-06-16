@@ -1,3 +1,14 @@
+// lib/core/surround_game/lan/lan_room_page.dart
+//
+// 房间等待页面 — 同时支持 Host 和 Client 两种角色。
+//
+// 本轮改造：
+// - Host 进入：announceRoom + 订阅 room events 处理 ClientJoinRequested
+// - Client 进入：sendJoinRequest 替代桩化 Timer
+// - 双方收到 join result 后跳 GamePage
+// - 删除 _simulateAutoJoin（桩化）
+// - 倒计时由 Host 本地驱动，Client 跳 GamePage 不再走 HostStartedCountdown
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -9,11 +20,9 @@ import 'lan_match_state.dart';
 import 'lan_match_event.dart';
 import 'lan_host_view_model.dart';
 import 'lan_client_view_model.dart';
+import 'service/lan_service_adapter.dart';
+import 'protocol/lan_messages.dart';
 
-/// 房间等待页面 — 同时支持 Host 和 Client 两种角色。
-///
-/// Host 进入时携带 [initialRoom]（已建房），
-/// Client 进入时携带 [initialRoom]（目标房），会自动模拟 join → accept → 倒计时。
 class LanRoomPage extends StatefulWidget {
   final String roomId;
   final String role;
@@ -33,6 +42,7 @@ class LanRoomPage extends StatefulWidget {
 class _LanRoomPageState extends State<LanRoomPage> {
   LanHostViewModel? _hostVm;
   LanClientViewModel? _clientVm;
+  StreamSubscription<LanRoomEvent>? _roomSub;
 
   bool get _isHost => widget.role == 'host';
 
@@ -42,40 +52,89 @@ class _LanRoomPageState extends State<LanRoomPage> {
     if (_isHost) {
       _hostVm = LanHostViewModel();
       _hostVm!.dispatch(HostCreateRoomWithRoom(widget.initialRoom));
+      _startHost();
     } else {
       _clientVm = LanClientViewModel();
-      _simulateAutoJoin();
+      _startClient();
     }
+    _roomSub =
+        LanServiceAdapter.instance.watchRoomEvents().listen(_onRoomEvent);
+  }
+
+  Future<void> _startHost() async {
+    // 立即广播一次（adapter 内部每 5s 周期重发）
+    await LanServiceAdapter.instance.announceRoom(widget.initialRoom);
+  }
+
+  Future<void> _startClient() async {
+    // 发 join 请求
+    await LanServiceAdapter.instance.sendJoinRequest(
+      hostDeviceId: widget.initialRoom.hostId,
+      clientAlias: LanServiceAdapter.instance.myAlias,
+    );
+  }
+
+  void _onRoomEvent(LanRoomEvent ev) {
+    if (!mounted) return;
+    if (ev is ClientJoinRequested && _isHost) {
+      // Host 收到 client 加入请求 → 接受 + dispatch
+      // 简单验证：本机 hostId != clientDeviceId
+      if (ev.clientDeviceId == LanServiceAdapter.instance.myDeviceId) {
+        return; // 忽略自己
+      }
+      _hostVm?.dispatch(HostClientJoined(
+        ev.clientDeviceId,
+        ev.clientAlias,
+      ));
+      // 接受消息（由 sendJoinAccept 走协议通道）
+      LanServiceAdapter.instance.sendJoinAccept(
+        clientDeviceId: ev.clientDeviceId,
+        room: widget.initialRoom.copyWith(
+          clientId: ev.clientDeviceId,
+          clientName: ev.clientAlias,
+        ),
+      );
+    } else if (ev is ClientJoinResult && !_isHost) {
+      // Client 收到 join 结果
+      if (ev.accepted) {
+        _clientVm?.dispatch(ClientJoinAccepted(widget.initialRoom));
+        _onCountdownFinished();
+      } else {
+        _clientVm?.dispatch(ClientJoinRejected(ev.reason ?? '拒绝'));
+      }
+    }
+    // 本轮 YAGNI：不监听 HostStatePushed（它是 LanClientEvent，不是 LanRoomEvent）。
+    // Client 跳 GamePage 由 Host 端倒计时结束后通过游戏状态通道（Task 16/17）触发，
+    // 或作为兜底由 _buildAutoNavigate 在 secondsLeft==0 跳。
+  }
+
+  void _onCountdownFinished() {
+    if (!mounted) return;
+    final page = _isHost
+        ? () {
+            final hostState = _hostVm?.value;
+            final peerId = hostState is HostWaiting
+                ? (hostState.room.clientId ?? '')
+                : '';
+            return LanHostGamePage(
+                roomId: widget.roomId, peerDeviceId: peerId);
+          }()
+        : LanClientGamePage(roomId: widget.roomId, hostDeviceId: widget.initialRoom.hostId);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => page),
+    );
   }
 
   @override
   void dispose() {
+    _roomSub?.cancel();
     _hostVm?.dispose();
     _clientVm?.dispose();
+    // Host 离开时停止房间广播
+    if (_isHost) {
+      LanServiceAdapter.instance.stopRoom(widget.roomId);
+    }
     super.dispose();
-  }
-
-  /// 桩化：Client 在 500ms 后自动加入房间
-  void _simulateAutoJoin() {
-    final roomId = widget.roomId;
-    Timer(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      _clientVm?.dispatch(ClientJoinPressed(
-        GameRoom.placeholder(roomId: roomId),
-      ));
-      // 模拟加入成功
-      Timer(const Duration(milliseconds: 300), () {
-        if (!mounted) return;
-        _clientVm?.dispatch(ClientJoinAccepted(
-          GameRoom.placeholder(roomId: roomId),
-        ));
-        // 模拟主机开始倒计时
-        Timer(const Duration(milliseconds: 1000), () {
-          if (!mounted) return;
-          _clientVm?.dispatch(const HostStartedCountdown(3));
-        });
-      });
-    });
   }
 
   void _onBackPressed() {
@@ -141,15 +200,13 @@ class _LanRoomPageState extends State<LanRoomPage> {
     );
   }
 
-  /// Host 等待玩家加入
   Widget _buildHostWaiting(HostWaiting state, BoardThemeData theme) {
+    final joined = state.room.clientId != null;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const CircularProgressIndicator(),
-        const SizedBox(height: 24),
         Text(
-          '等待玩家加入...',
+          joined ? '玩家已加入' : '等待玩家加入...',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w500,
@@ -161,9 +218,19 @@ class _LanRoomPageState extends State<LanRoomPage> {
           '房间号: ${state.room.roomId}',
           style: TextStyle(fontSize: 14, color: theme.btnSub),
         ),
+        if (joined)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              '对手: ${state.room.clientName ?? "?"}',
+              style: TextStyle(fontSize: 14, color: theme.btnSub),
+            ),
+          ),
         const SizedBox(height: 32),
         FilledButton.icon(
-          onPressed: () => _hostVm!.dispatch(const HostStartGamePressed()),
+          onPressed: joined
+              ? () => _hostVm!.dispatch(const HostStartGamePressed())
+              : null,
           icon: const Icon(Icons.play_arrow),
           label: const Text('开始游戏'),
           style: FilledButton.styleFrom(
@@ -175,7 +242,6 @@ class _LanRoomPageState extends State<LanRoomPage> {
     );
   }
 
-  /// Client 等待主机开始
   Widget _buildClientWaiting(ClientWaiting state, BoardThemeData theme) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -199,7 +265,6 @@ class _LanRoomPageState extends State<LanRoomPage> {
     );
   }
 
-  /// Client 正在加入
   Widget _buildJoining(ClientJoining state, BoardThemeData theme) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -218,7 +283,6 @@ class _LanRoomPageState extends State<LanRoomPage> {
     );
   }
 
-  /// 倒计时页面 — Host 和 Client 共用
   Widget _buildCountdown(
     GameRoom room,
     int secondsLeft,
@@ -258,17 +322,10 @@ class _LanRoomPageState extends State<LanRoomPage> {
     );
   }
 
-  /// 倒计时结束自动跳转
   Widget _buildAutoNavigate() {
-    // Use post-frame callback to navigate after build completes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final page = _isHost
-          ? LanHostGamePage(roomId: widget.roomId)
-          : LanClientGamePage(roomId: widget.roomId);
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => page),
-      );
+      _onCountdownFinished();
     });
     return const SizedBox.shrink();
   }

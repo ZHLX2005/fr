@@ -13,7 +13,11 @@
 // │        自己的 PlayerPanel (isTop)       │  底部
 // └────────────────────────────────────────┘
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
+import 'package:xiaodouzi_fr/core/surround_game/lan/service/lan_service_adapter.dart';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
 import '../widgets/player_panel.dart';
@@ -34,8 +38,9 @@ import 'widgets/touch_controller_factory.dart';
 /// touchController 使用 [LanHostTouchControllerFactory] 创建，带 y 坐标镜像。
 class LanHostGamePage extends StatefulWidget {
   final String roomId;
+  final String peerDeviceId;
 
-  const LanHostGamePage({super.key, required this.roomId});
+  const LanHostGamePage({super.key, required this.roomId, required this.peerDeviceId});
 
   @override
   State<LanHostGamePage> createState() => _LanHostGamePageState();
@@ -44,15 +49,38 @@ class LanHostGamePage extends StatefulWidget {
 class _LanHostGamePageState extends State<LanHostGamePage> {
   late final LanHostViewModel _viewModel;
   TouchController _touchController = TouchController();
+  ValueNotifier<GameState>? _gameStateNotifier;
+  Session<ValueNotifier<GameState>>? _session;
+  StreamSubscription<GameState>? _gameStateSub;
 
   @override
   void initState() {
     super.initState();
     _viewModel = LanHostViewModel();
+    _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
+    _session = LanServiceAdapter.instance.createGameSession(
+      peerDeviceId: widget.peerDeviceId,
+      state: _gameStateNotifier!,
+    );
+    _session!.onChanged = () {
+      if (mounted) setState(() {});
+    };
+    // 兼容 Client 端显式 sendGameState（不走 Session 通道）
+    _gameStateSub = LanServiceAdapter.instance
+        .watchGameState(widget.peerDeviceId)
+        .listen((gs) {
+      if (!mounted) return;
+      _gameStateNotifier!.value = gs;
+      setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _gameStateSub?.cancel();
+    _session?.dispose();
+    _gameStateNotifier?.dispose();
+    _touchController.reset();
     _viewModel.dispose();
     super.dispose();
   }
@@ -68,14 +96,14 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
         child: ValueListenableBuilder<LanHostState>(
           valueListenable: _viewModel,
           builder: (_, state, __) => switch (state) {
-            HostInGame(:final gameState) => _buildGameScreen(
-                gameState,
+            HostInGame() => _buildGameScreen(
+                state,
                 theme,
               ),
-            HostFinished(:final finalState, :final result) => _buildGameScreen(
-                finalState,
+            HostFinished(:final result) => _buildGameScreen(
+                state,
                 theme,
-                overlay: _buildVictoryOverlay(finalState, result, theme),
+                overlay: _buildVictoryOverlay(_gameStateNotifier!.value, result, theme),
               ),
             _ => _buildIdleScreen(theme),
           },
@@ -161,11 +189,12 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   }
 
   Widget _buildGameScreen(
-    GameState gs,
+    LanHostState state,
     BoardThemeData theme, {
     Widget? overlay,
   }) {
-    final isRunning = gs.status == GameStatus.running;
+    final gs = _gameStateNotifier!.value;
+    final isRunning = state is HostInGame || state is HostFinished;
     final isMyTurn = gs.currentPlayerIsTop; // host 是 top player
 
     return LayoutBuilder(
@@ -325,6 +354,13 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
       _viewModel.dispatch(HostMoveCommitted((
         toc.pendingTargetCellId ?? 0, wx, wy, wo,
       )));
+      // 同步 notifier → Session 自动发
+      final currentState = _viewModel.value;
+      if (currentState is HostInGame) {
+        _gameStateNotifier!.value = currentState.gameState;
+      } else if (currentState is HostFinished) {
+        _gameStateNotifier!.value = currentState.finalState;
+      }
       toc.reset();
       setState(() {});
     };

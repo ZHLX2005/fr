@@ -7,13 +7,52 @@ import '../local/local_match_state.dart';
 import '../models/game_room.dart';
 import '../models/game_state.dart';
 import '../surround_game_constants.dart';
+import 'lan_client_protocol_bridge.dart';
 import 'lan_match_event.dart';
 import 'lan_match_state.dart';
+import 'protocol/lan_messages.dart';
+import '../../localnet/device/device.dart' show Device;
 
 final class LanClientViewModel extends ValueNotifier<LanClientState> {
   Timer? _countdownTimer;
+  StreamSubscription<List<Device>>? _devicesSub;
+  StreamSubscription<LanRoomEvent>? _roomSub;
+  String? _peerDeviceId;
 
-  LanClientViewModel() : super(const ClientIdle());
+  LanClientViewModel({
+    Stream<List<Device>>? devicesStream,
+    Stream<LanRoomEvent>? roomEvents,
+    String? peerDeviceId,
+  }) : super(const ClientIdle()) {
+    _peerDeviceId = peerDeviceId;
+    if (devicesStream != null) {
+      _devicesSub = devicesStream.listen(_onDevices);
+    }
+    if (roomEvents != null) {
+      _roomSub = roomEvents.listen(_onRoomEvent);
+    }
+  }
+
+  /// 在游戏开始时调用，设置对端 deviceId（用于 deviceLost 监听）
+  void attachPeer(String peerDeviceId) {
+    _peerDeviceId = peerDeviceId;
+  }
+
+  void _onDevices(List<Device> devices) {
+    final peerId = _peerDeviceId;
+    if (peerId == null) return;
+    if (!devices.any((d) => d.deviceId == peerId)) {
+      // 走协议路径（不走 dispatch，因为 ClientDisconnectedProtocol 是 LanRoomEvent 子类）
+      _onRoomEvent(ClientDisconnectedProtocol());
+    }
+  }
+
+  void _onRoomEvent(LanRoomEvent event) {
+    final next = reduceClientProtocol(value, event);
+    if (!identical(next, value)) {
+      value = next;
+    }
+  }
 
   void dispatch(LanClientEvent event) {
     final next = reduce(value, event);
@@ -79,6 +118,8 @@ final class LanClientViewModel extends ValueNotifier<LanClientState> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _devicesSub?.cancel();
+    _roomSub?.cancel();
     super.dispose();
   }
 }

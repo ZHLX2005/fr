@@ -14,6 +14,7 @@
 // └────────────────────────────────────────┘
 
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
 import '../widgets/player_panel.dart';
@@ -25,6 +26,7 @@ import 'lan_match_state.dart';
 import 'lan_match_event.dart';
 import 'lan_client_view_model.dart';
 import 'widgets/lan_board_stack.dart';
+import 'service/lan_service_adapter.dart';
 
 /// LAN 客户端游戏页面
 ///
@@ -33,8 +35,9 @@ import 'widgets/lan_board_stack.dart';
 /// isMyTurn = gs.currentPlayerIsTop == false（client 是 bottom player）。
 class LanClientGamePage extends StatefulWidget {
   final String roomId;
+  final String hostDeviceId;
 
-  const LanClientGamePage({super.key, required this.roomId});
+  const LanClientGamePage({super.key, required this.roomId, required this.hostDeviceId});
 
   @override
   State<LanClientGamePage> createState() => _LanClientGamePageState();
@@ -43,15 +46,29 @@ class LanClientGamePage extends StatefulWidget {
 class _LanClientGamePageState extends State<LanClientGamePage> {
   late final LanClientViewModel _viewModel;
   final _touchController = TouchController();
+  ValueNotifier<GameState>? _gameStateNotifier;
+  StreamSubscription<GameState>? _gameStateSub;
 
   @override
   void initState() {
     super.initState();
     _viewModel = LanClientViewModel();
+    _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
+    // 订阅 Host 发来的 GameState
+    _gameStateSub = LanServiceAdapter.instance
+        .watchGameState(widget.hostDeviceId)
+        .listen((gs) {
+      if (!mounted) return;
+      _gameStateNotifier!.value = gs;
+      setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _gameStateSub?.cancel();
+    _gameStateNotifier?.dispose();
+    _touchController.reset();
     _viewModel.dispose();
     super.dispose();
   }
@@ -67,15 +84,15 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
         child: ValueListenableBuilder<LanClientState>(
           valueListenable: _viewModel,
           builder: (_, state, __) => switch (state) {
-            ClientInGame(:final gameState) => _buildGameScreen(
-                gameState,
+            ClientInGame() => _buildGameScreen(
+                state,
                 theme,
               ),
-            ClientFinished(:final finalState, :final result) =>
+            ClientFinished(:final result) =>
               _buildGameScreen(
-                finalState,
+                state,
                 theme,
-                overlay: _buildVictoryOverlay(finalState, result, theme),
+                overlay: _buildVictoryOverlay(_gameStateNotifier!.value, result, theme),
               ),
             _ => _buildWaitingScreen(theme),
           },
@@ -144,11 +161,12 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
   }
 
   Widget _buildGameScreen(
-    GameState gs,
+    LanClientState state,
     BoardThemeData theme, {
     Widget? overlay,
   }) {
-    final isRunning = gs.status == GameStatus.running;
+    final gs = _gameStateNotifier!.value;
+    final isRunning = state is ClientInGame || state is ClientFinished;
     // Client 是 bottom player，轮到 bottom 时为 myTurn
     final isMyTurn = !gs.currentPlayerIsTop;
 
@@ -296,6 +314,23 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
         toc.pendingTargetCellId ?? 0, wx, wy, wo,
       )));
       toc.reset();
+
+      // 同步 notifier + 显式 sendTo Host
+      final currentState = _viewModel.value;
+      if (currentState is ClientInGame) {
+        _gameStateNotifier!.value = currentState.gameState;
+        LanServiceAdapter.instance.sendGameState(
+          hostDeviceId: widget.hostDeviceId,
+          state: currentState.gameState,
+        );
+      } else if (currentState is ClientFinished) {
+        _gameStateNotifier!.value = currentState.finalState;
+        LanServiceAdapter.instance.sendGameState(
+          hostDeviceId: widget.hostDeviceId,
+          state: currentState.finalState,
+        );
+      }
+
       setState(() {});
     };
   }
