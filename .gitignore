@@ -40,7 +40,10 @@ api_spec.json
 /coverage/
 
 # Test files (local API testing - never commit)
-test/
+test/*
+# Exception: localnet framework test infrastructure is version-controlled
+!test/core/
+!test/core/localnet/
 
 # Symbolication related
 app.*.symbols

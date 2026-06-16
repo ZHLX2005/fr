@@ -7,35 +7,46 @@
 // 边界保护：按钮始终在棋盘内，必要时自动翻转定位。
 import 'package:flutter/material.dart';
 import '../board_theme.dart';
-import '../game_ui_state.dart';
 import '../surround_game_constants.dart';
+import 'touch_controller.dart';
 
 /// 确认操作按钮组 — 就地确认（✓/✘）
 ///
 /// 在棋子/墙放下位置直接显示确认按钮，消除视线跳跃。
 /// 具备边界保护：按钮始终在棋盘内，必要时自动翻转到可见侧。
+///
+/// 纯展示组件：所有状态通过构造函数传入，操作通过回调回调。
 class ConfirmActions extends StatelessWidget {
-  final GameUiState ui;
-  final GameController controller;
+  final TouchPhase phase;
+  final int? pendingTargetCellId;
+  final ({int x, int y, WallOrientation o})? pendingWall;
+  final bool isTopTurn;
   final double cellSize;
   final double boardSize;
   final BoardThemeData theme;
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+  final VoidCallback? onRotate; // 仅在 pendingWall 非空时有效
 
   const ConfirmActions({
     super.key,
-    required this.ui,
-    required this.controller,
+    required this.phase,
+    required this.pendingTargetCellId,
+    required this.pendingWall,
+    required this.isTopTurn,
     required this.cellSize,
     required this.boardSize,
     required this.theme,
+    required this.onConfirm,
+    required this.onCancel,
+    this.onRotate,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (ui.phase != TouchPhase.confirming) return const SizedBox.shrink();
+    if (phase != TouchPhase.confirming) return const SizedBox.shrink();
 
     final distance = cellSize * 1.25;
-    final isTopTurn = ui.isTopTurn;
     const buttonSize = 44.0;
     const buttonGap = 12.0;
     final rowWidth = buttonSize * 2 + buttonGap; // 100
@@ -45,8 +56,8 @@ class ConfirmActions extends StatelessWidget {
     final gridSize = 8.0 * distance;
 
     // 棋子移动
-    if (ui.pendingTargetCellId != null) {
-      final cellId = ui.pendingTargetCellId!;
+    if (pendingTargetCellId != null) {
+      final cellId = pendingTargetCellId!;
       final x = (cellId % 9).toDouble();
       final y = (cellId ~/ 9).toDouble();
 
@@ -64,12 +75,12 @@ class ConfirmActions extends StatelessWidget {
         top = y * distance + cellSize * 0.1;
       }
 
-      return _buildButtons(left, top, false, isTopTurn);
+      return _buildButtons(left, top, false);
     }
 
     // 放墙
-    if (ui.pendingWall != null) {
-      final w = ui.pendingWall!;
+    if (pendingWall != null) {
+      final w = pendingWall!;
       final isHorizontal = w.o == WallOrientation.horizontal;
 
       var left = w.x * distance + (isHorizontal ? cellSize * 0.4 : cellSize + 8);
@@ -84,13 +95,13 @@ class ConfirmActions extends StatelessWidget {
         top = w.y * distance + cellSize * 0.45;
       }
 
-      return _buildButtons(left, top, true, isTopTurn);
+      return _buildButtons(left, top, true);
     }
 
     return const SizedBox.shrink();
   }
 
-  Widget _buildButtons(double left, double top, bool isWall, bool isTopTurn) {
+  Widget _buildButtons(double left, double top, bool isWall) {
     return Positioned(
       left: left,
       top: top,
@@ -101,7 +112,7 @@ class ConfirmActions extends StatelessWidget {
           _ActionButton(
             icon: Icons.close,
             color: Colors.red.withValues(alpha: 0.85),
-            onTap: () => controller.cancelAction(),
+            onTap: onCancel,
             isTopTurn: isTopTurn,
           ),
           const SizedBox(width: 12),
@@ -109,7 +120,7 @@ class ConfirmActions extends StatelessWidget {
           _ActionButton(
             icon: Icons.check,
             color: theme.piecePlayerA,
-            onTap: () => controller.confirmAction(),
+            onTap: onConfirm,
             isTopTurn: isTopTurn,
           ),
         ],

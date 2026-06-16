@@ -5,8 +5,8 @@
 // 颜色全部从 [BoardThemeData] 语义令牌读取，主题切换只改令牌。
 import 'package:flutter/material.dart';
 import '../board_theme.dart';
-import '../game_ui_state.dart';
 import '../surround_game_constants.dart';
+import 'touch_controller.dart';
 
 /// 玩家操作栏尺寸令牌
 ///
@@ -33,55 +33,59 @@ class _PanelMetrics {
 ///
 /// [isTop] 标识此面板属于哪个玩家，显示对应玩家的步数和木板数。
 /// 样式参考 xiaodouzi_bottom_bar.dart 的 Card+pill 风格。
+///
+/// 纯展示组件：所有状态通过构造函数传入，操作通过回调回调。
 class PlayerPanel extends StatelessWidget {
-  final GameController notifier;
   final bool rotated;
   final bool active;
   final bool isTop;
-
-  /// 点击悔棋按钮时回调（由 GamePage 传入，触发悔棋确认弹层）。
-  ///
-  /// 可空：仅在 [GameController.canRequestUndo] 成立时本胶囊才会启用并
-  /// 回调；非活跃调用方不传也不影响编译。
+  final GameMode mode;
+  final TouchPhase phase;
+  final bool canPlaceWall;
+  final int playerSteps;
+  final int remainingWalls;
+  final bool canRequestUndo;
+  final VoidCallback? onToggleMode;
   final VoidCallback? onUndoRequest;
+  final VoidCallback? onExitRequest;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onCancel;
+  final VoidCallback? onRotate;
+  final ({int x, int y, WallOrientation o})? pendingWall;
 
   const PlayerPanel({
     super.key,
-    required this.notifier,
     this.rotated = false,
     this.active = true,
     this.isTop = true,
+    required this.mode,
+    required this.phase,
+    required this.canPlaceWall,
+    required this.playerSteps,
+    required this.remainingWalls,
+    required this.canRequestUndo,
+    this.onToggleMode,
     this.onUndoRequest,
+    this.onExitRequest,
+    this.onConfirm,
+    this.onCancel,
+    this.onRotate,
+    this.pendingWall,
   });
 
   @override
   Widget build(BuildContext context) {
-    final ui = notifier.state;
-    final gs = ui.gameState;
     final theme = BoardTheme.of(context);
 
-    // 确认阶段：当前回合玩家的面板变成 取消/确定
-    if (ui.phase == TouchPhase.confirming && isTop == gs.currentPlayerIsTop) {
+    // 确认阶段：当前回合玩家的面板变成 取消/旋转/确定
+    if (phase == TouchPhase.confirming && active) {
       return _buildConfirmPanel(theme);
     }
 
     final opacity = active ? 1.0 : 0.4;
-    final canWall = ui.canPlaceWall;
-
-    // 悔棋可否请求：非本玩家回合（本玩家刚下完，想撤回）且历史非空且对局进行中。
-    // 注意：因此当前回合（active）面板上的悔棋通常禁用置灰，
-    // 对方回合时本面板悔棋才点亮 —— 这是标准 takeback 语义，不是缺陷。
-    final canUndo = GameController.canRequestUndo(gs, isTopPlayer: isTop);
-
-    // 本玩家的步数 = history 中 isTopPlayer 匹配的条目数
-    final playerSteps = gs.history.where((r) => r.isTopPlayer == isTop).length;
-
-    // 本玩家的剩余木板
-    final wallsPlaced = isTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
-    final playerWalls = SurroundGameConstants.wallCountPerPlayer - wallsPlaced;
 
     // 只有当前回合且在同一面板上时，模式切换按钮才显示在 active 面板中
-    final showModeButton = active && isTop == gs.currentPlayerIsTop;
+    final showModeButton = active;
 
     // 渐变色：基于 panelBg 上下浮动 6%，保持换肤一致性
     final bg = theme.panelBg;
@@ -131,9 +135,9 @@ class PlayerPanel extends StatelessWidget {
             children: [
               if (showModeButton) ...[
                 _ModeSegmentedBar(
-                  mode: ui.mode,
-                  canWall: canWall,
-                  onToggle: () => notifier.toggleMode(),
+                  mode: mode,
+                  canWall: canPlaceWall,
+                  onToggle: onToggleMode ?? () {},
                   theme: theme,
                   activeCapsule: activeCapsule,
                 ),
@@ -150,7 +154,7 @@ class PlayerPanel extends StatelessWidget {
               _PanelDivider(theme: theme),
               const SizedBox(width: _PanelMetrics.segGap),
               _PanelButton(
-                label: '$playerWalls',
+                label: '$remainingWalls',
                 sub: '木板',
                 theme: theme,
               ),
@@ -158,7 +162,7 @@ class PlayerPanel extends StatelessWidget {
               _PanelDivider(theme: theme),
               const SizedBox(width: _PanelMetrics.segGap),
               _UndoButton(
-                enabled: canUndo,
+                enabled: canRequestUndo,
                 onTap: onUndoRequest,
                 theme: theme,
               ),
@@ -180,9 +184,6 @@ class PlayerPanel extends StatelessWidget {
 
   /// 确认阶段面板 — 取消 / 旋转(墙) / 确定
   Widget _buildConfirmPanel(BoardThemeData theme) {
-    final isMove = notifier.state.pendingTargetCellId != null;
-    final isHorizontal = notifier.state.pendingWall?.o == WallOrientation.horizontal;
-
     // 确认阶段强调色 — 始终用玩家 A 主题色（当前回合玩家在 UI 上为上方面板）
     final accent = theme.piecePlayerA;
 
@@ -190,6 +191,12 @@ class PlayerPanel extends StatelessWidget {
     final bg = theme.panelBg;
     final bgTop = Color.lerp(bg, Colors.white, 0.06)!;
     final bgBottom = Color.lerp(bg, Colors.black, 0.06)!;
+
+    // pendingWall 非空 → 这是墙模式确认（显示旋转按钮）
+    final showRotate = pendingWall != null;
+    final rotateIcon = pendingWall?.o == WallOrientation.horizontal
+        ? Icons.swap_horiz
+        : Icons.swap_vert;
 
     final panel = SizedBox(
       width: _PanelMetrics.width,
@@ -229,19 +236,19 @@ class PlayerPanel extends StatelessWidget {
               label: '取消',
               iconColor: theme.btnText,
               labelColor: theme.btnSub,
-              onTap: () => notifier.cancelAction(),
+              onTap: onCancel ?? () {},
             ),
             const SizedBox(width: _PanelMetrics.segGap),
             _PanelDivider(theme: theme),
             const SizedBox(width: _PanelMetrics.segGap),
             // 旋转（仅墙模式）
-            if (!isMove) ...[
+            if (showRotate) ...[
               _ConfirmButton(
-                icon: isHorizontal ? Icons.swap_horiz : Icons.swap_vert,
+                icon: rotateIcon,
                 label: '旋转',
                 iconColor: accent,
                 labelColor: accent,
-                onTap: () => notifier.rotatePendingWall(),
+                onTap: onRotate ?? () {},
               ),
               const SizedBox(width: _PanelMetrics.segGap),
               _PanelDivider(theme: theme),
@@ -253,7 +260,7 @@ class PlayerPanel extends StatelessWidget {
               label: '确定',
               iconColor: accent,
               labelColor: accent,
-              onTap: () => notifier.confirmAction(),
+              onTap: onConfirm ?? () {},
             ),
           ],
         ),

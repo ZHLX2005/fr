@@ -32,6 +32,19 @@ class GameRoom {
     required this.createdAt,
   });
 
+  /// 占位房间工厂（本轮 LAN 桩化用）
+  ///
+  /// 创建一个表示"主机已建房"但尚未连接后端的占位房间对象。
+  factory GameRoom.placeholder({required String roomId}) => GameRoom(
+        roomId: roomId,
+        hostId: 'host',
+        hostName: '主机',
+        hostIp: '0.0.0.0',
+        hostPort: 53317,
+        state: RoomState.waiting,
+        createdAt: DateTime.now(),
+      );
+
   /// 当前玩家数
   int get playerCount => (hostId.isNotEmpty ? 1 : 0) + (clientId != null ? 1 : 0);
 

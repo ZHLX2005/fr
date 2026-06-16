@@ -28,17 +28,14 @@ enum CellState {
   invalidWall,
 }
 
-// ─── @Deprecated 旧枚举 — 仅用于 _legacy/ 编译过渡，下轮删除 ───
+// ─── @Deprecated 旧枚举 — 新版代码仍在过渡使用，待重构后删除 ───
 
-/// @deprecated 仅用于 _legacy/ 编译过渡，下轮删除。
+/// @deprecated
 @Deprecated('迁移到 CellState / WallOrientation')
 enum Direction { up, down, left, right }
 
-@Deprecated('旧版房间状态，下轮删除')
+@Deprecated('旧版房间状态，待重构后删除')
 enum RoomState { waiting, countdown, playing, finished }
-
-@Deprecated('旧版玩家编号，下轮删除')
-enum PlayerId { host, client }
 
 /// 围追堵截 (Quoridor) 游戏常量
 class SurroundGameConstants {
@@ -75,25 +72,4 @@ class SurroundGameConstants {
   static const String kBroadcastPlayers = 'p';
   static const String kGameType = 'surround';
   static const int kMaxPlayers = 2;
-
-  // ─── @Deprecated 旧常量 — 仅用于 _legacy/ 编译过渡 ───
-
-  @Deprecated('旧棋盘尺寸，下轮删除')
-  static const int boardRows = 20;
-  @Deprecated('旧棋盘尺寸，下轮删除')
-  static const int boardCols = 15;
-  @Deprecated('旧起始位置，下轮删除')
-  static const int hostStartRow = 1;
-  @Deprecated('旧起始位置，下轮删除')
-  static const int hostStartCol = 1;
-  @Deprecated('旧起始位置，下轮删除')
-  static const int clientStartRow = 18;
-  @Deprecated('旧起始位置，下轮删除')
-  static const int clientStartCol = 13;
-  @Deprecated('旧积分制，下轮删除')
-  static const int winScore = 3;
-  @Deprecated('旧倒计时，下轮删除')
-  static const int countdownSeconds = 3;
-  @Deprecated('旧超时，下轮删除')
-  static const int clientTimeoutSeconds = 30;
 }
