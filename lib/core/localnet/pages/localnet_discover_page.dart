@@ -24,9 +24,19 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
   }
 
   Future<void> _startService() async {
+    // 重入保护：避免"开始+结束"事件间被快速重复触发
+    // （首次 initState + 刷新按钮 + 屏幕旋转 都会触发，导致 start() 在
+    // 上一次 stop() 完成前再次 bind 同一端口 → errno=98）
+    if (_isStarting) return;
+    if (_service.serviceState == 'RUNNING' || _service.serviceState == 'STARTING') {
+      return;
+    }
     setState(() => _isStarting = true);
-    await _service.start();
-    setState(() => _isStarting = false);
+    try {
+      await _service.start();
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
+    }
   }
 
   @override

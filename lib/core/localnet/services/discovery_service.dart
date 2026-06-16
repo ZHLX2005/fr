@@ -45,6 +45,8 @@ class DiscoveryService {
   String? _myLocalIp;
 
   /// UDP 中继目标（模拟器场景：发一份单播到宿主机转发）
+  /// 模拟器里 UDP 多播直接被丢，所以用单播 53317 走到宿主中继服务
+  /// （中继服务需要监听 53317，与多播端口 5678 协议转换）
   String? _relayHost;
   int _relayPort = 53317;
 
@@ -138,9 +140,20 @@ class DiscoveryService {
   }
 
   /// 停止 HTTP 服务器
-  void stopHttpServer() {
-    _httpServer?.close();
+  ///
+  /// [force] = true 时不等活跃连接关闭，立刻释放端口（用于重启场景）
+  Future<void> stopHttpServer({bool force = false}) async {
+    final server = _httpServer;
     _httpServer = null;
+    if (server == null) return;
+    // 关键：HttpServer.close() 是异步的，必须 await，否则下一次 start() 立即
+    // bind 同一端口会撞上 TIME_WAIT（Android errno = 98 / Linux EADDRINUSE）。
+    if (force) {
+      // 立即关 socket（不等待现有请求 drain），适合 service 重启
+      await server.close(force: true);
+    } else {
+      await server.close();
+    }
     debugLog.i('Discovery', 'HTTP 服务器已停止');
   }
 
@@ -179,7 +192,13 @@ class DiscoveryService {
   /// 启动 HTTP 服务器，响应 /join 请求
   Future<void> _startHttpServerInternal() async {
     try {
-      _httpServer = await HttpServer.bind(InternetAddress.anyIPv4, httpPort);
+      // shared: true 允许多个进程/重启时同时绑同一端口（避开 SO_REUSEADDR 限制）
+      // 配合 stopHttpServer(force: true) 可让热重启时端口立即可重用
+      _httpServer = await HttpServer.bind(
+        InternetAddress.anyIPv4,
+        httpPort,
+        shared: true,
+      );
       debugLog.i('Discovery', '✓ HTTP 服务器绑定成功 :$httpPort');
 
       _httpServer!.listen((request) async {
@@ -491,7 +510,7 @@ class DiscoveryService {
   }
 
   /// 停止服务
-  void stop() {
+  Future<void> stop() async {
     if (_serviceState == stateInit) {
       // 即使未初始化也清理设备列表
       _devices.clear();
@@ -504,7 +523,8 @@ class DiscoveryService {
     stopUdpBroadcast();
     _cleanupTimer?.cancel();
     stopUdpListener();
-    stopHttpServer();
+    // 强制立即释放端口，避免下次 start() 撞 TIME_WAIT (errno=98)
+    await stopHttpServer(force: true);
 
     _devices.clear();
     _logState(_serviceState, stateInit, note: '服务已停止');

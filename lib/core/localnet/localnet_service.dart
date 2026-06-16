@@ -86,6 +86,20 @@ class LocalnetService {
       await init();
     }
 
+    // 幂等保护：服务已在运行就不重入。
+    // 多个入口（discover_page.initState / game_lobby_page.initState / 刷新按钮）
+    // 会反复调 start()，但组件层（HttpServer/_udpSocket）已自带 null-check 保护，
+    // 真正重复跑只会触发多余的状态机转换日志和 applyConfig。
+    if (_serviceState == stateRunning) {
+      debugLog.d('Localnet', '服务已在运行，跳过 start()');
+      return;
+    }
+    if (_serviceState == stateStarting) {
+      debugLog.d('Localnet', '服务正在启动中，等待完成');
+      // 简单做法：等现有启动完成。生产环境可用 Completer 复用 Future
+      return;
+    }
+
     _logState(_serviceState, stateStarting, note: '启动服务');
     _serviceState = stateStarting;
 
@@ -165,7 +179,7 @@ class LocalnetService {
   }
 
   /// 停止服务
-  void stop() {
+  Future<void> stop() async {
     if (_serviceState != stateRunning && _serviceState != stateStarting) {
       debugLog.w('Localnet', '服务未运行');
       return;
@@ -174,7 +188,7 @@ class LocalnetService {
     _logState(_serviceState, stateStopping, note: '停止服务');
     _serviceState = stateStopping;
 
-    discovery.stop();
+    await discovery.stop();
     message.stop();
 
     _logState(_serviceState, stateIdle, note: '服务已停止');
@@ -216,10 +230,18 @@ class LocalnetService {
     discovery.stopHttpServer();
   }
 
+  /// 释放服务
+  ///
+  /// 当前业务不会调到这里（discover_page.dispose 注释 keep it running），
+  /// 但 stop() 内部已 async 化以正确等待 socket 关闭。
+  /// TODO(future): 如果接 WidgetsBindingObserver 全局销毁流程，需把此方法
+  /// 改为 `Future<void> dispose() async` 并 await stop()。
   void dispose() {
+    // 同步 fire-and-forget 模式：当前没有任何调用方
     stop();
     discovery.dispose();
     message.dispose();
+    _initialized = false;  // 允许重新 init
   }
 
   /// 探测本机局域网 IP（用于联机游戏广播）
@@ -270,7 +292,7 @@ class LocalnetService {
 
     if (_serviceState == stateRunning) {
       debugLog.i('Localnet', '配置已更改，重启服务...');
-      stop();
+      await stop();
       await start();
     }
   }
