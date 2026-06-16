@@ -33,7 +33,6 @@ class UdpTransport extends Transport {
         InternetAddress.anyIPv4,
         config.multicastPort,
         reuseAddress: true,
-        reusePort: true,
       );
       _socket!.joinMulticast(InternetAddress(config.multicastAddress));
 

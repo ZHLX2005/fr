@@ -49,9 +49,13 @@ class DeviceManager {
 
     final existing = _registry.get(deviceId);
     final now = DateTime.now();
+    // 别名优先级：广播中的 alias > 已有别名 > ip
+    final alias = extras['alias']?.isNotEmpty == true
+        ? extras['alias']!
+        : (existing?.alias ?? ip);
     final device = Device(
       deviceId: deviceId,
-      alias: existing?.alias ?? ip, // 默认用 ip 当 alias，第一次见到
+      alias: alias,
       ip: ip,
       port: port,
       lastSeen: now,

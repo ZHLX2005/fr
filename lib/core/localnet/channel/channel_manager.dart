@@ -144,4 +144,15 @@ class ChannelManager {
       await request.response.close();
     }
   }
+
+  /// Test helper: Simulate receiving a message (for testing only)
+  void testSimulateMessage(String channel, Map<String, dynamic> payload) {
+    final message = ChannelMessage(
+      sourceDeviceId: 'test-peer',
+      channel: channel,
+      payload: payload,
+      timestamp: DateTime.now(),
+    );
+    _channelControllers[channel]?.add(message);
+  }
 }

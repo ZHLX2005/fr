@@ -77,7 +77,7 @@ class LocalnetConfig {
 
   static Future<LocalnetConfig> load() async {
     final prefs = await SharedPreferences.getInstance();
-    return LocalnetConfig(
+    final config = LocalnetConfig(
       deviceAlias:
           prefs.getString(_keyDeviceAlias) ??
           LocalnetConstants.defaultDeviceAlias,
@@ -88,6 +88,14 @@ class LocalnetConfig {
       httpServerEnabled: prefs.getBool(_keyHttpServerEnabled) ?? true,
       port: prefs.getInt(_keyPort) ?? LocalnetConstants.defaultPort,
     );
+    // 守卫：若三项开关全被持久化为 false（历史脏数据 / 误操作），
+    // 视为无效配置，回退默认（至少开启 HTTP，否则框架无法工作）。
+    if (!config.udpBroadcastEnabled &&
+        !config.udpListenerEnabled &&
+        !config.httpServerEnabled) {
+      return const LocalnetConfig();
+    }
+    return config;
   }
 
   Future<void> save() async {

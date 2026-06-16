@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../channel/channel_manager.dart';
@@ -11,6 +12,9 @@ import '../connection/connection_quality.dart';
 import '../device/device.dart';
 import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';
+import '../session/session.dart';
+import '../session/session_manager.dart';
+import '../session/state_serializer.dart';
 import 'exception/framework_exception.dart';
 import 'framework_config.dart';
 import 'framework_core.dart';
@@ -45,6 +49,10 @@ class LanFramework {
       myDeviceId: _myDeviceId,
       myAlias: _myAlias,
       transportConfig: config.toTransportConfig(),
+      udpBroadcastEnabled: config.udpBroadcastEnabled,
+      broadcastInterval: config.broadcastInterval,
+      deviceTimeout: config.deviceTimeout,
+      cleanupInterval: config.cleanupInterval,
     );
 
     try {
@@ -113,6 +121,30 @@ class LanFramework {
     return _channelManager().watchChannel(channel);
   }
 
+  // ============ Session 管理 ============
+
+  /// 创建 Session 用于自动状态同步
+  Session<S> createSession<S extends Listenable>({
+    required String peerId,
+    required S state,
+    StateSerializer<S>? serializer,
+  }) {
+    _assertRunning();
+    return _core!.sessionManager.create(
+      peerId: peerId,
+      state: state,
+      serializer: serializer ?? _defaultJsonSerializer<S>(),
+    );
+  }
+
+  // Internal helper for default JSON serializer
+  StateSerializer<S> _defaultJsonSerializer<S>() {
+    throw UnimplementedError(
+      'Please provide a StateSerializer to createSession. '
+      'Example: JsonStateSerializer(toJson: ..., fromJson: ...)',
+    );
+  }
+
   // ============ 连接状态 ============
 
   /// 设备是否在线
@@ -151,6 +183,9 @@ class LanFramework {
 
   /// 本机设备别名
   String get myAlias => _myAlias;
+
+  /// 本机 IP（start 时由适配层探测后注入）
+  String? get myIp => _cachedMyIp;
 
   /// 注册自定义 HTTP 路由
   void registerRoute(String path, Future<void> Function(HttpRequest) handler) {

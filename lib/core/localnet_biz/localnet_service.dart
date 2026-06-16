@@ -8,6 +8,7 @@ import 'models/localnet_device.dart';
 import 'models/localnet_message.dart';
 import 'services/config_service.dart';
 import 'services/debug_log_service.dart';
+import 'services/device_id_service.dart';
 
 /// LocalNet 服务适配层 — 基于 [LanFramework] 的薄封装
 ///
@@ -39,6 +40,7 @@ class LocalnetService {
 
   String get deviceAlias => _fw.myAlias;
   String get deviceId => _fw.myDeviceId;
+  String? get myIp => _fw.myIp;
 
   bool get isInitialized => _fw.status != fw.FrameworkStatus.init;
   bool get isUdpBroadcastRunning => _fw.status == fw.FrameworkStatus.running;
@@ -54,14 +56,44 @@ class LocalnetService {
       StreamController<List<LocalnetDevice>>.broadcast();
   Stream<List<LocalnetDevice>> get devicesStream => _devicesController.stream;
 
-  // ============ 消息列表（兼容旧 LocalnetMessage 模型） ============
-
-  final List<LocalnetMessage> _messages = [];
+  // ============ 消息列表（按 peerId 分桶） ============
+  //
+  // 旧实现是全局 _messages，所有 peer 共享一份，聊天页之间串台。
+  // 现在按 (peerId, list) 桶，聊天页只订阅自己跟当前 peer 的桶。
+  final Map<String, List<LocalnetMessage>> _messagesByPeer = {};
   final _messagesController =
       StreamController<List<LocalnetMessage>>.broadcast();
+
+  /// 当前 peer 的消息快照（向后兼容，等同于第一个 peer 的桶）
+  List<LocalnetMessage> get messages =>
+      _messagesByPeer.values.expand((e) => e).toList();
+
+  /// 旧版全量消息流（保留兼容，首版会全量合并所有桶；新代码用 [watchMessages]）
   Stream<List<LocalnetMessage>> get messagesStream =>
       _messagesController.stream;
-  List<LocalnetMessage> get messages => List.unmodifiable(_messages);
+
+  /// 订阅某 peer 的消息流（推荐用法）
+  Stream<List<LocalnetMessage>> watchMessages(String peerId) async* {
+    yield _snapshot(peerId);
+    yield* _messagesController.stream
+        .where((_) => _lastPeer == peerId)
+        .map((_) => _snapshot(peerId));
+  }
+
+  /// 取某 peer 的消息快照
+  List<LocalnetMessage> messagesOf(String peerId) => _snapshot(peerId);
+
+  List<LocalnetMessage> _snapshot(String peerId) =>
+      List.unmodifiable(_messagesByPeer[peerId] ?? const []);
+
+  /// 临时记录最近一次消息触达的 peer（用于在流过滤器里窄化）
+  String? _lastPeer;
+
+  void _appendMessage(String peerId, LocalnetMessage msg) {
+    _messagesByPeer.putIfAbsent(peerId, () => []).add(msg);
+    _lastPeer = peerId;
+    _messagesController.add(_snapshot(peerId));
+  }
 
   StreamSubscription? _devicesSub;
   StreamSubscription? _channelSub;
@@ -88,8 +120,12 @@ class LocalnetService {
       await applyConfig();
 
       final cfg = config.config;
+      // 优先用持久化的 deviceId（首次启动会生成并落盘），
+      // 避免每次启动换 UUID 导致对端看到"老 B 离线 + 新 B 上线"两条记录。
+      final persistedDeviceId = await DeviceIdService.load();
       final fwCfg = fw.FrameworkConfig(
         deviceAlias: cfg.deviceAlias,
+        deviceId: persistedDeviceId,
         port: cfg.port,
         udpBroadcastEnabled: cfg.udpBroadcastEnabled,
         udpListenerEnabled: cfg.udpListenerEnabled,
@@ -147,15 +183,17 @@ class LocalnetService {
   Future<bool> sendMessage(LocalnetDevice target, String content) async {
     final result = await _fw.sendTo(target.id, 'chat', {'text': content});
     if (result.success) {
-      // 添加到本地消息列表
-      _messages.add(LocalnetMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        senderId: _fw.myDeviceId,
-        senderAlias: _fw.myAlias,
-        content: content,
-        timestamp: DateTime.now(),
-      ));
-      _messagesController.add(List.unmodifiable(_messages));
+      // 按 target 设备 id 分桶，本地发出的消息只入"和它的会话"那个桶
+      _appendMessage(
+        target.id,
+        LocalnetMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          senderId: _fw.myDeviceId,
+          senderAlias: _fw.myAlias,
+          content: content,
+          timestamp: DateTime.now(),
+        ),
+      );
       return true;
     }
     return false;
@@ -217,14 +255,23 @@ class LocalnetService {
     });
 
     _channelSub = _fw.watchChannel('chat').listen((msg) {
-      _messages.add(LocalnetMessage(
-        id: msg.timestamp.millisecondsSinceEpoch.toString(),
-        senderId: msg.sourceDeviceId,
-        senderAlias: msg.payload['alias'] as String? ?? msg.sourceDeviceId,
-        content: msg.payload['text'] as String? ?? '',
-        timestamp: msg.timestamp,
-      ));
-      _messagesController.add(List.unmodifiable(_messages));
+      // 别名以"发送方 deviceId 在我本地 deviceRegistry 里查到的最新记录"为准。
+      // 不取 msg.payload['alias']——payload 是纯数据载荷，不该承担身份字段。
+      final peer = _fw.devices.cast<fw.Device?>().firstWhere(
+            (d) => d?.deviceId == msg.sourceDeviceId,
+            orElse: () => null,
+          );
+      final alias = peer?.alias ?? msg.sourceDeviceId;
+      _appendMessage(
+        msg.sourceDeviceId,
+        LocalnetMessage(
+          id: msg.timestamp.millisecondsSinceEpoch.toString(),
+          senderId: msg.sourceDeviceId,
+          senderAlias: alias,
+          content: msg.payload['text'] as String? ?? '',
+          timestamp: msg.timestamp,
+        ),
+      );
     });
   }
 
@@ -248,20 +295,40 @@ class LocalnetService {
     );
   }
 
+  /// 探测本机 IPv4（路由可达的接口 IP）
+  ///
+  /// Android 上 `NetworkInterface.list` 经常只返回 `lo` 或空集，
+  /// 因此用 `InternetAddress.lookup` 解析一个外网域名，由系统选路填充
+  /// 真实活跃接口 IP；空集合时回退到枚举网络接口。
   Future<String?> _detectLocalIp() async {
+    // 1) DNS 反查：让系统帮我们挑活跃接口
+    try {
+      final addrs = await InternetAddress.lookup('dns.google')
+          .timeout(const Duration(seconds: 2));
+      for (final addr in addrs) {
+        final ip = addr.address;
+        if (ip.isNotEmpty && ip != '0.0.0.0') return ip;
+      }
+    } catch (_) {}
+
+    // 2) 回退：枚举网络接口
     try {
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,
-        includeLoopback: false,
-        includeLinkLocal: false,
       );
       for (final iface in interfaces) {
         for (final addr in iface.addresses) {
           final ip = addr.address;
-          if (ip.startsWith('192.168.') || ip.startsWith('10.')) return ip;
+          if (ip.isEmpty || ip == '0.0.0.0') continue;
+          if (ip.startsWith('192.168.') ||
+              ip.startsWith('10.') ||
+              ip.startsWith('172.')) {
+            return ip;
+          }
         }
       }
     } catch (_) {}
+
     return null;
   }
 }

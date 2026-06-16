@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../localnet_service.dart';
 import '../models/localnet_config.dart';
 import '../services/config_service.dart';
+import '../services/device_id_service.dart';
 
 class LocalnetSettingsPage extends StatefulWidget {
   const LocalnetSettingsPage({super.key});
@@ -81,6 +82,8 @@ class _LocalnetSettingsPageState extends State<LocalnetSettingsPage> {
 
   Future<void> _reset() async {
     await configService.reset();
+    // 一并清掉 deviceId 持久化；下次 start() 会重新生成新 UUID
+    await DeviceIdService.clear();
     final config = configService.config;
 
     setState(() {

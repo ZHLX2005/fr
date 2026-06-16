@@ -87,8 +87,8 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
 
   Widget _buildMessageList() {
     return StreamBuilder<List<LocalnetMessage>>(
-      stream: _service.messagesStream,
-      initialData: _service.messages,
+      stream: _service.watchMessages(widget.device.id),
+      initialData: _service.messagesOf(widget.device.id),
       builder: (context, snapshot) {
         final messages = snapshot.data ?? [];
 

@@ -41,7 +41,11 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
 
   @override
   void dispose() {
-    // Don't stop service on dispose - keep it running
+    // 退出 demo（页面从路由树移除）时自动停止服务，
+    // 释放 UDP 多播、HTTP server、广播/清理定时器。
+    // 子页面（chat/settings/debug）是 push 进来的，不会触发本 dispose，
+    // 只有真正离开整个 demo 回到 lab 列表时才停止。
+    _service.stop();
     super.dispose();
   }
 
@@ -125,6 +129,13 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
                     context,
                   ).textTheme.bodySmall?.copyWith(color: Colors.green),
                 ),
+                if (_service.myIp != null)
+                  Text(
+                    '${_service.myIp}:${_service.config.config.port}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
               ],
             ),
           ),
