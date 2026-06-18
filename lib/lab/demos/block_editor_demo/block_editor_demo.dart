@@ -179,6 +179,16 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             context,
             _editorState,
           ),
+          // AI 修改后顶部出现的固定条（仅在有 pending 修改时显示）
+          persistentFooterButtons: _editorState.hasPendingDiffs
+              ? [
+                  _AiPendingBar(
+                    changeCount: _editorState.pendingChangeCount,
+                    onAccept: _editorState.acceptAllPendingDiffs,
+                    onReject: _editorState.rejectAllPendingDiffs,
+                  ),
+                ]
+              : null,
           body: blocks.isEmpty
               ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
               : ReorderableListView.builder(
@@ -229,4 +239,58 @@ class BlockEditorDemoPage extends DemoPage {
 
 void registerBlockEditorDemo() {
   demoRegistry.register(BlockEditorDemoPage());
+}
+
+/// AI 修改待确认的顶部条 — 显示变更数 + 接受/拒绝按钮。
+class _AiPendingBar extends StatelessWidget {
+  final int changeCount;
+  final VoidCallback onAccept;
+  final VoidCallback onReject;
+
+  const _AiPendingBar({
+    required this.changeCount,
+    required this.onAccept,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Icon(Icons.auto_awesome, size: 16, color: colorScheme.onPrimaryContainer),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'AI 修改了 $changeCount 处 — 红色=删除 绿色=新增',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: onReject,
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text('拒绝'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 4),
+            FilledButton.icon(
+              onPressed: onAccept,
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('应用'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

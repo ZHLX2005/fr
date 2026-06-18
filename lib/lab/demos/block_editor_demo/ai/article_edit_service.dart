@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../../api/api_response.dart';
 import '../../../../api/goframe/article/article_endpoint.dart';
 import '../../../../core/note/note_root_scope.dart';
@@ -54,6 +55,7 @@ class ArticleEditService {
     required AiSettings settings,
   }) async {
     final toml = _noteFactory.toTomlString(rootNote);
+    debugPrint('[AiEdit] sending POST /api/v1/article/edit toml.len=${toml.length} prompt="$prompt"');
     final resp = await _editCall(
       apiKey: settings.apiKey,
       articleToml: toml,
@@ -61,11 +63,13 @@ class ArticleEditService {
       model: settings.model.isEmpty ? null : settings.model,
       baseUrl: settings.baseUrl.isEmpty ? null : settings.baseUrl,
     );
+    debugPrint('[AiEdit] response: success=${resp.isSuccess} code=${resp.code} msg="${resp.message}" data=${resp.data != null}');
 
     if (!resp.isSuccess || resp.data == null) {
       throw ArticleEditException(resp.message.isEmpty ? '请求失败' : resp.message);
     }
     final d = resp.data!;
+    debugPrint('[AiEdit] parsed: hasEdit=${d.hasEdit} diff.len=${d.diff.length} conclusion.len=${d.conclusion.length} modifiedToml.len=${d.modifiedToml.length}');
 
     Block? modified;
     if (d.hasEdit) {

@@ -44,11 +44,6 @@ test/*
 # Exception: localnet framework test infrastructure is version-controlled
 !test/core/
 !test/core/localnet/
-# Exception: block_editor_demo unit tests are version-controlled
-!test/lab/
-!test/lab/demos/
-!test/lab/demos/block_editor_demo/
-!test/lab/demos/block_editor_demo/**
 
 # Symbolication related
 app.*.symbols

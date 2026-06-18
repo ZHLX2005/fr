@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../../api/api_response.dart';
 import '../../../../api/goframe/ai/ai_endpoint.dart';
 import 'ai_settings_store.dart';
@@ -34,6 +35,7 @@ class AiChatService {
     if (!settings.isConfigured) {
       throw AiChatException('请先在设置中配置 API Key');
     }
+    debugPrint('[AiChat] sending POST /api/v1/ai/chat prompt="$prompt"');
     final resp = await _chatCall(
       apiKey: settings.apiKey,
       prompt: prompt,
@@ -41,6 +43,7 @@ class AiChatService {
       baseUrl: settings.baseUrl.isEmpty ? null : settings.baseUrl,
       type: 'claude',
     );
+    debugPrint('[AiChat] response: success=${resp.isSuccess} code=${resp.code} msg="${resp.message}" content.len=${resp.data?.content.length ?? 0}');
 
     if (!resp.isSuccess || resp.data == null) {
       throw AiChatException(resp.message.isEmpty ? '请求失败' : resp.message);

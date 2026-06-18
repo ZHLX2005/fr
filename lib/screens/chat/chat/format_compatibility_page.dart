@@ -161,6 +161,15 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                     },
                   ),
           ),
+          _TypeChipStrip(
+            types: factory.supportedTypes,
+            onTap: (type) {
+              _inputController.text = type;
+              _inputController.selection = TextSelection.collapsed(
+                offset: type.length,
+              );
+            },
+          ),
           _buildInputArea(),
         ],
       ),
@@ -305,6 +314,51 @@ class _FormatMessageBubble extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 可左右滑动的 type 胶囊行 — 快速填入输入框
+class _TypeChipStrip extends StatelessWidget {
+  final List<String> types;
+  final ValueChanged<String> onTap;
+
+  const _TypeChipStrip({required this.types, required this.onTap});
+
+  static IconData _iconFor(String type) {
+    switch (type) {
+      case 'text':
+        return Icons.short_text;
+      case 'markdown':
+        return Icons.code;
+      case 'html':
+        return Icons.html;
+      default:
+        return Icons.chat_bubble_outline;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (types.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: types.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final type = types[index];
+          return Center(
+            child: ActionChip(
+              avatar: Icon(_iconFor(type), size: 16),
+              label: Text(type),
+              onPressed: () => onTap(type),
+            ),
+          );
+        },
       ),
     );
   }

@@ -19,6 +19,9 @@ class AiEndpoint {
   /// 参数 [prompt] — 用户问题（必填）。
   /// 参数 [model] — 模型名（可选）。空时后端用默认模型。
   /// 参数 [baseUrl] — LLM API 地址（可选）。空时后端用默认地址。
+  ///   ⚠️ **字段名约定**：后端 swagger 字段名是 `baseURL`（全大写 URL），
+  ///   不是 `baseUrl`（驼峰）。前端必须用 JSON key `baseURL`，否则后端
+  ///   unmarshal 时会**静默丢弃**该字段。
   /// 参数 [type] — 模型类型（可选，默认 "claude"）。
   Future<ApiResponse<ChatResponse>> chat({
     required String apiKey,
@@ -34,7 +37,7 @@ class AiEndpoint {
           'apiKey': apiKey,
           'prompt': prompt,
           if (model != null && model.isNotEmpty) 'model': model,
-          if (baseUrl != null && baseUrl.isNotEmpty) 'baseUrl': baseUrl,
+          if (baseUrl != null && baseUrl.isNotEmpty) 'baseURL': baseUrl,
           if (type != null && type.isNotEmpty) 'type': type,
         },
         fromJson: (json) => ChatResponse.fromJson(json),

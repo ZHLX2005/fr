@@ -5,6 +5,7 @@ import 'ai/ai_models.dart';
 import 'ai/ai_settings_store.dart';
 import 'ai/article_edit_service.dart';
 import 'ai/ai_chat_service.dart';
+import 'ai/diff_segment.dart';
 
 /// 编辑器状态管理，支持持久化。
 class EditorState extends ChangeNotifier {
@@ -46,6 +47,18 @@ class EditorState extends ChangeNotifier {
 
   /// AI 编辑的 diff 缓存：blockId → diff 文本（hasEdit=true 时有值）。
   final Map<String, String> _aiDiff = {};
+
+  /// 待确认的 block 修改 — 块内字符级 diff segments。
+  /// 接受 → 落到 block.content；拒绝 → 丢弃。
+  /// 运行时状态，不写入 TOML。
+  final Map<String, List<DiffSegment>> _pendingBlockDiffs = {};
+
+  /// AI 修改后新增的 block — 用户还没接受/拒绝。
+  /// 接受 → 落到 _blocks；拒绝 → 丢弃。
+  final List<Block> _pendingNewBlocks = [];
+
+  /// 被 AI 删除的 block id — 接受才真删；拒绝则恢复。
+  final Set<String> _pendingRemovedBlockIds = {};
 
   /// AI 错误信息（未配置/请求失败等）。
   String? _aiError;
@@ -155,10 +168,15 @@ class EditorState extends ChangeNotifier {
 
   /// 发送 AI 请求 — 调用后端 article/edit 做全文编辑。
   Future<void> sendAiPrompt(String blockId, String prompt) async {
-    if (prompt.isEmpty) return;
+    debugPrint('[AI] sendAiPrompt start blockId=$blockId prompt="$prompt"');
+    if (prompt.isEmpty) {
+      debugPrint('[AI] abort: empty prompt');
+      return;
+    }
 
     // 未接入或未配置 → 提示
     if (_articleEditService == null || !_aiSettings.isConfigured) {
+      debugPrint('[AI] abort: service=${_articleEditService == null} configured=${_aiSettings.isConfigured}');
       _aiError = '请先在设置中配置 API Key';
       _activeAiBarBlockId = null;
       notifyListeners();
@@ -173,6 +191,7 @@ class EditorState extends ChangeNotifier {
     _aiError = null;
     _aiCanceled = false;
     notifyListeners();
+    debugPrint('[AI] loading state set, calling endpoint...');
 
     try {
       // 构造整篇笔记的 Block（PageType root + 当前所有 block 作 children）
@@ -188,34 +207,138 @@ class EditorState extends ChangeNotifier {
         prompt: prompt,
         settings: _aiSettings,
       );
+      debugPrint('[AI] response received hasEdit=${result.hasEdit} modifiedBlock=${result.modifiedBlock != null} conclusion.len=${result.conclusion.length}');
 
-      if (_aiCanceled) return; // 用户已取消，丢弃响应
+      if (_aiCanceled) {
+        debugPrint('[AI] canceled, discard result');
+        return;
+      }
 
       if (result.hasEdit && result.modifiedBlock != null) {
-        _aiDiff[blockId] = result.diff;
-        _aiResults[blockId] = result.modifiedBlock!.children;
+        // 计算每个 block 的字符级 diff + 新增/删除标记，
+        // 写入 _pendingBlockDiffs / _pendingNewBlocks / _pendingRemovedBlockIds。
+        _computePendingDiffs(result.modifiedBlock!);
+        debugPrint('[AI] pending diffs=${_pendingBlockDiffs.length} new=${_pendingNewBlocks.length} removed=${_pendingRemovedBlockIds.length}');
       } else {
-        // 纯问答：conclusion 作为单个段落
+        // 纯问答：conclusion 作为单个段落，存到 _aiResults 走旧路径
         _aiResults[blockId] = [
           _noteFactory.createBlock(
             const ParagraphType(),
             content: RichText.text(result.conclusion),
           ),
         ];
+        debugPrint('[AI] stored qa result for blockId=$blockId');
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AI] exception: $e\n$st');
       if (_aiCanceled) return;
       _aiError = 'AI 请求失败：$e';
     } finally {
       _aiLoadingBlockId = null;
       _aiCanceled = false;
       notifyListeners();
+      debugPrint('[AI] done, loading cleared');
     }
+  }
+
+  /// 对比 [modifiedRoot].children 与当前 _blocks（按 id 匹配），
+  /// 把修改拆成三组 pending 状态：已存在 block 的字符级 diff、新增 block、删除 block id。
+  void _computePendingDiffs(Block modifiedRoot) {
+    _pendingBlockDiffs.clear();
+    _pendingNewBlocks.clear();
+    _pendingRemovedBlockIds.clear();
+
+    final modifiedChildren = modifiedRoot.children;
+    final modifiedById = {for (final b in modifiedChildren) b.id: b};
+    final currentById = {for (final b in _blocks) b.id: b};
+
+    // 遍历 modified — 找到新增和修改
+    for (final modified in modifiedChildren) {
+      final current = currentById[modified.id];
+      if (current == null) {
+        // 新增 block
+        _pendingNewBlocks.add(modified);
+      } else {
+        // 已有 — 算字符级 diff（仅在 content 变化时记）
+        final oldText = current.content.toPlainText();
+        final newText = modified.content.toPlainText();
+        if (oldText != newText) {
+          _pendingBlockDiffs[modified.id] = CharDiff.compute(oldText, newText);
+        }
+      }
+    }
+    // 遍历 current — 找到被删除的
+    for (final current in _blocks) {
+      if (!modifiedById.containsKey(current.id)) {
+        _pendingRemovedBlockIds.add(current.id);
+      }
+    }
+  }
+
+  /// 是否有 pending 的 block 修改（编辑意图返回后等待用户接受/拒绝）。
+  bool get hasPendingDiffs =>
+      _pendingBlockDiffs.isNotEmpty ||
+      _pendingNewBlocks.isNotEmpty ||
+      _pendingRemovedBlockIds.isNotEmpty;
+
+  int get pendingChangeCount =>
+      _pendingBlockDiffs.length +
+      _pendingNewBlocks.length +
+      _pendingRemovedBlockIds.length;
+
+  /// 某 block 的待确认 diff 段（无则 null）。
+  List<DiffSegment>? pendingDiffFor(String blockId) =>
+      _pendingBlockDiffs[blockId];
+
+  /// 某 block 是否被 AI 标记为删除（待接受后才真删）。
+  bool isBlockPendingRemoved(String blockId) =>
+      _pendingRemovedBlockIds.contains(blockId);
+
+  /// 所有 pending 新增的 block id（用于 card.dart 渲染淡绿标签）。
+  Set<String> get pendingNewBlockIds =>
+      _pendingNewBlocks.map((b) => b.id).toSet();
+
+  /// 接受所有 pending 修改。
+  void acceptAllPendingDiffs() {
+    // 1. 已有 block 的修改 — 应用 added 段（removed 段丢弃）
+    for (final entry in _pendingBlockDiffs.entries) {
+      final blockId = entry.key;
+      final segments = entry.value;
+      final newText = segments
+          .where((s) => !s.isRemoved)
+          .map((s) => s.text)
+          .join();
+      final idx = _blocks.indexWhere((b) => b.id == blockId);
+      if (idx < 0) continue;
+      _blocks[idx] = _blocks[idx].copyWith(
+        content: RichText.text(newText),
+      );
+    }
+    // 2. 新增 block — 追加到末尾
+    _blocks.addAll(_pendingNewBlocks);
+    // 3. 删除 block
+    _blocks.removeWhere((b) => _pendingRemovedBlockIds.contains(b.id));
+    _pendingBlockDiffs.clear();
+    _pendingNewBlocks.clear();
+    _pendingRemovedBlockIds.clear();
+    _aiError = null;
+    notifyListeners();
+    _save();
+  }
+
+  /// 拒绝所有 pending 修改（保留原 _blocks 不变）。
+  void rejectAllPendingDiffs() {
+    _pendingBlockDiffs.clear();
+    _pendingNewBlocks.clear();
+    _pendingRemovedBlockIds.clear();
+    _aiError = null;
+    notifyListeners();
   }
 
   /// 用户主动取消当前 AI 请求。
   /// 行为：丢弃响应、退出 loading、回到可编辑态（不显错误）。
   void cancelAiRequest() {
+    debugPrint('[AI] cancelAiRequest called, was loading: ${_aiLoadingBlockId}');
     if (_aiLoadingBlockId == null) return;
     _aiCanceled = true;
     _aiLoadingBlockId = null;
@@ -223,26 +346,19 @@ class EditorState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 确认 AI 回复：用结果替换整篇笔记（全文编辑语义）。
-  /// 若无 diff（纯问答结果），退化为把单段结论追加到当前 block 之后。
+  /// 确认 AI 回复（纯问答场景）。
+  /// 编辑场景走 [acceptAllPendingDiffs]。
   void confirmAiResult(String blockId) {
     final blocks = _aiResults.remove(blockId);
-    final hasDiff = _aiDiff.remove(blockId) != null;
+    _aiDiff.remove(blockId);
     if (blocks == null || blocks.isEmpty) return;
 
-    if (hasDiff) {
-      // 全文替换
-      _blocks
-        ..clear()
-        ..addAll(blocks);
+    // 纯问答：插入到当前 block 之后
+    final idx = _blocks.indexWhere((b) => b.id == blockId);
+    if (idx >= 0) {
+      _blocks.insertAll(idx + 1, blocks);
     } else {
-      // 纯问答：插入到当前 block 之后
-      final idx = _blocks.indexWhere((b) => b.id == blockId);
-      if (idx >= 0) {
-        _blocks.insertAll(idx + 1, blocks);
-      } else {
-        _blocks.addAll(blocks);
-      }
+      _blocks.addAll(blocks);
     }
 
     _selectedId = blocks.isNotEmpty ? blocks.first.id : null;
