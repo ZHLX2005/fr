@@ -69,12 +69,22 @@ class ArticleEditService {
       throw ArticleEditException(resp.message.isEmpty ? '请求失败' : resp.message);
     }
     final d = resp.data!;
-    debugPrint('[AiEdit] parsed: hasEdit=${d.hasEdit} diff.len=${d.diff.length} conclusion.len=${d.conclusion.length} modifiedToml.len=${d.modifiedToml.length}');
+    debugPrint('[AiEdit] response body:');
+    debugPrint('  hasEdit=${d.hasEdit}');
+    debugPrint('  diff:\n${d.diff}');
+    debugPrint('  conclusion:\n${d.conclusion}');
+    debugPrint('  modifiedToml:\n${d.modifiedToml}');
 
     Block? modified;
     if (d.hasEdit) {
+      debugPrint('[AiEdit] modifiedToml raw (len=${d.modifiedToml.length}):');
+      // 打印每一行，前缀带真实行号（不用 ${d.modifiedToml} 让日志截断）
+      for (var i = 0; i < d.modifiedToml.split('\n').length; i++) {
+        debugPrint('  ${i + 1}|${d.modifiedToml.split('\n')[i]}');
+      }
       modified = _noteFactory.fromTomlString(d.modifiedToml);
       if (modified == null) {
+        debugPrint('[AiEdit] fromTomlString returned null');
         throw ArticleEditException('修改后的 TOML 解析失败');
       }
     }

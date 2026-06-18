@@ -67,8 +67,11 @@ class NoteRepository {
   /// TOML 字符串 → Block。解析失败返回 null（不抛异常，由调用方降级）。
   Block? decodeToml(String toml) {
     try {
-      return _codec.decode(_tomlCodec.decode(toml));
-    } catch (_) {
+      final map = _tomlCodec.decode(toml);
+      return _codec.decode(map);
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('[decodeToml] parse failed: $e\n$st');
       return null;
     }
   }

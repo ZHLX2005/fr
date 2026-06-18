@@ -45,8 +45,12 @@ class EditorState extends ChangeNotifier {
   /// AI 回复结果缓存：blockId → 解析后的 Block 列表
   final Map<String, List<Block>> _aiResults = {};
 
-  /// AI 编辑的 diff 缓存：blockId → diff 文本（hasEdit=true 时有值）。
+  /// AI 修改的 diff 缓存：blockId → diff 文本（hasEdit=true 时有值）。
   final Map<String, String> _aiDiff = {};
+
+  /// 后端 modified_toml 解出的 block map — 接受时用真实 content 覆盖。
+  /// 不持久化（运行时状态）。
+  Map<String, Block> _pendingModifiedById = {};
 
   /// 待确认的 block 修改 — 块内字符级 diff segments。
   /// 接受 → 落到 block.content；拒绝 → 丢弃。
@@ -217,7 +221,12 @@ class EditorState extends ChangeNotifier {
       if (result.hasEdit && result.modifiedBlock != null) {
         // 计算每个 block 的字符级 diff + 新增/删除标记，
         // 写入 _pendingBlockDiffs / _pendingNewBlocks / _pendingRemovedBlockIds。
+        // 同时缓存 modifiedById，接受时用 modified_toml 的真实 content 覆盖，
+        // 而不是从 inline segments 重组（重组可能丢精度）。
         _computePendingDiffs(result.modifiedBlock!);
+        _pendingModifiedById = {
+          for (final b in result.modifiedBlock!.children) b.id: b,
+        };
         debugPrint('[AI] pending diffs=${_pendingBlockDiffs.length} new=${_pendingNewBlocks.length} removed=${_pendingRemovedBlockIds.length}');
       } else {
         // 纯问答：conclusion 作为单个段落，存到 _aiResults 走旧路径
@@ -300,18 +309,17 @@ class EditorState extends ChangeNotifier {
 
   /// 接受所有 pending 修改。
   void acceptAllPendingDiffs() {
-    // 1. 已有 block 的修改 — 应用 added 段（removed 段丢弃）
+    // 1. 已有 block 的修改 — 用 modified_toml 里对应 block 的真实 content 覆盖
+    //    （不用 inline segments 重组，避免精度损失）
     for (final entry in _pendingBlockDiffs.entries) {
       final blockId = entry.key;
-      final segments = entry.value;
-      final newText = segments
-          .where((s) => !s.isRemoved)
-          .map((s) => s.text)
-          .join();
+      final modified = _pendingModifiedById[blockId];
+      if (modified == null) continue;
       final idx = _blocks.indexWhere((b) => b.id == blockId);
       if (idx < 0) continue;
       _blocks[idx] = _blocks[idx].copyWith(
-        content: RichText.text(newText),
+        content: modified.content,
+        type: modified.type,  // 类型也可能被改（如 paragraph → heading）
       );
     }
     // 2. 新增 block — 追加到末尾
@@ -321,6 +329,7 @@ class EditorState extends ChangeNotifier {
     _pendingBlockDiffs.clear();
     _pendingNewBlocks.clear();
     _pendingRemovedBlockIds.clear();
+    _pendingModifiedById = {};
     _aiError = null;
     notifyListeners();
     _save();
@@ -331,6 +340,7 @@ class EditorState extends ChangeNotifier {
     _pendingBlockDiffs.clear();
     _pendingNewBlocks.clear();
     _pendingRemovedBlockIds.clear();
+    _pendingModifiedById = {};
     _aiError = null;
     notifyListeners();
   }
