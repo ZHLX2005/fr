@@ -16,7 +16,7 @@ class ApiConfig {
   /// 将真机 127.0.0.1:8080 重定向到开发机的 :8080 后端。
   /// 切回公网部署时改成 `'http://47.110.80.47:8988'` 之类。
   factory ApiConfig.production() => const ApiConfig(
-        baseUrl: 'http://127.0.0.1:8080',
+        baseUrl: 'http://47.110.80.47:8988',
       );
 
   ApiConfig copyWith({
