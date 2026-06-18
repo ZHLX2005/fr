@@ -6,6 +6,7 @@ import '../../../services/media_service.dart';
 import 'state.dart';
 import 'ai/ai_bar.dart';
 import 'ai/ai_conversation.dart' show AiConversationOverlay;
+import 'ai/diff_segment.dart';
 
 
 
@@ -98,16 +99,32 @@ class _BlockCardState extends State<BlockCard> {
   Widget build(BuildContext context) {
     final canLongPress = widget.block.type.showQuickDelete;
 
-    Widget content = widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType
-        ? _buildTextField()
-        : NoteRootScope.of(context).noteRoot.renderBlock(
-            context,
-            widget.block,
-            onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
-            onTapAddImage: widget.block.type is ImageType
-                ? () => _showAddImageDialog()
-                : null,
-          );
+    Widget content;
+    final pendingDiff = widget.editorState.pendingDiffFor(widget.block.id);
+    final pendingRemoved = widget.editorState.isBlockPendingRemoved(widget.block.id);
+    final pendingNew = widget.editorState.pendingNewBlockIds.contains(widget.block.id);
+
+    if (pendingRemoved) {
+      // AI 标记为删除 — 整块置灰、删除线，等待用户接受/拒绝
+      content = _buildPendingRemoved(pendingNew ? null : widget.block);
+    } else if (pendingDiff != null && pendingDiff.isNotEmpty) {
+      // 该 block 有待确认的 AI 修改 — 用 RichText 内联高亮渲染
+      content = _buildDiffHighlight(pendingDiff);
+    } else if (pendingNew) {
+      // AI 新增的 block — 淡绿色背景 + "新增"标签
+      content = _buildPendingNew(widget.block);
+    } else if (widget.isSelected && !widget.block.type.containerOnly && widget.block.type is! ImageType) {
+      content = _buildTextField();
+    } else {
+      content = NoteRootScope.of(context).noteRoot.renderBlock(
+          context,
+          widget.block,
+          onToggleTodo: () => widget.editorState.toggleTodo(widget.block.id),
+          onTapAddImage: widget.block.type is ImageType
+              ? () => _showAddImageDialog()
+              : null,
+        );
+    }
 
     if (canLongPress) {
       content = ConstrainedBox(
@@ -241,7 +258,7 @@ class _BlockCardState extends State<BlockCard> {
         blockId: blockId,
         isLoading: true,
         onSend: (_) {},
-        onCancel: () {},
+        onCancel: () => es.cancelAiRequest(),
       );
     }
 
@@ -308,7 +325,8 @@ class _BlockCardState extends State<BlockCard> {
             _scheduleRefresh();
             return;
           }
-          if (value.length == 1 && (value == ' ' || value == ' ')) {
+          // 空格召唤 AI：兼容普通空格 (U+0020) 和全角空格 (U+3000)
+          if (value.length == 1 && (value == ' ' || value == '　')) {
             _controller.text = '';
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
@@ -344,7 +362,22 @@ class _BlockCardState extends State<BlockCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 逐个渲染每个 Block
+          // 错误提示（编辑意图走 inline 后，这里只承担纯问答的错误展示）
+          if (widget.editorState.aiError != null) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                widget.editorState.aiError!,
+                style: TextStyle(fontSize: 12, color: colorScheme.onErrorContainer),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+          // 逐个渲染每个 Block（纯问答的 AI 回复）
           for (final block in blocks)
             noteRoot.renderBlock(
               context,
@@ -363,6 +396,7 @@ class _BlockCardState extends State<BlockCard> {
                   AiConversationOverlay.show(
                     context,
                     blockId: widget.block.id,
+                    editorState: es,
                     initialText: firstText,
                     blockTitle: blockText,
                   );
@@ -537,6 +571,117 @@ class _BlockCardState extends State<BlockCard> {
     if (result != null && result.isNotEmpty) {
       widget.editorState.updateImageSrc(widget.block.id, result);
     }
+  }
+
+  Widget _buildPendingRemoved(Block? block) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final baseStyle = NoteRootScope.of(context).noteRoot.textStyleFor(widget.block, context)
+        ?? TextStyle(fontSize: 14, color: colorScheme.onSurface);
+    return Opacity(
+      opacity: 0.5,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline, size: 13, color: Colors.red.shade400),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                block?.content.toPlainText() ?? '(空)',
+                style: baseStyle.copyWith(
+                  decoration: TextDecoration.lineThrough,
+                  decorationColor: Colors.red.shade400,
+                  decorationThickness: 2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text('— 待删除',
+                style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingNew(Block block) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        border: Border(left: BorderSide(color: Colors.green.shade400, width: 3)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(Icons.add_circle_outline,
+                size: 13, color: Colors.green.shade700),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: NoteRootScope.of(context).noteRoot.renderBlock(
+              context,
+              block,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text('+ 新增',
+                style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiffHighlight(List<DiffSegment> segments) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final baseStyle = NoteRootScope.of(context).noteRoot.textStyleFor(widget.block, context)
+        ?? TextStyle(fontSize: 14, color: colorScheme.onSurface);
+
+    final spans = <InlineSpan>[];
+    for (final seg in segments) {
+      if (seg.isKept) {
+        spans.add(TextSpan(text: seg.text, style: baseStyle));
+      } else if (seg.isRemoved) {
+        spans.add(TextSpan(
+          text: seg.text,
+          style: baseStyle.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+            decoration: TextDecoration.lineThrough,
+            decorationColor: Colors.red.shade400,
+            decorationThickness: 2,
+            backgroundColor: Colors.red.shade50,
+          ),
+        ));
+      } else if (seg.isAdded) {
+        spans.add(TextSpan(
+          text: seg.text,
+          style: baseStyle.copyWith(
+            color: Colors.green.shade900,
+            backgroundColor: Colors.green.shade100,
+            fontWeight: FontWeight.w500,
+          ),
+        ));
+      }
+    }
+
+    return SelectableText.rich(
+      TextSpan(children: spans),
+      // 选中态 — pending diff 期间 block 不能直接编辑
+      onTap: () => widget.editorState.select(widget.block.id),
+    );
   }
 }
 

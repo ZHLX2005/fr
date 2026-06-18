@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../state.dart';
+import 'ai_chat_service.dart';
 import 'ai_models.dart';
 import 'overlay/overlay_geometry.dart';
 import 'overlay/overlay_manager.dart';
@@ -12,12 +14,13 @@ class AiConversationOverlay {
   static void show(
     BuildContext context, {
     required String blockId,
+    required EditorState editorState,
     String initialText = '',
     String blockTitle = '',
   }) {
     dismissAll();
 
-    final overlay = Overlay.of(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
     final screenSize = MediaQuery.of(context).size;
 
     const panelWidth = 340.0;
@@ -35,6 +38,7 @@ class AiConversationOverlay {
       blockTitle: blockTitle,
       initialOffset: initialOffset,
       initialSize: const Size(panelWidth, panelHeight),
+      editorState: editorState,
     );
     if (initialText.isNotEmpty) {
       _holder!.messages.add(AIChatMessage.ai(initialText));
@@ -48,6 +52,7 @@ class AiConversationOverlay {
     _currentOverlay = OverlayEntry(
       builder: (ctx) => _AiConversationOverlayWidget(
         holder: _holder!,
+        editorState: _holder!.editorState!,
       ),
     );
     overlay.insert(_currentOverlay!);
@@ -105,20 +110,24 @@ class _ConversationStateHolder {
   final List<AIChatMessage> messages;
   final Offset initialOffset;
   final Size initialSize;
+  final EditorState? editorState;
 
   _ConversationStateHolder({
     required this.blockId,
     required this.blockTitle,
     required this.initialOffset,
     required this.initialSize,
+    this.editorState,
   }) : messages = [];
 }
 
 class _AiConversationOverlayWidget extends StatefulWidget {
   final _ConversationStateHolder holder;
+  final EditorState editorState;
 
   const _AiConversationOverlayWidget({
     required this.holder,
+    required this.editorState,
   });
 
   @override
@@ -178,21 +187,55 @@ class _AiConversationOverlayWidgetState
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
 
-    widget.holder.messages.add(AIChatMessage.user(text));
+    final messages = widget.holder.messages;
+    messages.add(AIChatMessage.user(text));
     _inputController.clear();
-    setState(() {});
-
-    widget.holder.messages.add(AIChatMessage.loading());
     setState(() {});
     _scrollToBottom();
 
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      widget.holder.messages.removeWhere((m) => m.isLoading);
-      widget.holder.messages.add(AIChatMessage.ai('回复："$text"'));
-      setState(() {});
-      _scrollToBottom();
-    });
+    final loadingMsg = AIChatMessage.loading();
+    messages.add(loadingMsg);
+    setState(() {});
+    _scrollToBottom();
+
+    _callChatApi(text, messages, loadingMsg);
+  }
+
+  Future<void> _callChatApi(
+    String text,
+    List<AIChatMessage> messages,
+    AIChatMessage loadingMsg,
+  ) async {
+    final chatService = widget.editorState.aiChatServiceUnsafe;
+    if (chatService == null) {
+      _replaceLoadingWith(messages, loadingMsg,
+          AIChatMessage.ai('对话服务未接入，请检查设置。'));
+      return;
+    }
+    try {
+      final reply = await chatService.chat(
+        prompt: text,
+        settings: widget.editorState.aiSettingsUnsafe,
+      );
+      _replaceLoadingWith(messages, loadingMsg, AIChatMessage.ai(reply));
+    } on AiChatException catch (e) {
+      _replaceLoadingWith(messages, loadingMsg,
+          AIChatMessage.ai('对话失败：${e.message}'));
+    } catch (e) {
+      _replaceLoadingWith(messages, loadingMsg, AIChatMessage.ai('对话失败：$e'));
+    }
+  }
+
+  void _replaceLoadingWith(
+    List<AIChatMessage> messages,
+    AIChatMessage loadingMsg,
+    AIChatMessage replacement,
+  ) {
+    if (!mounted) return;
+    messages.removeWhere((m) => identical(m, loadingMsg));
+    messages.add(replacement);
+    setState(() {});
+    _scrollToBottom();
   }
 
   OverlayState? _findOverlay() => Overlay.of(context, rootOverlay: true);

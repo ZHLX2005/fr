@@ -1,13 +1,19 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../api/providers/api_providers.dart';
 import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';
 import 'note_panel.dart';
+import 'ai/ai_settings_page.dart';
+import 'ai/ai_settings_store.dart';
+import 'ai/article_edit_service.dart';
+import 'ai/ai_chat_service.dart';
 
 
 /// 块编辑器 Demo（持久化版）
@@ -31,6 +37,20 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
         noteFactory: NoteRootScope.of(context).noteRoot,
       );
       _editorStateReady = true;
+      // 注入 ArticleEditService（通过 riverpod 拿 endpoint）
+      final container = ProviderScope.containerOf(context);
+      final endpoint = container.read(articleEndpointProvider);
+      _editorState.setArticleEditService(
+        ArticleEditService.forEndpoint(endpoint, _editorState.noteFactorySafe),
+      );
+      // 注入 AiChatService（对话小窗用）
+      _editorState.setAiChatService(
+        AiChatService.forEndpoint(container.read(aiEndpointProvider)),
+      );
+      // 加载 AI 配置
+      AiSettingsStore().load().then((s) {
+        if (mounted) _editorState.updateAiSettings(s);
+      });
       _editorState.toolbarFactory.setImportCallbacks(
         onImportMdFile: _importMdFile,
         onImportMdText: _showImportMdTextDialog,
@@ -64,6 +84,15 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
     }
 
     _editorState.importMd(source);
+  }
+
+  void _openAiSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiSettingsPage(editorState: _editorState),
+      ),
+    );
   }
 
   Future<void> _showImportMdTextDialog() async {
@@ -131,6 +160,11 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             title: const Text('块编辑器'),
             actions: [
               IconButton(
+                icon: const Icon(Icons.settings),
+                tooltip: 'AI 配置',
+                onPressed: _openAiSettings,
+              ),
+              IconButton(
                 icon: const Icon(Icons.menu_open),
                 onPressed: () {
                   _scaffoldKey.currentState?.openEndDrawer();
@@ -145,6 +179,16 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             context,
             _editorState,
           ),
+          // AI 修改后顶部出现的固定条（仅在有 pending 修改时显示）
+          persistentFooterButtons: _editorState.hasPendingDiffs
+              ? [
+                  _AiPendingBar(
+                    changeCount: _editorState.pendingChangeCount,
+                    onAccept: _editorState.acceptAllPendingDiffs,
+                    onReject: _editorState.rejectAllPendingDiffs,
+                  ),
+                ]
+              : null,
           body: blocks.isEmpty
               ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
               : ReorderableListView.builder(
@@ -195,4 +239,58 @@ class BlockEditorDemoPage extends DemoPage {
 
 void registerBlockEditorDemo() {
   demoRegistry.register(BlockEditorDemoPage());
+}
+
+/// AI 修改待确认的顶部条 — 显示变更数 + 接受/拒绝按钮。
+class _AiPendingBar extends StatelessWidget {
+  final int changeCount;
+  final VoidCallback onAccept;
+  final VoidCallback onReject;
+
+  const _AiPendingBar({
+    required this.changeCount,
+    required this.onAccept,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Icon(Icons.auto_awesome, size: 16, color: colorScheme.onPrimaryContainer),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'AI 修改了 $changeCount 处 — 红色=删除 绿色=新增',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: onReject,
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text('拒绝'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 4),
+            FilledButton.icon(
+              onPressed: onAccept,
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('应用'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

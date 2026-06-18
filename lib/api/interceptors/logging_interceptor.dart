@@ -1,4 +1,4 @@
-import 'dart:developer' as dev;
+import 'package:flutter/foundation.dart';
 import '../api_client.dart';
 import '../api_response.dart';
 
@@ -11,19 +11,19 @@ class LoggingInterceptor extends Interceptor {
   @override
   Future<ApiResponse<T>> intercept<T>(ApiChain<T> chain) async {
     final start = DateTime.now();
-    dev.log('[API] --> ${chain.method} ${chain.path}', name: 'api');
+    debugPrint('[API] --> ${chain.method} ${chain.path}');
 
     try {
       final response = await chain.proceed();
       final elapsed = DateTime.now().difference(start).inMilliseconds;
-      dev.log('[API] <-- ${chain.method} ${chain.path} → ${response.code} (${elapsed}ms)', name: 'api');
+      debugPrint('[API] <-- ${chain.method} ${chain.path} → ${response.code} (${elapsed}ms)');
       if (logBody && response.data != null) {
-        dev.log('[API] body: ${response.data}', name: 'api');
+        debugPrint('[API] body: ${response.data}');
       }
       return response;
     } catch (e) {
       final elapsed = DateTime.now().difference(start).inMilliseconds;
-      dev.log('[API] <-- ${chain.method} ${chain.path} → ERROR (${elapsed}ms): $e', name: 'api');
+      debugPrint('[API] <-- ${chain.method} ${chain.path} → ERROR (${elapsed}ms): $e');
       rethrow;
     }
   }

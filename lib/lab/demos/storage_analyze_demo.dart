@@ -332,8 +332,50 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       builder: (context) => _NotePreviewSheet(
         note: note,
         formatSize: _formatSize,
+        onDelete: () {
+          Navigator.pop(context);
+          _deleteNote(note);
+        },
       ),
     );
+  }
+
+  Future<void> _deleteNote(NoteInfo note) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除笔记 "${note.title}" 吗？\n\n此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await NoteRootScope.of(context).noteRoot.deleteNote(note.id);
+        await _loadStorageData();
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('已删除: ${note.title}')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
+        }
+      }
+    }
   }
 
   Widget _buildMediaTab() {
@@ -1334,8 +1376,13 @@ class _NoteListTile extends StatelessWidget {
 class _NotePreviewSheet extends StatefulWidget {
   final NoteInfo note;
   final String Function(int) formatSize;
+  final VoidCallback onDelete;
 
-  const _NotePreviewSheet({required this.note, required this.formatSize});
+  const _NotePreviewSheet({
+    required this.note,
+    required this.formatSize,
+    required this.onDelete,
+  });
 
   @override
   State<_NotePreviewSheet> createState() => _NotePreviewSheetState();
@@ -1459,6 +1506,26 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
                           ),
                         ),
                       ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  border: Border(top: BorderSide(color: Colors.grey[300]!)),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: widget.onDelete,
+                    icon: const Icon(Icons.delete),
+                    label: const Text('删除笔记'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),

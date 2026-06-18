@@ -77,6 +77,12 @@ class NoteFactory {
   /// 将 Block 序列化为 JSON Map。
   Map<String, dynamic> serializeBlock(Block block) => _repository.encodeBlock(block);
 
+  /// Block 树 → TOML 字符串。用于发给后端 article/edit。
+  String toTomlString(Block root) => _repository.encodeToml(root);
+
+  /// TOML 字符串 → Block 树。解析失败返回 null。
+  Block? fromTomlString(String toml) => _repository.decodeToml(toml);
+
   // === 类型元信息 ===
 
   /// 所有策略提供的可创建类型列表，供工具栏等 UI 消费。
