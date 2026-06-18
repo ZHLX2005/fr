@@ -8,6 +8,7 @@ import '../goframe/file/file_endpoint.dart';
 import '../goframe/download/download_controller.dart';
 import '../goframe/download/apk_endpoint.dart';
 import '../goframe/article/article_endpoint.dart';
+import '../goframe/ai/ai_endpoint.dart';
 
 // ── Token ──────────────────────────────────────────────────────────
 
@@ -40,6 +41,10 @@ final fileEndpointProvider = Provider<FileEndpoint>((ref) {
 
 final articleEndpointProvider = Provider<ArticleEndpoint>((ref) {
   return ArticleEndpoint(ref.watch(apiClientProvider));
+});
+
+final aiEndpointProvider = Provider<AiEndpoint>((ref) {
+  return AiEndpoint(ref.watch(apiClientProvider));
 });
 
 final apkDownloadEndpointProvider = Provider<ApkDownloadEndpoint>((ref) {

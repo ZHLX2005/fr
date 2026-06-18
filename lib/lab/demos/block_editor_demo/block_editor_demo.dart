@@ -1,13 +1,19 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../api/providers/api_providers.dart';
 import '../../../core/note/note_root_scope.dart';
 import '../../../services/media_service.dart';
 import '../../../lab/lab_container.dart';
 import 'state.dart';
 import 'card.dart';
 import 'note_panel.dart';
+import 'ai/ai_settings_page.dart';
+import 'ai/ai_settings_store.dart';
+import 'ai/article_edit_service.dart';
+import 'ai/ai_chat_service.dart';
 
 
 /// 块编辑器 Demo（持久化版）
@@ -31,6 +37,20 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
         noteFactory: NoteRootScope.of(context).noteRoot,
       );
       _editorStateReady = true;
+      // 注入 ArticleEditService（通过 riverpod 拿 endpoint）
+      final container = ProviderScope.containerOf(context);
+      final endpoint = container.read(articleEndpointProvider);
+      _editorState.setArticleEditService(
+        ArticleEditService.forEndpoint(endpoint, _editorState.noteFactorySafe),
+      );
+      // 注入 AiChatService（对话小窗用）
+      _editorState.setAiChatService(
+        AiChatService.forEndpoint(container.read(aiEndpointProvider)),
+      );
+      // 加载 AI 配置
+      AiSettingsStore().load().then((s) {
+        if (mounted) _editorState.updateAiSettings(s);
+      });
       _editorState.toolbarFactory.setImportCallbacks(
         onImportMdFile: _importMdFile,
         onImportMdText: _showImportMdTextDialog,
@@ -64,6 +84,15 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
     }
 
     _editorState.importMd(source);
+  }
+
+  void _openAiSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiSettingsPage(editorState: _editorState),
+      ),
+    );
   }
 
   Future<void> _showImportMdTextDialog() async {
@@ -130,6 +159,11 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
           appBar: AppBar(
             title: const Text('块编辑器'),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.settings),
+                tooltip: 'AI 配置',
+                onPressed: _openAiSettings,
+              ),
               IconButton(
                 icon: const Icon(Icons.menu_open),
                 onPressed: () {

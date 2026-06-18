@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import '../../../core/note/note_root_scope.dart';
 import 'mode/toolbar_factory.dart';
 import 'ai/ai_models.dart';
+import 'ai/ai_settings_store.dart';
+import 'ai/article_edit_service.dart';
+import 'ai/ai_chat_service.dart';
 
 /// 编辑器状态管理，支持持久化。
 class EditorState extends ChangeNotifier {
@@ -19,6 +22,9 @@ class EditorState extends ChangeNotifier {
 
   final NoteFactory _noteFactory;
 
+  /// 暴露 NoteFactory（供外部组装 ArticleEditService）。
+  NoteFactory get noteFactorySafe => _noteFactory;
+
   // === AI 对话状态 ===
 
   /// blockId → BlockAIConversation
@@ -30,8 +36,28 @@ class EditorState extends ChangeNotifier {
   /// 当前正在加载 AI 的 block id（用于显示 loading 状态）
   String? _aiLoadingBlockId;
 
+  /// 当前 AI 请求是否已被用户取消 — 返回结果时若为 true 则丢弃。
+  /// 注意：当前实现仅前端丢弃响应（不等结果），后端 agent 仍会跑完。
+  /// 超时改 120s 后用户基本无需取消；保留 cancel 是兜底。
+  bool _aiCanceled = false;
+
   /// AI 回复结果缓存：blockId → 解析后的 Block 列表
   final Map<String, List<Block>> _aiResults = {};
+
+  /// AI 编辑的 diff 缓存：blockId → diff 文本（hasEdit=true 时有值）。
+  final Map<String, String> _aiDiff = {};
+
+  /// AI 错误信息（未配置/请求失败等）。
+  String? _aiError;
+
+  /// 注入的 article/edit 服务（null = 未接入后端）。
+  ArticleEditService? _articleEditService;
+
+  /// 注入的 ai/chat 服务（null = 未接入后端，对话小窗用）。
+  AiChatService? _aiChatService;
+
+  /// 当前 AI 配置。
+  AiSettings _aiSettings = const AiSettings();
 
   /// Backspace 级联保护（放在 EditorState 中不随 widget 销毁）
   DateTime? _lastBackspaceDelete;
@@ -83,6 +109,36 @@ class EditorState extends ChangeNotifier {
   /// block 是否正在显示 AI 回复 inline
   bool isAiShowingResult(String blockId) => _aiResults.containsKey(blockId);
 
+  /// 某 block 的 AI diff（无则 null）。
+  String? aiDiffFor(String blockId) => _aiDiff[blockId];
+
+  /// 当前 AI 错误信息（UI 展示用）。
+  String? get aiError => _aiError;
+
+  /// 是否已配置 apiKey。
+  bool get isAiConfigured => _aiSettings.isConfigured && _articleEditService != null;
+
+  /// 对话小窗直接访问（不判空 — 调用方决定如何处理）。
+  /// 暴露 chat service 是为了让 Overlay 注入的 widget 不必再走 riverpod。
+  AiChatService? get aiChatServiceUnsafe => _aiChatService;
+  AiSettings get aiSettingsUnsafe => _aiSettings;
+
+  /// 注入 article/edit 服务。
+  void setArticleEditService(ArticleEditService? service) {
+    _articleEditService = service;
+  }
+
+  /// 注入 ai/chat 服务（对话小窗用）。
+  void setAiChatService(AiChatService? service) {
+    _aiChatService = service;
+  }
+
+  /// 更新 AI 配置（设置页保存后调用）。
+  void updateAiSettings(AiSettings settings) {
+    _aiSettings = settings;
+    notifyListeners();
+  }
+
   /// 激活 AI Bar（空格触发），同时选中该 block。
   void activateAiBar(String blockId) {
     _selectedId = blockId;
@@ -97,60 +153,108 @@ class EditorState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 发送 AI 请求
+  /// 发送 AI 请求 — 调用后端 article/edit 做全文编辑。
   Future<void> sendAiPrompt(String blockId, String prompt) async {
     if (prompt.isEmpty) return;
 
-    // 关闭 AI Bar，进入 loading 态
+    // 未接入或未配置 → 提示
+    if (_articleEditService == null || !_aiSettings.isConfigured) {
+      _aiError = '请先在设置中配置 API Key';
+      _activeAiBarBlockId = null;
+      notifyListeners();
+      return;
+    }
+
+    // 进入 loading
     _activeAiBarBlockId = null;
     _aiLoadingBlockId = blockId;
     _aiResults.remove(blockId);
-
+    _aiDiff.remove(blockId);
+    _aiError = null;
+    _aiCanceled = false;
     notifyListeners();
 
-    // mock AI 回复
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      // 构造整篇笔记的 Block（PageType root + 当前所有 block 作 children）
+      final root = _noteFactory.createBlock(
+        const PageType(),
+        id: _noteId ?? _noteFactory.generateId(),
+        content: RichText.text(_extractTitle()),
+        children: List<Block>.of(_blocks),
+      );
 
+      final result = await _articleEditService!.edit(
+        rootNote: root,
+        prompt: prompt,
+        settings: _aiSettings,
+      );
+
+      if (_aiCanceled) return; // 用户已取消，丢弃响应
+
+      if (result.hasEdit && result.modifiedBlock != null) {
+        _aiDiff[blockId] = result.diff;
+        _aiResults[blockId] = result.modifiedBlock!.children;
+      } else {
+        // 纯问答：conclusion 作为单个段落
+        _aiResults[blockId] = [
+          _noteFactory.createBlock(
+            const ParagraphType(),
+            content: RichText.text(result.conclusion),
+          ),
+        ];
+      }
+    } catch (e) {
+      if (_aiCanceled) return;
+      _aiError = 'AI 请求失败：$e';
+    } finally {
+      _aiLoadingBlockId = null;
+      _aiCanceled = false;
+      notifyListeners();
+    }
+  }
+
+  /// 用户主动取消当前 AI 请求。
+  /// 行为：丢弃响应、退出 loading、回到可编辑态（不显错误）。
+  void cancelAiRequest() {
+    if (_aiLoadingBlockId == null) return;
+    _aiCanceled = true;
     _aiLoadingBlockId = null;
-
-    // 用项目自带的 Markdown 解析器转成 Block 列表
-    final md = '''# 分析结果
-
-> 您查询的内容为：**$prompt**
-
-已完成以下操作：
-
-1. 📝 记录并分析输入
-2. 🔍 匹配相关上下文
-3. ✅ 生成回复报告
-
----
-
-*由 AI 自动生成*''';
-    _aiResults[blockId] = _noteFactory.parseMarkdown(md);
-
+    _aiError = null;
     notifyListeners();
   }
 
-  /// 确认 AI 回复：将预览的 blocks 插入到当前 block 之后并保存。
+  /// 确认 AI 回复：用结果替换整篇笔记（全文编辑语义）。
+  /// 若无 diff（纯问答结果），退化为把单段结论追加到当前 block 之后。
   void confirmAiResult(String blockId) {
     final blocks = _aiResults.remove(blockId);
+    final hasDiff = _aiDiff.remove(blockId) != null;
     if (blocks == null || blocks.isEmpty) return;
-    final idx = _blocks.indexWhere((b) => b.id == blockId);
-    if (idx >= 0) {
-      _blocks.insertAll(idx + 1, blocks);
-      _selectedId = blocks.last.id;
+
+    if (hasDiff) {
+      // 全文替换
+      _blocks
+        ..clear()
+        ..addAll(blocks);
     } else {
-      _blocks.addAll(blocks);
-      _selectedId = blocks.last.id;
+      // 纯问答：插入到当前 block 之后
+      final idx = _blocks.indexWhere((b) => b.id == blockId);
+      if (idx >= 0) {
+        _blocks.insertAll(idx + 1, blocks);
+      } else {
+        _blocks.addAll(blocks);
+      }
     }
+
+    _selectedId = blocks.isNotEmpty ? blocks.first.id : null;
     notifyListeners();
     _save();
   }
 
-  /// 清除 AI 回复结果
+  /// 清除 AI 回复结果（及对应的 diff）。
   void clearAiResult(String blockId) {
     _aiResults.remove(blockId);
+    _aiDiff.remove(blockId);
+    _aiError = null;
     notifyListeners();
   }
 

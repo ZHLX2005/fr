@@ -6,6 +6,7 @@ import '../../../services/media_service.dart';
 import 'state.dart';
 import 'ai/ai_bar.dart';
 import 'ai/ai_conversation.dart' show AiConversationOverlay;
+import 'ai/diff_viewer.dart';
 
 
 
@@ -241,7 +242,7 @@ class _BlockCardState extends State<BlockCard> {
         blockId: blockId,
         isLoading: true,
         onSend: (_) {},
-        onCancel: () {},
+        onCancel: () => es.cancelAiRequest(),
       );
     }
 
@@ -308,7 +309,8 @@ class _BlockCardState extends State<BlockCard> {
             _scheduleRefresh();
             return;
           }
-          if (value.length == 1 && (value == ' ' || value == ' ')) {
+          // 空格召唤 AI：兼容普通空格 (U+0020) 和全角空格 (U+3000)
+          if (value.length == 1 && (value == ' ' || value == '　')) {
             _controller.text = '';
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
@@ -334,6 +336,7 @@ class _BlockCardState extends State<BlockCard> {
     final colorScheme = Theme.of(context).colorScheme;
     final noteRoot = NoteRootScope.of(context).noteRoot;
     final blockText = widget.block.content.toPlainText();
+    final diff = widget.editorState.aiDiffFor(widget.block.id);
 
     return Container(
       decoration: BoxDecoration(
@@ -344,6 +347,26 @@ class _BlockCardState extends State<BlockCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // diff 展示（仅 hasEdit 时）
+          if (diff != null && diff.isNotEmpty) ...[
+            DiffViewer(diff: diff),
+            const SizedBox(height: 6),
+          ],
+          // 错误提示
+          if (widget.editorState.aiError != null) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                widget.editorState.aiError!,
+                style: TextStyle(fontSize: 12, color: colorScheme.onErrorContainer),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
           // 逐个渲染每个 Block
           for (final block in blocks)
             noteRoot.renderBlock(
@@ -363,6 +386,7 @@ class _BlockCardState extends State<BlockCard> {
                   AiConversationOverlay.show(
                     context,
                     blockId: widget.block.id,
+                    editorState: es,
                     initialText: firstText,
                     blockTitle: blockText,
                   );

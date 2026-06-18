@@ -149,6 +149,7 @@ dependencies:
   # Card Swiper - 卡片滑动库
   flutter_card_swiper: ^7.0.0
   rive: ^0.14.5
+  toml: ^0.18.0
 
 dev_dependencies:
   flutter_test:
@@ -167,6 +168,7 @@ dev_dependencies:
   # JSON Serialization Code Generation
   build_runner: ^2.4.13
   json_serializable: ^6.8.0
+  path: ^1.9.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

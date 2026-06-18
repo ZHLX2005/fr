@@ -6,12 +6,7 @@ import 'package:flutter/material.dart';
 import 'engine/game_engine.dart';
 import 'models/game_state.dart';
 import 'surround_game_constants.dart';
-
-/// 操作模式 — 显式切换，不自动推断
-enum GameMode { move, placeWall }
-
-/// 交互阶段
-enum TouchPhase { idle, beganMove, beganWall, dragging, confirming }
+import 'widgets/touch_controller.dart';
 
 /// 单一不可变 UI 状态
 class GameUiState {

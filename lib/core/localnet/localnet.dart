@@ -1,10 +1,34 @@
-export 'localnet_service.dart';
-export 'models/localnet_constants.dart';
-export 'models/localnet_device.dart';
-export 'models/localnet_message.dart';
-export 'pages/localnet_discover_page.dart';
-export 'pages/localnet_chat_page.dart';
-export 'pages/localnet_debug_page.dart';
-export 'services/debug_log_service.dart';
-export 'services/discovery_service.dart';
-export 'services/message_service.dart';
+/// LocalNet 局域网通信框架 - 公共导出入口
+///
+/// 新代码应使用 [LanFramework.instance]：
+///
+/// ```dart
+/// final fw = LanFramework.instance;
+/// await fw.start(FrameworkConfig(deviceAlias: 'MyPhone'));
+/// fw.watchDevices().listen((devices) => print(devices));
+/// await fw.sendTo(otherDeviceId, 'chat', {'text': 'hi'});
+/// ```
+library;
+
+export 'framework/framework_config.dart';
+export 'framework/framework_status.dart';
+export 'framework/lan_framework.dart';
+export 'framework/exception/framework_exception.dart';
+
+export 'event_bus/event_bus.dart';
+export 'event_bus/lan_event.dart';
+
+export 'device/device.dart';
+export 'device/device_manager.dart';
+
+export 'channel/channel_message.dart';
+export 'channel/send_result.dart';
+export 'channel/channel_manager.dart';
+
+export 'connection/connection_quality.dart';
+export 'connection/connection_manager.dart';
+
+export 'transport/transport_config.dart';
+export 'transport/transport.dart';
+export 'transport/udp_transport.dart';
+export 'transport/http_transport.dart';

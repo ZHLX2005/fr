@@ -97,9 +97,23 @@ class _AiBarState extends State<AiBar> {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          'AI 思考中...',
-          style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+        Expanded(
+          child: Text(
+            'AI 思考中...',
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+          ),
+        ),
+        InkWell(
+          onTap: widget.onCancel,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Icon(
+              Icons.close,
+              size: 16,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
       ],
     );
