@@ -1,0 +1,99 @@
+import 'package:flutter/foundation.dart';
+import '../../../../api/api_response.dart';
+import '../../../../api/goframe/article/article_endpoint.dart';
+import '../../../../core/note/note_root_scope.dart';
+import 'ai_settings_store.dart';
+
+/// 调用后端 article/edit 的函数签名（= ArticleEndpoint.edit 的 tear-off 类型）。
+typedef ArticleEditCall =
+    Future<ApiResponse<ArticleEditResponse>> Function({
+  required String apiKey,
+  required String articleToml,
+  required String prompt,
+  String? model,
+  String? baseUrl,
+});
+
+/// article/edit 的结果（已做 Block 转换）。
+class ArticleEditResult {
+  final bool hasEdit;
+  final String conclusion;
+  final String diff;
+  final Block? modifiedBlock;
+
+  const ArticleEditResult({
+    required this.hasEdit,
+    required this.conclusion,
+    required this.diff,
+    this.modifiedBlock,
+  });
+}
+
+class ArticleEditException implements Exception {
+  final String message;
+  ArticleEditException(this.message);
+  @override
+  String toString() => 'ArticleEditException: $message';
+}
+
+/// 封装 Block → TOML → endpoint → TOML → Block 的完整链路。
+class ArticleEditService {
+  final ArticleEditCall _editCall;
+  final NoteFactory _noteFactory;
+
+  ArticleEditService({required ArticleEditCall editCall, required NoteFactory noteFactory})
+      : _editCall = editCall,
+        _noteFactory = noteFactory;
+
+  factory ArticleEditService.forEndpoint(ArticleEndpoint endpoint, NoteFactory noteFactory) {
+    return ArticleEditService(editCall: endpoint.edit, noteFactory: noteFactory);
+  }
+
+  Future<ArticleEditResult> edit({
+    required Block rootNote,
+    required String prompt,
+    required AiSettings settings,
+  }) async {
+    final toml = _noteFactory.toTomlString(rootNote);
+    debugPrint('[AiEdit] sending POST /api/v1/article/edit toml.len=${toml.length} prompt="$prompt"');
+    final resp = await _editCall(
+      apiKey: settings.apiKey,
+      articleToml: toml,
+      prompt: prompt,
+      model: settings.model.isEmpty ? null : settings.model,
+      baseUrl: settings.baseUrl.isEmpty ? null : settings.baseUrl,
+    );
+    debugPrint('[AiEdit] response: success=${resp.isSuccess} code=${resp.code} msg="${resp.message}" data=${resp.data != null}');
+
+    if (!resp.isSuccess || resp.data == null) {
+      throw ArticleEditException(resp.message.isEmpty ? '请求失败' : resp.message);
+    }
+    final d = resp.data!;
+    debugPrint('[AiEdit] response body:');
+    debugPrint('  hasEdit=${d.hasEdit}');
+    debugPrint('  diff:\n${d.diff}');
+    debugPrint('  conclusion:\n${d.conclusion}');
+    debugPrint('  modifiedToml:\n${d.modifiedToml}');
+
+    Block? modified;
+    if (d.hasEdit) {
+      debugPrint('[AiEdit] modifiedToml raw (len=${d.modifiedToml.length}):');
+      // 打印每一行，前缀带真实行号（不用 ${d.modifiedToml} 让日志截断）
+      for (var i = 0; i < d.modifiedToml.split('\n').length; i++) {
+        debugPrint('  ${i + 1}|${d.modifiedToml.split('\n')[i]}');
+      }
+      modified = _noteFactory.fromTomlString(d.modifiedToml);
+      if (modified == null) {
+        debugPrint('[AiEdit] fromTomlString returned null');
+        throw ArticleEditException('修改后的 TOML 解析失败');
+      }
+    }
+
+    return ArticleEditResult(
+      hasEdit: d.hasEdit,
+      conclusion: d.conclusion,
+      diff: d.diff,
+      modifiedBlock: modified,
+    );
+  }
+}

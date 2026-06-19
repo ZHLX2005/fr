@@ -58,7 +58,10 @@ class ArticleEndpoint {
   ///   支持的值取决于后端配置的供应商。
   ///
   /// 参数 [baseUrl] — LLM API 地址（可选）。
-  ///   为空时后端使用默认地址（如 https://open.bigmodel.cn/api/anthropic）。
+  ///   ⚠️ **字段名约定**：后端 goframe swagger 字段名是 `baseURL`（全大写 URL），
+  ///   不是 `baseUrl`（驼峰）。前端发送时必须用 `'baseURL'` 这个 JSON key，
+  ///   否则后端 unmarshal 时会**静默丢弃**该字段，`BaseURL` 走默认空值。
+  ///   空时后端使用默认地址（如 https://api.deepseek.com/anthropic），
   ///   与 [model] 搭配，可实现模型供应商切换。
   Future<ApiResponse<ArticleEditResponse>> edit({
     required String apiKey,
@@ -75,7 +78,7 @@ class ArticleEndpoint {
           'articleToml': articleToml,
           'prompt': prompt,
           if (model != null && model.isNotEmpty) 'model': model,
-          if (baseUrl != null && baseUrl.isNotEmpty) 'baseUrl': baseUrl,
+          if (baseUrl != null && baseUrl.isNotEmpty) 'baseURL': baseUrl,
         },
         fromJson: (json) => ArticleEditResponse.fromJson(json),
       );
