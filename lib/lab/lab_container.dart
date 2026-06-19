@@ -11,6 +11,24 @@ abstract class DemoPage {
 
   /// 为 true 时，_DemoDetailPage 不显示 AppBar，demo 自行管理全屏布局
   bool get preferFullScreen => false;
+
+  /// Demo 分类；默认 util（通用/工具）。
+  /// 游戏类 demo 需 override 为 [DemoType.game] 以接入游戏中心。
+  DemoType get type => DemoType.util;
+}
+
+/// Demo 分类 - 用于按类型过滤（如游戏中心）
+enum DemoType { util, tool, game }
+
+extension DemoTypeFilter on Iterable<MapEntry<String, DemoPage>> {
+  /// 按 demo.type 过滤注册表条目。
+  ///
+  /// 使用示例：
+  /// ```dart
+  /// final games = demoRegistry.getAll().filterByType(DemoType.game);
+  /// ```
+  List<MapEntry<String, DemoPage>> filterByType(DemoType t) =>
+      where((e) => e.value.type == t).toList();
 }
 
 /// Demo 注册表

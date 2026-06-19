@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'native_controller/native_controller_page.dart';
 import 'lab/lab_page.dart';
+import '../../lab/lab_container.dart';
 import '../banner_crop_page.dart';
 import 'theme/theme_page.dart';
 
@@ -133,7 +134,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                           const SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     // 开发者实验室
                     _buildMenuCard(
                       context,
@@ -149,7 +150,25 @@ class _ProfilePageState extends State<ProfilePage> {
                         );
                       },
                     ),
-              
+
+                    const SizedBox(height: 16),
+                    // 游戏中心
+                    _buildMenuCard(
+                      context,
+                      icon: Icons.sports_esports,
+                      title: '游戏中心',
+                      subtitle:
+                          '已收录 ${demoRegistry.getAll().filterByType(DemoType.game).length} 款休闲游戏',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const GameCenterPage(),
+                          ),
+                        );
+                      },
+                    ),
+
                     const SizedBox(height: 16),
                     // 主题设置
                     _buildMenuCard(

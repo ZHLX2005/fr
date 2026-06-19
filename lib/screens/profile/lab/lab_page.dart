@@ -19,6 +19,7 @@ import '../../../core/color/color_utils.dart';
 part 'lab_page/components.dart';
 part 'lab_page/panel_content.dart';
 part 'lab_page/panel_state.dart';
+part 'game_center_page.dart';
 
 const bool _kLabPanelPerfDebug = false;
 
@@ -29,7 +30,10 @@ void _labPerfLog(String message) {
 }
 
 class LabPage extends StatefulWidget {
-  const LabPage({super.key});
+  /// 是否排除游戏类 demo。默认 true：实验室语义下游戏统一由游戏中心承载。
+  final bool excludeGames;
+
+  const LabPage({super.key, this.excludeGames = true});
 
   @override
   State<LabPage> createState() => _LabPageState();
@@ -60,7 +64,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _demos = demoRegistry.getAll();
+    _demos = widget.excludeGames
+        ? demoRegistry.getAll().where((e) => e.value.type != DemoType.game).toList()
+        : demoRegistry.getAll();
     if (_kLabPanelPerfDebug && kDebugMode) {
       SchedulerBinding.instance.addTimingsCallback(_timingsCallback);
     }
