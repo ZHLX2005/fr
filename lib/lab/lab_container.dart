@@ -62,3 +62,29 @@ class LabRoutes {
   static const String lab = '/lab';
   static const String demo = '/lab/demo';
 }
+
+/// 游戏子分类常量 — 仅作为字符串 key 供 GameCenterPage 分桶。
+///
+/// 不在 DemoPage 上加新字段：分类是 UI 概念，归类由 GameCenterPage._categoryOf
+/// 用 is-类型判断完成。这样 5 个 game demo 文件保持零侵入。
+class GameCategory {
+  GameCategory._();
+
+  /// 占位"全部" tab — 不参与 demo 归类，仅作为 TabBar 第一个标签。
+  static const String all = 'all';
+
+  /// 街机（如：贪吃蛇）
+  static const String arcade = 'arcade';
+
+  /// 联机（如：围追堵截）
+  static const String multiplayer = 'multiplayer';
+
+  /// 棋游（如：黑白翻转棋）
+  static const String board = 'board';
+
+  /// 益智（如：2048）
+  static const String puzzle = 'puzzle';
+
+  /// 音游（如：线）
+  static const String music = 'music';
+}
