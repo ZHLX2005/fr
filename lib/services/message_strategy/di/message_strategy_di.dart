@@ -9,6 +9,7 @@ final GetIt getIt = GetIt.instance;
 void registerMessageStrategies() {
   final List<MessageWidgetStrategy<IMessageData>> strategyInstances = [
     TextMessageWidgetStrategy(),
+    TextLinkMessageWidgetStrategy(),
     MarkdownMessageWidgetStrategy(),
     HtmlMessageWidgetStrategy(),
     WaterCapsuleMessageWidgetStrategy(),
