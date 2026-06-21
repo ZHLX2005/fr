@@ -16,6 +16,7 @@ import '../../../lab/demos/line_demo.dart';
 import '../../../lab/demos/reversi_demo.dart';
 import '../../../lab/demos/snake_game_demo.dart';
 import '../../../lab/demos/surround_game_demo.dart';
+import '../../../lab/demos/jungle_chess_demo.dart';
 import 'providers/lab_card_provider.dart';
 import '../../../services/lab_image_cache_service.dart';
 import '../../../widgets/image_picker_widget.dart';

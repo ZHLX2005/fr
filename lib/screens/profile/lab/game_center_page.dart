@@ -49,6 +49,7 @@ class _GameCenterViewState extends State<GameCenterPage>
     if (d is SnakeGameDemo) return GameCategory.arcade;
     if (d is SurroundGameDemo) return GameCategory.multiplayer;
     if (d is ReversiDemo) return GameCategory.board;
+    if (d is JungleChessDemo) return GameCategory.board;
     if (d is Game2048Demo) return GameCategory.puzzle;
     if (d is LineDemo) return GameCategory.music;
     return GameCategory.arcade; // 兜底：新加入未分类的 game demo 暂归街机

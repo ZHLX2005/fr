@@ -150,6 +150,7 @@ dependencies:
   flutter_card_swiper: ^7.0.0
   rive: ^0.14.5
   toml: ^0.18.0
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
@@ -187,6 +188,7 @@ flutter:
     - assets/rive/pendulum/
     - assets/rive/input_machine/
     - assets/data/character_profiles/douzi_profile.json
+    - assets/animal/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
