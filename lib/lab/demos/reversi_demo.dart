@@ -13,6 +13,9 @@ class ReversiDemo extends DemoPage {
   String get description => '经典 Othello：落子夹击翻转，双方各可悔棋';
 
   @override
+  DemoType get type => DemoType.game;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const ReversiPage();
   }

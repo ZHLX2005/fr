@@ -11,6 +11,9 @@ class Game2048Demo extends DemoPage {
   String get description => '经典数字益智游戏';
 
   @override
+  DemoType get type => DemoType.game;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const _Game2048Page();
   }

@@ -13,6 +13,9 @@ class SnakeGameDemo extends DemoPage {
   String get description => '经典贪吃蛇游戏';
 
   @override
+  DemoType get type => DemoType.game;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const _SnakeGamePage();
   }

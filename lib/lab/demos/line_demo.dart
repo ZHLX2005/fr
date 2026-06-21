@@ -21,6 +21,9 @@ class LineDemo extends DemoPage {
   bool get preferFullScreen => true;
 
   @override
+  DemoType get type => DemoType.game;
+
+  @override
   Widget buildPage(BuildContext context) {
     return const SongSelectPage();
   }

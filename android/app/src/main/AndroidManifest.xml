@@ -79,6 +79,11 @@
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">
+        <!-- 强制禁用 Impeller — MTK Mali 驱动不支持 Vulkan 的 format 0x38/0x3b，
+             导致 flutter run 卡在 splash。回退到 Skia/OpenGL 渲染。 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
