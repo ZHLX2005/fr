@@ -263,15 +263,21 @@ class _ProfilePageState extends State<ProfilePage> {
                       },
                     ),
                     const SizedBox(height: 48),
-                    // 底部说明
-                    GestureDetector(
+                    // 底部说明（连点 5 次彩蛋）
+                    InkWell(
                       onTap: _onBottomTextTap,
-                      child: Text(
-                        '小豆子 - 为了满足好奇心而生',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(4),
+                      splashColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                      highlightColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Text(
+                          '小豆子 - 为了满足好奇心而生',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.4),
+                          ),
                         ),
                       ),
                     ),
