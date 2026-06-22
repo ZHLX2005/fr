@@ -1,25 +1,18 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 
-/// 按压弹性 Banner — 按住时图放大 1.06x，松手用欠阻尼弹簧回弹。
+/// Banner 背景层 — 填满整个 layout 区域，承载用户图片或默认渐变。
 ///
-/// 用法：把原本 [SliverAppBar.flexibleSpace] background 中的 [GestureDetector] + 图层子
-/// 树整体替换为 [SpringyBanner]。
+/// 设计：原本在 widget 内做 spring 下拉拉伸，但 [SliverAppBar] 配 `stretch: true`
+/// 已自带 iOS 风格的下拉拉伸 background，**完全由 SliverAppBar 自己驱动**，
+/// 这里无需再叠一层 spring。把"q 弹"的弹性完全交给 SliverAppBar 即可。
 ///
-/// 设计原因（避免与外层 list overscroll 冲突）：
-///   原本想用"下拉 overscroll"驱动 spring，但 `BouncingScrollPhysics` + `SliverAppBar`
-///   会让 list 整体跟着位移，看起来下方卡片离 banner 远了。
-///   改成"按住图 → 放大"的纯本地交互：不影响 list layout，spring 仅在 banner 内部。
-///
-/// 行为：
-///   - 仅响应按住图（非点击）：onTapDown 启动 spring.value=峰值，
-///     onTapUp / onTapCancel 触发 SpringSimulation 回弹。
-///   - 峰值放大 [_kPeakScale] (1.0 → 1.06x)。
-///   - 松手用 [SpringSimulation] 回弹，~1-2 次可见震荡，~400 ms 落定。
-class SpringyBanner extends StatefulWidget {
+/// 本 widget 仅负责：
+///   - 优先展示 [imagePath] 对应的本地图片，[errorBuilder] 失败时回退 [fallback]
+///   - 当 [imagePath] 为 `null` 时直接展示 [fallback]
+///   - 图片用 [BoxFit.cover] 填满、点击触发 [onTap]
+class SpringyBanner extends StatelessWidget {
   const SpringyBanner({
     super.key,
     required this.imagePath,
@@ -37,77 +30,18 @@ class SpringyBanner extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<SpringyBanner> createState() => _SpringyBannerState();
-}
-
-class _SpringyBannerState extends State<SpringyBanner>
-    with SingleTickerProviderStateMixin {
-  // ---------- 常量 ----------
-  static const double _kPeakScale = 0.06; // 1.0 → 1.06x（克制）
-  // 质量 1 + 刚度 380 + 阻尼比 0.55（欠阻尼）。
-  // damping 必须是 sqrt(stiffness * mass) 的倍数 → 不能用 const（sqrt 不是常量）。
-  static final SpringDescription _kSpring = SpringDescription(
-    mass: 1.0,
-    stiffness: 380.0,
-    damping: 0.55 * 2.0 * math.sqrt(380.0), // ≈ 21.45
-  );
-
-  // ---------- 状态 ----------
-  late final AnimationController _spring;
-
-  @override
-  void initState() {
-    super.initState();
-    // bounded 控制器：0..1，0=静止，1=峰值
-    _spring = AnimationController(vsync: this);
-  }
-
-  void _onTapDown(TapDownDetails _) {
-    _spring.stop();
-    _spring.animateTo(1.0, duration: const Duration(milliseconds: 120));
-  }
-
-  void _onRelease() {
-    if (_spring.value == 0) return;
-    _spring.animateWith(
-      SpringSimulation(_kSpring, _spring.value, 0.0, 0.0),
-    );
-  }
-
-  void _onTapCancel() => _onRelease();
-
-  @override
-  void dispose() {
-    _spring.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: _onTapDown,
-      onTapUp: (_) => _onRelease(),
-      onTapCancel: _onTapCancel,
+      onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedBuilder(
-        animation: _spring,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: 1.0 + _spring.value * _kPeakScale,
-            alignment: Alignment.center,
-            child: child,
-          );
-        },
-        child: SizedBox.expand(
-          child: widget.imagePath != null
-              ? Image.file(
-                  File(widget.imagePath!),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => widget.fallback,
-                )
-              : widget.fallback,
-        ),
+      child: SizedBox.expand(
+        child: imagePath != null
+            ? Image.file(
+                File(imagePath!),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => fallback,
+              )
+            : fallback,
       ),
     );
   }
