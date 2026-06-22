@@ -40,6 +40,10 @@ class JunglePieceWidget extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: kPieceDiskColor,
+          border: Border.all(
+            color: kPieceDiskBorder,
+            width: kPieceBorderWidth,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: elevated ? 0.3 : 0.18),

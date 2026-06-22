@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'native_controller/native_controller_page.dart';
@@ -5,9 +6,6 @@ import 'lab/lab_page.dart';
 import '../../lab/lab_container.dart';
 import '../banner_crop_page.dart';
 import 'theme/theme_page.dart';
-import '../../widgets/springy_banner.dart';
-import '../../widgets/bounded_bouncing_scroll_physics.dart';
-import 'character_profile_page.dart';
 
 // 首页
 class ProfilePage extends StatefulWidget {
@@ -20,57 +18,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String? _bannerPath;
   static const String _bannerKey = 'home_banner_path';
-
-  // ---------- 底部小字连点彩蛋 ----------
-  int _tapCount = 0;
-  DateTime? _lastTapTime;
-
-  void _onBottomTextTap() {
-    final now = DateTime.now();
-    // 超过 2 秒没连点就重置
-    if (_lastTapTime == null ||
-        now.difference(_lastTapTime!).inMilliseconds > 2000) {
-      _tapCount = 1;
-    } else {
-      _tapCount++;
-    }
-    _lastTapTime = now;
-
-    if (_tapCount >= 5) {
-      _tapCount = 0;
-      _showEasterEggDialog();
-    }
-  }
-  // ---------- /底部小字连点彩蛋 ----------
-
-  void _showEasterEggDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.auto_awesome, size: 40),
-        title: const Text('🎉 发现彩蛋！'),
-        content: const Text('人物小谱已经解锁，要不要进去看看？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('下次再说'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                this.context,
-                MaterialPageRoute(
-                  builder: (context) => const CharacterProfilePage(),
-                ),
-              );
-            },
-            child: const Text('去看看'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   void initState() {
@@ -153,39 +100,31 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        top: false, // 让 SliverAppBar 处理顶部安全区域
-        // iOS 风格下拉橡皮筋：
-        //   - BouncingScrollPhysics 让 position.pixels 允许短暂为负（overscroll）
-        //   - SliverAppBar(stretch: true) 自身消化顶部 overscroll，把 background
-        //     拉伸（整个 banner 区域跟着手指下拉）
-        //   - 列表下方也跟着 iOS 标准行为轻微下移（这是正确的 overscroll 行为）
-        // 整段体验：banner 整体下拉 → 松手弹簧回弹，与 iOS Safari 顶部栏一致。
+        top: false, // 让SliverAppBar处理顶部安全区域
         child: CustomScrollView(
-          // BoundedBouncingScrollPhysics：在 iOS 风格橡皮筋基础上限幅，
-          // 最大下拉 overscroll = 80 px（默认 BouncingScrollPhysics 几乎无限）。
-          physics: const BoundedBouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-            maxOverscroll: 80,
-          ),
           slivers: [
             // Banner 区域
             SliverAppBar(
               expandedHeight: 200,
               pinned: true,
-              // 标题不浮动，正常显示在 AppBar 区域
+              // 标题不浮动，正常显示在AppBar区域
               floating: false,
               snap: false,
-              // stretch: true 让顶部 overscroll 把整个 banner 区域拉高（iOS 风格）。
-              // banner 整体区域跟着手指下拉，松手有弹性回弹。
-              stretch: true,
               flexibleSpace: FlexibleSpaceBar(
                 // 标题只在收起状态显示
                 title: _bannerPath == null ? const Text('小豆子') : null,
                 titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-                background: SpringyBanner(
-                  imagePath: _bannerPath,
-                  fallback: _buildDefaultBanner(context),
+                background: GestureDetector(
                   onTap: _showBannerOptions,
+                  child: _bannerPath != null
+                      ? Image.file(
+                          File(_bannerPath!),
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (_, __, ___) =>
+                              _buildDefaultBanner(context),
+                        )
+                      : _buildDefaultBanner(context),
                 ),
               ),
             ),
@@ -263,33 +202,24 @@ class _ProfilePageState extends State<ProfilePage> {
                       },
                     ),
                     const SizedBox(height: 48),
-                    // 底部说明（连点 5 次彩蛋）
-                    InkWell(
-                      onTap: _onBottomTextTap,
-                      borderRadius: BorderRadius.circular(4),
-                      splashColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                      highlightColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Text(
-                          '小豆子 - 为了满足好奇心而生',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.4),
-                          ),
-                        ),
+                    // 底部说明
+                    Text(
+                      '小豆子 - 为了满足好奇心而生',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.4),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            ],
-          ),    // CustomScrollView
-        ),        // SafeArea
-      );          // Scaffold
-    }
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildDefaultBanner(BuildContext context) {
     return Container(
@@ -387,7 +317,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
               ),
             ],
-          ),    // CustomScrollView
+          ),
         ),
       ),
     );

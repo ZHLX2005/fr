@@ -120,11 +120,11 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     } catch (e) {
       // 如果原生方法调用失败，使用 audioplayers 播放默认提示音
       try {
-        const beepUrl =
-            'https://www.soundjay.com/buttons/beep-01a.mp3';
         await _audioPlayer.setReleaseMode(ReleaseMode.release);
-        await _audioPlayer.setSourceUrl(beepUrl);
-        await _audioPlayer.play(UrlSource(beepUrl));
+        await _audioPlayer.setSourceUrl(
+          'https://www.soundjay.com/buttons/beep-01a.mp3',
+        );
+        await _audioPlayer.resume();
       } catch (_) {
         // 忽略音频播放错误
       }
