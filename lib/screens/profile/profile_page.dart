@@ -101,12 +101,16 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       body: SafeArea(
         top: false, // 让 SliverAppBar 处理顶部安全区域
-        // 普通的 CustomScrollView：list 永远不漂。
-        // banner 的"下拉回弹"由 SpringyBanner **内部**监听手指 PointerMoveEvent
-        // 驱动（不读 position.pixels），所以下拉只影响 banner 自身。
-        // AlwaysScrollable 保证内容不足时仍可下拉。
+        // iOS 风格下拉橡皮筋：
+        //   - BouncingScrollPhysics 让 position.pixels 允许短暂为负（overscroll）
+        //   - SliverAppBar(stretch: true) 自身消化顶部 overscroll，把 background
+        //     拉伸（整个 banner 区域跟着手指下拉）
+        //   - 列表下方也跟着 iOS 标准行为轻微下移（这是正确的 overscroll 行为）
+        // 整段体验：banner 整体下拉 → 松手弹簧回弹，与 iOS Safari 顶部栏一致。
         child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             // Banner 区域
             SliverAppBar(
@@ -115,6 +119,9 @@ class _ProfilePageState extends State<ProfilePage> {
               // 标题不浮动，正常显示在 AppBar 区域
               floating: false,
               snap: false,
+              // stretch: true 让顶部 overscroll 把整个 banner 区域拉高（iOS 风格）。
+              // banner 整体区域跟着手指下拉，松手有弹性回弹。
+              stretch: true,
               flexibleSpace: FlexibleSpaceBar(
                 // 标题只在收起状态显示
                 title: _bannerPath == null ? const Text('小豆子') : null,
