@@ -24,15 +24,20 @@ class _ProfilePageState extends State<ProfilePage> {
   // ---------- 三次下拉彩蛋 ----------
   int _pullCount = 0;
   bool _wasOverscrolled = false;
+  DateTime _lastPullTime = DateTime(2020); // 初始很早，确保不会误判
 
   bool _onScrollNotification(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification) {
-      // pixels < 0 表示正在顶部 overscroll
-      if (notification.metrics.pixels < 0) {
+      // 只在有明显 overscroll（> 20px）时才标记，过滤 bounce 尾迹
+      if (notification.metrics.pixels < -20) {
         _wasOverscrolled = true;
       }
     } else if (notification is ScrollEndNotification) {
-      if (_wasOverscrolled && notification.metrics.pixels >= 0) {
+      final now = DateTime.now();
+      if (_wasOverscrolled &&
+          notification.metrics.pixels >= -5 &&
+          now.difference(_lastPullTime).inMilliseconds > 800) {
+        _lastPullTime = now;
         // 一次完整下拉回弹结束
         _pullCount++;
         if (_pullCount >= 3) {
