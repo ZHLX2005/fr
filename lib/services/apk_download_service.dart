@@ -53,7 +53,6 @@ class ApkDownloadService {
         autoStart: false,
         autoStartOnBoot: false,
         isForegroundMode: true,
-        notificationChannelId: 'apk_download_channel',
         initialNotificationTitle: 'APK 下载',
         initialNotificationContent: '准备下载...',
         foregroundServiceNotificationId: 888,
