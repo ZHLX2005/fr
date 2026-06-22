@@ -255,6 +255,27 @@ class LanRoomPage extends StatefulWidget {
 ```
 
 **单一 source of truth = `gameStateNotifier`**,ViewModel 只负责 start/countdown/finish 状态编排。
+ViewModel 与 notifier 桥接方式(机械照搬 surround_game):
+
+```dart
+// LanHostGamePage.initState:
+final gameStateNotifier = ValueNotifier<GameState>(JungleEngine.createInitialState());
+
+// ViewModel.addListener → 同步 gameStateNotifier
+widget.viewModel.addListener(() {
+  final s = widget.viewModel.value;
+  if (s is HostInGame) gameStateNotifier.value = s.gameState;
+  if (s is HostFinished) gameStateNotifier.value = s.gameState;
+});
+
+// 反向:notifier → ViewModel(如需):
+// 此处无,Host 走棋只走 ViewModel reducer,reducer 内部调 JungleEngine.movePiece 后
+// 既更新 ViewModel.value,也把新 GameState 写入 gameStateNotifier
+```
+
+`onMoveConfirmed(from, to)` 内:
+1. `widget.viewModel.dispatch(HostMoveCommitted(from, to))` → reducer 跑引擎
+2. reducer 返回的 `next.gameState` 写入 `gameStateNotifier.value` → Session 自动序列化推送
 
 ### 5.6 LanClientGamePage(严格只读文字版)
 
@@ -317,8 +338,15 @@ class DeviceIdService {
 
 // player_profile_service.dart
 class PlayerProfileService {
-  static Future<String?> loadAlias() async { ... }
-  static Future<void> saveAlias(String alias) async { ... }
+  static const _kAliasKey = 'player_alias';
+  static Future<String?> loadAlias() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kAliasKey);
+  }
+  static Future<void> saveAlias(String alias) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kAliasKey, alias);
+  }
 }
 ```
 
