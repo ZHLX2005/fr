@@ -40,10 +40,12 @@ class _SpringyBannerState extends State<SpringyBanner>
   // ---------- 常量 ----------
   static const double _kMaxStretch = 120.0; // 抗阻饱和点（px）
   static const double _kPeakScale = 0.15; // 1.0 → 1.15x
-  static const SpringDescription _kSpring = SpringDescription(
+  // 质量 1 + 刚度 320 + 阻尼比 0.6（欠阻尼），保证 1-2 次可见回弹。
+  // damping 必须是 sqrt(stiffness * mass) 的倍数 → 不能用 const（sqrt 不是常量）。
+  static final SpringDescription _kSpring = SpringDescription(
     mass: 1.0,
     stiffness: 320.0,
-    damping: 0.6 * 2.0 * math.sqrt(320.0), // ≈ 21.54，轻微欠阻尼
+    damping: 0.6 * 2.0 * math.sqrt(320.0), // ≈ 21.54
   );
 
   // ---------- 状态 ----------
@@ -126,7 +128,7 @@ class _SpringyBannerState extends State<SpringyBanner>
                   File(widget.imagePath!),
                   fit: BoxFit.cover,
                   width: double.infinity,
-                  errorBuilder: (_, __, ___) => widget.fallback,
+                  errorBuilder: (_, _, _) => widget.fallback,
                 )
               : widget.fallback,
         ),

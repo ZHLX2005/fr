@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'native_controller/native_controller_page.dart';
@@ -6,6 +5,7 @@ import 'lab/lab_page.dart';
 import '../../lab/lab_container.dart';
 import '../banner_crop_page.dart';
 import 'theme/theme_page.dart';
+import '../../widgets/springy_banner.dart';
 
 // 首页
 class ProfilePage extends StatefulWidget {
@@ -102,6 +102,9 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SafeArea(
         top: false, // 让SliverAppBar处理顶部安全区域
         child: CustomScrollView(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             // Banner 区域
             SliverAppBar(
@@ -114,17 +117,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 // 标题只在收起状态显示
                 title: _bannerPath == null ? const Text('小豆子') : null,
                 titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-                background: GestureDetector(
+                background: SpringyBanner(
+                  imagePath: _bannerPath,
+                  fallback: _buildDefaultBanner(context),
                   onTap: _showBannerOptions,
-                  child: _bannerPath != null
-                      ? Image.file(
-                          File(_bannerPath!),
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (_, __, ___) =>
-                              _buildDefaultBanner(context),
-                        )
-                      : _buildDefaultBanner(context),
                 ),
               ),
             ),
