@@ -87,4 +87,7 @@ class GameCategory {
 
   /// 音游（如：线）
   static const String music = 'music';
+
+  /// 收藏（按 LabCardProvider.isFavorite 过滤全集）
+  static const String favorites = 'favorites';
 }
