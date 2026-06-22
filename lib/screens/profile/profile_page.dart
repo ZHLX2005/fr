@@ -102,9 +102,10 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SafeArea(
         top: false, // 让SliverAppBar处理顶部安全区域
         child: CustomScrollView(
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
+          // 不依赖 overscroll 驱动 spring（之前用 BouncingScrollPhysics 会让
+          // 下方 sliver 跟着 banner 下移产生空白 —— 已弃用）。
+          // AlwaysScrollable 保证内容不足时仍可下拉触发。
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             // Banner 区域
             SliverAppBar(
