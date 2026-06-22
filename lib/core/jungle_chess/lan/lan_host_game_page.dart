@@ -16,6 +16,7 @@ import '../widgets/jungle_dialog.dart';
 import '../engine/jungle_engine.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
+import '../constants/jungle_constants.dart';
 import 'lan_host_view_model.dart';
 import 'lan_match_state.dart';
 import 'lan_match_event.dart';
@@ -24,11 +25,13 @@ import 'service/lan_service_adapter.dart';
 class LanHostGamePage extends StatefulWidget {
   final LanHostViewModel viewModel;
   final String peerDeviceId;
+  final String roomId;
 
   const LanHostGamePage({
     super.key,
     required this.viewModel,
     required this.peerDeviceId,
+    required this.roomId,
   });
 
   @override
@@ -49,7 +52,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
         ValueNotifier<GameState>(JungleEngine.createInitialState());
     // 棋盘尺寸先用一个合理默认值；LayoutBuilder 完成后通过 setBoardSize 注入
     _touchController = JungleHostTouchControllerFactory(
-      boardSize: 0,
+      boardSize: kCellSize * kBoardRows,  // 64.0 * 9 = 576px
     ).create();
     _boardSizeWatch = Stopwatch()..start();
     _vmListener = _syncNotifierFromVm;
@@ -93,7 +96,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
         },
         onExit: () {
           // 广播关房
-          LanServiceAdapter.instance.stopRoom(widget.peerDeviceId);
+          LanServiceAdapter.instance.stopRoom(widget.roomId);
           Navigator.pop(context);
         },
       );
@@ -107,7 +110,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     }
     _gameStateNotifier.dispose();
     _touchController.dispose();
-    if (_session != null && _session.dispose is Function) {
+    if (_session != null) {
       try {
         _session.dispose();
       } catch (_) {

@@ -6,6 +6,7 @@ import 'lan_match_state.dart';
 import 'lan_match_event.dart';
 import 'lan_host_protocol_bridge.dart';
 import 'protocol/lan_messages.dart';
+import 'service/lan_service_adapter.dart';
 
 class LanHostViewModel extends ValueNotifier<LanHostState> {
   LanHostViewModel() : super(const HostLobby());
@@ -22,7 +23,7 @@ class LanHostViewModel extends ValueNotifier<LanHostState> {
   static LanHostState reduce(LanHostState state, LanHostEvent event) {
     return switch ((state, event)) {
       (HostLobby(), HostCreateRoom(:final roomId, :final hostName)) =>
-        HostWaiting(room: GameRoom(roomId: roomId, hostDeviceId: '', hostName: hostName)),
+        HostWaiting(room: GameRoom(roomId: roomId, hostDeviceId: LanServiceAdapter.instance.myDeviceId, hostName: hostName)),
 
       (HostWaiting(:final room), HostStartGame()) =>
         HostCountdown(room: room, secondsLeft: 3),

@@ -97,6 +97,13 @@ class _LanRoomPageState extends State<LanRoomPage> {
     } else if (ev is ClientJoinResult && !_isHost) {
       if (ev.accepted) {
         _startCountdown();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('加入被拒: ${ev.rejectReason ?? "未知原因"}')),
+          );
+          Navigator.of(context).pop();
+        }
       }
     } else if (ev is HostRoomClosed && !_isHost) {
       if (mounted) {
@@ -131,6 +138,7 @@ class _LanRoomPageState extends State<LanRoomPage> {
         ? LanHostGamePage(
             viewModel: _hostVm!,
             peerDeviceId: _clientDeviceId ?? '',
+            roomId: widget.roomId,
           )
         : LanClientGamePage(
             viewModel: _clientVm!,

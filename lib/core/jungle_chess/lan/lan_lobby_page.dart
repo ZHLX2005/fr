@@ -102,9 +102,7 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
         ];
       });
     } else if (ev is HostRoomClosed) {
-      setState(() {
-        _rooms = _rooms.where((r) => r.roomId != '').toList();
-      });
+      setState(() => _rooms = []);
     }
   }
 
@@ -131,7 +129,7 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
         ? state.room
         : GameRoom(
             roomId: roomId,
-            hostDeviceId: '',
+            hostDeviceId: LanServiceAdapter.instance.myDeviceId,
             hostName: LanServiceAdapter.instance.myAlias,
           );
     Navigator.push(
