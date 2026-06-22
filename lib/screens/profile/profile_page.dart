@@ -21,35 +21,27 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _bannerPath;
   static const String _bannerKey = 'home_banner_path';
 
-  // ---------- 三次下拉彩蛋 ----------
-  int _pullCount = 0;
-  bool _wasOverscrolled = false;
-  DateTime _lastPullTime = DateTime(2020); // 初始很早，确保不会误判
+  // ---------- 底部小字连点彩蛋 ----------
+  int _tapCount = 0;
+  DateTime? _lastTapTime;
 
-  bool _onScrollNotification(ScrollNotification notification) {
-    if (notification is ScrollUpdateNotification) {
-      // 只在有明显 overscroll（> 20px）时才标记，过滤 bounce 尾迹
-      if (notification.metrics.pixels < -20) {
-        _wasOverscrolled = true;
-      }
-    } else if (notification is ScrollEndNotification) {
-      final now = DateTime.now();
-      if (_wasOverscrolled &&
-          notification.metrics.pixels >= -5 &&
-          now.difference(_lastPullTime).inMilliseconds > 800) {
-        _lastPullTime = now;
-        // 一次完整下拉回弹结束
-        _pullCount++;
-        if (_pullCount >= 3) {
-          _pullCount = 0;
-          _showEasterEggDialog();
-        }
-      }
-      _wasOverscrolled = false;
+  void _onBottomTextTap() {
+    final now = DateTime.now();
+    // 超过 2 秒没连点就重置
+    if (_lastTapTime == null ||
+        now.difference(_lastTapTime!).inMilliseconds > 2000) {
+      _tapCount = 1;
+    } else {
+      _tapCount++;
     }
-    return false;
+    _lastTapTime = now;
+
+    if (_tapCount >= 5) {
+      _tapCount = 0;
+      _showEasterEggDialog();
+    }
   }
-  // ---------- /三次下拉彩蛋 ----------
+  // ---------- /底部小字连点彩蛋 ----------
 
   void _showEasterEggDialog() {
     showDialog(
@@ -168,10 +160,7 @@ class _ProfilePageState extends State<ProfilePage> {
         //     拉伸（整个 banner 区域跟着手指下拉）
         //   - 列表下方也跟着 iOS 标准行为轻微下移（这是正确的 overscroll 行为）
         // 整段体验：banner 整体下拉 → 松手弹簧回弹，与 iOS Safari 顶部栏一致。
-        // 三次下拉彩蛋：NotificationListener 监听下拉回弹计数
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _onScrollNotification,
-          child: CustomScrollView(
+        child: CustomScrollView(
           // BoundedBouncingScrollPhysics：在 iOS 风格橡皮筋基础上限幅，
           // 最大下拉 overscroll = 80 px（默认 BouncingScrollPhysics 几乎无限）。
           physics: const BoundedBouncingScrollPhysics(
@@ -275,12 +264,15 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 48),
                     // 底部说明
-                    Text(
-                      '小豆子 - 为了满足好奇心而生',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.4),
+                    GestureDetector(
+                      onTap: _onBottomTextTap,
+                      child: Text(
+                        '小豆子 - 为了满足好奇心而生',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.4),
+                        ),
                       ),
                     ),
                   ],
@@ -289,10 +281,9 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             ],
           ),    // CustomScrollView
-        ),      // NotificationListener
-      ),        // SafeArea
-    );          // Scaffold
-  }
+        ),        // SafeArea
+      );          // Scaffold
+    }
 
   Widget _buildDefaultBanner(BuildContext context) {
     return Container(
@@ -391,7 +382,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),    // CustomScrollView
-        ),      // NotificationListener
+        ),
       ),
     );
   }
