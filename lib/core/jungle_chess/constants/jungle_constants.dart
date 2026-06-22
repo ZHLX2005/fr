@@ -37,7 +37,7 @@ const Color kPieceDiskBorder = Color(0xFF8B6F47); // 圆盘描边（木纹深棕
 const Color kBluePieceTint = Color(0xFF3B82F6); // 蓝方描边 / 高亮
 const Color kRedPieceTint = Color(0xFFEF4444); // 红方描边 / 高亮
 const double kPieceBorderWidth = 2.5;
-const double kPieceIconRatio = 0.62; // SVG 占圆盘的比例（圆心居中）
+const double kPieceIconRatio = 0.78; // SVG 占圆盘的比例（圆心居中）
 
 // 和棋回合上限
 const int kMaxRounds = 150;
