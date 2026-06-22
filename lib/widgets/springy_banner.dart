@@ -107,31 +107,69 @@ class _SpringyBannerState extends State<SpringyBanner>
         _onScrollEnd(n);
         return false;
       },
-      child: AnimatedBuilder(
-        animation: _spring,
-        builder: (context, child) {
-          final v = _spring.value;
-          return Transform.translate(
-            offset: Offset(0, v),
-            child: Transform.scale(
-              scale: 1.0 + (v / _kMaxStretch) * _kPeakScale,
-              alignment: Alignment.topCenter,
-              child: child,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          // 关键：图层比 banner 高 2×_kMaxStretch（上下各 overshoot）。
+          // 静止时被外层 FlexibleSpaceBar 容器 clip 到 0..h；
+          // 下拉时 translate(v) + scale 让上方那 overshoot 段随手指进入视野，
+          // 缩放以顶部为锚点 → 永远填满整个 banner 区域，无空格。
+          final overshoot = _kMaxStretch;
+          final bgHeight = h + 2 * overshoot;
+          // SizedBox 严格锁住 w×h（banner 原尺寸），Stack 内部允许溢出。
+          return SizedBox(
+            width: w,
+            height: h,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // 1. 图层：以 banner 顶部为基线，向上多露 overshoot 像素
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: -overshoot,
+                  height: bgHeight,
+                  child: AnimatedBuilder(
+                    animation: _spring,
+                    builder: (context, _) {
+                      final v = _spring.value;
+                      return Transform.translate(
+                        offset: Offset(0, v),
+                        child: Transform.scale(
+                          scale: 1.0 + (v / _kMaxStretch) * _kPeakScale,
+                          alignment: Alignment.topCenter,
+                          child: SizedBox(
+                            width: w,
+                            height: bgHeight,
+                            child: widget.imagePath != null
+                                ? Image.file(
+                                    File(widget.imagePath!),
+                                    fit: BoxFit.cover,
+                                    width: w,
+                                    height: bgHeight,
+                                    alignment: Alignment.topCenter,
+                                    errorBuilder: (_, _, _) =>
+                                        widget.fallback,
+                                  )
+                                : widget.fallback,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                // 2. 透明点击层：始终 banner 原尺寸，不跟随 spring 变形
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: widget.onTap,
+                    behavior: HitTestBehavior.opaque,
+                  ),
+                ),
+              ],
             ),
           );
         },
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: widget.imagePath != null
-              ? Image.file(
-                  File(widget.imagePath!),
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  errorBuilder: (_, _, _) => widget.fallback,
-                )
-              : widget.fallback,
-        ),
       ),
     );
   }
