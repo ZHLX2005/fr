@@ -42,12 +42,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _pullCount++;
         if (_pullCount >= 3) {
           _pullCount = 0;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CharacterProfilePage(),
-            ),
-          );
+          _showEasterEggDialog();
         }
       }
       _wasOverscrolled = false;
@@ -55,6 +50,35 @@ class _ProfilePageState extends State<ProfilePage> {
     return false;
   }
   // ---------- /三次下拉彩蛋 ----------
+
+  void _showEasterEggDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.auto_awesome, size: 40),
+        title: const Text('🎉 发现彩蛋！'),
+        content: const Text('人物小谱已经解锁，要不要进去看看？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('下次再说'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                this.context,
+                MaterialPageRoute(
+                  builder: (context) => const CharacterProfilePage(),
+                ),
+              );
+            },
+            child: const Text('去看看'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
