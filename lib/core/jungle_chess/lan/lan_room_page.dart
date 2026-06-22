@@ -42,6 +42,8 @@ class _LanRoomPageState extends State<LanRoomPage> {
   StreamSubscription<LanRoomEvent>? _roomSub;
   String? _clientDeviceId;
   bool _navigatedToGame = false;
+  int _countdown = -1;
+  Timer? _countdownTimer;
 
   bool get _isHost => widget.role == 'host';
 
@@ -91,9 +93,10 @@ class _LanRoomPageState extends State<LanRoomPage> {
           clientName: ev.clientAlias,
         ),
       );
+      _startCountdown();
     } else if (ev is ClientJoinResult && !_isHost) {
       if (ev.accepted) {
-        _onCountdownFinished();
+        _startCountdown();
       }
     } else if (ev is HostRoomClosed && !_isHost) {
       if (mounted) {
@@ -103,6 +106,22 @@ class _LanRoomPageState extends State<LanRoomPage> {
         Navigator.of(context).pop();
       }
     }
+  }
+
+  void _startCountdown() {
+    if (_countdownTimer != null) return;
+    setState(() => _countdown = 3);
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      setState(() => _countdown = _countdown - 1);
+      if (_countdown <= 0) {
+        t.cancel();
+        _onCountdownFinished();
+      }
+    });
   }
 
   void _onCountdownFinished() {
@@ -123,6 +142,7 @@ class _LanRoomPageState extends State<LanRoomPage> {
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _roomSub?.cancel();
     _hostVm?.dispose();
     _clientVm?.dispose();
@@ -138,6 +158,30 @@ class _LanRoomPageState extends State<LanRoomPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_countdown >= 0) {
+      return _buildScaffold(
+        content: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                '游戏即将开始',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '$_countdown',
+                style: const TextStyle(
+                  fontSize: 72,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (_isHost) {
       return ValueListenableBuilder<LanHostState>(
         valueListenable: _hostVm!,
