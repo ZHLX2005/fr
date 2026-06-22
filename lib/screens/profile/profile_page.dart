@@ -6,6 +6,7 @@ import '../../lab/lab_container.dart';
 import '../banner_crop_page.dart';
 import 'theme/theme_page.dart';
 import '../../widgets/springy_banner.dart';
+import '../../widgets/bounded_bouncing_scroll_physics.dart';
 
 // 首页
 class ProfilePage extends StatefulWidget {
@@ -108,8 +109,11 @@ class _ProfilePageState extends State<ProfilePage> {
         //   - 列表下方也跟着 iOS 标准行为轻微下移（这是正确的 overscroll 行为）
         // 整段体验：banner 整体下拉 → 松手弹簧回弹，与 iOS Safari 顶部栏一致。
         child: CustomScrollView(
-          physics: const BouncingScrollPhysics(
+          // BoundedBouncingScrollPhysics：在 iOS 风格橡皮筋基础上限幅，
+          // 最大下拉 overscroll = 80 px（默认 BouncingScrollPhysics 几乎无限）。
+          physics: const BoundedBouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
+            maxOverscroll: 80,
           ),
           slivers: [
             // Banner 区域
