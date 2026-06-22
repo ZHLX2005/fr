@@ -27,7 +27,7 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
     final alias = _aliasController.text.trim();
     if (alias.isEmpty) return;
 
-    await JungleLanServiceAdapter.instance.start(myAlias: alias);
+    await LanServiceAdapter.instance.start(myAlias: alias);
     final roomId = DateTime.now().millisecondsSinceEpoch.toString();
     _hostViewModel.dispatch(HostCreateRoom(roomId: roomId, hostName: alias));
 
