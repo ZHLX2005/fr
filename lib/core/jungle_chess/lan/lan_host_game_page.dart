@@ -1,84 +1,41 @@
 // lib/core/jungle_chess/lan/lan_host_game_page.dart
-//
-// LAN 主机端游戏页。
-//
-// 单一 source of truth = gameStateNotifier (ValueNotifier<GameState>)
-// - ViewModel 走 start/countdown/finish 编排
-// - ViewModel 走棋后 reducer 更新 gameStateNotifier.value
-// - Session 监听 gameStateNotifier → 自动推送给 Client
-
 import 'package:flutter/material.dart';
 import '../widgets/jungle_board.dart';
 import '../widgets/jungle_board_frame.dart';
-import '../widgets/jungle_host_touch_controller.dart';
 import '../widgets/jungle_touch_controller.dart';
 import '../widgets/jungle_dialog.dart';
-import '../engine/jungle_engine.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
-import '../constants/jungle_constants.dart';
 import 'lan_host_view_model.dart';
 import 'lan_match_state.dart';
 import 'lan_match_event.dart';
-import 'service/lan_service_adapter.dart';
 
 class LanHostGamePage extends StatefulWidget {
   final LanHostViewModel viewModel;
-  final String peerDeviceId;
-  final String roomId;
-
-  const LanHostGamePage({
-    super.key,
-    required this.viewModel,
-    required this.peerDeviceId,
-    required this.roomId,
-  });
+  const LanHostGamePage({super.key, required this.viewModel});
 
   @override
   State<LanHostGamePage> createState() => _LanHostGamePageState();
 }
 
 class _LanHostGamePageState extends State<LanHostGamePage> {
-  late final ValueNotifier<GameState> _gameStateNotifier;
   late final JungleTouchController _touchController;
-  late final Stopwatch _boardSizeWatch;
-  dynamic _session; // Session<ValueNotifier<GameState>>
-  VoidCallback? _vmListener;
 
   @override
   void initState() {
     super.initState();
-    _gameStateNotifier =
-        ValueNotifier<GameState>(JungleEngine.createInitialState());
-    // 棋盘尺寸先用一个合理默认值；LayoutBuilder 完成后通过 setBoardSize 注入
-    _touchController = JungleHostTouchControllerFactory(
-      boardSize: kCellSize * kBoardRows,  // 64.0 * 9 = 576px
-    ).create();
-    _boardSizeWatch = Stopwatch()..start();
-    _vmListener = _syncNotifierFromVm;
-    widget.viewModel.addListener(_vmListener!);
-    _syncNotifierFromVm();
-    // 创建 Session
-    _session = LanServiceAdapter.instance.createGameSession(
-      peerDeviceId: widget.peerDeviceId,
-      state: _gameStateNotifier,
-    );
+    _touchController = JungleTouchController();
+    widget.viewModel.dispatch(const HostStartGame());
   }
 
-  /// 把 ViewModel 当前的 GameState 同步到 gameStateNotifier
-  /// （用于 Session 序列化推送）
-  void _syncNotifierFromVm() {
-    final s = widget.viewModel.value;
-    if (s is HostInGame) {
-      _gameStateNotifier.value = s.gameState;
-    } else if (s is HostFinished) {
-      _gameStateNotifier.value = s.gameState;
-    }
+  @override
+  void dispose() {
+    _touchController.dispose();
+    super.dispose();
   }
 
   void _onMoveConfirmed(Coord from, Coord to) {
     widget.viewModel.dispatch(HostMoveCommitted(from: from, to: to));
-    _syncNotifierFromVm();
     _checkGameOver();
   }
 
@@ -90,35 +47,10 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
         context,
         gs.winner == null ? '平局' : (gs.winner == PlayerColor.blue ? '蓝方' : '红方'),
         gs.gameOverReason ?? '',
-        onRestart: () {
-          widget.viewModel.dispatch(const HostStartGame());
-          _syncNotifierFromVm();
-        },
-        onExit: () {
-          // 广播关房
-          LanServiceAdapter.instance.stopRoom(widget.roomId);
-          Navigator.pop(context);
-        },
+        onRestart: () => widget.viewModel.dispatch(const HostStartGame()),
+        onExit: () => Navigator.pop(context),
       );
     }
-  }
-
-  @override
-  void dispose() {
-    if (_vmListener != null) {
-      widget.viewModel.removeListener(_vmListener!);
-    }
-    _gameStateNotifier.dispose();
-    _touchController.dispose();
-    if (_session != null) {
-      try {
-        _session.dispose();
-      } catch (_) {
-        // best-effort cleanup
-      }
-    }
-    _boardSizeWatch.stop();
-    super.dispose();
   }
 
   @override
@@ -134,6 +66,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1F2937),
         elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       body: ValueListenableBuilder<LanHostState>(
         valueListenable: widget.viewModel,
@@ -149,8 +82,8 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
               ),
             HostCountdown(:final secondsLeft) =>
               _StateScreen(icon: Icons.timer_outlined, title: '$secondsLeft'),
-            HostInGame(:final gameState) => _buildGame(gameState),
-            HostFinished(:final gameState) => _buildGame(gameState),
+            HostInGame(:final gameState) => _buildGame(gameState, inGame: true),
+            HostFinished(:final gameState) => _buildGame(gameState, inGame: false),
             HostError(:final message) => _StateScreen(
                 icon: Icons.error_outline_rounded,
                 title: '错误：$message',
@@ -162,13 +95,11 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     );
   }
 
-  Widget _buildGame(GameState gameState) {
+  Widget _buildGame(GameState gameState, {required bool inGame}) {
     return Column(
       children: [
-        _TurnCard(
-          round: gameState.roundCount ~/ 2 + 1,
-          historyLen: gameState.history.length,
-        ),
+        const SizedBox(height: 4),
+        _TurnCard(round: gameState.roundCount ~/ 2 + 1, historyLen: gameState.history.length),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
