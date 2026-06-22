@@ -7,6 +7,7 @@ import '../banner_crop_page.dart';
 import 'theme/theme_page.dart';
 import '../../widgets/springy_banner.dart';
 import '../../widgets/bounded_bouncing_scroll_physics.dart';
+import 'character_profile_page.dart';
 
 // 首页
 class ProfilePage extends StatefulWidget {
@@ -19,6 +20,36 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String? _bannerPath;
   static const String _bannerKey = 'home_banner_path';
+
+  // ---------- 三次下拉彩蛋 ----------
+  int _pullCount = 0;
+  bool _wasOverscrolled = false;
+
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification) {
+      // pixels < 0 表示正在顶部 overscroll
+      if (notification.metrics.pixels < 0) {
+        _wasOverscrolled = true;
+      }
+    } else if (notification is ScrollEndNotification) {
+      if (_wasOverscrolled && notification.metrics.pixels >= 0) {
+        // 一次完整下拉回弹结束
+        _pullCount++;
+        if (_pullCount >= 3) {
+          _pullCount = 0;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CharacterProfilePage(),
+            ),
+          );
+        }
+      }
+      _wasOverscrolled = false;
+    }
+    return false;
+  }
+  // ---------- /三次下拉彩蛋 ----------
 
   @override
   void initState() {
@@ -108,7 +139,10 @@ class _ProfilePageState extends State<ProfilePage> {
         //     拉伸（整个 banner 区域跟着手指下拉）
         //   - 列表下方也跟着 iOS 标准行为轻微下移（这是正确的 overscroll 行为）
         // 整段体验：banner 整体下拉 → 松手弹簧回弹，与 iOS Safari 顶部栏一致。
-        child: CustomScrollView(
+        // 三次下拉彩蛋：NotificationListener 监听下拉回弹计数
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _onScrollNotification,
+          child: CustomScrollView(
           // BoundedBouncingScrollPhysics：在 iOS 风格橡皮筋基础上限幅，
           // 最大下拉 overscroll = 80 px（默认 BouncingScrollPhysics 几乎无限）。
           physics: const BoundedBouncingScrollPhysics(
@@ -224,10 +258,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
+            ],
+          ),    // CustomScrollView
+        ),      // NotificationListener
+      ),        // SafeArea
+    );          // Scaffold
   }
 
   Widget _buildDefaultBanner(BuildContext context) {
@@ -326,8 +361,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
               ),
             ],
-          ),
-        ),
+          ),    // CustomScrollView
+        ),      // NotificationListener
       ),
     );
   }
