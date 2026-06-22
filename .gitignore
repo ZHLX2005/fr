@@ -62,6 +62,9 @@ PROJECT_INDEX.json
 PROJECT_INDEX.md
 
 # Cloned repositories (nested git repos)
-.claude/repo/
+# 父目录用 /* 而非 /,这样 _read 否定规则才能生效
+.claude/repo/*
+!.claude/repo/_read/
+!.claude/repo/_read/**
 .omc/
 .claude/logs/

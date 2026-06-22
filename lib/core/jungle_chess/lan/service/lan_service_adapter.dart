@@ -1,77 +1,277 @@
 // lib/core/jungle_chess/lan/service/lan_service_adapter.dart
+//
+// 业务层唯一接触 localnet 框架的边界。
+// Page / ViewModel 不直接 import 'lib/core/localnet/...'。
+//
+// 内部维护：
+//   - LanFramework.instance（启动 / 停止 / sendTo / watchChannel）
+//   - StreamController<LanRoomEvent> 桥接多个 channel
+//   - 周期性 announceRoom timer
+
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import '../../models/game_state.dart';
-import '../protocol/lan_messages.dart';
-import '../game_room.dart';
-// Note: localnet 框架引用，实际实现时需根据 localnet API 调整
+import 'package:xiaodouzi_fr/core/localnet/channel/channel_message.dart';
+import 'package:xiaodouzi_fr/core/localnet/channel/send_result.dart';
+import 'package:xiaodouzi_fr/core/localnet/device/device.dart';
+import 'package:xiaodouzi_fr/core/localnet/framework/framework_config.dart';
+import 'package:xiaodouzi_fr/core/localnet/framework/lan_framework.dart';
+import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
+import 'package:xiaodouzi_fr/core/jungle_chess/lan/protocol/lan_channels.dart';
+import 'package:xiaodouzi_fr/core/jungle_chess/lan/protocol/lan_messages.dart';
+import 'package:xiaodouzi_fr/core/jungle_chess/lan/persistence/player_profile_service.dart';
+import 'package:xiaodouzi_fr/core/jungle_chess/lan/persistence/device_id_service.dart';
+import 'package:xiaodouzi_fr/core/jungle_chess/lan/serializer/game_state_serializer.dart';
+import 'package:xiaodouzi_fr/core/jungle_chess/lan/game_room.dart';
+import 'package:xiaodouzi_fr/core/jungle_chess/models/game_state.dart';
 
-/// LAN 服务适配器（桥接 Game 层和 localnet 框架）
-class JungleLanServiceAdapter {
-  JungleLanServiceAdapter._();
-  static final instance = JungleLanServiceAdapter._();
+class LanServiceError {
+  LanServiceError(this.message, {this.cause});
+  final String message;
+  final Object? cause;
+  @override
+  String toString() => 'LanServiceError($message)';
+}
 
-  bool _started = false;
+abstract class LanServiceAdapter {
+  static final LanServiceAdapter instance = _JungleLanServiceAdapterImpl();
 
-  Future<void> start({required String myAlias}) async {
-    // TODO: 启动 localnet 框架
-    // await fw.LanFramework.instance.start(...);
-    _started = true;
-  }
+  Future<void> start({String? myAlias});
+  Future<void> stop();
+  bool get isRunning;
 
-  Future<void> stop() async {
-    _started = false;
-  }
+  void updateAlias(String newAlias);
 
-  bool get isStarted => _started;
+  Stream<LanServiceError> watchErrors();
 
-  // 房间宣布/停止
-  Stream<GameRoom> watchRooms() {
-    // TODO: watch 房间公告
-    return const Stream.empty();
-  }
+  String get myDeviceId;
+  String get myAlias;
 
-  Future<void> announceRoom(GameRoom room) async {
-    // TODO: UDP 多播 roomAnnounce
-  }
+  Stream<List<Device>> watchDevices();
 
-  Future<void> stopRoom() async {
-    // TODO: UDP 多播 roomClosed
-  }
+  Stream<LanRoomEvent> watchRoomEvents();
+  Future<void> announceRoom(GameRoom room);
+  Future<void> stopRoom(String roomId);
 
-  // 加入/结果
-  Future<void> sendJoinRequest(String hostDeviceId, String alias) async {
-    // TODO: UDP send join request
-  }
+  Future<SendResult> sendJoinRequest({
+    required String hostDeviceId,
+    required String clientAlias,
+  });
+  Future<SendResult> sendJoinAccept({
+    required String clientDeviceId,
+    required GameRoom room,
+  });
 
-  Future<void> sendJoinResult(String clientDeviceId, bool accepted) async {
-    // TODO: UDP send join result
-  }
-
-  // 协议事件流
-  Stream<LanRoomEvent> watchRoomEvents() {
-    // TODO: 监听协议消息并解析
-    return const Stream.empty();
-  }
-
-  // 游戏 Session
-  void createGameSession({
-    required String peerId,
+  Session<ValueNotifier<GameState>> createGameSession({
+    required String peerDeviceId,
     required ValueNotifier<GameState> state,
-    required String channelName,
+    String? channelName,
+  });
+}
+
+class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
+  final LanFramework _fw = LanFramework.instance;
+  final StreamController<LanServiceError> _errorsCtrl =
+      StreamController<LanServiceError>.broadcast();
+  final StreamController<LanRoomEvent> _roomEventsCtrl =
+      StreamController<LanRoomEvent>.broadcast();
+
+  final Map<String, Timer> _announceTimers = {};
+  StreamSubscription<ChannelMessage>? _announceSub;
+  StreamSubscription<ChannelMessage>? _joinSub;
+  StreamSubscription<Map<String, dynamic>>? _multicastSub;
+
+  bool _isRunning = false;
+  String _alias = '';
+
+  @override
+  bool get isRunning => _isRunning;
+
+  @override
+  String get myDeviceId => _fw.myDeviceId;
+
+  @override
+  String get myAlias => _alias;
+
+  @override
+  void updateAlias(String newAlias) {
+    if (newAlias.trim().isEmpty) return;
+    _alias = newAlias.trim();
+    PlayerProfileService.saveAlias(_alias);
+  }
+
+  @override
+  Future<void> start({String? myAlias}) async {
+    if (_isRunning) return;
+    // 预加载持久化数据
+    final persistedAlias = await PlayerProfileService.loadAlias();
+    final aliasToUse = (myAlias != null && myAlias.isNotEmpty)
+        ? myAlias
+        : (persistedAlias ?? 'Player');
+    if (myAlias != null && myAlias.isNotEmpty && myAlias != persistedAlias) {
+      await PlayerProfileService.saveAlias(myAlias);
+    }
+    final deviceId = await DeviceIdService.load();
+    _alias = aliasToUse;
+    try {
+      await _fw.start(FrameworkConfig(
+        deviceAlias: aliasToUse,
+        deviceId: deviceId,
+      ));
+      _isRunning = true;
+      _announceSub =
+          _fw.watchChannel(JungleLanChannels.roomAnnounce).listen(_onRoomAnnounce);
+      _joinSub =
+          _fw.watchChannel(JungleLanChannels.roomJoin).listen(_onRoomJoin);
+      _multicastSub = _fw.watchMulticast().listen((msg) {
+        final key = msg['key'] as String?;
+        final payload = msg['payload'] as Map<String, dynamic>?;
+        if (payload == null) return;
+
+        if (key == 'room_announce') {
+          // 房间公告：所有设备都关心
+          try {
+            final ev = LanRoomEvent.fromJson(payload);
+            _roomEventsCtrl.add(ev);
+          } catch (e) {
+            _errorsCtrl.add(
+              LanServiceError('multicast announce parse failed', cause: e),
+            );
+          }
+        } else if (key == 'room_join') {
+          // Join 消息：只关心发给我的
+          final toDeviceId = payload['toDeviceId'] as String?;
+          if (toDeviceId == null || toDeviceId != myDeviceId) return;
+          final innerPayload = Map<String, dynamic>.from(payload)
+            ..remove('toDeviceId');
+          try {
+            final ev = LanRoomEvent.fromJson(innerPayload);
+            _roomEventsCtrl.add(ev);
+          } catch (e) {
+            _errorsCtrl.add(
+              LanServiceError('multicast join parse failed', cause: e),
+            );
+          }
+        }
+      });
+    } catch (e) {
+      _errorsCtrl.add(LanServiceError('framework start failed', cause: e));
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> stop() async {
+    if (!_isRunning) return;
+    for (final t in _announceTimers.values) {
+      t.cancel();
+    }
+    _announceTimers.clear();
+    await _announceSub?.cancel();
+    await _joinSub?.cancel();
+    await _multicastSub?.cancel();
+    await _fw.stop();
+    _isRunning = false;
+  }
+
+  @override
+  Stream<LanServiceError> watchErrors() => _errorsCtrl.stream;
+
+  @override
+  Stream<List<Device>> watchDevices() => _fw.watchDevices();
+
+  @override
+  Stream<LanRoomEvent> watchRoomEvents() => _roomEventsCtrl.stream;
+
+  @override
+  Future<void> announceRoom(GameRoom room) async {
+    if (!_isRunning) return;
+    final payload = HostRoomAnnounced(
+      hostDeviceId: myDeviceId,
+      hostName: _alias,
+      roomId: room.roomId,
+    ).toJson();
+    _announceTimers[room.roomId]?.cancel();
+    _announceTimers[room.roomId] =
+        Timer.periodic(const Duration(seconds: 5), (_) => _sendOne(payload));
+    // 立即发一次（走 UDP 多播）
+    await _sendOne(payload);
+  }
+
+  @override
+  Future<void> stopRoom(String roomId) async {
+    _announceTimers.remove(roomId)?.cancel();
+    if (!_isRunning) return;
+    // 广播关房，让 client 知道 host 已离开
+    await _fw.sendMulticast(
+      key: 'room_announce',
+      payload: HostRoomClosed().toJson(),
+    );
+  }
+
+  Future<void> _sendOne(Map<String, dynamic> payload) async {
+    if (!_isRunning) return;
+    await _fw.sendMulticast(key: 'room_announce', payload: payload);
+  }
+
+  @override
+  Future<SendResult> sendJoinRequest({
+    required String hostDeviceId,
+    required String clientAlias,
   }) {
-    // TODO: 创建 Session 双向同步
-    // final serializer = GameStateSerializer();
-    // final session = LanFramework.instance.createSession(...)
+    final payload = ClientJoinRequested(
+      clientDeviceId: myDeviceId,
+      clientAlias: clientAlias,
+    ).toJson();
+    return _fw.sendMulticast(key: 'room_join', payload: {
+      'toDeviceId': hostDeviceId,
+      ...payload,
+    });
   }
 
-  // 发送游戏开始广播
-  Future<void> sendGameStart(Map<String, dynamic> initialState) async {
-    // TODO: 通知对端游戏开始
+  @override
+  Future<SendResult> sendJoinAccept({
+    required String clientDeviceId,
+    required GameRoom room,
+  }) {
+    final payload = ClientJoinResult(
+      accepted: true,
+    ).toJson();
+    return _fw.sendMulticast(key: 'room_join', payload: {
+      'toDeviceId': clientDeviceId,
+      ...payload,
+    });
   }
 
-  // 发送断线通知
-  Future<void> sendDisconnect(String message) async {
-    // TODO: 通知对端
+  @override
+  Session<ValueNotifier<GameState>> createGameSession({
+    required String peerDeviceId,
+    required ValueNotifier<GameState> state,
+    String? channelName,
+  }) {
+    return _fw.createSession<ValueNotifier<GameState>>(
+      peerId: peerDeviceId,
+      state: state,
+      serializer: const GameStateSerializer(),
+      channelName: channelName,
+    );
+  }
+
+  void _onRoomAnnounce(ChannelMessage msg) {
+    try {
+      final ev = LanRoomEvent.fromJson(msg.payload);
+      _roomEventsCtrl.add(ev);
+    } catch (e) {
+      _errorsCtrl.add(LanServiceError('announce parse failed', cause: e));
+    }
+  }
+
+  void _onRoomJoin(ChannelMessage msg) {
+    try {
+      final ev = LanRoomEvent.fromJson(msg.payload);
+      _roomEventsCtrl.add(ev);
+    } catch (e) {
+      _errorsCtrl.add(LanServiceError('join parse failed', cause: e));
+    }
   }
 }
