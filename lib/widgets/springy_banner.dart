@@ -101,56 +101,73 @@ class _SpringyBannerState extends State<SpringyBanner>
       onPointerMove: _onPointerMove,
       onPointerUp: (_) => _onPointerEnd(),
       onPointerCancel: (_) => _onPointerEnd(),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 1. 图层：永远比 banner 高 2×_kMaxStretch（上下各 overshoot），
-          //    静止时被外层 clip；下拉时把上方的 overshoot 段露出来 + 放大。
-          AnimatedBuilder(
-            animation: _spring,
-            builder: (context, _) {
-              final v = _spring.value;
-              return Transform.translate(
-                offset: Offset(0, v),
-                child: Transform.scale(
-                  scale: 1.0 + (v / _kMaxStretch) * _kPeakScale,
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    // 高度比 banner 自身大 2×overshoot（顶部溢出 120px）
-                    height: double.infinity,
-                    child: OverflowBox(
-                      minHeight: 0,
-                      maxHeight: double.infinity,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        height: _kMaxStretch * 2,
-                        child: widget.imagePath != null
-                            ? Image.file(
-                                File(widget.imagePath!),
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: _kMaxStretch * 2,
-                                alignment: Alignment.topCenter,
-                                errorBuilder: (_, _, _) =>
-                                    widget.fallback,
-                              )
-                            : widget.fallback,
-                      ),
-                    ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          // 几何：
+          //   banner 自身高 h，静止时被外层 FlexibleSpaceBar 的 ClipRect 裁切。
+          //   图层高度 = h + 2*overshoot（上下各 overshoot=120 像素），
+          //   起始 top = -overshoot（顶部 -120 露出 banner 顶部之上，被外层 clip），
+          //   静止时图覆盖 0..h（无空白）。
+          //   下拉 v 像素 → 把图 translate 向上 v → 顶部 -120 → -120-v，
+          //   底部 h+120 → h+120-v，新的"图的上方延展"进入视野，
+          //   **永远填满整个 0..h，无任何空白**。
+          final overshoot = _kMaxStretch;
+          final bgHeight = h + 2 * overshoot;
+          return SizedBox(
+            width: w,
+            height: h,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // 1. 图层：永远比 banner 高 2×overshoot，顶部 -overshoot 起始
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: -overshoot,
+                  height: bgHeight,
+                  child: AnimatedBuilder(
+                    animation: _spring,
+                    builder: (context, _) {
+                      final v = _spring.value;
+                      // 关键：v > 0 时把图向上 translate v，**不要**向下！
+                      return Transform.translate(
+                        offset: Offset(0, -v),
+                        child: Transform.scale(
+                          scale: 1.0 + (v / _kMaxStretch) * _kPeakScale,
+                          alignment: Alignment.topCenter,
+                          child: SizedBox(
+                            width: w,
+                            height: bgHeight,
+                            child: widget.imagePath != null
+                                ? Image.file(
+                                    File(widget.imagePath!),
+                                    fit: BoxFit.cover,
+                                    width: w,
+                                    height: bgHeight,
+                                    alignment: Alignment.topCenter,
+                                    errorBuilder: (_, _, _) =>
+                                        widget.fallback,
+                                  )
+                                : widget.fallback,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
-          ),
-          // 2. 透明点击层：始终 banner 原尺寸，**不**跟随 spring 变形，
-          //    单击触发原 onTap 弹出底部菜单
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: widget.onTap,
-              behavior: HitTestBehavior.opaque,
+                // 2. 透明点击层：始终 banner 原尺寸，**不**跟随 spring 变形
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: widget.onTap,
+                    behavior: HitTestBehavior.opaque,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
