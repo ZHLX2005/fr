@@ -149,6 +149,12 @@
             android:name=".native.volume.VolumeDecayService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- flutter_background_service 后台下载前台服务（dataSync 类型） -->
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
