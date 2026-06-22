@@ -23,11 +23,6 @@ class LanClientGamePage extends StatefulWidget {
 
 class _LanClientGamePageState extends State<LanClientGamePage> {
   @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('斗兽棋 - 客户端')),
@@ -44,11 +39,11 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
                 style: const TextStyle(fontSize: 48),
               ),
             ),
-            ClientInGame() => const Center(
+            ClientInGame(:final gameState) => Center(
               child: Text(
-                '游戏进行中\n等待主机走子...',
+                '游戏进行中\n等待主机走子...\n当前回合: ${gameState.currentTurn == PlayerColor.blue ? "蓝" : "红"}方',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
               ),
             ),
             ClientFinished(:final gameState) => Center(
