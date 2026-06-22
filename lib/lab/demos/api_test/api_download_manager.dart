@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/api_client.dart';
+import '../../../services/apk_download_service.dart';
 
 /// APK 下载状态
 class ApkDownloadState {
@@ -76,15 +77,88 @@ class ApkDownloadManager {
 
   DownloadController? _downloadController;
 
+  // 后台服务支持
+  final ApkDownloadService _bgService = ApkDownloadService();
+  StreamSubscription<Map<String, dynamic>?>? _bgSubscription;
+  bool _bgMode = false;
+
   static const _kDownloadedApkPathKey = 'downloaded_apk_path';
   static const _kDownloadedApkSizeKey = 'downloaded_apk_size';
   static const _kApkMetadataKey = 'apk_metadata';
   static const _kApkUpdateTimeKey = 'apk_update_time';
   static const _kApkPausedTotalKey = 'apk_paused_total_bytes';
 
+  /// 是否使用 Android Foreground Service 后台下载
+  bool _useBgMode() => Platform.isAndroid;
+
+  /// 监听后台 isolate 发来的数据（进度/暂停/完成/错误）
+  void _initBgListener() {
+    _bgSubscription?.cancel();
+    _bgSubscription = _bgService.dataStream.listen((data) {
+      if (data == null) return;
+      final type = data['type'] as String?;
+
+      switch (type) {
+        case 'progress':
+          state.value = state.value.copyWith(
+            isDownloading: true,
+            isPaused: false,
+            progress: (data['progress'] as num?)?.toDouble() ?? 0.0,
+            receivedBytes: (data['received'] as num?)?.toInt() ?? 0,
+            totalBytes: (data['total'] as num?)?.toInt() ?? 0,
+            statusMessage:
+                '下载中: ${((data['progress'] as num?)?.toDouble() ?? 0) * 100}%',
+          );
+          break;
+        case 'paused':
+          state.value = state.value.copyWith(
+            isDownloading: false,
+            isPaused: true,
+            statusMessage: '下载已暂停',
+          );
+          break;
+        case 'cancelled':
+          state.value = state.value.copyWith(
+            isDownloading: false,
+            isPaused: false,
+            progress: 0.0,
+            receivedBytes: 0,
+            totalBytes: 0,
+            statusMessage: '已取消下载',
+          );
+          break;
+        case 'completed':
+          final path = data['path'] as String?;
+          final size = (data['size'] as num?)?.toInt();
+          if (path != null && size != null) {
+            _saveDownloadedApk(path, size);
+            state.value = state.value.copyWith(
+              isDownloading: false,
+              isPaused: false,
+              progress: 1.0,
+              statusMessage: '下载完成',
+              downloadedPath: path,
+              downloadedSize: size,
+            );
+          }
+          _bgService.stopService();
+          break;
+        case 'error':
+          state.value = state.value.copyWith(
+            isDownloading: false,
+            isPaused: false,
+            statusMessage: '下载出错: ${data['message'] ?? ""}',
+          );
+          _bgService.stopService();
+          break;
+      }
+    });
+  }
+
   /// 从本地加载已保存的状态：
   /// 1. 已下载完成的 APK（绿色卡片）
-  /// 2. 已暂停未完成的下载（恢复 isPaused + 进度）
+  /// 2. 后台服务正在下载中 → 同步进度
+  /// 3. 已暂停未完成的下载（恢复 isPaused + 进度）
   Future<void> loadSavedState() async {
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString(_kDownloadedApkPathKey);
@@ -105,6 +179,40 @@ class ApkDownloadManager {
       apkMetadata: prefs.getString(_kApkMetadataKey),
       apkUpdateTime: prefs.getString(_kApkUpdateTimeKey),
     );
+
+    // Android + 临时文件存在 → 检测后台服务是否正在运行
+    if (_useBgMode() && validPath == null) {
+      _initBgListener();
+      try {
+        final running = await _bgService.isRunning();
+        if (running) {
+          // 后台服务仍在运行，下载进行中
+          _bgMode = true;
+          final tempInfo = await ApiService.getApkTempFileInfo();
+          if (tempInfo != null) {
+            final savedTotal = prefs.getInt(_kApkPausedTotalKey) ?? 0;
+            state.value = state.value.copyWith(
+              isDownloading: true,
+              isPaused: false,
+              receivedBytes: tempInfo.size,
+              totalBytes: savedTotal > 0 ? savedTotal : tempInfo.size,
+              progress: savedTotal > 0
+                  ? (tempInfo.size / savedTotal).clamp(0.0, 1.0)
+                  : 0.0,
+              statusMessage: '正在恢复下载进度...',
+            );
+          } else {
+            state.value = state.value.copyWith(
+              isDownloading: true,
+              statusMessage: '正在下载...',
+            );
+          }
+          return;
+        }
+      } catch (_) {
+        // isRunning 可能因为引擎刚启动而失败，忽略
+      }
+    }
 
     // 若没有已完成的 APK，检测是否存在被暂停的临时文件
     if (validPath == null) {
@@ -160,9 +268,17 @@ class ApkDownloadManager {
   }
 
   /// 开始/继续下载 APK
+  /// - Android: 通过 Foreground Service 后台下载，App 关闭后继续
+  /// - 其他平台：Flutter 原生下载
   /// - 若存在临时文件，自动通过 HTTP Range 续传
-  /// - 若已下载完成，状态切换为完成
   Future<void> startDownload() async {
+    // Android → 使用 Foreground Service 后台下载
+    if (_useBgMode()) {
+      await _startBgDownload();
+      return;
+    }
+
+    // 其他平台 → 使用现有 Flutter 原生下载
     if (state.value.isDownloading) return;
 
     final wasPaused = state.value.isPaused;
@@ -258,8 +374,39 @@ class ApkDownloadManager {
     }
   }
 
+  /// Android Foreground Service 后台下载入口
+  Future<void> _startBgDownload() async {
+    if (state.value.isDownloading) return;
+
+    final wasPaused = state.value.isPaused;
+    state.value = state.value.copyWith(
+      isDownloading: true,
+      isPaused: false,
+      statusMessage: wasPaused ? '继续下载...' : '开始下载...',
+    );
+
+    _initBgListener();
+    _bgMode = true;
+
+    try {
+      await _bgService.startService();
+      _bgService.sendCommand('start');
+    } catch (e) {
+      _bgMode = false;
+      state.value = state.value.copyWith(
+        statusMessage: '启动后台服务失败: $e',
+        isDownloading: false,
+        isPaused: false,
+      );
+    }
+  }
+
   /// 主动暂停下载（保留已下载部分，下次可续传）
   Future<void> pauseDownload() async {
+    if (_bgMode) {
+      _bgService.sendCommand('pause');
+      return;
+    }
     if (_downloadController != null && state.value.isDownloading) {
       _downloadController!.pause();
     }
@@ -272,9 +419,14 @@ class ApkDownloadManager {
   }
 
   /// 取消下载（删除已下载的临时文件）
-  /// - 下载中：通知 controller 取消（流循环负责清理 tempFile）
+  /// - 下载中：通知 controller 或后台服务取消
   /// - 已暂停：直接清理 tempFile 与持久化状态
   Future<void> cancelDownload() async {
+    if (_bgMode) {
+      _bgService.sendCommand('cancel');
+      // 后台 isolate 负责删除 tempFile
+      return;
+    }
     if (_downloadController != null) {
       _downloadController!.cancel();
       return;

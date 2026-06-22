@@ -136,6 +136,10 @@ dependencies:
   home_widget: ^0.7.0
   flutter_local_notifications: ^21.0.0
 
+  # Background Service (Foreground Service for Android - 后台下载保活)
+  flutter_background_service: ^5.0.3
+  flutter_background_service_android: ^6.0.0
+
   # Image Cropper (图片裁剪)
   image_cropper: ^8.0.2
 

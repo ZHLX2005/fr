@@ -21,10 +21,14 @@ import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
+import 'services/apk_download_service.dart';
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
   await RiveNative.init();
+
+  // 初始化 APK 后台下载服务（Android Foreground Service）
+  await ApkDownloadService().initialize();
 
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();
