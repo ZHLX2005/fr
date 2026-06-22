@@ -101,14 +101,13 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       body: SafeArea(
         top: false, // 让 SliverAppBar 处理顶部安全区域
-        // NestedScrollView 的关键作用：把顶部 overscroll 截在 headerSliverBuilder
-        // 内（只让 SliverAppBar 自身拉伸 background）—— body 完全不动，
-        // 下方菜单卡片与 banner 的距离永远恒定。
-        child: NestedScrollView(
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        // 普通的 CustomScrollView：list 永远不漂。
+        // banner 的"下拉回弹"由 SpringyBanner **内部**监听手指 PointerMoveEvent
+        // 驱动（不读 position.pixels），所以下拉只影响 banner 自身。
+        // AlwaysScrollable 保证内容不足时仍可下拉。
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
             // Banner 区域
             SliverAppBar(
               expandedHeight: 200,
@@ -116,9 +115,6 @@ class _ProfilePageState extends State<ProfilePage> {
               // 标题不浮动，正常显示在 AppBar 区域
               floating: false,
               snap: false,
-              // stretch: true 让顶部 overscroll 把 background 拉高（iOS 风格）。
-              // onStretchTrigger 在松手时给出信号，可以接 spring 弹回动画。
-              stretch: true,
               flexibleSpace: FlexibleSpaceBar(
                 // 标题只在收起状态显示
                 title: _bannerPath == null ? const Text('小豆子') : null,
@@ -130,37 +126,28 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-          ],
-          body: CustomScrollView(
-            // body 内的物理：BouncingScrollPhysics 仍允许 overscroll，
-            // 但 NestedScrollView 已把顶部 overscroll 截走，
-            // 所以这里 BouncingScrollPhysics 仅控制底部 overscroll。
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              // 功能列表
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      // 开发者实验室
-                      _buildMenuCard(
-                        context,
-                        icon: Icons.science,
-                        title: '开发者实验室',
-                        subtitle: '各种Demo示例和实验性功能',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LabPage(),
-                            ),
-                          );
-                        },
-                      ),
+            // 功能列表
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    // 开发者实验室
+                    _buildMenuCard(
+                      context,
+                      icon: Icons.science,
+                      title: '开发者实验室',
+                      subtitle: '各种Demo示例和实验性功能',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LabPage(),
+                          ),
+                        );
+                      },
+                    ),
 
                     const SizedBox(height: 16),
                     // 游戏中心
@@ -226,8 +213,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            ],
-          ),
+          ],
         ),
       ),
     );
