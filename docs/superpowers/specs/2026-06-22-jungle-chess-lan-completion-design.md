@@ -46,7 +46,7 @@ Framework Layer    lib/core/localnet/                 (项目基础设施)
 | `lan/lan_room_page.dart` | `lan/lan_room_page.dart` | 新增,1:1 复制,适配 Host/Client 双角色 |
 | `lan/lan_host_game_page.dart` | `lan/lan_host_game_page.dart` | 改写,在 initState 创建 Session,dispose 销毁 |
 | `lan/lan_client_game_page.dart` | `lan/lan_client_game_page.dart` | 改写,改为只读文字版 |
-| `widgets/touch_controller.dart` 中的 `LanHostTouchController` | `widgets/jungle_host_touch_controller.dart` | 新增,Y 镜像实现 |
+| `lan/widgets/touch_controller_factory.dart`(LanHostTouchController + LanHostTouchControllerFactory + LanClientTouchControllerFactory) | `widgets/jungle_host_touch_controller.dart`(JungleHostTouchController + 2 个工厂) | 新增,Y 镜像 + 工厂 |
 
 ### 不改动的文件
 
@@ -292,14 +292,23 @@ widget.viewModel.addListener(() {
 
 **机械照搬决定**:不渲染 JungleBoard(完全照搬 surround_game 极简风格)。
 
-### 5.7 JungleHostTouchController(Y 镜像,即使不需要)
+### 5.7 JungleHostTouchController + JungleClientTouchController + 工厂(完整照搬)
+
+参照 surround_game 的实现,surround_game 镜像了 3 个触摸方法(`handleTouchBegan`/`handleTouchMoved`/`handleTouchEnded`),并配套两个工厂类。jungle_chess 应照搬同样结构:
 
 ```dart
+// widgets/jungle_host_touch_controller.dart
 class JungleHostTouchController extends JungleTouchController {
   final double boardSize;
   JungleHostTouchController({required this.boardSize});
 
   Offset _mirror(Offset p) => Offset(p.dx, boardSize - p.dy);
+
+  @override
+  void onCellTap(GameState state, int index) {
+    // 不镜像(点击基于 cellIndex,无需镜像)
+    super.onCellTap(state, index);
+  }
 
   @override
   void onDragStart(GameState state, int index, Offset fingerPos) {
@@ -316,9 +325,20 @@ class JungleHostTouchController extends JungleTouchController {
     super.onDragEnd(state, _mirror(fingerPos));
   }
 }
+
+class JungleHostTouchControllerFactory {
+  final double boardSize;
+  const JungleHostTouchControllerFactory({required this.boardSize});
+  JungleHostTouchController create() => JungleHostTouchController(boardSize: boardSize);
+}
+
+class JungleClientTouchControllerFactory {
+  const JungleClientTouchControllerFactory();
+  JungleTouchController create() => JungleTouchController();
+}
 ```
 
-**机械照搬决定**:虽然 JungleChess 棋盘对称不需要镜像,但保留 Y 镜像实现以保持模板一致性。
+**机械照搬决定**:虽然 JungleChess 棋盘对称不需要镜像,但保留 Y 镜像实现以保持模板一致性。所有 3 个拖动方法 + 工厂都照搬。`onCellTap` 不镜像(因为 jungle_chess 的触摸是基于 cellIndex,无需 Y 镜像)。
 
 ### 5.8 persistence services(1:1 复制)
 
@@ -413,7 +433,7 @@ class PlayerProfileService {
 - [ ] `LanRoomPage` 中转页存在,Host/Client 双角色
 - [ ] `LanHostGamePage` 进游戏页自动创建 Session + 走棋自动同步
 - [ ] `LanClientGamePage` 严格只读文字版,不渲染棋盘
-- [ ] `JungleHostTouchController` Y 镜像实现存在
+- [ ] `JungleHostTouchController` Y 镜像 + 2 个工厂(JungleHost/ClientTouchControllerFactory)实现存在
 - [ ] 两个 persistence service 1:1 复制
 - [ ] 文档 `docs/superpowers/specs/2026-06-21-jungle-chess-design.md` 增加"LAN 实施补完"section
 - [ ] 双机联调:建房间 → Client 加入 → 倒计时 → Host 走棋 → Client 看到回合切换 → 一局完整下完
