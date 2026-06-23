@@ -107,7 +107,7 @@ class ApkDownloadManager {
             receivedBytes: (data['received'] as num?)?.toInt() ?? 0,
             totalBytes: (data['total'] as num?)?.toInt() ?? 0,
             statusMessage:
-                '下载中: ${((data['progress'] as num?)?.toDouble() ?? 0) * 100}%',
+                '下载中: ${(((data['progress'] as num?)?.toDouble() ?? 0.0) * 100).toStringAsFixed(1)}%',
           );
           break;
         case 'paused':
