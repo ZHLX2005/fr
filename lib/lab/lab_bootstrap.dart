@@ -38,7 +38,6 @@ import 'demos/set_tracker_demo.dart';
 import 'demos/surround_game_demo.dart';
 import 'demos/reversi_demo.dart';
 import 'demos/jungle_chess_demo.dart';
-import 'demos/a2ui_demo.dart';
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -78,7 +77,6 @@ void registerAllDemos() {
   registerSurroundGameDemo();
   registerReversiDemo();
   registerJungleChessDemo();
-  registerA2uiDemo();
 }
 
 // 初始化 Schema 注册表
