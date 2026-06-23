@@ -150,61 +150,53 @@ class _SetTrackerPageState extends State<SetTrackerPage>
   Widget build(BuildContext context) {
     final theme = SetTrackerConst.themes[_themeIndex];
     final reps = SetTrackerConst.repsValues[_repsIndex];
-    final screenH = MediaQuery.of(context).size.height;
+    final mq = MediaQuery.of(context);
+    final screenW = mq.size.width;
+    final availableH = mq.size.height - mq.padding.top - mq.padding.bottom;
 
-    // 顶部区域高度：Header(≈72dp) + 弧线区(屏幕 28%)
-    final topZoneH = screenH * 0.28;
-    // 底部区域高度：屏幕 28%
-    final bottomZoneH = screenH * 0.28;
-    // Header 高度（含上下 padding）
-    const headerH = 72.0;
-    // 中间内容区高度：填满中间
-    final middleH = screenH - topZoneH - bottomZoneH;
+    // 弧线半径由屏宽决定
+    final arcRadius = screenW * SetTrackerConst.arcRadiusFactor;
+    // 弧线区「恰好容纳弧线 + 标签」所需高度（几何推导）：
+    // 上弧圆心在区外上方(|factor|=0.95)，弧最低点 = -|factor|·H + radius，
+    // 再叠加 lift(标签外推) + 标签控件余量，解得 H。
+    const labelExtent = 48.0;
+    final idealArcZoneH =
+        (arcRadius + SetTrackerConst.topArcLift + labelExtent) /
+            (1 + SetTrackerConst.topArcCenterYFactor.abs());
+
+    // Header 高度 / 中间内容最小高度（保证记录按钮区不被压扁）
+    const headerH = 64.0;
+    const minMiddleH = 220.0;
+    final maxArcZoneH = math.max(0.0, (availableH - headerH - minMiddleH) / 2);
+    // 短屏时压缩弧线区，优先保证中间不溢出
+    final arcZoneH = math.min(idealArcZoneH, maxArcZoneH);
 
     return Scaffold(
       backgroundColor: SetTrackerConst.bgColor,
-      body: Stack(
-        children: [
-          // === 顶部弧线区：Positioned 从屏幕顶部开始 ===
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: topZoneH,
-            child: ClipRect(
-              child: _buildTopArc(),
+      // 3 个彻底隔离的区域，互不重叠：顶部(Header+上弧) / 中间(信息+按钮) / 底部(下弧)
+      body: SafeArea(
+        child: Column(
+          children: [
+            // === 区域1：顶部 = Header + 上弧线 ===
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: headerH, child: _buildHeader()),
+                SizedBox(
+                  height: arcZoneH,
+                  child: ClipRect(child: _buildTopArc()),
+                ),
+              ],
             ),
-          ),
-          // === Header：叠在顶部弧线上方，底部伸入弧线区 ===
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: headerH,
-            child: SafeArea(
-              bottom: false,
-              child: _buildHeader(),
+            // === 区域2：中间内容（填满剩余空间） ===
+            Expanded(child: _buildCenterSection(theme, reps)),
+            // === 区域3：底部 = 下弧线 ===
+            SizedBox(
+              height: arcZoneH,
+              child: ClipRect(child: _buildBottomArc()),
             ),
-          ),
-          // === 底部弧线区：Positioned 从屏幕底部开始 ===
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: bottomZoneH,
-            child: ClipRect(
-              child: _buildBottomArc(),
-            ),
-          ),
-          // === 中间内容区：填满中间区域 ===
-          Positioned(
-            top: topZoneH,
-            left: 0,
-            right: 0,
-            height: middleH,
-            child: _buildCenterSection(theme, reps),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
