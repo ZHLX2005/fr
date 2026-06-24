@@ -35,6 +35,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # Fonts（lab demo 用 Cormorant Garamond 衬线，对齐设计稿）
+  google_fonts: ^6.0.0
+
   # State Management
   provider: ^6.1.2
   flutter_riverpod: ^2.6.1
