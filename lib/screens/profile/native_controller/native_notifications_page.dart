@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// 原生通知功能测试页面
 class NativeNotificationsPage extends StatefulWidget {
@@ -17,6 +18,10 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
       FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
+  // 当前通知权限状态字符串 (用于 UI 展示)
+  String _permissionStatusText = '未查询';
+  // 当前是否已授权 (用于按钮 disabled 状态)
+  bool _permissionGranted = false;
 
   // 通知通道ID（Android）
   static const String _androidChannelId = 'fr_notification_channel';
@@ -27,6 +32,10 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
   void initState() {
     super.initState();
     _initializeNotifications();
+    // 页面打开时自动查询一次通知权限状态
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPermissionStatus();
+    });
   }
 
   Future<void> _initializeNotifications() async {
@@ -66,87 +75,150 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
     debugPrint('通知被点击: ${response.payload}');
   }
 
+  // 查询当前通知权限状态
+  // 用 permission_handler 而非 flutter_local_notifications,
+  // 后者在国产 ROM 上 areNotificationsEnabled 经常误报 false,
+  // 且无法区分 "未询问过" 和 "永久拒绝"。
+  Future<void> _checkPermissionStatus() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      setState(() {
+        _permissionStatusText = '当前平台不支持';
+        _permissionGranted = false;
+      });
+      return;
+    }
+    try {
+      final status = await Permission.notification.status;
+      if (!mounted) return;
+      setState(() {
+        _permissionStatusText = _statusText(status);
+        _permissionGranted = status.isGranted || status.isLimited;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('通知权限状态: ${_statusText(status)}')),
+        );
+      }
+    } catch (e) {
+      debugPrint('查询通知权限失败: $e');
+      if (mounted) {
+        setState(() {
+          _permissionStatusText = '查询失败: $e';
+          _permissionGranted = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('查询失败: $e')),
+        );
+      }
+    }
+  }
+
+  String _statusText(PermissionStatus s) {
+    switch (s) {
+      case PermissionStatus.granted:
+        return '已授权';
+      case PermissionStatus.denied:
+        return '已拒绝 (可再次询问)';
+      case PermissionStatus.permanentlyDenied:
+        return '永久拒绝 (需去系统设置)';
+      case PermissionStatus.restricted:
+        return '受限';
+      case PermissionStatus.limited:
+        return '受限授权';
+      case PermissionStatus.provisional:
+        return '临时授权';
+    }
+  }
+
   // 请求通知权限
   //
-  // Android 13+ (API 33+): requestNotificationsPermission() 会弹系统授权框
-  //   - 用户点"允许" → 返回 true
-  //   - 用户点"不允许" → 返回 false
-  //   - 永久拒绝后再次调用 → 仍然返回 false 但不再弹窗
-  // Android 12 及以下: 走 notification channel, 默认开启
-  // iOS: requestPermissions 弹系统授权框
-  //
-  // 修复原 Bug: 之前 granted==true 没命中就直接弹"去设置"对话框,
-  // 导致用户首次启动永远看不到系统授权弹窗, 只能手动去设置里开。
+  // 用 permission_handler 的 Permission.notification 替代
+  // flutter_local_notifications 的 requestNotificationsPermission:
+  // - 后者内部用 ActivityCompat.requestPermissions, 但当 permissionRequestProgress
+  //   不为 None 时会 result.error, Dart 端 invokeMethod 会抛 PlatformException
+  //   被外层 catch 静默吞掉, 这就是"点了按钮没任何反馈"的根因
+  // - permission_handler 不会抛 PlatformException, 状态明确
+  // - permission_handler 同时支持 Android 13+ POST_NOTIFICATIONS 和 iOS
   Future<bool> _requestPermissions() async {
     if (!Platform.isAndroid && !Platform.isIOS) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('当前平台不支持通知权限')),
+        );
+      }
       return false;
     }
 
     try {
-      if (Platform.isAndroid) {
-        final androidPlugin = _notifications
-            .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin
-            >();
+      // 先查一下当前状态, 避免无谓弹窗
+      final current = await Permission.notification.status;
+      debugPrint('[通知权限] 当前状态: $current');
 
-        // 先尝试系统授权 (首次/未永久拒绝时会弹系统框)
-        final granted = await androidPlugin?.requestNotificationsPermission();
-        if (granted == true) {
-          return true;
-        }
-
-        // 已永久拒绝 或 Android 12- 默认 channel 关闭 → 引导去系统设置
-        if (!mounted) return false;
-        final shouldOpenSettings = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('需要通知权限'),
-            content: const Text(
-              '通知权限未开启。\n\n'
-              '请点击"去设置"按钮，然后在权限设置中开启通知权限。',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('取消'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('去设置'),
-              ),
-            ],
-          ),
-        );
-
-        if (shouldOpenSettings == true) {
-          // 真正打开系统设置页 (app_settings 包在 iOS 跳本 App 设置,
-          // Android 跳本 App 的应用详情页, 用户可在其中开启通知)
-          try {
-            await AppSettings.openAppSettings(
-              type: AppSettingsType.notification,
-            );
-          } catch (_) {
-            // 某些 ROM 可能不支持 notification 类型, 退回到通用设置
-            await AppSettings.openAppSettings(type: AppSettingsType.settings);
-          }
+      if (current.isPermanentlyDenied) {
+        // 永久拒绝 → 直接引导去系统设置
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('权限已被永久拒绝, 请到系统设置开启')),
+          );
+          await _openSystemNotificationSettings();
         }
         return false;
-      } else if (Platform.isIOS) {
-        final iosPlugin = _notifications
-            .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin
-            >();
-        final granted = await iosPlugin?.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
-        return granted ?? false;
       }
-    } catch (e) {
-      debugPrint('请求权限失败: $e');
+
+      // 弹系统授权框
+      final result = await Permission.notification.request();
+      debugPrint('[通知权限] 请求结果: $result');
+
+      if (!mounted) return result.isGranted || result.isLimited;
+      setState(() {
+        _permissionStatusText = _statusText(result);
+        _permissionGranted = result.isGranted || result.isLimited;
+      });
+
+      if (result.isGranted || result.isLimited) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('通知权限已开启')),
+        );
+        return true;
+      }
+
+      if (result.isPermanentlyDenied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已拒绝, 请到系统设置开启')),
+        );
+        await _openSystemNotificationSettings();
+        return false;
+      }
+
+      // 用户点"不允许" 但还能再次询问
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('通知权限未开启 (${_statusText(result)})')),
+      );
+      return false;
+    } catch (e, st) {
+      debugPrint('[通知权限] 请求异常: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('请求权限异常: $e')),
+        );
+      }
+      return false;
     }
-    return false;
+  }
+
+  // 真正打开系统的"应用通知设置"页
+  Future<void> _openSystemNotificationSettings() async {
+    try {
+      // Android 8+ 支持直接跳到本 App 的通知设置页
+      await AppSettings.openAppSettings(type: AppSettingsType.notification);
+    } catch (_) {
+      // 某些 ROM / iOS 可能不支持 notification 类型, 退回通用设置
+      try {
+        await AppSettings.openAppSettings(type: AppSettingsType.settings);
+      } catch (e) {
+        debugPrint('打开系统设置失败: $e');
+      }
+    }
   }
 
   // 显示即时通知
@@ -312,14 +384,54 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                         ),
                       ],
                       const SizedBox(height: 12),
-                      SizedBox(
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _requestPermissions,
+                              icon: const Icon(Icons.lock_open),
+                              label: const Text('请求通知权限'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _checkPermissionStatus,
+                              icon: const Icon(Icons.search),
+                              label: const Text('查询当前状态'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _isInitialized
-                              ? null
-                              : _requestPermissions,
-                          icon: const Icon(Icons.lock_open),
-                          label: const Text('请求通知权限'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _permissionGranted
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _permissionGranted
+                                  ? Icons.check_circle
+                                  : Icons.info_outline,
+                              size: 18,
+                              color: _permissionGranted
+                                  ? Colors.green
+                                  : Colors.orange,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '权限状态: $_permissionStatusText',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
