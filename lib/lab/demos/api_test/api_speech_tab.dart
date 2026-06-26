@@ -1205,11 +1205,15 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
+                child: OutlinedButton.icon(
                   onPressed: _isPlaying ? null : _synthesize,
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('合成并播放'),
-                  style: ElevatedButton.styleFrom(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.deepPurple,
+                    side: BorderSide(
+                      color: Colors.deepPurple.withValues(alpha: 0.5),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
@@ -1221,6 +1225,10 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                   icon: const Icon(Icons.stop),
                   label: const Text('停止'),
                   style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.orange,
+                    side: BorderSide(
+                      color: Colors.orange.withValues(alpha: 0.5),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
@@ -1233,6 +1241,10 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                   icon: const Icon(Icons.save_alt),
                   label: const Text('保存'),
                   style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: BorderSide(
+                      color: Colors.blue.withValues(alpha: 0.5),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),

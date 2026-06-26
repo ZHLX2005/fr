@@ -290,14 +290,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     return '$pct%';
   }
 
-  /// 边框强调式按钮样式：替代纯色填充（backgroundColor + 白字），降低视觉重量。
-  /// destructive=true 用红色（删除/取消等危险操作），其余用主题主色。
-  ButtonStyle _outlinedBtnStyle(
-    BuildContext context, {
-    bool destructive = false,
-  }) {
-    final color =
-        destructive ? Colors.red : Theme.of(context).colorScheme.primary;
+  /// 边框强调式按钮样式：描边 + 同色文字/icon，用功能色区分不同操作。
+  /// color 为该操作的功能色（green=主操作/成功、blue=查询/接收、
+  /// orange=暂停/警示、red=危险、indigo/teal/deepPurple=差异化操作）。
+  ButtonStyle _outlinedBtnStyle(Color color) {
     return OutlinedButton.styleFrom(
       foregroundColor: color,
       side: BorderSide(color: color.withValues(alpha: 0.5)),
@@ -462,7 +458,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                         runSpacing: 8,
                         alignment: WrapAlignment.center,
                         children: [
-                          ElevatedButton.icon(
+                          OutlinedButton.icon(
                             onPressed:
                                 apkState.isCheckingUpdate ? null : _checkApkUpdate,
                             icon: apkState.isCheckingUpdate
@@ -471,16 +467,18 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
+                                      color: Colors.indigo,
                                     ),
                                   )
                                 : const Icon(Icons.refresh),
                             label: const Text('检查更新'),
+                            style: _outlinedBtnStyle(Colors.indigo),
                           ),
                           OutlinedButton.icon(
                             onPressed: _downloadApkWithBrowser,
                             icon: const Icon(Icons.open_in_browser),
                             label: const Text('浏览器下载'),
-                            style: _outlinedBtnStyle(context),
+                            style: _outlinedBtnStyle(Colors.deepPurple),
                           ),
                           // 三态主操作：内部下载 / 暂停 / 继续
                           if (apkState.isDownloading)
@@ -488,21 +486,21 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                               onPressed: _pauseDownload,
                               icon: const Icon(Icons.pause),
                               label: const Text('暂停'),
-                              style: _outlinedBtnStyle(context),
+                              style: _outlinedBtnStyle(Colors.orange),
                             )
                           else if (apkState.isPaused)
                             OutlinedButton.icon(
                               onPressed: _resumeDownload,
                               icon: const Icon(Icons.play_arrow),
                               label: const Text('继续下载'),
-                              style: _outlinedBtnStyle(context),
+                              style: _outlinedBtnStyle(Colors.teal),
                             )
                           else
                             OutlinedButton.icon(
                               onPressed: _downloadApkInternal,
                               icon: const Icon(Icons.download_for_offline),
                               label: const Text('内部下载'),
-                              style: _outlinedBtnStyle(context),
+                              style: _outlinedBtnStyle(Colors.blue),
                             ),
                           // 取消按钮：下载中或暂停时都可用
                           if (apkState.isDownloading || apkState.isPaused)
@@ -510,7 +508,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                               onPressed: _cancelDownload,
                               icon: const Icon(Icons.cancel),
                               label: const Text('取消'),
-                              style: _outlinedBtnStyle(context, destructive: true),
+                              style: _outlinedBtnStyle(Colors.red),
                             ),
                         ],
                       ),
@@ -641,11 +639,8 @@ class _ApiTestPageState extends State<_ApiTestPage> {
             OutlinedButton(
               onPressed: _openApkInstall,
               style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-                side: BorderSide(
-                  color:
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                ),
+                foregroundColor: Colors.green,
+                side: BorderSide(color: Colors.green.withValues(alpha: 0.5)),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               child: const Text('安装'),
@@ -700,18 +695,20 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton.icon(
+                        child: OutlinedButton.icon(
                           onPressed: _setKv,
                           icon: const Icon(Icons.add),
                           label: const Text('设置'),
+                          style: _outlinedBtnStyle(Colors.green),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: ElevatedButton.icon(
+                        child: OutlinedButton.icon(
                           onPressed: _getKv,
                           icon: const Icon(Icons.search),
                           label: const Text('获取'),
+                          style: _outlinedBtnStyle(Colors.blue),
                         ),
                       ),
                     ],
@@ -782,10 +779,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ElevatedButton.icon(
+                  OutlinedButton.icon(
                     onPressed: _pickFile,
                     icon: const Icon(Icons.photo_library),
                     label: const Text('选择图片'),
+                    style: _outlinedBtnStyle(Colors.teal),
                   ),
                   if (_selectedFile != null) ...[
                     const SizedBox(height: 8),
@@ -801,10 +799,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  ElevatedButton.icon(
+                  OutlinedButton.icon(
                     onPressed: _uploadFile,
                     icon: const Icon(Icons.upload),
                     label: const Text('上传'),
+                    style: _outlinedBtnStyle(Colors.green),
                   ),
                   if (_uploadResult != null) ...[
                     const SizedBox(height: 8),
@@ -842,10 +841,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton.icon(
+                        child: OutlinedButton.icon(
                           onPressed: _downloadFile,
                           icon: const Icon(Icons.download),
                           label: const Text('下载'),
+                          style: _outlinedBtnStyle(Colors.blue),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -854,7 +854,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                           onPressed: _deleteFile,
                           icon: const Icon(Icons.delete),
                           label: const Text('删除'),
-                          style: _outlinedBtnStyle(context, destructive: true),
+                          style: _outlinedBtnStyle(Colors.red),
                         ),
                       ),
                     ],
