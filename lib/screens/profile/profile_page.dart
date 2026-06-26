@@ -202,6 +202,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       icon: Icons.science,
                       title: '开发者实验室',
                       subtitle: '各种Demo示例和实验性功能',
+                      accent: Colors.deepPurple,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -220,6 +221,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       title: '游戏中心',
                       subtitle:
                           '已收录 ${demoRegistry.getAll().filterByType(DemoType.game).length} 款休闲游戏',
+                      accent: Colors.teal,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -237,6 +239,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       icon: Icons.palette,
                       title: '主题设置',
                       subtitle: '切换应用主题，支持夜间模式和粉红主题',
+                      accent: Colors.pink,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -253,6 +256,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       icon: Icons.phone_android,
                       title: '原生功能测试',
                       subtitle: '测试通知、相机、麦克风等原生功能',
+                      accent: Colors.blue,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -332,7 +336,12 @@ class _ProfilePageState extends State<ProfilePage> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    Color? accent,
   }) {
+    final theme = Theme.of(context);
+    // 默认取主题主色；每张卡片可传入独立强调色增强可扫读性
+    final a = accent ?? theme.colorScheme.primary;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -343,21 +352,20 @@ class _ProfilePageState extends State<ProfilePage> {
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
+              // 边框强调式 icon：浅色 tint 底 + 同色描边 + 同色 icon
+              // 替代原先的实心渐变填充，大幅降低左侧视觉重量，左右更平衡
               Container(
-                width: 56,
-                height: 56,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.secondary,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: a.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: a.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
                 ),
-                child: Icon(icon, color: Colors.white, size: 28),
+                child: Icon(icon, color: a, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -366,17 +374,15 @@ class _ProfilePageState extends State<ProfilePage> {
                   children: [
                     Text(
                       title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.6),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -384,10 +390,10 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               Icon(
                 Icons.chevron_right,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
               ),
             ],
-          ),    // CustomScrollView
+          ),
         ),
       ),
     );
