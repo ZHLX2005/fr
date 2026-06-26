@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -66,6 +67,16 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
   }
 
   // 请求通知权限
+  //
+  // Android 13+ (API 33+): requestNotificationsPermission() 会弹系统授权框
+  //   - 用户点"允许" → 返回 true
+  //   - 用户点"不允许" → 返回 false
+  //   - 永久拒绝后再次调用 → 仍然返回 false 但不再弹窗
+  // Android 12 及以下: 走 notification channel, 默认开启
+  // iOS: requestPermissions 弹系统授权框
+  //
+  // 修复原 Bug: 之前 granted==true 没命中就直接弹"去设置"对话框,
+  // 导致用户首次启动永远看不到系统授权弹窗, 只能手动去设置里开。
   Future<bool> _requestPermissions() async {
     if (!Platform.isAndroid && !Platform.isIOS) {
       return false;
@@ -78,14 +89,13 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
               AndroidFlutterLocalNotificationsPlugin
             >();
 
-        // Android 13+ 使用 requestNotificationsPermission 会返回 null/pending
-        // 需要引导用户去设置页面手动开启
+        // 先尝试系统授权 (首次/未永久拒绝时会弹系统框)
         final granted = await androidPlugin?.requestNotificationsPermission();
         if (granted == true) {
           return true;
         }
 
-        // 如果权限被拒绝或需要手动设置，引导用户去系统设置
+        // 已永久拒绝 或 Android 12- 默认 channel 关闭 → 引导去系统设置
         if (!mounted) return false;
         final shouldOpenSettings = await showDialog<bool>(
           context: context,
@@ -109,9 +119,16 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
         );
 
         if (shouldOpenSettings == true) {
-          // 尝试打开应用通知设置页面
-          await androidPlugin?.requestNotificationsPermission();
-          return false; // 打开设置后用户自行开启，返回false
+          // 真正打开系统设置页 (app_settings 包在 iOS 跳本 App 设置,
+          // Android 跳本 App 的应用详情页, 用户可在其中开启通知)
+          try {
+            await AppSettings.openAppSettings(
+              type: AppSettingsType.notification,
+            );
+          } catch (_) {
+            // 某些 ROM 可能不支持 notification 类型, 退回到通用设置
+            await AppSettings.openAppSettings(type: AppSettingsType.settings);
+          }
         }
         return false;
       } else if (Platform.isIOS) {
