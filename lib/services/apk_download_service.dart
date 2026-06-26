@@ -126,6 +126,10 @@ _BackgroundState? _bgState;
 /// 后台 isolate 中持有下载状态和引用
 class _BackgroundState {
   final _BgController controller = _BgController();
+  // 供暂停/取消通知展示最后一次进度使用
+  double lastProgress = 0.0;
+  int lastReceived = 0;
+  int lastTotal = 0;
 }
 
 /// 后台 isolate 入口函数（必须为顶级或静态函数）
@@ -145,9 +149,13 @@ void apkDownloadServiceHandler(ServiceInstance service) {
         await _runDownload(service, ctrl);
       case 'pause':
         ctrl.pause();
+        final s = _bgState!;
+        final p = s.lastProgress;
+        final pInt = (p * 100).toInt();
         await service.setForegroundNotificationInfo(
           title: 'APK 下载',
-          content: '下载已暂停',
+          content: '已暂停  $pInt%  ${_fmtBar(p)}  '
+              '${_fmtSize(s.lastReceived)} / ${_fmtSize(s.lastTotal)}',
         );
         service.invoke('data', {'type': 'paused'});
       case 'cancel':
@@ -217,7 +225,7 @@ Future<void> _runDownload(
           if (await tempFile.exists()) await tempFile.delete();
           await service.setForegroundNotificationInfo(
             title: 'APK 下载',
-            content: '下载已取消',
+            content: '下载已取消  ░░░░░░░░░░ 0%',
           );
           service.invoke('data', {'type': 'cancelled'});
           return;
@@ -236,6 +244,12 @@ Future<void> _runDownload(
           final progress = received / totalSize;
           final percent = (progress * 100).toInt();
 
+          // 同步最后一次进度，供暂停/取消通知使用
+          final bg = _bgState!;
+          bg.lastProgress = progress;
+          bg.lastReceived = received;
+          bg.lastTotal = totalSize;
+
           // 每 5% 或首次/最后 1% 才刷新通知，减少 bat 写入
           if (percent - lastNotifyPercent >= 5 ||
               percent >= 99 ||
@@ -243,7 +257,8 @@ Future<void> _runDownload(
             lastNotifyPercent = percent;
             await service.setForegroundNotificationInfo(
               title: 'APK 下载',
-              content: '$percent%  (${_fmtSize(received)} / ${_fmtSize(totalSize)})',
+              content: '$percent%  ${_fmtBar(progress)}  '
+                  '${_fmtSize(received)} / ${_fmtSize(totalSize)}',
             );
           }
 
@@ -269,7 +284,7 @@ Future<void> _runDownload(
         final size = await outputFile.length();
         await service.setForegroundNotificationInfo(
           title: 'APK 下载',
-          content: '下载完成',
+          content: '下载完成  ██████████ 100%  ${_fmtSize(size)}',
         );
         service.invoke('data', {
           'type': 'completed',
@@ -300,4 +315,12 @@ String _fmtSize(int bytes) {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+}
+
+/// 把 0~1 的进度渲染成 10 格 Unicode 简易进度条
+/// 例: 0.34 → "███▌       "（全角字符在 Android 系统字体中均能正常渲染）
+String _fmtBar(double p) {
+  final clamped = p.clamp(0.0, 1.0);
+  final filled = (clamped * 10).round(); // 0..10
+  return '█' * filled + '░' * (10 - filled);
 }
