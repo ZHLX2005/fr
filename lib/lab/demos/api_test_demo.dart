@@ -290,6 +290,20 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     return '$pct%';
   }
 
+  /// 边框强调式按钮样式：替代纯色填充（backgroundColor + 白字），降低视觉重量。
+  /// destructive=true 用红色（删除/取消等危险操作），其余用主题主色。
+  ButtonStyle _outlinedBtnStyle(
+    BuildContext context, {
+    bool destructive = false,
+  }) {
+    final color =
+        destructive ? Colors.red : Theme.of(context).colorScheme.primary;
+    return OutlinedButton.styleFrom(
+      foregroundColor: color,
+      side: BorderSide(color: color.withValues(alpha: 0.5)),
+    );
+  }
+
   // ===== Build =====
   @override
   Widget build(BuildContext context) {
@@ -462,56 +476,41 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                                 : const Icon(Icons.refresh),
                             label: const Text('检查更新'),
                           ),
-                          ElevatedButton.icon(
+                          OutlinedButton.icon(
                             onPressed: _downloadApkWithBrowser,
                             icon: const Icon(Icons.open_in_browser),
                             label: const Text('浏览器下载'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                            ),
+                            style: _outlinedBtnStyle(context),
                           ),
                           // 三态主操作：内部下载 / 暂停 / 继续
                           if (apkState.isDownloading)
-                            ElevatedButton.icon(
+                            OutlinedButton.icon(
                               onPressed: _pauseDownload,
                               icon: const Icon(Icons.pause),
                               label: const Text('暂停'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                              ),
+                              style: _outlinedBtnStyle(context),
                             )
                           else if (apkState.isPaused)
-                            ElevatedButton.icon(
+                            OutlinedButton.icon(
                               onPressed: _resumeDownload,
                               icon: const Icon(Icons.play_arrow),
                               label: const Text('继续下载'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                              ),
+                              style: _outlinedBtnStyle(context),
                             )
                           else
-                            ElevatedButton.icon(
+                            OutlinedButton.icon(
                               onPressed: _downloadApkInternal,
                               icon: const Icon(Icons.download_for_offline),
                               label: const Text('内部下载'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                              ),
+                              style: _outlinedBtnStyle(context),
                             ),
                           // 取消按钮：下载中或暂停时都可用
                           if (apkState.isDownloading || apkState.isPaused)
-                            ElevatedButton.icon(
+                            OutlinedButton.icon(
                               onPressed: _cancelDownload,
                               icon: const Icon(Icons.cancel),
                               label: const Text('取消'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                              ),
+                              style: _outlinedBtnStyle(context, destructive: true),
                             ),
                         ],
                       ),
@@ -639,11 +638,14 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            FilledButton(
+            OutlinedButton(
               onPressed: _openApkInstall,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                side: BorderSide(
+                  color:
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               child: const Text('安装'),
@@ -848,13 +850,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: ElevatedButton.icon(
+                        child: OutlinedButton.icon(
                           onPressed: _deleteFile,
                           icon: const Icon(Icons.delete),
                           label: const Text('删除'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                          ),
+                          style: _outlinedBtnStyle(context, destructive: true),
                         ),
                       ),
                     ],
