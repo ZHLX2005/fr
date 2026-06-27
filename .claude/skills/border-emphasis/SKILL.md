@@ -2,7 +2,6 @@
 name: border-emphasis
 description: Use when UI icons or buttons use solid color fills (gradient backgrounds or saturated backgroundColor + white foreground) and feel visually heavy or unbalanced. Transforms them to border-emphasis style — light tint background + colored outline + colored foreground — to reduce visual weight and balance composition. Also covers the decorative-vs-functional color decision: navigation icons use uniform theme color, action buttons use contrasting semantic colors. Triggers on phrases like "边框强调"、"描边式"、"避免纯色按钮"、"icon 纯色"、"左重右轻"、"纯色太重".
 ---
-
 # 边框强调 (Border-Emphasis)
 
 把"纯色填充"的 icon 容器 / 按钮改造为"浅 tint 底 + 同色描边 + 同色前景"，
@@ -21,11 +20,11 @@ description: Use when UI icons or buttons use solid color fills (gradient backgr
 
 浅色 tint 背景 + 同色描边 + 同色前景。经验 alpha：
 
-| 部位 | alpha | 说明 |
-|---|---|---|
-| tint 背景 | 0.08 ~ 0.12 | 给轮廓一点"存在感"，又不抢眼 |
-| 描边 | 0.30 ~ 0.50（width 1.5） | 主视觉信号 |
-| 前景（icon/text） | color 本色 | 与描边同色，整体协调 |
+| 部位              | alpha                    | 说明                         |
+| ----------------- | ------------------------ | ---------------------------- |
+| tint 背景         | 0.08 ~ 0.12              | 给轮廓一点"存在感"，又不抢眼 |
+| 描边              | 0.30 ~ 0.50（width 1.5） | 主视觉信号                   |
+| 前景（icon/text） | color 本色               | 与描边同色，整体协调         |
 
 ### Icon 容器模板
 
@@ -66,33 +65,33 @@ OutlinedButton.icon(
 
 **规则相反，不能一刀切。** 这是本 skill 最核心、最易翻车的判断：
 
-| 元素类型 | 配色策略 | 例子 |
-|---|---|---|
-| **装饰性**（导航卡片 icon、纯展示） | **统一主题色** `Theme.of(context).colorScheme.primary` | profile 菜单卡片 |
-| **功能性**（操作按钮） | **撞色编码语义** | APK / KV / 文件 tab 按钮 |
+| 元素类型                                  | 配色策略                                                       | 例子                     |
+| ----------------------------------------- | -------------------------------------------------------------- | ------------------------ |
+| **装饰性**（导航卡片 icon、纯展示） | **统一主题色** `Theme.of(context).colorScheme.primary` | profile 菜单卡片         |
+| **功能性**（操作按钮）              | **撞色编码语义**                                         | APK / KV / 文件 tab 按钮 |
 
 功能性语义色对照表（跨页面保持一致）：
 
-| 色 | 语义 | 典型按钮 |
-|---|---|---|
-| green | 主操作 / 成功 / 写入 | 安装、上传、设置 |
-| blue | 查询 / 接收 / 读取 | 检查更新、下载、获取 |
-| orange | 暂停 / 警示 | 暂停、停止 |
-| **red** | **危险 / 删除** | 取消、删除（**永远保留红**） |
-| indigo / teal / deepPurple | 差异化 / 备用操作 | 浏览器下载、继续下载、媒体播放 |
+| 色                         | 语义                  | 典型按钮                           |
+| -------------------------- | --------------------- | ---------------------------------- |
+| green                      | 主操作 / 成功 / 写入  | 安装、上传、设置                   |
+| blue                       | 查询 / 接收 / 读取    | 检查更新、下载、获取               |
+| orange                     | 暂停 / 警示           | 暂停、停止                         |
+| **red**              | **危险 / 删除** | 取消、删除（**永远保留红**） |
+| indigo / teal / deepPurple | 差异化 / 备用操作     | 浏览器下载、继续下载、媒体播放     |
 
 ## 错误案例（高频坑点）
 
-| 错误操作 | 实际后果 | 正确做法 |
-|---|---|---|
-| 给**导航卡片**配彩虹独立色 | 显幼稚、违和、不统一 | 导航 icon 用统一主题色 |
-| 给**操作按钮**统一主题色 | 功能无区分、层级丢失 | 按钮用撞色编码语义 |
-| 用 `.withOpacity(x)` | analyze 报 `deprecated_member_use` | 用 `.withValues(alpha: x)` |
-| 删除/取消按钮也去掉红色 | 危险操作失去警示语义 | 破坏性操作**永远保留 red** |
-| 改了按钮忘同步 spinner 颜色 | loading 圈与描边撞色不协调 | `CircularProgressIndicator(color: 同按钮色)` |
-| 保留个别"主操作 CTA"纯色填充 | 用户仍投诉"还有纯色" | 全转 OutlinedButton；层级靠**颜色 + 位置**，不靠填充 |
-| helper 第一版写成 `(BuildContext, {bool destructive})` | 只能二选一，无法表达多语义色 | 直接收 `Color` 参数 |
-| 改造范围蔓延到 `IconButton`（纯图标） | 误伤，IconButton 本就不算纯色块 | 只改"填充式"容器/按钮 |
+| 错误操作                                                | 实际后果                            | 正确做法                                                   |
+| ------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------- |
+| 给**导航卡片**配彩虹独立色                        | 显幼稚、违和、不统一                | 导航 icon 用统一主题色                                     |
+| 给**操作按钮**统一主题色                          | 功能无区分、层级丢失                | 按钮用撞色编码语义                                         |
+| 用`.withOpacity(x)`                                   | analyze 报`deprecated_member_use` | 用`.withValues(alpha: x)`                                |
+| 删除/取消按钮也去掉红色                                 | 危险操作失去警示语义                | 破坏性操作**永远保留 red**                           |
+| 改了按钮忘同步 spinner 颜色                             | loading 圈与描边撞色不协调          | `CircularProgressIndicator(color: 同按钮色)`             |
+| 保留个别"主操作 CTA"纯色填充                            | 用户仍投诉"还有纯色"                | 全转 OutlinedButton；层级靠**颜色 + 位置**，不靠填充 |
+| helper 第一版写成`(BuildContext, {bool destructive})` | 只能二选一，无法表达多语义色        | 直接收`Color` 参数                                       |
+| 改造范围蔓延到`IconButton`（纯图标）                  | 误伤，IconButton 本就不算纯色块     | 只改"填充式"容器/按钮                                      |
 
 ## 检查清单
 
