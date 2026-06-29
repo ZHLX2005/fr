@@ -91,12 +91,27 @@ class FloatingWindowScreenshot(
         captureInitialized = true
     }
 
+    /**
+     * 获取最近一帧的截图 Bitmap。
+     *
+     * 该 Bitmap 的坐标系以 MediaProjection 截屏的原点 (0, 0) 为基准，
+     * 在大多数 Android 设备上等同于物理屏幕左上角（含状态栏）。
+     * 但在部分 ROM 上，MediaProjection 实际截屏尺寸可能小于物理屏幕
+     * （例如去掉了导航栏 / 状态栏区域），此时返回的 Bitmap 高度
+     * 会小于 screenHeight，调用方应据此对 crop 坐标做归一化处理。
+     */
     fun acquireFrame(): android.graphics.Bitmap? {
         if (!captureInitialized || captureImageReader == null) return null
 
         val image = captureImageReader?.acquireLatestImage() ?: return null
         return image.useToBitmap()
     }
+
+    /** 最近一次截屏的真实宽高，外部 crop 逻辑需要用来归一化坐标。 */
+    var capturedFrameWidth: Int = 0
+        private set
+    var capturedFrameHeight: Int = 0
+        private set
 
     fun discardPendingFrames() {
         if (!captureInitialized || captureImageReader == null) return
@@ -139,23 +154,35 @@ class FloatingWindowScreenshot(
             val buffer = planes[0].buffer
             val rowStride = planes[0].rowStride
             val pixelStride = planes[0].pixelStride
-            val rowPadding = rowStride - width * pixelStride
+            // 注意：rowStride 在某些 GPU/驱动下可能小于 width * pixelStride
+            // （虽然规范上不应当出现，但作为防御式编程，避免负数导致 Bitmap 宽度异常）
+            val rawRowPadding = rowStride - width * pixelStride
+            val safeRowPadding = if (rawRowPadding < 0) 0 else rawRowPadding
+            val extraCols = safeRowPadding / pixelStride
+
+            val bitmapWidth = width + extraCols
+            val bitmapHeight = height
 
             val bitmap = Bitmap.createBitmap(
-                width + rowPadding / pixelStride,
-                height,
+                bitmapWidth,
+                bitmapHeight,
                 Bitmap.Config.ARGB_8888
             )
             bitmap.copyPixelsFromBuffer(buffer)
 
-            val cropped = Bitmap.createBitmap(
-                bitmap, 0, 0,
-                width.coerceAtMost(screenWidth),
-                height.coerceAtMost(screenHeight)
-            )
+            // 裁剪到 image 实际尺寸（width × height），不再使用 screenWidth/screenHeight
+            // 因为 MediaProjection 在部分 ROM 上截屏尺寸可能与 getRealMetrics 不一致
+            val cropped = if (bitmapWidth > width || bitmapHeight > height) {
+                Bitmap.createBitmap(bitmap, 0, 0, width, height)
+            } else {
+                bitmap
+            }
 
             if (cropped != bitmap) bitmap.recycle()
             close()
+            // 记录最近一帧的真实尺寸，供调用方在 crop 时归一化坐标
+            capturedFrameWidth = width
+            capturedFrameHeight = height
             return cropped
         } catch (e: Exception) {
             close()
