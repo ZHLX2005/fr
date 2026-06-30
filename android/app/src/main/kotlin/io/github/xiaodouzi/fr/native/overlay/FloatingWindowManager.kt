@@ -356,12 +356,8 @@ class FloatingWindowManager : Service() {
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                // 关键：不要设置 FLAG_LAYOUT_IN_SCREEN。
-                // 该 flag 会让 view 起点位于 status bar 下方（view 局部 0 = 物理 status_bar_height），
-                // 而 MotionEvent.rawY 是物理屏幕坐标（含 status bar），
-                // 两者坐标系错位会导致"截取区域相对框选区域偏移"。
-                // 不设置该 flag 时，view 起点 = 物理屏幕 (0,0)，与 MediaProjection 截屏坐标系一致。
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                         WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 PixelFormat.TRANSLUCENT
             ).apply { gravity = Gravity.TOP or Gravity.START }
@@ -479,37 +475,15 @@ class FloatingWindowManager : Service() {
         pendingBitmap = null
 
         try {
-            // selection 坐标系语义：
-            //  - directScreenshotMode：selection = (0,0)..(bitmap.width, bitmap.height)
-            //  - 框选模式：selection 来自 selectionOverlay 的 MotionEvent.rawX/rawY，
-            //    是物理屏幕坐标（包含状态栏），坐标系原点 (0,0) = 物理屏幕左上角
-            //
-            // MediaProjection 截屏 bitmap 的坐标系在大多数设备上 == 物理屏幕坐标系，
-            // 但部分 ROM 上 VirtualDisplay 的实际截屏区域可能与 getRealMetrics 不一致：
-            //  - bitmap 高度可能比 screenHeight 小（去掉了 status bar / nav bar 区域）
-            //  - bitmap 坐标原点的 y=0 可能对应物理屏幕 status_bar_height 位置
-            // 此时如果直接把 rawY 作为 bitmap.y，会出现"截取区域相对框选区域偏移"。
-            //
-            // 修复策略：基于 bitmap.width/bitmap.height 实际尺寸做归一化，
-            // 等价于把 selection 坐标视为相对于 bitmap 尺寸的归一化坐标。
-            val rawLeft = minOf(selectionStartX, selectionEndX)
-            val rawTop = minOf(selectionStartY, selectionEndY)
-            val rawRight = maxOf(selectionStartX, selectionEndX)
-            val rawBottom = maxOf(selectionStartY, selectionEndY)
+            val left = minOf(selectionStartX, selectionEndX)
+            val top = minOf(selectionStartY, selectionEndY)
+            val right = maxOf(selectionStartX, selectionEndX)
+            val bottom = maxOf(selectionStartY, selectionEndY)
 
-            val bmpW = bitmap.width
-            val bmpH = bitmap.height
-
-            android.util.Log.d(
-                "FloatingWindow",
-                "crop: sel=($rawLeft,$rawTop)-($rawRight,$rawBottom) " +
-                    "bitmap=${bmpW}x${bmpH}"
-            )
-
-            val cropLeft = rawLeft.coerceIn(0, bmpW)
-            val cropTop = rawTop.coerceIn(0, bmpH)
-            val cropRight = rawRight.coerceIn(cropLeft, bmpW)
-            val cropBottom = rawBottom.coerceIn(cropTop, bmpH)
+            val cropLeft = left.coerceIn(0, bitmap.width)
+            val cropTop = top.coerceIn(0, bitmap.height)
+            val cropRight = right.coerceIn(cropLeft, bitmap.width)
+            val cropBottom = bottom.coerceIn(cropTop, bitmap.height)
             val cropWidth = cropRight - cropLeft
             val cropHeight = cropBottom - cropTop
 
