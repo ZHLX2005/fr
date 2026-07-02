@@ -9,6 +9,9 @@ import '../goframe/download/download_controller.dart';
 import '../goframe/download/apk_endpoint.dart';
 import '../goframe/article/article_endpoint.dart';
 import '../goframe/ai/ai_endpoint.dart';
+import '../notion/database_endpoint.dart';
+import '../notion/page_endpoint.dart';
+import '../notion/file_endpoint.dart';
 
 // ── Token ──────────────────────────────────────────────────────────
 
@@ -52,3 +55,36 @@ final apkDownloadEndpointProvider = Provider<ApkDownloadEndpoint>((ref) {
 });
 
 final downloadControllerProvider = Provider<DownloadController>((_) => DownloadController());
+
+// ── Notion ──────────────────────────────────────────────────────────
+//
+// Notion 端点需要 token + 可选 databaseId。token 存在 StateProvider，
+// UI 层（demo）从 SharedPreferences 读出来写入；不在这层做持久化，
+// 避免依赖耦合。
+final notionTokenProvider = StateProvider<String?>((_) => null);
+
+final notionDatabaseIdProvider = StateProvider<String?>((_) => null);
+
+final notionDatabaseEndpointProvider = Provider<NotionDatabaseEndpoint>((ref) {
+  final token = ref.watch(notionTokenProvider);
+  if (token == null || token.isEmpty) {
+    throw StateError('Notion token 未设置：请在 UI 中写入 notionTokenProvider');
+  }
+  return NotionDatabaseEndpoint(token: token);
+});
+
+final notionPageEndpointProvider = Provider<NotionPageEndpoint>((ref) {
+  final token = ref.watch(notionTokenProvider);
+  if (token == null || token.isEmpty) {
+    throw StateError('Notion token 未设置');
+  }
+  return NotionPageEndpoint(token: token);
+});
+
+final notionFileEndpointProvider = Provider<NotionFileEndpoint>((ref) {
+  final token = ref.watch(notionTokenProvider);
+  if (token == null || token.isEmpty) {
+    throw StateError('Notion token 未设置');
+  }
+  return NotionFileEndpoint(token: token);
+});

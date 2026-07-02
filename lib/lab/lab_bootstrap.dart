@@ -19,6 +19,7 @@ import 'demos/line_demo.dart';
 import 'demos/localnet_demo.dart';
 import 'demos/network_demo.dart';
 import 'demos/novel_reader_demo.dart';
+import 'demos/notion_image_host_demo.dart';
 import 'demos/overlay_demo.dart';
 import 'demos/pigment_palette_demo.dart';
 import 'demos/qr_demo.dart';
@@ -79,6 +80,7 @@ void registerAllDemos() {
   registerReversiDemo();
   registerJungleChessDemo();
   registerStackCardDemo();
+  registerNotionImageHostDemo();
 }
 
 // 初始化 Schema 注册表
