@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Notion 图床桌面小组件 — 简化版式。
+  Notion 图床桌面小组件 — 无 emoji 简洁版。
 
-  触发逻辑（全部托管在 NotionWidgetProvider）：
-    - 整体点击（widget_root）→ 打开 App 到 Notion 图床页面（带 ?autocapture=1）
-    - 拍照按钮点击（widget_capture_btn）→ 同样行为，且 App 启动后自动触发拍照
+  设计原则：
+    - 1x1 / 2x2 共用同一布局，靠 gravity + wrap_content 自适应
+    - 1x1 时只显示"拍照"按钮（标题/副标题因高度不足被裁掉）
+    - 2x2 时显示完整图标 + 标题 + 大圆按钮 + 副标题
+    - 颜色沿用项目调色：#333333 文字 / #673AB7 紫色强调 / #F3E5F7 淡紫底
+    - 用 vector 图标替代 emoji，保证不同 OEM 字体下显示一致
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
@@ -12,55 +15,61 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:padding="14dp"
+    android:padding="8dp"
     android:gravity="center">
 
-    <!-- 顶部：相机图标 + 应用名 -->
+    <!-- 顶部：相机图标 + 应用名（1x1 时因高度不足被裁掉，仅 2x2 完整可见） -->
     <LinearLayout
+        android:id="@+id/widget_header"
         android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center_vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="📷"
-            android:textSize="20sp"
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/notion_widget_icon"
             android:contentDescription="图标" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="5dp"
             android:text="Notion 图床"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:textColor="#333333" />
+            android:textColor="#333333"
+            android:maxLines="1" />
 
     </LinearLayout>
 
-    <!-- 中间：大圆点拍照按钮（点击触发带 autocapture=1 的 deep link） -->
+    <!-- 中间：拍照按钮 — 焦点交互区，点击触发带 autocapture=1 的 deep link。
+         1x1 时直接撑满，2x2 时居中显示。 -->
     <TextView
         android:id="@+id/widget_capture_btn"
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="12dp"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginTop="8dp"
         android:background="@drawable/notion_widget_capture_btn_bg"
         android:gravity="center"
-        android:text="📸"
-        android:textSize="32sp"
+        android:text="拍照"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:textColor="#673AB7"
         android:clickable="true"
         android:focusable="true"
         android:contentDescription="拍照并上传到 Notion" />
 
-    <!-- 底部：提示文字 -->
+    <!-- 底部：副标题（1x1 时被裁掉，仅 2x2 可见） -->
     <TextView
+        android:id="@+id/widget_hint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="点击拍照"
-        android:textSize="12sp"
-        android:textColor="#666666" />
+        android:layout_marginTop="6dp"
+        android:text="点击拍照上传"
+        android:textSize="10sp"
+        android:textColor="#666666"
+        android:maxLines="1" />
 
 </LinearLayout>

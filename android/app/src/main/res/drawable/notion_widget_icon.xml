@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Notion widget 顶部图标 — 紫色相机 vector。
+  替代原 emoji "📷"，确保不同 OEM 字体下显示一致。
+  尺寸：24x24 viewBox，18dp 显示尺寸足够清晰。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 相机机身 -->
+    <path
+        android:fillColor="#673AB7"
+        android:pathData="M9,3 L7.5,5 L4,5 C2.9,5 2,5.9 2,7 L2,18 C2,19.1 2.9,20 4,20 L20,20 C21.1,20 22,19.1 22,18 L22,7 C22,5.9 21.1,5 20,5 L16.5,5 L15,3 L9,3 Z M12,9 C14.21,9 16,10.79 16,13 C16,15.21 14.21,17 12,17 C9.79,17 8,15.21 8,13 C8,10.79 9.79,9 12,9 Z" />
+
+    <!-- 相机镜头内圆（更深紫色，营造层次） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,11 C10.9,11 10,11.9 10,13 C10,14.1 10.9,15 12,15 C13.1,15 14,14.1 14,13 C14,11.9 13.1,11 12,11 Z" />
+
+</vector>

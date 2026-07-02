@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Notion 图床桌面小组件 — 支持 1x1 ~ 2x2。
+
+  尺寸规则（参考 Android 默认 cell 尺寸）：
+    - 1x1 cell ≈ 70dp x 70dp（minWidth/minHeight 设 70dp 保证 1x1 完整渲染）
+    - 2x2 cell ≈ 160dp x 160dp（widget 内部按 wrap_content 自适应布局）
+    - targetCellWidth/Height = 1 → 系统默认选择 1x1 入口
+    - resizeMode 允许用户拉大到更大尺寸，避免布局在大尺寸下过分拉伸
+-->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="180dp"
-    android:minHeight="110dp"
-    android:minResizeWidth="110dp"
-    android:minResizeHeight="110dp"
-    android:targetCellWidth="2"
-    android:targetCellHeight="2"
+    android:minWidth="70dp"
+    android:minHeight="70dp"
+    android:minResizeWidth="70dp"
+    android:minResizeHeight="70dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/notion_widget"
     android:resizeMode="horizontal|vertical"
