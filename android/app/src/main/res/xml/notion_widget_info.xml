@@ -2,21 +2,26 @@
 <!--
   Notion 图床桌面小组件 — 支持 1x1 ~ 2x2。
 
-  尺寸规则（参考 Android 默认 cell 尺寸）：
-    - 1x1 cell ≈ 70dp x 70dp（minWidth/minHeight 设 70dp 保证 1x1 完整渲染）
-    - 2x2 cell ≈ 160dp x 160dp（widget 内部按 wrap_content 自适应布局）
+  尺寸规则（Android 12+ 推荐规范）：
+    - minWidth/minHeight 设为系统下限 40dp，确保 launcher 把它识别为 1x1 候选
+      （之前 70dp 在小 cell launcher 上会被算成 2x1）
+    - resizeMode = horizontal（仅允许横向 resize）—— 许多 launcher 因
+      resizeMode=vertical 而拒绝把 widget 列入 1x1 选择
     - targetCellWidth/Height = 1 → 系统默认选择 1x1 入口
-    - resizeMode 允许用户拉大到更大尺寸，避免布局在大尺寸下过分拉伸
+    - minResizeWidth = 40dp —— 用户可拉大但最小保持 1x1
+
+  注意：改完 manifest 后，桌面上已存在的旧 widget 不会自动刷新元数据，
+  必须长按删除后重新添加才能进入 picker。
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="70dp"
-    android:minHeight="70dp"
-    android:minResizeWidth="70dp"
-    android:minResizeHeight="70dp"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
     android:targetCellWidth="1"
     android:targetCellHeight="1"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/notion_widget"
-    android:resizeMode="horizontal|vertical"
+    android:resizeMode="horizontal"
     android:widgetCategory="home_screen">
 </appwidget-provider>
