@@ -75,6 +75,45 @@ class NotionPageEndpoint {
 
   void dispose() => _client.close();
 
+  /// 从 page JSON 中提取可读的 title 文本。
+  ///
+  /// title 是 rich_text array，可能含多种类型：
+  ///   - type=text → text.content
+  ///   - type=mention → mention.date.start（取 ISO 字符串直接显示）
+  ///
+  /// 返回 plain_text 拼接后的字符串，作为 user-facing 展示用。
+  static String extractTitle(Map<String, dynamic> pageJson) {
+    final props = pageJson['properties'] as Map<String, dynamic>?;
+    if (props == null) return '(无标题)';
+    // 找到 type=title 的属性（按 entry 顺序遍历）
+    Map<String, dynamic>? titleProp;
+    for (final p in props.values) {
+      if ((p as Map<String, dynamic>)['type'] == 'title') {
+        titleProp = p;
+        break;
+      }
+    }
+    if (titleProp == null) return '(无标题)';
+    final titleArr = titleProp['title'] as List?;
+    if (titleArr == null || titleArr.isEmpty) return '(空标题)';
+    final parts = <String>[];
+    for (final t in titleArr) {
+      final type = t['type'];
+      if (type == 'text') {
+        parts.add((t['text']['content'] as String?) ?? '');
+      } else if (type == 'mention') {
+        final mention = t['mention'] as Map<String, dynamic>?;
+        if (mention?['type'] == 'date') {
+          parts.add((mention!['date']['start'] as String?) ?? '');
+        } else if (mention?['type'] == 'user') {
+          parts.add('@user');
+        }
+      }
+    }
+    final joined = parts.join('').trim();
+    return joined.isEmpty ? '(空标题)' : joined;
+  }
+
   void _checkError(http.Response resp) {
     if (resp.statusCode >= 400) {
       String code = 'unknown';

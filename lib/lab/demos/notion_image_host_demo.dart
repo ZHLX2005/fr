@@ -1,12 +1,12 @@
 // Notion 图床 Demo — 拍照为核心，设置项收起到抽屉里。
 //
-// 架构：
-//   - 主页：状态卡片（当前 db / 最新 page）+ 大拍照按钮 + 创建新 page 按钮
-//   - 设置抽屉（ModalBottomSheet）：Token + 数据库选择（用 Notion API 列 db）
-//   - 预览页（拍照后）：全屏图片预览 + 上传/重拍/取消 三个按钮
+// 架构（UX 升级版）：
+//   - 主页：顶部状态栏（最新 page title + db 名）+ 中央预览区（大 +/图片预览）
+//           + 底部操作按钮（重拍/上传/创建新 page）
+//   - 设置抽屉（ModalBottomSheet）：Token + 数据库选择（一次性配置）
 //
-// 时区：date mention 加 +08:00 后缀（北京 UTC+8），让 Notion UI 显示成
-// 当前北京时间（已通过 test/api/notion/notion_timezone_real_test.dart 验证）。
+// 时区：date mention 加 +08:00 后缀（北京 UTC+8）。
+// 最新 page 显示真实标题（通过 NotionPageEndpoint.extractTitle），不显示 ID。
 
 import 'dart:io';
 
@@ -69,8 +69,12 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   String _dbName = '';
 
   String? _latestPageId;
+  String _latestPageTitle = ''; // 用户可读的 page 标题（替代 id）
   String _status = '初始化…';
   bool _isBusy = false;
+
+  /// 当前拍到的待上传图片路径。null = 没拍照状态，显示 + 大卡片。
+  String? _capturedPath;
 
   @override
   void initState() {
@@ -82,7 +86,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_kTokenPrefs) ?? '';
     _dbId = prefs.getString(_kDbIdPrefs) ?? NotionConfig.defaultDatabaseId;
-    _dbName = prefs.getString(_kDbNamePrefs) ?? 'me (默认)';
+    _dbName = prefs.getString(_kDbNamePrefs) ?? 'me';
 
     if (_token.isNotEmpty) {
       ref.read(notionTokenProvider.notifier).state = _token;
@@ -105,7 +109,6 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       ),
     );
     if (result == true) {
-      // 用户保存了设置 — 重新加载
       await _loadPrefs();
     }
   }
@@ -122,13 +125,17 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       if (page == null) {
         setState(() {
           _latestPageId = null;
+          _latestPageTitle = '';
           _isBusy = false;
           _status = '数据库里还没有 page，点下方"创建新 page"';
         });
         return;
       }
+      // 用真实标题替代 id — 用户可读
+      final title = NotionPageEndpoint.extractTitle(page);
       setState(() {
         _latestPageId = page['id'] as String;
+        _latestPageTitle = title;
         _isBusy = false;
         _status = '已找到最新 page';
       });
@@ -151,6 +158,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       final page = await pageEndpoint.createPageWithTimestamp(databaseId: _dbId);
       setState(() {
         _latestPageId = page['id'] as String;
+        _latestPageTitle = NotionPageEndpoint.extractTitle(page);
         _isBusy = false;
         _status = '已创建新 page';
       });
@@ -162,7 +170,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     }
   }
 
-  Future<void> _takeAndPreview() async {
+  Future<void> _capture() async {
     final picker = ImagePicker();
     XFile? photo;
     try {
@@ -181,25 +189,15 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       return;
     }
     if (!mounted) return;
-    final capturedPath = photo.path;
-
-    // 弹出预览页：用户可选择上传、重拍、取消
-    final action = await Navigator.of(context).push<_PreviewAction>(
-      MaterialPageRoute(
-        builder: (_) => _PreviewPage(imagePath: capturedPath),
-        fullscreenDialog: true,
-      ),
-    );
-    if (action == _PreviewAction.upload) {
-      await _uploadPhoto(File(capturedPath));
-    } else if (action == _PreviewAction.retake) {
-      // 递归重拍
-      await _takeAndPreview();
-    }
-    // null（取消/返回）：什么也不做
+    setState(() {
+      _capturedPath = photo!.path;
+      _status = '已拍照，等待上传或重拍';
+    });
   }
 
-  Future<void> _uploadPhoto(File file) async {
+  Future<void> _uploadCaptured() async {
+    final path = _capturedPath;
+    if (path == null) return;
     if (_token.isEmpty || _dbId.isEmpty) {
       _setStatus('请先在设置里填 Token + 数据库');
       return;
@@ -207,22 +205,29 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
 
     setState(() => _isBusy = true);
     try {
-      // 1. 确保 latestPageId 存在（如果没有，自动创建一个）
+      // 1. 确保 latestPageId 存在
       var latestId = _latestPageId;
+      String? latestTitle;
       if (latestId == null) {
         final pageEndpoint = NotionPageEndpoint(token: _token);
-        final newPage = await pageEndpoint.createPageWithTimestamp(databaseId: _dbId);
+        final newPage =
+            await pageEndpoint.createPageWithTimestamp(databaseId: _dbId);
         latestId = newPage['id'] as String;
+        latestTitle = NotionPageEndpoint.extractTitle(newPage);
+      } else {
+        latestTitle = _latestPageTitle;
       }
 
-      // 2. 读文件字节
-      final bytes = await file.readAsBytes();
+      // 2. 读文件字节 + 生成可读文件名
+      final bytes = await File(path).readAsBytes();
+      // 文件名只展示给用户 — 用本地时间格式化 (不含 id/UUID 等)
+      final ts = DateTime.now();
       final filename =
-          'cam_${DateTime.now().toIso8601String().replaceAll(':', '-')}.jpg';
+          'cam_${ts.year}${_pad(ts.month)}${_pad(ts.day)}_${_pad(ts.hour)}${_pad(ts.minute)}${_pad(ts.second)}.jpg';
 
-      // 3. 3 步上传
+      // 3. 3 步上传（不显示 block id — 用文件名反馈）
       final fileEndpoint = NotionFileEndpoint(token: _token);
-      final block = await fileEndpoint.uploadImageToPage(
+      await fileEndpoint.uploadImageToPage(
         pageId: latestId,
         imageBytes: bytes,
         filename: filename,
@@ -230,9 +235,10 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       );
 
       setState(() {
-        _latestPageId = latestId;
+        _latestPageTitle = latestTitle ?? _latestPageTitle;
         _isBusy = false;
-        _status = '已上传图片 (block=${(block['id'] as String).substring(0, 8)}…)';
+        _status = '已上传 $filename 到「$_latestPageTitle」';
+        _capturedPath = null; // 预览区回到 + 大卡片
       });
     } catch (e) {
       setState(() {
@@ -242,22 +248,34 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     }
   }
 
+  void _retake() {
+    setState(() {
+      _capturedPath = null;
+      _status = '已取消本次照片';
+    });
+  }
+
   void _setStatus(String s) {
     if (!mounted) return;
     setState(() => _status = s);
   }
 
+  static String _pad(int n) => n.toString().padLeft(2, '0');
+
   /// 边框强调式按钮样式 — 与 api_test_demo 风格保持一致。
-  ButtonStyle _outlinedBtnStyle(Color color) {
+  ButtonStyle _outlinedBtnStyle(Color color, {double borderWidth = 1}) {
     return OutlinedButton.styleFrom(
       foregroundColor: color,
-      side: BorderSide(color: color.withValues(alpha: 0.5)),
+      side: BorderSide(
+          color: color.withValues(alpha: 0.5), width: borderWidth),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasCaptured = _capturedPath != null;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notion 图床'),
@@ -274,7 +292,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              // 状态卡片：当前数据库 + 最新 page
+              // ── 顶部：当前数据库 + 最新 page (按标题) ──
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -311,9 +329,9 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _latestPageId == null
-                                  ? '最新 page: 无'
-                                  : '最新 page: ${_latestPageId!.substring(0, 8)}…',
+                              _latestPageTitle.isEmpty
+                                  ? '最新 page: 暂无'
+                                  : _latestPageTitle,
                               style: const TextStyle(fontSize: 13),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -331,53 +349,104 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-              // 主操作区：拍照 + 创建
+              // ── 中央：预览区（大 + 卡片 OR 拍好的图）──
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 拍照按钮 — 主操作，最大最显眼
-                    SizedBox(
-                      width: double.infinity,
-                      height: 96,
-                      child: OutlinedButton.icon(
-                        onPressed: _isBusy ? null : _takeAndPreview,
-                        icon: const Icon(Icons.photo_camera, size: 36),
-                        label: const Text(
-                          '拍照',
-                          style: TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.w600),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.deepPurple,
-                          side: BorderSide(
-                              color: Colors.deepPurple.withValues(alpha: 0.6),
-                              width: 2),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
+                child: GestureDetector(
+                  onTap: hasCaptured ? null : _capture,
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: hasCaptured
+                          ? Colors.black
+                          : theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: hasCaptured
+                            ? Colors.transparent
+                            : theme.colorScheme.outline
+                                .withValues(alpha: 0.3),
+                        width: 2,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    // 创建新 page — 次要操作
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
+                    child: hasCaptured
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              File(_capturedPath!),
+                              fit: BoxFit.contain,
+                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_a_photo_outlined,
+                                size: 56,
+                                color:
+                                    theme.colorScheme.primary.withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '点击拍照',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── 底部：操作按钮（根据状态切换）──
+              if (hasCaptured) ...[
+                // 拍完照：显示重拍 + 上传
+                Row(
+                  children: [
+                    Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _isBusy ? null : _createNewPage,
-                        icon: const Icon(Icons.add),
-                        label: const Text('创建新 page'),
-                        style: _outlinedBtnStyle(Colors.green),
+                        onPressed: _isBusy ? null : _retake,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('重拍'),
+                        style: _outlinedBtnStyle(Colors.orange),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: OutlinedButton.icon(
+                        onPressed: _isBusy ? null : _uploadCaptured,
+                        icon: const Icon(Icons.cloud_upload_outlined),
+                        label: const Text(
+                          '上传',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: _outlinedBtnStyle(Colors.green, borderWidth: 2),
                       ),
                     ),
                   ],
                 ),
-              ),
+              ] else ...[
+                // 没拍照：显示创建新 page
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: _isBusy ? null : _createNewPage,
+                    icon: const Icon(Icons.add),
+                    label: const Text('创建新 page'),
+                    style: _outlinedBtnStyle(Colors.green),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
 
-              // 状态栏
+              // ── 状态栏（操作反馈）──
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
@@ -395,85 +464,6 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// 预览页 — 拍照后弹出
-// ═══════════════════════════════════════════════════════════════════
-
-enum _PreviewAction { upload, retake }
-
-class _PreviewPage extends StatelessWidget {
-  final String imagePath;
-  const _PreviewPage({required this.imagePath});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('预览'),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: InteractiveViewer(
-                child: Image.file(File(imagePath), fit: BoxFit.contain),
-              ),
-            ),
-          ),
-          // 三个动作按钮
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () =>
-                          Navigator.of(context).pop(_PreviewAction.retake),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('重拍'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.orange,
-                        side: BorderSide(
-                            color: Colors.orange.withValues(alpha: 0.5)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: OutlinedButton.icon(
-                      onPressed: () =>
-                          Navigator.of(context).pop(_PreviewAction.upload),
-                      icon: const Icon(Icons.cloud_upload_outlined),
-                      label: const Text(
-                        '上传',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.green,
-                        side: BorderSide(
-                            color: Colors.green.withValues(alpha: 0.6),
-                            width: 2),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -539,7 +529,6 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       final dbs = await db.listDatabases();
       setState(() {
         _databases = dbs.map((d) {
-          // title 是 rich_text array
           final titleArr = d['title'] as List<dynamic>? ?? [];
           final titleText = titleArr
               .map((t) => (t['plain_text'] as String?) ?? '')
@@ -624,7 +613,6 @@ class _SettingsSheetState extends State<_SettingsSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 标题
               Row(
                 children: [
                   Icon(Icons.settings, color: theme.colorScheme.primary),
@@ -642,7 +630,6 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               ),
               const Divider(),
 
-              // Token
               const Text('Token',
                   style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
@@ -662,9 +649,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // 数据库
               const Text('数据库',
                   style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
@@ -675,43 +661,26 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                     _dbName.isEmpty ? '(未选择)' : _dbName,
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
-                  subtitle: _dbId.isEmpty
-                      ? null
-                      : Text(
-                          _dbId,
-                          style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 11),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _pickDatabase,
                 ),
               ),
               const SizedBox(height: 12),
 
-              // 加载数据库按钮
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _loadingDbs ? null : _fetchDatabases,
-                      icon: _loadingDbs
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.cloud_download_outlined),
-                      label: const Text('加载数据库列表'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.indigo,
-                        side: BorderSide(
-                            color: Colors.indigo.withValues(alpha: 0.5)),
-                      ),
-                    ),
-                  ),
-                ],
+              OutlinedButton.icon(
+                onPressed: _loadingDbs ? null : _fetchDatabases,
+                icon: _loadingDbs
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_download_outlined),
+                label: const Text('加载数据库列表'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.indigo,
+                  side: BorderSide(color: Colors.indigo.withValues(alpha: 0.5)),
+                ),
               ),
               if (_dbLoadError != null) ...[
                 const SizedBox(height: 8),
@@ -722,7 +691,6 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               ],
               const SizedBox(height: 24),
 
-              // 保存按钮
               SizedBox(
                 height: 48,
                 child: OutlinedButton.icon(
@@ -747,7 +715,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Tip: Token 和数据库会保存到 SharedPreferences，下次启动自动加载',
+                'Tip: Token 和数据库会保存到 SharedPreferences',
                 style: TextStyle(fontSize: 11, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
@@ -760,7 +728,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 数据库选择器 — 列表展示所有可选 db
+// 数据库选择器
 // ═══════════════════════════════════════════════════════════════════
 
 class _DatabasePickerSheet extends StatelessWidget {
@@ -854,13 +822,6 @@ class _DatabasePickerSheet extends StatelessWidget {
                               ? FontWeight.w600
                               : FontWeight.normal,
                         ),
-                      ),
-                      subtitle: Text(
-                        db.id,
-                        style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 11),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       onTap: () => Navigator.of(context).pop(db),
                     );
