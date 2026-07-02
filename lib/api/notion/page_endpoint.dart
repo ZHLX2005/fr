@@ -25,12 +25,28 @@ class NotionPageEndpoint {
   ///
   /// 复用现有 "me" 数据库的标题风格（date mention + 一个空格）。
   /// [titlePropertyName] 默认 `"名称"` — 与用户 me 数据库 schema 对齐。
+  ///
+  /// **时区处理（关键，已实测验证）**：
+  /// 用户在北京（UTC+8）期望 date mention 显示**当前北京时间**。
+  /// 已通过 test/api/notion/notion_timezone_real_test.dart 验证：
+  ///   - 无时区 `2026-07-02T17:57:00` → 显示 `17:57+00:00` ❌
+  ///   - `-08:00` → 显示 `17:57-08:00`（Notion 不偏移）❌
+  ///   - `+08:00` → 显示 `July 2, 2026 5:57 PM` ✅ = 当前北京时间
+  ///
+  /// 结论：必须在 ISO 字符串后加 `+08:00` 后缀（中国用户）。
+  /// 未来支持其他时区：把 `_localTzOffset` 改成动态读取
+  /// `DateTime.now().timeZoneOffset`。
   Future<Map<String, dynamic>> createPageWithTimestamp({
     required String databaseId,
     String? titlePropertyName,
   }) async {
     final propertyName = titlePropertyName ?? '名称';
-    final nowIso = DateTime.now().toIso8601String();
+    final nowLocal = DateTime.now();
+    final localIsoNoTz = nowLocal.toIso8601String();
+    // 当前固定为东八区（北京时间）。其他时区扩展时改成
+    // `nowLocal.timeZoneOffset` 动态算。
+    const localTzOffset = '+08:00';
+    final notionDateStart = '$localIsoNoTz$localTzOffset';
     final body = jsonEncode({
       'parent': {'database_id': databaseId},
       'properties': {
@@ -40,7 +56,7 @@ class NotionPageEndpoint {
               'type': 'mention',
               'mention': {
                 'type': 'date',
-                'date': {'start': nowIso},
+                'date': {'start': notionDateStart},
               },
             },
             {'type': 'text', 'text': {'content': ' '}},

@@ -1,14 +1,12 @@
-// Notion 图床 Demo — 在 me 数据库里建 page、拍照上传到最新 page 末尾。
+// Notion 图床 Demo — 拍照为核心，设置项收起到抽屉里。
 //
-// 流程：
-//   1. 第一次用：填 token + 数据库 ID → 保存（SharedPreferences 持久化）
-//   2. 后续启动：自动加载缓存 → 显示当前最新 page
-//   3. 两个按钮：
-//      - "创建新 page"：在数据库下新建 page（标题=ISO 时间戳 mention.date）
-//      - "拍照上传"：调 image_picker 相机 → 3 步上传到最新 page 末尾
+// 架构：
+//   - 主页：状态卡片（当前 db / 最新 page）+ 大拍照按钮 + 创建新 page 按钮
+//   - 设置抽屉（ModalBottomSheet）：Token + 数据库选择（用 Notion API 列 db）
+//   - 预览页（拍照后）：全屏图片预览 + 上传/重拍/取消 三个按钮
 //
-// Token / 数据库 ID 走 SharedPreferences；Provider 在 initState 时加载。
-// 上传路径复用 lib/api/notion/ — 已通过 test/api/notion/ 链路测试。
+// 时区：date mention 加 +08:00 后缀（北京 UTC+8），让 Notion UI 显示成
+// 当前北京时间（已通过 test/api/notion/notion_timezone_real_test.dart 验证）。
 
 import 'dart:io';
 
@@ -20,16 +18,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
 import '../../api/api_module.dart';
 
-/// 缓存键名常量 — 集中管理便于排查。
+/// SharedPreferences 键名常量 — 集中管理。
 const String _kTokenPrefs = 'notion_token';
 const String _kDbIdPrefs = 'notion_db_id';
+const String _kDbNamePrefs = 'notion_db_name';
 
 class NotionImageHostDemo extends DemoPage {
   @override
   String get title => 'Notion 图床';
 
   @override
-  String get description => 'Notion 数据库作为图片托管（按 page 追加）';
+  String get description => 'Notion 数据库作为图片托管';
 
   @override
   bool get preferFullScreen => true;
@@ -42,6 +41,20 @@ void registerNotionImageHostDemo() {
   demoRegistry.register(NotionImageHostDemo());
 }
 
+/// 数据库信息模型（用于列表选择 UI）。
+class _DatabaseInfo {
+  final String id;
+  final String title;
+  const _DatabaseInfo(this.id, this.title);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _DatabaseInfo && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
 class NotionImageHostPage extends ConsumerStatefulWidget {
   const NotionImageHostPage({super.key});
 
@@ -51,12 +64,11 @@ class NotionImageHostPage extends ConsumerStatefulWidget {
 }
 
 class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
-  final _tokenController = TextEditingController();
-  final _dbIdController = TextEditingController();
-  final _picker = ImagePicker();
+  String _token = '';
+  String _dbId = '';
+  String _dbName = '';
 
   String? _latestPageId;
-  String? _latestPageUrl;
   String _status = '初始化…';
   bool _isBusy = false;
 
@@ -66,80 +78,57 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     _loadPrefs();
   }
 
-  @override
-  void dispose() {
-    _tokenController.dispose();
-    _dbIdController.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_kTokenPrefs);
-    final dbId = prefs.getString(_kDbIdPrefs) ?? NotionConfig.defaultDatabaseId;
+    _token = prefs.getString(_kTokenPrefs) ?? '';
+    _dbId = prefs.getString(_kDbIdPrefs) ?? NotionConfig.defaultDatabaseId;
+    _dbName = prefs.getString(_kDbNamePrefs) ?? 'me (默认)';
 
-    _tokenController.text = token ?? '';
-    _dbIdController.text = dbId;
-
-    if (token != null && token.isNotEmpty) {
-      // 推送到 Riverpod，让 endpoint 立刻可用
-      ref.read(notionTokenProvider.notifier).state = token;
-      ref.read(notionDatabaseIdProvider.notifier).state = dbId;
+    if (_token.isNotEmpty) {
+      ref.read(notionTokenProvider.notifier).state = _token;
+      ref.read(notionDatabaseIdProvider.notifier).state = _dbId;
       await _refreshLatestPage();
       setState(() => _status = '已加载缓存配置');
     } else {
-      setState(() => _status = '请输入 Token 和数据库 ID');
+      setState(() => _status = '点右上角 ⚙ 设置 Token 和数据库');
     }
   }
 
-  Future<void> _saveToken() async {
-    final token = _tokenController.text.trim();
-    if (token.isEmpty) {
-      _setStatus('Token 不能为空');
-      return;
+  Future<void> _openSettings() async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _SettingsSheet(
+        initialToken: _token,
+        initialDbId: _dbId,
+        initialDbName: _dbName,
+      ),
+    );
+    if (result == true) {
+      // 用户保存了设置 — 重新加载
+      await _loadPrefs();
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kTokenPrefs, token);
-    ref.read(notionTokenProvider.notifier).state = token;
-    setState(() => _status = 'Token 已保存');
-  }
-
-  Future<void> _saveDbId() async {
-    final dbId = _dbIdController.text.trim();
-    if (dbId.isEmpty) {
-      _setStatus('数据库 ID 不能为空');
-      return;
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kDbIdPrefs, dbId);
-    ref.read(notionDatabaseIdProvider.notifier).state = dbId;
-    setState(() => _status = '数据库 ID 已保存');
   }
 
   Future<void> _refreshLatestPage() async {
-    final dbId = _dbIdController.text.trim();
-    final token = _tokenController.text.trim();
-    if (token.isEmpty || dbId.isEmpty) {
-      _setStatus('请先填 Token + 数据库 ID');
+    if (_token.isEmpty || _dbId.isEmpty) {
+      _setStatus('请先在设置里填 Token + 数据库');
       return;
     }
     setState(() => _isBusy = true);
     try {
-      // 临时拿一次 endpoint — 用完后不需要 dispose
-      final db = NotionDatabaseEndpoint(token: token);
-      final page = await db.queryLatestPage(dbId);
+      final db = NotionDatabaseEndpoint(token: _token);
+      final page = await db.queryLatestPage(_dbId);
       if (page == null) {
         setState(() {
           _latestPageId = null;
-          _latestPageUrl = null;
           _isBusy = false;
-          _status = '数据库里还没有 page，请先创建';
+          _status = '数据库里还没有 page，点下方"创建新 page"';
         });
         return;
       }
       setState(() {
         _latestPageId = page['id'] as String;
-        _latestPageUrl = page['url'] as String?;
         _isBusy = false;
         _status = '已找到最新 page';
       });
@@ -152,19 +141,16 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   }
 
   Future<void> _createNewPage() async {
-    final dbId = _dbIdController.text.trim();
-    final token = _tokenController.text.trim();
-    if (token.isEmpty || dbId.isEmpty) {
-      _setStatus('请先填 Token + 数据库 ID');
+    if (_token.isEmpty || _dbId.isEmpty) {
+      _setStatus('请先在设置里填 Token + 数据库');
       return;
     }
     setState(() => _isBusy = true);
     try {
-      final pageEndpoint = NotionPageEndpoint(token: token);
-      final page = await pageEndpoint.createPageWithTimestamp(databaseId: dbId);
+      final pageEndpoint = NotionPageEndpoint(token: _token);
+      final page = await pageEndpoint.createPageWithTimestamp(databaseId: _dbId);
       setState(() {
         _latestPageId = page['id'] as String;
-        _latestPageUrl = page['url'] as String?;
         _isBusy = false;
         _status = '已创建新 page';
       });
@@ -176,20 +162,17 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     }
   }
 
-  Future<void> _takeAndUpload() async {
-    // 拍照 — 用 image_picker 的 camera 模式，直接返回 XFile.path。
-    // MediaService.takePicture() 内部会读 bytes 转 base64（web 场景），但
-    // 这里我们需要在移动端直接拿到文件路径上传，避免 web-only 分支。
+  Future<void> _takeAndPreview() async {
+    final picker = ImagePicker();
     XFile? photo;
     try {
-      photo = await _picker.pickImage(
+      photo = await picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 1920,
         maxHeight: 1920,
         imageQuality: 85,
       );
     } catch (e) {
-      // image_picker 在 web 上会抛 — 提示用户
       _setStatus('拍照失败（web 暂不支持）: $e');
       return;
     }
@@ -197,11 +180,28 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       _setStatus('已取消拍照');
       return;
     }
+    if (!mounted) return;
+    final capturedPath = photo.path;
 
-    final token = _tokenController.text.trim();
-    final dbId = _dbIdController.text.trim();
-    if (token.isEmpty || dbId.isEmpty) {
-      _setStatus('请先填 Token + 数据库 ID');
+    // 弹出预览页：用户可选择上传、重拍、取消
+    final action = await Navigator.of(context).push<_PreviewAction>(
+      MaterialPageRoute(
+        builder: (_) => _PreviewPage(imagePath: capturedPath),
+        fullscreenDialog: true,
+      ),
+    );
+    if (action == _PreviewAction.upload) {
+      await _uploadPhoto(File(capturedPath));
+    } else if (action == _PreviewAction.retake) {
+      // 递归重拍
+      await _takeAndPreview();
+    }
+    // null（取消/返回）：什么也不做
+  }
+
+  Future<void> _uploadPhoto(File file) async {
+    if (_token.isEmpty || _dbId.isEmpty) {
+      _setStatus('请先在设置里填 Token + 数据库');
       return;
     }
 
@@ -210,19 +210,18 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       // 1. 确保 latestPageId 存在（如果没有，自动创建一个）
       var latestId = _latestPageId;
       if (latestId == null) {
-        final pageEndpoint = NotionPageEndpoint(token: token);
-        final newPage =
-            await pageEndpoint.createPageWithTimestamp(databaseId: dbId);
+        final pageEndpoint = NotionPageEndpoint(token: _token);
+        final newPage = await pageEndpoint.createPageWithTimestamp(databaseId: _dbId);
         latestId = newPage['id'] as String;
       }
 
       // 2. 读文件字节
-      final bytes = await File(photo.path).readAsBytes();
+      final bytes = await file.readAsBytes();
       final filename =
           'cam_${DateTime.now().toIso8601String().replaceAll(':', '-')}.jpg';
 
       // 3. 3 步上传
-      final fileEndpoint = NotionFileEndpoint(token: token);
+      final fileEndpoint = NotionFileEndpoint(token: _token);
       final block = await fileEndpoint.uploadImageToPage(
         pageId: latestId,
         imageBytes: bytes,
@@ -231,8 +230,9 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       );
 
       setState(() {
+        _latestPageId = latestId;
         _isBusy = false;
-        _status = '已上传图片到 page (block=${(block['id'] as String).substring(0, 8)}…)';
+        _status = '已上传图片 (block=${(block['id'] as String).substring(0, 8)}…)';
       });
     } catch (e) {
       setState(() {
@@ -258,174 +258,615 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notion 图床'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: '设置（Token / 数据库）',
+            onPressed: _isBusy ? null : _openSettings,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // 状态卡片：当前数据库 + 最新 page
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.storage,
+                              size: 18, color: theme.colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _dbName.isEmpty ? '(未选数据库)' : _dbName,
+                              style: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (_isBusy)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                        ],
+                      ),
+                      const Divider(height: 16),
+                      Row(
+                        children: [
+                          const Icon(Icons.article_outlined,
+                              size: 18, color: Colors.teal),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _latestPageId == null
+                                  ? '最新 page: 无'
+                                  : '最新 page: ${_latestPageId!.substring(0, 8)}…',
+                              style: const TextStyle(fontSize: 13),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.refresh, size: 18),
+                            visualDensity: VisualDensity.compact,
+                            tooltip: '刷新最新 page',
+                            onPressed: _isBusy ? null : _refreshLatestPage,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 主操作区：拍照 + 创建
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // 拍照按钮 — 主操作，最大最显眼
+                    SizedBox(
+                      width: double.infinity,
+                      height: 96,
+                      child: OutlinedButton.icon(
+                        onPressed: _isBusy ? null : _takeAndPreview,
+                        icon: const Icon(Icons.photo_camera, size: 36),
+                        label: const Text(
+                          '拍照',
+                          style: TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.deepPurple,
+                          side: BorderSide(
+                              color: Colors.deepPurple.withValues(alpha: 0.6),
+                              width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // 创建新 page — 次要操作
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        onPressed: _isBusy ? null : _createNewPage,
+                        icon: const Icon(Icons.add),
+                        label: const Text('创建新 page'),
+                        style: _outlinedBtnStyle(Colors.green),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 状态栏
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _status,
+                  style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 预览页 — 拍照后弹出
+// ═══════════════════════════════════════════════════════════════════
+
+enum _PreviewAction { upload, retake }
+
+class _PreviewPage extends StatelessWidget {
+  final String imagePath;
+  const _PreviewPage({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('预览'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: InteractiveViewer(
+                child: Image.file(File(imagePath), fit: BoxFit.contain),
+              ),
+            ),
+          ),
+          // 三个动作按钮
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pop(_PreviewAction.retake),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('重拍'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orange,
+                        side: BorderSide(
+                            color: Colors.orange.withValues(alpha: 0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pop(_PreviewAction.upload),
+                      icon: const Icon(Icons.cloud_upload_outlined),
+                      label: const Text(
+                        '上传',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.green,
+                        side: BorderSide(
+                            color: Colors.green.withValues(alpha: 0.6),
+                            width: 2),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 设置抽屉 — Token + 数据库选择
+// ═══════════════════════════════════════════════════════════════════
+
+class _SettingsSheet extends StatefulWidget {
+  final String initialToken;
+  final String initialDbId;
+  final String initialDbName;
+
+  const _SettingsSheet({
+    required this.initialToken,
+    required this.initialDbId,
+    required this.initialDbName,
+  });
+
+  @override
+  State<_SettingsSheet> createState() => _SettingsSheetState();
+}
+
+class _SettingsSheetState extends State<_SettingsSheet> {
+  late final TextEditingController _tokenController;
+  late String _dbId;
+  late String _dbName;
+
+  List<_DatabaseInfo> _databases = [];
+  bool _loadingDbs = false;
+  String? _dbLoadError;
+
+  bool _tokenVisible = false;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tokenController = TextEditingController(text: widget.initialToken);
+    _dbId = widget.initialDbId;
+    _dbName = widget.initialDbName;
+  }
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchDatabases() async {
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) {
+      setState(() => _dbLoadError = '请先填 Token');
+      return;
+    }
+    setState(() {
+      _loadingDbs = true;
+      _dbLoadError = null;
+    });
+    try {
+      final db = NotionDatabaseEndpoint(token: token);
+      final dbs = await db.listDatabases();
+      setState(() {
+        _databases = dbs.map((d) {
+          // title 是 rich_text array
+          final titleArr = d['title'] as List<dynamic>? ?? [];
+          final titleText = titleArr
+              .map((t) => (t['plain_text'] as String?) ?? '')
+              .join()
+              .trim();
+          return _DatabaseInfo(
+            d['id'] as String,
+            titleText.isEmpty ? '(无标题)' : titleText,
+          );
+        }).toList();
+        _loadingDbs = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loadingDbs = false;
+        _dbLoadError = '加载失败: $e';
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) {
+      _showSnack('Token 不能为空');
+      return;
+    }
+    if (_dbId.isEmpty) {
+      _showSnack('请选择数据库');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kTokenPrefs, token);
+      await prefs.setString(_kDbIdPrefs, _dbId);
+      await prefs.setString(_kDbNamePrefs, _dbName);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      setState(() => _saving = false);
+      _showSnack('保存失败: $e');
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  Future<void> _pickDatabase() async {
+    final picked = await showModalBottomSheet<_DatabaseInfo>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _DatabasePickerSheet(
+        databases: _databases,
+        loading: _loadingDbs,
+        error: _dbLoadError,
+        currentId: _dbId,
+        onRetry: _fetchDatabases,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _dbId = picked.id;
+        _dbName = picked.title;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 标题
+              Row(
+                children: [
+                  Icon(Icons.settings, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '设置',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+                  ),
+                ],
+              ),
+              const Divider(),
+
+              // Token
+              const Text('Token',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _tokenController,
+                obscureText: !_tokenVisible,
+                decoration: InputDecoration(
+                  hintText: 'ntn_xxx 或 secret_xxx',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  suffixIcon: IconButton(
+                    icon: Icon(_tokenVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setState(() => _tokenVisible = !_tokenVisible),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 数据库
+              const Text('数据库',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.storage, color: Colors.indigo),
+                  title: Text(
+                    _dbName.isEmpty ? '(未选择)' : _dbName,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: _dbId.isEmpty
+                      ? null
+                      : Text(
+                          _dbId,
+                          style: const TextStyle(
+                              fontFamily: 'monospace', fontSize: 11),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _pickDatabase,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 加载数据库按钮
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _loadingDbs ? null : _fetchDatabases,
+                      icon: _loadingDbs
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.cloud_download_outlined),
+                      label: const Text('加载数据库列表'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.indigo,
+                        side: BorderSide(
+                            color: Colors.indigo.withValues(alpha: 0.5)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_dbLoadError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _dbLoadError!,
+                  style: const TextStyle(fontSize: 11, color: Colors.red),
+                ),
+              ],
+              const SizedBox(height: 24),
+
+              // 保存按钮
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save),
+                  label: const Text(
+                    '保存设置',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green,
+                    side: BorderSide(
+                        color: Colors.green.withValues(alpha: 0.6), width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Tip: Token 和数据库会保存到 SharedPreferences，下次启动自动加载',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 数据库选择器 — 列表展示所有可选 db
+// ═══════════════════════════════════════════════════════════════════
+
+class _DatabasePickerSheet extends StatelessWidget {
+  final List<_DatabaseInfo> databases;
+  final bool loading;
+  final String? error;
+  final String currentId;
+  final VoidCallback onRetry;
+
+  const _DatabasePickerSheet({
+    required this.databases,
+    required this.loading,
+    required this.error,
+    required this.currentId,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: ListView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 标题栏
             Row(
               children: [
-                const Icon(Icons.image, size: 28, color: Colors.indigo),
+                const Icon(Icons.storage, color: Colors.indigo),
                 const SizedBox(width: 8),
                 const Text(
-                  'Notion 图床',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  '选择数据库',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                if (_isBusy)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: '重新加载',
+                  onPressed: loading ? null : onRetry,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-
-            // Token 配置卡片
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Token',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _tokenController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        hintText: 'ntn_xxx 或 secret_xxx',
-                        border: OutlineInputBorder(),
-                        isDense: true,
+            const Divider(),
+            if (loading)
+              const Padding(
+                padding: EdgeInsets.all(40),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (error != null)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  error!,
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else if (databases.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(40),
+                child: Text(
+                  '没有找到任何数据库。\n确认 Token 有访问权限，并先在 Notion 里把数据库分享给 integration。',
+                  style: TextStyle(color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 400),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: databases.length,
+                  itemBuilder: (ctx, i) {
+                    final db = databases[i];
+                    final isCurrent = db.id == currentId;
+                    return ListTile(
+                      leading: Icon(
+                        isCurrent
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
+                        color: isCurrent ? Colors.green : Colors.grey,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: _isBusy ? null : _saveToken,
-                      icon: const Icon(Icons.save),
-                      label: const Text('保存 Token'),
-                      style: _outlinedBtnStyle(Colors.blue),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 数据库 ID 配置卡片
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      '数据库 ID',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _dbIdController,
-                      decoration: InputDecoration(
-                        hintText: NotionConfig.defaultDatabaseId,
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        helperText: '默认填充 me 数据库',
-                        helperStyle:
-                            TextStyle(fontSize: 11, color: theme.hintColor),
+                      title: Text(
+                        db.title,
+                        style: TextStyle(
+                          fontWeight: isCurrent
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _isBusy ? null : _saveDbId,
-                            icon: const Icon(Icons.save),
-                            label: const Text('保存'),
-                            style: _outlinedBtnStyle(Colors.blue),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _isBusy ? null : _refreshLatestPage,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('刷新最新'),
-                            style: _outlinedBtnStyle(Colors.indigo),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 当前最新 page 信息
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.article_outlined, color: Colors.teal),
-                title: Text(
-                  _latestPageId == null
-                      ? '当前最新 page: 无'
-                      : '当前最新 page: ${_latestPageId!.substring(0, 8)}…',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: _latestPageUrl == null
-                    ? null
-                    : Text(
-                        _latestPageUrl!,
-                        style: const TextStyle(fontSize: 11),
-                        maxLines: 2,
+                      subtitle: Text(
+                        db.id,
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 11),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // 两个主操作按钮
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _isBusy ? null : _createNewPage,
-                    icon: const Icon(Icons.add),
-                    label: const Text('创建新 page'),
-                    style: _outlinedBtnStyle(Colors.green),
-                  ),
+                      onTap: () => Navigator.of(context).pop(db),
+                    );
+                  },
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _isBusy ? null : _takeAndUpload,
-                    icon: const Icon(Icons.photo_camera),
-                    label: const Text('拍照并上传'),
-                    style: _outlinedBtnStyle(Colors.deepPurple),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // 状态栏
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                _status,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-            ),
           ],
         ),
       ),
