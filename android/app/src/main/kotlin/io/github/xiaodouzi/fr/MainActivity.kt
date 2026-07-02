@@ -56,6 +56,9 @@ class MainActivity : FlutterActivity() {
         widgetChannel = WidgetChannel(messenger).apply {
             onNavigateToLab = { navigateToLab() }
             onNavigateToTimetable = { navigateToTimetable() }
+            onNavigateToNotionImage = { autocapture ->
+                navigateToNotionImage(autocapture)
+            }
         }
 
         // Clock Channel
@@ -211,12 +214,21 @@ class MainActivity : FlutterActivity() {
     private fun handleIntent(intent: Intent?) {
         intent?.data?.let { uri ->
             val uriStr = uri.toString()
-            if (uriStr == "fr://calendar" || uri.path == "/calendar") {
-                widgetChannel.notifyNavigateToCalendar()
-            } else if (uriStr == "fr://timetable" || uri.path == "/timetable") {
-                widgetChannel.notifyNavigateToTimetable()
-            } else if (uriStr == "fr://lab" || uri.path == "/lab") {
-                widgetChannel.notifyNavigateToLab()
+            // 解析 fr://notionimg?autocapture=1 或 fr://notionimg 两种 URI
+            when {
+                uriStr.startsWith("fr://notionimg") -> {
+                    val autocapture = uri.getBooleanQueryParameter("autocapture", false)
+                    widgetChannel.notifyNavigateToNotionImage(autocapture)
+                }
+                uriStr == "fr://calendar" || uri.path == "/calendar" -> {
+                    widgetChannel.notifyNavigateToCalendar()
+                }
+                uriStr == "fr://timetable" || uri.path == "/timetable" -> {
+                    widgetChannel.notifyNavigateToTimetable()
+                }
+                uriStr == "fr://lab" || uri.path == "/lab" -> {
+                    widgetChannel.notifyNavigateToLab()
+                }
             }
         }
     }
@@ -227,6 +239,10 @@ class MainActivity : FlutterActivity() {
 
     private fun navigateToTimetable() {
         widgetChannel.notifyNavigateToTimetable()
+    }
+
+    private fun navigateToNotionImage(autocapture: Boolean) {
+        widgetChannel.notifyNavigateToNotionImage(autocapture)
     }
 
     private fun registerRegionCaptureReceiver() {

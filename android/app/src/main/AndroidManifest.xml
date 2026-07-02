@@ -200,6 +200,18 @@
                 android:resource="@xml/timetable_widget_info" />
         </receiver>
 
+        <!-- Notion 图床桌面小组件 — 点击直接打开图床页 + 自动触发拍照 -->
+        <receiver
+            android:name=".native.widget.NotionWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/notion_widget_info" />
+        </receiver>
+
         <!-- image_picker FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -63,6 +63,30 @@ class NotionImageHostPage extends ConsumerStatefulWidget {
       _NotionImageHostPageState();
 }
 
+/// 桌面 widget 入口用的 GlobalKey — main.dart 通过这个 key 拿到 demo 的
+/// state 并调 [triggerCaptureFromWidget]。
+final GlobalKey<State<NotionImageHostPage>> notionImageHostKey =
+    GlobalKey<State<NotionImageHostPage>>();
+
+/// 从外部（桌面 widget 入口）触发拍照。
+///
+/// 通过 dynamic 分发调用 state 上的 `captureFromWidget` — State 是私有类，
+/// 无法在 main.dart 里 cast 出来，所以 demo 自己导出这个函数。
+void triggerCaptureFromWidget() {
+  final state = notionImageHostKey.currentState;
+  if (state == null) return;
+  // dynamic 转发：state 上的 captureFromWidget 是私有方法，静态分析看不到，
+  // 但运行时会找到。用 noSuchMethod 兜底防止 demo 页面未初始化时报错。
+  try {
+    // ignore: avoid_dynamic_calls
+    (state as dynamic).captureFromWidget();
+  } on NoSuchMethodError {
+    // demo 页面未挂载或未注册该方法 — 静默忽略
+  } catch (_) {
+    // 其他错误也忽略（拍照是非关键路径）
+  }
+}
+
 class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   String _token = '';
   String _dbId = '';
@@ -193,6 +217,23 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       _capturedPath = photo!.path;
       _status = '已拍照，等待上传或重拍';
     });
+  }
+
+  /// 桌面 widget 进入时调用（外部入口，不要命名为私有）。包装 _capture 但
+  /// 增加 token / dbId 校验，避免没配置就跑拍照浪费相机权限。
+  ///
+  /// 之所以需要 token 校验：
+  ///   - widget 点击后 App 冷启动，_loadPrefs 是异步的（300ms 内完成）
+  ///   - main.dart addPostFrameCallback + 300ms delay 后才调到这里
+  ///   - 此时 _token / _dbId 应该已经被 _loadPrefs 写好
+  void captureFromWidget() {
+    if (_token.isEmpty || _dbId.isEmpty) {
+      _setStatus('请先在设置里填 Token 和数据库');
+      // 仍然尝试打开相机 — 用户可能想先拍下来再去配置
+      _capture();
+      return;
+    }
+    _capture();
   }
 
   Future<void> _uploadCaptured() async {

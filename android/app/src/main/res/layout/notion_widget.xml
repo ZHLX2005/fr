@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Notion 图床桌面小组件 — 简化版式。
+
+  触发逻辑（全部托管在 NotionWidgetProvider）：
+    - 整体点击（widget_root）→ 打开 App 到 Notion 图床页面（带 ?autocapture=1）
+    - 拍照按钮点击（widget_capture_btn）→ 同样行为，且 App 启动后自动触发拍照
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:padding="14dp"
+    android:gravity="center">
+
+    <!-- 顶部：相机图标 + 应用名 -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📷"
+            android:textSize="20sp"
+            android:contentDescription="图标" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="Notion 图床"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#333333" />
+
+    </LinearLayout>
+
+    <!-- 中间：大圆点拍照按钮（点击触发带 autocapture=1 的 deep link） -->
+    <TextView
+        android:id="@+id/widget_capture_btn"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/notion_widget_capture_btn_bg"
+        android:gravity="center"
+        android:text="📸"
+        android:textSize="32sp"
+        android:clickable="true"
+        android:focusable="true"
+        android:contentDescription="拍照并上传到 Notion" />
+
+    <!-- 底部：提示文字 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="点击拍照"
+        android:textSize="12sp"
+        android:textColor="#666666" />
+
+</LinearLayout>

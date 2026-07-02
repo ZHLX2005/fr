@@ -20,6 +20,7 @@ import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
+import 'lab/demos/notion_image_host_demo.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
 void main() async {
@@ -103,7 +104,27 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       _navigateToCalendar();
     } else if (call.method == 'navigateToTimetable') {
       _navigateToTimetable();
+    } else if (call.method == 'navigateToNotionImage') {
+      // args[0] 是 autocapture 布尔值 — 从桌面 widget 进入时为 true，
+      // Notion 图床页 initState 会读这个标志自动触发拍照。
+      final autocapture = (call.arguments as bool?) ?? false;
+      _navigateToNotionImage(autocapture: autocapture);
     }
+  }
+
+  void _navigateToNotionImage({required bool autocapture}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // demo key 与 lab_bootstrap 注册的 title 一致 — 'Notion 图床'
+      final demo = demoRegistry.get('Notion 图床');
+      if (demo == null) return;
+      _pushOnceIfNotOnTop(
+        'home-widget-notion-image',
+        (_) => NotionImageHostDeepLinkPage(
+          demo: demo,
+          autocapture: autocapture,
+        ),
+      );
+    });
   }
 
   void _navigateToTimetable() {
@@ -228,6 +249,34 @@ class _CalendarDeepLinkPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return demo.buildPage(context);
+  }
+}
+
+/// Notion 图床桌面小组件入口页：包装 demo.buildPage，并按 autocapture
+/// 标志自动触发拍照。仅当 autocapture=true 时（桌面 widget 点击进入）才触发。
+class NotionImageHostDeepLinkPage extends StatelessWidget {
+  final DemoPage demo;
+  final bool autocapture;
+
+  const NotionImageHostDeepLinkPage({
+    super.key,
+    required this.demo,
+    required this.autocapture,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 桌面 widget 入口：用全局 GlobalKey 跟踪
+    final page = NotionImageHostPage(key: notionImageHostKey);
+    if (autocapture) {
+      // 等页面 mount + initState 跑完后再触发拍照。
+      // _loadPrefs 内部用 SharedPreferences 是异步，所以多等 300ms。
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Future.delayed(const Duration(milliseconds: 300));
+        triggerCaptureFromWidget();
+      });
+    }
+    return page;
   }
 }
 

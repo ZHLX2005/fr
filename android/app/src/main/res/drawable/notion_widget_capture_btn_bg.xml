@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Notion widget 拍照按钮背景：圆角矩形 + 紫色描边。
+  对应 widget_capture_btn，圆 + 边框强调，与主应用按钮风格保持一致。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#FFF3E5F7" /> <!-- 深紫色淡背景 -->
+    <stroke
+        android:width="2dp"
+        android:color="#FF673AB7" /> <!-- 深紫色描边 -->
+</shape>

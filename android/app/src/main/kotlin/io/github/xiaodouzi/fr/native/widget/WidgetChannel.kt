@@ -24,6 +24,11 @@ class WidgetChannel(messenger: BinaryMessenger) {
                     onNavigateToTimetable?.invoke()
                     result.success(null)
                 }
+                "navigateToNotionImage" -> {
+                    val autocapture = call.argument<Boolean>("autocapture") ?: false
+                    onNavigateToNotionImage?.invoke(autocapture)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -32,6 +37,10 @@ class WidgetChannel(messenger: BinaryMessenger) {
     var onNavigateToLab: (() -> Unit)? = null
     var onNavigateToCalendar: (() -> Unit)? = null
     var onNavigateToTimetable: (() -> Unit)? = null
+
+    /// Notion 图床页面跳转回调，[autocapture] = true 表示从桌面 widget 进入，
+    /// 期望自动触发拍照。
+    var onNavigateToNotionImage: ((Boolean) -> Unit)? = null
 
     fun notifyNavigateToLab() {
         channel.invokeMethod("navigateToLab", null)
@@ -43,5 +52,9 @@ class WidgetChannel(messenger: BinaryMessenger) {
 
     fun notifyNavigateToTimetable() {
         channel.invokeMethod("navigateToTimetable", null)
+    }
+
+    fun notifyNavigateToNotionImage(autocapture: Boolean) {
+        channel.invokeMethod("navigateToNotionImage", autocapture)
     }
 }
