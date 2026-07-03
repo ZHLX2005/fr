@@ -1,22 +1,25 @@
-// Schema 模块 - 内部链接协议
-//
-// 提供文本内嵌可点击链接功能，支持跳转到应用内 Demo 页面和核心页面
+// Schema 模块 - fr:// 内部 URL 路由中心
 //
 // 使用方式:
 // ```dart
-// import 'package:flutter_application_1/core/schema/schema.dart';
+// import 'package:xiaodouzi_fr/core/schema/schema.dart';
 //
-// // Demo 页面: [文字](fr://lab/demo/key)
-// SchemaText('访问 [悬浮截屏](fr://lab/demo/悬浮截屏) 示例')
+// // 注册路由（main 启动时）
+// registerAllFrRoutes();
 //
-// // 核心页面: [文字](fr://lab/core/profile|home|focus|timetable)
-// SchemaText('查看 [课表](fr://lab/core/timetable)')
+// // 文本中嵌入可点击链接
+// SchemaText('访问 [悬浮截屏](fr://lab/demo/clock) 示例')
 //
-// // 跳转到指定 schema
-// await schemaNavigator.navigateToSchema('fr://lab/demo/悬浮截屏');
+// // 内部代码跳转
+// await frRouter.handle(context, 'fr://lab/demo/clock');
+//
+// // MethodChannel 反注册（main.dart）
+// await FrNavigator.handle(context, 'fr://notion/image-host?autocapture=true');
 // ```
 
-export 'schema_service.dart';
-export 'schema_parser.dart';
+export 'fr_uri.dart';
+export 'fr_route.dart';
+export 'fr_route_handler.dart';
+export 'fr_router.dart';
+export 'fr_navigator.dart';
 export 'schema_text.dart';
-export 'schema_navigator.dart';
