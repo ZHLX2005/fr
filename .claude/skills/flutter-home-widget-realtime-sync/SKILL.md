@@ -297,6 +297,19 @@ widget 不刷新
         └─ 否 → 必须实现 startTimeMs 原生重算 (L2)
 ```
 
+## 样式规范
+
+本 skill 聚焦"实时值同步"的架构与代码模式,**widget 样式规范**(去 emoji、支持 1×1、launcher 兼容、layout 自适应)沉淀在独立 ref 中,设计或修改任何 widget layout/xml 之前必读:
+
+→ [[widget-style-spec]]
+
+**触发加载本 ref 的关键词**:
+- "widget 样式优化" / "去掉 emoji"
+- "支持 1×1" / "widget 太大"
+- "某些 launcher 看不到 widget" / "launcher 兼容性"
+- 第一次写 `widget_info.xml` 或修改 minWidth/minHeight/targetCell
+- 用户反馈 widget 在桌面显示异常
+
 ## 调用 skill-creator（可选）
 
 本 skill 已完整覆盖：触发条件、核心原则、端到端架构、关键代码、错误案例、验证清单、排查 flowchart。如需写测试用例或量化评估，可调用 skill-creator。
