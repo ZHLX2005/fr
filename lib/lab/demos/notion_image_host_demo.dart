@@ -569,17 +569,16 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     _loadCachedDatabases();
   }
 
-  /// 从 SharedPreferences 加载缓存的数据库列表，让选择器立即显示。
+  /// 从 SharedPreferences 加载缓存的数据库列表。
+  ///
+  /// 只在用户主动刷新时更新。不自动触发网络请求。
+  /// 缓存按 token 分区（不同 token 的数据隔离）。
   Future<void> _loadCachedDatabases() async {
     final token = _tokenController.text.trim();
     if (token.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     final cached = prefs.getString(_kDbListPrefsKey(token));
-    if (cached == null || cached.isEmpty) {
-      // 有 Token 但无缓存 → 自动触发首次加载（避免用户看到"空空如也"）
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchDatabases());
-      return;
-    }
+    if (cached == null || cached.isEmpty) return;
     try {
       final list = jsonDecode(cached) as List<dynamic>;
       setState(() {
@@ -589,11 +588,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
         }).toList();
       });
     } catch (_) {
-      // 缓存损坏 → 静默清除 + 自动重载
+      // 缓存损坏 → 清除，下次用户点刷新时重新获取
       await prefs.remove(_kDbListPrefsKey(token));
-      if (_tokenController.text.trim().isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _fetchDatabases());
-      }
     }
   }
 
