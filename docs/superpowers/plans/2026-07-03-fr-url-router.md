@@ -181,7 +181,10 @@ class FrUri {
     final slashIdx = pathAndHost.indexOf('/');
     final host = slashIdx == -1 ? pathAndHost : pathAndHost.substring(0, slashIdx);
     if (host.isEmpty) return null;
-    final path = slashIdx == -1 ? '' : pathAndHost.substring(slashIdx + 1);
+    // path 自动 URL-decode（与 query 行为对齐，支持中文 path 段）
+    final path = slashIdx == -1
+        ? ''
+        : Uri.decodeComponent(pathAndHost.substring(slashIdx + 1));
 
     // query 解析
     final query = <String, String>{};
