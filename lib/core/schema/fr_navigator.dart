@@ -29,7 +29,7 @@ class FrNavigator {
       return;
     }
 
-    final handler = frRouter.findHandler(match.host);
+    final handler = frRouter.findHandler(match.authority);
     if (handler == null) return; // resolve 已处理
 
     Widget target;
@@ -51,7 +51,7 @@ class FrNavigator {
 
     nav.push(
       MaterialPageRoute(
-        settings: RouteSettings(name: '/fr/${match.host}/${match.path}'),
+        settings: RouteSettings(name: '/fr/${match.authority}/${match.path}'),
         builder: (_) => target,
       ),
     );

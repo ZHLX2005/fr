@@ -5,13 +5,21 @@ import '../fr_route_handler.dart';
 
 /// fr://lab/demo/{demoKey} → DemoPage
 ///
+/// Router 阶段：authority 'lab/demo/...' 前缀匹配到 'lab/demo'。
+/// Handler 从 authority 尾段切 demoKey：authority='lab/demo/clock' → demoKey='clock'。
 /// demoKey 是 demoRegistry 注册时的 title（保留 demoRegistry 作为查询源）。
 class LabDemoHandler extends FrRouteHandler {
+  static const _prefix = 'lab/demo/';
+
   const LabDemoHandler();
 
   @override
   Widget build(BuildContext context, FrRouteMatch match) {
-    final demoKey = match.path;  // 整段 path 即可，因为 host 已经限定 lab/demo
+    final auth = match.authority;
+    if (!auth.startsWith(_prefix) || auth == _prefix.substring(0, _prefix.length - 1)) {
+      return _NotFoundPage(message: '非法 lab demo 路由: $auth');
+    }
+    final demoKey = auth.substring(_prefix.length);
     final demo = demoRegistry.get(demoKey);
     if (demo == null) {
       return _NotFoundPage(message: '未找到 Demo: $demoKey');

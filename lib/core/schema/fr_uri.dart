@@ -1,24 +1,33 @@
 /// fr:// URI 解析器
 ///
-/// 格式: fr://{host}/{path?}?{query?}
+/// 格式: fr://{authority}?{query?}
+/// 语义:
+///   - `authority` = fr:// 和 ? 之间的整段；可以是 'lab'、'lab/demo/clock'、
+///     'notion/image-host'。Router 用整段做 prefix 匹配（'lab/demo' 路由
+///     'lab/demo/clock'）。Host 单段 vs 多段都靠 authority 表达。
+///   - `path` = authority 内第一个 '/' 之后的部分（保留给 handler 拆分）。
+///     'lab/demo/clock' → path='demo/clock'；'lab' → path=''。
+///   - `query` = ? 后的 key=value 字典。
+///
 /// 示例:
-///   fr://lab                       → host=lab, path="", query={}
-///   fr://lab/demo/clock            → host=lab, path="demo/clock", query={}
-///   fr://notion/x?autocapture=true → host=notion, path="x", query={autocapture: true}
+///   fr://lab                       → authority=lab, path="", query={}
+///   fr://lab/demo/clock            → authority=lab/demo/clock, path="demo/clock", query={}
+///   fr://notion/image-host?a=true  → authority=notion/image-host, path="image-host",
+///                                    query={a: "true"}
 class FrUri {
   final String scheme;
-  final String host;
+  final String authority;
   final String path;
   final Map<String, String> query;
 
   const FrUri({
     required this.scheme,
-    required this.host,
+    required this.authority,
     required this.path,
     required this.query,
   });
 
-  /// 解析失败返回 null（scheme 错误、字符串空、host 缺失任一情况）。
+  /// 解析失败返回 null（scheme 错误、字符串空、authority 缺失任一情况）。
   /// 静默返回，不抛 — 调用方负责处理 null。
   static FrUri? tryParse(String raw) {
     if (raw.isEmpty) return null;
@@ -31,18 +40,23 @@ class FrUri {
 
     // query split
     final querySplitIdx = afterScheme.indexOf('?');
-    final pathAndHost = querySplitIdx == -1
+    final authorityRaw = querySplitIdx == -1
         ? afterScheme
         : afterScheme.substring(0, querySplitIdx);
     final queryStr = querySplitIdx == -1 ? '' : afterScheme.substring(querySplitIdx + 1);
 
-    // host / path split（第一个 '/' 是分隔符）
-    final slashIdx = pathAndHost.indexOf('/');
-    final host = slashIdx == -1 ? pathAndHost : pathAndHost.substring(0, slashIdx);
-    if (host.isEmpty) return null;
+    // authority 必须非空（区分 "fr://" 和 "fr://lab"）
+    if (authorityRaw.isEmpty) return null;
+
+    // authority 整段 URL-decode（保留语义统一 — fr://lab/demo/旅行 等同于
+    // fr://lab/demo/%E6%97%85%E8%A1%8C）
+    final authority = Uri.decodeComponent(authorityRaw);
+
+    // path = authority 内第一个 '/' 之后的部分（保留给 handler 拆分）
+    final slashIdx = authority.indexOf('/');
     final path = slashIdx == -1
         ? ''
-        : Uri.decodeComponent(pathAndHost.substring(slashIdx + 1));
+        : authority.substring(slashIdx + 1);
 
     // query 解析
     final query = <String, String>{};
@@ -61,7 +75,7 @@ class FrUri {
 
     return FrUri(
       scheme: 'fr',
-      host: host,
+      authority: authority,
       path: path,
       query: query,
     );

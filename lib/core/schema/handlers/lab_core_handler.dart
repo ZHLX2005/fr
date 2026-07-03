@@ -8,13 +8,22 @@ import '../fr_route_handler.dart';
 
 /// fr://lab/core/{pageKey} → 4 个核心页之一
 ///
+/// Router 阶段：authority 'lab/core/...' 前缀匹配到 'lab/core'。
+/// Handler 从 authority 尾段切 pageKey：authority='lab/core/profile' → pageKey='profile'。
+///
 /// pageKey: profile | home | focus | timetable
 class LabCoreHandler extends FrRouteHandler {
+  static const _prefix = 'lab/core/';
+
   const LabCoreHandler();
 
   @override
   Widget build(BuildContext context, FrRouteMatch match) {
-    final pageKey = match.path;
+    final auth = match.authority;
+    if (!auth.startsWith(_prefix) || auth == _prefix.substring(0, _prefix.length - 1)) {
+      return _UnknownCorePage(pageKey: auth);
+    }
+    final pageKey = auth.substring(_prefix.length);
     final Widget? page = switch (pageKey) {
       'profile' => const ProfilePage(),
       'home' => const HomePage(),

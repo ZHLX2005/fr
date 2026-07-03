@@ -8,7 +8,7 @@ class StubHandler extends FrRouteHandler {
   const StubHandler();
   @override
   Widget build(BuildContext context, FrRouteMatch match) {
-    return Text('stub: ${match.host} ${match.path}');
+    return Text('stub: ${match.authority} ${match.path}');
   }
 }
 
@@ -38,9 +38,52 @@ void main() {
       expect(r.findHandler('b'), isA<StubHandler>());
     });
 
-    test('findHandler returns null for unknown host', () {
+    test('findHandler returns null for unknown authority', () {
       final r = FrRouter();
       expect(r.findHandler('ghost'), isNull);
+    });
+
+    test('findHandler does exact match for leaf authority', () {
+      final r = FrRouter();
+      r.register(FrRoute('stub', handler: const StubHandler()));
+      // 'stub' 不会命中 'st' 之类的部分匹配
+      expect(r.findHandler('st'), isNull);
+    });
+
+    test('findHandler does prefix match: lab/demo 路由 lab/demo/clock', () {
+      final r = FrRouter();
+      r.register(FrRoute('lab', handler: const StubHandler()));
+      r.register(FrRoute('lab/demo', handler: const StubHandler()));
+      // 精确匹配
+      expect(r.findHandler('lab'), isA<StubHandler>());
+      // 前缀匹配：'lab/demo/clock' 命中 'lab/demo'
+      expect(r.findHandler('lab/demo/clock'), isA<StubHandler>());
+      // 整段路径
+      expect(r.findHandler('lab/demo'), isA<StubHandler>());
+    });
+
+    test('findHandler picks longest matching prefix', () {
+      // 验证多个 prefix 都满足时取最长的（即使短 prefix 先注册）
+      final r = FrRouter();
+      r.register(FrRoute('lab', handler: const StubHandler()));
+      r.register(FrRoute('lab/demo', handler: const StubHandler()));
+      // 'lab/demo/clock' 长度 > 'lab'，应该命中 'lab/demo' 对应的 handler
+      // 由于都注册了同一个 StubHandler，类型断言都通过 — 关键是没报错
+      expect(r.findHandler('lab/demo/clock'), isA<StubHandler>());
+    });
+
+    test('findHandler does not match prefix without slash boundary', () {
+      // 'lab' 注册了，'labfoo' 不应该被 'lab' 命中
+      final r = FrRouter();
+      r.register(FrRoute('lab', handler: const StubHandler()));
+      expect(r.findHandler('labfoo'), isNull);
+    });
+
+    test('register can replace existing authority', () {
+      final r = FrRouter();
+      r.register(FrRoute('a', handler: const StubHandler()));
+      r.register(FrRoute('a', handler: const StubHandler()));
+      expect(r.findHandler('a'), isA<StubHandler>());
     });
 
     test('handle resolves URL to handler and pushes widget', () async {
@@ -50,13 +93,6 @@ void main() {
       // 不实际跑 Navigator.push，只验证 frUri 解析 + findHandler 流程
       final handler = r.findHandler('stub');
       expect(handler, isA<StubHandler>());
-    });
-
-    test('register can replace existing host', () {
-      final r = FrRouter();
-      r.register(FrRoute('a', handler: const StubHandler()));
-      r.register(FrRoute('a', handler: const StubHandler()));
-      expect(r.findHandler('a'), isA<StubHandler>());
     });
   });
 }

@@ -4,14 +4,19 @@ import 'fr_uri.dart';
 
 /// 路由匹配结果 — handler.build() 拿到的入参
 ///
-/// 包含 host/path/query 三段，handler 通过工具方法取值。
+/// 包含 authority/path/query 三段，handler 通过工具方法取值。
 class FrRouteMatch {
   final FrUri uri;
 
   const FrRouteMatch(this.uri);
 
-  String get host => uri.host;
+  /// 整段 authority（如 'lab'、'lab/demo/clock'、'notion/image-host'）。
+  /// Router 用整段做 prefix 匹配，handler 用整段做最终验证。
+  String get authority => uri.authority;
+
+  /// authority 内第一个 '/' 之后的部分（保留给 handler 拆分）。
   String get path => uri.path;
+
   Map<String, String> get query => uri.query;
 
   /// 取 query 字符串值，不存在返回 null
@@ -39,7 +44,7 @@ class FrRouteMatch {
 
 /// 路由处理器抽象基类
 ///
-/// 每个 host 对应一个 handler 子类；handler 拿到 context 和 match，
+/// 每个 authority 对应一个 handler 子类；handler 拿到 context 和 match，
 /// 返回要 push 的 Widget。
 abstract class FrRouteHandler {
   const FrRouteHandler();

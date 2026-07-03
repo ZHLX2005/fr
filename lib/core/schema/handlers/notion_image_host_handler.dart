@@ -6,6 +6,10 @@ import '../../../lab/demos/notion_image_host_demo.dart'
 
 /// fr://notion/image-host?autocapture={true|false} → Notion 图床 deep link
 ///
+/// Router 阶段：authority 'notion/image-host' 整段匹配。
+/// 防御性 guard：match.authority 必须严格等于 'notion/image-host'，避免误匹配
+/// 'notion/image-host/extra' 之类的（当前没注册，但保留防御）。
+///
 /// Task 8: 用 NotionImageHostPage（来自 lab/demos/notion_image_host_demo.dart）
 /// 替代 Task 7 的占位 widget。原 NotionImageHostDeepLinkPage 类从 main.dart
 /// 整体搬到此处：保留 autocapture 语义 + 全局 GlobalKey + 延迟 300ms 触发拍照。
@@ -14,6 +18,10 @@ class NotionImageHostHandler extends FrRouteHandler {
 
   @override
   Widget build(BuildContext context, FrRouteMatch match) {
+    assert(
+      match.authority == 'notion/image-host',
+      'NotionImageHostHandler 期望 authority=notion/image-host，实际: ${match.authority}',
+    );
     final autocapture = match.queryBool('autocapture');
     return _NotionImageHostDeepLinkPage(autocapture: autocapture);
   }

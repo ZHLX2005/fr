@@ -7,6 +7,20 @@ void main() {
     return FrRouteMatch(FrUri.tryParse(url)!);
   }
 
+  group('FrRouteMatch.authority / path', () {
+    test('authority exposes full path between fr:// and ?', () {
+      final m = make('fr://lab/demo/clock');
+      expect(m.authority, 'lab/demo/clock');
+      expect(m.path, 'demo/clock');
+    });
+
+    test('authority and path for leaf URL', () {
+      final m = make('fr://lab');
+      expect(m.authority, 'lab');
+      expect(m.path, '');
+    });
+  });
+
   group('FrRouteMatch.queryString', () {
     test('returns value when key exists', () {
       final m = make('fr://x?a=hello');
@@ -42,12 +56,17 @@ void main() {
   });
 
   group('FrRouteMatch.pathSegment', () {
-    test('returns first segment', () {
+    test('returns first segment of multi-segment path', () {
+      // fr://lab/demo/clock → path='demo/clock'，第一个段是 'demo'
       expect(make('fr://lab/demo/clock').pathSegment(0), 'demo');
     });
 
     test('returns middle segment', () {
       expect(make('fr://lab/demo/clock').pathSegment(1), 'clock');
+    });
+
+    test('returns first segment of single-segment path', () {
+      expect(make('fr://notion/image-host').pathSegment(0), 'image-host');
     });
 
     test('throws on out-of-range', () {
