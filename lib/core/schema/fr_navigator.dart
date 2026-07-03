@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'fr_router.dart';
-import 'fr_route_handler.dart';
 
 /// fr:// 路由导航器（基于 frRouter 的 push 封装）
 ///

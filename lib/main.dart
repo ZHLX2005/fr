@@ -6,9 +6,7 @@ import 'package:rive/rive.dart' hide Animation;
 import 'providers/providers.dart';
 import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
-import 'lab/lab_container.dart';
 import 'screens/profile/profile_page.dart';
-import 'screens/profile/lab/lab_page.dart';
 import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
@@ -105,8 +103,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {}
 
   /// 桌面 widget MethodChannel 回调 — 翻译 4 个 method name 到 fr:// URL，
-  /// 统一走 FrNavigator.handle 分发。MethodChannel 反注册路径仍依赖
-  /// `_pushOnceIfNotOnTop` 之前的防重复堆叠语义（FrNavigator 内部已实现）。
+  /// 统一走 FrNavigator.handle 分发（FrNavigator 内部已用 RouteSettings.name
+  /// 实现防重复堆叠）。
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     final frUrl = switch (call.method) {
       'navigateToLab' => 'fr://lab',
@@ -120,29 +118,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FrNavigator.handle(navigatorKey.currentContext, frUrl);
     });
-  }
-
-  /// 防重复堆叠：仅当栈顶不是同一目标页面时才 push。
-  ///
-  /// widget 回调、onNewIntent、onResume 任意一处重复触发都会让同一页面被多次 push，
-  /// 返回手势因此要折叠多次才能退出（"返回手势多重折叠"的成因）。
-  /// 用 RouteSettings.name 标记路由，复用 popUntil "谓词返回 true 立即停止、不 pop"
-  /// 的特性做只读探查当前栈顶名字。
-  void _pushOnceIfNotOnTop(String name, WidgetBuilder builder) {
-    final nav = navigatorKey.currentState;
-    if (nav == null) return;
-    String? currentName;
-    nav.popUntil((route) {
-      currentName = route.settings.name;
-      return true; // 立即停止，不会 pop 任何页面
-    });
-    if (currentName == name) return; // 栈顶已是该页面，跳过避免堆叠
-    nav.push(
-      MaterialPageRoute(
-        settings: RouteSettings(name: name),
-        builder: builder,
-      ),
-    );
   }
 
   @override
