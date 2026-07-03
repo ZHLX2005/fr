@@ -14,13 +14,17 @@ import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
+import 'core/schema/fr_navigator.dart';
+import 'core/schema/bootstrap_routes.dart';
 import 'lab/demos/clock/providers/lab_clock_provider.dart';
 import 'lab/demos/calendar/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
-import 'lab/demos/notion_image_host_demo.dart';
+// Task 8: NotionImageHostDeepLinkPage 已搬到 notion_image_host_handler.dart，
+// 这里不再需要直接 import notion_image_host_demo。
+// import 'lab/demos/notion_image_host_demo.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
 void main() async {
@@ -41,6 +45,9 @@ void main() async {
 
   // 初始化 Lab 模块（注册所有 Demo + Schema）
   bootstrapLab();
+
+  // Task 8: 注册 fr:// 路由到全局 frRouter（handler 来自 bootstrap_routes.dart）
+  registerAllFrRoutes();
 
   // 初始化消息策略
   registerMessageStrategies();
@@ -85,8 +92,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     _channel.setMethodCallHandler(_handleMethodCall);
     _themeProvider = ThemeProvider()..init();
 
-    // 初始化 Schema 导航器
-    SchemaNavigator.setNavigatorKey(navigatorKey);
+    // Task 8: 改用 FrNavigator（统一 fr:// URL 分发入口）替换 SchemaNavigator。
+    FrNavigator.setNavigatorKey(navigatorKey);
 
     // 加载课表数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,58 +104,21 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {}
 
+  /// 桌面 widget MethodChannel 回调 — 翻译 4 个 method name 到 fr:// URL，
+  /// 统一走 FrNavigator.handle 分发。MethodChannel 反注册路径仍依赖
+  /// `_pushOnceIfNotOnTop` 之前的防重复堆叠语义（FrNavigator 内部已实现）。
   Future<dynamic> _handleMethodCall(MethodCall call) async {
-    if (call.method == 'navigateToLab') {
-      _navigateToLab();
-    } else if (call.method == 'navigateToCalendar') {
-      _navigateToCalendar();
-    } else if (call.method == 'navigateToTimetable') {
-      _navigateToTimetable();
-    } else if (call.method == 'navigateToNotionImage') {
-      // args[0] 是 autocapture 布尔值 — 从桌面 widget 进入时为 true，
-      // Notion 图床页 initState 会读这个标志自动触发拍照。
-      final autocapture = (call.arguments as bool?) ?? false;
-      _navigateToNotionImage(autocapture: autocapture);
-    }
-  }
-
-  void _navigateToNotionImage({required bool autocapture}) {
+    final frUrl = switch (call.method) {
+      'navigateToLab' => 'fr://lab',
+      'navigateToCalendar' => 'fr://lab/demo/日历待办',
+      'navigateToTimetable' => 'fr://timetable',
+      'navigateToNotionImage' =>
+        'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
+      _ => null,
+    };
+    if (frUrl == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // demo key 与 lab_bootstrap 注册的 title 一致 — 'Notion 图床'
-      final demo = demoRegistry.get('Notion 图床');
-      if (demo == null) return;
-      _pushOnceIfNotOnTop(
-        'home-widget-notion-image',
-        (_) => NotionImageHostDeepLinkPage(
-          demo: demo,
-          autocapture: autocapture,
-        ),
-      );
-    });
-  }
-
-  void _navigateToTimetable() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _pushOnceIfNotOnTop('home-widget-timetable', (_) => const TimetablePage());
-    });
-  }
-
-  void _navigateToLab() {
-    // 延迟执行确保 navigatorKey 已初始化
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _pushOnceIfNotOnTop('home-widget-lab', (_) => const LabPage());
-    });
-  }
-
-  void _navigateToCalendar() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 确保日历 demo 已注册
-      final calendarDemo = demoRegistry.get('日历待办');
-      if (calendarDemo == null) return;
-      _pushOnceIfNotOnTop(
-        'home-widget-calendar',
-        (_) => _CalendarDeepLinkPage(demo: calendarDemo),
-      );
+      FrNavigator.handle(navigatorKey.currentContext, frUrl);
     });
   }
 
@@ -220,14 +190,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
             themeMode: themeProvider.themeModeValue,
             initialRoute: '/',
             onGenerateRoute: (settings) {
-              // 处理深层链接 fr://lab -> /lab
-              if (settings.name == '/lab') {
-                return MaterialPageRoute(
-                  builder: (_) => const LabPage(),
-                  settings: settings,
-                );
-              }
-              // 默认路由
+              // Task 8: 删 /lab 特殊分支 — fr://lab 走 frRouter 统一处理。
               return MaterialPageRoute(
                 builder: (_) => const MainScreen(),
                 settings: settings,
@@ -240,45 +203,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 }
 
-/// 桌面小组件深层链接：直接打开日历 demo 页面
-class _CalendarDeepLinkPage extends StatelessWidget {
-  final DemoPage demo;
-
-  const _CalendarDeepLinkPage({required this.demo});
-
-  @override
-  Widget build(BuildContext context) {
-    return demo.buildPage(context);
-  }
-}
-
-/// Notion 图床桌面小组件入口页：包装 demo.buildPage，并按 autocapture
-/// 标志自动触发拍照。仅当 autocapture=true 时（桌面 widget 点击进入）才触发。
-class NotionImageHostDeepLinkPage extends StatelessWidget {
-  final DemoPage demo;
-  final bool autocapture;
-
-  const NotionImageHostDeepLinkPage({
-    super.key,
-    required this.demo,
-    required this.autocapture,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // 桌面 widget 入口：用全局 GlobalKey 跟踪
-    final page = NotionImageHostPage(key: notionImageHostKey);
-    if (autocapture) {
-      // 等页面 mount + initState 跑完后再触发拍照。
-      // _loadPrefs 内部用 SharedPreferences 是异步，所以多等 300ms。
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await Future.delayed(const Duration(milliseconds: 300));
-        triggerCaptureFromWidget();
-      });
-    }
-    return page;
-  }
-}
+/// Task 8: `_CalendarDeepLinkPage` 已删除 — 日历入口统一走
+/// `fr://lab/demo/日历待办` -> frRouter -> calendar handler。
+/// `NotionImageHostDeepLinkPage` 整体搬到
+/// `lib/core/schema/handlers/notion_image_host_handler.dart`。
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});

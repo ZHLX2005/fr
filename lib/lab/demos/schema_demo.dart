@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import '../../core/schema/schema.dart';
+// Task 8: T9 才删 schema_service.dart / schema_parser.dart 老 API。
+// 这里显式 import 老文件以维持编译通过。
+import '../../core/schema/schema_service.dart';
+import '../../core/schema/schema_parser.dart';
+import '../../core/schema/schema_text.dart';
 
 /// Schema 链接功能演示
 class SchemaDemo extends DemoPage {

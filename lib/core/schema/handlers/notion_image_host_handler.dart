@@ -1,33 +1,43 @@
 import 'package:flutter/material.dart';
 
 import '../fr_route_handler.dart';
+import '../../../lab/demos/notion_image_host_demo.dart'
+    show NotionImageHostPage, notionImageHostKey, triggerCaptureFromWidget;
 
 /// fr://notion/image-host?autocapture={true|false} → Notion 图床 deep link
 ///
-/// Task 7 阶段返回占位 Widget（保持 main.dart 不变、独立绿色 commit）。
-/// Task 8 改 main.dart 时会把 `NotionImageHostDeepLinkPage` 整体从 main.dart
-/// 搬到这里，handler 升级为真实引用。
+/// Task 8: 用 NotionImageHostPage（来自 lab/demos/notion_image_host_demo.dart）
+/// 替代 Task 7 的占位 widget。原 NotionImageHostDeepLinkPage 类从 main.dart
+/// 整体搬到此处：保留 autocapture 语义 + 全局 GlobalKey + 延迟 300ms 触发拍照。
 class NotionImageHostHandler extends FrRouteHandler {
   const NotionImageHostHandler();
 
   @override
   Widget build(BuildContext context, FrRouteMatch match) {
     final autocapture = match.queryBool('autocapture');
-    return _NotionImageHostPlaceholder(autocapture: autocapture);
+    return _NotionImageHostDeepLinkPage(autocapture: autocapture);
   }
 }
 
-class _NotionImageHostPlaceholder extends StatelessWidget {
+/// Notion 图床桌面小组件入口页：包装 NotionImageHostPage，按 autocapture
+/// 标志自动触发拍照。仅当 autocapture=true 时（桌面 widget 点击进入）才触发。
+class _NotionImageHostDeepLinkPage extends StatelessWidget {
   final bool autocapture;
-  const _NotionImageHostPlaceholder({required this.autocapture});
+
+  const _NotionImageHostDeepLinkPage({required this.autocapture});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Notion 图床')),
-      body: Center(
-        child: Text('autocapture=$autocapture (Task 8 接入真实页面)'),
-      ),
-    );
+    // 桌面 widget 入口：用全局 GlobalKey 跟踪
+    final page = NotionImageHostPage(key: notionImageHostKey);
+    if (autocapture) {
+      // 等页面 mount + initState 跑完后再触发拍照。
+      // _loadPrefs 内部用 SharedPreferences 是异步，所以多等 300ms。
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Future.delayed(const Duration(milliseconds: 300));
+        triggerCaptureFromWidget();
+      });
+    }
+    return page;
   }
 }
