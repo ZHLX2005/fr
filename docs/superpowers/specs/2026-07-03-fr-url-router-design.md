@@ -182,9 +182,10 @@ class LabDemoHandler extends FrRouteHandler {
 ### 4.1 删除
 
 - `lib/core/schema/schema_service.dart`（SchemaRoutes / SchemaRegistry / schemaRegistry）
-- `lib/core/schema/schema_parser.dart`（保留 autoLink 静态方法 → 移到 schema_text.dart 内私有）
+- `lib/core/schema/schema_parser.dart`（autoLink 静态方法 → 移到 schema_text.dart 内私有）
 - `lib/core/schema/schema_navigator.dart`（重写为 fr_navigator.dart，零旧 API）
-- `lib/lab/lab_container.dart` 中的 `DemoRegistry` / `demoRegistry`（保留 `DemoPage` 抽象类）
+
+> `lib/lab/lab_container.dart` 的 `DemoRegistry` / `demoRegistry` **保留** —— 它是 lab 模块基础设施，被 36 个 demo 文件直接调用，与 fr:// 路由无强耦合。新架构下，`LabDemoHandler` 仅作为消费者通过 `demoRegistry.get(key)` 查询。
 
 ### 4.2 新增
 
