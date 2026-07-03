@@ -8,8 +8,126 @@
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'schema_parser.dart';
-import 'schema_navigator.dart';
+
+import 'fr_navigator.dart';
+
+/// 解析后的文本片段
+class SchemaTextSpan {
+  final String text;
+  final bool isLink;
+  final String? schemaPath;
+
+  const SchemaTextSpan.plain(this.text) : isLink = false, schemaPath = null;
+
+  const SchemaTextSpan.link(this.text, this.schemaPath) : isLink = true;
+
+  bool get isPlain => !isLink;
+}
+
+/// 解析结果
+class SchemaParseResult {
+  final List<SchemaTextSpan> spans;
+  final List<String> errors;
+
+  const SchemaParseResult({required this.spans, this.errors = const []});
+
+  bool get hasErrors => errors.isNotEmpty;
+  bool get hasLinks => spans.any((s) => s.isLink);
+}
+
+/// Schema 链接解析器（内部使用）
+class SchemaLinkParser {
+  SchemaLinkParser._();
+
+  /// 正则: 匹配 [文字](schema://path) 格式
+  static final _linkPattern = RegExp(
+    r'\[([^\]]*)\]\(([^\)]+)\)',
+    multiLine: true,
+  );
+
+  /// 转义字符
+  static final _escapePattern = RegExp(r'\\(.)');
+
+  /// 解析文本中的 schema 链接
+  static SchemaParseResult parse(String text) {
+    final spans = <SchemaTextSpan>[];
+    final errors = <String>[];
+
+    int lastEnd = 0;
+
+    for (final match in _linkPattern.allMatches(text)) {
+      // 添加匹配前的纯文本
+      if (match.start > lastEnd) {
+        final plainText = _unescape(text.substring(lastEnd, match.start));
+        if (plainText.isNotEmpty) {
+          spans.add(SchemaTextSpan.plain(plainText));
+        }
+      }
+
+      final linkText = match.group(1)!;
+      final schemaPath = match.group(2)!;
+
+      // 验证 schema 格式
+      if (schemaPath.startsWith('fr://')) {
+        spans.add(SchemaTextSpan.link(linkText, schemaPath));
+      } else {
+        // 不是 fr:// schema，当作普通文本处理
+        errors.add('不支持的 schema: $schemaPath');
+        spans.add(SchemaTextSpan.plain(match.group(0)!));
+      }
+
+      lastEnd = match.end;
+    }
+
+    // 添加剩余文本
+    if (lastEnd < text.length) {
+      final remainingText = _unescape(text.substring(lastEnd));
+      if (remainingText.isNotEmpty) {
+        spans.add(SchemaTextSpan.plain(remainingText));
+      }
+    }
+
+    return SchemaParseResult(spans: spans, errors: errors);
+  }
+
+  /// 转义处理
+  static String _unescape(String text) {
+    return text.replaceAllMapped(_escapePattern, (m) {
+      final ch = m.group(1)!;
+      // 常见的转义
+      switch (ch) {
+        case 'n':
+          return '\n';
+        case 't':
+          return '\t';
+        case '[':
+          return '[';
+        case ']':
+          return ']';
+        case '(':
+          return '(';
+        case ')':
+          return ')';
+        default:
+          return ch;
+      }
+    });
+  }
+
+  /// 检查文本是否包含 schema 链接
+  static bool containsLinks(String text) {
+    return _linkPattern.hasMatch(text);
+  }
+
+  /// 提取所有 schema 链接
+  static List<String> extractSchemaPaths(String text) {
+    return _linkPattern
+        .allMatches(text)
+        .map((m) => m.group(2)!)
+        .where((p) => p.startsWith('fr://'))
+        .toList();
+  }
+}
 
 /// Schema 文本组件
 class SchemaText extends StatelessWidget {
@@ -77,7 +195,7 @@ class SchemaText extends StatelessWidget {
           text: span.text,
           style: effectiveLinkStyle,
           recognizer: TapGestureRecognizer()
-            ..onTap = () => _handleLinkTap(span.schemaPath!, span.text),
+            ..onTap = () => _handleLinkTap(context, span.schemaPath!, span.text),
         );
       } else {
         return TextSpan(text: span.text, style: defaultStyle);
@@ -91,10 +209,10 @@ class SchemaText extends StatelessWidget {
     );
   }
 
-  void _handleLinkTap(String schema, String displayText) {
+  void _handleLinkTap(BuildContext context, String schema, String displayText) {
     final shouldNavigate = onLinkTap?.call(schema, displayText);
     if (shouldNavigate != false) {
-      SchemaNavigator.navigateToSchema(schema);
+      FrNavigator.handle(context, schema);
     }
   }
 }

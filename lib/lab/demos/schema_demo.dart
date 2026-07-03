@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-// Task 8: T9 才删 schema_service.dart / schema_parser.dart 老 API。
-// 这里显式 import 老文件以维持编译通过。
-import '../../core/schema/schema_service.dart';
-import '../../core/schema/schema_parser.dart';
 import '../../core/schema/schema_text.dart';
 
 /// Schema 链接功能演示
@@ -53,27 +49,41 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
     });
   }
 
-  void _insertDemoLink(SchemaEntry entry) {
-    final link = '[${entry.title}](${entry.schema})';
-    final text = _inputController.text;
-    final selection = _inputController.selection;
+  /// 自动把 demo 标题转换为 [title](fr://lab/demo/key) 链接
+  static String _convertAutoLinks(String text) {
+    final allDemos = demoRegistry.getAll();
+    // 按标题长度降序排列，避免短标题先匹配
+    final titles = allDemos.map((e) => (e.key, e.value.title)).toList()
+      ..sort((a, b) => b.$2.length.compareTo(a.$2.length));
 
-    if (selection.isValid) {
-      final newText = text.replaceRange(selection.start, selection.end, link);
-      _inputController.text = newText;
-      _inputController.selection = TextSelection.collapsed(
-        offset: selection.start + link.length,
-      );
-    } else {
-      _inputController.text = text + link;
+    final matches = <_MatchInfo>[];
+    for (final (key, title) in titles) {
+      final pattern = RegExp(RegExp.escape(title));
+      for (final m in pattern.allMatches(text)) {
+        matches.add(_MatchInfo(m.start, m.end, title, 'fr://lab/demo/$key'));
+      }
     }
-    _updatePreview();
+
+    matches.sort((a, b) => a.start.compareTo(b.start));
+
+    final buf = StringBuffer();
+    int lastEnd = 0;
+    int? lastEndRange;
+    for (final m in matches) {
+      if (lastEndRange != null && m.start < lastEndRange) continue; // overlap
+      buf.write(text.substring(lastEnd, m.start));
+      buf.write('[${m.displayText}](${m.schema})');
+      lastEnd = m.end;
+      lastEndRange = m.end;
+    }
+    buf.write(text.substring(lastEnd));
+    return buf.toString();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final allDemos = schemaRegistry.getAll();
+    final allDemos = demoRegistry.getAll();
 
     return Scaffold(
       appBar: AppBar(
@@ -104,9 +114,12 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                       runSpacing: 8,
                       children: allDemos.take(6).map((entry) {
                         return ActionChip(
-                          avatar: Icon(entry.icon, size: 16),
-                          label: Text(entry.title),
-                          onPressed: () => _insertDemoLink(entry),
+                          avatar: const Icon(Icons.apps, size: 16),
+                          label: Text(entry.value.title),
+                          onPressed: () => _insertDemoLink(
+                            entry.key,
+                            entry.value.title,
+                          ),
                         );
                       }).toList(),
                     ),
@@ -179,7 +192,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                             )
                           : SchemaText(
                               _autoLink
-                                  ? SchemaLinkParser.autoLink(_previewText)
+                                  ? _convertAutoLinks(_previewText)
                                   : _previewText,
                               style: theme.textTheme.bodyMedium,
                             ),
@@ -231,9 +244,12 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                       runSpacing: 8,
                       children: allDemos.map((entry) {
                         return ActionChip(
-                          avatar: Icon(entry.icon, size: 16),
-                          label: Text(entry.title),
-                          onPressed: () => _insertDemoLink(entry),
+                          avatar: const Icon(Icons.apps, size: 16),
+                          label: Text(entry.value.title),
+                          onPressed: () => _insertDemoLink(
+                            entry.key,
+                            entry.value.title,
+                          ),
                         );
                       }).toList(),
                     ),
@@ -245,6 +261,24 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
         ),
       ),
     );
+  }
+
+  void _insertDemoLink(String key, String title) {
+    final schema = 'fr://lab/demo/$key';
+    final link = '[$title]($schema)';
+    final text = _inputController.text;
+    final selection = _inputController.selection;
+
+    if (selection.isValid) {
+      final newText = text.replaceRange(selection.start, selection.end, link);
+      _inputController.text = newText;
+      _inputController.selection = TextSelection.collapsed(
+        offset: selection.start + link.length,
+      );
+    } else {
+      _inputController.text = text + link;
+    }
+    _updatePreview();
   }
 
   Widget _buildFormatRow(BuildContext context, String format, String desc) {
@@ -274,6 +308,15 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
       ),
     );
   }
+}
+
+class _MatchInfo {
+  final int start;
+  final int end;
+  final String displayText;
+  final String schema;
+
+  const _MatchInfo(this.start, this.end, this.displayText, this.schema);
 }
 
 /// 注册 Schema Demo

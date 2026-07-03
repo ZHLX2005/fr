@@ -1,7 +1,6 @@
 // Lab 模块引导文件
 // 集中注册所有 Demo 页面
 
-import '../core/schema/schema_service.dart' show initSchemaRegistry;
 import 'demos/api_test_demo.dart';
 import 'demos/body_map_demo.dart';
 import 'demos/calendar_demo.dart';
@@ -83,8 +82,7 @@ void registerAllDemos() {
   registerNotionImageHostDemo();
 }
 
-// 初始化 Schema 注册表
+// 初始化 Lab 模块
 void bootstrapLab() {
   registerAllDemos();
-  initSchemaRegistry();
 }
