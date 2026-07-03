@@ -898,59 +898,43 @@ class _UnknownCorePage extends StatelessWidget {
 }
 ```
 
-- [ ] **Step 4: `notion_image_host_handler.dart`**
+- [ ] **Step 4: `notion_image_host_handler.dart`** — Task 7 阶段用占位，与 main.dart 完全解耦（避免编译失败）。Task 8 再加 NotionImageHostPage 真实引用
 
 ```dart
 import 'package:flutter/material.dart';
 
 import '../fr_route_handler.dart';
 
-/// fr://notion/image-host?autocapture={true|false} → Notion 图床 deep link 页
+/// fr://notion/image-host?autocapture={true|false} → Notion 图床 deep link
 ///
-/// 桌面 widget 点击会带 autocapture=true 进入。
+/// Task 7 阶段返回占位 Widget（保持 main.dart 不变、独立绿色 commit）。
+/// Task 8 改 main.dart 时会把 `NotionImageHostDeepLinkPage` 整体从 main.dart
+/// 搬到这里，handler 升级为真实引用。
 class NotionImageHostHandler extends FrRouteHandler {
   const NotionImageHostHandler();
 
   @override
   Widget build(BuildContext context, FrRouteMatch match) {
     final autocapture = match.queryBool('autocapture');
-    // NotionImageHostDeepLinkPage 来自 main.dart；为避免循环依赖
-    // （handler 不应 import main），通过路由参数序列化给 main.dart 处理。
-    // 见 bootstrap_routes.dart 注册时的 wrapper。
-    return _NotionImageHostProxy(autocapture: autocapture);
+    return _NotionImageHostPlaceholder(autocapture: autocapture);
   }
 }
 
-/// 占位 Widget：实际由 main.dart 通过 WidgetsBinding 替换。
-///
-/// 实现细节：frRouter.handle 返回 Widget 后 FrNavigator.push，
-/// 真正的 NotionImageHostDeepLinkPage（含 triggerCaptureFromWidget 副作用）
-/// 留在 main.dart 的 MethodChannel 路径里，handler 这里只暴露 URL 解析语义。
-class _NotionImageHostProxy extends StatelessWidget {
+class _NotionImageHostPlaceholder extends StatelessWidget {
   final bool autocapture;
-  const _NotionImageHostProxy({required this.autocapture});
+  const _NotionImageHostPlaceholder({required this.autocapture});
 
   @override
   Widget build(BuildContext context) {
-    return _NotionImageHostDeepLinkPage(autocapture: autocapture);
-  }
-}
-
-// 这两个类直接复用 main.dart 里现有的；从 main.dart 移过来避免循环依赖。
-// 由 main.dart 的 commit 同步删 main.dart 里的重复定义。
-class _NotionImageHostDeepLinkPage extends StatelessWidget {
-  final bool autocapture;
-  const _NotionImageHostDeepLinkPage({required this.autocapture});
-
-  @override
-  Widget build(BuildContext context) {
-    // 同 main.dart 里的逻辑；保留 globalKey
-    return NotionImageHostPage(key: notionImageHostKey);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Notion 图床')),
+      body: Center(
+        child: Text('autocapture=$autocapture (Task 8 接入真实页面)'),
+      ),
+    );
   }
 }
 ```
-
-> **注意**：`NotionImageHostPage` 和 `notionImageHostKey` 是 main.dart 的全局符号。本 Task 暂不直接处理——Task 8 改 main.dart 时，**先把 NotionImageHostDeepLinkPage / _navigateToNotionImage / notionImageHostKey 整体从 main.dart 移到 `lib/core/schema/handlers/notion_image_host_handler.dart`**，handler 文件变成 main 的下游（不是 main 的上游），无循环依赖。
 
 - [ ] **Step 5: `notion_create_page_handler.dart`**
 
@@ -1090,13 +1074,14 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
 
 5. 删 `_navigateToLab` / `_navigateToCalendar` / `_navigateToTimetable` / `_navigateToNotionImage` 4 个方法
 6. `onGenerateRoute` 删 `if (settings.name == '/lab')` 分支（frRouter 自己处理 `fr://lab`）
-7. `_CalendarDeepLinkPage` 类可删（统一走 frRouter；保留 `NotionImageHostDeepLinkPage` / `_DemoDetailPage` 走 FrNavigator 流程）
+7. `_CalendarDeepLinkPage` 类可删（统一走 frRouter）
 
-- [ ] **Step 3: 处理 NotionImageHostPage 引用**
+- [ ] **Step 3: 升级 `notion_image_host_handler.dart` 为真实引用**
 
-由于 `notion_image_host_handler.dart` Task 7 引用了 `NotionImageHostPage` / `notionImageHostKey`（main.dart 全局符号），现在反方向从 main.dart 删这些符号时会破坏 handler。**做法**：
-- 把 `NotionImageHostPage` / `notionImageHostKey` / `triggerCaptureFromWidget` 从 main.dart 移到 `notion_image_host_handler.dart`（同级目录）
-- main.dart 删相关 import
+Task 7 用占位 `_NotionImageHostPlaceholder`，Task 8 把占位替换为 main.dart 现有 `NotionImageHostDeepLinkPage` + `NotionImageHostPage` + `notionImageHostKey` 的真实逻辑。**做法**：
+- 把 main.dart 里的 `NotionImageHostDeepLinkPage` 类（行 257-281）整体搬到 `lib/core/schema/handlers/notion_image_host_handler.dart`，替换 `_NotionImageHostPlaceholder`
+- import `package:flutter_application_1/lab/demos/notion_image_host_demo.dart`（用 `show NotionImageHostPage, notionImageHostKey, triggerCaptureFromWidget`）
+- main.dart 删 `NotionImageHostDeepLinkPage` 类和它引用的全局符号的 import
 
 - [ ] **Step 4: 编译验证**
 
@@ -1125,9 +1110,9 @@ git add lib/main.dart lib/core/schema/handlers/notion_image_host_handler.dart
 git commit -m "refactor(main): 4 个 _navigateToXxx 合并为 fr:// URL dispatch
 
 _handleMethodCall switch 翻译 4 个 method name 到 fr:// URL；
-FrNavigator.handle 统一处理。NotionImageHostPage/notionImageHostKey
-从 main.dart 移到 notion_image_host_handler.dart 解循环依赖。
-onGenerateRoute 删 fr://lab 特殊分支。
+FrNavigator.handle 统一处理。NotionImageHostDeepLinkPage 从
+main.dart 搬到 notion_image_host_handler.dart。onGenerateRoute
+删 fr://lab 特殊分支。
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
