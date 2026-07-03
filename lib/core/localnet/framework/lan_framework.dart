@@ -14,7 +14,6 @@ import '../device/device.dart';
 import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';
 import '../session/session.dart';
-import '../session/session_manager.dart';
 import '../session/state_serializer.dart';
 import 'exception/framework_exception.dart';
 import 'framework_config.dart';
