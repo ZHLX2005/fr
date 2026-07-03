@@ -8,6 +8,7 @@
 // 时区：date mention 加 +08:00 后缀（北京 UTC+8）。
 // 最新 page 显示真实标题（通过 NotionPageEndpoint.extractTitle），不显示 ID。
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -554,12 +555,46 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   bool _tokenVisible = false;
   bool _saving = false;
 
+  /// SharedPreferences key — 数据库列表的 JSON 缓存。
+  /// 按 token 分区（不同 token 的数据隔离）。
+  static String _kDbListPrefsKey(String token) =>
+      'notion_db_list_cache_${token.hashCode}';
+
   @override
   void initState() {
     super.initState();
     _tokenController = TextEditingController(text: widget.initialToken);
     _dbId = widget.initialDbId;
     _dbName = widget.initialDbName;
+    _loadCachedDatabases();
+  }
+
+  /// 从 SharedPreferences 加载缓存的数据库列表，让选择器立即显示。
+  Future<void> _loadCachedDatabases() async {
+    final token = _tokenController.text.trim();
+    if (token.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString(_kDbListPrefsKey(token));
+    if (cached == null || cached.isEmpty) {
+      // 有 Token 但无缓存 → 自动触发首次加载（避免用户看到"空空如也"）
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchDatabases());
+      return;
+    }
+    try {
+      final list = jsonDecode(cached) as List<dynamic>;
+      setState(() {
+        _databases = list.map((e) {
+          final m = e as Map<String, dynamic>;
+          return _DatabaseInfo(m['id'] as String, m['title'] as String);
+        }).toList();
+      });
+    } catch (_) {
+      // 缓存损坏 → 静默清除 + 自动重载
+      await prefs.remove(_kDbListPrefsKey(token));
+      if (_tokenController.text.trim().isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _fetchDatabases());
+      }
+    }
   }
 
   @override
@@ -581,18 +616,27 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     try {
       final db = NotionDatabaseEndpoint(token: token);
       final dbs = await db.listDatabases();
+      final infos = dbs.map((d) {
+        final titleArr = d['title'] as List<dynamic>? ?? [];
+        final titleText = titleArr
+            .map((t) => (t['plain_text'] as String?) ?? '')
+            .join()
+            .trim();
+        return _DatabaseInfo(
+          d['id'] as String,
+          titleText.isEmpty ? '(无标题)' : titleText,
+        );
+      }).toList();
+
+      // 缓存到 SharedPreferences（按 token 隔离）
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _kDbListPrefsKey(token),
+        jsonEncode(infos.map((e) => {'id': e.id, 'title': e.title}).toList()),
+      );
+
       setState(() {
-        _databases = dbs.map((d) {
-          final titleArr = d['title'] as List<dynamic>? ?? [];
-          final titleText = titleArr
-              .map((t) => (t['plain_text'] as String?) ?? '')
-              .join()
-              .trim();
-          return _DatabaseInfo(
-            d['id'] as String,
-            titleText.isEmpty ? '(无标题)' : titleText,
-          );
-        }).toList();
+        _databases = infos;
         _loadingDbs = false;
       });
     } catch (e) {
