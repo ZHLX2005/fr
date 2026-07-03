@@ -110,7 +110,7 @@ methodChannel.invokeMethod("navigateToTimetable")
 
 ## 防腐蚀 grep 检测（提交前自查 / CI）
 
-每次涉及路由改动，跑这 5 个 grep 自查：
+每次涉及路由改动，跑这 5 个 grep + 1 个 slug 测试自查：
 
 ```bash
 # 1. 检查是否有绕过 router 的自己分发（widget 里手写 if/else）
@@ -137,6 +137,13 @@ grep -rn "SchemaNavigator\|SchemaRegistry\|SchemaRoutes\|schemaRegistry" lib/
 # 期望：0 处（注释里的历史提及可接受，但要确认是注释不是代码）
 ```
 
+```bash
+# 6. 检查 demo 是否都有英文 slug（防中文 URL 崩溃，见设计 ref「中文 URL 陷阱」）
+# 跑 demo_slug_test，它断言"全部 demo slug 纯 ASCII 无中文残留"
+flutter test test/lab/demo_slug_test.dart
+# 期望：全绿。新增 demo 漏注册 kDemoSlugs 时这里会 fail
+```
+
 ---
 
 ## 新增路由 Checklist
@@ -150,7 +157,13 @@ grep -rn "SchemaNavigator\|SchemaRegistry\|SchemaRoutes\|schemaRegistry" lib/
 - [ ] 如果是嵌套路由（`xxx/yyy/zzz`），测试覆盖了 slash 边界 case（见设计 ref）
 - [ ] handler 不 import `main.dart`（引用目标 Page 而非 main）
 - [ ] 如果走 MethodChannel，main.dart `_handleMethodCall` 已翻译
-- [ ] 跑过上面的 5 个 grep 自查
+- [ ] 跑过上面的 6 项自查
+
+**Demo 路由专属**（`fr://lab/demo/{slug}`）：
+
+- [ ] 新 demo 的中文 title 已在 `lib/lab/lab_container.dart` 的 `kDemoSlugs` 注册英文 slug
+- [ ] URL 用 slug 不用 title（`fr://lab/demo/clock` ✅，`fr://lab/demo/时钟` ❌ 会崩溃）
+- [ ] `test/lab/demo_slug_test.dart` 跑通（断言 slug 纯 ASCII）
 
 ---
 
@@ -234,6 +247,21 @@ test('fr://lab/demo/clock resolves to LabDemoHandler', () async {
 
 **为什么错**：本次重构的 critical bug（host 拆分错误导致嵌套路由全失效）就是藏在"只断言非 null"的测试里长达 9 个 Task。详见设计 ref。
 
+### NOK 5：URL 直接用中文 demo title
+
+```dart
+// ❌ 错误：Uri.decodeComponent 对原始中文抛 Illegal percent encoding，
+//         URL resolve 崩溃，跳转静默失败
+'navigateToClock' => 'fr://lab/demo/时钟',
+SchemaText('[时钟](fr://lab/demo/时钟)')
+
+// ✅ 正确：用英文 slug（kDemoSlugs 注册），显示文字仍可中文
+'navigateToClock' => 'fr://lab/demo/clock',
+SchemaText('[时钟](fr://lab/demo/clock)')   // 显示"时钟"，URL 是 clock
+```
+
+**为什么错**：`Uri.decodeComponent` 对原始中文字符串（非 `%E6...` 编码形式）抛 `Illegal percent encoding`，导致含中文的 fr:// URL 全部 resolve 崩溃。这是藏在 41 个绿测试里的生产 bug（测试用编码形式，生产用原始中文）。详见设计 ref「中文 URL 陷阱」。修复 = ASCII slug + safeDecode 双保险。
+
 ---
 
 ## 模板代码（复制即用）
@@ -298,6 +326,8 @@ FrRoute('{authority}', handler: const {Name}Handler()),
 | fr:// authority | 全小写，多段用 `/` | `settings`、`lab/demo`、`notion/image-host` |
 | MethodChannel method | `navigateTo{Name}`，PascalCase | `navigateToSettings` |
 | 目标 Page | 独立文件，handler 引用它 | `SettingsPage` |
+| **demo URL slug** | **纯 ASCII 小写 + 连字符**，在 `kDemoSlugs` 注册 | `clock`、`calendar`、`notion-image-host` |
+| demo 显示 title | 中文，仅作 UI 显示，**不进 URL** | `时钟`、`日历待办`、`Notion 图床` |
 
 ---
 

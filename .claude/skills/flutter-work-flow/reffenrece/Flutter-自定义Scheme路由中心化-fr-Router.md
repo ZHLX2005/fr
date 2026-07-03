@@ -97,6 +97,75 @@ class FrUri {
 
 ---
 
+## ⚠️ 中文 URL 陷阱：Uri.decodeComponent 对原始中文抛异常
+
+生产 bug 教训：藏在 41 个绿测试里，导致所有含中文的 fr:// URL 跳转崩溃（用户报告"lab/demos 无法跳转"）。
+
+### 根因
+
+`Uri.decodeComponent` 期望输入是 **percent-encoded** 形式（如 `%E6%97%B6%E9%92%9F`）。当输入是**原始中文字符串**（如 `时钟`），内部按字节扫描 `%` 序列时，遇到中文 UTF-8 字节的特定组合会判定为非法 percent encoding，抛 `ArgumentError: Illegal percent encoding in URI`。
+
+```dart
+Uri.decodeComponent('lab/demo/时钟');                       // ❌ 抛 ArgumentError
+Uri.decodeComponent('lab/demo/%E6%97%B6%E9%92%9F');         // ✅ 返回 'lab/demo/时钟'
+```
+
+### 症状
+
+含中文的 URL 全崩，纯英文的好 —— 这是定位根因的关键信号：
+
+| URL | 含中文? | 行为 |
+|-----|---------|------|
+| `fr://notion/image-host` | 否 | ✅ 正常跳转 |
+| `fr://timetable` | 否 | ✅ 正常跳转 |
+| `fr://lab/demo/时钟` | 是 | ❌ resolve 崩溃 → FrNavigator 静默失败 → 点击无反应 |
+| `fr://lab/demo/日历待办` | 是 | ❌ 桌面 widget 进 app 不跳转 |
+
+### 为什么 41 个测试没抓住
+
+测试用编码形式，生产用原始中文 —— 两条路径不重合：
+
+```dart
+// 测试（能过 — 走 decode 正常路径）
+FrUri.tryParse('fr://lab/demo/%E6%97%85%E8%A1%8C');
+
+// 生产（崩溃 — 走原始中文路径，没覆盖）
+'navigateToCalendar' => 'fr://lab/demo/日历待办';
+```
+
+**教训**：URL 解析测试必须覆盖**原始中文输入**，不能只用 `%` 编码形式。
+
+### 修复（双保险）
+
+**1. safeDecode**（防御 — 即使 URL 含中文也不崩）：
+
+```dart
+static String _safeDecode(String s) {
+  if (!s.contains('%')) return s;       // 无 % 直接返回，避开中文陷阱
+  try {
+    return Uri.decodeComponent(s);
+  } catch (_) {
+    return s;                            // 非法 % 序列也容错
+  }
+}
+```
+
+**2. ASCII slug 规范**（根治 — URL 不含中文）：
+
+demo 用英文 slug 作 URL key（`fr://lab/demo/clock`），中文 title（`时钟`）仅作显示文字。集中映射表 `kDemoSlugs`（见规范 ref「命名约定」）。
+
+### 测试教训
+
+```dart
+// ✅ 必须覆盖原始中文（回归保护）
+test('原始中文 URL 不崩', () {
+  expect(FrUri.tryParse('fr://lab/demo/时钟'), isNotNull);
+  expect(FrUri.tryParse('fr://lab/demo/时钟')!.authority, 'lab/demo/时钟');
+});
+```
+
+---
+
 ## Router Prefix 匹配 + Slash 边界保护
 
 因为路由键可能是嵌套的（`lab`、`lab/demo`、`notion/image-host`），router 不能用简单的 `Map[key]` 查找。
