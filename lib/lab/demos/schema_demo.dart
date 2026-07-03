@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import '../../core/schema/schema_text.dart';
+import '../../core/schema/fr_navigator.dart';
 
 /// Schema 链接功能演示
 class SchemaDemo extends DemoPage {
@@ -49,7 +50,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
     });
   }
 
-  /// 自动把 demo 标题转换为 [title](fr://lab/demo/key) 链接
+  /// 自动把 demo 标题转换为 [title](fr://lab/demo/{slug}) 链接
   static String _convertAutoLinks(String text) {
     final allDemos = demoRegistry.getAll();
     // 按标题长度降序排列，避免短标题先匹配
@@ -80,6 +81,123 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
     return buf.toString();
   }
 
+  /// 路由总览卡片：列出所有可访问的 fr:// 路由，点击 chip 直接跳转测试。
+  ///
+  /// 三类路由：
+  /// - 静态：fr://lab、fr://timetable、fr://notion/image-host、fr://notion/create-page
+  /// - 核心页：fr://lab/core/{profile|home|focus|timetable}
+  /// - Demo：fr://lab/demo/{slug}（从 demoRegistry 动态生成，title 显示 + slug 跳转）
+  Widget _buildRouteOverview(
+    BuildContext context,
+    ThemeData theme,
+    List<MapEntry<String, DemoPage>> demos,
+  ) {
+    void go(String url) => FrNavigator.handle(context, url);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('可访问路由总览', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                Text(
+                  '${demos.length + 8} 条',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '点击 chip 直接跳转测试（底部导航栏会被覆盖是已知行为）',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _routeSectionLabel(theme, '静态路由'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                'fr://lab',
+                'fr://timetable',
+                'fr://notion/image-host',
+                'fr://notion/create-page',
+              ]
+                  .map((url) => ActionChip(
+                        label: Text(
+                          url,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                          ),
+                        ),
+                        onPressed: () => go(url),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 12),
+            _routeSectionLabel(theme, '核心页面 lab/core/*'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ['profile', 'home', 'focus', 'timetable']
+                  .map((k) {
+                    final url = 'fr://lab/core/$k';
+                    return ActionChip(
+                      label: Text(
+                        k,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                      onPressed: () => go(url),
+                    );
+                  })
+                  .toList(),
+            ),
+            const SizedBox(height: 12),
+            _routeSectionLabel(
+              theme,
+              'Demo lab/demo/{slug}（${demos.length} 个）',
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: demos
+                  .map((entry) {
+                    final url = 'fr://lab/demo/${entry.key}';
+                    return ActionChip(
+                      avatar: const Icon(Icons.apps, size: 14),
+                      label: Text(entry.value.title),
+                      tooltip: url,
+                      onPressed: () => go(url),
+                    );
+                  })
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _routeSectionLabel(ThemeData theme, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        text,
+        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -95,6 +213,10 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 路由总览：所有可访问的 fr:// 路由，点击即测
+            _buildRouteOverview(context, theme, allDemos),
+            const SizedBox(height: 16),
+
             // 说明卡片
             Card(
               child: Padding(
@@ -105,7 +227,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                     Text('使用说明', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 8),
                     const Text(
-                      '在文本中使用 [显示文字](fr://lab/demo/Key) 格式创建可点击链接。\n'
+                      '在文本中使用 [显示文字](fr://lab/demo/{slug}) 格式创建可点击链接。\n'
                       '支持的 Demo:',
                     ),
                     const SizedBox(height: 8),
@@ -156,7 +278,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                       controller: _inputController,
                       maxLines: 4,
                       decoration: const InputDecoration(
-                        hintText: '输入文本，支持 [文字](fr://lab/demo/key) 格式',
+                        hintText: '输入文本，支持 [文字](fr://lab/demo/{slug}) 格式',
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (_) => _updatePreview(),
@@ -214,15 +336,15 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                     const SizedBox(height: 8),
                     _buildFormatRow(
                       context,
-                      '[文字](fr://lab/demo/Key)',
-                      '跳转到指定 Demo',
+                      '[文字](fr://lab/demo/{slug})',
+                      '跳转到指定 Demo（slug 见 kDemoSlugs）',
                     ),
                     _buildFormatRow(
                       context,
-                      'fr://lab/demo/悬浮截屏',
+                      'fr://lab/demo/overlay',
                       '跳转到悬浮截屏 Demo',
                     ),
-                    _buildFormatRow(context, 'fr://lab/demo/时钟', '跳转到时钟 Demo'),
+                    _buildFormatRow(context, 'fr://lab/demo/clock', '跳转到时钟 Demo'),
                     _buildFormatRow(context, 'fr://lab', '跳转到 Lab 首页'),
                   ],
                 ),

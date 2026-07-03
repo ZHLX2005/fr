@@ -48,9 +48,13 @@ class FrUri {
     // authority 必须非空（区分 "fr://" 和 "fr://lab"）
     if (authorityRaw.isEmpty) return null;
 
-    // authority 整段 URL-decode（保留语义统一 — fr://lab/demo/旅行 等同于
-    // fr://lab/demo/%E6%97%85%E8%A1%8C）
-    final authority = Uri.decodeComponent(authorityRaw);
+    // authority 安全 decode。
+    //
+    // Uri.decodeComponent 对**原始中文字符串**（非 percent-encoded）会抛
+    // `Illegal percent encoding`，导致 fr://lab/demo/时钟 崩溃。
+    // 仅当含 '%' 时才 decode，且 try/catch 兜底 — decode 失败用原字符串。
+    // 这样 fr://lab/demo/时钟 和 fr://lab/demo/%E6%97%B6%E9%92%9F 等价。
+    final authority = _safeDecode(authorityRaw);
 
     // path = authority 内第一个 '/' 之后的部分（保留给 handler 拆分）
     final slashIdx = authority.indexOf('/');
@@ -64,10 +68,10 @@ class FrUri {
       for (final pair in queryStr.split('&')) {
         final eq = pair.indexOf('=');
         if (eq == -1) {
-          query[Uri.decodeComponent(pair)] = '';
+          query[_safeDecode(pair)] = '';
         } else {
-          final k = Uri.decodeComponent(pair.substring(0, eq));
-          final v = Uri.decodeComponent(pair.substring(eq + 1));
+          final k = _safeDecode(pair.substring(0, eq));
+          final v = _safeDecode(pair.substring(eq + 1));
           query[k] = v;
         }
       }
@@ -79,5 +83,18 @@ class FrUri {
       path: path,
       query: query,
     );
+  }
+
+  /// 安全 URL decode。
+  ///
+  /// - 输入不含 '%' → 原样返回（避开 decodeComponent 对原始中文抛异常）
+  /// - 输入含 '%' → 尝试 decode；失败（非法 % 序列）也原样返回
+  static String _safeDecode(String s) {
+    if (!s.contains('%')) return s;
+    try {
+      return Uri.decodeComponent(s);
+    } catch (_) {
+      return s;
+    }
   }
 }

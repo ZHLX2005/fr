@@ -48,7 +48,7 @@ class FrNavigator {
       return;
     }
 
-    // 防重复堆叠：仅当栈顶 route name 与当前路由前缀一致时才跳过。
+    // 防重复堆叠：仅当栈顶 route name 与当前路由一致时才跳过。
     //
     // 桌面 widget / onNewIntent / 文本链接 任一重复触发都会让同一页面被
     // 多次 push，"返回手势因此要折叠多次才能退出"。复用 popUntil 的"谓词
@@ -70,7 +70,6 @@ class FrNavigator {
   }
 
   static BuildContext _placeholderContext() {
-    // 没传 context 时用 navigator 自己的；不常发生（保留防御）
     return _navigatorKey!.currentContext!;
   }
 

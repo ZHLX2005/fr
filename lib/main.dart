@@ -105,7 +105,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     final frUrl = switch (call.method) {
       'navigateToLab' => 'fr://lab',
-      'navigateToCalendar' => 'fr://lab/demo/日历待办',
+      'navigateToCalendar' => 'fr://lab/demo/calendar',
       'navigateToTimetable' => 'fr://timetable',
       'navigateToNotionImage' =>
         'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
@@ -176,7 +176,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 }
 
 /// Task 8: `_CalendarDeepLinkPage` 已删除 — 日历入口统一走
-/// `fr://lab/demo/日历待办` -> frRouter -> calendar handler。
+/// `fr://lab/demo/calendar` -> frRouter -> LabDemoHandler。
 /// `NotionImageHostDeepLinkPage` 整体搬到
 /// `lib/core/schema/handlers/notion_image_host_handler.dart`。
 
