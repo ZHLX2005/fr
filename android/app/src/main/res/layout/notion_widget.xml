@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Notion 图床桌面小组件 — 无 emoji 简洁版，支持 1x1 ~ 2x2 自适应。
+  Notion 图床桌面小组件 — 1x1 极简版。
 
-  设计原则：
-    - 拍照按钮用 match_parent 撑满整个 widget 区域（1x1 时只显示按钮本身）
-    - 顶部 header（图标 + 标题）和底部 hint 在 1x1 时因高度不足被裁掉
-    - 颜色沿用项目调色：#333333 文字 / #673AB7 紫色强调 / #F3E5F7 淡紫底
-    - 用 vector 图标替代 emoji，保证不同 OEM 字体下显示一致
+  核心策略：
+    - 整个 widget 只有「拍照」按钮一个元素，撑满 match_parent
+    - 不再保留任何 header / 副标题 / 装饰 — 1x1 区域本就只够一个交互按钮
+    - 2x2 拉大时按钮仍居中显示（FrameLayout gravity center 自适应）
+    - 文字「拍照」+ 紫色文字色 + 圆角描边背景，靠风格而非体积传达品牌
 
   交互：
-    - 点击拍照按钮 → 触发带 autocapture=1 的 deep link
-    - 点击其他区域 → 同样行为（整体点击也跳转到 Notion 图床页）
+    - 点击按钮（整个 widget 唯一可点元素）→ 触发 autocapture=1 的 deep link
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
@@ -18,37 +17,6 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_background">
 
-    <!-- 顶部：图标 + 标题，仅 2x2 完整可见 -->
-    <LinearLayout
-        android:id="@+id/widget_header"
-        android:orientation="horizontal"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="6dp"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:layout_width="14dp"
-            android:layout_height="14dp"
-            android:src="@drawable/notion_widget_icon"
-            android:contentDescription="图标" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:text="Notion 图床"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:textColor="#333333"
-            android:maxLines="1" />
-
-    </LinearLayout>
-
-    <!-- 中间：拍照按钮 — 整个 widget 的核心交互区。
-         1x1 时撑满整个区域；2x2 时居中显示。
-         整体点击同一控件，避免出现"点哪里都不响应"的体验事故。 -->
     <TextView
         android:id="@+id/widget_capture_btn"
         android:layout_width="match_parent"
@@ -61,17 +29,5 @@
         android:clickable="true"
         android:focusable="true"
         android:contentDescription="拍照并上传到 Notion" />
-
-    <!-- 底部：副标题，仅 2x2 完整可见 -->
-    <TextView
-        android:id="@+id/widget_hint"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="6dp"
-        android:text="点击拍照上传"
-        android:textSize="9sp"
-        android:textColor="#666666"
-        android:maxLines="1" />
 
 </FrameLayout>
