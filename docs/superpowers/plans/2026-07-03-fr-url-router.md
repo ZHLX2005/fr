@@ -71,7 +71,7 @@ test/core/schema/
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_application_1/core/schema/fr_uri.dart';
+import 'package:xiaodouzi_fr/core/schema/fr_uri.dart';
 
 void main() {
   group('FrUri.tryParse', () {
@@ -374,9 +374,9 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_application_1/core/schema/fr_router.dart';
-import 'package:flutter_application_1/core/schema/fr_route.dart';
-import 'package:flutter_application_1/core/schema/fr_route_handler.dart';
+import 'package:xiaodouzi_fr/core/schema/fr_router.dart';
+import 'package:xiaodouzi_fr/core/schema/fr_route.dart';
+import 'package:xiaodouzi_fr/core/schema/fr_route_handler.dart';
 
 class StubHandler extends FrRouteHandler {
   const StubHandler();
@@ -538,8 +538,8 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_application_1/core/schema/fr_route_handler.dart';
-import 'package:flutter_application_1/core/schema/fr_uri.dart';
+import 'package:xiaodouzi_fr/core/schema/fr_route_handler.dart';
+import 'package:xiaodouzi_fr/core/schema/fr_uri.dart';
 
 void main() {
   FrRouteMatch make(String url) {
@@ -720,7 +720,7 @@ Replace 全部内容 with:
 //
 // 使用方式:
 // ```dart
-// import 'package:flutter_application_1/core/schema/schema.dart';
+// import 'package:xiaodouzi_fr/core/schema/schema.dart';
 //
 // // 注册路由（main 启动时）
 // registerAllFrRoutes();
@@ -1080,7 +1080,7 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
 
 Task 7 用占位 `_NotionImageHostPlaceholder`，Task 8 把占位替换为 main.dart 现有 `NotionImageHostDeepLinkPage` + `NotionImageHostPage` + `notionImageHostKey` 的真实逻辑。**做法**：
 - 把 main.dart 里的 `NotionImageHostDeepLinkPage` 类（行 257-281）整体搬到 `lib/core/schema/handlers/notion_image_host_handler.dart`，替换 `_NotionImageHostPlaceholder`
-- import `package:flutter_application_1/lab/demos/notion_image_host_demo.dart`（用 `show NotionImageHostPage, notionImageHostKey, triggerCaptureFromWidget`）
+- import `package:xiaodouzi_fr/lab/demos/notion_image_host_demo.dart`（用 `show NotionImageHostPage, notionImageHostKey, triggerCaptureFromWidget`）
 - main.dart 删 `NotionImageHostDeepLinkPage` 类和它引用的全局符号的 import
 
 - [ ] **Step 4: 编译验证**
@@ -1188,7 +1188,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_application_1/core/schema/schema.dart';
+import 'package:xiaodouzi_fr/core/schema/schema.dart';
 
 void main() {
   setUpAll(() {
