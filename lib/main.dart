@@ -20,9 +20,6 @@ import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
-// Task 8: NotionImageHostDeepLinkPage 已搬到 notion_image_host_handler.dart，
-// 这里不再需要直接 import notion_image_host_demo。
-// import 'lab/demos/notion_image_host_demo.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
 void main() async {
