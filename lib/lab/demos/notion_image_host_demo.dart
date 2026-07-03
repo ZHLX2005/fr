@@ -94,8 +94,9 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
 
   String? _latestPageId;
   String _latestPageTitle = ''; // 用户可读的 page 标题（替代 id）
-  String _status = '初始化…';
+  String _status = '加载配置中…'; // 初始即占位，避免闪一下"未配置"误判
   bool _isBusy = false;
+  bool _prefsLoaded = false; // _loadPrefs 完成标记，UI 据此判断 token/db 是否已就绪
 
   /// 当前拍到的待上传图片路径。null = 没拍照状态，显示 + 大卡片。
   String? _capturedPath;
@@ -116,13 +117,25 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       ref.read(notionTokenProvider.notifier).state = _token;
       ref.read(notionDatabaseIdProvider.notifier).state = _dbId;
       await _refreshLatestPage();
-      setState(() => _status = '已加载缓存配置');
+      setState(() {
+        _prefsLoaded = true;
+        _status = '已加载缓存配置';
+      });
     } else {
-      setState(() => _status = '点右上角 ⚙ 设置 Token 和数据库');
+      setState(() {
+        _prefsLoaded = true;
+        _status = '点右上角 ⚙ 设置 Token 和数据库';
+      });
     }
   }
 
   Future<void> _openSettings() async {
+    // 防止 _loadPrefs 还没完成就打开抽屉 — 此时 token 字段是空的，
+    // 用户会误以为 token 没存上。
+    if (!_prefsLoaded) {
+      setState(() => _status = '配置加载中，请稍候…');
+      return;
+    }
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
