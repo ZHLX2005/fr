@@ -168,9 +168,11 @@ class _ProfilePageState extends State<ProfilePage> {
             maxOverscroll: 80,
           ),
           slivers: [
-            // Banner 区域
+            // Banner 区域 — SliverAppBar 保留 stretch 下拉拉伸，
+            // expandedHeight: 224 = 200 (banner) + 24 (底部圆角面板让位)。
+            // 圆角面板叠在 FlexibleSpaceBar.background 的 Stack 里，跟 banner 一起拉伸。
             SliverAppBar(
-              expandedHeight: 200,
+              expandedHeight: 224,
               pinned: true,
               // 标题不浮动，正常显示在 AppBar 区域
               floating: false,
@@ -181,11 +183,33 @@ class _ProfilePageState extends State<ProfilePage> {
               flexibleSpace: FlexibleSpaceBar(
                 // 标题只在收起状态显示
                 title: _bannerPath == null ? const Text('小豆子') : null,
-                titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-                background: SpringyBanner(
-                  imagePath: _bannerPath,
-                  fallback: _buildDefaultBanner(context),
-                  onTap: _showBannerOptions,
+                titlePadding: const EdgeInsets.only(left: 16, bottom: 40),
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 底层：banner 全宽渲染
+                    SpringyBanner(
+                      imagePath: _bannerPath,
+                      fallback: _buildDefaultBanner(context),
+                      onTap: _showBannerOptions,
+                    ),
+                    // 顶层：底部 24px 圆角 cardColor 面板（镂空关键）
+                    // 弧外两角透出 banner 图/渐变，弧内是卡片色
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 24,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                        child: Container(
+                          color: Theme.of(context).cardColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
