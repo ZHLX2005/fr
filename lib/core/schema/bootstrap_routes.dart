@@ -15,7 +15,7 @@ void registerAllFrRoutes() {
     FrRoute('lab', handler: const LabIndexHandler()),
     FrRoute('lab/demo', handler: const LabDemoHandler()),
     FrRoute('lab/core', handler: const LabCoreHandler()),
-    FrRoute('notion/image-host', handler: const NotionImageHostHandler()),
+    FrRoute('notion', handler: const NotionImageHostHandler()),
     FrRoute('notion/create-page', handler: const NotionCreatePageHandler()),
     FrRoute('timetable', handler: const TimetableHandler()),
   ]);

@@ -23,3 +23,4 @@ export 'fr_route_handler.dart';
 export 'fr_router.dart';
 export 'fr_navigator.dart';
 export 'schema_text.dart';
+export 'bootstrap_routes.dart';
