@@ -551,6 +551,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   List<_DatabaseInfo> _databases = [];
   bool _loadingDbs = false;
   String? _dbLoadError;
+  bool _loadingCache = true; // initState → _loadCachedDatabases 完成前禁用选择器
 
   bool _tokenVisible = false;
   bool _saving = false;
@@ -573,23 +574,33 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   ///
   /// 只在用户主动刷新时更新。不自动触发网络请求。
   /// 缓存按 token 分区（不同 token 的数据隔离）。
+  ///
+  /// 用 [_loadingCache] 标志保护：缓存加载完成前禁用数据库选择器，避免
+  /// 用户点进时 `_databases` 仍为 [] 显示空空如也的竞态。
   Future<void> _loadCachedDatabases() async {
     final token = _tokenController.text.trim();
-    if (token.isEmpty) return;
+    if (token.isEmpty) {
+      if (mounted) setState(() => _loadingCache = false);
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final cached = prefs.getString(_kDbListPrefsKey(token));
-    if (cached == null || cached.isEmpty) return;
     try {
-      final list = jsonDecode(cached) as List<dynamic>;
-      setState(() {
-        _databases = list.map((e) {
-          final m = e as Map<String, dynamic>;
-          return _DatabaseInfo(m['id'] as String, m['title'] as String);
-        }).toList();
-      });
+      if (cached != null && cached.isNotEmpty) {
+        final list = jsonDecode(cached) as List<dynamic>;
+        if (mounted) {
+          setState(() {
+            _databases = list.map((e) {
+              final m = e as Map<String, dynamic>;
+              return _DatabaseInfo(m['id'] as String, m['title'] as String);
+            }).toList();
+          });
+        }
+      }
     } catch (_) {
-      // 缓存损坏 → 清除，下次用户点刷新时重新获取
       await prefs.remove(_kDbListPrefsKey(token));
+    } finally {
+      if (mounted) setState(() => _loadingCache = false);
     }
   }
 
@@ -674,6 +685,21 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   }
 
   Future<void> _pickDatabase() async {
+    // 缓存还在加载 → 等待完成（避免用户看到空数据库的假状态）
+    if (_loadingCache) {
+      _showSnack('数据库列表加载中，请稍候…');
+      // 等 _loadCachedDatabases 完成
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      // 简单轮询：最多等 2s
+      for (int i = 0; i < 20 && _loadingCache; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      if (_loadingCache) {
+        _showSnack('缓存加载超时，请刷新重试');
+        return;
+      }
+    }
+    if (!mounted) return;
     final picked = await showModalBottomSheet<_DatabaseInfo>(
       context: context,
       isScrollControlled: true,
