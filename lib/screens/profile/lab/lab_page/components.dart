@@ -287,30 +287,31 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           Row(
             children: [
               Expanded(
-                child: FilledButton.icon(
+                // 主操作 → green 描边（border-emphasis）
+                child: OutlinedButton.icon(
                   onPressed: _isLoading ? null : _pickAndCropImage,
                   icon: _isLoading
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.green,
+                          ),
                         )
                       : const Icon(Icons.crop),
                   label: const Text('Pick And Crop'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                  style: _outlinedBtnStyle(Colors.green, borderWidth: 2),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
+                // 次要操作 → theme 描边（border-emphasis）
                 child: OutlinedButton.icon(
                   onPressed: _isLoading ? null : _pickLocalImage,
                   icon: const Icon(Icons.photo_library),
                   label: const Text('Pick Only'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                  style: _outlinedBtnStyle(theme.colorScheme.primary),
                 ),
               ),
             ],
@@ -318,13 +319,12 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: FilledButton.tonalIcon(
+            // 收藏切换 → theme 描边（border-emphasis）
+            child: OutlinedButton.icon(
               onPressed: _isLoading ? null : _toggleFavorite,
               icon: Icon(_isFavorite ? Icons.star : Icons.star_border),
               label: Text(_isFavorite ? 'Unfavorite Demo' : 'Favorite Demo'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
+              style: _outlinedBtnStyle(theme.colorScheme.primary),
             ),
           ),
           const SizedBox(height: 16),
@@ -346,10 +346,12 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                 ),
               ),
               const SizedBox(width: 8),
-              FilledButton.tonal(
+              // 确认应用 → theme 描边（border-emphasis）
+              OutlinedButton(
                 onPressed: _isLoading || _customUrl.isEmpty
                     ? null
                     : () => _selectImage(_customUrl),
+                style: _outlinedBtnStyle(theme.colorScheme.primary),
                 child: _isLoading
                     ? const SizedBox(
                         width: 16,
@@ -362,6 +364,19 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 边框强调式按钮样式 — color = 该操作的功能色。
+  /// 详见 .claude/skills/uiux/references/border-emphasis-style.md
+  ButtonStyle _outlinedBtnStyle(Color color, {double borderWidth = 1}) {
+    return OutlinedButton.styleFrom(
+      foregroundColor: color,
+      side: BorderSide(
+        color: color.withValues(alpha: 0.5),
+        width: borderWidth,
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 12),
     );
   }
 
