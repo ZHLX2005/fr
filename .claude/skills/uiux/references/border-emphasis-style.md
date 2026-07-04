@@ -1,7 +1,11 @@
+# Border-Emphasis 边框强调式（归档自 border-emphasis skill）
+
+> 本文档原为 `.claude/skills/border-emphasis/SKILL.md` 的内容。合并入 uiux skill 后归档在此供历史参考。
+>
+> 何时读：改造纯色填充按钮/icon 容器 / 减负密集按钮区 / "左重右轻"时。
+
 ---
-name: border-emphasis
-description: Use when UI icons or buttons use solid color fills (gradient backgrounds or saturated backgroundColor + white foreground) and feel visually heavy or unbalanced. Transforms them to border-emphasis style — light tint background + colored outline + colored foreground — to reduce visual weight and balance composition. Also covers the decorative-vs-functional color decision: navigation icons use uniform theme color, action buttons use contrasting semantic colors. Triggers on phrases like "边框强调"、"描边式"、"避免纯色按钮"、"icon 纯色"、"左重右轻"、"纯色太重".
----
+
 # 边框强调 (Border-Emphasis)
 
 把"纯色填充"的 icon 容器 / 按钮改造为"浅 tint 底 + 同色描边 + 同色前景"，
@@ -102,3 +106,8 @@ OutlinedButton.icon(
 - [ ] 全用 `withValues(alpha:)`，无 `withOpacity`
 - [ ] helper 复用样式，调用处一眼看清功能色
 - [ ] loading / spinner 颜色与所在按钮同步
+
+## 项目内实战范例
+
+- `lib/lab/demos/notion_image_host_demo.dart` — `_outlinedBtnStyle(Color color, {double borderWidth})` helper + 设置抽屉 UI
+- `lib/lab/demos/api_test_demo.dart` — 早期应用范例
