@@ -418,90 +418,122 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
 
               // ── 中央：预览区（大 + 卡片 OR 拍好的图）──
               Expanded(
-                child: GestureDetector(
-                  onTap: hasCaptured ? null : _capture,
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: hasCaptured
-                          ? Colors.black
-                          : theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: hasCaptured
-                            ? Colors.transparent
-                            : theme.colorScheme.outline
-                                .withValues(alpha: 0.3),
-                        width: 2,
-                      ),
-                    ),
-                    child: hasCaptured
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.file(
-                              File(_capturedPath!),
-                              fit: BoxFit.contain,
-                            ),
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add_a_photo_outlined,
-                                size: 56,
-                                color:
-                                    theme.colorScheme.primary.withValues(alpha: 0.6),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '点击拍照',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                              ),
-                            ],
+                child: Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: hasCaptured ? null : _capture,
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: hasCaptured
+                              ? Colors.black
+                              : theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: hasCaptured
+                                ? Colors.transparent
+                                : theme.colorScheme.outline
+                                    .withValues(alpha: 0.3),
+                            width: 2,
                           ),
-                  ),
+                        ),
+                        child: hasCaptured
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.file(
+                                  File(_capturedPath!),
+                                  fit: BoxFit.contain,
+                                ),
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_a_photo_outlined,
+                                    size: 56,
+                                    color: theme.colorScheme.primary
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    '点击拍照',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                        ),
+                    ),
+                    // 拍完照时右上角浮一个重拍 X 按钮 — 节省底部按钮行空间
+                    if (hasCaptured)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Material(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _isBusy ? null : _retake,
+                            child: const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
 
-              // ── 底部：操作按钮（根据状态切换）──
+              // ── 底部：操作按钮（拍完照：新页 + 上传，重拍移至预览区右上角）──
               if (hasCaptured) ...[
-                // 拍完照：显示重拍 / 创建新 page / 上传
-                // 撞色编码：orange=重拍（警示/重新）、green=上传（主操作）、blue=创建新 page（备选）
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _isBusy ? null : _retake,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('重拍'),
-                        style: _outlinedBtnStyle(Colors.orange),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                      // 备选操作 → blue 描边
                       child: OutlinedButton.icon(
                         onPressed: _isBusy ? null : _createNewPageWithCapture,
-                        icon: const Icon(Icons.add),
-                        label: const Text('新 page'),
-                        style: _outlinedBtnStyle(Colors.blue),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text(
+                          '新页',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        style: _outlinedBtnStyle(Colors.blue).copyWith(
+                          padding: const WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       flex: 2,
+                      // 主操作 → green 描边 + width:2
                       child: OutlinedButton.icon(
                         onPressed: _isBusy ? null : _uploadCaptured,
-                        icon: const Icon(Icons.cloud_upload_outlined),
+                        icon: const Icon(Icons.cloud_upload_outlined, size: 18),
                         label: const Text(
                           '上传',
-                          style: TextStyle(fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
                         ),
-                        style: _outlinedBtnStyle(Colors.green, borderWidth: 2),
+                        style: _outlinedBtnStyle(Colors.green, borderWidth: 2)
+                            .copyWith(
+                          padding: const WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                        ),
                       ),
                     ),
                   ],
