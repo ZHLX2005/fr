@@ -290,6 +290,8 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       );
 
       setState(() {
+        // 关键：更新 _latestPageId，避免下次上传时再次"自动创建"重复 page
+        _latestPageId = latestId;
         _latestPageTitle = latestTitle ?? _latestPageTitle;
         _isBusy = false;
         _status = '已上传 $filename 到「$_latestPageTitle」';
@@ -301,6 +303,14 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
         _status = '上传失败: $e';
       });
     }
+  }
+
+  /// 拍照后用户主动选择"新 page"：强制创建新 page（不依赖 _latestPageId）
+  ///
+  /// 与上传分开两步 — 用户创建新 page 后仍可继续点"上传"。
+  /// 预览图保留在 _capturedPath，不清空。
+  Future<void> _createNewPageWithCapture() async {
+    await _createNewPage();
   }
 
   void _retake() {
@@ -460,7 +470,8 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
 
               // ── 底部：操作按钮（根据状态切换）──
               if (hasCaptured) ...[
-                // 拍完照：显示重拍 + 上传
+                // 拍完照：显示重拍 / 创建新 page / 上传
+                // 撞色编码：orange=重拍（警示/重新）、green=上传（主操作）、blue=创建新 page（备选）
                 Row(
                   children: [
                     Expanded(
@@ -471,7 +482,16 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                         style: _outlinedBtnStyle(Colors.orange),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isBusy ? null : _createNewPageWithCapture,
+                        icon: const Icon(Icons.add),
+                        label: const Text('新 page'),
+                        style: _outlinedBtnStyle(Colors.blue),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       flex: 2,
                       child: OutlinedButton.icon(
