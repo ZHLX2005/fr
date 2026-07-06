@@ -102,10 +102,23 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   /// 当前拍到的待上传图片路径。null = 没拍照状态，显示 + 大卡片。
   String? _capturedPath;
 
+  /// 用户输入的文字 — 左滑到文字页时用。提交后清空。
+  final TextEditingController _textController = TextEditingController();
+
+  /// PageView 控制器：0=图片页（默认）、1=文字页（左滑进入）。
+  final PageController _previewPageController = PageController();
+
   @override
   void initState() {
     super.initState();
     _loadPrefs();
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _previewPageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPrefs() async {
@@ -336,6 +349,217 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     );
   }
 
+  /// 把文字块追加到最新 page 末尾。
+  ///
+  /// 与 _uploadCaptured 镜像：上传图 vs 追加文字。
+  /// 行为：
+  ///   1. 若 _latestPageId 为 null → 先创建一个新 page
+  ///   2. 调 pageEndpoint.appendParagraphBlock
+  ///   3. 清空文字输入、回到图片页
+  Future<void> _appendText() async {
+    final text = _textController.text.trim();
+    if (text.isEmpty) {
+      _setStatus('请先在文字页输入内容');
+      return;
+    }
+    if (_token.isEmpty || _dbId.isEmpty) {
+      _setStatus('请先在设置里填 Token + 数据库');
+      return;
+    }
+    setState(() => _isBusy = true);
+    try {
+      // 1. 确保 latestPageId 存在（与 _uploadCaptured 同样的容错）
+      var latestId = _latestPageId;
+      if (latestId == null) {
+        final pageEndpoint = NotionPageEndpoint(token: _token);
+        final newPage =
+            await pageEndpoint.createPageWithTimestamp(databaseId: _dbId);
+        latestId = newPage['id'] as String;
+        _latestPageTitle = NotionPageEndpoint.extractTitle(newPage);
+      }
+
+      // 2. 追加 paragraph block
+      final pageEndpoint = NotionPageEndpoint(token: _token);
+      await pageEndpoint.appendParagraphBlock(
+        pageId: latestId,
+        text: text,
+      );
+
+      // 3. 收尾：清空输入 + 回到图片页
+      _textController.clear();
+      if (_previewPageController.hasClients) {
+        await _previewPageController.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _latestPageId = latestId;
+        _isBusy = false;
+        _status = '已追加文字到「$_latestPageTitle」';
+        // 文字和图片是分开的提交，不清 _capturedPath — 用户可继续上传图
+      });
+    } catch (e) {
+      setState(() {
+        _isBusy = false;
+        _status = '追加文字失败: $e';
+      });
+    }
+  }
+
+  /// Page 0: 图片预览页（默认）
+  Widget _buildImagePage(ThemeData theme, bool hasCaptured) {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: hasCaptured ? null : _capture,
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: hasCaptured
+                  ? Colors.black
+                  : theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: hasCaptured
+                    ? Colors.transparent
+                    : theme.colorScheme.outline.withValues(alpha: 0.3),
+                width: 2,
+              ),
+            ),
+            child: hasCaptured
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.file(
+                      File(_capturedPath!),
+                      fit: BoxFit.contain,
+                    ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_a_photo_outlined,
+                        size: 56,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '点击拍照（左滑输文字）',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+        // 拍完照时右上角浮一个重拍 X 按钮
+        if (hasCaptured)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.5),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _isBusy ? null : _retake,
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.refresh, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ),
+        // 左滑提示（小箭头，3 秒后自动消失）
+        if (hasCaptured)
+          Positioned(
+            left: 8,
+            top: 8,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.chevron_left, color: Colors.white, size: 14),
+                  Text('左滑输文字',
+                      style: TextStyle(color: Colors.white, fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Page 1: 文字输入页（左滑进入）
+  Widget _buildTextPage(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.3),
+          width: 2,
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.text_fields, color: theme.colorScheme.primary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                '追加文字到「$_latestPageTitle」',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: theme.colorScheme.onSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: TextField(
+              controller: _textController,
+              maxLines: null,
+              expands: true,
+              textAlignVertical: TextAlignVertical.top,
+              decoration: InputDecoration(
+                hintText: '输入要追加到 page 末尾的文字…',
+                border: InputBorder.none,
+                hintStyle: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+              style: TextStyle(
+                fontSize: 15,
+                color: theme.colorScheme.onSurface,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -416,141 +640,136 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
               ),
               const SizedBox(height: 16),
 
-              // ── 中央：预览区（大 + 卡片 OR 拍好的图）──
+              // ── 中央：预览区（PageView：0=图片、1=文字，左滑切换）──
               Expanded(
-                child: Stack(
+                child: PageView(
+                  controller: _previewPageController,
+                  physics: const BouncingScrollPhysics(),
                   children: [
-                    GestureDetector(
-                      onTap: hasCaptured ? null : _capture,
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: hasCaptured
-                              ? Colors.black
-                              : theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: hasCaptured
-                                ? Colors.transparent
-                                : theme.colorScheme.outline
-                                    .withValues(alpha: 0.3),
-                            width: 2,
-                          ),
-                        ),
-                        child: hasCaptured
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.file(
-                                  File(_capturedPath!),
-                                  fit: BoxFit.contain,
-                                ),
-                              )
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_a_photo_outlined,
-                                    size: 56,
-                                    color: theme.colorScheme.primary
-                                        .withValues(alpha: 0.6),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    '点击拍照',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: theme.colorScheme.onSurface,
+                    // Page 0: 图片页（默认）
+                    _buildImagePage(theme, hasCaptured),
+                    // Page 1: 文字页（左滑进入）
+                    _buildTextPage(theme),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // PageView 指示器（小点）
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _PageDot(active: true, theme: theme),
+                  const SizedBox(width: 6),
+                  _PageDot(active: false, theme: theme),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // ── 底部：操作按钮（根据 PageView 当前页切换语义）──
+              AnimatedBuilder(
+                animation: _previewPageController,
+                builder: (context, _) {
+                  // Page 1（文字页）→ 显示"追加"按钮
+                  if (_previewPageController.hasClients &&
+                      _previewPageController.page == 1) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          // 主操作：追加文字 → theme primary 描边
+                          child: OutlinedButton.icon(
+                            onPressed: _isBusy ? null : _appendText,
+                            icon: _isBusy
+                                ? SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color:
+                                          theme.colorScheme.primary,
                                     ),
-                                  ),
-                                ],
+                                  )
+                                : Icon(Icons.text_fields, size: 18, color: theme.colorScheme.primary),
+                            label: const Text(
+                              '追加到 page',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
-                        ),
-                    ),
-                    // 拍完照时右上角浮一个重拍 X 按钮 — 节省底部按钮行空间
-                    if (hasCaptured)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Material(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: _isBusy ? null : _retake,
-                            child: const Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Icon(
-                                Icons.refresh,
-                                color: Colors.white,
-                                size: 20,
+                            ),
+                            style: _outlinedBtnStyle(
+                              theme.colorScheme.primary,
+                              borderWidth: 2,
+                            ).copyWith(
+                              padding: const WidgetStatePropertyAll(
+                                EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
                               ),
                             ),
                           ),
                         ),
+                      ],
+                    );
+                  }
+                  // Page 0（图片页）→ 拍完照才显示按钮
+                  if (!hasCaptured) {
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: _isBusy ? null : _createNewPage,
+                        icon: const Icon(Icons.add),
+                        label: const Text('创建新 page'),
+                        style: _outlinedBtnStyle(Colors.green),
                       ),
-                  ],
-                ),
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed:
+                              _isBusy ? null : _createNewPageWithCapture,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text(
+                            '新页',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          style: _outlinedBtnStyle(Colors.blue).copyWith(
+                            padding: const WidgetStatePropertyAll(
+                              EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: OutlinedButton.icon(
+                          onPressed: _isBusy ? null : _uploadCaptured,
+                          icon:
+                              const Icon(Icons.cloud_upload_outlined, size: 18),
+                          label: const Text(
+                            '上传',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: _outlinedBtnStyle(Colors.green,
+                                  borderWidth: 2)
+                              .copyWith(
+                            padding: const WidgetStatePropertyAll(
+                              EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-              const SizedBox(height: 16),
-
-              // ── 底部：操作按钮（拍完照：新页 + 上传，重拍移至预览区右上角）──
-              if (hasCaptured) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      // 备选操作 → blue 描边
-                      child: OutlinedButton.icon(
-                        onPressed: _isBusy ? null : _createNewPageWithCapture,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text(
-                          '新页',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        style: _outlinedBtnStyle(Colors.blue).copyWith(
-                          padding: const WidgetStatePropertyAll(
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      // 主操作 → green 描边 + width:2
-                      child: OutlinedButton.icon(
-                        onPressed: _isBusy ? null : _uploadCaptured,
-                        icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                        label: const Text(
-                          '上传',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        style: _outlinedBtnStyle(Colors.green, borderWidth: 2)
-                            .copyWith(
-                          padding: const WidgetStatePropertyAll(
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                // 没拍照：显示创建新 page
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: OutlinedButton.icon(
-                    onPressed: _isBusy ? null : _createNewPage,
-                    icon: const Icon(Icons.add),
-                    label: const Text('创建新 page'),
-                    style: _outlinedBtnStyle(Colors.green),
-                  ),
-                ),
-              ],
               const SizedBox(height: 12),
 
               // ── 状态栏（操作反馈）──
@@ -1002,6 +1221,28 @@ class _DatabasePickerSheet extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// PageView 指示器小点
+class _PageDot extends StatelessWidget {
+  final bool active;
+  final ThemeData theme;
+  const _PageDot({required this.active, required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: active ? 20 : 6,
+      height: 6,
+      decoration: BoxDecoration(
+        color: active
+            ? theme.colorScheme.primary
+            : theme.colorScheme.outline.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(3),
       ),
     );
   }

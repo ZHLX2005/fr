@@ -75,6 +75,54 @@ class NotionPageEndpoint {
 
   void dispose() => _client.close();
 
+  /// 在 page 末尾追加一个 paragraph block。
+  ///
+  /// Notion API: PATCH /v1/blocks/{page_id}/children
+  /// body: { "children": [{ "object": "block", "type": "paragraph", ... }] }
+  ///
+  /// [text] 会作为 paragraph 内的 rich_text 数组。空字符串直接 return 不调用 API。
+  /// 成功返回 Notion 返回的 block JSON（通常 results 数组的第一项）。
+  Future<Map<String, dynamic>> appendParagraphBlock({
+    required String pageId,
+    required String text,
+  }) async {
+    if (text.isEmpty) {
+      throw ArgumentError('text 不能为空');
+    }
+    final body = jsonEncode({
+      'children': [
+        {
+          'object': 'block',
+          'type': 'paragraph',
+          'paragraph': {
+            'rich_text': [
+              {
+                'type': 'text',
+                'text': {'content': text},
+              },
+            ],
+          },
+        },
+      ],
+    });
+    final resp = await _client.patch(
+      Uri.parse('${NotionConfig.baseUrl}/v1/blocks/$pageId/children'),
+      headers: _headers,
+      body: body,
+    );
+    _checkError(resp);
+    final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+    final results = decoded['results'] as List<dynamic>? ?? [];
+    if (results.isEmpty) {
+      throw NotionApiException(
+        statusCode: resp.statusCode,
+        code: 'no_block_returned',
+        message: 'appendParagraphBlock 后未返回 block',
+      );
+    }
+    return results.first as Map<String, dynamic>;
+  }
+
   /// 从 page JSON 中提取可读的 title 文本。
   ///
   /// title 是 rich_text array，可能含多种类型：
