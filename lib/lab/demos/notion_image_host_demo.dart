@@ -263,65 +263,9 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     _capture();
   }
 
-  Future<void> _uploadCaptured() async {
-    final path = _capturedPath;
-    if (path == null) return;
-    if (_token.isEmpty || _dbId.isEmpty) {
-      _setStatus('请先在设置里填 Token + 数据库');
-      return;
-    }
-
-    setState(() => _isBusy = true);
-    try {
-      // 1. 确保 latestPageId 存在
-      var latestId = _latestPageId;
-      String? latestTitle;
-      if (latestId == null) {
-        final pageEndpoint = NotionPageEndpoint(token: _token);
-        final newPage =
-            await pageEndpoint.createPageWithTimestamp(databaseId: _dbId);
-        latestId = newPage['id'] as String;
-        latestTitle = NotionPageEndpoint.extractTitle(newPage);
-      } else {
-        latestTitle = _latestPageTitle;
-      }
-
-      // 2. 读文件字节 + 生成可读文件名
-      final bytes = await File(path).readAsBytes();
-      // 文件名只展示给用户 — 用本地时间格式化 (不含 id/UUID 等)
-      final ts = DateTime.now();
-      final filename =
-          'cam_${ts.year}${_pad(ts.month)}${_pad(ts.day)}_${_pad(ts.hour)}${_pad(ts.minute)}${_pad(ts.second)}.jpg';
-
-      // 3. 3 步上传（不显示 block id — 用文件名反馈）
-      final fileEndpoint = NotionFileEndpoint(token: _token);
-      await fileEndpoint.uploadImageToPage(
-        pageId: latestId,
-        imageBytes: bytes,
-        filename: filename,
-        contentType: 'image/jpeg',
-      );
-
-      setState(() {
-        // 关键：更新 _latestPageId，避免下次上传时再次"自动创建"重复 page
-        _latestPageId = latestId;
-        _latestPageTitle = latestTitle ?? _latestPageTitle;
-        _isBusy = false;
-        _status = '已上传 $filename 到「$_latestPageTitle」';
-        _capturedPath = null; // 预览区回到 + 大卡片
-      });
-    } catch (e) {
-      setState(() {
-        _isBusy = false;
-        _status = '上传失败: $e';
-      });
-    }
-  }
-
   /// 拍照后用户主动选择"新 page"：强制创建新 page（不依赖 _latestPageId）
   ///
-  /// 与上传分开两步 — 用户创建新 page 后仍可继续点"上传"。
-  /// 预览图保留在 _capturedPath，不清空。
+  /// 与提交分开两步 — 用户创建新 page 后仍可继续点"提交"。
   Future<void> _createNewPageWithCapture() async {
     await _createNewPage();
   }
@@ -340,6 +284,20 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
 
   static String _pad(int n) => n.toString().padLeft(2, '0');
 
+  /// 当前是否有可提交内容（图 / 文字任一）
+  bool _hasAnyContent() =>
+      _capturedPath != null || _textController.text.trim().isNotEmpty;
+
+  /// 提交按钮文字：自动根据当前内容显示
+  String _submitButtonLabel() {
+    final hasImg = _capturedPath != null;
+    final hasText = _textController.text.trim().isNotEmpty;
+    if (hasImg && hasText) return '提交图+文';
+    if (hasImg) return '上传';
+    if (hasText) return '追加文字';
+    return '提交';
+  }
+
   /// 边框强调式按钮样式 — 与 api_test_demo 风格保持一致。
   ButtonStyle _outlinedBtnStyle(Color color, {double borderWidth = 1}) {
     return OutlinedButton.styleFrom(
@@ -356,19 +314,30 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   ///   1. 若 _latestPageId 为 null → 先创建一个新 page
   ///   2. 调 pageEndpoint.appendParagraphBlock
   ///   3. 清空文字输入、回到图片页
-  Future<void> _appendText() async {
-    final text = _textController.text.trim();
-    if (text.isEmpty) {
-      _setStatus('请先在文字页输入内容');
-      return;
-    }
+  /// 一站式提交：上传图片（如果有）+ 追加文字（如果有）。
+  ///
+  /// 支持三种模式：
+  ///   - 只拍图无文字 → 上传图
+  ///   - 只输入文字无图 → 创建/复用 page + 追加文字
+  ///   - 图 + 文字都有 → 先确保 page 存在，再传图，再追加文字
+  ///
+  /// 顺序：图先文后（用户要求）。
+  /// 完成后：清空文字、保留 _capturedPath（无图时本来就 null）。
+  Future<void> _submitAll() async {
     if (_token.isEmpty || _dbId.isEmpty) {
       _setStatus('请先在设置里填 Token + 数据库');
       return;
     }
+    final text = _textController.text.trim();
+    final imagePath = _capturedPath;
+    if (text.isEmpty && imagePath == null) {
+      _setStatus('没有可提交的内容（图片或文字）');
+      return;
+    }
+
     setState(() => _isBusy = true);
     try {
-      // 1. 确保 latestPageId 存在（与 _uploadCaptured 同样的容错）
+      // 1. 确保 _latestPageId 存在（无图无文也要 page 来放文字）
       var latestId = _latestPageId;
       if (latestId == null) {
         final pageEndpoint = NotionPageEndpoint(token: _token);
@@ -378,14 +347,31 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
         _latestPageTitle = NotionPageEndpoint.extractTitle(newPage);
       }
 
-      // 2. 追加 paragraph block
-      final pageEndpoint = NotionPageEndpoint(token: _token);
-      await pageEndpoint.appendParagraphBlock(
-        pageId: latestId,
-        text: text,
-      );
+      // 2. 提交图（图先）
+      if (imagePath != null) {
+        final bytes = await File(imagePath).readAsBytes();
+        final ts = DateTime.now();
+        final filename =
+            'cam_${ts.year}${_pad(ts.month)}${_pad(ts.day)}_${_pad(ts.hour)}${_pad(ts.minute)}${_pad(ts.second)}.jpg';
+        final fileEndpoint = NotionFileEndpoint(token: _token);
+        await fileEndpoint.uploadImageToPage(
+          pageId: latestId,
+          imageBytes: bytes,
+          filename: filename,
+          contentType: 'image/jpeg',
+        );
+      }
 
-      // 3. 收尾：清空输入 + 回到图片页
+      // 3. 追加文字（图后）
+      if (text.isNotEmpty) {
+        final pageEndpoint = NotionPageEndpoint(token: _token);
+        await pageEndpoint.appendParagraphBlock(
+          pageId: latestId,
+          text: text,
+        );
+      }
+
+      // 4. 收尾
       _textController.clear();
       if (_previewPageController.hasClients) {
         await _previewPageController.animateToPage(
@@ -397,14 +383,23 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       if (!mounted) return;
       setState(() {
         _latestPageId = latestId;
+        _latestPageTitle = _latestPageTitle;
         _isBusy = false;
-        _status = '已追加文字到「$_latestPageTitle」';
-        // 文字和图片是分开的提交，不清 _capturedPath — 用户可继续上传图
+        // 状态消息：分别报告
+        if (imagePath != null && text.isNotEmpty) {
+          _status = '已上传图片并追加文字到「$_latestPageTitle」';
+        } else if (imagePath != null) {
+          _status = '已上传到「$_latestPageTitle」';
+        } else {
+          _status = '已追加文字到「$_latestPageTitle」';
+        }
+        // 清空拍好的图（已上传）
+        _capturedPath = null;
       });
     } catch (e) {
       setState(() {
         _isBusy = false;
-        _status = '追加文字失败: $e';
+        _status = '提交失败: $e';
       });
     }
   }
@@ -665,110 +660,65 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
               ),
               const SizedBox(height: 8),
 
-              // ── 底部：操作按钮（根据 PageView 当前页切换语义）──
-              AnimatedBuilder(
-                animation: _previewPageController,
-                builder: (context, _) {
-                  // Page 1（文字页）→ 显示"追加"按钮
-                  if (_previewPageController.hasClients &&
-                      _previewPageController.page == 1) {
-                    return Row(
-                      children: [
-                        Expanded(
-                          // 主操作：追加文字 → theme primary 描边
-                          child: OutlinedButton.icon(
-                            onPressed: _isBusy ? null : _appendText,
-                            icon: _isBusy
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color:
-                                          theme.colorScheme.primary,
-                                    ),
-                                  )
-                                : Icon(Icons.text_fields, size: 18, color: theme.colorScheme.primary),
-                            label: const Text(
-                              '追加到 page',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
+              // ── 底部：操作按钮（两页通用：新建 + 一站式提交）──
+              // 提交按钮统一调 _submitAll：根据当前状态（有无图、有无文字）
+              // 自动走"只文 / 只图 / 图+文"三种路径，图先文后。
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isBusy ? null : _createNewPageWithCapture,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text(
+                        '新页',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      style: _outlinedBtnStyle(Colors.blue).copyWith(
+                        padding: const WidgetStatePropertyAll(
+                          EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: OutlinedButton.icon(
+                      onPressed: _isBusy ? null : _submitAll,
+                      icon: _isBusy
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.green,
                               ),
+                            )
+                          : Icon(
+                              _hasAnyContent()
+                                  ? Icons.cloud_upload_outlined
+                                  : Icons.send,
+                              size: 18,
+                              color: Colors.green,
                             ),
-                            style: _outlinedBtnStyle(
-                              theme.colorScheme.primary,
-                              borderWidth: 2,
-                            ).copyWith(
-                              padding: const WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-                  // Page 0（图片页）→ 拍完照才显示按钮
-                  if (!hasCaptured) {
-                    return SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: _isBusy ? null : _createNewPage,
-                        icon: const Icon(Icons.add),
-                        label: const Text('创建新 page'),
-                        style: _outlinedBtnStyle(Colors.green),
-                      ),
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed:
-                              _isBusy ? null : _createNewPageWithCapture,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text(
-                            '新页',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          style: _outlinedBtnStyle(Colors.blue).copyWith(
-                            padding: const WidgetStatePropertyAll(
-                              EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 12),
-                            ),
-                          ),
+                      label: Text(
+                        _submitButtonLabel(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: OutlinedButton.icon(
-                          onPressed: _isBusy ? null : _uploadCaptured,
-                          icon:
-                              const Icon(Icons.cloud_upload_outlined, size: 18),
-                          label: const Text(
-                            '上传',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                          style: _outlinedBtnStyle(Colors.green,
-                                  borderWidth: 2)
-                              .copyWith(
-                            padding: const WidgetStatePropertyAll(
-                              EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 12),
-                            ),
-                          ),
+                      style: _outlinedBtnStyle(Colors.green, borderWidth: 2)
+                          .copyWith(
+                        padding: const WidgetStatePropertyAll(
+                          EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                         ),
                       ),
-                    ],
-                  );
-                },
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 
