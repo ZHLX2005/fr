@@ -452,14 +452,23 @@ class _DemoDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: demo.preferFullScreen
           ? null
           : AppBar(
+              toolbarHeight: 48,
+              titleTextStyle: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
               title: GestureDetector(
                 onTap: () => _showDemoDesc(context),
                 behavior: HitTestBehavior.opaque,
-                child: Text(demo.title),
+                child: Text(
+                  demo.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               centerTitle: true,
               elevation: 0,
