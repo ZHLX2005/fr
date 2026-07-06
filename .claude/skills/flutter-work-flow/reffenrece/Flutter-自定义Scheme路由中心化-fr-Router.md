@@ -8,13 +8,13 @@
 
 ### 问题根因：5 处入口不一致
 
-| 位置 | 行为 | 痛点 |
-|------|------|------|
-| `schema_service.dart` | `_registerCorePages()` 硬编码 4 个 core page | 与 `schema_navigator.dart` switch case 重复 |
-| `schema_navigator.dart` | 4 个 if/else + 4 个 switch case；`setNavigatorKey` 静态全局 | 加新核心页要改 2 处 |
-| `main.dart` | 4 个 `_navigateToXxx` 平行存在；硬编码 demo key `'Notion 图床'` / `'日历待办'` | 与 schema 层平行存在 |
-| `lab/demos/*_demo.dart` | 36 个 demo 用 `demoRegistry.register(WidgetClass())` | demo key 与 fr:// 路由映射在 `SchemaRegistry.discover()` 里二次生成 |
-| `message_strategy/text_link_message_strategy.dart` | 复用 `SchemaText`，依赖 SchemaNavigator | 链路长、错位难追 |
+| 位置                                                 | 行为                                                                                | 痛点                                                                 |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `schema_service.dart`                              | `_registerCorePages()` 硬编码 4 个 core page                                      | 与`schema_navigator.dart` switch case 重复                         |
+| `schema_navigator.dart`                            | 4 个 if/else + 4 个 switch case；`setNavigatorKey` 静态全局                       | 加新核心页要改 2 处                                                  |
+| `main.dart`                                        | 4 个`_navigateToXxx` 平行存在；硬编码 demo key `'Notion 图床'` / `'日历待办'` | 与 schema 层平行存在                                                 |
+| `lab/demos/*_demo.dart`                            | 36 个 demo 用`demoRegistry.register(WidgetClass())`                               | demo key 与 fr:// 路由映射在`SchemaRegistry.discover()` 里二次生成 |
+| `message_strategy/text_link_message_strategy.dart` | 复用`SchemaText`，依赖 SchemaNavigator                                            | 链路长、错位难追                                                     |
 
 **核心矛盾**：同一个"路由"概念，被 5 处不同代码独立实现，新增/修改都要改多处。
 
@@ -91,6 +91,7 @@ class FrUri {
 ```
 
 **结果**：
+
 - `fr://lab` → authority=`lab`, path=``
 - `fr://lab/demo/clock` → authority=`lab/demo/clock`, path=`demo/clock`
 - `fr://notion/image-host?autocapture=true` → authority=`notion/image-host`, path=`image-host`
@@ -114,12 +115,12 @@ Uri.decodeComponent('lab/demo/%E6%97%B6%E9%92%9F');         // ✅ 返回 'lab/d
 
 含中文的 URL 全崩，纯英文的好 —— 这是定位根因的关键信号：
 
-| URL | 含中文? | 行为 |
-|-----|---------|------|
-| `fr://notion/image-host` | 否 | ✅ 正常跳转 |
-| `fr://timetable` | 否 | ✅ 正常跳转 |
-| `fr://lab/demo/时钟` | 是 | ❌ resolve 崩溃 → FrNavigator 静默失败 → 点击无反应 |
-| `fr://lab/demo/日历待办` | 是 | ❌ 桌面 widget 进 app 不跳转 |
+| URL                        | 含中文? | 行为                                                  |
+| -------------------------- | ------- | ----------------------------------------------------- |
+| `fr://notion/image-host` | 否      | ✅ 正常跳转                                           |
+| `fr://timetable`         | 否      | ✅ 正常跳转                                           |
+| `fr://lab/demo/时钟`     | 是      | ❌ resolve 崩溃 → FrNavigator 静默失败 → 点击无反应 |
+| `fr://lab/demo/日历待办` | 是      | ❌ 桌面 widget 进 app 不跳转                          |
 
 ### 为什么 41 个测试没抓住
 
@@ -189,13 +190,14 @@ FrRouteHandler? findHandler(String authority) {
 
 ### 为什么必须 slash 边界检查
 
-| 输入 | 无边界检查 | 有边界检查 |
-|------|-----------|-----------|
-| `fr://lab` | ✅ 命中 `lab` | ✅ 命中 `lab` |
-| `fr://lab/demo/clock` | ✅ 命中 `lab/demo` | ✅ 命中 `lab/demo` |
-| `fr://labfoo` | ❌ 误命中 `lab`（startsWith('lab') 为 true） | ✅ 返回 null（`lab/` 不匹配） |
+| 输入                    | 无边界检查                                    | 有边界检查                      |
+| ----------------------- | --------------------------------------------- | ------------------------------- |
+| `fr://lab`            | ✅ 命中`lab`                                | ✅ 命中`lab`                  |
+| `fr://lab/demo/clock` | ✅ 命中`lab/demo`                           | ✅ 命中`lab/demo`             |
+| `fr://labfoo`         | ❌ 误命中`lab`（startsWith('lab') 为 true） | ✅ 返回 null（`lab/` 不匹配） |
 
 **测试必须覆盖这个边界 case**：
+
 ```dart
 test('fr://labfoo 不会误命中 lab（无 slash 边界）', () async {
   final match = await frRouter.resolve('fr://labfoo');
@@ -326,6 +328,7 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
 ```
 
 **收益**：
+
 - 新增 MethodChannel 入口只需加一行 switch case
 - query 参数（autocapture）序列化到 URL，handler 端用 `queryBool` 解析
 - 与文本链接、内部代码走完全相同的分发链路
@@ -381,28 +384,29 @@ nav.push(MaterialPageRoute(
 
 ## 错误处理矩阵
 
-| 错误 | 表现 |
-|------|------|
-| scheme 非 `fr://` | `debugPrint` + 静默返回 |
-| 找不到 authority | `debugPrint` + SnackBar "未知路由" |
-| handler 返回 null Widget | 静默 debugPrint（防御） |
-| handler 抛异常 | SnackBar 显示 e.message + debugPrint stacktrace |
-| context.mounted=false | 跳过 push，记录日志 |
-| NavigatorState 为 null | debugPrint + 静默返回 |
+| 错误                     | 表现                                            |
+| ------------------------ | ----------------------------------------------- |
+| scheme 非`fr://`       | `debugPrint` + 静默返回                       |
+| 找不到 authority         | `debugPrint` + SnackBar "未知路由"            |
+| handler 返回 null Widget | 静默 debugPrint（防御）                         |
+| handler 抛异常           | SnackBar 显示 e.message + debugPrint stacktrace |
+| context.mounted=false    | 跳过 push，记录日志                             |
+| NavigatorState 为 null   | debugPrint + 静默返回                           |
 
 ---
 
 ## 迁移策略（一次性彻底）
 
-| 当前 | 新 |
-|------|-----|
-| `SchemaNavigator.navigateToCorePage` switch | `LabCoreHandler` 处理 lab/core/* |
-| `SchemaNavigator.navigateToDemo` demoRegistry 查询 | `LabDemoHandler` 处理 lab/demo/* |
-| `SchemaNavigator.navigateToLab` | `LabIndexHandler` 处理 fr://lab |
-| `main.dart._navigateToLab/Calendar/Timetable/NotionImage` | 4 个 MethodChannel handler → `FrNavigator.handle(fr://...)` |
-| `notion_image_host_demo.dart` | 保留 demo 注册，同时注册 `fr://notion/image-host` |
+| 当前                                                        | 新                                                            |
+| ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `SchemaNavigator.navigateToCorePage` switch               | `LabCoreHandler` 处理 lab/core/*                            |
+| `SchemaNavigator.navigateToDemo` demoRegistry 查询        | `LabDemoHandler` 处理 lab/demo/*                            |
+| `SchemaNavigator.navigateToLab`                           | `LabIndexHandler` 处理 fr://lab                             |
+| `main.dart._navigateToLab/Calendar/Timetable/NotionImage` | 4 个 MethodChannel handler →`FrNavigator.handle(fr://...)` |
+| `notion_image_host_demo.dart`                             | 保留 demo 注册，同时注册`fr://notion/image-host`            |
 
 **删除清单**（老 API 全部下线）：
+
 - `schema_service.dart`（SchemaRoutes / SchemaRegistry / schemaRegistry）
 - `schema_navigator.dart`（SchemaNavigator）
 - `schema_parser.dart`（autoLink 逻辑搬到 schema_text.dart 私有方法）
@@ -413,14 +417,14 @@ nav.push(MaterialPageRoute(
 
 ## 经验总结
 
-| 教训 | 应用场景 |
-|------|---------|
-| 自定义 scheme 路由的 host 段不能只取第一个 `/` 前，否则嵌套路由失效 | 任何需要嵌套命名空间的路由系统 |
-| Router prefix 匹配必须有 slash 边界保护，防 `labfoo` 误命中 `lab` | 任何用 startsWith 做路由匹配的场景 |
-| 路由测试必须断言具体 handler 类型，不能只断言非 null | 路由 / 分发 / 策略模式系统的测试 |
-| query string 工具方法（queryBool/queryString/pathSegment）放 FrRouteMatch 上 | 需要传参的 deep link 场景 |
-| MethodChannel 反注册可翻译成内部 URL，统一分发链路 | Flutter 与 native 桥接的路由统一 |
-| 防重复 push 是隐性合约，重构 Navigator 时要专门检查 | 任何涉及多次 push 的入口（widget 回调、onNewIntent） |
+| 教训                                                                         | 应用场景                                             |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 自定义 scheme 路由的 host 段不能只取第一个`/` 前，否则嵌套路由失效         | 任何需要嵌套命名空间的路由系统                       |
+| Router prefix 匹配必须有 slash 边界保护，防`labfoo` 误命中 `lab`         | 任何用 startsWith 做路由匹配的场景                   |
+| 路由测试必须断言具体 handler 类型，不能只断言非 null                         | 路由 / 分发 / 策略模式系统的测试                     |
+| query string 工具方法（queryBool/queryString/pathSegment）放 FrRouteMatch 上 | 需要传参的 deep link 场景                            |
+| MethodChannel 反注册可翻译成内部 URL，统一分发链路                           | Flutter 与 native 桥接的路由统一                     |
+| 防重复 push 是隐性合约，重构 Navigator 时要专门检查                          | 任何涉及多次 push 的入口（widget 回调、onNewIntent） |
 
 ---
 
