@@ -442,7 +442,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '点击拍照（左滑输文字）',
+                        '点击拍照',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -471,28 +471,6 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
               ),
             ),
           ),
-        // 左滑提示（小箭头，3 秒后自动消失）
-        if (hasCaptured)
-          Positioned(
-            left: 8,
-            top: 8,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.chevron_left, color: Colors.white, size: 14),
-                  Text('左滑输文字',
-                      style: TextStyle(color: Colors.white, fontSize: 11)),
-                ],
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -510,47 +488,23 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
         ),
       ),
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.text_fields, color: theme.colorScheme.primary, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                '追加文字到「$_latestPageTitle」',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: theme.colorScheme.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+      child: TextField(
+        controller: _textController,
+        maxLines: null,
+        expands: true,
+        textAlignVertical: TextAlignVertical.top,
+        decoration: InputDecoration(
+          hintText: '输入文字…',
+          border: InputBorder.none,
+          hintStyle: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: TextField(
-              controller: _textController,
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              decoration: InputDecoration(
-                hintText: '输入要追加到 page 末尾的文字…',
-                border: InputBorder.none,
-                hintStyle: TextStyle(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-              ),
-              style: TextStyle(
-                fontSize: 15,
-                color: theme.colorScheme.onSurface,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
+        ),
+        style: TextStyle(
+          fontSize: 15,
+          color: theme.colorScheme.onSurface,
+          height: 1.4,
+        ),
       ),
     );
   }
