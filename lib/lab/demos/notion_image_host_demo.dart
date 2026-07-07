@@ -99,8 +99,22 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   bool _isBusy = false;
   bool _prefsLoaded = false; // _loadPrefs 完成标记，UI 据此判断 token/db 是否已就绪
 
-  /// 当前拍到的待上传图片路径。null = 没拍照状态，显示 + 大卡片。
-  String? _capturedPath;
+  /// 当前已拍图片列表（多图累积）。空 = 还没拍。
+  ///
+  /// 设计：
+  /// - 多图累积到一个 page 上传（同一 page 多个 image block）
+  /// - 拍完一张后点右上角「+」可继续拍
+  /// - 拍完一张后点右上角「×」可清除当前预览图
+  /// - 右滑进入多图列表页（_buildPhotoListPage）管理
+  final List<String> _capturedPaths = [];
+
+  /// 当前图片预览页显示的索引（默认最后一张 = 最新拍的）
+  int _currentPhotoIndex = 0;
+
+  bool get _hasCaptured => _capturedPaths.isNotEmpty;
+  String? get _currentPreviewPath => _hasCaptured
+      ? _capturedPaths[_currentPhotoIndex.clamp(0, _capturedPaths.length - 1)]
+      : null;
 
   /// 用户输入的文字 — 左滑到文字页时用。提交后清空。
   final TextEditingController _textController = TextEditingController();
@@ -241,8 +255,26 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     }
     if (!mounted) return;
     setState(() {
-      _capturedPath = photo!.path;
-      _status = '已拍照，等待上传或重拍';
+      // 追加到累积列表，索引指向最新一张
+      _capturedPaths.add(photo!.path);
+      _currentPhotoIndex = _capturedPaths.length - 1;
+      _status = _capturedPaths.length == 1
+          ? '已拍照 1 张，继续拍或点提交'
+          : '已拍照 ${_capturedPaths.length} 张，继续拍或点提交';
+    });
+  }
+
+  /// 清除当前预览的那张图（多图列表里点×）
+  void _removeCurrentPhoto() {
+    if (_capturedPaths.isEmpty) return;
+    setState(() {
+      _capturedPaths.removeAt(_currentPhotoIndex);
+      // 删除后索引回退到前一张（或保持 0）
+      if (_capturedPaths.isEmpty) {
+        _currentPhotoIndex = 0;
+      } else if (_currentPhotoIndex >= _capturedPaths.length) {
+        _currentPhotoIndex = _capturedPaths.length - 1;
+      }
     });
   }
 
@@ -272,8 +304,13 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
 
   void _retake() {
     setState(() {
-      _capturedPath = null;
-      _status = '已取消本次照片';
+      // 清空所有已拍图（多图累积场景下"重拍"= 全部丢弃重来）
+      final count = _capturedPaths.length;
+      _capturedPaths.clear();
+      _currentPhotoIndex = 0;
+      _status = count == 0
+          ? '已取消'
+          : '已清空 $count 张已拍图';
     });
   }
 
@@ -286,14 +323,18 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
 
   /// 当前是否有可提交内容（图 / 文字任一）
   bool _hasAnyContent() =>
-      _capturedPath != null || _textController.text.trim().isNotEmpty;
+      _capturedPaths.isNotEmpty || _textController.text.trim().isNotEmpty;
 
   /// 提交按钮文字：自动根据当前内容显示
   String _submitButtonLabel() {
-    final hasImg = _capturedPath != null;
+    final imgCount = _capturedPaths.length;
     final hasText = _textController.text.trim().isNotEmpty;
-    if (hasImg && hasText) return '提交图+文';
-    if (hasImg) return '上传';
+    if (imgCount > 0 && hasText) {
+      return imgCount == 1 ? '提交图+文' : '提交 ${imgCount}图+文';
+    }
+    if (imgCount > 0) {
+      return imgCount == 1 ? '上传' : '上传 $imgCount 张';
+    }
     if (hasText) return '追加文字';
     return '提交';
   }
@@ -314,30 +355,30 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   ///   1. 若 _latestPageId 为 null → 先创建一个新 page
   ///   2. 调 pageEndpoint.appendParagraphBlock
   ///   3. 清空文字输入、回到图片页
-  /// 一站式提交：上传图片（如果有）+ 追加文字（如果有）。
+  /// 一站式提交：上传所有累积图片（多图）+ 追加文字（如果有）。
   ///
-  /// 支持三种模式：
-  ///   - 只拍图无文字 → 上传图
-  ///   - 只输入文字无图 → 创建/复用 page + 追加文字
-  ///   - 图 + 文字都有 → 先确保 page 存在，再传图，再追加文字
+  /// 多图行为：
+  ///   - 0 张图 + 文字 → 创建/复用 page + 追加文字
+  ///   - N 张图无文字 → 创建/复用 page + 顺序上传 N 张（每张一个 image block）
+  ///   - N 张图 + 文字 → 上传所有图后追加文字
   ///
   /// 顺序：图先文后（用户要求）。
-  /// 完成后：清空文字、保留 _capturedPath（无图时本来就 null）。
+  /// 完成后：清空文字 + 清空已拍图 list + 回到图片预览页。
   Future<void> _submitAll() async {
     if (_token.isEmpty || _dbId.isEmpty) {
       _setStatus('请先在设置里填 Token + 数据库');
       return;
     }
     final text = _textController.text.trim();
-    final imagePath = _capturedPath;
-    if (text.isEmpty && imagePath == null) {
+    final imgs = List<String>.from(_capturedPaths);
+    if (text.isEmpty && imgs.isEmpty) {
       _setStatus('没有可提交的内容（图片或文字）');
       return;
     }
 
     setState(() => _isBusy = true);
     try {
-      // 1. 确保 _latestPageId 存在（无图无文也要 page 来放文字）
+      // 1. 确保 _latestPageId 存在
       var latestId = _latestPageId;
       if (latestId == null) {
         final pageEndpoint = NotionPageEndpoint(token: _token);
@@ -347,19 +388,22 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
         _latestPageTitle = NotionPageEndpoint.extractTitle(newPage);
       }
 
-      // 2. 提交图（图先）
-      if (imagePath != null) {
-        final bytes = await File(imagePath).readAsBytes();
-        final ts = DateTime.now();
-        final filename =
-            'cam_${ts.year}${_pad(ts.month)}${_pad(ts.day)}_${_pad(ts.hour)}${_pad(ts.minute)}${_pad(ts.second)}.jpg';
+      // 2. 提交所有图（顺序上传，文件名带序号避免重名）
+      if (imgs.isNotEmpty) {
         final fileEndpoint = NotionFileEndpoint(token: _token);
-        await fileEndpoint.uploadImageToPage(
-          pageId: latestId,
-          imageBytes: bytes,
-          filename: filename,
-          contentType: 'image/jpeg',
-        );
+        for (int i = 0; i < imgs.length; i++) {
+          final bytes = await File(imgs[i]).readAsBytes();
+          final ts = DateTime.now();
+          final seq = imgs.length > 1 ? '_${i + 1}' : '';
+          final filename =
+              'cam_${ts.year}${_pad(ts.month)}${_pad(ts.day)}_${_pad(ts.hour)}${_pad(ts.minute)}${_pad(ts.second)}$seq.jpg';
+          await fileEndpoint.uploadImageToPage(
+            pageId: latestId,
+            imageBytes: bytes,
+            filename: filename,
+            contentType: 'image/jpeg',
+          );
+        }
       }
 
       // 3. 追加文字（图后）
@@ -386,15 +430,21 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
         _latestPageTitle = _latestPageTitle;
         _isBusy = false;
         // 状态消息：分别报告
-        if (imagePath != null && text.isNotEmpty) {
-          _status = '已上传图片并追加文字到「$_latestPageTitle」';
-        } else if (imagePath != null) {
-          _status = '已上传到「$_latestPageTitle」';
+        final imgCount = imgs.length;
+        if (imgCount > 0 && text.isNotEmpty) {
+          _status = imgCount == 1
+              ? '已上传 1 张图并追加文字到「$_latestPageTitle」'
+              : '已上传 $imgCount 张图并追加文字到「$_latestPageTitle」';
+        } else if (imgCount > 0) {
+          _status = imgCount == 1
+              ? '已上传到「$_latestPageTitle」'
+              : '已上传 $imgCount 张图到「$_latestPageTitle」';
         } else {
           _status = '已追加文字到「$_latestPageTitle」';
         }
-        // 清空拍好的图（已上传）
-        _capturedPath = null;
+        // 清空已拍图 list
+        _capturedPaths.clear();
+        _currentPhotoIndex = 0;
       });
     } catch (e) {
       setState(() {
@@ -428,7 +478,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.file(
-                      File(_capturedPath!),
+                      File(_currentPreviewPath!),
                       fit: BoxFit.contain,
                     ),
                   )
@@ -453,29 +503,171 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                   ),
           ),
         ),
-        // 拍完照时右上角浮一个重拍 X 按钮
+        // 拍完照时右上角浮两个圆形按钮：＋（再拍一张）＋ ×（清除当前预览图）
         if (hasCaptured)
           Positioned(
             top: 8,
             right: 8,
-            child: Material(
-              color: Colors.black.withValues(alpha: 0.5),
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: _isBusy ? null : _retake,
-                child: const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(Icons.refresh, color: Colors.white, size: 20),
+            child: Row(
+              children: [
+                // ＋：再拍一张（累积到当前批次）
+                Material(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _isBusy ? null : _capture,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.add_a_photo_outlined,
+                          color: Colors.white, size: 20),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                // ×：清除当前预览图（不影响其他累积的图）
+                Material(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _isBusy ? null : _removeCurrentPhoto,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.close, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
       ],
     );
   }
 
-  /// Page 1: 文字输入页（左滑进入）
+  /// Page 1: 多图列表页（右滑进入）
+  ///
+  /// 显示已累积的多张图缩略图。点缩略图切回 Page 0 看大图。
+  /// 长按缩略图 = 删除该图（避免误操作）。
+  Widget _buildPhotoListPage(ThemeData theme) {
+    if (_capturedPaths.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '还没有拍图，左滑回拍照页',
+          style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.3),
+          width: 2,
+        ),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Text(
+              '已拍 ${_capturedPaths.length} 张（长按删除）',
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+              ),
+              itemCount: _capturedPaths.length,
+              itemBuilder: (ctx, i) {
+                final isCurrent = i == _currentPhotoIndex;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        setState(() => _currentPhotoIndex = i);
+                        if (_previewPageController.hasClients) {
+                          await _previewPageController.animateToPage(
+                            0,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      },
+                      onLongPress: () => setState(() {
+                        _capturedPaths.removeAt(i);
+                        if (_currentPhotoIndex >= _capturedPaths.length) {
+                          _currentPhotoIndex =
+                              _capturedPaths.isEmpty ? 0 : _capturedPaths.length - 1;
+                        }
+                      }),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(_capturedPaths[i]),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    // 当前预览标记（蓝边）
+                    if (isCurrent)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: theme.colorScheme.primary,
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    // 序号
+                    Positioned(
+                      top: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 11),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Page 2: 文字输入页（最后页，左滑两次进入）
   Widget _buildTextPage(ThemeData theme) {
     return Container(
       width: double.infinity,
@@ -512,7 +704,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasCaptured = _capturedPath != null;
+    final hasCaptured = _hasCaptured;
 
     return Scaffold(
       appBar: AppBar(
@@ -589,7 +781,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
               ),
               const SizedBox(height: 16),
 
-              // ── 中央：预览区（PageView：0=图片、1=文字，左滑切换）──
+              // ── 中央：预览区（PageView：0=图片、1=多图列表、2=文字）──
               Expanded(
                 child: PageView(
                   controller: _previewPageController,
@@ -597,20 +789,32 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                   children: [
                     // Page 0: 图片页（默认）
                     _buildImagePage(theme, hasCaptured),
-                    // Page 1: 文字页（左滑进入）
+                    // Page 1: 多图列表（右滑进入）
+                    _buildPhotoListPage(theme),
+                    // Page 2: 文字页（左滑两次进入）
                     _buildTextPage(theme),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              // PageView 指示器（小点）
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _PageDot(active: true, theme: theme),
-                  const SizedBox(width: 6),
-                  _PageDot(active: false, theme: theme),
-                ],
+              // PageView 指示器（3 个小点，current 跟着 controller 走）
+              AnimatedBuilder(
+                animation: _previewPageController,
+                builder: (context, _) {
+                  final currentPage = _previewPageController.hasClients
+                      ? _previewPageController.page?.round() ?? 0
+                      : 0;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _PageDot(active: currentPage == 0, theme: theme),
+                      const SizedBox(width: 6),
+                      _PageDot(active: currentPage == 1, theme: theme),
+                      const SizedBox(width: 6),
+                      _PageDot(active: currentPage == 2, theme: theme),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 8),
 
