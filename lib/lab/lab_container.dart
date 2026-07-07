@@ -50,6 +50,7 @@ const Map<String, String> kDemoSlugs = {
   '调色板': 'pigment-palette',
   '块编辑器': 'block-editor',
   'Novel Reader': 'novel-reader',
+  '反应力测试': 'reaction-test',
 };
 
 /// Demo 页面基类
