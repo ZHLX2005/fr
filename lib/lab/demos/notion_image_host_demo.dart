@@ -425,7 +425,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       _textController.clear();
       if (_previewPageController.hasClients) {
         await _previewPageController.animateToPage(
-          0,
+          1, // 提交后跳回拍照页（中间），不是最左的多图列表
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
