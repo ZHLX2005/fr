@@ -120,7 +120,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   final TextEditingController _textController = TextEditingController();
 
   /// PageView 控制器：0=图片页（默认）、1=文字页（左滑进入）。
-  final PageController _previewPageController = PageController();
+  final PageController _previewPageController = PageController(initialPage: 1); // 默认进拍照预览页（Page 1）
 
   @override
   void initState() {
@@ -792,7 +792,6 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                 child: PageView(
                   controller: _previewPageController,
                   physics: const BouncingScrollPhysics(),
-                  initialPage: 1, // 默认进入拍照预览页（中间）
                   children: [
                     // Page 0: 多图列表（左滑进入）
                     _buildPhotoListPage(theme),
