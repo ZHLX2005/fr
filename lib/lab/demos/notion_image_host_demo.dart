@@ -302,6 +302,12 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     await _createNewPage();
   }
 
+  /// 全清已拍图（"全部丢弃重来"语义）
+  ///
+  /// 当前未被 UI 调用 — ＋ 触发 _capture（追加）、× 触发 _removeCurrentPhoto
+  /// （单图删除）。保留此方法供未来入口（多图列表长按某张的"清空全部"，
+  /// 或调试工具）。当前为 unused_element 状态，特此标记。
+  // ignore: unused_element
   void _retake() {
     setState(() {
       // 清空所有已拍图（多图累积场景下"重拍"= 全部丢弃重来）
