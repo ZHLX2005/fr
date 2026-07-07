@@ -611,7 +611,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                         setState(() => _currentPhotoIndex = i);
                         if (_previewPageController.hasClients) {
                           await _previewPageController.animateToPage(
-                            0,
+                            1, // 切到图片预览页（Page 1）
                             duration: const Duration(milliseconds: 200),
                             curve: Curves.easeOut,
                           );
@@ -787,16 +787,17 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
               ),
               const SizedBox(height: 16),
 
-              // ── 中央：预览区（PageView：0=图片、1=多图列表、2=文字）──
+              // ── 中央：预览区（PageView：0=多图列表、1=图片、2=文字）──
               Expanded(
                 child: PageView(
                   controller: _previewPageController,
                   physics: const BouncingScrollPhysics(),
+                  initialPage: 1, // 默认进入拍照预览页（中间）
                   children: [
-                    // Page 0: 图片页（默认）
-                    _buildImagePage(theme, hasCaptured),
-                    // Page 1: 多图列表（右滑进入）
+                    // Page 0: 多图列表（左滑进入）
                     _buildPhotoListPage(theme),
+                    // Page 1: 拍照预览页（默认，右滑进入多图列表）
+                    _buildImagePage(theme, hasCaptured),
                     // Page 2: 文字页（左滑两次进入）
                     _buildTextPage(theme),
                   ],
