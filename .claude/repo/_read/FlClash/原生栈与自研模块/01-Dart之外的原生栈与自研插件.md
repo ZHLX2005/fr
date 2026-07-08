@@ -299,15 +299,15 @@ const _androidFlutterTarget = {
 
 ## 5. 自研 FFI 插件清单（`plugins/` 下 7 个）
 
-| 插件 | 路径 | 类型 | 作用 | 是否原生 |
-|---|---|---|---|---|
-| `setup` | `plugins/setup/` | FFI（无 Dart API） | 仅做构建钩子（podspec/CMake/Gradle 触发 Go + Rust 编译） | ✗ 纯构建 harness |
-| `proxy` | `plugins/proxy/` | Dart（含平台 channels） | 改系统代理 | ✓ 平台 channel |
-| `rust_api` | `plugins/rust_api/` | FFI（Flutter Rust Bridge） | 命名管道 / 本地 socket | ✓ Rust + cargokit |
-| `tray_manager` | `plugins/tray_manager/` | FFI | 系统托盘 —— **已 fork** 自上游 | ✓ |
-| `wifi_ssid` | `plugins/wifi_ssid/` | Dart（method channel） | 读当前 Wi-Fi SSID | ✓ |
-| `window_ext` | `plugins/window_ext/` | Dart（method channel） | 窗口扩展功能 | ✓ |
-| `flutter_distributor` | `plugins/flutter_distributor/` | Dart（工具） | 打包发布（DEB / DMG / EXE） | ✗ 工具链 |
+| 插件                    | 路径                             | 类型                       | 作用                                                     | 是否原生           |
+| ----------------------- | -------------------------------- | -------------------------- | -------------------------------------------------------- | ------------------ |
+| `setup`               | `plugins/setup/`               | FFI（无 Dart API）         | 仅做构建钩子（podspec/CMake/Gradle 触发 Go + Rust 编译） | ✗ 纯构建 harness  |
+| `proxy`               | `plugins/proxy/`               | Dart（含平台 channels）    | 改系统代理                                               | ✓ 平台 channel    |
+| `rust_api`            | `plugins/rust_api/`            | FFI（Flutter Rust Bridge） | 命名管道 / 本地 socket                                   | ✓ Rust + cargokit |
+| `tray_manager`        | `plugins/tray_manager/`        | FFI                        | 系统托盘 ——**已 fork** 自上游                    | ✓                 |
+| `wifi_ssid`           | `plugins/wifi_ssid/`           | Dart（method channel）     | 读当前 Wi-Fi SSID                                        | ✓                 |
+| `window_ext`          | `plugins/window_ext/`          | Dart（method channel）     | 窗口扩展功能                                             | ✓                 |
+| `flutter_distributor` | `plugins/flutter_distributor/` | Dart（工具）               | 打包发布（DEB / DMG / EXE）                              | ✗ 工具链          |
 
 ### 5.1 多个插件是仓库作者 fork 自上游的 git 路径
 
@@ -419,23 +419,23 @@ main.rs  service
 
 ## 8. 总览：在 lib/ 之外的"自编码 / 自链接"列表
 
-| 类别 | 文件 / 路径 | 说明 |
-|---|---|---|
-| Go 内核主包 | `core/*.go`（含 `action.go` `hub.go` `lib.go` `server.go` `main.go` `main_cgo.go`） | 处理跨 ABI dispatch |
-| Go 内核子模块 | `core/Clash.Meta/`（`.gitmodules` 引用） | mihomo 上游 fork |
-| C 桥头 | `core/bride.{c,h}` | 函数指针表，Android-only |
-| CGO 桥 | `core/bride.go`, `core/tun/tun.go` | Go ↔ C ↔ Java |
-| Linux 平台层 | `core/platform/{procfs,limit}.go` | `/proc/net/*` 直接解析 + RLIMIT_NOFILE 探测 |
-| 自研 FFI 插件 | `plugins/{proxy,rust_api,tray_manager,wifi_ssid,window_ext,setup}` | 6 个插件均仓库内 |
-| Rust helper | `services/helper/` | Windows Service + warp HTTP/SHA-256 token |
-| 自研 Rust FFI（Dart ↔ Rust） | `plugins/rust_api/{rust/,lib/}` + `cargokit/` | flutter_rust_bridge 生成 |
-| 自研 Dart CLI | `plugins/setup/buildkit/build_tool/` + `setup.dart` | 一处入口触发 Go/Rust 编译 + 打包 |
-| 自研 CMake 钩子 | `plugins/setup/buildkit/cmake/buildkit.cmake` | 嵌入 Linux/Windows Flutter 构建 |
-| 自研 Gradle 钩子 | `plugins/setup/buildkit/gradle/plugin.gradle` | 嵌入 Android Flutter 构建 |
-| 自研 Podspec 钩子 | `plugins/setup/buildkit/macos/build_pod.sh` | 嵌入 macOS Flutter 构建 |
-| Flutter 内 JS 引擎（fork 自上游） | `pubspec.yaml: flutter_js` (`chen08209/flutter_js`) | 在 Dart 上下文跑 JS 脚本做分流 |
-| Release 工具 | `release_telegram.py` | Python 上传 Telegram |
-| 配置 / 分发引擎 | `distribute_options.yaml`, `build.yaml`, `analysis_options.yaml`, `arb/*.arb` | 多语言 + 自定义构建配置 |
+| 类别                              | 文件 / 路径                                                                                       | 说明                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Go 内核主包                       | `core/*.go`（含 `action.go` `hub.go` `lib.go` `server.go` `main.go` `main_cgo.go`） | 处理跨 ABI dispatch                           |
+| Go 内核子模块                     | `core/Clash.Meta/`（`.gitmodules` 引用）                                                      | mihomo 上游 fork                              |
+| C 桥头                            | `core/bride.{c,h}`                                                                              | 函数指针表，Android-only                      |
+| CGO 桥                            | `core/bride.go`, `core/tun/tun.go`                                                            | Go ↔ C ↔ Java                               |
+| Linux 平台层                      | `core/platform/{procfs,limit}.go`                                                               | `/proc/net/*` 直接解析 + RLIMIT_NOFILE 探测 |
+| 自研 FFI 插件                     | `plugins/{proxy,rust_api,tray_manager,wifi_ssid,window_ext,setup}`                              | 6 个插件均仓库内                              |
+| Rust helper                       | `services/helper/`                                                                              | Windows Service + warp HTTP/SHA-256 token     |
+| 自研 Rust FFI（Dart ↔ Rust）     | `plugins/rust_api/{rust/,lib/}` + `cargokit/`                                                 | flutter_rust_bridge 生成                      |
+| 自研 Dart CLI                     | `plugins/setup/buildkit/build_tool/` + `setup.dart`                                           | 一处入口触发 Go/Rust 编译 + 打包              |
+| 自研 CMake 钩子                   | `plugins/setup/buildkit/cmake/buildkit.cmake`                                                   | 嵌入 Linux/Windows Flutter 构建               |
+| 自研 Gradle 钩子                  | `plugins/setup/buildkit/gradle/plugin.gradle`                                                   | 嵌入 Android Flutter 构建                     |
+| 自研 Podspec 钩子                 | `plugins/setup/buildkit/macos/build_pod.sh`                                                     | 嵌入 macOS Flutter 构建                       |
+| Flutter 内 JS 引擎（fork 自上游） | `pubspec.yaml: flutter_js` (`chen08209/flutter_js`)                                           | 在 Dart 上下文跑 JS 脚本做分流                |
+| Release 工具                      | `release_telegram.py`                                                                           | Python 上传 Telegram                          |
+| 配置 / 分发引擎                   | `distribute_options.yaml`, `build.yaml`, `analysis_options.yaml`, `arb/*.arb`             | 多语言 + 自定义构建配置                       |
 
 ---
 
