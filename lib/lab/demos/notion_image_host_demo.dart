@@ -23,6 +23,11 @@ import '../../api/api_module.dart';
 const String _kTokenPrefs = 'notion_token';
 const String _kDbIdPrefs = 'notion_db_id';
 const String _kDbNamePrefs = 'notion_db_name';
+/// 自动开新 page 阈值（小时）。null 或 0 = 关闭。
+/// Notion page 标题含创建时间，本地解析后与 now 对比，超过阈值就
+/// 在下次 _loadPrefs/_refreshLatestPage 时强制创建新 page（避免单 page
+/// 内容堆积过多导致 Notion 单 page 性能下降）。
+const String _kAutoCreatePageHoursPrefs = 'notion_auto_create_page_hours';
 
 class NotionImageHostDemo extends DemoPage {
   @override
@@ -93,6 +98,10 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   String _dbId = '';
   String _dbName = '';
 
+  /// 自动开新 page 的小时阈值。null = 关闭此功能。
+  /// null 与 prefs 中"未设置"或"0"等价。
+  double? _autoCreatePageHours;
+
   String? _latestPageId;
   String _latestPageTitle = ''; // 用户可读的 page 标题（替代 id）
   String _status = '加载配置中…'; // 初始即占位，避免闪一下"未配置"误判
@@ -140,6 +149,9 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     _token = prefs.getString(_kTokenPrefs) ?? '';
     _dbId = prefs.getString(_kDbIdPrefs) ?? NotionConfig.defaultDatabaseId;
     _dbName = prefs.getString(_kDbNamePrefs) ?? 'me';
+    // 读取自动开新 page 配置（不存在或 0 表示关闭）
+    final hours = prefs.getDouble(_kAutoCreatePageHoursPrefs);
+    _autoCreatePageHours = (hours != null && hours > 0) ? hours : null;
 
     if (_token.isNotEmpty) {
       ref.read(notionTokenProvider.notifier).state = _token;
@@ -171,6 +183,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
         initialToken: _token,
         initialDbId: _dbId,
         initialDbName: _dbName,
+        initialAutoCreatePageHours: _autoCreatePageHours,
       ),
     );
     if (result == true) {
@@ -198,11 +211,35 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       }
       // 用真实标题替代 id — 用户可读
       final title = NotionPageEndpoint.extractTitle(page);
+      // 检查是否需要"超时自动开新 page"（用户配置的阈值小时数）
+      final hours = _autoCreatePageHours;
+      DateTime? pageTime;
+      bool needsNewPage = false;
+      if (hours != null && title.isNotEmpty) {
+        pageTime = _parsePageTimestamp(title);
+        if (pageTime != null) {
+          final ageHours = DateTime.now().difference(pageTime).inMinutes / 60.0;
+          if (ageHours > hours) {
+            needsNewPage = true;
+          }
+        }
+      }
       setState(() {
-        _latestPageId = page['id'] as String;
-        _latestPageTitle = title;
+        if (needsNewPage) {
+          // 清掉最新 page 引用，下次上传走 _createNewPage 创建新 page
+          // 状态消息区分用户主动 vs 超时触发
+          final ageStr = pageTime != null
+              ? '${(DateTime.now().difference(pageTime).inMinutes / 60.0).toStringAsFixed(1)} 小时前'
+              : '时间不可知';
+          _latestPageId = null;
+          _latestPageTitle = '';
+          _status = '最新 page 已 $ageStr，超过 ${hours}h 阈值，下次拍照会开新 page';
+        } else {
+          _latestPageId = page['id'] as String;
+          _latestPageTitle = title;
+          _status = '已找到最新 page';
+        }
         _isBusy = false;
-        _status = '已找到最新 page';
       });
     } catch (e) {
       setState(() {
@@ -326,6 +363,54 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
   }
 
   static String _pad(int n) => n.toString().padLeft(2, '0');
+
+  /// 解析 Notion page 标题里的时间戳（UTC）。
+  ///
+  /// Notion 默认 date mention 标题格式（en_US locale）：
+  ///   - 完整日期 + 时间：'July 2, 2026 5:57 PM'
+  ///   - 完整日期 + 时间 + 时区：'2026-07-02T17:57:00.000+08:00'
+  ///
+  /// 超时检测只关心"时间是否在过去"，所以本地即可（不需要时区转换——
+  /// 解析出的 DateTime 用于和 DateTime.now() 比对时差）。
+  ///
+  /// 返回 null = 无法解析（页面可能不是这个 demo 创建的，或标题被用户改过）。
+  static DateTime? _parsePageTimestamp(String title) {
+    final t = title.trim();
+    // 优先匹配 ISO 8601（含时区的完整时间戳）
+    final isoMatch = RegExp(
+      r'(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:[+-]\d{2}:?\d{2}|Z)?)',
+    ).firstMatch(t);
+    if (isoMatch != null) {
+      try {
+        return DateTime.parse(isoMatch.group(1)!.replaceFirst(' ', 'T'));
+      } catch (_) {/* fallthrough */}
+    }
+    // 匹配 'July 2, 2026 5:57 PM' (en_US) 或 'July 2, 2026' (只有日期 → 默认 00:00)
+    final monthMap = {
+      'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+      'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12,
+    };
+    final m = RegExp(
+      r'(\w+)\s+(\d{1,2}),\s*(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?',
+    ).firstMatch(t);
+    if (m != null) {
+      final month = monthMap[m.group(1)];
+      if (month == null) return null;
+      final day = int.parse(m.group(2)!);
+      final year = int.parse(m.group(3)!);
+      var hour = m.group(4) != null ? int.parse(m.group(4)!) : 0;
+      final minute = m.group(5) != null ? int.parse(m.group(5)!) : 0;
+      final ampm = m.group(7);
+      if (ampm == 'PM' && hour < 12) hour += 12;
+      if (ampm == 'AM' && hour == 12) hour = 0;
+      try {
+        return DateTime(year, month, day, hour, minute);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
 
   /// 当前是否有可提交内容（图 / 文字任一）
   bool _hasAnyContent() =>
@@ -917,11 +1002,13 @@ class _SettingsSheet extends StatefulWidget {
   final String initialToken;
   final String initialDbId;
   final String initialDbName;
+  final double? initialAutoCreatePageHours;
 
   const _SettingsSheet({
     required this.initialToken,
     required this.initialDbId,
     required this.initialDbName,
+    this.initialAutoCreatePageHours,
   });
 
   @override
@@ -932,6 +1019,10 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   late final TextEditingController _tokenController;
   late String _dbId;
   late String _dbName;
+
+  // 自动开新 page 配置状态。null/0 = 关闭，>0 = 启用。
+  late bool _autoHoursEnabled;
+  late final TextEditingController _hoursController;
 
   List<_DatabaseInfo> _databases = [];
   bool _loadingDbs = false;
@@ -952,6 +1043,13 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     _tokenController = TextEditingController(text: widget.initialToken);
     _dbId = widget.initialDbId;
     _dbName = widget.initialDbName;
+    // 自动开新 page 配置：默认从 props 推断
+    _autoHoursEnabled = widget.initialAutoCreatePageHours != null;
+    _hoursController = TextEditingController(
+      text: widget.initialAutoCreatePageHours != null
+          ? widget.initialAutoCreatePageHours.toString()
+          : '',
+    );
     _loadCachedDatabases();
   }
 
@@ -992,6 +1090,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   @override
   void dispose() {
     _tokenController.dispose();
+    _hoursController.dispose();
     super.dispose();
   }
 
@@ -1049,12 +1148,29 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       _showSnack('请选择数据库');
       return;
     }
+    // 校验自动开新 page 阈值（启用时必须 > 0）
+    double? hours;
+    if (_autoHoursEnabled) {
+      final text = _hoursController.text.trim();
+      final parsed = double.tryParse(text);
+      if (parsed == null || parsed <= 0) {
+        _showSnack('自动开新 page 阈值必须 > 0（关闭开关可忽略）');
+        return;
+      }
+      hours = parsed;
+    }
     setState(() => _saving = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kTokenPrefs, token);
       await prefs.setString(_kDbIdPrefs, _dbId);
       await prefs.setString(_kDbNamePrefs, _dbName);
+      // 持久化自动开新 page 阈值。关闭时 remove（让 getDouble 返回 null）。
+      if (hours != null) {
+        await prefs.setDouble(_kAutoCreatePageHoursPrefs, hours);
+      } else {
+        await prefs.remove(_kAutoCreatePageHoursPrefs);
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       setState(() => _saving = false);
@@ -1192,6 +1308,60 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                 Text(
                   _dbLoadError!,
                   style: const TextStyle(fontSize: 11, color: Colors.red),
+                ),
+              ],
+              const SizedBox(height: 24),
+
+              // ── 自动开新 page 配置（防单 page 内容堆积）──
+              Row(
+                children: [
+                  const Icon(Icons.schedule, color: Colors.teal),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '自动开新 page',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  Switch(
+                    value: _autoHoursEnabled,
+                    onChanged: (v) => setState(() => _autoHoursEnabled = v),
+                  ),
+                ],
+              ),
+              if (_autoHoursEnabled) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '超过设定小时数，下次进入时自动开新 page（避免单 page 内容堆积）',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _hoursController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: InputDecoration(
+                          labelText: '小时数 (h)',
+                          hintText: '例如 24',
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '小时',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
                 ),
               ],
               const SizedBox(height: 24),
