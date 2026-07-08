@@ -224,23 +224,28 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
           }
         }
       }
-      setState(() {
-        if (needsNewPage) {
-          // 清掉最新 page 引用，下次上传走 _createNewPage 创建新 page
-          // 状态消息区分用户主动 vs 超时触发
-          final ageStr = pageTime != null
-              ? '${(DateTime.now().difference(pageTime).inMinutes / 60.0).toStringAsFixed(1)} 小时前'
-              : '时间不可知';
-          _latestPageId = null;
-          _latestPageTitle = '';
-          _status = '最新 page 已 $ageStr，超过 ${hours}h 阈值，下次拍照会开新 page';
-        } else {
+      if (needsNewPage) {
+        // 超时：直接创建新 page（不等下次拍照）。
+        // _createNewPage 已会 setState 自己写 _latestPageId/_latestPageTitle
+        // 并置 _isBusy=false。这里 _isBusy 当前为 true，先 await 完再 override status。
+        final ageStr = pageTime != null
+            ? '${(DateTime.now().difference(pageTime).inMinutes / 60.0).toStringAsFixed(1)} 小时前'
+            : '时间不可知';
+        await _createNewPage(); // 内含 setState + 改 _isBusy=false
+        if (mounted) {
+          setState(() {
+            _status =
+                '最新 page 已 $ageStr，超过 ${hours}h 阈值，已自动开新 page「$_latestPageTitle」';
+          });
+        }
+      } else {
+        setState(() {
           _latestPageId = page['id'] as String;
           _latestPageTitle = title;
+          _isBusy = false;
           _status = '已找到最新 page';
-        }
-        _isBusy = false;
-      });
+        });
+      }
     } catch (e) {
       setState(() {
         _isBusy = false;
