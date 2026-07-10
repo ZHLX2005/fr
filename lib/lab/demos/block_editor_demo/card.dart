@@ -305,7 +305,8 @@ class _BlockCardState extends State<BlockCard> {
       child: TextField(
         focusNode: _focusNode,
         controller: _controller,
-        maxLines: ml ? null : 1,
+        // 一律允许自动换行：内容超宽时软换行；Enter 仍由 onKeyEvent 拆块（与 multiline 无关）
+        maxLines: null,
         style: NoteRootScope.of(context).noteRoot.textStyleFor(widget.block, context) ?? const TextStyle(fontSize: 14),
         decoration: const InputDecoration(
           border: InputBorder.none,

@@ -152,6 +152,11 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 显式设 surface —— 防止下拉 overscroll 时 mask 与 SliverToBoxAdapter 之间
+      // 的亚像素缝隙背后露出与 surface 不同色的 Scaffold 默认背景。
+      // M3 默认 scaffoldBackgroundColor 与 colorScheme.surface 略不同，
+      // 即使 0.5px 的缝隙也会因色差可见；统一为 surface 后亚像素缝不可见。
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         top: false, // 让 SliverAppBar 处理顶部安全区域
         // iOS 风格下拉橡皮筋：
@@ -169,151 +174,167 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           slivers: [
             // Banner 区域 — SliverAppBar 保留 stretch 下拉拉伸，
-            // expandedHeight: 224 = 200 (banner) + 24 (底部圆角面板让位)。
-            // 圆角面板叠在 FlexibleSpaceBar.background 的 Stack 里，跟 banner 一起拉伸。
+            // expandedHeight: 200（取消 +24 让位）。
+            // 圆角面板移出 FlexibleSpaceBar.background，作为 flexibleSpace Stack 的兄弟节点，
+            // 用 Positioned(bottom:0, height:24) 钉在 SliverAppBar 真实底边。
+            // 这样 mask 不受 FlexibleSpaceBar.zoomBackground 的 height enlargement 影响，
+            // 下拉 overscroll 时永远与 SliverToBoxAdapter 顶部紧贴，无缝隙。
+            // 功能列表（菜单卡片 + 彩蛋）独立放在 SliverToBoxAdapter 内。
             SliverAppBar(
-              expandedHeight: 224,
+              expandedHeight: 200,
               pinned: true,
-              // 标题不浮动，正常显示在 AppBar 区域
               floating: false,
               snap: false,
-              // stretch: true 让顶部 overscroll 把整个 banner 区域拉高（iOS 风格）。
-              // banner 整体区域跟着手指下拉，松手有弹性回弹。
               stretch: true,
-              flexibleSpace: FlexibleSpaceBar(
-                // 标题只在收起状态显示
-                title: _bannerPath == null ? const Text('小豆子') : null,
-                titlePadding: const EdgeInsets.only(left: 16, bottom: 40),
-                background: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // 底层：banner 全宽渲染
-                    SpringyBanner(
+              flexibleSpace: Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,  // 允许圆角盖探出 AppBar 底边，盖住下拉动态接缝
+                children: [
+                  // 只把 banner 进 FlexibleSpaceBar.background —— 保留 iOS 放大手感
+                  FlexibleSpaceBar(
+                    title: _bannerPath == null ? const Text('小豆子') : null,
+                    titlePadding: const EdgeInsets.only(left: 16, bottom: 40),
+                    background: SpringyBanner(
                       imagePath: _bannerPath,
                       fallback: _buildDefaultBanner(context),
                       onTap: _showBannerOptions,
                     ),
-                    // 顶层：底部 24px 圆角 cardColor 面板（镂空关键）
-                    // 弧外两角透出 banner 图/渐变，弧内是卡片色
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: 24,
-                      child: ClipRRect(
+                  ),
+                  // 圆角盖：bottom:-12 + height:36 向下探 12px 到 AppBar 底边以下，
+                  // 把下拉 stretch 时上层 banner 漏出的亚像素缝压实。
+                  // body 在 AppBar 底下、够不着这条缝，所以必须用上层圆角盖向下探。
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: -12,
+                    height: 36,  // 24 + 12，覆盖原 24 高弧 + 下探 12px
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(24),
                         ),
-                        child: Container(
-                          color: Theme.of(context).cardColor,
-                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             // 功能列表
+            // 接缝抗锯齿修复：让列表 surface 底色上探 12px 钻进 AppBar，
+            // 足够覆盖 stretch overscroll 时动态 2~3px 的接缝错位。
+            // pinned AppBar 画在 body 之上，上探部分完全被 banner/圆角盖挡住，
+            // 圆角盖压在本已实心的 surface 上即可，body 侧不再有 AA 上边缘。
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    // 开发者实验室
-                    _buildMenuCard(
-                      context,
-                      icon: Icons.science,
-                      title: '开发者实验室',
-                      subtitle: '各种Demo示例和实验性功能',
-                      onTap: () {
-                        Navigator.push(
+              child: Transform.translate(
+                offset: const Offset(0, -12),
+                child: Container(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          // 开发者实验室
+                        _buildMenuCard(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const LabPage(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-                    // 游戏中心
-                    _buildMenuCard(
-                      context,
-                      icon: Icons.sports_esports,
-                      title: '游戏中心',
-                      subtitle:
-                          '已收录 ${demoRegistry.getAll().filterByType(DemoType.game).length} 款休闲游戏',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const GameCenterPage(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-                    // 主题设置
-                    _buildMenuCard(
-                      context,
-                      icon: Icons.palette,
-                      title: '主题设置',
-                      subtitle: '切换应用主题，支持夜间模式和粉红主题',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ThemePage(),
-                          ),
-                        );
-                      },
-                    ),
-                   const SizedBox(height: 16),
-                    // 原生功能测试
-                    _buildMenuCard(
-                      context,
-                      icon: Icons.phone_android,
-                      title: '原生功能测试',
-                      subtitle: '测试通知、相机、麦克风等原生功能',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const NativeControllerPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 48),
-                    // 底部说明（连点 5 次彩蛋）
-                    InkWell(
-                      onTap: _onBottomTextTap,
-                      borderRadius: BorderRadius.circular(4),
-                      splashColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                      highlightColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Text(
-                          '小豆子 - 为了满足好奇心而生',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(
+                          icon: Icons.science,
+                          title: '开发者实验室',
+                          subtitle: '各种Demo示例和实验性功能',
+                          onTap: () {
+                            Navigator.push(
                               context,
-                            ).colorScheme.onSurface.withOpacity(0.4),
+                              MaterialPageRoute(
+                                builder: (context) => const LabPage(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+                        // 游戏中心
+                        _buildMenuCard(
+                          context,
+                          icon: Icons.sports_esports,
+                          title: '游戏中心',
+                          subtitle:
+                              '已收录 ${demoRegistry.getAll().filterByType(DemoType.game).length} 款休闲游戏',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const GameCenterPage(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+                        // 主题设置
+                        _buildMenuCard(
+                          context,
+                          icon: Icons.palette,
+                          title: '主题设置',
+                          subtitle: '切换应用主题，支持夜间模式和粉红主题',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ThemePage(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+                        // 原生功能测试
+                        _buildMenuCard(
+                          context,
+                          icon: Icons.phone_android,
+                          title: '原生功能测试',
+                          subtitle: '测试通知、相机、麦克风等原生功能',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const NativeControllerPage(),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 48),
+                        // 底部说明（连点 5 次彩蛋）
+                        InkWell(
+                          onTap: _onBottomTextTap,
+                          borderRadius: BorderRadius.circular(4),
+                          splashColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                          highlightColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Text(
+                              '小豆子 - 为了满足好奇心而生',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.4),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-            ],
-          ),    // CustomScrollView
-        ),        // SafeArea
-      );          // Scaffold
-    }
+          ),
+        ],    // slivers
+      ),    // CustomScrollView
+    ),    // SafeArea
+  );    // Scaffold
+  }
 
   Widget _buildDefaultBanner(BuildContext context) {
     return Container(

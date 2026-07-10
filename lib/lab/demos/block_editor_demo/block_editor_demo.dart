@@ -28,6 +28,13 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
   late EditorState _editorState;
   bool _editorStateReady = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -154,8 +161,24 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
       builder: (context, _) {
         final blocks = _editorState.blocks;
         final selectedId = _editorState.selectedId;
+        final colorScheme = Theme.of(context).colorScheme;
 
-        return Scaffold(
+        return ScrollbarTheme(
+          data: ScrollbarThemeData(
+            thumbVisibility: WidgetStateProperty.all(true),
+            thickness: WidgetStateProperty.all(8),
+            radius: const Radius.circular(4),
+            thumbColor: WidgetStateColor.resolveWith((states) {
+              if (states.contains(WidgetState.dragged)) {
+                return colorScheme.primary.withValues(alpha: 0.95);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return colorScheme.primary.withValues(alpha: 0.85);
+              }
+              return colorScheme.primary.withValues(alpha: 0.6);
+            }),
+          ),
+          child: Scaffold(
           appBar: AppBar(
             title: const Text('块编辑器'),
             actions: [
@@ -191,32 +214,38 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
               : null,
           body: blocks.isEmpty
               ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
-              : ReorderableListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: blocks.length + 1,
-                  onReorder: (oldIndex, newIndex) {
-                    if (oldIndex == blocks.length || newIndex == blocks.length) return;
-                    _editorState.moveBlock(oldIndex, newIndex);
-                  },
-                  proxyDecorator: _proxyDecorator,
-                  itemBuilder: (context, index) {
-                    if (index == blocks.length) {
-                      return GestureDetector(
-                        key: const ValueKey('__add_block__'),
-                        onTap: () => _editorState.addBlock(),
-                        behavior: HitTestBehavior.translucent,
-                        child: const SizedBox(height: 60),
+              : Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  child: ReorderableListView.builder(
+                    scrollController: _scrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: blocks.length + 1,
+                    onReorder: (oldIndex, newIndex) {
+                      if (oldIndex == blocks.length || newIndex == blocks.length) return;
+                      _editorState.moveBlock(oldIndex, newIndex);
+                    },
+                    proxyDecorator: _proxyDecorator,
+                    itemBuilder: (context, index) {
+                      if (index == blocks.length) {
+                        return GestureDetector(
+                          key: const ValueKey('__add_block__'),
+                          onTap: () => _editorState.addBlock(),
+                          behavior: HitTestBehavior.translucent,
+                          child: const SizedBox(height: 60),
+                        );
+                      }
+                      final block = blocks[index];
+                      return BlockCard(
+                        key: ValueKey(block.id),
+                        block: block,
+                        isSelected: block.id == selectedId,
+                        editorState: _editorState,
                       );
-                    }
-                    final block = blocks[index];
-                    return BlockCard(
-                      key: ValueKey(block.id),
-                      block: block,
-                      isSelected: block.id == selectedId,
-                      editorState: _editorState,
-                    );
-                  },
+                    },
+                  ),
                 ),
+        ),
         );
       },
     );
