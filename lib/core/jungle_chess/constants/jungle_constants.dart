@@ -1,5 +1,6 @@
 // lib/core/jungle_chess/constants/jungle_constants.dart
 import 'package:flutter/material.dart';
+import '../models/piece.dart';
 
 const int kBoardRows = 9;
 const int kBoardCols = 7;
@@ -36,7 +37,7 @@ const Color kPieceDiskColor = Color(0xFFF5F0E1); // 棋子圆盘底色（象牙�
 const Color kBluePieceTint = Color(0xFF3B82F6); // 蓝方描边 / 高亮
 const Color kRedPieceTint = Color(0xFFEF4444); // 红方描边 / 高亮
 const double kPieceBorderWidth = 2.5;
-const double kPieceIconRatio = 0.78; // SVG 占圆盘的比例（圆心居中）
+const double kPieceIconRatio = 0.82; // PNG 占圆盘的比例（PNG 平均高/宽≈1.09，比 SVG 略胖）
 
 // 和棋回合上限
 const int kMaxRounds = 150;
@@ -49,8 +50,15 @@ bool isRedDen(int index) => index == kRedDen;
 bool isBlueTrap(int index) => kBlueTraps.contains(index);
 bool isRedTrap(int index) => kRedTraps.contains(index);
 
-// 动物代码 → SVG 文件第二字符
-const Map<int, String> kAnimalCode = {
-  1: 'R', 2: 'C', 3: 'D', 4: 'W',
-  5: 'H', 6: 'T', 7: 'L', 8: 'E',
+// 动物代码 → assets/animals/ 下的 PNG 文件名
+// 注意：鼠对应 mouse.png（命名沿用旧版习惯，没改成 rat.png）
+const Map<Animal, String> kAnimalFile = {
+  Animal.rat: 'mouse.png',
+  Animal.cat: 'cat.png',
+  Animal.dog: 'dog.png',
+  Animal.wolf: 'wolf.png',
+  Animal.leopard: 'leopard.png',
+  Animal.tiger: 'tiger.png',
+  Animal.lion: 'lion.png',
+  Animal.elephant: 'elephant.png',
 };

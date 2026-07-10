@@ -196,6 +196,7 @@ flutter:
     - assets/rive/input_machine/
     - assets/data/character_profiles/douzi_profile.json
     - assets/animal/
+    - assets/animals/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
