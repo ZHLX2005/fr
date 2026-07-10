@@ -1,6 +1,5 @@
 // lib/core/jungle_chess/widgets/jungle_piece_widget.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../models/piece.dart';
 import '../constants/jungle_constants.dart';
 
@@ -68,7 +67,7 @@ class JunglePieceWidget extends StatelessWidget {
             ),
             Padding(
               padding: EdgeInsets.all(diskSize * (1 - kPieceIconRatio) / 2),
-              child: SvgPicture.asset(
+              child: Image.asset(
                 piece.assetPath,
                 fit: BoxFit.contain,
               ),

@@ -44,8 +44,7 @@ final class Piece {
   }
 
   String get assetPath {
-    final c = color == PlayerColor.blue ? 'B' : 'R';
-    return 'assets/animal/$c${kAnimalCode[animal.rank]!}.svg';
+    return 'assets/animals/${kAnimalFile[animal]!}';
   }
 
   Map<String, dynamic> toJson() => {
