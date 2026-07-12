@@ -129,11 +129,6 @@ class _AgentChatPageState extends State<AgentChatPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.fingerprint),
-            onPressed: _showSessionIdDialog,
-            tooltip: '会话ID',
-          ),
-          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: _openSettings,
             tooltip: '设置',
@@ -327,50 +322,6 @@ class _AgentChatPageState extends State<AgentChatPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showSessionIdDialog() {
-    final provider = context.read<AgentChatProvider>();
-    final controller = TextEditingController(text: provider.sessionId);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('设置会话ID'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '会话ID用于关联多轮对话，空置则自动生成',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'sessionId',
-                border: OutlineInputBorder(),
-                hintText: '输入自定义会话ID',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              provider.setSessionId(controller.text.trim());
-              Navigator.pop(context);
-            },
-            child: const Text('保存'),
-          ),
-        ],
       ),
     );
   }
