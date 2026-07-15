@@ -148,6 +148,57 @@ lib/
     └── model/                   # 数据模型
 ```
 
+## 项目 Skill 体系（`.claude/skills/`）
+
+Claude 与项目协作时使用的领域知识索引。按主题采用"主 SKILL.md + references/"渐进式结构：
+
+### 工程流 / 工作流
+
+| Skill | 用途 |
+|---|---|
+| `flutter-work-flow` | Flutter 总入口，所有 dart-flutter 问题优先加载 |
+| `flutter-add-page-workflow` | 添加新页面的工作流 |
+| `flutter-debug-logging` | 错误/异常行为排查（战略性日志） |
+| `flutter-hive-workflow` | Hive 存储管理调试与最佳实践 |
+| `flutter-message-workflow` | message_strategy 系统添加新消息类型 |
+| `flutter-home-widget-realtime-sync` | home_widget 把实时值推到 Android 桌面小组件 |
+| `lan-local-playbook` | 局域网多人模式开发（LanFramework + surround_game） |
+| `pr-workflow` | PR 管理工作流 |
+| `git-worktree-sync` | 同步所有 git worktree |
+| `gh-upstream-release` | Fork 模式下 squash + push + PR 发版 |
+
+### 样式 / UI
+
+| Skill | 用途 |
+|---|---|
+| `styles-skill` | Flutter 样式工程总入口；含 banner-stretch、floating-pill-bottom-nav、border-emphasis-style、async-load-flag-pattern、lottery-workflow 等方案 ref |
+| `rive-skills` | Rive 动画平台大全（Luau/React/状态机）+ 本项目 `rive ^0.14.5` Flutter DataBind 特化 |
+
+### 平台 / 原生
+
+| Skill | 用途 |
+|---|---|
+| `android-media-projection-fix` | Android 14+ MediaProjection 悬浮窗截屏；按异常类型排查 SOP 见 `references/fgs-debug-cases.md` |
+| `android-icon-processing` | Android 自适应图标前景图处理（边缘分析/洪泛法/岛屿算法） |
+| `webrtc-infrastructure` | WebRTC 视频通话 + P2P 实时通信架构 |
+
+### 架构 / 规范
+
+| Skill | 用途 |
+|---|---|
+| `api-module-auth` | `lib/api/` 模块规范（目录即后端、深目录轻文件、拦截器链） |
+| `block-note-core` | 块编辑器核心架构（Block 模型、RichText、编辑器策略） |
+| `knowledge-qa` | 用 mmx 深度搜索 + 编写知识问答文档 |
+
+### 元工具
+
+| Skill | 用途 |
+|---|---|
+| `key_board_loop` | loop 反思机制（用户特权级） |
+| `merge-skill` | 合并多个 skill 到统一文档 |
+
+> 新增 skill 见 `key_board_2`；优化已有 skill 结构见 `key_board_3`。
+
 ## 应用导航
 
 底部导航栏（XiaoDouZiBottomBar，5 个位置 + 中央 "+" 按钮）：
