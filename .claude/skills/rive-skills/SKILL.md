@@ -1,12 +1,14 @@
 ---
 name: rive
 description: |
-  Comprehensive Rive animation platform skill covering scripting (Luau), runtime integration (React/Next.js), 
-  state machines, data binding, and the complete API. Use this skill when users need to create interactive 
-  animations with Rive, integrate Rive into React/Next.js applications, write Rive scripts (Node, Layout, 
-  Converter, PathEffect protocols), control animations via state machines, implement scroll-based animations, 
-  or work with Rive's drawing API (Path, Paint, Renderer). Triggers on: "rive", "rive animation", "rive script", 
+  Comprehensive Rive animation platform skill covering scripting (Luau), runtime integration (React/Next.js),
+  state machines, data binding, and the complete API. Use this skill when users need to create interactive
+  animations with Rive, integrate Rive into React/Next.js applications, write Rive scripts (Node, Layout,
+  Converter, PathEffect protocols), control animations via state machines, implement scroll-based animations,
+  or work with Rive's drawing API (Path, Paint, Renderer). Triggers on: "rive", "rive animation", "rive script",
   "luau", "@rive-app/react-canvas", "state machine animation", "interactive animation", "scroll animation with rive".
+
+  本项目（xiaodouzi/fr，Flutter + rive ^0.14.5）特化：DataBind / ViewModel 双向数据绑定、lab demo 添加流程见 references/flutter-databind-0.14.md 与 references/flutter-project-workflow.md。
 ---
 
 # Rive Animation Platform Skill
@@ -711,8 +713,12 @@ For detailed API reference and guides, see:
 - `@references/rive-web-runtime.md` - Vanilla JS, Canvas, WebGL, WASM
 
 **Mobile Runtimes**
-- `@references/rive-flutter-runtime.md` - Flutter widgets and controllers
+- `@references/rive-flutter-runtime.md` - Flutter widgets and controllers（**0.13.x 旧 API，仅供对照，不要直接照抄**）
 - `@references/rive-mobile-runtimes.md` - iOS (Swift), Android (Kotlin), React Native
+
+**项目特化（本项目 flutter + rive ^0.14.5）**
+- `@references/flutter-databind-0.14.md` - Flutter 0.14.x DataBind / ViewModel 双向数据绑定（含完整 Demo 模板与错误案例）
+- `@references/flutter-project-workflow.md` - 在本项目 lib/lab/demos/ 下加 Rive demo 的标准流程（资产放置 / pubspec / 注册到 lab_bootstrap）
 
 **Game Engine Runtimes**
 - `@references/rive-game-runtimes.md` - Unity, Unreal Engine, Defold

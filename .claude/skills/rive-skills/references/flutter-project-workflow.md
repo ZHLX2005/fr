@@ -1,11 +1,13 @@
----
-name: flutter-rive-workflow
-description: Use when adding Rive animation demos to this Flutter project's lab module
----
+# Flutter Rive Demo Workflow — 项目 lab 模块添加 Rive demo 流程
 
-# Flutter Rive Workflow
+> 何时读：要在本项目（xiaodouzi/fr）`lib/lab/demos/` 下加一个 Rive 动画 demo，按标准流程注册到 lab 模块时。
+>
+> 本文档原为独立 `flutter-rive-workflow` skill，合并入 rive 后归档在此。本 ref 是 "流程规范"，与 [[flutter-databind-0.14]] 的 "0.14.x API 写法" 配合使用 —— 前者管目录结构和注册，后者管代码细节。
+
+---
 
 ## Overview
+
 Standard process for adding Rive animation demos to this project's lab/demo page architecture.
 
 ## When to Use
@@ -16,12 +18,14 @@ Standard process for adding Rive animation demos to this project's lab/demo page
 ## Core Pattern
 
 ### Step 1: Asset Placement
+
 Place .riv file in `assets/rive/<animation-name>/` directory:
 ```
 assets/rive/pendulum/pendulum.riv
 ```
 
 ### Step 2: Register Asset in pubspec.yaml
+
 **Critical:** For directory assets, include trailing slash:
 ```yaml
 assets:
@@ -30,6 +34,7 @@ assets:
 ```
 
 ### Step 3: Create Demo Page
+
 Create `lib/lab/demos/rive_<name>_demo.dart`:
 ```dart
 import 'package:flutter/material.dart';
@@ -125,6 +130,7 @@ void registerRiveNameDemo() {
 ```
 
 ### Step 4: Register in lab_bootstrap.dart
+
 ```dart
 import 'demos/rive_<name>_demo.dart';  // Add import
 
@@ -151,7 +157,14 @@ registerRiveNameDemo();  // Add registration call
 | Asset path typo | Verify file exists at `assets/rive/<name>/<name>.riv` |
 
 ## Verification
+
 After implementation:
 1. Run `flutter analyze lib/lab/demos/rive_<name>_demo.dart`
 2. Commit and push to trigger GitHub pipeline
 3. Verify asset loads correctly in app
+
+## 相关 ref
+
+- 0.14.x API 写法、DataBind 双向绑定、ViewModel 用法 → [[flutter-databind-0.14]]
+- 通用 Rive 平台（Luau/React/状态机 API）→ rive-skills 主文档
+- lab demo 工程规范 → `flutter-work-flow`

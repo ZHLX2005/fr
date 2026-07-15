@@ -1,8 +1,8 @@
-# Border-Emphasis 边框强调式（归档自 border-emphasis skill）
+# Border-Emphasis 边框强调式
 
-> 本文档原为 `.claude/skills/border-emphasis/SKILL.md` 的内容。合并入 uiux skill 后归档在此供历史参考。
->
 > 何时读：改造纯色填充按钮/icon 容器 / 减负密集按钮区 / "左重右轻"时。
+>
+> 本文档原为独立 `border-emphasis` skill（→ 后并入 `uiux`），本次再合并入 `styles-skill`。
 
 ---
 

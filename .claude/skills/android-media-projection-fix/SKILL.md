@@ -1,6 +1,6 @@
 ---
 name: android-media-projection-fix
-description: Android 14+ MediaProjection 截屏与 Foreground Service 调试修复指南。当遇到悬浮窗截屏闪退、权限重复申请、SecurityException、截图后无结果显示等问题时使用此 skill。涵盖 MediaProjectionManager、startForeground、FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION、ImageReader/VirtualDisplay 等完整调试链路。当用户提到 MediaProjection、截屏权限、前台服务类型、悬浮窗截图、FOREGROUND_SERVICE_MEDIA_PROJECTION 或 Android 14+ 屏幕录制相关问题时触发。
+description: Android 14+ MediaProjection 截屏与 Foreground Service 调试修复指南。当遇到悬浮窗截屏闪退、权限重复申请、SecurityException、IllegalArgumentException、Unable to start service、截图后无结果显示、设备运行旧 APK 等问题时使用此 skill。涵盖 MediaProjectionManager、startForeground、FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION、ImageReader/VirtualDisplay 等完整调试链路；按异常类型分类的排查 SOP 见 references/fgs-debug-cases.md。当用户提到 MediaProjection、截屏权限、前台服务类型、悬浮窗截图、FOREGROUND_SERVICE_MEDIA_PROJECTION、Foreground Service type 不匹配、Android 14+ 屏幕录制、SecurityException around startForeground、PigmentFloatingManager、悬浮窗 FGS 异常，或任何 Android 14+/15 foreground service 与 MediaProjection 相关问题（含设备运行 APK 与源码不一致）时触发。
 ---
 
 # Android 14+ MediaProjection 悬浮窗截屏修复指南
@@ -204,3 +204,13 @@ catch (e: Exception) {
 - `FloatingWindow` — Service 内部状态日志
 - `MainActivity` — 权限回调日志
 - `System.err` — SecurityException 堆栈
+
+---
+
+## 何时读哪个 ref
+
+主文档承担 **7 轮修复经验的主线**（promoteToForeground 顺序、3 参数 startForeground、硬编码 0x20、retry 机制等）。以下特化场景需加载 ref：
+
+| ref | 何时读取 | 路径 |
+|---|---|---|
+| `[[fgs-debug-cases]]` | 按异常类型分类排查（subset mismatch / 权限时机 / APK 与源码不一致）；怀疑已安装 APK 不是当前 workspace 编译产物 | `references/fgs-debug-cases.md` |

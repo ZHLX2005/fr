@@ -1,11 +1,10 @@
----
-name: android-fgs-media-projection-debug
-description: Use when debugging Android 14+/15 foreground service and MediaProjection crashes in this repo, especially SecurityException or IllegalArgumentException around startForeground, foregroundServiceType, screenshot permission timing, manifest mismatches, or cases where device behavior does not match the current source tree.
----
+# FGS MediaProjection Debug — 异常分类与排查流程
 
-# Android FGS MediaProjection Debug
+> 何时读：遇到 SecurityException / IllegalArgumentException / Unable to start service，需要按异常类型分类排查，或怀疑已安装 APK 与源码不匹配时。
+>
+> 本文档原为独立 `android-fgs-media-projection-debug` skill，合并入 android-media-projection-fix 后归档在此提供"按异常类型分类"的排查 SOP —— 主文档偏"7 轮修复经验"，本文档偏"按异常类型分流"。
 
-Use this skill for repo-local debugging of `FloatingWindowManager`, `PigmentFloatingManager`, `MainActivity`, and related manifest wiring.
+---
 
 ## Scope
 

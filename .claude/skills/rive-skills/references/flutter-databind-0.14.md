@@ -1,8 +1,12 @@
+# Rive Flutter 0.14.x DataBind 数据绑定（项目特化）
+
+> 何时读：本项目（xiaodouzi/fr）使用 `rive: ^0.14.5` C++ Runtime API，需要做 Rive 动画 + Flutter 双向数据绑定（DataBind / ViewModel / boolean 输入）。
+>
+> 重要：本 skill 覆盖的是 **0.14.x 新 API**，与 rive-skills 主文档和 `references/rive-flutter-runtime.md` 中的 0.13.x API **完全不兼容**。绝对不要混用。
+>
+> 本文档原为独立 `rive-flutter-binding` skill，合并入 rive 后归档在此。
+
 ---
-name: rive-flutter-binding
-description: Flutter 项目集成 Rive 0.14.x 动画与 DataBind 数据绑定。触发词：Rive 动画、Rive 数据绑定、ViewModel 绑定、in_input、状态机输入、Rive 面板、Rive Demo。
----
-# Rive Flutter 数据绑定 Skill
 
 ## 触发场景
 
@@ -221,3 +225,4 @@ void registerRiveDataBindDemo() {
 - **rive ^0.14.0+**：必须使用本 Skill 中的 DataBind / ViewModel API
 - **rive ^0.13.x 及更早**：使用旧版 `StateMachineController.findInput<bool>() / SMIBool` API，与本 Skill 不兼容
 - 本项目已锁定 `rive: ^0.14.5`，**绝对不要**倒退或混用旧版 API
+- 跨 skill 引用：`rive-skills/references/rive-flutter-runtime.md` 是 0.13.x 文档，仅供对照参考，不要按它的代码写本项目
