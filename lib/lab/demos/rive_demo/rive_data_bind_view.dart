@@ -1,31 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart' as rive;
 
-import '../lab_container.dart';
+import 'const_rive.dart';
+import 'rive_error_view.dart';
 
-/// Rive 数据绑定 Demo
-/// 展示 Flutter 与 Rive 状态机布尔输入的实时映射交互
-class RiveDataBindDemo extends DemoPage {
-  @override
-  String get title => 'Rive 数据绑定';
+/// Rive 数据绑定子页
+///
+/// 通过 Rive DataBind 自动绑定 ViewModel，读取 `in_input` 布尔属性，
+/// 与 Flutter 端 _inputValue 双向同步。支持开关切换、脉冲触发。
+class RiveDataBindView extends StatefulWidget {
+  const RiveDataBindView({super.key});
 
   @override
-  String get description => 'Rive 状态机布尔输入与 Flutter 双向数据映射';
-
-  @override
-  Widget buildPage(BuildContext context) => const _RiveDataBindPage();
+  State<RiveDataBindView> createState() => _RiveDataBindViewState();
 }
 
-class _RiveDataBindPage extends StatefulWidget {
-  const _RiveDataBindPage();
-
-  @override
-  State<_RiveDataBindPage> createState() => _RiveDataBindPageState();
-}
-
-class _RiveDataBindPageState extends State<_RiveDataBindPage> {
+class _RiveDataBindViewState extends State<RiveDataBindView> {
   late final rive.FileLoader _fileLoader = rive.FileLoader.fromAsset(
-    'assets/rive/input_machine/input_machine.riv',
+    RiveAssets.inputMachine,
     riveFactory: rive.Factory.rive,
   );
 
@@ -44,7 +36,7 @@ class _RiveDataBindPageState extends State<_RiveDataBindPage> {
     if (_inInput != null) return;
     try {
       final vmi = state.controller.dataBind(rive.DataBind.auto());
-      final input = vmi.boolean('in_input');
+      final input = vmi.boolean(RiveDataBindKeys.inInput);
       if (input != null && mounted) {
         setState(() {
           _inInput = input;
@@ -69,59 +61,31 @@ class _RiveDataBindPageState extends State<_RiveDataBindPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.primary.withValues(alpha: 0.08),
-              colorScheme.surface,
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Flutter 状态与 Rive 状态机布尔输入 ${RiveDataBindKeys.inInput} 实时同步',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+        const SizedBox(height: 16),
+        _buildStatusChips(theme, colorScheme),
+        const SizedBox(height: 16),
+        Expanded(
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            elevation: 0,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Rive 数据绑定',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Flutter 状态与 Rive 状态机布尔输入 in_input 实时同步',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildStatusChips(theme, colorScheme),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: Card(
-                    clipBehavior: Clip.antiAlias,
-                    elevation: 0,
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: _buildRiveView(theme, colorScheme),
-                        ),
-                        _buildControlPanel(theme, colorScheme),
-                      ],
-                    ),
-                  ),
-                ),
+                Expanded(child: _buildRiveView(theme, colorScheme)),
+                _buildControlPanel(theme, colorScheme),
               ],
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -133,9 +97,7 @@ class _RiveDataBindPageState extends State<_RiveDataBindPage> {
         _InfoChip(
           label: '输入状态',
           value: _inputValue ? 'true' : 'false',
-          color: _inputValue
-              ? colorScheme.primary
-              : colorScheme.onSurfaceVariant,
+          color: _inputValue ? colorScheme.primary : colorScheme.onSurfaceVariant,
         ),
         _InfoChip(
           label: '绑定状态',
@@ -183,7 +145,7 @@ class _RiveDataBindPageState extends State<_RiveDataBindPage> {
                   rive.RiveLoading() => const Center(
                       child: CircularProgressIndicator(),
                     ),
-                  rive.RiveFailed() => _RiveErrorView(
+                  rive.RiveFailed() => RiveErrorView(
                       error: state.error.toString(),
                     ),
                   rive.RiveLoaded() => rive.RiveWidget(
@@ -220,7 +182,7 @@ class _RiveDataBindPageState extends State<_RiveDataBindPage> {
             children: [
               Expanded(
                 child: _ToggleCard(
-                  label: 'in_input',
+                  label: RiveDataBindKeys.inInput,
                   value: _inputValue,
                   enabled: _inputFound,
                   onChanged: _inputFound ? _setInput : null,
@@ -236,7 +198,7 @@ class _RiveDataBindPageState extends State<_RiveDataBindPage> {
                   onTap: _inputFound
                       ? () async {
                           _setInput(true);
-                          await Future.delayed(const Duration(milliseconds: 300));
+                          await Future.delayed(RiveDataBindParams.pulseDuration);
                           if (mounted) _setInput(false);
                         }
                       : null,
@@ -264,7 +226,7 @@ class _RiveDataBindPageState extends State<_RiveDataBindPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '未找到 in_input 布尔属性。请确保 Rive 文件通过 ViewModel 绑定了名为 in_input 的布尔属性。',
+                      '未找到 ${RiveDataBindKeys.inInput} 布尔属性。请确保 Rive 文件通过 ViewModel 绑定了名为 ${RiveDataBindKeys.inInput} 的布尔属性。',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onErrorContainer,
                       ),
@@ -467,45 +429,4 @@ class _ActionCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RiveErrorView extends StatelessWidget {
-  final String error;
-
-  const _RiveErrorView({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 42, color: theme.colorScheme.error),
-            const SizedBox(height: 12),
-            Text(
-              'Rive 加载失败',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-void registerRiveDataBindDemo() {
-  demoRegistry.register(RiveDataBindDemo());
 }
