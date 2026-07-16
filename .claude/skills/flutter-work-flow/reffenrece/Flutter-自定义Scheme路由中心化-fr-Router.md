@@ -153,7 +153,9 @@ static String _safeDecode(String s) {
 
 **2. ASCII slug 规范**（根治 — URL 不含中文）：
 
-demo 用英文 slug 作 URL key（`fr://lab/demo/clock`），中文 title（`时钟`）仅作显示文字。集中映射表 `kDemoSlugs`（见规范 ref「命名约定」）。
+demo 用英文 slug 作 URL key（`fr://lab/demo/clock`），中文 title（`时钟`）仅作显示文字。
+slug 通过 `DemoPage.slug` abstract getter 强制每个 demo 子类自带（**不再用** `kDemoSlugs` 全局表，2026-07 已抽象化）。
+历史 slug 通过 `demoRegistry.register(demo, key: alias)` 别名机制兼容。详见 [[Flutter-DemoPage-slug抽象化与别名机制]] 与规范 ref「命名约定」。
 
 ### 测试教训
 

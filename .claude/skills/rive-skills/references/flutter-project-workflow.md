@@ -147,6 +147,27 @@ registerRiveNameDemo();  // Add registration call
 | Display | RiveWidgetBuilder + RiveWidget | Handle Loading/Failed/Loaded states |
 | Register | lab_bootstrap.dart | Add import + call register function |
 
+## Rive 统一 Demo（多场景合并）
+
+当一个技术主题有 ≥ 3 个 demo 且主题相近（如 Rive 摆钟 / 数据绑定 / 实验室），推荐**合并为统一 Tab 容器**而不是分散为多个单文件：
+
+```
+lib/lab/demos/rive_demo/                    # 统一 demo 目录
+├── rive_demo.dart                          # 入口 DemoPage + TabBar 容器
+├── const_rive.dart                         # 共享常量
+├── rive_pendulum_view.dart                 # 子页 1
+├── rive_data_bind_view.dart                # 子页 2
+├── rive_lab_view.dart                      # 子页 3
+└── rive_error_view.dart                    # 共享错误视图
+```
+
+- 入口 DemoPage 用 `TabBarView` + `RiveDemoTab` enum 切换子页
+- 共享常量（asset 路径、tab key、动画参数）统一到 `const_rive.dart`
+- 共享 widget（错误视图、状态 chip）提到目录根
+- 旧 demo 文件删除，slug 通过 `demoRegistry.register(demo, key: alias)` 保留为别名
+
+详细方案 + 别名机制 + 踩坑见 flutter-work-flow 的 [[Flutter-DemoPage-slug抽象化与别名机制]] ref。
+
 ## Common Mistakes
 
 | Mistake | Fix |

@@ -141,7 +141,8 @@ grep -rn "SchemaNavigator\|SchemaRegistry\|SchemaRoutes\|schemaRegistry" lib/
 # 6. 检查 demo 是否都有英文 slug（防中文 URL 崩溃，见设计 ref「中文 URL 陷阱」）
 # 跑 demo_slug_test，它断言"全部 demo slug 纯 ASCII 无中文残留"
 flutter test test/lab/demo_slug_test.dart
-# 期望：全绿。新增 demo 漏注册 kDemoSlugs 时这里会 fail
+# 期望：全绿。新增 demo 漏写 `@override String get slug` 时**编译期**直接 fail（abstract 强制），
+#       即使绕过编译，写中文 slug 也会被这里拦截。
 ```
 
 ---
@@ -161,9 +162,11 @@ flutter test test/lab/demo_slug_test.dart
 
 **Demo 路由专属**（`fr://lab/demo/{slug}`）：
 
-- [ ] 新 demo 的中文 title 已在 `lib/lab/lab_container.dart` 的 `kDemoSlugs` 注册英文 slug
+- [ ] 新 demo 的 slug 已在子类文件 `@override String get slug => 'xxx';` 声明（**不再**用 `kDemoSlugs` 全局表，slug 抽象化后该表已删除）
+- [ ] slug 必须纯 ASCII（小写字母/数字/连字符），与中文 title 同文件 co-located
 - [ ] URL 用 slug 不用 title（`fr://lab/demo/clock` ✅，`fr://lab/demo/时钟` ❌ 会崩溃）
-- [ ] `test/lab/demo_slug_test.dart` 跑通（断言 slug 纯 ASCII）
+- [ ] `test/lab/demo_slug_test.dart` 跑通（断言 slug 纯 ASCII + 别名一致性）
+- [ ] 旧 slug 别名：通过 `demoRegistry.register(demo, key: 'legacy-slug')` 单独注册到同一实例，详见 [[Flutter-DemoPage-slug抽象化与别名机制]]
 
 ---
 
@@ -255,7 +258,7 @@ test('fr://lab/demo/clock resolves to LabDemoHandler', () async {
 'navigateToClock' => 'fr://lab/demo/时钟',
 SchemaText('[时钟](fr://lab/demo/时钟)')
 
-// ✅ 正确：用英文 slug（kDemoSlugs 注册），显示文字仍可中文
+// ✅ 正确：用英文 slug（子类 `@override String get slug => 'xxx';`），显示文字仍可中文
 'navigateToClock' => 'fr://lab/demo/clock',
 SchemaText('[时钟](fr://lab/demo/clock)')   // 显示"时钟"，URL 是 clock
 ```
@@ -326,7 +329,7 @@ FrRoute('{authority}', handler: const {Name}Handler()),
 | fr:// authority | 全小写，多段用 `/` | `settings`、`lab/demo`、`notion/image-host` |
 | MethodChannel method | `navigateTo{Name}`，PascalCase | `navigateToSettings` |
 | 目标 Page | 独立文件，handler 引用它 | `SettingsPage` |
-| **demo URL slug** | **纯 ASCII 小写 + 连字符**，在 `kDemoSlugs` 注册 | `clock`、`calendar`、`notion-image-host` |
+| **demo URL slug** | **纯 ASCII 小写 + 连字符**，子类 `@override String get slug` 自带 | `clock`、`calendar`、`notion-image-host` |
 | demo 显示 title | 中文，仅作 UI 显示，**不进 URL** | `时钟`、`日历待办`、`Notion 图床` |
 
 ---
