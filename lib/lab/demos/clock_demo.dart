@@ -18,6 +18,9 @@ class ClockDemo extends DemoPage {
   String get title => '时钟';
 
   @override
+  String get slug => 'clock';
+
+  @override
   String get description => '波浪分割时钟与记录';
 
   @override

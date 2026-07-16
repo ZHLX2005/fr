@@ -8,6 +8,9 @@ class BodyMapDemo extends DemoPage {
   String get title => '身体记录';
 
   @override
+  String get slug => 'body-map';
+
+  @override
   String get description => '色块人体图 + 点击热区 + 感受记录';
 
   @override

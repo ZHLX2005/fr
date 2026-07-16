@@ -6,6 +6,9 @@ class BottomBarDemo extends DemoPage {
   String get title => '底部导航条';
 
   @override
+  String get slug => 'bottom-bar';
+
+  @override
   String get description => 'XiaoDouZi 底部导航栏交互演示';
 
   @override

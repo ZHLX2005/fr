@@ -11,6 +11,9 @@ class ReactionTestDemo extends DemoPage {
   String get title => '反应力测试';
 
   @override
+  String get slug => 'reaction-test';
+
+  @override
   String get description => '等待颜色变绿立即点击，测量反应速度';
 
   @override

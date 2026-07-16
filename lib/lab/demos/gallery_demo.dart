@@ -8,6 +8,9 @@ class GalleryDemo extends DemoPage {
   String get title => '图库管理';
 
   @override
+  String get slug => 'gallery';
+
+  @override
   String get description => '系统图片管理与相册分组';
 
   @override

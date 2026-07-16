@@ -8,6 +8,9 @@ class Game2048Demo extends DemoPage {
   String get title => '2048';
 
   @override
+  String get slug => 'game-2048';
+
+  @override
   String get description => '经典数字益智游戏';
 
   @override

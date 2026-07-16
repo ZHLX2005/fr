@@ -11,6 +11,9 @@ class QrDemo extends DemoPage {
   String get title => '二维码';
 
   @override
+  String get slug => 'qr';
+
+  @override
   String get description => '扫描和生成二维码';
 
   @override

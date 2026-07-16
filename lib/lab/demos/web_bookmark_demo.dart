@@ -18,6 +18,9 @@ class WebBookmarkDemo extends DemoPage {
   String get title => 'Web Bookmarks';
 
   @override
+  String get slug => 'web-bookmark';
+
+  @override
   String get description => 'Bookmark folders with drag-drop';
 
   @override

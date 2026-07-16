@@ -43,6 +43,7 @@ const List<_Card> _cards = [
 // =============== Demo 类 ===============
 class StackCardDemo extends DemoPage {
   @override String get title => '堆叠色卡';
+  @override String get slug => 'stack-card';
   @override String get description => '色卡折叠展开 · 缩放景深';
   @override bool get preferFullScreen => true;
   @override Widget buildPage(BuildContext context) => const _Demo();

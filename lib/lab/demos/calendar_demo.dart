@@ -15,6 +15,9 @@ class CalendarDemo extends DemoPage {
   String get title => '日历待办';
 
   @override
+  String get slug => 'calendar';
+
+  @override
   String get description => '圆环色弧标记每日待办，可桌面 widget';
 
   @override

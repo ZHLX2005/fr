@@ -14,6 +14,9 @@ class NetworkDemo extends DemoPage {
   String get title => '网络';
 
   @override
+  String get slug => 'network';
+
+  @override
   String get description => '网络环境/HTTP/WebSocket/蓝牙 BLE 综合调试';
 
   @override

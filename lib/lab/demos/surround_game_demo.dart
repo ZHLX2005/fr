@@ -8,6 +8,9 @@ class SurroundGameDemo extends DemoPage {
   String get title => '围追堵截';
 
   @override
+  String get slug => 'surround-game';
+
+  @override
   String get description => '局域网联机游戏';
 
   @override

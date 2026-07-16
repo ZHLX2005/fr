@@ -8,6 +8,9 @@ class LocalnetDemo extends DemoPage {
   String get title => 'LocalNet';
 
   @override
+  String get slug => 'localnet';
+
+  @override
   String get description => '局域网设备发现与实时通讯';
 
   @override

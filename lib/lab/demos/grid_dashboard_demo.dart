@@ -7,6 +7,9 @@ class GridDashboardDemo extends DemoPage {
   String get title => '网格视图';
 
   @override
+  String get slug => 'grid-dashboard';
+
+  @override
   String get description => '类似数据看板、课表编排的网格布局';
 
   @override

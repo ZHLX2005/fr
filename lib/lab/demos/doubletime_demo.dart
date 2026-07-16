@@ -8,6 +8,9 @@ class DoubleTimeDemo extends DemoPage {
   String get title => 'Double Time';
 
   @override
+  String get slug => 'double-time';
+
+  @override
   String get description => '计划/实际双轴时间块，按 1 小时网格显示占用比例';
 
   @override

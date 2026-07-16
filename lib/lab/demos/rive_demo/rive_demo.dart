@@ -134,6 +134,9 @@ class RiveDemo extends DemoPage {
   String get title => 'Rive 演示';
 
   @override
+  String get slug => 'rive-demo';
+
+  @override
   String get description =>
       'Rive 摆钟 / 数据绑定 / 实验室 三合一演示';
 

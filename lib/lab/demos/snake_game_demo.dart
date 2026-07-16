@@ -10,6 +10,9 @@ class SnakeGameDemo extends DemoPage {
   String get title => '贪吃蛇';
 
   @override
+  String get slug => 'snake';
+
+  @override
   String get description => '经典贪吃蛇游戏';
 
   @override

@@ -15,6 +15,9 @@ class ApiTestDemo extends DemoPage {
   String get title => 'API 测试';
 
   @override
+  String get slug => 'api-test';
+
+  @override
   String get description => '测试后端API接口';
 
   @override

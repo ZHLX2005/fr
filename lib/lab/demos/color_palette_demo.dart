@@ -8,6 +8,9 @@ class ColorPaletteDemo extends DemoPage {
   String get title => '撞色色卡';
 
   @override
+  String get slug => 'color-palette';
+
+  @override
   String get description => '两两一组展示配色方案，左右滑切换沉浸全屏';
 
   @override

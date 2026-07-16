@@ -8,6 +8,9 @@ class OverlayDemo extends DemoPage {
   String get title => '悬浮截屏';
 
   @override
+  String get slug => 'overlay';
+
+  @override
   String get description => 'Android悬浮窗权限与截屏功能演示';
 
   @override

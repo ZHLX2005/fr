@@ -3,60 +3,28 @@
 
 import 'package:flutter/material.dart';
 
-/// demo title → URL slug 映射表。
-///
-/// slug 必须是纯 ASCII（小写字母/数字/连字符），用于 `fr://lab/demo/{slug}`。
-/// 集中维护，避免改 37 个 demo 类。新增 demo 时在此加一行。
-///
-/// 为什么需要 slug：`Uri.decodeComponent` 对原始中文字符串会抛
-/// `Illegal percent encoding`，导致含中文的 fr:// URL 解析崩溃。
-/// 用 ASCII slug 彻底规避。详见 reffenrece/Flutter-fr路由-注册规范与防腐蚀.md。
-const Map<String, String> kDemoSlugs = {
-  '时钟': 'clock',
-  '日历待办': 'calendar',
-  '悬浮截屏': 'overlay',
-  'Notion 图床': 'notion-image-host',
-  'Crash日志': 'crash-log',
-  '网络': 'network',
-  'LocalNet': 'localnet',
-  'GitHub': 'github',
-  '自由画布': 'free-canvas',
-  '线': 'line',
-  '斗兽棋': 'jungle-chess',
-  '图库管理': 'gallery',
-  '撞色色卡': 'color-palette',
-  'Demo 实验室': 'demo-lab',
-  '2048': 'game-2048',
-  'Double Time': 'double-time',
-  '网格视图': 'grid-dashboard',
-  '身体记录': 'body-map',
-  '底部导航条': 'bottom-bar',
-  'Rive 摆钟': 'rive-pendulum',
-  '存储分析': 'storage-analyze',
-  'Rive 数据绑定': 'rive-data-bind',
-  'Rive 演示': 'rive-demo',
-  '贪吃蛇': 'snake',
-  '单词拖拽': 'word-drag',
-  '围追堵截': 'surround-game',
-  '堆叠色卡': 'stack-card',
-  '黑白翻转棋': 'reversi',
-  '音量衰减': 'volume-decay',
-  '传感器': 'sensor',
-  'Web Bookmarks': 'web-bookmark',
-  '二维码': 'qr',
-  'Schema链接': 'schema',
-  '手电筒': 'torch',
-  'API 测试': 'api-test',
-  '调色板': 'pigment-palette',
-  '块编辑器': 'block-editor',
-  'Novel Reader': 'novel-reader',
-  '反应力测试': 'reaction-test',
-};
-
 /// Demo 页面基类
+///
+/// slug 设计原则：
+/// - slug **必须**纯 ASCII（小写字母/数字/连字符），用于 `fr://lab/demo/{slug}`。
+/// - slug 与 title 在子类文件内 **co-located**：新增 demo 时单文件声明，
+///   无需跳到 lab_container 维护全局 map。
+/// - 为什么必须 ASCII：`Uri.decodeComponent` 对原始中文字符串会抛
+///   `Illegal percent encoding`，导致含中文的 fr:// URL 解析崩溃。
+///   详见 reffenrece/Flutter-fr路由-注册规范与防腐蚀.md。
 abstract class DemoPage {
+  /// 人类可读的中文/英文标题（用于 UI 展示）
   String get title;
+
+  /// 简短描述，用于卡片副标题
   String get description;
+
+  /// fr:// 路由 slug，纯 ASCII，每个 demo **必须**显式声明。
+  /// 命名约定：小写字母 + 数字 + 连字符。
+  ///
+  /// 示例：`'clock'`、`'rive-demo'`、`'notion-image-host'`。
+  String get slug;
+
   Widget buildPage(BuildContext context);
 
   /// 为 true 时，_DemoDetailPage 不显示 AppBar，demo 自行管理全屏布局
@@ -65,11 +33,6 @@ abstract class DemoPage {
   /// Demo 分类；默认 util（通用/工具）。
   /// 游戏类 demo 需 override 为 [DemoType.game] 以接入游戏中心。
   DemoType get type => DemoType.util;
-
-  /// URL slug（ASCII，用于 `fr://lab/demo/{slug}`）。
-  /// 默认从 [kDemoSlugs] 查 title；未命中返回 title（向后兼容，
-  /// 但中文 title 的 demo 应在 kDemoSlugs 注册英文 slug）。
-  String get slug => kDemoSlugs[title] ?? title;
 }
 
 /// Demo 分类 - 用于按类型过滤（如游戏中心）
@@ -101,7 +64,7 @@ class DemoRegistry {
   /// 注册 demo。
   ///
   /// [key] 不传则用 [DemoPage.slug]（ASCII，推荐）。
-  /// 传入 [key] 可覆盖（如特殊别名）。
+  /// 传入 [key] 可覆盖（如特殊别名 / 兼容历史 slug）。
   void register(DemoPage demo, {String? key}) {
     final slug = key ?? demo.slug;
     _bySlug[slug] = demo;

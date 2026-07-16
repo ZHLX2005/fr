@@ -15,6 +15,9 @@ class LineDemo extends DemoPage {
   String get title => '线';
 
   @override
+  String get slug => 'line';
+
+  @override
   String get description => '线';
 
   @override

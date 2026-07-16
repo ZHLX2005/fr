@@ -15,6 +15,9 @@ class TorchDemo extends DemoPage {
   String get title => '手电筒';
 
   @override
+  String get slug => 'torch';
+
+  @override
   String get description => '手电筒和屏幕亮度调节，支持护眼颜色';
 
   @override

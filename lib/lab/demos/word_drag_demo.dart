@@ -8,6 +8,9 @@ class WordDragDemo extends DemoPage {
   String get title => '单词拖拽';
 
   @override
+  String get slug => 'word-drag';
+
+  @override
   String get description => '弹性拖动效果的背单词交互';
 
   @override

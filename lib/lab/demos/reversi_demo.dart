@@ -10,6 +10,9 @@ class ReversiDemo extends DemoPage {
   String get title => '黑白翻转棋';
 
   @override
+  String get slug => 'reversi';
+
+  @override
   String get description => '经典 Othello：落子夹击翻转，双方各可悔棋';
 
   @override

@@ -257,6 +257,9 @@ class BlockEditorDemoPage extends DemoPage {
   String get title => '块编辑器';
 
   @override
+  String get slug => 'block-editor';
+
+  @override
   String get description => '结构化块树笔记编辑器 — 持久化存储';
 
   @override

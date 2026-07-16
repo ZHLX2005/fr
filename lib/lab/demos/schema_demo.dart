@@ -9,6 +9,9 @@ class SchemaDemo extends DemoPage {
   String get title => 'Schema链接';
 
   @override
+  String get slug => 'schema';
+
+  @override
   String get description => '内部链接协议，支持文本内嵌可跳转链接';
 
   @override

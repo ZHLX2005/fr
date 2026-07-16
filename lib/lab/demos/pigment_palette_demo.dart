@@ -8,6 +8,9 @@ class PigmentPaletteDemo extends DemoPage {
   String get title => '调色板';
 
   @override
+  String get slug => 'pigment-palette';
+
+  @override
   String get description => 'Flutter 只负责控制区，悬浮窗、取色和调色画板由 Kotlin 原生服务实现。';
 
   @override

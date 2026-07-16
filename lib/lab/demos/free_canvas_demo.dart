@@ -9,6 +9,9 @@ class FreeCanvasDemo extends DemoPage {
   String get title => '自由画布';
 
   @override
+  String get slug => 'free-canvas';
+
+  @override
   String get description => '自由拖拽图片和节点';
 
   @override

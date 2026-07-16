@@ -34,6 +34,9 @@ class NotionImageHostDemo extends DemoPage {
   String get title => 'Notion 图床';
 
   @override
+  String get slug => 'notion-image-host';
+
+  @override
   String get description => 'Notion 数据库作为图片托管';
 
   @override

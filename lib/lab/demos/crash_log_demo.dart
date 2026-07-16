@@ -7,6 +7,9 @@ class CrashLogDemo extends DemoPage {
   String get title => 'Crash日志';
 
   @override
+  String get slug => 'crash-log';
+
+  @override
   String get description => '查看App崩溃日志';
 
   @override

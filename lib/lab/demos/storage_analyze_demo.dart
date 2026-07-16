@@ -11,6 +11,9 @@ class StorageAnalyzeDemo extends DemoPage {
   String get title => '存储分析';
 
   @override
+  String get slug => 'storage-analyze';
+
+  @override
   String get description => '管理应用本地存储，清理缓存数据';
 
   @override

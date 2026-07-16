@@ -9,6 +9,9 @@ class GithubDemo extends DemoPage {
   String get title => 'GitHub';
 
   @override
+  String get slug => 'github';
+
+  @override
   String get description => 'GitHub Issues 和 Actions';
 
   @override

@@ -9,6 +9,9 @@ class NovelReaderDemo extends DemoPage {
   String get title => NovelReaderConstants.title;
 
   @override
+  String get slug => 'novel-reader';
+
+  @override
   String get description => NovelReaderConstants.description;
 
   @override

@@ -9,6 +9,9 @@ class SensorDemo extends DemoPage {
   String get title => '传感器';
 
   @override
+  String get slug => 'sensor';
+
+  @override
   String get description => '陀螺仪/加速度计/磁力计实时数值可视化';
 
   @override

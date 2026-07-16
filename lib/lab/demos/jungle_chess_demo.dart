@@ -9,6 +9,9 @@ class JungleChessDemo extends DemoPage {
   String get title => '斗兽棋';
 
   @override
+  String get slug => 'jungle-chess';
+
+  @override
   String get description => '本地+局域网双人斗兽棋';
 
   @override

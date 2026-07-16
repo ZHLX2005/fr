@@ -11,6 +11,9 @@ class VolumeDecayDemo extends DemoPage {
   String get title => '音量衰减';
 
   @override
+  String get slug => 'volume-decay';
+
+  @override
   String get description => '控制全局媒体音量衰减，类似音量君';
 
   @override
