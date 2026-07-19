@@ -81,10 +81,11 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 setTextViewText(R.id.widget_status, statusText)
                 setTextViewText(R.id.widget_icon, statusIcon)
 
-                // 主体点击：打开 app
+                // 主体点击：直达 ClockDemo 页面（fr://lab/demo/clock 走 frRouter 命中 LabDemoHandler）
+                // 不再进入 Lab 首页，避免一次额外跳转。
                 val intent = Intent(context, MainActivity::class.java).apply {
                     action = Intent.ACTION_VIEW
-                    data = android.net.Uri.parse("fr://lab")
+                    data = android.net.Uri.parse("fr://lab/demo/clock")
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
                 val pendingIntent = PendingIntent.getActivity(

@@ -109,6 +109,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     final frUrl = switch (call.method) {
       'navigateToLab' => 'fr://lab',
       'navigateToCalendar' => 'fr://lab/demo/calendar',
+      'navigateToClock' => 'fr://lab/demo/clock',
       'navigateToTimetable' => 'fr://timetable',
       'navigateToNotionImage' =>
         'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',

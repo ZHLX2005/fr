@@ -223,6 +223,10 @@ class MainActivity : FlutterActivity() {
                 uriStr == "fr://calendar" || uri.path == "/calendar" -> {
                     widgetChannel.notifyNavigateToCalendar()
                 }
+                uriStr == "fr://clock" || uriStr == "fr://lab/demo/clock" ||
+                    uri.path == "/lab/demo/clock" -> {
+                    widgetChannel.notifyNavigateToClock()
+                }
                 uriStr == "fr://timetable" || uri.path == "/timetable" -> {
                     widgetChannel.notifyNavigateToTimetable()
                 }

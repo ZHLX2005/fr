@@ -20,6 +20,10 @@ class WidgetChannel(messenger: BinaryMessenger) {
                     onNavigateToCalendar?.invoke()
                     result.success(null)
                 }
+                "navigateToClock" -> {
+                    onNavigateToClock?.invoke()
+                    result.success(null)
+                }
                 "navigateToTimetable" -> {
                     onNavigateToTimetable?.invoke()
                     result.success(null)
@@ -36,6 +40,7 @@ class WidgetChannel(messenger: BinaryMessenger) {
 
     var onNavigateToLab: (() -> Unit)? = null
     var onNavigateToCalendar: (() -> Unit)? = null
+    var onNavigateToClock: (() -> Unit)? = null
     var onNavigateToTimetable: (() -> Unit)? = null
 
     /// Notion 图床页面跳转回调，[autocapture] = true 表示从桌面 widget 进入，
@@ -48,6 +53,10 @@ class WidgetChannel(messenger: BinaryMessenger) {
 
     fun notifyNavigateToCalendar() {
         channel.invokeMethod("navigateToCalendar", null)
+    }
+
+    fun notifyNavigateToClock() {
+        channel.invokeMethod("navigateToClock", null)
     }
 
     fun notifyNavigateToTimetable() {
