@@ -70,9 +70,21 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _demos = widget.excludeGames
-        ? demoRegistry.getAll().where((e) => e.value.type != DemoType.game).toList()
-        : demoRegistry.getAll();
+    // demos 在 main.dart bootstrapLab() 同步注册完成、早于本页构建，
+    // 缓存一次即可，避免面板拖拽每帧 setState 时 getAll().toList() 重新分配。
+    //
+    // 别名去重：demoRegistry.register(demo, key: alias) 会让同一 demo
+    // 实例在 _bySlug 里出现多次（key 不同、value 同），getAll() 返回全部
+    // 条目用于路由 / URL 生成 — UI 渲染需按 demo 实例 distinct，否则别名
+    // 会在 lab 列表里重复显示多张相同卡片（如 rive-demo 的 main +
+    // rive-pendulum + rive-data-bind + demo-lab 4 个 slug 指向同一实例）。
+    // 按 entries 顺序保留首个 slug = 注册时最先写的主 slug。
+    final seen = <DemoPage>{};
+    _demos = (widget.excludeGames
+            ? demoRegistry.getAll().where((e) => e.value.type != DemoType.game)
+            : demoRegistry.getAll())
+        .where((e) => seen.add(e.value))
+        .toList();
     if (_kLabPanelPerfDebug && kDebugMode) {
       SchedulerBinding.instance.addTimingsCallback(_timingsCallback);
     }
