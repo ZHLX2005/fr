@@ -84,7 +84,9 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 setTextViewText(R.id.widget_time, formattedTime)
                 setTextViewText(R.id.widget_status, style.text)
                 setTextColor(R.id.widget_status, style.color)
-                setBackgroundResource(R.id.widget_status, style.pillRes)
+                // RemoteViews 没有 setBackgroundResource(id,res)，用 setInt 反射调用
+                // View.setBackgroundResource(int) 来切换状态 pill 的 drawable
+                setInt(R.id.widget_status, "setBackgroundResource", style.pillRes)
                 setImageViewResource(R.id.widget_icon, style.iconRes)
                 setColorInt(R.id.widget_icon, "setColorFilter", style.color, style.color)
 
