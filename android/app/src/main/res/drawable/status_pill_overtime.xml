@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 已超时 pill：红 tint 底 + 红描边（破坏性/警示语义保留红） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#1FE64A19" />
+    <stroke
+        android:width="1dp"
+        android:color="#80E64A19" />
+    <corners android:radius="12dp" />
+</shape>

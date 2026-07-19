@@ -69,17 +69,24 @@ class ClockWidgetProvider : AppWidgetProvider() {
             val isOvertime = remaining < 0
             val formattedTime = formatHms(remaining)
 
-            val (statusText, statusIcon, _) = when {
-                isOvertime -> Triple("已超时", "🌙", "#FF5722")
-                isRunning -> Triple("进行中", "☀️", "#4CAF50")
-                else -> Triple("已暂停", "☁️", "#9E9E9E")
+            // border-emphasis：状态 pill 用"浅 tint 底 drawable + 同色描边 + 同色字/图标"，
+            // tint/描边在 drawable 里，这里只下发本色。图标用 vector（去 emoji）。
+            data class StatusStyle(val text: String, val iconRes: Int, val pillRes: Int, val color: Int)
+
+            val style = when {
+                isOvertime -> StatusStyle("已超时", R.drawable.widget_ic_overtime, R.drawable.status_pill_overtime, 0xFFE64A19.toInt())
+                isRunning -> StatusStyle("进行中", R.drawable.widget_ic_running, R.drawable.status_pill_running, 0xFF4CAF50.toInt())
+                else -> StatusStyle("已暂停", R.drawable.widget_ic_paused, R.drawable.status_pill_paused, 0xFF757575.toInt())
             }
 
             val views = RemoteViews(context.packageName, R.layout.clock_widget).apply {
                 setTextViewText(R.id.widget_title, title)
                 setTextViewText(R.id.widget_time, formattedTime)
-                setTextViewText(R.id.widget_status, statusText)
-                setTextViewText(R.id.widget_icon, statusIcon)
+                setTextViewText(R.id.widget_status, style.text)
+                setTextColor(R.id.widget_status, style.color)
+                setBackgroundResource(R.id.widget_status, style.pillRes)
+                setImageViewResource(R.id.widget_icon, style.iconRes)
+                setColorInt(R.id.widget_icon, "setColorFilter", style.color, style.color)
 
                 // 主体点击：直达 ClockDemo 页面（fr://lab/demo/clock 走 frRouter 命中 LabDemoHandler）
                 // 不再进入 Lab 首页，避免一次额外跳转。

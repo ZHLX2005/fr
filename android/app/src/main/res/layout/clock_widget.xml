@@ -5,17 +5,18 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_background">
 
-    <!-- 右上角云朵/太阳/月亮：兼做刷新按钮（点击触发 ACTION_REFRESH，原生侧基于
-         startTimeMs 立即重算最新时间，不依赖 Flutter 进程） -->
-    <TextView
+    <!-- 右上角状态图标：兼做刷新按钮（点击触发 ACTION_REFRESH，原生侧基于
+         startTimeMs 立即重算最新时间，不依赖 Flutter 进程）。
+         图标与着色由 Kotlin updateAppWidget 按状态动态设置。 -->
+    <ImageView
         android:id="@+id/widget_icon"
         android:layout_width="36dp"
         android:layout_height="36dp"
         android:layout_gravity="top|end"
         android:layout_margin="8dp"
-        android:gravity="center"
-        android:text="☀️"
-        android:textSize="20sp"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_ic_paused"
         android:contentDescription="刷新时钟" />
 
     <!-- 主内容区域 -->
@@ -33,7 +34,7 @@
             android:layout_height="wrap_content"
             android:text="暂无倒计时"
             android:textSize="13sp"
-            android:textColor="#666666"
+            android:textColor="#5F6368"
             android:maxLines="1"
             android:ellipsize="end" />
 
@@ -45,19 +46,19 @@
             android:text="00:00:00"
             android:textSize="26sp"
             android:textStyle="bold"
-            android:textColor="#333333"
+            android:textColor="#202124"
             android:fontFamily="monospace"
             android:layout_marginTop="4dp" />
 
-        <!-- 状态显示 -->
+        <!-- 状态 pill：浅 tint 底 + 同色描边 + 同色字（背景/字色随状态由 Kotlin 切换） -->
         <TextView
             android:id="@+id/widget_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="进行中"
             android:textSize="11sp"
-            android:textColor="#FFFFFF"
-            android:background="@drawable/status_background"
+            android:textColor="#4CAF50"
+            android:background="@drawable/status_pill_running"
             android:paddingHorizontal="10dp"
             android:paddingVertical="3dp"
             android:layout_marginTop="10dp" />

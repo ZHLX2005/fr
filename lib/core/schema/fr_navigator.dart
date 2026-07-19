@@ -2,6 +2,48 @@ import 'package:flutter/material.dart';
 
 import 'fr_router.dart';
 
+/// fr:// 路由栈跟踪器（CLEAR_TOP 语义依赖）
+///
+/// 注册到 MaterialApp.navigatorObservers（main.dart），维护当前
+/// route 栈（栈底 → 栈顶）。FrNavigator.handle 据此非破坏性地判断
+/// 目标路由是否已在栈中——Navigator 公共 API 无法只读扫描全栈
+/// （popUntil 会边查边 pop），故用 Observer 同步跟踪。
+class FrRouteStack extends NavigatorObserver {
+  final List<Route<dynamic>> _routes = [];
+
+  /// 是否存在指定 name 的 route（任意深度）
+  bool containsName(String name) =>
+      _routes.any((r) => r.settings.name == name);
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.add(route);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.remove(route);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.remove(route);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    final i = oldRoute == null ? -1 : _routes.indexOf(oldRoute);
+    if (i >= 0 && newRoute != null) {
+      _routes[i] = newRoute;
+    } else if (newRoute != null) {
+      _routes.add(newRoute);
+    }
+  }
+}
+
+/// 全局单例（main.dart 注册到 MaterialApp.navigatorObservers）
+final frRouteStack = FrRouteStack();
+
 /// fr:// 路由导航器（基于 frRouter 的 push 封装）
 ///
 /// 替代原 SchemaNavigator，setNavigatorKey 接收 main.dart 的
@@ -48,18 +90,19 @@ class FrNavigator {
       return;
     }
 
-    // 防重复堆叠：仅当栈顶 route name 与当前路由一致时才跳过。
+    // 防重复堆叠（CLEAR_TOP 语义）：目标路由已在栈中（任意深度）→
+    // popUntil 把已存在实例提到栈顶，不再 push；不在栈中 → 正常 push。
     //
-    // 桌面 widget / onNewIntent / 文本链接 任一重复触发都会让同一页面被
-    // 多次 push，"返回手势因此要折叠多次才能退出"。复用 popUntil 的"谓词
-    // 返回 true 立即停止、不 pop"特性做只读探查当前栈顶名字。
+    // 旧实现只查栈顶：桌面 widget 交替点击不同入口、或目标页之上压了
+    // 其他页面时，同一页面会被反复 push，"返回手势因此要折叠多次才能退出"。
+    // route.isFirst 是保险：Observer 与栈漂移时最多 pop 到根页，不会清空调。
     final routeName = '/fr/${match.authority}/${match.path}';
-    String? currentName;
-    nav.popUntil((route) {
-      currentName = route.settings.name;
-      return true; // 立即停止，不会 pop 任何页面
-    });
-    if (currentName == routeName) return;
+    if (frRouteStack.containsName(routeName)) {
+      nav.popUntil(
+        (route) => route.settings.name == routeName || route.isFirst,
+      );
+      return;
+    }
 
     nav.push(
       MaterialPageRoute(

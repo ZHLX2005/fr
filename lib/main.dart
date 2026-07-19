@@ -103,8 +103,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {}
 
   /// 桌面 widget MethodChannel 回调 — 翻译 4 个 method name 到 fr:// URL，
-  /// 统一走 FrNavigator.handle 分发（FrNavigator 内部已用 RouteSettings.name
-  /// 实现防重复堆叠）。
+  /// 统一走 FrNavigator.handle 分发（FrNavigator 内部按 RouteSettings.name
+  /// 做 CLEAR_TOP 防重复堆叠：已在栈中则提到栈顶，不再 push）。
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     final frUrl = switch (call.method) {
       'navigateToLab' => 'fr://lab',
@@ -160,6 +160,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         builder: (context, themeProvider, child) {
           return MaterialApp(
             navigatorKey: navigatorKey,
+            // fr:// CLEAR_TOP 防栈累加依赖的路由栈跟踪器
+            navigatorObservers: [frRouteStack],
             title: '小豆子',
             debugShowCheckedModeBanner: false,
             theme: themeProvider.themeData,
