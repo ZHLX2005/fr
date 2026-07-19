@@ -351,7 +351,7 @@ FrRoute('{authority}', handler: const {Name}Handler()),
 
 ## 相关文件
 
-- 设计 ref：`reffenrece/Flutter-自定义Scheme路由中心化-fr-Router.md`（理解系统 + 设计陷阱）
+- 设计 ref：`references/Flutter-自定义Scheme路由中心化-fr-Router.md`（理解系统 + 设计陷阱）
 - 核心实现：`lib/core/schema/fr_*.dart` + `lib/core/schema/handlers/*.dart`
 - 集中注册：`lib/core/schema/bootstrap_routes.dart`
 - MethodChannel 翻译：`lib/main.dart` 的 `_handleMethodCall`

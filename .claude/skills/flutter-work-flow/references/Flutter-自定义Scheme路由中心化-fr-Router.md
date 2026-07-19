@@ -337,28 +337,75 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
 
 ---
 
-## 防重复 Push 保护（容易在重构时丢失）
+## 防重复 Push 保护（CLEAR_TOP 语义，容易在重构时退化）
 
-原 `_pushOnceIfNotOnTop` 用栈顶 `RouteSettings.name` 做去重，防止"返回手势多重折叠"bug（桌面 widget 多次唤起同一页面会堆叠）。重构 FrNavigator 时这个保护**差点被静默移除**——只 `nav.push(...)` 不检查栈顶。
+桌面 widget / onNewIntent / 文本链接任一入口反复触发，目标页面会被多次 push，导致"返回手势要折叠多次才能退出"。`FrNavigator.handle` 用 **CLEAR_TOP 语义**根治：目标路由已在栈中（任意深度）→ `popUntil` 把它提到栈顶，不再 push；不在栈中 → 正常 push。
 
-### OK Example（popUntil 只读探查栈顶）
+### 关键点：Navigator 无法只读扫描全栈
+
+`Navigator` 公共 API 没有"列出当前栈"的方法，`popUntil` 会边查边 pop（破坏性）。要做非破坏性的"目标是否已在栈中"判断，必须挂一个 `NavigatorObserver` 同步跟踪栈：
+
+```dart
+class FrRouteStack extends NavigatorObserver {
+  final List<Route<dynamic>> _routes = [];
+
+  bool containsName(String name) =>
+      _routes.any((r) => r.settings.name == name);
+
+  @override
+  void didPush(Route r, Route<dynamic>? prev) => _routes.add(r);
+  @override
+  void didPop(Route r, Route<dynamic>? prev) => _routes.remove(r);
+  @override
+  void didRemove(Route r, Route<dynamic>? prev) => _routes.remove(r);
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    final i = oldRoute == null ? -1 : _routes.indexOf(oldRoute);
+    if (i >= 0 && newRoute != null) _routes[i] = newRoute;
+    else if (newRoute != null) _routes.add(newRoute);
+  }
+}
+
+final frRouteStack = FrRouteStack();
+// main.dart: MaterialApp(navigatorObservers: [frRouteStack], ...)
+```
+
+### OK Example（popUntil 提到已存在实例）
 
 ```dart
 final routeName = '/fr/${match.authority}/${match.path}';
-String? currentName;
-// popUntil 谓词返回 true 立即停止，不会 pop 任何页面 — 只读探查
-nav.popUntil((route) {
-  currentName = route.settings.name;
-  return true;
-});
-if (currentName == routeName) return;  // 栈顶已是该页面，跳过
+if (frRouteStack.containsName(routeName)) {
+  // 已在栈中 → 把它上面的页面全部 pop，提到栈顶；route.isFirst 是保险
+  nav.popUntil((route) =>
+      route.settings.name == routeName || route.isFirst);
+  return;  // 不再 push
+}
 nav.push(MaterialPageRoute(
   settings: RouteSettings(name: routeName),
   builder: (_) => target,
 ));
 ```
 
-**教训**：重构 Navigator 相关代码时，**防重复 push 保护是隐性合约**——单元测试很难覆盖（需要 widget 测试模拟多次 MethodCall）。code review 时要专门检查 push 路径有没有保留去重逻辑。
+### ⚠️ 旧实现（仅查栈顶）为什么不够
+
+历史实现只用 `popUntil` 谓词立即返回 true 来只读探查**栈顶**一个 route：
+
+```dart
+// ❌ 旧：只查栈顶，交替点击 / 目标页之上压了其他页面时失效
+String? currentName;
+nav.popUntil((route) {
+  currentName = route.settings.name;
+  return true;  // 立即停止，只读到栈顶
+});
+if (currentName == routeName) return;
+nav.push(...);
+```
+
+**失效场景**：点时钟 widget → `[Main, Clock]`；点日历 widget → `[Main, Clock, Calendar]`；再点时钟 → 旧逻辑看栈顶是 Calendar ≠ Clock → 又 push → `[Main, Clock, Calendar, Clock]`……栈无限累加，返回键在重复页之间循环，根页面无法直接退出。CLEAR_TOP 把"是否已在栈中"扩到任意深度，根治累加。
+
+**教训**：
+1. 重构 Navigator 相关代码时，**防重复 push 保护是隐性合约**——单元测试很难覆盖（需 widget 测试模拟多次 MethodCall），code review 要专门检查 push 路径的去重逻辑。
+2. 去重判断范围要覆盖**全栈**而非仅栈顶，否则"交替点击 / 嵌套导航"会绕过去重。
 
 ---
 
@@ -375,7 +422,7 @@ nav.push(MaterialPageRoute(
     │ FrNavigator.handle  │
     │  1. frRouter.resolve │  ← 解析 URL + 找 handler
     │  2. handler.build    │  ← 拿 query/path 构造 Widget
-    │  3. popUntil 探查栈顶 │  ← 防重复 push
+    │  3. CLEAR_TOP 防重  │  ← 已在栈中→popUntil 提到栈顶；否则 push
     │  4. nav.push         │
     └─────────────────────┘
                 │
