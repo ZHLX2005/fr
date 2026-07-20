@@ -9,6 +9,7 @@ import '../goframe/download/download_controller.dart';
 import '../goframe/download/apk_endpoint.dart';
 import '../goframe/article/article_endpoint.dart';
 import '../goframe/ai/ai_endpoint.dart';
+import '../goframe/room/room_endpoint.dart';
 import '../notion/database_endpoint.dart';
 import '../notion/page_endpoint.dart';
 import '../notion/file_endpoint.dart';
@@ -55,6 +56,11 @@ final apkDownloadEndpointProvider = Provider<ApkDownloadEndpoint>((ref) {
 });
 
 final downloadControllerProvider = Provider<DownloadController>((_) => DownloadController());
+
+final roomEndpointProvider = Provider<RoomEndpoint>((_) {
+  // 用默认 GoFrame 后端地址
+  return RoomEndpoint(baseUrl: 'http://47.110.80.47:8988', pathPrefix: '/relay');
+});
 
 // ── Notion ──────────────────────────────────────────────────────────
 //

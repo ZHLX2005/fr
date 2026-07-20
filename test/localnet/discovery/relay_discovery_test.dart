@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:xiaodouzi_fr/api/goframe/room/room_endpoint.dart';
 import 'package:xiaodouzi_fr/core/localnet/discovery/relay_discovery.dart';
 
 class _MockHttpClient extends http.BaseClient {
@@ -31,11 +32,15 @@ void main() {
 
     setUp(() {
       mock = _MockHttpClient();
+      final roomEndpoint = RoomEndpoint(
+        baseUrl: 'https://relay.example.com',
+        httpClient: mock,
+      );
       discovery = RelayDiscovery(
         relayUrl: 'https://relay.example.com',
         myDeviceId: 'self-id',
         myAlias: 'Self',
-        httpClient: mock,
+        roomEndpoint: roomEndpoint,
       );
     });
 

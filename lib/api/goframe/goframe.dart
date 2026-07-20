@@ -9,3 +9,4 @@ export 'file/file.dart';
 export 'download/download.dart';
 export 'article/article.dart';
 export 'ai/ai.dart';
+export 'room/room.dart';
