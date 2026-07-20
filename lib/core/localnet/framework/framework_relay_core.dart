@@ -13,7 +13,6 @@ import '../discovery/discovery_event.dart';
 import '../discovery/relay_discovery.dart';
 import '../event_bus/event_bus.dart';
 import '../session/session_manager.dart';
-import '../transport/chat_payload.dart';
 import '../transport/http_transport.dart';
 import '../transport/transport_config.dart';
 import '../transport/transport_frame.dart';
@@ -80,14 +79,6 @@ class FrameworkRelayCore implements FrameworkCore {
   String? _currentRoomCode;
   String? get currentRoomCode => _currentRoomCode;
 
-  /// WS 聊天帧流（subscribe 后可用）
-  final StreamController<TransportFrame> _chatCtrl =
-      StreamController<TransportFrame>.broadcast();
-  StreamSubscription<TransportFrame>? _chatSub;
-
-  /// 订阅 chat channel 的入站帧
-  Stream<TransportFrame> get chatFrames => _chatCtrl.stream;
-
   // ============ 生命周期 ============
 
   @override
@@ -139,7 +130,7 @@ class FrameworkRelayCore implements FrameworkCore {
     _isRunning = true;
   }
 
-  /// 创建房间 + WS 连接 + identify + 启动聊天流
+  /// 创建房间 + WS 连接 + identify（激活 TransportService）
   Future<String> createChatRoom() async {
     _assertReady();
     final roomCode = await discovery.createRoom();
@@ -150,7 +141,7 @@ class FrameworkRelayCore implements FrameworkCore {
     return roomCode;
   }
 
-  /// 加入房间 + WS 连接 + identify + 启动聊天流
+  /// 加入房间 + WS 连接 + identify（激活 TransportService）
   Future<String> joinChatRoom(String roomCode) async {
     _assertReady();
     final result = await discovery.joinRoom(roomCode);
@@ -173,17 +164,8 @@ class FrameworkRelayCore implements FrameworkCore {
     return wsUrl;
   }
 
-  /// 发送 chat 消息（自动编码为 ChatPayload）
-  Future<void> sendChat(String text, {String? alias}) async {
-    _assertConnected();
-    final payload = ChatPayload(text: text, alias: alias).toBytes();
-    await _channel!.send('chat', payload);
-  }
-
-  /// 离开房间 — 关闭 WS + 清理订阅
+  /// 离开房间 — 关闭 WS + 清理
   Future<void> leaveChatRoom() async {
-    await _chatSub?.cancel();
-    _chatSub = null;
     await _channel?.close();
     _channel = null;
     await _ws?.close();
@@ -210,7 +192,6 @@ class FrameworkRelayCore implements FrameworkCore {
   @override
   Future<void> dispose() async {
     await stop();
-    await _chatCtrl.close();
     eventBus.dispose();
   }
 
@@ -246,14 +227,8 @@ class FrameworkRelayCore implements FrameworkCore {
       remoteDeviceId: 'relay',
     );
 
-    // 激活 RelayTransportService
+    // 激活 RelayTransportService（之后 biz 通过 transport.sendTo/watchChannel 通信）
     _relayTransport?.connect(_ws!, _channel!);
-
-    // 订阅 chat 帧到公开流
-    _chatSub = _channel!.watch('chat').listen(
-      (frame) => _chatCtrl.add(frame),
-      onError: (e) => _chatCtrl.addError(e),
-    );
 
     // 发送 identify（服务端必须收到才能分配 slot）
     final identifyPayload = utf8.encode(jsonEncode({'role': role}));

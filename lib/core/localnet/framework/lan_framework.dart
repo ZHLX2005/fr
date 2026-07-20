@@ -12,7 +12,6 @@ import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';
 import '../session/session.dart';
 import '../session/state_serializer.dart';
-import '../transport/transport_frame.dart';
 import '../transport/transport_kind.dart';
 import '../transport_service/transport_service.dart';
 import 'exception/framework_exception.dart';
@@ -164,7 +163,7 @@ class LanFramework {
     });
   }
 
-  // ============ Relay (WS) Chat API ============
+  // ============ Relay 房间管理 ============
 
   /// 当前房间号（仅 Relay 模式有效）
   String? get currentRoomCode => _isRelay ? _relayCore().currentRoomCode : null;
@@ -181,20 +180,6 @@ class LanFramework {
     _assertRunning();
     _assertRelayApi('joinChatRoom');
     return _relayCore().joinChatRoom(roomCode);
-  }
-
-  /// 发送 chat 消息（仅 Relay 模式；LAN 模式使用 sendTo）
-  Future<void> sendChat(String text, {String? alias}) async {
-    _assertRunning();
-    _assertRelayApi('sendChat');
-    await _relayCore().sendChat(text, alias: alias);
-  }
-
-  /// 订阅 chat 帧（仅 Relay 模式；LAN 模式使用 watchChannel('chat')）
-  Stream<TransportFrame> watchChatFrames() {
-    _assertRunning();
-    _assertRelayApi('watchChatFrames');
-    return _relayCore().chatFrames;
   }
 
   /// 离开聊天房间 — 关闭 WS + 清理（仅 Relay 模式）

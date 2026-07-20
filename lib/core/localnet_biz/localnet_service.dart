@@ -11,8 +11,17 @@ import 'services/device_id_service.dart';
 
 /// LocalNet 服务适配层 — 基于 [LanFramework] 的薄封装
 ///
-/// 所有操作最终委托给 LanFramework，不自行管理 WS/RelayDiscovery 生命周期。
-/// 仅处理 UI 相关的消息存储 (messagesByPeer)、消息模型转换。
+/// # 设计原则
+///
+/// **对 LAN / Relay 模式完全无感知。** 所有底层通信统一委托给 [TransportService]：
+///
+/// | 操作 | 引擎接口 |
+/// |------|---------|
+/// | 发送消息 | `fw.sendTo(targetId, 'chat', {'text': ..., 'alias': ...})` |
+/// | 接收消息 | `fw.watchChannel('chat')` → `TransportMessage{payload: {text, alias}}` |
+///
+/// 引擎保证 LAN（HTTP P2P）和 Relay（WS 帧）走同一套 wire format，
+/// biz 层不需要知道对端是通过同子网还是中继服务器连接。
 class LocalnetService {
   static final LocalnetService _instance = LocalnetService._internal();
   factory LocalnetService() => _instance;
@@ -111,7 +120,6 @@ class LocalnetService {
 
   Future<void> stop() async {
     _unsubscribe();
-    // Relay 模式下自动关闭 WS
     await _fw.stop();
   }
 
@@ -126,7 +134,6 @@ class LocalnetService {
   /// 创建中继房间（仅 Relay 模式）
   Future<String> createRelayRoom() async {
     final code = await _fw.createChatRoom();
-    // 设置共享桶 id，让 Host 能进聊天页
     return code;
   }
 
@@ -140,49 +147,31 @@ class LocalnetService {
     await _fw.leaveChatRoom();
   }
 
-  /// 发送消息 — LAN 走 sendTo，Relay 走 WS chat
-  Future<bool> sendMessage(LocalnetDevice target, String content) async {
-    if (config.config.mode == MessageNetMode.relay) {
-      return sendRelayMessage(content);
-    }
-    final result = await _fw.sendTo(target.id, 'chat', {'text': content});
+  /// 发送消息 — 统一接口，LAN/Relay 均走 [TransportService]
+  Future<bool> sendMessage(String targetId, String content) async {
+    final result = await _fw.sendTo(targetId, 'chat', {
+      'text': content,
+      'alias': _fw.myAlias,
+    });
     if (result.success) {
-      _appendMessage(
-        target.id,
-        LocalnetMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          senderId: _fw.myDeviceId,
-          senderAlias: _fw.myAlias,
-          content: content,
-          timestamp: DateTime.now(),
-        ),
-      );
+      _echoLocal(targetId, content);
       return true;
     }
     return false;
   }
 
-  /// Relay 模式发送 chat 消息
-  Future<bool> sendRelayMessage(String content) async {
-    try {
-      await _fw.sendChat(content, alias: _fw.myAlias);
-      // 本地 echo — 写入共享桶
-      final bucketId = 'relay:${_fw.currentRoomCode ?? ''}';
-      _appendMessage(
-        bucketId,
-        LocalnetMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          senderId: _fw.myDeviceId,
-          senderAlias: _fw.myAlias,
-          content: content,
-          timestamp: DateTime.now(),
-        ),
-      );
-      return true;
-    } catch (e) {
-      debugLog.e('Localnet', 'relay send failed: $e');
-      return false;
-    }
+  /// 本地 echo（写入自己发送的消息，不要等服务器返回）
+  void _echoLocal(String bucketId, String content) {
+    _appendMessage(
+      bucketId,
+      LocalnetMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        senderId: _fw.myDeviceId,
+        senderAlias: _fw.myAlias,
+        content: content,
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   /// 当前聊天的桶 id（Relay 模式用 `relay:roomCode`，LAN 模式用 target deviceId）
@@ -207,8 +196,7 @@ class LocalnetService {
   // ============ 内部 ============
 
   StreamSubscription? _devicesSub;
-  StreamSubscription? _relayChatSub;
-  StreamSubscription? _lanChatSub;
+  StreamSubscription? _chatSub;
   bool _subscribed = false;
 
   void _subscribe() {
@@ -219,55 +207,31 @@ class LocalnetService {
       _devicesController.add(devices.map(_toLocalnetDevice).toList());
     });
 
-    if (config.config.mode == MessageNetMode.lan) {
-      _lanChatSub = _fw.watchChannel('chat').listen(_onLanChatMessage);
-    } else {
-      _relayChatSub = _fw.watchChatFrames().listen(_onRelayChatFrame);
-    }
+    // 统一订阅 chat 通道 — LAN / Relay 引擎保证同一 wire format
+    _chatSub = _fw.watchChannel('chat').listen(_onChatMessage);
   }
 
   void _unsubscribe() {
     _devicesSub?.cancel();
     _devicesSub = null;
-    _lanChatSub?.cancel();
-    _lanChatSub = null;
-    _relayChatSub?.cancel();
-    _relayChatSub = null;
+    _chatSub?.cancel();
+    _chatSub = null;
     _subscribed = false;
   }
 
-  void _onLanChatMessage(fw.TransportMessage msg) {
-    final peer = _fw.devices.cast<fw.Device?>().firstWhere(
-          (d) => d?.deviceId == msg.sourceDeviceId,
-          orElse: () => null,
-        );
-    final alias = peer?.alias ?? msg.sourceDeviceId;
-    _appendMessage(
-      msg.sourceDeviceId,
-      LocalnetMessage(
-        id: msg.timestamp.millisecondsSinceEpoch.toString(),
-        senderId: msg.sourceDeviceId,
-        senderAlias: alias,
-        content: msg.payload['text'] as String? ?? '',
-        timestamp: msg.timestamp,
-      ),
-    );
-  }
-
-  void _onRelayChatFrame(fw.TransportFrame frame) {
-    final chatPayload = fw.ChatPayload.fromBytes(frame.payload);
-    final senderId = frame.sourceDeviceId;
-    final alias = chatPayload.alias ?? senderId;
-    final bucketId = relayBucketId;
+  void _onChatMessage(fw.TransportMessage msg) {
+    final text = msg.payload['text'] as String? ?? '';
+    final alias = msg.payload['alias'] as String? ?? msg.sourceDeviceId;
+    final bucketId = msg.sourceDeviceId;
 
     _appendMessage(
       bucketId,
       LocalnetMessage(
-        id: frame.timestamp.millisecondsSinceEpoch.toString(),
-        senderId: senderId,
+        id: msg.timestamp.millisecondsSinceEpoch.toString(),
+        senderId: msg.sourceDeviceId,
         senderAlias: alias,
-        content: chatPayload.text,
-        timestamp: frame.timestamp,
+        content: text,
+        timestamp: msg.timestamp,
       ),
     );
   }

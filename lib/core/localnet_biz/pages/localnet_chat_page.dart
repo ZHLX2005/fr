@@ -34,7 +34,7 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
     setState(() => _isSending = true);
     _controller.clear();
 
-    final success = await _service.sendMessage(widget.device, content);
+    final success = await _service.sendMessage(widget.device.id, content);
 
     setState(() => _isSending = false);
 
@@ -208,7 +208,7 @@ class _RelayChatPageState extends State<RelayChatPage> {
     setState(() => _isSending = true);
     _controller.clear();
 
-    final success = await _service.sendRelayMessage(content);
+    final success = await _service.sendMessage(widget.peerId, content);
 
     setState(() => _isSending = false);
 
