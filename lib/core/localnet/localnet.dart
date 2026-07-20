@@ -40,6 +40,7 @@ export 'transport/transport.dart';
 export 'transport/udp_transport.dart';
 export 'transport/http_transport.dart';
 export 'transport/transport_frame.dart';
+export 'transport/ws_transport.dart';
 
 export 'transport_channel/transport_channel.dart' hide SendResult;
 export 'transport_channel/lan_channel.dart';
