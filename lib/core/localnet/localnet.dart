@@ -44,3 +44,4 @@ export 'transport/ws_transport.dart';
 
 export 'transport_channel/transport_channel.dart' hide SendResult;
 export 'transport_channel/lan_channel.dart';
+export 'transport_channel/relay_channel.dart';
