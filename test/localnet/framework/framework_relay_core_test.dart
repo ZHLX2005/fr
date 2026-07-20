@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:xiaodouzi_fr/api/goframe/room/room_endpoint.dart';
 import 'package:xiaodouzi_fr/core/localnet/framework/framework_config.dart';
 import 'package:xiaodouzi_fr/core/localnet/framework/framework_relay_core.dart';
 import 'package:xiaodouzi_fr/core/localnet/transport/transport_kind.dart';
@@ -41,7 +42,10 @@ void main() {
         deviceId: 'self-id',
         deviceAlias: 'Self',
       ),
-      httpClient: mockHttp,
+      roomEndpoint: RoomEndpoint(
+        baseUrl: 'https://relay.example.com',
+        httpClient: mockHttp,
+      ),
     );
 
     await core.start();
@@ -68,7 +72,10 @@ void main() {
         deviceId: 'self-id',
         deviceAlias: 'Self',
       ),
-      httpClient: mockHttp,
+      roomEndpoint: RoomEndpoint(
+        baseUrl: 'https://relay.example.com',
+        httpClient: mockHttp,
+      ),
     );
 
     await core.start();

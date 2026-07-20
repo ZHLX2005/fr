@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/io.dart';
+import 'package:xiaodouzi_fr/api/goframe/room/room_endpoint.dart';
 
 import '../channel/channel_manager.dart';
 import '../connection/connection_manager.dart';
@@ -25,11 +25,14 @@ import 'framework_config.dart';
 /// 注意：sendTo / watchChannel 仅支持 LAN。Relay 模式请使用 createSession，
 /// 由 SessionManager 管理状态同步。
 class FrameworkRelayCore {
-  FrameworkRelayCore({required this.config, http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client();
+  FrameworkRelayCore({required this.config, RoomEndpoint? roomEndpoint})
+    : _roomEndpoint = roomEndpoint ?? RoomEndpoint(
+         baseUrl: config.relayUrl ?? 'http://localhost',
+         pathPrefix: config.relayHttpPath,
+       );
 
   final FrameworkConfig config;
-  final http.Client _httpClient;
+  final RoomEndpoint _roomEndpoint;
 
   final EventBus eventBus = EventBus();
 
@@ -57,7 +60,7 @@ class FrameworkRelayCore {
       relayHttpPath: config.relayHttpPath,
       myDeviceId: config.deviceId ?? 'unknown',
       myAlias: config.deviceAlias,
-      httpClient: _httpClient,
+      roomEndpoint: _roomEndpoint,
     );
     await discovery.start();
 
@@ -126,7 +129,6 @@ class FrameworkRelayCore {
     await connectionManager.stop();
     await channelManager.stop();
     await deviceManager.dispose();
-    _httpClient.close();
     _isRunning = false;
   }
 
