@@ -9,6 +9,7 @@ import '../channel/channel_manager.dart';
 import '../connection/connection_manager.dart';
 import '../device/device.dart';
 import '../device/device_manager.dart';
+import '../discovery/discovery_event.dart';
 import '../discovery/relay_discovery.dart';
 import '../event_bus/event_bus.dart';
 import '../session/session_manager.dart';
@@ -113,10 +114,14 @@ class FrameworkRelayCore {
   /// 返回 (roomCode, wsUrl)，调用方保存 roomCode 做后续标识。
   Future<String> createChatRoom() async {
     _assertReady();
-    final info = await discovery.createRoom();
-    _currentRoomCode = info.roomCode;
-    await _connectAndIdentify(info.wsUrl, role: 'host');
-    return info.roomCode;
+    final roomCode = await discovery.createRoom();
+    if (roomCode == null) throw StateError('createRoom 返回 null');
+    _currentRoomCode = roomCode;
+    // wsUrl 需从 discovery 事件获取，简化：先传空让 connectAndIdentify 工作
+    // 实际上需要用 roomCode 构造 wsUrl: ws://host:port/ws/$roomCode
+    final wsUrl = '${config.relayUrl!.replaceFirst('http', 'ws')}/ws/$roomCode';
+    await _connectAndIdentify(wsUrl, role: 'host');
+    return roomCode;
   }
 
   /// 加入房间 + WS 连接 + identify + 启动聊天流
@@ -124,22 +129,25 @@ class FrameworkRelayCore {
   /// 成功时返回 wsUrl；调用方可读取 [currentRoomCode]。
   Future<String> joinChatRoom(String roomCode) async {
     _assertReady();
-    final result = await discovery.joinRoom(roomCode: roomCode);
+    final result = await discovery.joinRoom(roomCode);
+    if (result == null) throw StateError('joinRoom 返回 null');
     _currentRoomCode = roomCode;
-    await _connectAndIdentify(result.wsUrl, role: 'guest');
+    final host = (result as RoomJoined).host;
+    final wsUrl = '${config.relayUrl!.replaceFirst('http', 'ws')}/ws/$roomCode';
+    await _connectAndIdentify(wsUrl, role: 'guest');
 
     // 将 host 添加为设备
     deviceManager.addDevice(
       Device(
-        deviceId: result.host.deviceId,
-        alias: result.host.alias,
+        deviceId: host.deviceId,
+        alias: host.alias,
         ip: 'relay',
         port: 0,
         lastSeen: DateTime.now(),
         extras: const {},
       ),
     );
-    return result.wsUrl;
+    return wsUrl;
   }
 
   /// 发送 chat 消息（自动编码为 ChatPayload）
@@ -212,23 +220,28 @@ class FrameworkRelayCore {
 
   /// 创建房间 + 打开 WS 连接（兼容旧 API，不进聊天订阅）
   Future<String> createAndConnect() async {
-    final info = await discovery.createRoom();
-    final ioWs = IOWebSocketChannel.connect(Uri.parse(info.wsUrl));
+    final roomCode = await discovery.createRoom();
+    if (roomCode == null) throw StateError('createRoom 返回 null');
+    final wsUrl = '${config.relayUrl!.replaceFirst('http', 'ws')}/ws/$roomCode';
+    final ioWs = IOWebSocketChannel.connect(Uri.parse(wsUrl));
     _ws = WsTransport(channel: ioWs, myDeviceId: config.deviceId ?? 'unknown');
     _channel = RelayChannel(ws: _ws!, myDeviceId: config.deviceId ?? 'unknown');
-    return info.roomCode;
+    return roomCode;
   }
 
   /// 加入房间 + 打开 WS 连接（兼容旧 API）
   Future<void> joinAndConnect({required String roomCode}) async {
-    final joinInfo = await discovery.joinRoom(roomCode: roomCode);
-    final ioWs = IOWebSocketChannel.connect(Uri.parse(joinInfo.wsUrl));
+    final joinInfo = await discovery.joinRoom(roomCode);
+    if (joinInfo == null) throw StateError('joinRoom 返回 null');
+    final host = (joinInfo as RoomJoined).host;
+    final wsUrl = '${config.relayUrl!.replaceFirst('http', 'ws')}/ws/$roomCode';
+    final ioWs = IOWebSocketChannel.connect(Uri.parse(wsUrl));
     _ws = WsTransport(channel: ioWs, myDeviceId: config.deviceId ?? 'unknown');
     _channel = RelayChannel(ws: _ws!, myDeviceId: config.deviceId ?? 'unknown');
     deviceManager.addDevice(
       Device(
-        deviceId: joinInfo.host.deviceId,
-        alias: joinInfo.host.alias,
+        deviceId: host.deviceId,
+        alias: host.alias,
         ip: 'relay',
         port: 0,
         lastSeen: DateTime.now(),

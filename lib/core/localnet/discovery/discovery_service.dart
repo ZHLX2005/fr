@@ -1,22 +1,31 @@
-import 'remote_endpoint.dart';
+import 'dart:async';
 
-/// 发现服务抽象 — LAN / Relay 后端各自实现
+import 'discovery_event.dart';
+import 'discovery_peer.dart';
+
+/// 发现服务抽象 — LAN/Relay 统一的发现接口
 ///
-/// DeviceManager 持有一个 DiscoveryService，通过 watch() 流获得端点列表变化，
-/// 通过 endpoints() 取当前快照。
-abstract interface class DiscoveryService {
-  /// 启动发现（LAN：绑定 UDP socket；Relay：HTTP POST /discover 注册）
+/// LAN 实现：UDP 多播心跳
+/// Relay 实现：HTTP 房间 API + WS 通知
+abstract class DiscoveryService {
+  /// 启动发现服务
   Future<void> start();
 
-  /// 停止发现（释放端口/取消订阅）
+  /// 停止发现服务
   Future<void> stop();
 
-  /// 当前已发现端点快照（不可变列表）
-  List<RemoteEndpoint> get endpoints;
+  /// 当前发现的 peer 列表
+  List<DiscoveryPeer> get peers;
 
-  /// 端点列表变化流 — 每次有新端点加入/丢失/更新时触发
-  Stream<List<RemoteEndpoint>> watch();
+  /// 发现事件流（peer 变化、房间加入/离开等）
+  Stream<DiscoveryEvent> get events;
 
-  /// 主动探测（如 Relay：HTTP POST /probe 触发服务端 push 最新列表）
-  Future<void> probe();
+  /// 创建房间（仅 Relay 模式有效）
+  Future<String?> createRoom({String? alias});
+
+  /// 通过房间号加入（仅 Relay 模式有效）
+  Future<DiscoveryEvent?> joinRoom(String roomCode, {String? alias});
+
+  /// 离开当前房间（仅 Relay 模式有效）
+  Future<void> leaveRoom();
 }

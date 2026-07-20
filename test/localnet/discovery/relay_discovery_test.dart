@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:xiaodouzi_fr/api/goframe/room/room_endpoint.dart';
+import 'package:xiaodouzi_fr/core/localnet/discovery/discovery_event.dart';
 import 'package:xiaodouzi_fr/core/localnet/discovery/relay_discovery.dart';
 
 class _MockHttpClient extends http.BaseClient {
@@ -54,20 +55,33 @@ void main() {
         201,
       );
       final result = await discovery.createRoom();
-      expect(result.roomCode, '123456');
-      expect(result.wsUrl, contains('wss://'));
+      expect(result, '123456');
     });
 
-    test('joinRoom throws RoomNotFoundError on 404', () async {
+    test('createRoom emits RoomCreated event', () async {
+      mock.handlers['POST:/api/v1/rooms'] = (req) => http.Response(
+        jsonEncode({
+          'roomCode': '123456',
+          'wsUrl': 'wss://relay.example.com/ws/123456',
+        }),
+        201,
+      );
+      final events = <DiscoveryEvent>[];
+      final sub = discovery.events.listen(events.add);
+      await discovery.createRoom();
+      await Future.delayed(const Duration(milliseconds: 10));
+      expect(events.whereType<RoomCreated>().first.roomCode, '123456');
+      await sub.cancel();
+    });
+
+    test('joinRoom throws RoomNotFound on 404', () async {
       mock.handlers['POST:/api/v1/rooms/999999/join'] = (req) =>
           http.Response('not found', 404);
-      expect(
-        () => discovery.joinRoom(roomCode: '999999'),
-        throwsA(isA<RoomNotFoundError>()),
-      );
+      final result = await discovery.joinRoom('999999');
+      expect(result, isA<RoomNotFound>());
     });
 
-    test('joinRoom returns peer endpoint on 200', () async {
+    test('joinRoom returns RoomJoined on 200', () async {
       mock.handlers['POST:/api/v1/rooms/123456/join'] = (req) => http.Response(
         jsonEncode({
           'roomCode': '123456',
@@ -77,26 +91,29 @@ void main() {
         }),
         200,
       );
-      final result = await discovery.joinRoom(roomCode: '123456');
-      expect(result.host.deviceId, 'host-id');
-      expect(result.host.alias, 'Host');
-      expect(result.wsUrl, 'wss://relay.example.com/ws/123456');
+      final result = await discovery.joinRoom('123456');
+      expect(result, isA<RoomJoined>());
+      final joined = result as RoomJoined;
+      expect(joined.host.deviceId, 'host-id');
+      expect(joined.host.alias, 'Host');
     });
 
-    test('joinRoom rejects response without wsUrl', () async {
+    test('joinRoom emits event on success', () async {
       mock.handlers['POST:/api/v1/rooms/123456/join'] = (req) => http.Response(
         jsonEncode({
           'roomCode': '123456',
           'hostDeviceId': 'host-id',
           'hostAlias': 'Host',
+          'wsUrl': 'wss://relay.example.com/ws/123456',
         }),
         200,
       );
-
-      expect(
-        () => discovery.joinRoom(roomCode: '123456'),
-        throwsA(isA<RelayUnreachableError>()),
-      );
+      final events = <DiscoveryEvent>[];
+      final sub = discovery.events.listen(events.add);
+      await discovery.joinRoom('123456');
+      await Future.delayed(const Duration(milliseconds: 10));
+      expect(events.whereType<RoomJoined>().first.roomCode, '123456');
+      await sub.cancel();
     });
   });
 }

@@ -1,17 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:xiaodouzi_fr/core/localnet/transport/transport_kind.dart';
-import 'package:xiaodouzi_fr/core/localnet/transport/udp_transport.dart';
-
+import '../transport/transport_kind.dart';
+import '../transport/udp_transport.dart';
+import 'discovery_event.dart';
+import 'discovery_peer.dart';
 import 'discovery_service.dart';
-import 'remote_endpoint.dart';
 
 /// LAN 发现服务 — 监听 UDP 多播心跳包
-///
-/// 解析 UdpTransport.datagrams 流中的 "deviceId,port,alias:xxx" 格式，
-/// 转换为 RemoteEndpoint。DeviceManager 之前直接耦合 UDP 解析逻辑，
-/// 本类将其隔离，RelayDiscovery 用类似接口注入即可。
 class LanDiscovery implements DiscoveryService {
   LanDiscovery({
     required this.myDeviceId,
@@ -22,9 +18,10 @@ class LanDiscovery implements DiscoveryService {
   final String myDeviceId;
   final String myAlias;
   final UdpTransport _udp;
-  final Map<String, RemoteEndpoint> _endpoints = {};
-  final StreamController<List<RemoteEndpoint>> _ctrl =
-      StreamController<List<RemoteEndpoint>>.broadcast();
+
+  final Map<String, DiscoveryPeer> _peers = {};
+  final StreamController<DiscoveryEvent> _ctrl =
+      StreamController<DiscoveryEvent>.broadcast();
   StreamSubscription? _sub;
   bool _started = false;
 
@@ -39,20 +36,24 @@ class LanDiscovery implements DiscoveryService {
   Future<void> stop() async {
     await _sub?.cancel();
     _sub = null;
-    _endpoints.clear();
+    _peers.clear();
     _started = false;
   }
 
   @override
-  List<RemoteEndpoint> get endpoints => List.unmodifiable(_endpoints.values);
+  List<DiscoveryPeer> get peers => List.unmodifiable(_peers.values);
+
+  @override Stream<DiscoveryEvent> get events => _ctrl.stream;
 
   @override
-  Stream<List<RemoteEndpoint>> watch() => _ctrl.stream;
+  Future<String?> createRoom({String? alias}) => Future.value(null);
 
   @override
-  Future<void> probe() async {
-    _ctrl.add(endpoints);
-  }
+  Future<DiscoveryEvent?> joinRoom(String roomCode, {String? alias}) =>
+      Future.value(null);
+
+  @override
+  Future<void> leaveRoom() => Future.value();
 
   void _onDatagram(dynamic dg) {
     final data = dg.data as List<int>;
@@ -77,14 +78,18 @@ class LanDiscovery implements DiscoveryService {
       }
     }
 
-    final ep = RemoteEndpoint(
+    final peer = DiscoveryPeer(
       deviceId: id,
       alias: alias,
       address: '${sender.address}:$port',
       kind: TransportKind.lan,
       lastSeen: DateTime.now(),
     );
-    _endpoints[id] = ep;
-    _ctrl.add(endpoints);
+    if (!_peers.containsKey(id)) {
+      _peers[id] = peer;
+      _ctrl.add(PeerFound(peer));
+    } else {
+      _peers[id] = peer;
+    }
   }
 }

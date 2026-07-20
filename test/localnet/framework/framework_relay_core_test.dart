@@ -81,7 +81,7 @@ void main() {
     await core.start();
     // 仅验证 discovery.createRoom 工作（mock 工作即可，不实际连 WS）
     final info = await core.discovery.createRoom();
-    expect(info.roomCode, '222222');
+    expect(info, '222222');
     await core.stop();
   });
 }

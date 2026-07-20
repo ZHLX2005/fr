@@ -1,7 +1,8 @@
 import 'dart:async';
 
+import '../discovery/discovery_event.dart';
 import '../discovery/discovery_service.dart';
-import '../discovery/remote_endpoint.dart';
+import '../discovery/discovery_peer.dart';
 import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';
 import 'device.dart';
@@ -29,7 +30,7 @@ class DeviceManager {
   final DeviceRegistry _registry;
   // ignore: unused_field
   DiscoveryService? _discovery;
-  StreamSubscription<List<RemoteEndpoint>>? _discoverySub;
+  StreamSubscription<DiscoveryEvent>? _discoverySub;
   final String myDeviceId;
   final String myAlias;
   final Duration timeout;
@@ -47,10 +48,14 @@ class DeviceManager {
   void attachDiscovery(DiscoveryService discovery) {
     _discovery = discovery;
     _discoverySub?.cancel();
-    _discoverySub = discovery.watch().listen(_onDiscoveryUpdate);
+    _discoverySub = discovery.events.listen((event) {
+      if (event is PeerFound) {
+        _onDiscoveryUpdate([event.peer]);
+      }
+    });
   }
 
-  void _onDiscoveryUpdate(List<RemoteEndpoint> endpoints) {
+  void _onDiscoveryUpdate(List<DiscoveryPeer> endpoints) {
     for (final ep in endpoints) {
       if (ep.deviceId == myDeviceId) continue;
       final existing = _registry.get(ep.deviceId);

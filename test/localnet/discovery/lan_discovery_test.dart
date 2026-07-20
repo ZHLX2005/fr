@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/localnet/discovery/lan_discovery.dart';
-import 'package:xiaodouzi_fr/core/localnet/discovery/remote_endpoint.dart';
+import 'package:xiaodouzi_fr/core/localnet/discovery/discovery_peer.dart';
+import 'package:xiaodouzi_fr/core/localnet/discovery/discovery_event.dart';
 import 'package:xiaodouzi_fr/core/localnet/transport/transport_config.dart';
 import 'package:xiaodouzi_fr/core/localnet/transport/udp_transport.dart';
 
@@ -35,21 +36,20 @@ void main() {
 
     test('start/stop toggles internal state', () async {
       await discovery.start();
-      expect(discovery.endpoints, isEmpty);
+      expect(discovery.peers, isEmpty);
       await discovery.stop();
     });
 
-    test('endpoints returns empty list initially', () {
-      expect(discovery.endpoints, isEmpty);
+    test('peers returns empty list initially', () {
+      expect(discovery.peers, isEmpty);
     });
 
-    test('watch() emits at least once on probe', () async {
+    test('events stream emits nothing before any datagram', () async {
       await discovery.start();
-      final received = <List<RemoteEndpoint>>[];
-      final sub = discovery.watch().listen(received.add);
-      await discovery.probe();
+      final received = <DiscoveryEvent>[];
+      final sub = discovery.events.listen(received.add);
       await Future.delayed(const Duration(milliseconds: 50));
-      expect(received, isNotEmpty);
+      expect(received, isEmpty);
       await sub.cancel();
       await discovery.stop();
     });
