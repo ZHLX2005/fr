@@ -35,6 +35,8 @@ export 'channel/channel_manager.dart';
 export 'connection/connection_quality.dart';
 export 'connection/connection_manager.dart';
 
+export 'util/network_util.dart';
+
 export 'transport/transport_kind.dart';
 export 'transport/transport_config.dart';
 export 'transport/transport.dart';
@@ -42,6 +44,7 @@ export 'transport/udp_transport.dart';
 export 'transport/http_transport.dart';
 export 'transport/transport_frame.dart';
 export 'transport/ws_transport.dart';
+export 'transport/chat_payload.dart';
 
 export 'transport_channel/transport_channel.dart' hide SendResult;
 export 'transport_channel/lan_channel.dart';

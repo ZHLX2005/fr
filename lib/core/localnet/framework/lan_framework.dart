@@ -15,6 +15,8 @@ import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';
 import '../session/session.dart';
 import '../session/state_serializer.dart';
+import '../transport/chat_payload.dart';
+import '../transport/transport_frame.dart';
 import '../transport/transport_kind.dart';
 import 'exception/framework_exception.dart';
 import 'framework_config.dart';
@@ -167,6 +169,57 @@ class LanFramework {
     });
   }
 
+  // ============ Relay (WS) Chat API ============
+
+  /// 当前房间号（仅 Relay 模式有效）
+  String? get currentRoomCode => _isRelay ? _relayCore().currentRoomCode : null;
+
+  /// 创建聊天房间 + WS 连接（仅 Relay 模式）
+  Future<String> createChatRoom() async {
+    _assertRunning();
+    _assertRelayApi('createChatRoom');
+    return _relayCore().createChatRoom();
+  }
+
+  /// 加入聊天房间 + WS 连接（仅 Relay 模式）
+  Future<String> joinChatRoom(String roomCode) async {
+    _assertRunning();
+    _assertRelayApi('joinChatRoom');
+    return _relayCore().joinChatRoom(roomCode);
+  }
+
+  /// 发送 chat 消息（LAN/Relay 通用）
+  Future<void> sendChat(String text, {String? alias}) async {
+    _assertRunning();
+    if (_isRelay) {
+      await _relayCore().sendChat(text, alias: alias);
+    } else {
+      final result = await sendTo(
+        // LAN 模式需要 target, sendTo 无法直接映射 → 在 biz 层处理
+        '',
+        'chat',
+        ChatPayload(text: text, alias: alias).toJson(),
+      );
+      if (!result.success) {
+        throw FrameworkException('LAN sendChat failed: ${result.error}');
+      }
+    }
+  }
+
+  /// 订阅 chat 帧（仅 Relay 模式；LAN 模式使用 watchChannel('chat')）
+  Stream<TransportFrame> watchChatFrames() {
+    _assertRunning();
+    _assertRelayApi('watchChatFrames');
+    return _relayCore().chatFrames;
+  }
+
+  /// 离开聊天房间 — 关闭 WS + 清理（仅 Relay 模式）
+  Future<void> leaveChatRoom() async {
+    _assertRunning();
+    _assertRelayApi('leaveChatRoom');
+    await _relayCore().leaveChatRoom();
+  }
+
   // ============ Session 管理 ============
 
   /// 创建 Session 用于自动状态同步
@@ -255,6 +308,20 @@ class LanFramework {
   }
 
   // ============ 内部辅助 ============
+
+  bool get _isRelay => _core is FrameworkRelayCore;
+
+  FrameworkRelayCore _relayCore() {
+    if (_core is! FrameworkRelayCore) {
+      throw UnsupportedError('该 API 仅支持 Relay 模式');
+    }
+    return _core as FrameworkRelayCore;
+  }
+
+  void _assertRelayApi(String operation) {
+    if (_isRelay) return;
+    throw UnsupportedError('$operation 仅支持 Relay 模式');
+  }
 
   EventBus _bus() {
     final core = _core;

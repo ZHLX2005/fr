@@ -29,12 +29,8 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
   }
 
   Future<void> _startService() async {
-    // 重入保护：避免"开始+结束"事件间被快速重复触发
     if (_isStarting) return;
-    if (_service.serviceState == 'RUNNING' ||
-        _service.serviceState == 'STARTING') {
-      return;
-    }
+    if (_service.isReady) return;
     setState(() => _isStarting = true);
     try {
       await _service.start();
@@ -258,31 +254,13 @@ class _LocalnetDiscoverPageState extends State<LocalnetDiscoverPage> {
 
   /// Relay 模式：房间号发现 + 创建房间面板
   Widget _buildRelayPanel() {
-    return _RelayPanel(
-      onConnected: (peerId, peerAlias) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => RelayChatPage(
-              peerId: peerId,
-              peerAlias: peerAlias,
-            ),
-          ),
-        );
-      },
-    );
+    return _RelayPanel();
   }
 }
 
 /// Relay 模式面板 — 创建/加入/离开房间
-///
-/// 两种状态：
-/// - 未加入：显示"创建房间"按钮 + 房间号输入 + "加入房间"按钮
-/// - 已加入：显示房间号、连接状态、"离开房间"按钮
 class _RelayPanel extends StatefulWidget {
-  final void Function(String peerId, String peerAlias)? onConnected;
-
-  const _RelayPanel({this.onConnected});
+  const _RelayPanel();
 
   @override
   State<_RelayPanel> createState() => _RelayPanelState();
@@ -311,7 +289,6 @@ class _RelayPanelState extends State<_RelayPanel> {
       await _service.createRelayRoom();
       if (mounted) {
         setState(() => _isBusy = false);
-        // 自动导航到聊天（Host 自己就是 peer，等 guest 加入后发消息）
         _autoNavigate();
       }
     } catch (e) {
@@ -351,10 +328,17 @@ class _RelayPanelState extends State<_RelayPanel> {
   }
 
   void _autoNavigate() {
-    final peerId = _service.relayPeerId;
-    final peerAlias = _service.relayPeerAlias;
-    if (peerId != null && widget.onConnected != null) {
-      widget.onConnected!(peerId, peerAlias ?? peerId);
+    final bucketId = _service.relayBucketId;
+    if (bucketId.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RelayChatPage(
+            peerId: bucketId,
+            peerAlias: '对方',
+          ),
+        ),
+      );
     }
   }
 
@@ -482,8 +466,7 @@ class _RelayPanelState extends State<_RelayPanel> {
   /// 已加入房间 — 显示房间信息 + 离开
   Widget _buildRoomPanel() {
     final theme = Theme.of(context);
-    final peerId = _service.relayPeerId;
-    final peerAlias = _service.relayPeerAlias;
+    final roomCode = _service.currentRoomCode;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -507,7 +490,7 @@ class _RelayPanelState extends State<_RelayPanel> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      _service.currentRoomCode ?? '',
+                      roomCode ?? '',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         letterSpacing: 8,
@@ -515,25 +498,10 @@ class _RelayPanelState extends State<_RelayPanel> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (peerId != null) ...[
-                    Text(
-                      '已连接: ${peerAlias ?? peerId}',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      peerId,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                  ] else
-                    Text(
-                      '等待对端加入...',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
+                  Text(
+                    '已连接中继服务器',
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ],
               ),
             ),
