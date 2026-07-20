@@ -61,8 +61,8 @@ xiaodouzi_fr 项目里局域网通信和本地对战的全链路开发参考。
 | 调整状态同步逻辑 | §4.2.4 |
 | 移动端真机调试网络 | ref/discovery-debug.md §1 |
 | 理解三层之间的关系 | §3 |
-| 为游戏添加互联网房间模式（房间号发现） | 引擎 spec §3-4 |
-| 排查 Relay 模式连接问题 | 引擎 spec §6 |
+| 为游戏添加互联网房间模式（房间号发现） | §4.4 |
+| 排查 Relay（WS）模式连接问题 | §4.4.10 + ref/discovery-debug.md §2.6 |
 
 ## 3. 快速启动
 
@@ -410,6 +410,183 @@ class LanHostTouchController extends TouchController {
 }
 ```
 
+### 4.4 Relay（WS）模式详解
+
+> 自 2026-07 引擎重构后新增。完整 spec 在 `docs/superpowers/specs/2026-07-20-engine-refactor-design.md`。
+
+#### 4.4.1 为什么需要 Relay 模式
+
+| 场景 | LAN 模式 | Relay 模式 |
+|------|---------|----------|
+| 同 WiFi、同子网 | ✅ 直接 P2P | ✅ 也行（不必要） |
+| 不同网络（跨 NAT / 跨地域） | ❌ UDP 不可达 | ✅ 走中继服务器 |
+| 朋友输入房间号即开打 | ❌ 没房间号概念 | ✅ 6 位数字 |
+| 需要中继服务器 | ❌ 不需要 | ✅ **必需** |
+
+**关键不变量**：业务层 `LanServiceAdapter` API 表面零变化；切到 Relay 只需换 `FrameworkConfig`：
+
+```dart
+// LAN（默认）：
+await LanServiceAdapter.instance.start(myAlias: 'Alice');
+
+// Relay：
+// （需要先扩展 LanServiceAdapter.start 接收 relayUrl；当前仅 FrameworkConfig 支持，
+//  业务侧接入是后续 task，不在本 skill scope）
+await LanFramework.instance.start(FrameworkConfig(
+  transportKind: TransportKind.relay,
+  relayUrl: 'https://relay.example.com',
+  deviceId: deviceId,
+  deviceAlias: 'Alice',
+));
+```
+
+#### 4.4.2 Relay 模式架构
+
+```
+Host Client                Relay Server                Guest Client
+    │                          │                            │
+    │ 1. POST /rooms           │                            │
+    │ {deviceId, alias}        │                            │
+    ├─────────────────────────→│                            │
+    │ ← 201 {roomCode, wsUrl}  │                            │
+    │                          │                            │
+    │ 2. WS connect wsUrl      │                            │
+    │   (IOWebSocketChannel)   │                            │
+    ├═══════════════════════════>│                            │
+    │  ↓ 双向多路复用帧          │  （按 room 转发）          │
+    │                          │                            │
+    │                          │ 3. POST /rooms/{code}/join│
+    │                          │    {deviceId, alias}       │
+    │                          │ ←─────────────────────────┤
+    │                          │ → 200 {roomCode, wsUrl}   │
+    │                          │                            │
+    │                          │ 4. WS connect wsUrl       │
+    │ ←═══════════════════════════│══════════════════════════>│
+    │  ↓ 中继转发                │                            │
+```
+
+#### 4.4.3 数据结构 — TransportFrame
+
+所有传输后端（UDP/HTTP/WS）都封装成 `TransportFrame`：
+
+```dart
+class TransportFrame {
+  const TransportFrame({
+    required this.channelName,        // 虚拟通道名
+    required this.sourceDeviceId,     // 来源 deviceId
+    required this.payload,            // base64 编码业务数据
+    required this.timestamp,
+  });
+
+  final String channelName;
+  final String sourceDeviceId;
+  final Uint8List payload;
+  final DateTime timestamp;
+
+  Map<String, dynamic> toJson();  // JSON 序列化（WS 用文本帧）
+  factory TransportFrame.fromJson(Map<String, dynamic> json);
+}
+```
+
+**关键设计**：WS 用**文本帧**传 JSON（不是二进制），因为：
+- `WebSocketChannel.sink.add(...)` 在 Flutter web 上只支持文本
+- JSON 便于服务端用任何语言解析
+- 字段集足够小，base64 payload 没有显著开销
+
+#### 4.4.4 关键类与职责
+
+| 类 | 路径 | 职责 |
+|----|------|------|
+| `RelayDiscovery` | `discovery/relay_discovery.dart` | HTTP 短调用：`POST /rooms` / `GET /rooms/{code}` / `POST /rooms/{code}/join` |
+| `WsTransport` | `transport/ws_transport.dart` | 单 WS 连接 → 双向 `TransportFrame` 解析；发送把帧编码 JSON 文本 |
+| `RelayChannel` | `transport_channel/relay_channel.dart` | `TransportChannel` 的 WS 后端实现；按 `channelName` 路由入站帧 |
+| `FrameworkRelayCore` | `framework/framework_relay_core.dart` | 编排：Discovery + WsTransport + RelayChannel + 共用 DeviceManager/ChannelManager/SessionManager |
+
+#### 4.4.5 多路复用原理
+
+单条 WS 连接承载多个虚拟通道，**靠 `channelName` 字段在客户端路由**：
+
+```
+Host WS conn                        Guest WS conn
+  │                                       │
+  ├─ frame{channelName="chat"}            │
+  ├═══════════════════════════════════════>│ RelayChannel.watch("chat") → 投递给对应 listener
+  │                                       │
+  ├─ frame{channelName="session/xxx"}     │
+  ├═══════════════════════════════════════>│ RelayChannel.watch("session/xxx") → Session._onMessage
+```
+
+服务端只是按 `room_code` **整体转发**——**它不解析 `channelName`**。路由在客户端完成。
+
+#### 4.4.6 房间号生成（房间号 = 发现凭证）
+
+```python
+# 服务端等价（Python 2/3 兼容）：
+import random, string
+ROOM_CODE_LENGTH = 6
+rng = random.SystemRandom()
+code = "".join(rng.choice(string.digits) for _ in range(ROOM_CODE_LENGTH))
+while code in existing_codes:  # 简单查表去重
+    code = "".join(rng.choice(string.digits) for _ in range(ROOM_CODE_LENGTH))
+```
+
+**为什么 6 位数字**：
+- 短好记，朋友输入即可
+- 仅数字避免 o/0、l/1 混淆
+- 1/10^6 碰撞概率；2 人房间场景下重试 1-2 次必成功
+
+**房间号传递路径**（**不经过服务器**）：
+- Host 拿到房间号后，通过 IM / 短信 / 复制粘贴私下发给 Guest
+- Guest 拿到房间号后调 `GET /rooms/{code}` 查 `wsUrl`
+- 这种"私下交换 + 服务器只验证"的模式避免房间列表暴露
+
+#### 4.4.7 加入 Relay 后端（新建游戏）
+
+接入现有 `LanServiceAdapter` 时，仅需扩展 `start` 接收 `relayUrl`：
+
+```dart
+// 业务侧（不破坏现有 LAN API）：
+await LanServiceAdapter.instance.start(
+  myAlias: 'Alice',
+  transportKind: TransportKind.relay,
+  relayUrl: 'https://relay.example.com',
+);
+```
+
+**业务层 0 修改**：`createRoom` / `sendJoinRequest` / `createGameSession` 等方法对 Relay/LAN 内部路由都一致。
+
+#### 4.4.8 Relay 模式 vs LAN 模式：API 等价表
+
+| 业务 API | LAN 内部实现 | Relay 内部实现 |
+|---------|------------|---------------|
+| `start()` | UDP 监听 + HTTP server | HTTP 控制面 + WS upgrade |
+| `watchDevices()` | `LanDiscovery` (UDP) | `RelayDiscovery` (HTTP 短轮询或 push) |
+| `announceRoom()` | UDP 多播广播 | `POST /rooms` 一次性 |
+| `sendJoinRequest()` | UDP 多播 `room_join` | HTTP `POST /rooms/{code}/join` |
+| `createGameSession()` | HTTP `/channel/...` | WS 多路复用帧（channelName=`session/...`） |
+| `stop()` | UDP/HTTP 释放 | WS 关闭 + HTTP 释放 |
+
+**业务侧看到的 API 100% 一致**；后端通过 `TransportKind` 路由。
+
+#### 4.4.9 Relay 模式坑点
+
+| # | 错误操作 | 实际后果 | 正确做法 |
+|---|---------|---------|---------|
+| 16 | 客户端用 `replaceFirst('http', 'ws')` 自己拼 WS URL | `wss://` 双 s、`http://...example.com` 误伤、版本不一致 | **服务端是 wsUrl 唯一权威**；`POST /rooms/{code}/join` 必须返回 wsUrl |
+| 17 | WS 帧走二进制 | Flutter Web 不支持二进制帧发送 | **用 JSON 文本帧** + base64 payload |
+| 18 | 一个 channel 一条 WS 连接 | 连接数爆炸（频道多时） | **单 WS 多路复用**（`channelName` 路由） |
+| 19 | 业务层直接 `import 'localnet/transport/ws_transport.dart'` | 业务耦合框架实现细节 | **通过 `LanServiceAdapter` 调用**（同 LAN 模式约束） |
+| 20 | 服务端忽略 `room_code` 隔离 | 跨房间数据泄漏 | 服务端必须按 `room_code` 分桶转发 |
+| 21 | 房间不设过期 | 资源耗尽（DOS） | 30 分钟无连接自动清理；host 关房立即删 |
+| 22 | 不做心跳 | 客户端关闭页面后房间不清 | 30s ping/pong，90s 超时断开 |
+| 23 | 用 HTTP 传游戏状态 | 每次 POST 触发完整 request/response 循环 | **WS 长连接 + 多路复用帧** |
+
+#### 4.4.10 Relay 调试
+
+- 监听 `LanServiceAdapter.watchErrors()` 看整个 Relay 链错误
+- `LanFramework.eventBus` 看 RelayRoomCreatedEvent / RelayDisconnectedEvent 等
+- 服务器端：务必看 [BACKEND_GUIDE.md](../../.tool/relay-server-stub/BACKEND_GUIDE.md) — 包含完整接口契约 + 案例源码 + Python 测试脚本
+
 ## 5. 坑点对照表
 
 ### Framework 层坑点
@@ -500,3 +677,17 @@ class LanHostTouchController extends TouchController {
 - Host 游戏页：`lib/core/surround_game/lan/lan_host_game_page.dart`
 - Client 游戏页：`lib/core/surround_game/lan/lan_client_game_page.dart`
 - 本地游戏页：`lib/core/surround_game/local/local_game_page.dart`
+
+### Relay（WS）模式补充路径
+
+- 枚举 `TransportKind`：`lib/core/localnet/transport/transport_kind.dart`
+- 抽象发现接口：`lib/core/localnet/discovery/discovery_service.dart`
+- 抽象传输通道：`lib/core/localnet/transport_channel/transport_channel.dart`
+- Relay 发现（HTTP）：`lib/core/localnet/discovery/relay_discovery.dart`
+- WS 多路复用传输：`lib/core/localnet/transport/ws_transport.dart`
+- Relay 端 Channel：`lib/core/localnet/transport_channel/relay_channel.dart`
+- 统一帧 + JSON：`lib/core/localnet/transport/transport_frame.dart`
+- Relay Framework：`lib/core/localnet/framework/framework_relay_core.dart`
+- 后端实现指南：`.tool/relay-server-stub/BACKEND_GUIDE.md`
+- 后端骨架 Python：`.tool/relay-server-stub/scripts/server.py`
+- 后端契约自测：`.tool/relay-server-stub/scripts/test_client.py`
