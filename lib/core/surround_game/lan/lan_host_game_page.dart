@@ -118,8 +118,8 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     _session?.dispose();
     _gameStateNotifier?.dispose();
     _touchController.reset();
-    // Host 退出游戏时关闭房间广播（fire-and-forget）
-    LanServiceAdapter.instance.stopRoom(widget.roomId);
+    // Host 退出游戏时关闭房间
+    LanServiceAdapter.instance.closeRoom(widget.roomId);
     super.dispose();
   }
 

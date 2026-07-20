@@ -2,10 +2,10 @@
 //
 // 围追堵截（Quoridor）的统一入口页 — local 和 lan 共享。
 //
-// 提供两个入口：
+// 提供三个入口：
 // - 本地对战  → Navigator.push 到 LocalGamePage
-// - 局域网对局 → Navigator.push 到 LanLobbyPage 之外的"局域网模式入口"（
-//                本轮桩化为占位，下轮接 LanLobbyPage 或 LanRoomPage）
+// - 局域网对局 → Navigator.push 到 LanLobbyPage
+// - 网络对局 → Navigator.push 到 Relay页面（房间号方式）
 //
 // 此页是 UI 层最外层的导航 dispatcher，不持有 ViewModel，不调任何 service。
 // 状态机转移发生于用户点击按钮的瞬间，由 Navigator.push 接管。
@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import '../board_theme.dart';
 import '../local/local_game_page.dart';
 import '../lan/lan_lobby_page.dart';
+import '../lan/relay_lobby_page.dart';
 
 class LobbyPage extends StatelessWidget {
   const LobbyPage({super.key});
@@ -76,6 +77,20 @@ class LobbyPage extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const LanLobbyPage()),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 网络对局
+            _ModeButton(
+              icon: Icons.cloud,
+              title: '网络对局',
+              subtitle: '通过中继服务器跨网络对战',
+              color: boardTheme.piecePlayerB.withValues(alpha: 0.7),
+              theme: theme,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RelayLobbyPage()),
               ),
             ),
           ],

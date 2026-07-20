@@ -66,12 +66,12 @@ class _LanRoomPageState extends State<LanRoomPage> {
   }
 
   Future<void> _startHost() async {
-    // 立即广播一次（adapter 内部每 5s 周期重发）
-    await LanServiceAdapter.instance.announceRoom(widget.initialRoom);
+    // createRoom: LAN 开始周期多播，Relay 创建房间 + 建立 WS
+    await LanServiceAdapter.instance.createRoom(widget.initialRoom);
   }
 
   Future<void> _startClient() async {
-    // 发 join 请求
+    // LAN 模式：发 join 请求（多播）；Relay 模式：已通过 joinRelayRoom 进入
     await LanServiceAdapter.instance.sendJoinRequest(
       hostDeviceId: widget.initialRoom.hostId,
       clientAlias: LanServiceAdapter.instance.myAlias,
@@ -150,7 +150,7 @@ class _LanRoomPageState extends State<LanRoomPage> {
     // 但若 Host 未进入游戏就返回（放弃建房），必须 stopRoom：否则 announce timer
     // 会泄漏，房间一直在其他设备的列表里「挂着不销毁」。
     if (_isHost && !_navigatedToGame) {
-      LanServiceAdapter.instance.stopRoom(widget.roomId);
+      LanServiceAdapter.instance.closeRoom(widget.roomId);
     }
     super.dispose();
   }
