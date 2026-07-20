@@ -11,13 +11,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:xiaodouzi_fr/core/localnet/channel/channel_message.dart';
 import 'package:xiaodouzi_fr/core/localnet/channel/send_result.dart';
 import 'package:xiaodouzi_fr/core/localnet/device/device.dart';
 import 'package:xiaodouzi_fr/core/localnet/framework/framework_config.dart';
 import 'package:xiaodouzi_fr/core/localnet/framework/lan_framework.dart';
 import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
-import 'package:xiaodouzi_fr/core/surround_game/lan/protocol/lan_channels.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/protocol/lan_messages.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/persistence/player_profile_service.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/persistence/device_id_service.dart';
@@ -77,8 +75,6 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
       StreamController<LanRoomEvent>.broadcast();
 
   final Map<String, Timer> _announceTimers = {};
-  StreamSubscription<ChannelMessage>? _announceSub;
-  StreamSubscription<ChannelMessage>? _joinSub;
   StreamSubscription<Map<String, dynamic>>? _multicastSub;
 
   bool _isRunning = false;
@@ -103,7 +99,6 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
   @override
   Future<void> start({String? myAlias}) async {
     if (_isRunning) return;
-    // 预加载持久化数据
     final persistedAlias = await PlayerProfileService.loadAlias();
     final aliasToUse = (myAlias != null && myAlias.isNotEmpty)
         ? myAlias
@@ -119,36 +114,18 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
         deviceId: deviceId,
       ));
       _isRunning = true;
-      _announceSub =
-          _fw.watchChannel(LanChannels.roomAnnounce).listen(_onRoomAnnounce);
-      _joinSub = _fw.watchChannel(LanChannels.roomJoin).listen(_onRoomJoin);
       _multicastSub = _fw.watchMulticast().listen((msg) {
         final key = msg['key'] as String?;
         final payload = msg['payload'] as Map<String, dynamic>?;
         if (payload == null) return;
 
-        if (key == 'room_announce') {
-          // 房间公告：所有设备都关心
+        if (key == 'room_announce' || key == 'room_join') {
           try {
             final ev = LanRoomEvent.fromJson(payload);
             _roomEventsCtrl.add(ev);
           } catch (e) {
             _errorsCtrl.add(
-              LanServiceError('multicast announce parse failed', cause: e),
-            );
-          }
-        } else if (key == 'room_join') {
-          // Join 消息：只关心发给我的
-          final toDeviceId = payload['toDeviceId'] as String?;
-          if (toDeviceId == null || toDeviceId != myDeviceId) return;
-          final innerPayload = Map<String, dynamic>.from(payload)
-            ..remove('toDeviceId');
-          try {
-            final ev = LanRoomEvent.fromJson(innerPayload);
-            _roomEventsCtrl.add(ev);
-          } catch (e) {
-            _errorsCtrl.add(
-              LanServiceError('multicast join parse failed', cause: e),
+              LanServiceError('$key parse failed', cause: e),
             );
           }
         }
@@ -166,8 +143,6 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
       t.cancel();
     }
     _announceTimers.clear();
-    await _announceSub?.cancel();
-    await _joinSub?.cancel();
     await _multicastSub?.cancel();
     await _fw.stop();
     _isRunning = false;
@@ -257,23 +232,5 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
       serializer: const GameStateSerializer(),
       channelName: channelName,
     );
-  }
-
-  void _onRoomAnnounce(ChannelMessage msg) {
-    try {
-      final ev = LanRoomEvent.fromJson(msg.payload);
-      _roomEventsCtrl.add(ev);
-    } catch (e) {
-      _errorsCtrl.add(LanServiceError('announce parse failed', cause: e));
-    }
-  }
-
-  void _onRoomJoin(ChannelMessage msg) {
-    try {
-      final ev = LanRoomEvent.fromJson(msg.payload);
-      _roomEventsCtrl.add(ev);
-    } catch (e) {
-      _errorsCtrl.add(LanServiceError('join parse failed', cause: e));
-    }
   }
 }
