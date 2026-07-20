@@ -15,7 +15,7 @@ class FrameworkConfig {
     this.udpBroadcastEnabled = true,
     this.transportKind = TransportKind.lan,
     this.relayUrl,
-    this.relayHttpPath = '/api/v1',
+    this.relayHttpPath = '/relay',
     this.relayWsPath = '/ws',
   });
 

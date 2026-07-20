@@ -129,6 +129,7 @@ class FrameworkRelayCore {
     await connectionManager.stop();
     await channelManager.stop();
     await deviceManager.dispose();
+    _roomEndpoint.dispose();
     _isRunning = false;
   }
 
