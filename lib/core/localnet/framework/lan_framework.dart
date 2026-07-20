@@ -16,18 +16,20 @@ import '../transport/transport_kind.dart';
 import '../transport_service/transport_service.dart';
 import 'exception/framework_exception.dart';
 import 'framework_config.dart';
+import 'framework_core.dart';
 import 'framework_lan_core.dart';
 import 'framework_relay_core.dart';
 import 'framework_status.dart';
 
-/// 局域网通信框架（单例门面）
+/// 通信框架门面（单例）
 ///
-/// 业务侧唯一接触点。所有 LAN 通信都通过这个类。
+/// 业务侧唯一接触点。持有 [FrameworkCore]（[FrameworkLanCore] 或
+/// [FrameworkRelayCore]），通过其标准接口和下层的 LAN 专有方法调用所有功能。
 class LanFramework {
   LanFramework._();
   static final LanFramework instance = LanFramework._();
 
-  dynamic _core;
+  FrameworkCore? _core;
   String _myDeviceId = '';
   String _myAlias = '';
   String? _cachedMyIp;
@@ -39,13 +41,13 @@ class LanFramework {
   Future<void> start(FrameworkConfig config) async {
     if (_status == FrameworkStatus.running ||
         _status == FrameworkStatus.starting) {
-      return; // 幂等
+      return;
     }
     _status = FrameworkStatus.starting;
     _myDeviceId = config.deviceId ?? const Uuid().v4();
     _myAlias = config.deviceAlias;
 
-    final dynamic core;
+    final FrameworkCore core;
     if (config.transportKind == TransportKind.relay) {
       core = FrameworkRelayCore(config: config);
     } else {
@@ -67,6 +69,7 @@ class LanFramework {
       core.eventBus.emit(const ServiceStartedEvent());
     } catch (e) {
       _status = FrameworkStatus.error;
+      // core 可能还没完全初始化，但 eventBus 存在
       core.eventBus.emit(ServiceErrorEvent(error: e));
       rethrow;
     }
@@ -85,7 +88,7 @@ class LanFramework {
     _status = FrameworkStatus.init;
   }
 
-  /// 销毁（释放 EventBus）
+  /// 销毁
   Future<void> dispose() async {
     await stop();
     await _core?.dispose();
@@ -119,28 +122,28 @@ class LanFramework {
     return _core!.transport.sendTo(targetDeviceId, channel, payload);
   }
 
-  /// 订阅通道消息 — 统一接口，LAN/Relay 均支持
+  /// 订阅通道消息
   Stream<TransportMessage> watchChannel(String channel) {
     _assertRunning();
     return _core!.transport.watchChannel(channel);
   }
 
-  // ============ 业务多播 ============
+  // ============ 业务多播（仅 LAN） ============
 
   /// 发送业务多播消息（UDP 多播，局域网内所有设备立即收到）
   Future<SendResult> sendMulticast({
-    required String key, // 业务标识，仅用于日志/debug，不参与协议
+    required String key,
     required Map<String, dynamic> payload,
   }) async {
     _assertRunning();
-    final core = _core!;
+    final lanCore = _requireLanCore('sendMulticast');
     final body = jsonEncode({
       'key': key,
       'payload': payload,
       'timestamp': DateTime.now().toIso8601String(),
     });
     try {
-      core.udpTransport.sendRaw(body);
+      lanCore.udpTransport.sendRaw(body);
       return SendResult.ok();
     } on UnsupportedError {
       rethrow;
@@ -152,7 +155,9 @@ class LanFramework {
   /// 订阅业务多播消息
   Stream<Map<String, dynamic>> watchMulticast() {
     _assertRunning();
-    return (_core!.multicasts as Stream<String>).map<Map<String, dynamic>>((
+    final lanCore = _requireLanCore('watchMulticast');
+    // ignore: unnecessary_cast
+    return (lanCore.multicasts as Stream<String>).map<Map<String, dynamic>>((
       text,
     ) {
       try {
@@ -207,7 +212,6 @@ class LanFramework {
     );
   }
 
-  // Internal helper for default JSON serializer
   StateSerializer<S> _defaultJsonSerializer<S>() {
     throw UnimplementedError(
       'Please provide a StateSerializer to createSession. '
@@ -217,26 +221,20 @@ class LanFramework {
 
   // ============ 连接状态 ============
 
-  /// 设备是否在线
   bool isOnline(String deviceId) => _connectionManager().isOnline(deviceId);
 
-  /// 设备连接质量
   ConnectionQuality getQuality(String deviceId) =>
       _connectionManager().getQuality(deviceId);
 
-  /// 订阅某设备的连接状态
   Stream<ConnectionStateEvent> watchConnectionState(String deviceId) async* {
     yield DeviceOnlineEvent(deviceId: deviceId);
-    // 简化：实际实现应按 deviceId 过滤
   }
 
   // ============ 配置热更新 ============
 
   Future<void> updateConfig(FrameworkConfig newConfig) async {
     _assertRunning();
-    final core = _core!;
-    core.eventBus.emit(const ConfigChangedEvent());
-    // 本轮先 stop+start；下轮可优化为热更新
+    _core!.eventBus.emit(const ConfigChangedEvent());
     await stop();
     await start(newConfig);
   }
@@ -247,31 +245,27 @@ class LanFramework {
     yield _status;
   }
 
-  /// 本机设备 ID（start 后可用）
   String get myDeviceId => _myDeviceId;
 
-  /// 本机设备别名
   String get myAlias => _myAlias;
 
-  /// 本机 IP（start 时由适配层探测后注入）
   String? get myIp => _cachedMyIp;
 
-  /// 注册自定义 HTTP 路由
+  /// 注册自定义 HTTP 路由（仅 LAN 模式）
   void registerRoute(String path, Future<void> Function(HttpRequest) handler) {
     _assertRunning();
-    _core!.httpTransport.registerHandler(path, handler);
+    _requireLanCore('registerRoute').httpTransport.registerHandler(path, handler);
   }
 
-  /// 注销自定义 HTTP 路由
+  /// 注销自定义 HTTP 路由（仅 LAN 模式）
   void unregisterRoute(String path) {
     _assertRunning();
-    _core!.httpTransport.unregisterHandler(path);
+    _requireLanCore('unregisterRoute').httpTransport.unregisterHandler(path);
   }
 
-  /// 原始事件总线（高级用户使用）
+  /// 原始事件总线
   EventBus get eventBus => _core?.eventBus ?? _nullBus;
 
-  /// 设置本机 IP（由适配层探测后注入）
   void setMyIp(String ip) {
     _cachedMyIp = ip;
   }
@@ -287,9 +281,20 @@ class LanFramework {
     return _core as FrameworkRelayCore;
   }
 
+  /// Relay 方法守卫
   void _assertRelayApi(String operation) {
     if (_isRelay) return;
     throw UnsupportedError('$operation 仅支持 Relay 模式');
+  }
+
+  /// 获取 LAN Core（sendMulticast / watchMulticast / registerRoute 使用）
+  ///
+  /// Relay 模式下这些 API 不可用，会抛 UnsupportedError。
+  FrameworkLanCore _requireLanCore(String operation) {
+    if (_core is! FrameworkLanCore) {
+      throw UnsupportedError('$operation 仅支持 LAN 模式');
+    }
+    return _core as FrameworkLanCore;
   }
 
   EventBus _bus() {

@@ -44,7 +44,7 @@ void main() {
     );
   });
 
-  test('Relay mode watchMulticast returns empty stream', () async {
+  test('Relay mode watchMulticast throws UnsupportedError (LAN-only)', () async {
     await framework.start(
       const FrameworkConfig(
         transportKind: TransportKind.relay,
@@ -54,7 +54,7 @@ void main() {
       ),
     );
 
-    expect(await framework.watchMulticast().toList(), isEmpty);
+    expect(() => framework.watchMulticast(), throwsUnsupportedError);
   });
 
   test('sendTo/wathChannel work in relay mode (now unified API)', () async {
