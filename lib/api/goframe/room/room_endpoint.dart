@@ -12,7 +12,7 @@ class RoomEndpoint {
 
   RoomEndpoint({
     required this.baseUrl,
-    this.pathPrefix = '/api/v1',
+    this.pathPrefix = '/api/v1/relay',
     http.Client? httpClient,
   }) : _client = httpClient ?? http.Client();
 

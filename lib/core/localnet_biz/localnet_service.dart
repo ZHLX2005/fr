@@ -178,12 +178,11 @@ class LocalnetService {
 
   /// 根据已知生产服务器协议约定推导 HTTP path prefix
   ///
-  /// 当前生产服务器（47.110.80.47:8988）用 `/relay/rooms*`，
-  /// 即 relayHttpPath = '/relay'。
-  /// 未来若换回 BACKEND_GUIDE 默认（裸 /rooms*），可改这里。
+  /// 当前生产服务器（47.110.80.47:8988）用 `/api/v1/relay/rooms*`，
+  /// 即 relayHttpPath = '/api/v1/relay'。
   String _deriveRelayHttpPath(String relayUrl) {
-    // 实测生产环境用 /relay 前缀
-    return '/relay';
+    // 实测生产环境用 /api/v1/relay 前缀
+    return '/api/v1/relay';
   }
 
   Future<void> _connectWs(String wsUrl, {required String role}) async {

@@ -17,7 +17,7 @@ class RelayDiscovery implements DiscoveryService {
     required this.relayUrl,
     required this.myDeviceId,
     required this.myAlias,
-    this.relayHttpPath = '/api/v1',
+    this.relayHttpPath = '/api/v1/relay',
     RoomEndpoint? roomEndpoint,
   }) : _roomEndpoint = roomEndpoint ?? RoomEndpoint(
          baseUrl: relayUrl,

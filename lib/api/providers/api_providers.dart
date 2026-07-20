@@ -59,7 +59,7 @@ final downloadControllerProvider = Provider<DownloadController>((_) => DownloadC
 
 final roomEndpointProvider = Provider<RoomEndpoint>((_) {
   // 用默认 GoFrame 后端地址
-  return RoomEndpoint(baseUrl: 'http://47.110.80.47:8988', pathPrefix: '/relay');
+  return RoomEndpoint(baseUrl: 'http://47.110.80.47:8988');
 });
 
 // ── Notion ──────────────────────────────────────────────────────────
