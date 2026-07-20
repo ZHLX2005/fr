@@ -22,6 +22,9 @@ export 'event_bus/lan_event.dart';
 export 'device/device.dart';
 export 'device/device_manager.dart';
 
+export 'discovery/remote_endpoint.dart';
+export 'discovery/discovery_service.dart';
+
 export 'channel/channel_message.dart';
 export 'channel/send_result.dart';
 export 'channel/channel_manager.dart';
