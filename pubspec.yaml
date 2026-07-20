@@ -96,8 +96,8 @@ dependencies:
   audioplayers: ^5.2.1
   just_audio: ^0.9.40
 
-  # WebSocket
-  web_socket_channel: ^3.0.1
+  # WebSocket (Relay 模式传输层)
+  web_socket_channel: ^2.4.0
 
   # Video Player
   video_player: ^2.8.7
