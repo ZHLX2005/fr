@@ -69,7 +69,11 @@ class RelayDiscovery implements DiscoveryService {
   /// 服务端响应必须包含 `wsUrl`，客户端不会自行拼接中继地址。
   Future<RelayJoinResult> joinRoom({required String roomCode}) async {
     try {
-      final result = await _roomEndpoint.joinRoom(roomCode: roomCode);
+      final result = await _roomEndpoint.joinRoom(
+        roomCode: roomCode,
+        deviceId: myDeviceId,
+        alias: myAlias,
+      );
       return RelayJoinResult(
         host: RemoteEndpoint(
           deviceId: result.hostDeviceId,

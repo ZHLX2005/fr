@@ -59,7 +59,7 @@ void main() {
     });
 
     test('joinRoom throws RoomNotFoundError on 404', () async {
-      mock.handlers['GET:/api/v1/rooms/999999'] = (req) =>
+      mock.handlers['POST:/api/v1/rooms/999999/join'] = (req) =>
           http.Response('not found', 404);
       expect(
         () => discovery.joinRoom(roomCode: '999999'),
@@ -68,7 +68,7 @@ void main() {
     });
 
     test('joinRoom returns peer endpoint on 200', () async {
-      mock.handlers['GET:/api/v1/rooms/123456'] = (req) => http.Response(
+      mock.handlers['POST:/api/v1/rooms/123456/join'] = (req) => http.Response(
         jsonEncode({
           'roomCode': '123456',
           'hostDeviceId': 'host-id',
@@ -84,7 +84,7 @@ void main() {
     });
 
     test('joinRoom rejects response without wsUrl', () async {
-      mock.handlers['GET:/api/v1/rooms/123456'] = (req) => http.Response(
+      mock.handlers['POST:/api/v1/rooms/123456/join'] = (req) => http.Response(
         jsonEncode({
           'roomCode': '123456',
           'hostDeviceId': 'host-id',

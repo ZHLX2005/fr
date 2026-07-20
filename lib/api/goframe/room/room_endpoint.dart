@@ -38,9 +38,17 @@ class RoomEndpoint {
     );
   }
 
-  Future<RoomJoinResult> joinRoom({required String roomCode}) async {
-    final uri = Uri.parse('$_roomsUrl/$roomCode');
-    final resp = await _client.get(uri);
+  Future<RoomJoinResult> joinRoom({
+    required String roomCode,
+    required String deviceId,
+    required String alias,
+  }) async {
+    final uri = Uri.parse('$_roomsUrl/$roomCode/join');
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'deviceId': deviceId, 'alias': alias}),
+    );
     if (resp.statusCode == 404) {
       throw RoomNotFoundException('房间 $roomCode 不存在');
     }
