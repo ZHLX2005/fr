@@ -211,8 +211,12 @@ class FrameworkRelayCore implements FrameworkCore {
 
   /// 完整 WS 连接流程：open → WsTransport → RelayChannel → RelayTransportService → subscribe → identify
   Future<void> _connectAndIdentify(String wsUrl, {required String role}) async {
-    // 先清理旧连接
-    await leaveChatRoom();
+    // 先清理旧连接（仅关闭 ws/channel，不重置 _currentRoomCode）
+    _channel?.close();
+    _channel = null;
+    _ws?.close();
+    _ws = null;
+    _relayTransport?.disconnect();
 
     final ioWs = IOWebSocketChannel.connect(Uri.parse(wsUrl));
     _ws = WsTransport(channel: ioWs, myDeviceId: config.deviceId ?? 'unknown');

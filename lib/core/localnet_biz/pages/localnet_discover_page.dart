@@ -335,7 +335,7 @@ class _RelayPanelState extends State<_RelayPanel> {
         MaterialPageRoute(
           builder: (_) => RelayChatPage(
             peerId: bucketId,
-            peerAlias: '对方',
+            peerAlias: _service.currentRoomCode ?? '聊天',
           ),
         ),
       );
