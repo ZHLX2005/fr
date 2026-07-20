@@ -45,6 +45,9 @@ localnet/ (28 files)                ← Framework Layer: 基础设施
 | `channel/` | `channel_manager.dart`, `channel_message.dart` | 消息通道、路由、发送 |
 | `session/` | `session.dart`, `session_manager.dart`, `state_serializer.dart` | 状态同步机制 |
 | `event_bus/` | `event_bus.dart`, `lan_event.dart` | 事件总线（broadcast stream） |
+| `framework/` | `framework_lan_core.dart`, `framework_relay_core.dart`, `framework_config.dart` | 单例门面，按 transportKind 分发 LanCore/RelayCore |
+| `discovery/` | `discovery_service.dart`, `lan_discovery.dart`, `relay_discovery.dart` | 设备发现抽象 + LAN/Relay 实现 |
+| `transport_channel/` | `transport_channel.dart`, `lan_channel.dart`, `relay_channel.dart` | 传输通道抽象 + LAN/Relay 实现 |
 
 **设计约束**：LanFramework 是"唯一门面"（facade pattern），业务层只应该通过它交互。
 

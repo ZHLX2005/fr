@@ -42,6 +42,13 @@ xiaodouzi_fr 项目里局域网通信和本地对战的全链路开发参考。
 - 本地模式不需要网络层，但共用同一套 Engine + State + UI Widget
 - Session 模式用于状态同步，Channel 模式用于消息流 —— 两者不混用
 
+**Lan/Relay 双后端（自 2026-07 重构后）**：
+- **LanCore**（现）：UDP 多播（端口 5678）+ HTTP P2P（端口 53317）— 同子网设备
+- **RelayCore**（新增）：HTTP 控制面（房间号注册/查询）+ WS 多路复用（端口 443 wss）— 跨网段设备
+- 两者通过 `transportKind: lan|relay` 配置切换，业务层 LanServiceAdapter 一行不动
+- 共用同一套 DeviceManager / ChannelManager / SessionManager 骨架
+- 协议契约：`docs/superpowers/specs/2026-07-20-engine-refactor-design.md`
+
 ## 2. 什么时候用这个 Skill
 
 | 场景 | 参考章节 |
@@ -54,6 +61,8 @@ xiaodouzi_fr 项目里局域网通信和本地对战的全链路开发参考。
 | 调整状态同步逻辑 | §4.2.4 |
 | 移动端真机调试网络 | ref/discovery-debug.md §1 |
 | 理解三层之间的关系 | §3 |
+| 为游戏添加互联网房间模式（房间号发现） | 引擎 spec §3-4 |
+| 排查 Relay 模式连接问题 | 引擎 spec §6 |
 
 ## 3. 快速启动
 
