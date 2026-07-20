@@ -28,6 +28,7 @@ export 'channel/channel_manager.dart';
 export 'connection/connection_quality.dart';
 export 'connection/connection_manager.dart';
 
+export 'transport/transport_kind.dart';
 export 'transport/transport_config.dart';
 export 'transport/transport.dart';
 export 'transport/udp_transport.dart';
