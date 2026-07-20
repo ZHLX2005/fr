@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../discovery/discovery_service.dart';
+import '../discovery/remote_endpoint.dart';
 import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';
 import 'device.dart';
@@ -9,7 +11,7 @@ import 'device_registry.dart';
 ///
 /// 职责：
 /// 1. 维护设备表（deviceId → Device）
-/// 2. 接收 UDP 多播数据报（onDatagram），添加新设备或更新已知设备
+/// 2. 通过注入的 DiscoveryService 接收端点变化，添加新设备或更新已知设备
 /// 3. 定期清理离线设备（cleanupNow）
 /// 4. 通过 EventBus 发射 DeviceFound / DeviceLost / DeviceUpdated
 class DeviceManager {
@@ -18,11 +20,16 @@ class DeviceManager {
     required this.myDeviceId,
     this.myAlias = '',
     this.timeout = const Duration(seconds: 15),
+    DiscoveryService? discovery,
   })  : _bus = eventBus,
-        _registry = DeviceRegistry();
+        _registry = DeviceRegistry(),
+        _discovery = discovery;
 
   final EventBus _bus;
   final DeviceRegistry _registry;
+  // ignore: unused_field
+  DiscoveryService? _discovery;
+  StreamSubscription<List<RemoteEndpoint>>? _discoverySub;
   final String myDeviceId;
   final String myAlias;
   final Duration timeout;
@@ -36,38 +43,31 @@ class DeviceManager {
   /// 获取单个设备
   Device? getDevice(String deviceId) => _registry.get(deviceId);
 
-  /// 收到 UDP 数据报
-  ///
-  /// 由 UdpTransport 的 datagram stream 回调。
-  void onDatagram({
-    required String deviceId,
-    required String ip,
-    required int port,
-    Map<String, String> extras = const {},
-  }) {
-    if (deviceId == myDeviceId) return; // 忽略自己
+  /// 注入 DiscoveryService（在 framework 启动时调用）
+  void attachDiscovery(DiscoveryService discovery) {
+    _discovery = discovery;
+    _discoverySub?.cancel();
+    _discoverySub = discovery.watch().listen(_onDiscoveryUpdate);
+  }
 
-    final existing = _registry.get(deviceId);
-    final now = DateTime.now();
-    // 别名优先级：广播中的 alias > 已有别名 > ip
-    final alias = extras['alias']?.isNotEmpty == true
-        ? extras['alias']!
-        : (existing?.alias ?? ip);
-    final device = Device(
-      deviceId: deviceId,
-      alias: alias,
-      ip: ip,
-      port: port,
-      lastSeen: now,
-      extras: extras.isEmpty ? (existing?.extras ?? const {}) : extras,
-    );
-
-    if (existing == null) {
-      _registry.add(device);
-      _bus.emit(DeviceFoundEvent(deviceId: deviceId, alias: device.alias));
-    } else {
-      _registry.add(device); // 重复 add 自动覆盖
-      // 只在 lastSeen 更新（不需要每次都发事件）
+  void _onDiscoveryUpdate(List<RemoteEndpoint> endpoints) {
+    for (final ep in endpoints) {
+      if (ep.deviceId == myDeviceId) continue;
+      final existing = _registry.get(ep.deviceId);
+      if (existing == null) {
+        final device = Device(
+          deviceId: ep.deviceId,
+          alias: ep.alias,
+          ip: ep.address.split(':').first,
+          port: int.tryParse(ep.address.split(':').last) ?? 0,
+          lastSeen: ep.lastSeen,
+          extras: const {},
+        );
+        _registry.add(device);
+        _bus.emit(DeviceFoundEvent(deviceId: ep.deviceId, alias: device.alias));
+      } else {
+        _registry.add(existing.copyWith(lastSeen: ep.lastSeen, alias: ep.alias));
+      }
     }
   }
 
@@ -105,6 +105,7 @@ class DeviceManager {
 
   /// 销毁
   Future<void> dispose() async {
+    await _discoverySub?.cancel();
     _registry.clear();
   }
 }

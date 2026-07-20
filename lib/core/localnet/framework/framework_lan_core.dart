@@ -3,6 +3,7 @@ import 'dart:async';
 import '../channel/channel_manager.dart';
 import '../connection/connection_manager.dart';
 import '../device/device_manager.dart';
+import '../discovery/lan_discovery.dart';
 import '../event_bus/event_bus.dart';
 import '../session/session_manager.dart';
 import '../transport/http_transport.dart';
@@ -42,6 +43,7 @@ class FrameworkLanCore {
   late final UdpTransport udpTransport;
   late final HttpTransport httpTransport;
   late final DeviceManager deviceManager;
+  late final LanDiscovery discovery;
   late final ChannelManager channelManager;
   late final ConnectionManager connectionManager;
   late final SessionManager sessionManager;
@@ -82,12 +84,19 @@ class FrameworkLanCore {
     }
 
     // 3. 创建并启动 manager
+    discovery = LanDiscovery(
+      myDeviceId: myDeviceId,
+      myAlias: myAlias,
+      udp: udpTransport,
+    );
     deviceManager = DeviceManager(
       eventBus: eventBus,
       myDeviceId: myDeviceId,
       myAlias: myAlias,
       timeout: deviceTimeout,
     );
+    deviceManager.attachDiscovery(discovery);
+    await discovery.start();
 
     channelManager = ChannelManager(
       eventBus: eventBus,
@@ -108,7 +117,7 @@ class FrameworkLanCore {
       eventBus: eventBus,
     );
 
-    // 5. 串联：UDP 收到的多播 → DeviceManager
+    // 5. 串联：UDP 业务多播 → 业务事件总线（设备心跳已由 LanDiscovery 接管）
     if (transportConfig.enableUdp) {
       udpTransport.datagrams.listen((dg) {
         final text = String.fromCharCodes(dg.data);
@@ -116,30 +125,9 @@ class FrameworkLanCore {
         // 判定：含 '{' 字符视为业务多播
         if (text.trimLeft().startsWith('{')) {
           _multicastController.add(text);
-          return; // 业务多播，不走设备发现
+          return;
         }
-        // framework 心跳格式：deviceId,port[,extras]
-        // 格式: "deviceId,port" 或 "deviceId,port,key:value,..."
-        final parts = text.split(',');
-        if (parts.length < 2) return;
-        final id = parts[0].trim();
-        final port = int.tryParse(parts[1].trim());
-        if (id.isEmpty || port == null) return;
-
-        final extras = <String, String>{};
-        for (var i = 2; i < parts.length; i++) {
-          final kv = parts[i].split(':');
-          if (kv.length == 2) {
-            extras[kv[0].trim()] = kv[1].trim();
-          }
-        }
-
-        deviceManager.onDatagram(
-          deviceId: id,
-          ip: dg.senderAddress.address,
-          port: port,
-          extras: extras,
-        );
+        // framework 心跳格式由 LanDiscovery 消费，此处忽略
       });
     }
 
@@ -186,6 +174,7 @@ class FrameworkLanCore {
     await sessionManager.dispose();
     await connectionManager.stop();
     await channelManager.stop();
+    await discovery.stop();
     await deviceManager.dispose();
 
     if (transportConfig.enableHttp) {
