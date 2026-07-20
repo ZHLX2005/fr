@@ -25,6 +25,7 @@ export 'device/device_manager.dart';
 export 'discovery/remote_endpoint.dart';
 export 'discovery/discovery_service.dart';
 export 'discovery/lan_discovery.dart';
+export 'discovery/relay_discovery.dart';
 
 export 'channel/channel_message.dart';
 export 'channel/send_result.dart';
