@@ -15,7 +15,6 @@ import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';
 import '../session/session.dart';
 import '../session/state_serializer.dart';
-import '../transport/chat_payload.dart';
 import '../transport/transport_frame.dart';
 import '../transport/transport_kind.dart';
 import 'exception/framework_exception.dart';
@@ -188,22 +187,11 @@ class LanFramework {
     return _relayCore().joinChatRoom(roomCode);
   }
 
-  /// 发送 chat 消息（LAN/Relay 通用）
+  /// 发送 chat 消息（仅 Relay 模式；LAN 模式使用 sendTo）
   Future<void> sendChat(String text, {String? alias}) async {
     _assertRunning();
-    if (_isRelay) {
-      await _relayCore().sendChat(text, alias: alias);
-    } else {
-      final result = await sendTo(
-        // LAN 模式需要 target, sendTo 无法直接映射 → 在 biz 层处理
-        '',
-        'chat',
-        ChatPayload(text: text, alias: alias).toJson(),
-      );
-      if (!result.success) {
-        throw FrameworkException('LAN sendChat failed: ${result.error}');
-      }
-    }
+    _assertRelayApi('sendChat');
+    await _relayCore().sendChat(text, alias: alias);
   }
 
   /// 订阅 chat 帧（仅 Relay 模式；LAN 模式使用 watchChannel('chat')）

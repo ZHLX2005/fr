@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 
@@ -209,6 +208,7 @@ class LocalnetService {
 
   StreamSubscription? _devicesSub;
   StreamSubscription? _relayChatSub;
+  StreamSubscription? _lanChatSub;
   bool _subscribed = false;
 
   void _subscribe() {
@@ -220,7 +220,7 @@ class LocalnetService {
     });
 
     if (config.config.mode == MessageNetMode.lan) {
-      _fw.watchChannel('chat').listen(_onLanChatMessage);
+      _lanChatSub = _fw.watchChannel('chat').listen(_onLanChatMessage);
     } else {
       _relayChatSub = _fw.watchChatFrames().listen(_onRelayChatFrame);
     }
@@ -229,6 +229,8 @@ class LocalnetService {
   void _unsubscribe() {
     _devicesSub?.cancel();
     _devicesSub = null;
+    _lanChatSub?.cancel();
+    _lanChatSub = null;
     _relayChatSub?.cancel();
     _relayChatSub = null;
     _subscribed = false;
