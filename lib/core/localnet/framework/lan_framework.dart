@@ -5,9 +5,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
-import '../channel/channel_manager.dart';
-import '../channel/channel_message.dart';
-import '../channel/send_result.dart';
 import '../connection/connection_manager.dart';
 import '../connection/connection_quality.dart';
 import '../device/device.dart';
@@ -17,6 +14,7 @@ import '../session/session.dart';
 import '../session/state_serializer.dart';
 import '../transport/transport_frame.dart';
 import '../transport/transport_kind.dart';
+import '../transport_service/transport_service.dart';
 import 'exception/framework_exception.dart';
 import 'framework_config.dart';
 import 'framework_lan_core.dart';
@@ -110,24 +108,22 @@ class LanFramework {
   /// 单个设备事件
   Stream<DeviceEvent> watchDeviceEvents() => _bus().watch<DeviceEvent>();
 
-  // ============ 业务通道 ============
+  // ============ 传输通道（LAN & Relay 统一） ============
 
-  /// 发送通道消息
+  /// 发送通道消息 — 统一接口，LAN 走 HTTP P2P，Relay 走 WS 帧
   Future<SendResult> sendTo(
     String targetDeviceId,
     String channel,
     Map<String, dynamic> payload,
   ) async {
     _assertRunning();
-    _assertLanChannelApi('sendTo');
-    return _channelManager().sendTo(targetDeviceId, channel, payload);
+    return _core!.transport.sendTo(targetDeviceId, channel, payload);
   }
 
-  /// 订阅通道消息
-  Stream<ChannelMessage> watchChannel(String channel) {
+  /// 订阅通道消息 — 统一接口，LAN/Relay 均支持
+  Stream<TransportMessage> watchChannel(String channel) {
     _assertRunning();
-    _assertLanChannelApi('watchChannel');
-    return _channelManager().watchChannel(channel);
+    return _core!.transport.watchChannel(channel);
   }
 
   // ============ 业务多播 ============
@@ -319,22 +315,9 @@ class LanFramework {
     return core.eventBus;
   }
 
-  ChannelManager _channelManager() {
-    _assertRunning();
-    return _core!.channelManager;
-  }
-
   ConnectionManager _connectionManager() {
     _assertRunning();
     return _core!.connectionManager;
-  }
-
-  void _assertLanChannelApi(String operation) {
-    if (_core is FrameworkRelayCore) {
-      throw UnsupportedError(
-        '$operation is LAN-only. Use createSession in Relay mode.',
-      );
-    }
   }
 
   void _assertRunning() {

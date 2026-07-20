@@ -236,7 +236,7 @@ class LocalnetService {
     _subscribed = false;
   }
 
-  void _onLanChatMessage(fw.ChannelMessage msg) {
+  void _onLanChatMessage(fw.TransportMessage msg) {
     final peer = _fw.devices.cast<fw.Device?>().firstWhere(
           (d) => d?.deviceId == msg.sourceDeviceId,
           orElse: () => null,

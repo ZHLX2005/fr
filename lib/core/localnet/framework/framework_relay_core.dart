@@ -20,16 +20,18 @@ import '../transport/transport_frame.dart';
 import '../transport/udp_transport.dart';
 import '../transport/ws_transport.dart';
 import '../transport_channel/relay_channel.dart';
+import '../transport_service/relay_transport_service.dart';
+import '../transport_service/transport_service.dart';
 import 'framework_config.dart';
+import 'framework_core.dart';
 
 /// Relay 后端的 FrameworkCore — 通过房间号发现 + HTTP 控制 + WS 传输
 ///
-/// 与 FrameworkLanCore 对外暴露相同接口（deviceManager / channelManager /
-/// sessionManager / eventBus），LanFramework 门面按 transportKind 分发。
-///
-/// 注意：sendTo / watchChannel 仅支持 LAN。Relay 模式请使用本类提供的
-/// createChatRoom / joinChatRoom / sendChat / watchChat 等 API。
-class FrameworkRelayCore {
+/// 实现 [FrameworkCore] 抽象父类：
+/// - [discovery]: [RelayDiscovery]（HTTP 房间 API）
+/// - [transport]: [RelayTransportService]（WS 帧；通过 createChatRoom/joinChatRoom 激活）
+/// - [deviceManager], [connectionManager], [sessionManager], [eventBus]
+class FrameworkRelayCore implements FrameworkCore {
   FrameworkRelayCore({required this.config, RoomEndpoint? roomEndpoint})
     : _roomEndpoint = roomEndpoint ?? RoomEndpoint(
          baseUrl: config.relayUrl ?? 'http://localhost',
@@ -39,21 +41,39 @@ class FrameworkRelayCore {
   final FrameworkConfig config;
   final RoomEndpoint _roomEndpoint;
 
+  // ============ FrameworkCore 接口实现 ============
+
+  @override
   final EventBus eventBus = EventBus();
 
+  @override
   late final RelayDiscovery discovery;
+
+  @override
   late final DeviceManager deviceManager;
+
+  @override
+  late final ConnectionManager connectionManager;
+
+  @override
+  late final SessionManager sessionManager;
+
+  @override
+  late final TransportService transport;
+
+  // 保留旧属性兼容
   late final UdpTransport udpTransport = _UnsupportedUdpTransport();
   late final HttpTransport httpTransport = _StubHttpTransport();
   late final ChannelManager channelManager;
-  late final ConnectionManager connectionManager;
-  late final SessionManager sessionManager;
 
   Stream<String> get multicasts => Stream<String>.empty();
 
   WsTransport? _ws;
   RelayChannel? _channel;
+  RelayTransportService? _relayTransport;
   bool _isRunning = false;
+
+  @override
   bool get isRunning => _isRunning;
 
   /// 当前房间号（有 WS 连接时可用）
@@ -70,9 +90,15 @@ class FrameworkRelayCore {
 
   // ============ 生命周期 ============
 
-  /// 启动：仅初始化 Discovery 和 managers（不连 WS）
+  @override
   Future<void> start() async {
     if (_isRunning) return;
+
+    // 1. 创建 RelayTransportService（起始态：disconnected）
+    _relayTransport = RelayTransportService(myDeviceId: config.deviceId ?? 'unknown');
+    transport = _relayTransport!;
+
+    // 2. 初始化 Discovery
     discovery = RelayDiscovery(
       relayUrl: config.relayUrl!,
       relayHttpPath: config.relayHttpPath,
@@ -82,6 +108,7 @@ class FrameworkRelayCore {
     );
     await discovery.start();
 
+    // 3. DeviceManager（挂载 discovery 事件）
     deviceManager = DeviceManager(
       eventBus: eventBus,
       myDeviceId: config.deviceId ?? 'unknown',
@@ -89,6 +116,7 @@ class FrameworkRelayCore {
     );
     deviceManager.attachDiscovery(discovery);
 
+    // 4. ChannelManager（用 stub httpTransport 满足依赖，relay 不走 HTTP P2P）
     channelManager = ChannelManager(
       eventBus: eventBus,
       deviceManager: deviceManager,
@@ -96,11 +124,13 @@ class FrameworkRelayCore {
     );
     await channelManager.start();
 
+    // 5. ConnectionManager
     connectionManager = ConnectionManager(
       eventBus: eventBus,
       deviceManager: deviceManager,
     );
 
+    // 6. SessionManager
     sessionManager = SessionManager(
       channelManager: channelManager,
       eventBus: eventBus,
@@ -110,23 +140,17 @@ class FrameworkRelayCore {
   }
 
   /// 创建房间 + WS 连接 + identify + 启动聊天流
-  ///
-  /// 返回 (roomCode, wsUrl)，调用方保存 roomCode 做后续标识。
   Future<String> createChatRoom() async {
     _assertReady();
     final roomCode = await discovery.createRoom();
     if (roomCode == null) throw StateError('createRoom 返回 null');
     _currentRoomCode = roomCode;
-    // wsUrl 需从 discovery 事件获取，简化：先传空让 connectAndIdentify 工作
-    // 实际上需要用 roomCode 构造 wsUrl: ws://host:port/ws/$roomCode
     final wsUrl = '${config.relayUrl!.replaceFirst('http', 'ws')}/ws/$roomCode';
     await _connectAndIdentify(wsUrl, role: 'host');
     return roomCode;
   }
 
   /// 加入房间 + WS 连接 + identify + 启动聊天流
-  ///
-  /// 成功时返回 wsUrl；调用方可读取 [currentRoomCode]。
   Future<String> joinChatRoom(String roomCode) async {
     _assertReady();
     final result = await discovery.joinRoom(roomCode);
@@ -136,7 +160,6 @@ class FrameworkRelayCore {
     final wsUrl = '${config.relayUrl!.replaceFirst('http', 'ws')}/ws/$roomCode';
     await _connectAndIdentify(wsUrl, role: 'guest');
 
-    // 将 host 添加为设备
     deviceManager.addDevice(
       Device(
         deviceId: host.deviceId,
@@ -166,6 +189,29 @@ class FrameworkRelayCore {
     await _ws?.close();
     _ws = null;
     _currentRoomCode = null;
+
+    // 断开 RelayTransportService
+    _relayTransport?.disconnect();
+  }
+
+  @override
+  Future<void> stop() async {
+    if (!_isRunning) return;
+    await leaveChatRoom();
+    await discovery.stop();
+    await connectionManager.stop();
+    await channelManager.stop();
+    await deviceManager.dispose();
+    _relayTransport?.dispose();
+    _roomEndpoint.dispose();
+    _isRunning = false;
+  }
+
+  @override
+  Future<void> dispose() async {
+    await stop();
+    await _chatCtrl.close();
+    eventBus.dispose();
   }
 
   // ============ 内部 ============
@@ -182,7 +228,7 @@ class FrameworkRelayCore {
     }
   }
 
-  /// 完整 WS 连接流程：open → WsTransport → RelayChannel → subscribe → identify
+  /// 完整 WS 连接流程：open → WsTransport → RelayChannel → RelayTransportService → subscribe → identify
   Future<void> _connectAndIdentify(String wsUrl, {required String role}) async {
     // 先清理旧连接
     await leaveChatRoom();
@@ -199,6 +245,9 @@ class FrameworkRelayCore {
       channelName: 'chat',
       remoteDeviceId: 'relay',
     );
+
+    // 激活 RelayTransportService
+    _relayTransport?.connect(_ws!, _channel!);
 
     // 订阅 chat 帧到公开流
     _chatSub = _channel!.watch('chat').listen(
@@ -248,23 +297,6 @@ class FrameworkRelayCore {
         extras: const {},
       ),
     );
-  }
-
-  Future<void> stop() async {
-    if (!_isRunning) return;
-    await leaveChatRoom();
-    await discovery.stop();
-    await connectionManager.stop();
-    await channelManager.stop();
-    await deviceManager.dispose();
-    _roomEndpoint.dispose();
-    _isRunning = false;
-  }
-
-  Future<void> dispose() async {
-    await stop();
-    await _chatCtrl.close();
-    eventBus.dispose();
   }
 }
 

@@ -192,12 +192,12 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
   Future<SendResult> sendJoinRequest({
     required String hostDeviceId,
     required String clientAlias,
-  }) {
+  }) async {
     final payload = ClientJoinRequested(
       clientDeviceId: myDeviceId,
       clientAlias: clientAlias,
     ).toJson();
-    return _fw.sendMulticast(key: 'room_join', payload: {
+    return await _fw.sendMulticast(key: 'room_join', payload: {
       'toDeviceId': hostDeviceId,
       ...payload,
     });
@@ -207,11 +207,11 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
   Future<SendResult> sendJoinAccept({
     required String clientDeviceId,
     required GameRoom room,
-  }) {
+  }) async {
     final payload = ClientJoinResult(
       accepted: true,
     ).toJson();
-    return _fw.sendMulticast(key: 'room_join', payload: {
+    return await _fw.sendMulticast(key: 'room_join', payload: {
       'toDeviceId': clientDeviceId,
       ...payload,
     });

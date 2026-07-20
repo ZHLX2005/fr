@@ -57,7 +57,7 @@ void main() {
     expect(await framework.watchMulticast().toList(), isEmpty);
   });
 
-  test('LanFramework.sendTo throws in Relay mode', () async {
+  test('sendTo/wathChannel work in relay mode (now unified API)', () async {
     await framework.start(
       const FrameworkConfig(
         transportKind: TransportKind.relay,
@@ -67,23 +67,10 @@ void main() {
       ),
     );
 
-    expect(
-      () => framework.sendTo('peer', 'test', const {}),
-      throwsUnsupportedError,
-    );
-  });
-
-  test('LanFramework.watchChannel throws in Relay mode', () async {
-    await framework.start(
-      const FrameworkConfig(
-        transportKind: TransportKind.relay,
-        relayUrl: 'https://relay.example.com',
-        deviceId: 'self',
-        deviceAlias: 'Self',
-      ),
-    );
-
-    expect(() => framework.watchChannel('test'), throwsUnsupportedError);
+    // Now sendTo/watchChannel are unified — they return send results / streams
+    // without throwing, even in relay mode (they delegate to TransportService)
+    expect(framework.sendTo('peer', 'test', const {}), isA<Future>());
+    expect(framework.watchChannel('test'), isA<Stream>());
   });
 
   test('start with default transport uses LAN core', () async {

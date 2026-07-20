@@ -11,6 +11,7 @@
 library;
 
 export 'framework/framework_config.dart';
+export 'framework/framework_core.dart';
 export 'framework/framework_lan_core.dart';
 export 'framework/framework_relay_core.dart';
 export 'framework/framework_status.dart';
@@ -36,6 +37,10 @@ export 'connection/connection_quality.dart';
 export 'connection/connection_manager.dart';
 
 export 'util/network_util.dart';
+
+export 'transport_service/transport_service.dart';
+export 'transport_service/lan_transport_service.dart';
+export 'transport_service/relay_transport_service.dart';
 
 export 'transport/transport_kind.dart';
 export 'transport/transport_config.dart';

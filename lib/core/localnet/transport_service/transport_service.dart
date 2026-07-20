@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import '../channel/send_result.dart';
+
+export '../channel/send_result.dart';
+
 /// 传输服务抽象 — LAN/Relay 统一的通信接口
 ///
 /// LAN 实现：ChannelManager（HTTP P2P）
@@ -80,19 +84,4 @@ enum TransportConnectionState {
   connecting,
   connected,
   reconnecting,
-}
-
-/// 发送结果
-class SendResult {
-  const SendResult({required this.success, this.error, this.statusCode});
-
-  final bool success;
-  final String? error;
-  final int? statusCode;
-
-  factory SendResult.ok({int? statusCode}) =>
-      SendResult(success: true, statusCode: statusCode);
-
-  factory SendResult.fail(String error) =>
-      SendResult(success: false, error: error);
 }

@@ -9,17 +9,17 @@ import '../session/session_manager.dart';
 import '../transport/http_transport.dart';
 import '../transport/transport_config.dart';
 import '../transport/udp_transport.dart';
+import '../transport_service/lan_transport_service.dart';
+import '../transport_service/transport_service.dart';
+import 'framework_core.dart';
 
-/// 核心编排器
+/// LAN 后端的 FrameworkCore — UDP 多播发现 + HTTP P2P 传输
 ///
-/// 职责：
-/// 1. 创建并管理所有子模块
-/// 2. 启动时按依赖顺序初始化；停止时反序关闭
-/// 3. 串联 UdpTransport → DeviceManager
-/// 4. 周期性 UDP 多播广播本机存在（设备发现的心跳）
-/// 5. 周期性清理离线设备
-/// 6. 暴露 eventBus / deviceManager / channelManager / connectionManager 给上层
-class FrameworkLanCore {
+/// 实现 [FrameworkCore] 抽象父类：
+/// - [discovery]: [LanDiscovery]（UDP 多播心跳）
+/// - [transport]: [LanTransportService]（HTTP P2P）
+/// - [deviceManager], [connectionManager], [sessionManager], [eventBus]
+class FrameworkLanCore implements FrameworkCore {
   FrameworkLanCore({
     required this.myDeviceId,
     this.myAlias = '',
@@ -38,15 +38,24 @@ class FrameworkLanCore {
   final Duration deviceTimeout;
   final Duration cleanupInterval;
 
+  // ============ FrameworkCore 接口实现 ============
+
+  @override
   final EventBus eventBus = EventBus();
 
+  @override
+  late final LanDiscovery discovery;
   late final UdpTransport udpTransport;
   late final HttpTransport httpTransport;
-  late final DeviceManager deviceManager;
-  late final LanDiscovery discovery;
   late final ChannelManager channelManager;
+  @override
+  late final DeviceManager deviceManager;
+  @override
   late final ConnectionManager connectionManager;
+  @override
   late final SessionManager sessionManager;
+  @override
+  late final TransportService transport;
 
   final StreamController<String> _multicastController =
       StreamController<String>.broadcast();
@@ -57,13 +66,16 @@ class FrameworkLanCore {
   Timer? _broadcastTimer;
   Timer? _cleanupTimer;
   bool _isRunning = false;
+
+  @override
   bool get isRunning => _isRunning;
 
   /// 启动（幂等）
+  @override
   Future<void> start() async {
     if (_isRunning) return;
 
-    // 0. 守卫：UDP 与 HTTP 均禁用时启动毫无意义，直接报错而非误报 RUNNING
+    // 0. 守卫：UDP 与 HTTP 均禁用时启动毫无意义
     if (!transportConfig.enableUdp && !transportConfig.enableHttp) {
       throw StateError(
         'FrameworkLanCore.start() 拒绝启动：UDP 与 HTTP 均被禁用，'
@@ -83,7 +95,7 @@ class FrameworkLanCore {
       await httpTransport.start();
     }
 
-    // 3. 创建并启动 manager
+    // 3. 创建并启动 LanDiscovery
     discovery = LanDiscovery(
       myDeviceId: myDeviceId,
       myAlias: myAlias,
@@ -98,6 +110,7 @@ class FrameworkLanCore {
     deviceManager.attachDiscovery(discovery);
     await discovery.start();
 
+    // 4. ChannelManager
     channelManager = ChannelManager(
       eventBus: eventBus,
       deviceManager: deviceManager,
@@ -105,42 +118,49 @@ class FrameworkLanCore {
     );
     await channelManager.start();
 
+    // 5. LanTransportService（薄包装 ChannelManager）
+    final lanTransport = LanTransportService(
+      eventBus: eventBus,
+      deviceManager: deviceManager,
+      channelManager: channelManager,
+    );
+    lanTransport.start();
+    transport = lanTransport;
+
+    // 6. ConnectionManager
     connectionManager = ConnectionManager(
       eventBus: eventBus,
       deviceManager: deviceManager,
     );
     await connectionManager.start();
 
-    // 4. 创建 SessionManager
+    // 7. SessionManager
     sessionManager = SessionManager(
       channelManager: channelManager,
       eventBus: eventBus,
     );
 
-    // 5. 串联：UDP 业务多播 → 业务事件总线（设备心跳已由 LanDiscovery 接管）
+    // 8. 串联：UDP 业务多播 → 业务事件总线
     if (transportConfig.enableUdp) {
       udpTransport.datagrams.listen((dg) {
         final text = String.fromCharCodes(dg.data);
-        // 业务多播消息：任何文本（业务层自行决定 JSON 格式）
-        // 判定：含 '{' 字符视为业务多播
         if (text.trimLeft().startsWith('{')) {
           _multicastController.add(text);
           return;
         }
-        // framework 心跳格式由 LanDiscovery 消费，此处忽略
       });
     }
 
-    // 6. 周期性 UDP 多播广播本机存在（设备发现的心跳）
+    // 9. 周期性 UDP 多播广播本机存在
     if (transportConfig.enableUdp && udpBroadcastEnabled) {
-      _sendBroadcast(); // 启动时立即广播一次，缩短首次发现延迟
+      _sendBroadcast();
       _broadcastTimer = Timer.periodic(
         broadcastInterval,
         (_) => _sendBroadcast(),
       );
     }
 
-    // 7. 周期性清理离线设备
+    // 10. 周期性清理离线设备
     _cleanupTimer = Timer.periodic(cleanupInterval, (_) {
       deviceManager.cleanupNow();
     });
@@ -149,8 +169,6 @@ class FrameworkLanCore {
   }
 
   /// 发送一次 UDP 多播广播，宣告本机存在
-  ///
-  /// 报文格式: `deviceId,httpPort,alias:<别名>`
   void _sendBroadcast() {
     if (!udpTransport.isRunning) return;
     udpTransport.send(
@@ -161,10 +179,10 @@ class FrameworkLanCore {
   }
 
   /// 停止
+  @override
   Future<void> stop() async {
     if (!_isRunning) return;
 
-    // 先停定时器，避免停止过程中再触发广播/清理
     _broadcastTimer?.cancel();
     _broadcastTimer = null;
     _cleanupTimer?.cancel();
@@ -177,6 +195,11 @@ class FrameworkLanCore {
     await discovery.stop();
     await deviceManager.dispose();
 
+    // 停止 TransportService
+    if (transport is LanTransportService) {
+      (transport as LanTransportService).dispose();
+    }
+
     if (transportConfig.enableHttp) {
       await httpTransport.stop();
     }
@@ -188,6 +211,7 @@ class FrameworkLanCore {
   }
 
   /// 销毁
+  @override
   Future<void> dispose() async {
     await stop();
     eventBus.dispose();

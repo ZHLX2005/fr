@@ -192,13 +192,13 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
   Future<SendResult> sendJoinRequest({
     required String hostDeviceId,
     required String clientAlias,
-  }) {
+  }) async {
     final payload = ClientJoinRequested(
       clientDeviceId: myDeviceId,
       clientAlias: clientAlias,
       roomId: '',
     ).toJson();
-    return _fw.sendMulticast(key: 'room_join', payload: {
+    return await _fw.sendMulticast(key: 'room_join', payload: {
       'toDeviceId': hostDeviceId,
       ...payload,
     });
@@ -208,13 +208,13 @@ class _LanServiceAdapterImpl implements LanServiceAdapter {
   Future<SendResult> sendJoinAccept({
     required String clientDeviceId,
     required GameRoom room,
-  }) {
+  }) async {
     final payload = ClientJoinResult(
       roomId: room.roomId,
       clientDeviceId: clientDeviceId,
       accepted: true,
     ).toJson();
-    return _fw.sendMulticast(key: 'room_join', payload: {
+    return await _fw.sendMulticast(key: 'room_join', payload: {
       'toDeviceId': clientDeviceId,
       ...payload,
     });

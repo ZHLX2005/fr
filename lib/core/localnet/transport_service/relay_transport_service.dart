@@ -18,6 +18,7 @@ class RelayTransportService implements TransportService {
         _channel = relayChannel;
 
   final String _myDeviceId;
+  // ignore: unused_field
   WsTransport? _ws;
   RelayChannel? _channel;
 
