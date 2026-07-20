@@ -12,6 +12,7 @@ library;
 
 export 'framework/framework_config.dart';
 export 'framework/framework_lan_core.dart';
+export 'framework/framework_relay_core.dart';
 export 'framework/framework_status.dart';
 export 'framework/lan_framework.dart';
 export 'framework/exception/framework_exception.dart';

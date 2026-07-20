@@ -1,4 +1,5 @@
 import '../transport/transport_config.dart';
+import '../transport/transport_kind.dart';
 
 /// 框架配置
 class FrameworkConfig {
@@ -14,6 +15,10 @@ class FrameworkConfig {
     this.udpBroadcastEnabled = true,
     this.relayHost,
     this.relayPort = 53317,
+    this.transportKind = TransportKind.lan,
+    this.relayUrl,
+    this.relayHttpPath = '/api/v1',
+    this.relayWsPath = '/ws',
   });
 
   final String deviceAlias;
@@ -27,6 +32,10 @@ class FrameworkConfig {
   final bool udpBroadcastEnabled;
   final String? relayHost;
   final int relayPort;
+  final TransportKind transportKind;
+  final String? relayUrl;
+  final String relayHttpPath;
+  final String relayWsPath;
 
   /// 转换为 TransportConfig
   TransportConfig toTransportConfig() {
@@ -48,6 +57,10 @@ class FrameworkConfig {
     bool? udpBroadcastEnabled,
     String? relayHost,
     int? relayPort,
+    TransportKind? transportKind,
+    String? relayUrl,
+    String? relayHttpPath,
+    String? relayWsPath,
   }) {
     return FrameworkConfig(
       deviceAlias: deviceAlias ?? this.deviceAlias,
@@ -61,6 +74,10 @@ class FrameworkConfig {
       udpBroadcastEnabled: udpBroadcastEnabled ?? this.udpBroadcastEnabled,
       relayHost: relayHost ?? this.relayHost,
       relayPort: relayPort ?? this.relayPort,
+      transportKind: transportKind ?? this.transportKind,
+      relayUrl: relayUrl ?? this.relayUrl,
+      relayHttpPath: relayHttpPath ?? this.relayHttpPath,
+      relayWsPath: relayWsPath ?? this.relayWsPath,
     );
   }
 }

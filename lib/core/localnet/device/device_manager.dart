@@ -86,6 +86,19 @@ class DeviceManager {
     _bus.emit(DeviceLostEvent(deviceId: deviceId));
   }
 
+  /// 直接添加一台设备（手动注册，不通过 discovery）
+  ///
+  /// 用于 Relay 模式：joinRoom 后立即注册对端设备
+  void addDevice(Device device) {
+    final existing = _registry.get(device.deviceId);
+    _registry.add(device);
+    if (existing == null) {
+      _bus.emit(DeviceFoundEvent(deviceId: device.deviceId, alias: device.alias));
+    } else {
+      _bus.emit(DeviceUpdatedEvent(deviceId: device.deviceId, alias: device.alias));
+    }
+  }
+
   /// 立即清理离线设备
   /// 返回被清理的设备 id 列表
   List<String> cleanupNow() {
