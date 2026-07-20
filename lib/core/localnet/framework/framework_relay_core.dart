@@ -19,10 +19,8 @@ import 'framework_config.dart';
 /// 与 FrameworkLanCore 对外暴露相同接口（deviceManager / channelManager /
 /// sessionManager / eventBus），LanFramework 门面按 transportKind 分发。
 class FrameworkRelayCore {
-  FrameworkRelayCore({
-    required this.config,
-    http.Client? httpClient,
-  }) : _httpClient = httpClient ?? http.Client();
+  FrameworkRelayCore({required this.config, http.Client? httpClient})
+    : _httpClient = httpClient ?? http.Client();
 
   final FrameworkConfig config;
   final http.Client _httpClient;
@@ -89,14 +87,16 @@ class FrameworkRelayCore {
         '${config.relayUrl!.replaceFirst('http', 'ws')}${config.relayWsPath}?room=$roomCode&deviceId=${config.deviceId}';
     _ws = await _openWs(wsUrl);
     _channel = RelayChannel(ws: _ws!, myDeviceId: config.deviceId ?? 'unknown');
-    deviceManager.addDevice(Device(
-      deviceId: peer.deviceId,
-      alias: peer.alias,
-      ip: 'relay',
-      port: 0,
-      lastSeen: DateTime.now(),
-      extras: const {},
-    ));
+    deviceManager.addDevice(
+      Device(
+        deviceId: peer.deviceId,
+        alias: peer.alias,
+        ip: 'relay',
+        port: 0,
+        lastSeen: DateTime.now(),
+        extras: const {},
+      ),
+    );
   }
 
   Future<WsTransport> _openWs(String url) async {
@@ -108,7 +108,9 @@ class FrameworkRelayCore {
   Future<dynamic> _ioConnect(String url) async {
     // 简单的 ws 连接 — 实际实现可以用 IOWebSocketChannel.connect
     // 但本 task 仅做骨架；测试不会真正调用此方法
-    throw UnsupportedError('_ioConnect not implemented in skeleton — Task 13+ will complete');
+    throw UnsupportedError(
+      '_ioConnect not implemented in skeleton — Task 13+ will complete',
+    );
   }
 
   Future<void> stop() async {
@@ -118,13 +120,13 @@ class FrameworkRelayCore {
     await discovery.stop();
     await channelManager.stop();
     await deviceManager.dispose();
-    eventBus.dispose();
     _httpClient.close();
     _isRunning = false;
   }
 
   Future<void> dispose() async {
     await stop();
+    eventBus.dispose();
   }
 }
 

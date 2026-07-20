@@ -15,9 +15,11 @@ import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';
 import '../session/session.dart';
 import '../session/state_serializer.dart';
+import '../transport/transport_kind.dart';
 import 'exception/framework_exception.dart';
 import 'framework_config.dart';
 import 'framework_lan_core.dart';
+import 'framework_relay_core.dart';
 import 'framework_status.dart';
 
 /// 局域网通信框架（单例门面）
@@ -27,7 +29,7 @@ class LanFramework {
   LanFramework._();
   static final LanFramework instance = LanFramework._();
 
-  FrameworkLanCore? _core;
+  dynamic _core;
   String _myDeviceId = '';
   String _myAlias = '';
   String? _cachedMyIp;
@@ -45,15 +47,20 @@ class LanFramework {
     _myDeviceId = config.deviceId ?? const Uuid().v4();
     _myAlias = config.deviceAlias;
 
-    final core = FrameworkLanCore(
-      myDeviceId: _myDeviceId,
-      myAlias: _myAlias,
-      transportConfig: config.toTransportConfig(),
-      udpBroadcastEnabled: config.udpBroadcastEnabled,
-      broadcastInterval: config.broadcastInterval,
-      deviceTimeout: config.deviceTimeout,
-      cleanupInterval: config.cleanupInterval,
-    );
+    final dynamic core;
+    if (config.transportKind == TransportKind.relay) {
+      core = FrameworkRelayCore(config: config);
+    } else {
+      core = FrameworkLanCore(
+        myDeviceId: _myDeviceId,
+        myAlias: _myAlias,
+        transportConfig: config.toTransportConfig(),
+        udpBroadcastEnabled: config.udpBroadcastEnabled,
+        broadcastInterval: config.broadcastInterval,
+        deviceTimeout: config.deviceTimeout,
+        cleanupInterval: config.cleanupInterval,
+      );
+    }
 
     try {
       await core.start();
