@@ -140,6 +140,8 @@ class LocalnetService {
     await _ensureRelayDiscovery();
     final info = await _relayDiscovery!.createRoom();
     _currentRoomCode = info.roomCode;
+    _relayPeerId = 'relay:${info.roomCode}';
+    _relayPeerAlias = null; // 还不知道 guest 的别名，进入聊天页后等 peer 发帧
     // 连接 WS — host 角色
     await _connectWs(info.wsUrl, role: 'host');
     return info.roomCode;
@@ -155,7 +157,7 @@ class LocalnetService {
     await _ensureRelayDiscovery();
     final result = await _relayDiscovery!.joinRoom(roomCode: roomCode);
     _currentRoomCode = roomCode;
-    _relayPeerId = result.host.deviceId;
+    _relayPeerId = 'relay:$roomCode';
     _relayPeerAlias = result.host.alias;
     // guest 角色 — peer 是 host
     await _connectWs(result.wsUrl, role: 'guest');
@@ -240,8 +242,16 @@ class LocalnetService {
     }
     final peerId = frame.sourceDeviceId;
     final alias = senderAlias ?? peerId;
+
+    // 所有 relay 消息归到 _relayPeerId 桶（共享 relay:roomCode），
+    // 让 Host/Guest 用同一个桶 id 订阅聊天页
+    final bucketId = _relayPeerId ?? peerId;
+    // 首次收到对端消息时记下 alias
+    if (_relayPeerAlias == null && senderAlias != null) {
+      _relayPeerAlias = senderAlias;
+    }
     _appendMessage(
-      peerId,
+      bucketId,
       LocalnetMessage(
         id: frame.timestamp.millisecondsSinceEpoch.toString(),
         senderId: peerId,
@@ -454,29 +464,32 @@ class LocalnetService {
     if (_subscribed) return;
     _subscribed = true;
 
+    // LAN 模式订阅设备变化
     _devicesSub = _fw.watchDevices().listen((devices) {
       _devicesController.add(devices.map(_toLocalnetDevice).toList());
     });
 
-    _channelSub = _fw.watchChannel('chat').listen((msg) {
-      // 别名以"发送方 deviceId 在我本地 deviceRegistry 里查到的最新记录"为准。
-      // 不取 msg.payload['alias']——payload 是纯数据载荷，不该承担身份字段。
-      final peer = _fw.devices.cast<fw.Device?>().firstWhere(
-            (d) => d?.deviceId == msg.sourceDeviceId,
-            orElse: () => null,
-          );
-      final alias = peer?.alias ?? msg.sourceDeviceId;
-      _appendMessage(
-        msg.sourceDeviceId,
-        LocalnetMessage(
-          id: msg.timestamp.millisecondsSinceEpoch.toString(),
-          senderId: msg.sourceDeviceId,
-          senderAlias: alias,
-          content: msg.payload['text'] as String? ?? '',
-          timestamp: msg.timestamp,
-        ),
-      );
-    });
+    if (config.config.mode == MessageNetMode.lan) {
+      _channelSub = _fw.watchChannel('chat').listen((msg) {
+        // 别名以"发送方 deviceId 在我本地 deviceRegistry 里查到的最新记录"为准。
+        // 不取 msg.payload['alias']——payload 是纯数据载荷，不该承担身份字段。
+        final peer = _fw.devices.cast<fw.Device?>().firstWhere(
+              (d) => d?.deviceId == msg.sourceDeviceId,
+              orElse: () => null,
+            );
+        final alias = peer?.alias ?? msg.sourceDeviceId;
+        _appendMessage(
+          msg.sourceDeviceId,
+          LocalnetMessage(
+            id: msg.timestamp.millisecondsSinceEpoch.toString(),
+            senderId: msg.sourceDeviceId,
+            senderAlias: alias,
+            content: msg.payload['text'] as String? ?? '',
+            timestamp: msg.timestamp,
+          ),
+        );
+      });
+    }
   }
 
   void _unsubscribe() {
