@@ -16,7 +16,7 @@ import 'demos/game_2048_demo.dart';
 import 'demos/github_demo.dart';
 import 'demos/grid_dashboard_demo.dart';
 import 'demos/line_demo.dart';
-import 'demos/localnet_demo.dart';
+import 'demos/message_net_demo.dart';
 import 'demos/network_demo.dart';
 import 'demos/novel_reader_demo.dart';
 import 'demos/notion_image_host_demo.dart';
@@ -58,7 +58,7 @@ void registerAllDemos() {
   registerWordDragDemo();
   registerOverlayDemo();
   registerBodyMapDemo();
-  registerLocalnetDemo();
+  registerMessageNetDemo();
   registerGalleryDemo();
   registerSchemaDemo();
   registerColorPaletteDemo();
