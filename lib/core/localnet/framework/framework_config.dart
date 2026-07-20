@@ -13,8 +13,6 @@ class FrameworkConfig {
     this.httpServerEnabled = true,
     this.udpListenerEnabled = true,
     this.udpBroadcastEnabled = true,
-    this.relayHost,
-    this.relayPort = 53317,
     this.transportKind = TransportKind.lan,
     this.relayUrl,
     this.relayHttpPath = '/api/v1',
@@ -30,8 +28,6 @@ class FrameworkConfig {
   final bool httpServerEnabled;
   final bool udpListenerEnabled;
   final bool udpBroadcastEnabled;
-  final String? relayHost;
-  final int relayPort;
   final TransportKind transportKind;
   final String? relayUrl;
   final String relayHttpPath;
@@ -48,6 +44,7 @@ class FrameworkConfig {
 
   FrameworkConfig copyWith({
     String? deviceAlias,
+    String? deviceId,
     int? port,
     Duration? broadcastInterval,
     Duration? deviceTimeout,
@@ -55,8 +52,6 @@ class FrameworkConfig {
     bool? httpServerEnabled,
     bool? udpListenerEnabled,
     bool? udpBroadcastEnabled,
-    String? relayHost,
-    int? relayPort,
     TransportKind? transportKind,
     String? relayUrl,
     String? relayHttpPath,
@@ -72,8 +67,6 @@ class FrameworkConfig {
       httpServerEnabled: httpServerEnabled ?? this.httpServerEnabled,
       udpListenerEnabled: udpListenerEnabled ?? this.udpListenerEnabled,
       udpBroadcastEnabled: udpBroadcastEnabled ?? this.udpBroadcastEnabled,
-      relayHost: relayHost ?? this.relayHost,
-      relayPort: relayPort ?? this.relayPort,
       transportKind: transportKind ?? this.transportKind,
       relayUrl: relayUrl ?? this.relayUrl,
       relayHttpPath: relayHttpPath ?? this.relayHttpPath,

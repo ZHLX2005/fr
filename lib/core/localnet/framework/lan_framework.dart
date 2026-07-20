@@ -107,8 +107,7 @@ class LanFramework {
   }
 
   /// 单个设备事件
-  Stream<DeviceEvent> watchDeviceEvents() =>
-      _bus().watch<DeviceEvent>();
+  Stream<DeviceEvent> watchDeviceEvents() => _bus().watch<DeviceEvent>();
 
   // ============ 业务通道 ============
 
@@ -119,12 +118,14 @@ class LanFramework {
     Map<String, dynamic> payload,
   ) async {
     _assertRunning();
+    _assertLanChannelApi('sendTo');
     return _channelManager().sendTo(targetDeviceId, channel, payload);
   }
 
   /// 订阅通道消息
   Stream<ChannelMessage> watchChannel(String channel) {
     _assertRunning();
+    _assertLanChannelApi('watchChannel');
     return _channelManager().watchChannel(channel);
   }
 
@@ -145,6 +146,8 @@ class LanFramework {
     try {
       core.udpTransport.sendRaw(body);
       return SendResult.ok();
+    } on UnsupportedError {
+      rethrow;
     } catch (e) {
       return SendResult.fail('multicast send failed: $e');
     }
@@ -153,7 +156,9 @@ class LanFramework {
   /// 订阅业务多播消息
   Stream<Map<String, dynamic>> watchMulticast() {
     _assertRunning();
-    return _core!.multicasts.map((text) {
+    return (_core!.multicasts as Stream<String>).map<Map<String, dynamic>>((
+      text,
+    ) {
       try {
         return jsonDecode(text) as Map<String, dynamic>;
       } catch (e) {
@@ -191,8 +196,7 @@ class LanFramework {
   // ============ 连接状态 ============
 
   /// 设备是否在线
-  bool isOnline(String deviceId) =>
-      _connectionManager().isOnline(deviceId);
+  bool isOnline(String deviceId) => _connectionManager().isOnline(deviceId);
 
   /// 设备连接质量
   ConnectionQuality getQuality(String deviceId) =>
@@ -268,6 +272,14 @@ class LanFramework {
   ConnectionManager _connectionManager() {
     _assertRunning();
     return _core!.connectionManager;
+  }
+
+  void _assertLanChannelApi(String operation) {
+    if (_core is FrameworkRelayCore) {
+      throw UnsupportedError(
+        '$operation is LAN-only. Use createSession in Relay mode.',
+      );
+    }
   }
 
   void _assertRunning() {

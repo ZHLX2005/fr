@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/io.dart';
 
 import '../channel/channel_manager.dart';
+import '../connection/connection_manager.dart';
 import '../device/device.dart';
 import '../device/device_manager.dart';
 import '../discovery/relay_discovery.dart';
@@ -10,6 +12,7 @@ import '../event_bus/event_bus.dart';
 import '../session/session_manager.dart';
 import '../transport/http_transport.dart';
 import '../transport/transport_config.dart';
+import '../transport/udp_transport.dart';
 import '../transport/ws_transport.dart';
 import '../transport_channel/relay_channel.dart';
 import 'framework_config.dart';
@@ -18,6 +21,9 @@ import 'framework_config.dart';
 ///
 /// 与 FrameworkLanCore 对外暴露相同接口（deviceManager / channelManager /
 /// sessionManager / eventBus），LanFramework 门面按 transportKind 分发。
+///
+/// 注意：sendTo / watchChannel 仅支持 LAN。Relay 模式请使用 createSession，
+/// 由 SessionManager 管理状态同步。
 class FrameworkRelayCore {
   FrameworkRelayCore({required this.config, http.Client? httpClient})
     : _httpClient = httpClient ?? http.Client();
@@ -29,8 +35,13 @@ class FrameworkRelayCore {
 
   late final RelayDiscovery discovery;
   late final DeviceManager deviceManager;
+  late final UdpTransport udpTransport = _UnsupportedUdpTransport();
+  late final HttpTransport httpTransport = _StubHttpTransport();
   late final ChannelManager channelManager;
+  late final ConnectionManager connectionManager;
   late final SessionManager sessionManager;
+
+  Stream<String> get multicasts => Stream<String>.empty();
 
   WsTransport? _ws;
   RelayChannel? _channel;
@@ -60,9 +71,14 @@ class FrameworkRelayCore {
     channelManager = ChannelManager(
       eventBus: eventBus,
       deviceManager: deviceManager,
-      transport: _StubHttpTransport(),
+      transport: httpTransport,
     );
     await channelManager.start();
+
+    connectionManager = ConnectionManager(
+      eventBus: eventBus,
+      deviceManager: deviceManager,
+    );
 
     sessionManager = SessionManager(
       channelManager: channelManager,
@@ -82,15 +98,13 @@ class FrameworkRelayCore {
 
   /// 加入房间 + 打开 WS 连接
   Future<void> joinAndConnect({required String roomCode}) async {
-    final peer = await discovery.joinRoom(roomCode: roomCode);
-    final wsUrl =
-        '${config.relayUrl!.replaceFirst('http', 'ws')}${config.relayWsPath}?room=$roomCode&deviceId=${config.deviceId}';
-    _ws = await _openWs(wsUrl);
+    final joinInfo = await discovery.joinRoom(roomCode: roomCode);
+    _ws = await _openWs(joinInfo.wsUrl);
     _channel = RelayChannel(ws: _ws!, myDeviceId: config.deviceId ?? 'unknown');
     deviceManager.addDevice(
       Device(
-        deviceId: peer.deviceId,
-        alias: peer.alias,
+        deviceId: joinInfo.host.deviceId,
+        alias: joinInfo.host.alias,
         ip: 'relay',
         port: 0,
         lastSeen: DateTime.now(),
@@ -100,17 +114,8 @@ class FrameworkRelayCore {
   }
 
   Future<WsTransport> _openWs(String url) async {
-    // 使用动态 import 避免循环依赖 + 仅在 connect 时加载
-    final ioWs = await _ioConnect(url);
+    final ioWs = IOWebSocketChannel.connect(Uri.parse(url));
     return WsTransport(channel: ioWs, myDeviceId: config.deviceId ?? 'unknown');
-  }
-
-  Future<dynamic> _ioConnect(String url) async {
-    // 简单的 ws 连接 — 实际实现可以用 IOWebSocketChannel.connect
-    // 但本 task 仅做骨架；测试不会真正调用此方法
-    throw UnsupportedError(
-      '_ioConnect not implemented in skeleton — Task 13+ will complete',
-    );
   }
 
   Future<void> stop() async {
@@ -118,6 +123,7 @@ class FrameworkRelayCore {
     await _channel?.close();
     await _ws?.close();
     await discovery.stop();
+    await connectionManager.stop();
     await channelManager.stop();
     await deviceManager.dispose();
     _httpClient.close();
@@ -127,6 +133,15 @@ class FrameworkRelayCore {
   Future<void> dispose() async {
     await stop();
     eventBus.dispose();
+  }
+}
+
+class _UnsupportedUdpTransport extends UdpTransport {
+  _UnsupportedUdpTransport() : super(config: const TransportConfig());
+
+  @override
+  void sendRaw(String payload) {
+    throw UnsupportedError('UDP multicast is LAN-only.');
   }
 }
 

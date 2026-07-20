@@ -28,6 +28,64 @@ void main() {
     expect(framework.myDeviceId, 'self-relay');
   });
 
+  test('Relay mode sendMulticast throws UnsupportedError (LAN-only)', () async {
+    await framework.start(
+      const FrameworkConfig(
+        transportKind: TransportKind.relay,
+        relayUrl: 'https://relay.example.com',
+        deviceId: 'self',
+        deviceAlias: 'Self',
+      ),
+    );
+
+    expect(
+      () => framework.sendMulticast(key: 'test', payload: const {}),
+      throwsUnsupportedError,
+    );
+  });
+
+  test('Relay mode watchMulticast returns empty stream', () async {
+    await framework.start(
+      const FrameworkConfig(
+        transportKind: TransportKind.relay,
+        relayUrl: 'https://relay.example.com',
+        deviceId: 'self',
+        deviceAlias: 'Self',
+      ),
+    );
+
+    expect(await framework.watchMulticast().toList(), isEmpty);
+  });
+
+  test('LanFramework.sendTo throws in Relay mode', () async {
+    await framework.start(
+      const FrameworkConfig(
+        transportKind: TransportKind.relay,
+        relayUrl: 'https://relay.example.com',
+        deviceId: 'self',
+        deviceAlias: 'Self',
+      ),
+    );
+
+    expect(
+      () => framework.sendTo('peer', 'test', const {}),
+      throwsUnsupportedError,
+    );
+  });
+
+  test('LanFramework.watchChannel throws in Relay mode', () async {
+    await framework.start(
+      const FrameworkConfig(
+        transportKind: TransportKind.relay,
+        relayUrl: 'https://relay.example.com',
+        deviceId: 'self',
+        deviceAlias: 'Self',
+      ),
+    );
+
+    expect(() => framework.watchChannel('test'), throwsUnsupportedError);
+  });
+
   test('start with default transport uses LAN core', () async {
     await framework.start(
       const FrameworkConfig(

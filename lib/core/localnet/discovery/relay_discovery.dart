@@ -73,8 +73,10 @@ class RelayDiscovery implements DiscoveryService {
     );
   }
 
-  /// 加入房间 — 返回 host 端点
-  Future<RemoteEndpoint> joinRoom({required String roomCode}) async {
+  /// 加入房间 — 返回 host 端点及服务器提供的 WebSocket URL。
+  ///
+  /// 服务端响应必须包含 `wsUrl`，客户端不会自行拼接中继地址。
+  Future<RelayJoinResult> joinRoom({required String roomCode}) async {
     final resp = await _http.get(
       Uri.parse('$relayUrl$relayHttpPath/rooms/$roomCode'),
     );
@@ -88,12 +90,19 @@ class RelayDiscovery implements DiscoveryService {
       throw RelayUnreachableError('joinRoom failed: HTTP ${resp.statusCode}');
     }
     final json = jsonDecode(resp.body) as Map<String, dynamic>;
-    return RemoteEndpoint(
-      deviceId: json['hostDeviceId'] as String,
-      alias: json['hostAlias'] as String? ?? 'Host',
-      address: 'relay:$roomCode',
-      kind: TransportKind.relay,
-      lastSeen: DateTime.now(),
+    final wsUrl = json['wsUrl'] as String?;
+    if (wsUrl == null || wsUrl.isEmpty) {
+      throw RelayUnreachableError('joinRoom response missing wsUrl');
+    }
+    return RelayJoinResult(
+      host: RemoteEndpoint(
+        deviceId: json['hostDeviceId'] as String,
+        alias: json['hostAlias'] as String? ?? 'Host',
+        address: 'relay:$roomCode',
+        kind: TransportKind.relay,
+        lastSeen: DateTime.now(),
+      ),
+      wsUrl: wsUrl,
     );
   }
 }
@@ -102,6 +111,14 @@ class RelayDiscovery implements DiscoveryService {
 class RelayRoomInfo {
   const RelayRoomInfo({required this.roomCode, required this.wsUrl});
   final String roomCode;
+  final String wsUrl;
+}
+
+/// joinRoom 返回的主机端点和服务器指定的 WebSocket URL。
+class RelayJoinResult {
+  const RelayJoinResult({required this.host, required this.wsUrl});
+
+  final RemoteEndpoint host;
   final String wsUrl;
 }
 

@@ -41,17 +41,20 @@ void main() {
 
     test('createRoom returns room code from server', () async {
       mock.handlers['POST:/api/v1/rooms'] = (req) => http.Response(
-            jsonEncode({'roomCode': '123456', 'wsUrl': 'wss://relay.example.com/ws/123456'}),
-            201,
-          );
+        jsonEncode({
+          'roomCode': '123456',
+          'wsUrl': 'wss://relay.example.com/ws/123456',
+        }),
+        201,
+      );
       final result = await discovery.createRoom();
       expect(result.roomCode, '123456');
       expect(result.wsUrl, contains('wss://'));
     });
 
     test('joinRoom throws RoomNotFoundError on 404', () async {
-      mock.handlers['GET:/api/v1/rooms/999999'] =
-          (req) => http.Response('not found', 404);
+      mock.handlers['GET:/api/v1/rooms/999999'] = (req) =>
+          http.Response('not found', 404);
       expect(
         () => discovery.joinRoom(roomCode: '999999'),
         throwsA(isA<RoomNotFoundError>()),
@@ -60,16 +63,34 @@ void main() {
 
     test('joinRoom returns peer endpoint on 200', () async {
       mock.handlers['GET:/api/v1/rooms/123456'] = (req) => http.Response(
-            jsonEncode({
-              'roomCode': '123456',
-              'hostDeviceId': 'host-id',
-              'hostAlias': 'Host',
-            }),
-            200,
-          );
-      final peer = await discovery.joinRoom(roomCode: '123456');
-      expect(peer.deviceId, 'host-id');
-      expect(peer.alias, 'Host');
+        jsonEncode({
+          'roomCode': '123456',
+          'hostDeviceId': 'host-id',
+          'hostAlias': 'Host',
+          'wsUrl': 'wss://relay.example.com/ws/123456',
+        }),
+        200,
+      );
+      final result = await discovery.joinRoom(roomCode: '123456');
+      expect(result.host.deviceId, 'host-id');
+      expect(result.host.alias, 'Host');
+      expect(result.wsUrl, 'wss://relay.example.com/ws/123456');
+    });
+
+    test('joinRoom rejects response without wsUrl', () async {
+      mock.handlers['GET:/api/v1/rooms/123456'] = (req) => http.Response(
+        jsonEncode({
+          'roomCode': '123456',
+          'hostDeviceId': 'host-id',
+          'hostAlias': 'Host',
+        }),
+        200,
+      );
+
+      expect(
+        () => discovery.joinRoom(roomCode: '123456'),
+        throwsA(isA<RelayUnreachableError>()),
+      );
     });
   });
 }

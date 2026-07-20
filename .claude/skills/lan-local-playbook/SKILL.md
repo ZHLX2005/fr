@@ -478,7 +478,7 @@ class LanHostTouchController extends TouchController {
 
 - 框架门面：`lib/core/localnet/framework/lan_framework.dart`
 - 框架配置：`lib/core/localnet/framework/framework_config.dart`
-- 框架编排：`lib/core/localnet/framework/framework_core.dart`
+- 框架编排：`lib/core/localnet/framework/framework_lan_core.dart`
 - 业务适配层：`lib/core/surround_game/lan/service/lan_service_adapter.dart`
 - 协议消息：`lib/core/surround_game/lan/protocol/lan_messages.dart`
 - 协议通道：`lib/core/surround_game/lan/protocol/lan_channels.dart`

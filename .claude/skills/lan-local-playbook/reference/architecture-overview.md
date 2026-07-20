@@ -39,7 +39,6 @@ localnet/ (28 files)                ← Framework Layer: 基础设施
 
 | 子模块 | 核心文件 | 职责 |
 |--------|---------|------|
-| `framework/` | `lan_framework.dart`, `framework_core.dart`, `framework_config.dart` | 单例门面，启动/停止/配置 |
 | `transport/` | `udp_transport.dart`, `http_transport.dart` | UDP 多播发现 + HTTP 点对点 |
 | `device/` | `device.dart`, `device_manager.dart`, `device_registry.dart` | 设备发现、心跳、管理 |
 | `channel/` | `channel_manager.dart`, `channel_message.dart` | 消息通道、路由、发送 |
