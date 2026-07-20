@@ -82,8 +82,8 @@ class ChannelManager {
     try {
       final client = HttpClient();
       final req = await client.postUrl(Uri.parse(url));
-      req.headers.set('Content-Type', 'application/json');
-      req.write(body);
+      req.headers.set('Content-Type', 'application/json; charset=utf-8');
+      req.add(utf8.encode(body));
       final resp = await req.close();
       await resp.drain<void>();
       client.close();
