@@ -18,8 +18,8 @@ import '../transport/udp_transport.dart';
 /// 4. 周期性 UDP 多播广播本机存在（设备发现的心跳）
 /// 5. 周期性清理离线设备
 /// 6. 暴露 eventBus / deviceManager / channelManager / connectionManager 给上层
-class FrameworkCore {
-  FrameworkCore({
+class FrameworkLanCore {
+  FrameworkLanCore({
     required this.myDeviceId,
     this.myAlias = '',
     this.transportConfig = const TransportConfig(),
@@ -64,7 +64,7 @@ class FrameworkCore {
     // 0. 守卫：UDP 与 HTTP 均禁用时启动毫无意义，直接报错而非误报 RUNNING
     if (!transportConfig.enableUdp && !transportConfig.enableHttp) {
       throw StateError(
-        'FrameworkCore.start() 拒绝启动：UDP 与 HTTP 均被禁用，'
+        'FrameworkLanCore.start() 拒绝启动：UDP 与 HTTP 均被禁用，'
         '请在配置中至少开启一项。',
       );
     }

@@ -17,7 +17,7 @@ import '../session/session.dart';
 import '../session/state_serializer.dart';
 import 'exception/framework_exception.dart';
 import 'framework_config.dart';
-import 'framework_core.dart';
+import 'framework_lan_core.dart';
 import 'framework_status.dart';
 
 /// 局域网通信框架（单例门面）
@@ -27,7 +27,7 @@ class LanFramework {
   LanFramework._();
   static final LanFramework instance = LanFramework._();
 
-  FrameworkCore? _core;
+  FrameworkLanCore? _core;
   String _myDeviceId = '';
   String _myAlias = '';
   String? _cachedMyIp;
@@ -45,7 +45,7 @@ class LanFramework {
     _myDeviceId = config.deviceId ?? const Uuid().v4();
     _myAlias = config.deviceAlias;
 
-    final core = FrameworkCore(
+    final core = FrameworkLanCore(
       myDeviceId: _myDeviceId,
       myAlias: _myAlias,
       transportConfig: config.toTransportConfig(),
