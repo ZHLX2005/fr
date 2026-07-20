@@ -34,6 +34,7 @@ void main() {
       mock = _MockHttpClient();
       final roomEndpoint = RoomEndpoint(
         baseUrl: 'https://relay.example.com',
+        pathPrefix: '/api/v1',
         httpClient: mock,
       );
       discovery = RelayDiscovery(

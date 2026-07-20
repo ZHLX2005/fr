@@ -30,7 +30,7 @@ class _MockHttp extends http.BaseClient {
 void main() {
   test('FrameworkRelayCore.start initializes all managers', () async {
     final mockHttp = _MockHttp();
-    mockHttp.handlers['POST:/api/v1/rooms'] = (req) => http.Response(
+    mockHttp.handlers['POST:/api/v1/relay/rooms'] = (req) => http.Response(
           jsonEncode({'roomCode': '111111', 'wsUrl': 'wss://relay.example.com/ws/111111'}),
           201,
         );
@@ -60,7 +60,7 @@ void main() {
 
   test('FrameworkRelayCore.createRoom returns room code', () async {
     final mockHttp = _MockHttp();
-    mockHttp.handlers['POST:/api/v1/rooms'] = (req) => http.Response(
+    mockHttp.handlers['POST:/api/v1/relay/rooms'] = (req) => http.Response(
           jsonEncode({'roomCode': '222222', 'wsUrl': 'wss://relay.example.com/ws/222222'}),
           201,
         );
