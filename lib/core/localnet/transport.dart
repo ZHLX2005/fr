@@ -44,6 +44,11 @@ abstract class Transport {
   /// 主动发布事件到 events 流（仅本地，不广播）
   void emit(TransportEvent event);
 
+  /// 广播事件到所有对端（type='event'）
+  ///
+  /// 业务层用 [events] 订阅接收。
+  Future<void> broadcastEvent(String topic, Map<String, dynamic> data);
+
   /// 启动传输
   Future<void> start();
 

@@ -21,7 +21,6 @@ class LocalnetBizHostPage extends StatefulWidget {
 class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
   fw.MessageNetMode _mode = fw.MessageNetMode.lan;
   fw.Transport? _transport;
-  String? _scope;
   String? _error;
 
   /// 选模式
@@ -29,20 +28,17 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
     setState(() {
       _mode = mode;
       _transport = null;
-      _scope = null;
       _error = null;
     });
   }
 
   /// localnet widget 触发连接成功
-  void _onConnected(fw.Transport transport, fw.DiscoveredPeer peer) {
-    final scope = 'chat-${peer.id}';
+  void _onConnected(fw.Transport transport) {
     setState(() {
       _transport = transport;
-      _scope = scope;
       _error = null;
     });
-    localnetService.attach(transport, scope);
+    localnetService.attach(transport);
   }
 
   /// localnet widget 触发错误
@@ -55,7 +51,6 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
     await _transport?.stop();
     setState(() {
       _transport = null;
-      _scope = null;
     });
     localnetService.detach();
   }
@@ -106,9 +101,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
               : _mode == fw.MessageNetMode.lan
                   ? fw.LanDiscovery().buildPage(
                       onPeerSelected: (peer, transport) async {
-                        // widget 已建好 transport，业务层只需 joinScope
-                        await transport.joinScope('chat-${peer.id}');
-                        _onConnected(transport, peer);
+                        _onConnected(transport);
                       },
                       onError: _onError,
                     )
@@ -116,9 +109,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
                       relayUrl: 'http://47.110.80.47:8988',
                     ).buildPage(
                       onPeerSelected: (peer, transport) async {
-                        // widget 已 createRoom/joinRoom，业务层只需 joinScope
-                        await transport.joinScope('chat-${peer.id}');
-                        _onConnected(transport, peer);
+                        _onConnected(transport);
                       },
                       onError: _onError,
                     ),
@@ -132,7 +123,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
     return Column(
       children: [
         _buildConnectionBar(),
-        Expanded(child: LocalnetChatPage(scope: _scope!)),
+        const Expanded(child: LocalnetChatPage()),
       ],
     );
   }
@@ -145,7 +136,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
         children: [
           Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 8),
-          Expanded(child: Text('已连接 · scope: $_scope')),
+          Expanded(child: Text('已连接 · ${_transport?.myNodeId ?? "?"}')),
           TextButton(
             onPressed: _disconnect,
             child: const Text('断开'),

@@ -101,6 +101,17 @@ class LanTransport extends Transport {
   }
 
   @override
+  Future<void> broadcastEvent(String topic, Map<String, dynamic> data) async {
+    await _broadcast({
+      'type': 'event',
+      'topic': topic,
+      'data': data,
+      'from': _nodeId,
+      'ts': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
   Future<void> start() async {
     _started = true;
   }

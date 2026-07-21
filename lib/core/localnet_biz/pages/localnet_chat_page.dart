@@ -8,9 +8,7 @@ import '../models/localnet_message.dart';
 /// 业务层不直接连接，只订阅 [LocalnetService.messagesStream]
 /// 即可接收所有 peer 消息。
 class LocalnetChatPage extends StatefulWidget {
-  final String scope;
-
-  const LocalnetChatPage({super.key, required this.scope});
+  const LocalnetChatPage({super.key});
 
   @override
   State<LocalnetChatPage> createState() => _LocalnetChatPageState();

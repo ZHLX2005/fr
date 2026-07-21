@@ -99,6 +99,17 @@ class RelayTransport extends Transport {
   }
 
   @override
+  Future<void> broadcastEvent(String topic, Map<String, dynamic> data) async {
+    await _send({
+      'type': 'event',
+      'topic': topic,
+      'data': data,
+      'from': _nodeId,
+      'ts': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
   Future<void> start() async {
     // Relay 模式无显式 start；连接在 createRoom/joinRoom 后建立
   }
