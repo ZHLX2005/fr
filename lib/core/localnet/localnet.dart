@@ -27,7 +27,6 @@ library;
 
 // 新模块 — Transport + DataLog + Discovery + HTTP
 export 'transport.dart';
-export 'transport_event.dart';
 export 'localnet_types.dart';
 
 export 'lan/lan_transport.dart';
