@@ -15,8 +15,10 @@ import 'dart:convert';
 import 'dart:io';
 
 /// HTTP 请求处理器
+/// [request] 原始 HTTP 请求（可提取客户端 IP）
+/// [body] 解析后的 JSON 请求体
 typedef HttpRequestHandler = Future<Map<String, dynamic>?> Function(
-    Map<String, dynamic> body);
+    HttpRequest request, Map<String, dynamic> body);
 
 /// 轻量 HTTP Server
 class LocalHttpServer {
@@ -83,7 +85,7 @@ class LocalHttpServer {
       }
 
       try {
-        final result = await handler(json);
+        final result = await handler(request, json);
         if (result != null) {
           request.response.statusCode = 200;
           request.response

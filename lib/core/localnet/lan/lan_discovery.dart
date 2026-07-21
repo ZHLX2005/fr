@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show HttpRequest;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -199,28 +200,27 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
       // 启动 HTTP Server（处理邀请/接受等请求）
       final httpServer = LocalHttpServer(port: _httpPort);
-      httpServer.on(HttpEndpoints.invite, (body) async {
-        // 收到远程邀请
+      httpServer.on(HttpEndpoints.invite, (request, body) async {
+        // 从 TCP 连接提取对方 IP（不依赖 body）
+        final remoteIp = request.connectionInfo?.remoteAddress.address ?? '';
         final fromId = body['from'] as String?;
         final alias = body['alias'] as String? ?? '?';
-        final ip = body['ip'] as String? ?? '';
-        final port = body['httpPort'] as int? ?? 0;
-        final roomId = body['roomId'] as String? ?? '';
+        final httpPort = body['httpPort'] as int? ?? 0;
         if (fromId != null && mounted) {
           setState(() {
             _inviteFrom = DiscoveredPeer(
               id: fromId,
               alias: alias,
               address: 'lan://$fromId',
-              ip: ip,
-              httpPort: port,
+              ip: remoteIp,
+              httpPort: httpPort,
             );
           });
         }
         return {'ok': true, 'deviceId': transport.myNodeId, 'alias': _myAlias};
       });
-      httpServer.on(HttpEndpoints.accept, (body) async {
-        // 收到对方接受邀请 → presence 确认
+      httpServer.on(HttpEndpoints.accept, (request, body) async {
+        // 收到对方接受邀请 → 确认
         final fromId = body['from'] as String?;
         if (fromId != null && mounted && _waitingForPeer) {
           final wp = _waitingPeer;
@@ -230,7 +230,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
         }
         return {'ok': true};
       });
-      httpServer.on(HttpEndpoints.gameState, (body) async {
+      httpServer.on(HttpEndpoints.gameState, (request, body) async {
         return {'ok': true};
       });
       await httpServer.start();
