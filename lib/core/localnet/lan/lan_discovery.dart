@@ -128,6 +128,10 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   String _myAlias = '';
   int _effectivePort = 5678;
   String _effectiveAddress = '239.255.255.255';
+  bool _waitingForPeer = false;
+  DiscoveredPeer? _waitingPeer;
+  String? _sessionScope;
+  DiscoveredPeer? _inviteFrom; // 别人邀请我
 
   @override
   void initState() {
@@ -159,10 +163,12 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
       _scanning = true;
       _error = null;
       _peers.clear();
+      _waitingForPeer = false;
+      _waitingPeer = null;
+      _inviteFrom = null;
     });
 
     try {
-      // 如有旧 transport 先停
       if (!_handedOff) await _transport?.stop();
       _handedOff = false;
 
@@ -173,11 +179,12 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
       _transport = transport;
       _myNodeId = transport.myNodeId;
 
-      // 监听新节点
       transport.events.listen((e) {
+        if (!mounted) return;
+        // 设备发现
         if (e.topic == 'peer-joined-scope') {
           final from = e.data['from'] as String?;
-          if (from != null && mounted) {
+          if (from != null) {
             setState(() {
               _peers[from] = DiscoveredPeer(
                 id: from,
@@ -187,11 +194,32 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
             });
           }
         }
+        // 收到邀请 — 别人想和我对战
+        if (e.topic == 'invite') {
+          final target = e.data['targetDeviceId'] as String?;
+          if (target == transport.myNodeId) {
+            final fromId = e.data['from'] as String?;
+            if (fromId != null) {
+              setState(() {
+                _inviteFrom = DiscoveredPeer(
+                  id: fromId,
+                  alias: e.data['alias'] as String? ?? fromId.substring(0, 6),
+                  address: 'lan://$fromId',
+                );
+              });
+            }
+          }
+        }
+        // presence — 等待中的对端上线了
+        if (e.topic == 'presence' && _waitingForPeer) {
+          final did = e.data['deviceId'] as String?;
+          if (did != null && did != transport.myNodeId) {
+            _onPeerPresent(did, transport);
+          }
+        }
       });
 
-      // 加入 peers scope 开始广播
       await transport.joinScope('peers');
-
       if (mounted) setState(() {});
     } catch (e) {
       _error = '扫描失败: $e';
@@ -209,14 +237,149 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
       _scanning = false;
       _myNodeId = null;
       _peers.clear();
+      _waitingForPeer = false;
+      _waitingPeer = null;
+      _sessionScope = null;
+      _inviteFrom = null;
     });
   }
 
-  void _selectPeer(DiscoveredPeer p) {
+  /// 主动邀请对方
+  void _sendInvite(DiscoveredPeer p) {
     final t = _transport;
-    if (t == null) return;
+    final myId = _myNodeId;
+    if (t == null || myId == null) return;
+
+    // 发送邀请事件（所有人在 peers scope 都能收到）
+    t.sendEvent('peers', 'invite', {
+      'from': myId,
+      'alias': _myAlias,
+      'targetDeviceId': p.id,
+    });
+
+    // 同时接入 session scope 等待对方接受
+    final ids = [myId, p.id];
+    ids.sort();
+    _sessionScope = 'session-${ids[0]}-${ids[1]}';
+    t.joinScope(_sessionScope!);
+
+    setState(() {
+      _waitingForPeer = true;
+      _waitingPeer = p;
+      _error = null;
+    });
+  }
+
+  /// 接受别人的邀请
+  void _acceptInvite() {
+    final t = _transport;
+    final myId = _myNodeId;
+    final inviter = _inviteFrom;
+    if (t == null || myId == null || inviter == null) return;
+
+    // 接入 session scope 广播 presence
+    final ids = [myId, inviter.id];
+    ids.sort();
+    _sessionScope = 'session-${ids[0]}-${ids[1]}';
+    t.joinScope(_sessionScope!);
+    t.sendEvent(_sessionScope!, 'presence', {
+      'deviceId': myId,
+      'alias': _myAlias,
+      'role': 'player',
+      'status': 'accepted',
+    });
+
+    setState(() {
+      _waitingForPeer = true;
+      _waitingPeer = inviter;
+      _inviteFrom = null;
+    });
+  }
+
+  void _onPeerPresent(String deviceId, Transport transport) {
+    final wp = _waitingPeer;
+    if (wp == null || deviceId != wp.id) return;
     _handedOff = true;
-    widget.onPeerSelected(p, t);
+    widget.onPeerSelected(wp, transport);
+  }
+
+  Widget _buildInviteUi(ThemeData theme) {
+    final inviter = _inviteFrom;
+    if (inviter == null) return const SizedBox.shrink();
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.person_add, size: 56, color: theme.colorScheme.primary),
+            const SizedBox(height: 16),
+            Text('${inviter.alias} 邀请你对战',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                )),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: _acceptInvite,
+                  icon: const Icon(Icons.check),
+                  label: const Text('接受'),
+                ),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: () => setState(() => _inviteFrom = null),
+                  icon: const Icon(Icons.close),
+                  label: const Text('拒绝'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWaitingUi(ThemeData theme) {
+    final peer = _waitingPeer;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 48, height: 48,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+            const SizedBox(height: 24),
+            Text('等待对方确认...',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                )),
+            const SizedBox(height: 8),
+            if (peer != null)
+              Text('对端: ${peer.alias}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  )),
+            const SizedBox(height: 24),
+            OutlinedButton(
+              onPressed: () {
+                _transport?.leaveScope(_sessionScope ?? '');
+                setState(() {
+                  _waitingForPeer = false;
+                  _waitingPeer = null;
+                  _sessionScope = null;
+                });
+              },
+              child: const Text('取消'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -245,6 +408,12 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
         ),
       );
     }
+
+    // 别人邀请我
+    if (_inviteFrom != null) return _buildInviteUi(theme);
+
+    // 已邀请对方，等待接受
+    if (_waitingForPeer) return _buildWaitingUi(theme);
 
     if (!_scanning) {
       // 初始状态：显示扫描按钮
@@ -368,7 +537,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
                           child: Icon(Icons.chevron_right, size: 18,
                               color: theme.colorScheme.primary),
                         ),
-                        onTap: () => _selectPeer(p),
+                        onTap: () => _sendInvite(p),
                       ),
                     );
                   },

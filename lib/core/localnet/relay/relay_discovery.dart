@@ -94,6 +94,7 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   bool _handedOff = false;
   String _alias = 'Flutter Device';
   String _effectiveRelayUrl = '';
+  bool _waitingForPeer = false;
 
   bool get _inRoom => _roomCode != null;
 
@@ -116,16 +117,43 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   @override
   void dispose() {
     _roomCodeCtrl.dispose();
-    // transport 所有权已转移给业务层 → 不 stop；否则泄漏
     if (!_handedOff) _transport?.stop();
     super.dispose();
   }
 
-  Future<void> _createRoom() async {
+  /// 进入等待状态：在房间 scope 上广播 presence，等待对端
+  void _enterWaiting(RelayTransport t, String code) {
+    final scope = 'room-$code';
+    t.joinScope(scope);
+    t.sendEvent(scope, 'presence', {
+      'deviceId': t.myNodeId,
+      'alias': _alias,
+      'role': 'player',
+      'status': 'waiting',
+    });
+
+    // 监听 presence
+    t.events.listen((e) {
+      if (e.topic == 'presence' && _waitingForPeer && mounted) {
+        final did = e.data['deviceId'] as String?;
+        if (did != null && did != t.myNodeId) {
+          _handedOff = true;
+          widget.onPeerSelected(
+            DiscoveredPeer(id: did, alias: e.data['alias'] as String? ?? '?', address: 'relay://$code'),
+            t,
+          );
+        }
+      }
+    });
+
     setState(() {
-      _busy = true;
+      _waitingForPeer = true;
       _error = null;
     });
+  }
+
+  Future<void> _createRoom() async {
+    setState(() { _busy = true; _error = null; });
     try {
       final t = await RelayTransport.create(
         relayUrl: _effectiveRelayUrl,
@@ -135,17 +163,11 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
       await t.joinScope('peers');
       _transport = t;
       if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _roomCode = code;
-      });
-      _autoNavigate(code);
+      setState(() { _busy = false; _roomCode = code; });
+      _enterWaiting(t, code);
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _busy = false;
-          _error = '创建房间失败: $e';
-        });
+        setState(() { _busy = false; _error = '创建房间失败: $e'; });
         widget.onError?.call(_error!);
       }
     }
@@ -157,47 +179,24 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
       setState(() => _error = '请输入 6 位房间号');
       return;
     }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
+    setState(() { _busy = true; _error = null; });
     try {
       final t = await RelayTransport.create(
-        relayUrl: widget.relayUrl,
+        relayUrl: _effectiveRelayUrl,
         alias: _alias,
       );
       await t.joinRoom(code);
       await t.joinScope('peers');
       _transport = t;
       if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _roomCode = code;
-      });
-      _autoNavigate(code);
+      setState(() { _busy = false; _roomCode = code; });
+      _enterWaiting(t, code);
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _busy = false;
-          _error = '加入房间失败: $e';
-        });
+        setState(() { _busy = false; _error = '加入房间失败: $e'; });
         widget.onError?.call(_error!);
       }
     }
-  }
-
-  void _autoNavigate(String code) {
-    final t = _transport;
-    if (t == null) return;
-    _handedOff = true;
-    widget.onPeerSelected(
-      DiscoveredPeer(
-        id: 'relay:$code',
-        alias: 'Host',
-        address: 'relay://$code',
-      ),
-      t,
-    );
   }
 
   @override
