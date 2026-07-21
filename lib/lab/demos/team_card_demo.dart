@@ -15,9 +15,11 @@
 // - 每个客户端收到 assignments[myNodeId] = '卧底'/'平民'/...
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 
 import '../lab_container.dart';
@@ -136,10 +138,10 @@ class _MasterViewState extends State<_MasterView> {
   String _alias = '房主';
   fw.RelayTransport? _transport;
   String? _roomCode;
-  String? _token;
-  final _onlinePeers = <fw.RemoteEvent>[]; // peer-joined 事件流
-  final Set<String> _onlineDeviceIds = {};
+  // removed token
+  final _onlinePeers = <String>{}; // deviceId set
   StreamSubscription<fw.RemoteEvent>? _sub;
+  Timer? _peersTimer;
   bool _busy = false;
   String? _error;
   bool _dealt = false;
@@ -161,17 +163,24 @@ class _MasterViewState extends State<_MasterView> {
       ));
       _transport = t;
       _roomCode = info.code;
-      _token = info.token;
-      _onlineDeviceIds.add(t.myNodeId); // master 自己算一个
+      _onlinePeers.add(t.myNodeId); // master 自己
+
+      // 事件路径：监听 join/online 事件
       _sub = t.subscribe('room/${info.code}/events').listen((ev) {
-        if (ev.payload['type'] == 'peer-joined' ||
-            ev.payload['type'] == 'peer-online') {
-          setState(() {
-            _onlineDeviceIds.add(ev.payload['deviceId'] as String? ?? '');
-            _onlinePeers.add(ev);
-          });
+        final t = ev.payload['type'] as String?;
+        if (t == 'peer-joined' || t == 'peer-online') {
+          final did = ev.payload['deviceId'] as String?;
+          if (did != null) setState(() => _onlinePeers.add(did));
+        }
+        if (t == 'peer-left') {
+          final did = ev.payload['deviceId'] as String?;
+          if (did != null) setState(() => _onlinePeers.remove(did));
         }
       });
+
+      // HTTP 路径：每 3 秒拉一次在线列表（兜底）
+      _peersTimer = Timer.periodic(const Duration(seconds: 3), (_) => _fetchPeers());
+
       setState(() => _busy = false);
     } catch (e) {
       setState(() {
@@ -181,6 +190,24 @@ class _MasterViewState extends State<_MasterView> {
     }
   }
 
+  Future<void> _fetchPeers() async {
+    final code = _roomCode;
+    if (code == null) return;
+    try {
+      // 用 Dart HTTP client 调 /peers API
+      final url = Uri.parse('$_kRelayUrl/api/v1/relay/rooms/$code/peers');
+      final resp = await http.get(url);
+      if (resp.statusCode == 200) {
+        final json = jsonDecode(resp.body);
+        final list = (json['peers'] as List?) ?? [];
+        for (final p in list) {
+          final did = (p as Map)['deviceId'] as String?;
+          if (did != null) setState(() => _onlinePeers.add(did));
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _dealCards() async {
     final t = _transport;
     final code = _roomCode;
@@ -188,7 +215,7 @@ class _MasterViewState extends State<_MasterView> {
 
     // 生成身份列表
     final template = _kTemplates[_templateIdx];
-    final n = _onlineDeviceIds.length;
+    final n = _onlinePeers.length;
     final roles = <String>[];
     for (final def in template.roles) {
       final count = max(1, (n * def.ratio / template.roles.fold(0, (s, r) => s + r.ratio)).round());
@@ -206,7 +233,7 @@ class _MasterViewState extends State<_MasterView> {
     roles.shuffle();
 
     // 分配：deviceId → 身份 id
-    final deviceIds = _onlineDeviceIds.toList();
+    final deviceIds = _onlinePeers.toList();
     final assignments = <String, String>{};
     for (var i = 0; i < deviceIds.length; i++) {
       assignments[deviceIds[i]] = roles[i];
@@ -225,6 +252,7 @@ class _MasterViewState extends State<_MasterView> {
   @override
   void dispose() {
     _sub?.cancel();
+    _peersTimer?.cancel();
     _transport?.close();
     super.dispose();
   }
@@ -304,19 +332,16 @@ class _MasterViewState extends State<_MasterView> {
                   letterSpacing: 4,
                 )),
                 const SizedBox(height: 8),
-                Text('Token（分享给玩家）', style: theme.textTheme.labelSmall),
-                Text(_token!, style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace')),
-                const SizedBox(height: 8),
                 Text('模板: ${_kTemplates[_templateIdx].name}'),
               ],
             ),
           ),
         ),
         const SizedBox(height: 16),
-        Text('在线: ${_onlineDeviceIds.length} / $_maxPlayers 人',
+        Text('在线: ${_onlinePeers.length} / $_maxPlayers 人',
             style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
-        ..._onlineDeviceIds.map((id) => ListTile(
+        ..._onlinePeers.map((id) => ListTile(
               leading: const Icon(Icons.person),
               title: Text(id.length > 8 ? '${id.substring(0, 8)}...' : id),
               dense: true,
@@ -346,7 +371,6 @@ class _PlayerView extends StatefulWidget {
 
 class _PlayerViewState extends State<_PlayerView> {
   final _codeCtrl = TextEditingController();
-  final _tokenCtrl = TextEditingController();
   final _aliasCtrl = TextEditingController();
   fw.RelayTransport? _transport;
   StreamSubscription<fw.RemoteEvent>? _sub;
@@ -359,10 +383,9 @@ class _PlayerViewState extends State<_PlayerView> {
 
   Future<void> _joinRoom() async {
     final code = _codeCtrl.text.trim();
-    final token = _tokenCtrl.text.trim();
     final alias = _aliasCtrl.text.trim().isEmpty ? '玩家' : _aliasCtrl.text.trim();
-    if (code.length != 6 || token.isEmpty) {
-      setState(() => _error = '请输入 6 位房间号和 token');
+    if (code.length != 6) {
+      setState(() => _error = '请输入 6 位房间号');
       return;
     }
     setState(() {
@@ -371,7 +394,7 @@ class _PlayerViewState extends State<_PlayerView> {
     });
     try {
       final t = await fw.RelayTransport.create(relayUrl: _kRelayUrl, alias: alias);
-      await t.joinRoom(code, token);
+      await t.joinRoom(code, ''); // token 可选，团建场景不需要
       _transport = t;
       _sub = t.subscribe('room/$code/events').listen((ev) {
         if (ev.payload['type'] == 'deal') {
@@ -401,7 +424,6 @@ class _PlayerViewState extends State<_PlayerView> {
     _sub?.cancel();
     _transport?.close();
     _codeCtrl.dispose();
-    _tokenCtrl.dispose();
     _aliasCtrl.dispose();
     super.dispose();
   }
@@ -442,11 +464,7 @@ class _PlayerViewState extends State<_PlayerView> {
           keyboardType: TextInputType.number,
           maxLength: 6,
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _tokenCtrl,
-          decoration: const InputDecoration(labelText: 'Token', border: OutlineInputBorder()),
-        ),
+
         if (_error != null) ...[
           const SizedBox(height: 12),
           Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
