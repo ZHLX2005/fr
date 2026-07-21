@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../localnet_service.dart';
-import '../models/localnet_device.dart';
 import '../models/localnet_message.dart';
 
+/// 聊天页面 — 通过 transport 事件总线订阅
+///
+/// 业务层不直接连接，只订阅 [LocalnetService.messagesStream]
+/// 即可接收所有 peer 消息。
 class LocalnetChatPage extends StatefulWidget {
-  final LocalnetDevice device;
+  final String scope;
 
-  const LocalnetChatPage({super.key, required this.device});
+  const LocalnetChatPage({super.key, required this.scope});
 
   @override
   State<LocalnetChatPage> createState() => _LocalnetChatPageState();
@@ -29,21 +32,18 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
   Future<void> _sendMessage() async {
     final content = _controller.text.trim();
     if (content.isEmpty) return;
-    if (_isSending) return;
-
     setState(() => _isSending = true);
     _controller.clear();
 
-    final success = await _service.sendMessage(widget.device.id, content);
+    _service.sendMessage(LocalnetMessage(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      senderId: _service.myNodeId ?? 'me',
+      senderAlias: _service.myNodeId ?? 'me',
+      content: content,
+      timestamp: DateTime.now(),
+    ));
 
     setState(() => _isSending = false);
-
-    if (!success && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('发送失败')));
-    }
-
     _scrollToBottom();
   }
 
@@ -61,238 +61,43 @@ class _LocalnetChatPageState extends State<LocalnetChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.device.alias),
-            Text(
-              '${widget.device.ip}:${widget.device.port}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          // 消息列表
-          Expanded(child: _buildMessageList()),
-          // 输入区域
-          _buildInputArea(),
-        ],
-      ),
+    return Column(
+      children: [
+        Expanded(child: _buildMessageList()),
+        _buildInputArea(),
+      ],
     );
   }
 
   Widget _buildMessageList() {
     return StreamBuilder<List<LocalnetMessage>>(
-      stream: _service.watchMessages(widget.device.id),
-      initialData: _service.messagesOf(widget.device.id),
+      stream: _service.messagesStream,
+      initialData: _service.messages,
       builder: (context, snapshot) {
         final messages = snapshot.data ?? [];
-
         if (messages.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.chat_bubble_outline,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
+                Icon(Icons.chat_bubble_outline,
+                    size: 64, color: Theme.of(context).colorScheme.outline),
                 const SizedBox(height: 16),
-                Text(
-                  '开始发送消息',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
+                Text('开始发送消息',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        )),
               ],
             ),
           );
         }
-
         return ListView.builder(
           controller: _scrollController,
           padding: const EdgeInsets.all(16),
           itemCount: messages.length,
-          itemBuilder: (context, index) {
-            final msg = messages[index];
-            final isMine = msg.senderId == _service.deviceId;
-            return _MessageBubble(message: msg, isMine: isMine);
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildInputArea() {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 8,
-        bottom: 8 + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              decoration: const InputDecoration(
-                hintText: '输入消息...',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _sendMessage(),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: _isSending ? null : _sendMessage,
-            child: _isSending
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 直接传入 peer 信息的 Relay 对话页
-class RelayChatPage extends StatefulWidget {
-  final String peerId;
-  final String peerAlias;
-
-  const RelayChatPage({super.key, required this.peerId, required this.peerAlias});
-
-  @override
-  State<RelayChatPage> createState() => _RelayChatPageState();
-}
-
-class _RelayChatPageState extends State<RelayChatPage> {
-  final _service = localnetService;
-  final _controller = TextEditingController();
-  final _scrollController = ScrollController();
-  bool _isSending = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _sendMessage() async {
-    final content = _controller.text.trim();
-    if (content.isEmpty) return;
-    if (_isSending) return;
-
-    setState(() => _isSending = true);
-    _controller.clear();
-
-    final success = await _service.sendMessage(widget.peerId, content);
-
-    setState(() => _isSending = false);
-
-    if (!success && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('发送失败')));
-    }
-
-    _scrollToBottom();
-  }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.peerAlias),
-            Text(
-              'Relay · 房间 ${_service.currentRoomCode ?? ''}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(child: _buildMessageList()),
-          _buildInputArea(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageList() {
-    return StreamBuilder<List<LocalnetMessage>>(
-      stream: _service.watchMessages(widget.peerId),
-      initialData: _service.messagesOf(widget.peerId),
-      builder: (context, snapshot) {
-        final messages = snapshot.data ?? [];
-
-        if (messages.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.chat_bubble_outline,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '已连接，开始发送消息',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(16),
-          itemCount: messages.length,
-          itemBuilder: (context, index) {
-            final msg = messages[index];
-            final isMine = msg.senderId == _service.deviceId;
+          itemBuilder: (_, i) {
+            final msg = messages[i];
+            final isMine = msg.senderId == _service.myNodeId;
             return _MessageBubble(message: msg, isMine: isMine);
           },
         );
@@ -404,9 +209,10 @@ class _MessageBubble extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 color: isMine
-                    ? Theme.of(
-                        context,
-                      ).colorScheme.onPrimary.withValues(alpha: 0.7)
+                    ? Theme.of(context)
+                        .colorScheme
+                        .onPrimary
+                        .withValues(alpha: 0.7)
                     : Theme.of(context).colorScheme.outline,
               ),
             ),
@@ -416,8 +222,7 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:'
-        '${time.minute.toString().padLeft(2, '0')}';
-  }
+  String _formatTime(DateTime time) =>
+      '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
 }

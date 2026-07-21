@@ -1,18 +1,14 @@
-/// LocalNet 业务接入层 - Demo/旧代码导出入口
+/// LocalNet biz 服务 — 业务层只使用 transport 事件驱动
 ///
-/// 旧 API（`localnetService` 等）已迁移至此，仍可使用但不推荐。
-/// 新代码应使用 `package:xiaodouzi_fr/core/localnet/localnet.dart` 的 [LanFramework.instance]。
+/// 业务层不再自己维护发现/连接/UI — 全部委托 localnet 的 widget。
+/// 通过订阅 [Transport.events] 和 [Transport.watchScope] 接收数据驱动。
 library;
 
-export 'localnet_service.dart';
-export 'services/config_service.dart';
-export 'services/debug_log_service.dart';
+export 'localnet_discovery_host.dart';
+export 'pages/localnet_chat_page.dart';
+export 'pages/localnet_debug_page.dart';
+export 'pages/localnet_settings_page.dart';
 export 'models/localnet_config.dart';
 export 'models/localnet_constants.dart';
 export 'models/localnet_device.dart';
 export 'models/localnet_message.dart';
-
-export 'pages/localnet_discover_page.dart';
-export 'pages/localnet_chat_page.dart';
-export 'pages/localnet_debug_page.dart';
-export 'pages/localnet_settings_page.dart';
