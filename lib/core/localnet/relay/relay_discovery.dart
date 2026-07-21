@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../relay/relay_transport.dart';
+import '../transport.dart';
 import '../lan/lan_discovery.dart' show DiscoveredPeer;
 
 /// Relay 发现 — 没有抽象，直接具体 widget
@@ -117,39 +120,53 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   @override
   void dispose() {
     _roomCodeCtrl.dispose();
+    _presenceSub?.cancel();
     if (!_handedOff) _transport?.stop();
     super.dispose();
   }
 
-  /// 进入等待状态：在房间 scope 上广播 presence，等待对端
+  StreamSubscription<DataLog>? _presenceSub;
+
+  /// 进入等待状态：在房间 scope 上写入 presence，监听对端
   void _enterWaiting(RelayTransport t, String code) {
     final scope = 'room-$code';
     t.joinScope(scope);
-    t.sendEvent(scope, 'presence', {
-      'deviceId': t.myNodeId,
-      'alias': _alias,
-      'role': 'player',
-      'status': 'waiting',
-    });
-
-    // 监听 presence
-    t.events.listen((e) {
-      if (e.topic == 'presence' && _waitingForPeer && mounted) {
-        final did = e.data['deviceId'] as String?;
-        if (did != null && did != t.myNodeId) {
+    _writePresence(t, scope, t.myNodeId, _alias, 'waiting');
+    _presenceSub?.cancel();
+    _presenceSub = t.watchScope(scope).listen((log) {
+      if (!_waitingForPeer || _handedOff || !mounted) return;
+      // 查看是否有别人写了 presence
+      for (final entry in log.state.entries) {
+        if (entry.key.startsWith('presence-') && entry.key != 'presence-${t.myNodeId}') {
+          final data = entry.value as Map?;
+          if (data == null) continue;
+          final did = data['deviceId'] as String?;
+          if (did == null || did == t.myNodeId) continue;
           _handedOff = true;
+          _presenceSub?.cancel();
           widget.onPeerSelected(
-            DiscoveredPeer(id: did, alias: e.data['alias'] as String? ?? '?', address: 'relay://$code'),
+            DiscoveredPeer(id: did, alias: data['alias'] as String? ?? '?', address: 'relay://$code'),
             t,
           );
+          return;
         }
       }
     });
-
     setState(() {
       _waitingForPeer = true;
       _error = null;
     });
+  }
+
+  /// 往 scope DataLog 写入 presence（持久化，对端晚加入也能读到）
+  void _writePresence(RelayTransport t, String scope, String deviceId, String alias, String status) {
+    final log = t.getScope(scope);
+    if (log == null) return;
+    log.merge({'presence-$deviceId': {'deviceId': deviceId, 'alias': alias, 'status': status}},
+        localNodeId: deviceId);
+    t.broadcastScope(scope);
+    // events 路径辅助即时投递
+    t.sendEvent(scope, 'presence', {'deviceId': deviceId, 'alias': alias, 'status': status});
   }
 
   Future<void> _createRoom() async {

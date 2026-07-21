@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -153,6 +155,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
   @override
   void dispose() {
+    _presenceSub?.cancel();
     if (!_handedOff) _transport?.stop();
     super.dispose();
   }
@@ -229,6 +232,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   }
 
   void _stopScan() {
+    _presenceSub?.cancel();
     if (!_handedOff) {
       _transport?.stop();
       _transport = null;
@@ -257,11 +261,15 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
       'targetDeviceId': p.id,
     });
 
-    // 同时接入 session scope 等待对方接受
+    // 接入 session scope
     final ids = [myId, p.id];
     ids.sort();
     _sessionScope = 'session-${ids[0]}-${ids[1]}';
     t.joinScope(_sessionScope!);
+    _watchPresenceScope(t, _sessionScope!);
+
+    // 用 DataLog 广播自身 presence（持久化，对端晚到也能读到）
+    _writePresence(t, _sessionScope!, myId, _myAlias, 'inviting');
 
     setState(() {
       _waitingForPeer = true;
@@ -277,17 +285,12 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
     final inviter = _inviteFrom;
     if (t == null || myId == null || inviter == null) return;
 
-    // 接入 session scope 广播 presence
     final ids = [myId, inviter.id];
     ids.sort();
     _sessionScope = 'session-${ids[0]}-${ids[1]}';
     t.joinScope(_sessionScope!);
-    t.sendEvent(_sessionScope!, 'presence', {
-      'deviceId': myId,
-      'alias': _myAlias,
-      'role': 'player',
-      'status': 'accepted',
-    });
+    _watchPresenceScope(t, _sessionScope!);
+    _writePresence(t, _sessionScope!, myId, _myAlias, 'accepted');
 
     setState(() {
       _waitingForPeer = true;
@@ -296,10 +299,39 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
     });
   }
 
+  /// 往 scope DataLog 写入 presence（持久化，对端 join scope 后能读到）
+  void _writePresence(Transport t, String scope, String deviceId, String alias, String status) {
+    final log = t.getScope(scope);
+    if (log == null) return;
+    log.merge({'presence-$deviceId': {'deviceId': deviceId, 'alias': alias, 'status': status}},
+        localNodeId: deviceId);
+    t.broadcastScope(scope);
+    // events 路径辅助即时投递
+    t.sendEvent(scope, 'presence', {'deviceId': deviceId, 'alias': alias, 'status': status});
+  }
+
+  /// 监听 session scope DataLog — 对端 presence 出现即确认
+  StreamSubscription<DataLog>? _presenceSub;
+  void _watchPresenceScope(Transport t, String scope) {
+    _presenceSub?.cancel();
+    _presenceSub = t.watchScope(scope).listen((log) {
+      if (!_waitingForPeer || _handedOff || !mounted) return;
+      final wp = _waitingPeer;
+      if (wp == null) return;
+      final other = log.state['presence-${wp.id}'] as Map?;
+      if (other == null) return;
+      // 别人也写了自己的 presence → 双向确认
+      _handedOff = true;
+      _presenceSub?.cancel();
+      widget.onPeerSelected(wp, t);
+    });
+  }
+
   void _onPeerPresent(String deviceId, Transport transport) {
     final wp = _waitingPeer;
     if (wp == null || deviceId != wp.id) return;
     _handedOff = true;
+    _presenceSub?.cancel();
     widget.onPeerSelected(wp, transport);
   }
 
