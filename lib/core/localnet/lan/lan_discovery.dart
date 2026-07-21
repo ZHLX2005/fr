@@ -356,12 +356,10 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
         'httpPort': _httpPort,
       },
     ).then((resp) {
+      if (!mounted) return;
       if (resp.isOk) {
-        setState(() {
-          _waitingForPeer = true;
-          _waitingPeer = inviter;
-          _inviteFrom = null;
-        });
+        final t = _transport;
+        if (t != null) _completeHandshake(inviter, t);
       }
     }).catchError((e) {
       if (mounted) setState(() => _error = '接受邀请失败: $e');
