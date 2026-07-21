@@ -213,11 +213,18 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
             }
           }
         }
-        // presence — 等待中的对端上线了（events 路径）
+        // presence — 对方上线（events 路径即时触发）
         if (e.topic == 'presence' && _waitingForPeer) {
-          final did = e.data['deviceId'] as String?;
-          if (did != null && did != transport.myNodeId) {
-            // 通过 DataLog 路径触发 _checkPresence（已订阅 _presenceSub）
+          // DataLog watchScope 已是主要路径，event 作为冗余触发
+        }
+        // handshake-confirmed — 第三次握手的 ACK（纯 event，不依赖 DataLog）
+        if (e.topic == 'handshake-confirmed' && _waitingForPeer) {
+          final peerId = e.data['peerId'] as String?;
+          if (peerId != null && peerId != transport.myNodeId) {
+            final wp = _waitingPeer;
+            if (wp != null && wp.id == peerId) {
+              _completeHandshake(wp, transport);
+            }
           }
         }
       });
@@ -335,8 +342,12 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
     final otherStatus = other['status'] as String? ?? '';
 
     if (otherStatus == 'accepted') {
-      // 我是邀请方，对方接受了 → 回传 confirmed（第三次握手）
+      // 我是邀请方，对方接受了 → 回传 confirmed（DataLog + event 双路径）
       _writePresence(t, scope, myId, _myAlias, 'confirmed');
+      t.sendEvent(scope, 'handshake-confirmed', {
+        'deviceId': myId,
+        'peerId': wp.id,
+      });
       _completeHandshake(wp, t);
     } else if (otherStatus == 'confirmed') {
       // 我是接受方，收到对方的 confirmed → 完成
