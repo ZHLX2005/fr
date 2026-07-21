@@ -10,6 +10,9 @@ import '../lan/lan_transport.dart';
 ///
 /// **自己的设置**：deviceAlias / multicastPort / multicastAddress 由
 /// [buildSettingsPage] 渲染并独立持久化，业务层零配置代码。
+///
+/// **节能**：widget 挂载时不自动扫描，用户点击"扫描"按钮后才创建 transport。
+/// 扫描完成后（选中 peer / 返回）transport 自动 stop，防止泄漏和耗电。
 class LanDiscovery {
   LanDiscovery({
     this.multicastPort = 5678,
@@ -98,16 +101,28 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   String? _myNodeId;
   String? _error;
   Transport? _transport;
+  bool _scanning = false;
   bool _handedOff = false;
 
   @override
-  void initState() {
-    super.initState();
-    _start();
+  void dispose() {
+    if (!_handedOff) _transport?.stop();
+    super.dispose();
   }
 
-  Future<void> _start() async {
+  Future<void> _startScan() async {
+    if (_scanning) return;
+    setState(() {
+      _scanning = true;
+      _error = null;
+      _peers.clear();
+    });
+
     try {
+      // 如有旧 transport 先停
+      if (!_handedOff) await _transport?.stop();
+      _handedOff = false;
+
       final transport = await LanTransport.create(
         multicastAddress: widget.multicastAddress,
         multicastPort: widget.multicastPort,
@@ -115,7 +130,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
       _transport = transport;
       _myNodeId = transport.myNodeId;
 
-      // 监听事件总线：peer-joined-scope 表示新节点出现
+      // 监听新节点
       transport.events.listen((e) {
         if (e.topic == 'peer-joined-scope') {
           final from = e.data['from'] as String?;
@@ -131,61 +146,167 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
         }
       });
 
-      // 加入 'peers' scope 自动同步
+      // 加入 peers scope 开始广播
       await transport.joinScope('peers');
 
       if (mounted) setState(() {});
     } catch (e) {
-      _error = '启动失败: $e';
+      _error = '扫描失败: $e';
       widget.onError?.call(_error!);
       if (mounted) setState(() {});
     }
   }
 
-  @override
-  void dispose() {
-    // transport 所有权已转移给业务层 → 不 stop；否则泄漏
-    if (!_handedOff) _transport?.stop();
-    super.dispose();
+  void _stopScan() {
+    if (!_handedOff) {
+      _transport?.stop();
+      _transport = null;
+    }
+    setState(() {
+      _scanning = false;
+      _myNodeId = null;
+      _peers.clear();
+    });
+  }
+
+  void _selectPeer(DiscoveredPeer p) {
+    final t = _transport;
+    if (t == null) return;
+    _handedOff = true;
+    widget.onPeerSelected(p, t);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('局域网发现')),
-      body: _error != null
-          ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-          : Column(
-              children: [
-                if (_myNodeId != null)
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text('我的 ID: ${_myNodeId!.substring(0, 8)}'),
-                  ),
-                const Divider(),
-                Expanded(
-                  child: _peers.isEmpty
-                      ? const Center(child: Text('搜索设备中...'))
-                      : ListView.builder(
-                          itemCount: _peers.length,
-                          itemBuilder: (_, i) {
-                            final p = _peers.values.elementAt(i);
-                            return ListTile(
-                              title: Text(p.alias),
-                              subtitle: Text(p.address),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () {
-                                final t = _transport;
-                                if (t == null) return;
-                                _handedOff = true;
-                                widget.onPeerSelected(p, t);
-                              },
-                            );
-                          },
-                        ),
+    final theme = Theme.of(context);
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+              const SizedBox(height: 12),
+              Text(_error!, textAlign: TextAlign.center,
+                  style: TextStyle(color: theme.colorScheme.error)),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _startScan,
+                icon: const Icon(Icons.refresh),
+                label: const Text('重试'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_scanning) {
+      // 初始状态：显示扫描按钮
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.wifi_find, size: 56, color: theme.colorScheme.primary),
+              const SizedBox(height: 16),
+              Text('搜索同一 WiFi 下的其他设备',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _startScan,
+                icon: const Icon(Icons.search),
+                label: const Text('扫描局域网设备'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 扫描中
+    return Column(
+      children: [
+        // 状态栏
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 12, height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2,
+                    color: theme.colorScheme.primary),
+              ),
+              const SizedBox(width: 8),
+              Text('扫描中...',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )),
+              const Spacer(),
+              Text('已发现 ${_peers.length} 台设备',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )),
+            ],
+          ),
+        ),
+
+        // 设备列表
+        Expanded(
+          child: _peers.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Text('暂无设备\n\niOS 设备需在前台运行本 App',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        )),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: _peers.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+                  itemBuilder: (_, i) {
+                    final p = _peers.values.elementAt(i);
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        child: Icon(Icons.phone_android,
+                            color: theme.colorScheme.onPrimaryContainer),
+                      ),
+                      title: Text(p.alias, style: theme.textTheme.titleSmall),
+                      subtitle: Text(p.address, style: theme.textTheme.bodySmall),
+                      trailing: Icon(Icons.chevron_right, size: 20,
+                          color: theme.colorScheme.outline),
+                      onTap: () => _selectPeer(p),
+                    );
+                  },
+                ),
+        ),
+
+        // 底部操作
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _stopScan,
+              child: const Text('停止扫描'),
             ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -242,13 +363,15 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     if (!_ready) {
       return const Center(child: CircularProgressIndicator());
     }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('设备身份', style: Theme.of(context).textTheme.titleMedium),
+        // 设备身份
+        Text('设备身份', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         Card(
           child: Padding(
@@ -264,7 +387,9 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
           ),
         ),
         const SizedBox(height: 24),
-        Text('局域网', style: Theme.of(context).textTheme.titleMedium),
+
+        // 网络参数
+        Text('网络参数', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         Card(
           child: Padding(
@@ -272,34 +397,41 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.wifi),
-                  title: const Text('多播端口'),
-                  subtitle: Text('${widget.multicastPort}'),
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.router),
-                  title: const Text('多播地址'),
-                  subtitle: Text(widget.multicastAddress),
-                ),
+                _infoRow(Icons.wifi, '多播端口', '${widget.multicastPort}'),
+                const Divider(height: 16),
+                _infoRow(Icons.router, '多播地址', widget.multicastAddress),
                 const SizedBox(height: 8),
-                Text(
-                  '多播端口/地址在 LanDiscovery() 构造时固定，'
-                  '运行时修改需要重新创建 transport。',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text('修改端口/地址后需要重新扫描才能生效。',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    )),
               ],
             ),
           ),
         ),
         const SizedBox(height: 24),
+
         FilledButton.icon(
           onPressed: _save,
           icon: const Icon(Icons.save),
           label: const Text('保存'),
         ),
+      ],
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: theme.colorScheme.primary),
+        const SizedBox(width: 12),
+        Text(label, style: theme.textTheme.bodyMedium),
+        const Spacer(),
+        Text(value, style: theme.textTheme.bodySmall?.copyWith(
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.bold,
+        )),
       ],
     );
   }

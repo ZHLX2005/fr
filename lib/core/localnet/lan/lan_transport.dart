@@ -26,6 +26,7 @@ class LanTransport extends Transport {
     );
     await t._socket.bind(multicastAddress: multicastAddress, port: multicastPort);
     t._socket.datagrams.listen(t._onDatagram);
+    t._started = true;
     return t;
   }
 
