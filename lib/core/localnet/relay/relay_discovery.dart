@@ -209,59 +209,157 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   }
 
   Widget _buildLobbyPanel() {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.cloud, size: 64),
-          const SizedBox(height: 24),
-          Text('中继: $_effectiveRelayUrl', style: const TextStyle(fontSize: 12)),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton.icon(
-              onPressed: _busy ? null : _createRoom,
-              icon: _busy
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.add_circle_outline),
-              label: Text(_busy ? '创建中...' : '创建房间'),
+          // 头部标识
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              child: Column(
+                children: [
+                  Icon(Icons.cloud, size: 48, color: theme.colorScheme.primary),
+                  const SizedBox(height: 12),
+                  Text('跨网络连接',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      )),
+                  const SizedBox(height: 4),
+                  Text('中继: $_effectiveRelayUrl',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      )),
+                ],
+              ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
+          const SizedBox(height: 16),
+
+          // 创建房间
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _createRoom,
+                      icon: _busy
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.add_circle_outline),
+                      label: Text(_busy ? '创建中...' : '创建房间'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 或
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(children: [
-              Expanded(child: Divider()),
-              Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('或')),
-              Expanded(child: Divider()),
+              const Expanded(child: Divider()),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('或',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    )),
+              ),
+              const Expanded(child: Divider()),
             ]),
           ),
-          TextField(
-            controller: _roomCodeCtrl,
-            decoration: const InputDecoration(
-              hintText: '输入 6 位房间号',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.vpn_key),
+
+          // 加入房间
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
-            maxLength: 6,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.go,
-            onSubmitted: (_) => _joinRoom(),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: _busy ? null : _joinRoom,
-              icon: const Icon(Icons.login),
-              label: Text(_busy ? '加入中...' : '加入房间'),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _roomCodeCtrl,
+                    decoration: InputDecoration(
+                      hintText: '输入 6 位房间号',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      prefixIcon: const Icon(Icons.vpn_key),
+                    ),
+                    maxLength: 6,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.go,
+                    onSubmitted: (_) => _joinRoom(),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _joinRoom,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: theme.colorScheme.outlineVariant),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.login),
+                      label: Text(_busy ? '加入中...' : '加入房间'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+
           if (_error != null) ...[
             const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Card(
+              elevation: 0,
+              color: theme.colorScheme.errorContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.3)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, size: 20, color: theme.colorScheme.error),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(_error!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onErrorContainer,
+                          )),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -269,21 +367,60 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   }
 
   Widget _buildRoomPanel() {
+    final theme = Theme.of(context);
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('已加入房间: $_roomCode', style: const TextStyle(fontSize: 20)),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: () {
-              _transport?.stop();
-              _transport = null;
-              setState(() => _roomCode = null);
-            },
-            child: const Text('离开'),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
           ),
-        ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle, size: 56, color: Colors.green),
+                const SizedBox(height: 16),
+                Text('已加入房间',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    )),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text('$_roomCode',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 4,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      )),
+                ),
+                const SizedBox(height: 24),
+                OutlinedButton(
+                  onPressed: () {
+                    _transport?.stop();
+                    _transport = null;
+                    setState(() => _roomCode = null);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: theme.colorScheme.outlineVariant),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text('离开房间'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

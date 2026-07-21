@@ -281,7 +281,14 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
         // 状态栏
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.primary.withValues(alpha: 0.15),
+              ),
+            ),
+          ),
           child: Row(
             children: [
               SizedBox(
@@ -295,10 +302,18 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
                     color: theme.colorScheme.onSurfaceVariant,
                   )),
               const Spacer(),
-              Text('已发现 ${_peers.length} 台设备',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  )),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text('${_peers.length} 台设备',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    )),
+              ),
             ],
           ),
         ),
@@ -316,23 +331,45 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
                         )),
                   ),
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                   itemCount: _peers.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
                   itemBuilder: (_, i) {
                     final p = _peers.values.elementAt(i);
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        child: Icon(Icons.phone_android,
-                            color: theme.colorScheme.onPrimaryContainer),
+                    return Card(
+                      elevation: 0,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: theme.colorScheme.outlineVariant,
+                          width: 1,
+                        ),
                       ),
-                      title: Text(p.alias, style: theme.textTheme.titleSmall),
-                      subtitle: Text(p.address, style: theme.textTheme.bodySmall),
-                      trailing: Icon(Icons.chevron_right, size: 20,
-                          color: theme.colorScheme.outline),
-                      onTap: () => _selectPeer(p),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.fromLTRB(12, 4, 8, 4),
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          child: Icon(Icons.phone_android,
+                              color: theme.colorScheme.onPrimaryContainer),
+                        ),
+                        title: Text(p.alias, style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        )),
+                        subtitle: Text(p.address, style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        )),
+                        trailing: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(Icons.chevron_right, size: 18,
+                              color: theme.colorScheme.primary),
+                        ),
+                        onTap: () => _selectPeer(p),
+                      ),
                     );
                   },
                 ),
@@ -340,11 +377,17 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
         // 底部操作
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
           child: SizedBox(
             width: double.infinity,
             child: OutlinedButton(
               onPressed: _stopScan,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('停止扫描'),
             ),
           ),
