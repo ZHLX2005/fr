@@ -35,8 +35,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
   }
 
   /// localnet widget 触发连接成功
-  void _onConnected(fw.Transport transport, fw.DiscoveredPeer peer) {
-    final scope = 'chat-${peer.id}';
+  void _onConnected(fw.Transport transport, String scope) {
     setState(() {
       _transport = transport;
       _scope = scope;
@@ -106,9 +105,12 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
               : _mode == fw.MessageNetMode.lan
                   ? fw.LanDiscovery().buildPage(
                       onPeerSelected: (peer, transport) async {
-                        // widget 已建好 transport，业务层只需 joinScope
-                        await transport.joinScope('chat-${peer.id}');
-                        _onConnected(transport, peer);
+                        // 双方用相同 scope：按 nodeId 排序拼接
+                        final ids = [transport.myNodeId, peer.id];
+                        ids.sort();
+                        final scope = 'chat-${ids[0]}-${ids[1]}';
+                        await transport.joinScope(scope);
+                        _onConnected(transport, scope);
                       },
                       onError: _onError,
                     )
@@ -116,9 +118,11 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
                       relayUrl: 'http://47.110.80.47:8988',
                     ).buildPage(
                       onPeerSelected: (peer, transport) async {
-                        // widget 已 createRoom/joinRoom，业务层只需 joinScope
-                        await transport.joinScope('chat-${peer.id}');
-                        _onConnected(transport, peer);
+                        final ids = [transport.myNodeId, peer.id];
+                        ids.sort();
+                        final scope = 'chat-${ids[0]}-${ids[1]}';
+                        await transport.joinScope(scope);
+                        _onConnected(transport, scope);
                       },
                       onError: _onError,
                     ),

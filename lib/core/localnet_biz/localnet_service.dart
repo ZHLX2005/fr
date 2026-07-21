@@ -77,7 +77,14 @@ class LocalnetService {
   }
 
   void _onTransportEvent(fw.TransportEvent ev) {
-    // 业务层可订阅其他事件（peer-joined-scope 等）
+    // 新 peer 加入 scope → 重推当前状态
+    if (ev.topic == 'peer-joined-scope') {
+      final scope = ev.data['scope'] as String?;
+      if (scope == _activeScope) {
+        final t = _transport;
+        if (t != null) t.broadcastScope(scope!);
+      }
+    }
   }
 
   /// 本地发送消息：写到 scope 状态 → 全广播（raft 风格）
