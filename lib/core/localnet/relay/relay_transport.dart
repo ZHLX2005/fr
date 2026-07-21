@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/io.dart';
@@ -146,6 +147,16 @@ class RelayTransport extends Transport {
   Future<void> _connect(String wsUrl) async {
     final ws = IOWebSocketChannel.connect(Uri.parse(wsUrl));
     _ws = ws;
+
+    // 发送 identify 帧（relay 服务器要求）— 用 TransportFrame 格式
+    final identifyPayload = utf8.encode(jsonEncode({'alias': _alias}));
+    ws.sink.add(jsonEncode({
+      'channelName': 'identify',
+      'sourceDeviceId': _nodeId,
+      'payload': base64Encode(identifyPayload),
+      'timestamp': DateTime.now().toIso8601String(),
+    }));
+
     _wsSub = ws.stream.listen(
       _onFrame,
       onError: (_) {},
@@ -157,6 +168,9 @@ class RelayTransport extends Transport {
     if (data is! String) return;
     try {
       final env = jsonDecode(data) as Map<String, dynamic>;
+      // 跳过 identify / room_event 等系统帧，只处理 scope 帧
+      final ch = env['channelName'] as String?;
+      if (ch != null && ch != 'scope' && ch != 'scope-update') return;
       _dispatch(env);
     } catch (_) {}
   }
@@ -206,6 +220,9 @@ class RelayTransport extends Transport {
   Future<void> _send(Map<String, dynamic> envelope) async {
     final ws = _ws;
     if (ws == null) return;
+    // 加 relay 服务器要求的字段（channelName + sourceDeviceId）
+    envelope.putIfAbsent('channelName', () => 'scope');
+    envelope.putIfAbsent('sourceDeviceId', () => _nodeId);
     ws.sink.add(jsonEncode(envelope));
   }
 

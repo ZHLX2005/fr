@@ -8,6 +8,9 @@ class UdpMulticastSocket {
       StreamController<UdpDatagram>.broadcast();
   StreamSubscription<RawSocketEvent>? _sub;
 
+  String _multicastAddress = '239.255.255.255';
+  int _multicastPort = 5678;
+
   /// 多播数据报流
   Stream<UdpDatagram> get datagrams => _ctrl.stream;
 
@@ -16,6 +19,8 @@ class UdpMulticastSocket {
     required String multicastAddress,
     required int port,
   }) async {
+    _multicastAddress = multicastAddress;
+    _multicastPort = port;
     _socket = await RawDatagramSocket.bind(
       InternetAddress.anyIPv4,
       port,
@@ -32,11 +37,15 @@ class UdpMulticastSocket {
     });
   }
 
-  /// 发送多播
+  /// 发送多播 — 目标地址/端口使用 bind 时传入的值
   Future<void> send(List<int> data) async {
     final s = _socket;
     if (s == null) return;
-    s.send(data, InternetAddress('239.255.255.255'), 0);  // 用默认 addr/port 时由 bind 决定
+    s.send(
+      data,
+      InternetAddress(_multicastAddress),
+      _multicastPort,
+    );
   }
 
   Future<void> close() async {
