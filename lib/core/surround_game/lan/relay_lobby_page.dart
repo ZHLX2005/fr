@@ -74,7 +74,7 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => LanClientGamePage(roomId: roomId, hostDeviceId: peer.id),
+        builder: (_) => LanClientGamePage(roomId: roomId, hostDeviceId: peer.id, adapter: adapter),
       ),
     );
   }

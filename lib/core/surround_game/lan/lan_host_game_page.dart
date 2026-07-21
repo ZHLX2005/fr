@@ -33,8 +33,14 @@ import 'victory_overlay.dart';
 class LanHostGamePage extends StatefulWidget {
   final String roomId;
   final String peerDeviceId;
+  final LanServiceAdapter adapter; // 接收外部 adapter，避免单例竞争
 
-  const LanHostGamePage({super.key, required this.roomId, required this.peerDeviceId});
+  const LanHostGamePage({
+    super.key,
+    required this.roomId,
+    required this.peerDeviceId,
+    required this.adapter,
+  });
 
   @override
   State<LanHostGamePage> createState() => _LanHostGamePageState();
@@ -49,15 +55,14 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   void initState() {
     super.initState();
     _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
-    var adapter = LanServiceAdapter.instance;
-    adapter.joinGameScope(widget.roomId);
-    adapter.onGameStateChanged((gs) {
+    widget.adapter.joinGameScope(widget.roomId);
+    widget.adapter.onGameStateChanged((gs) {
       if (mounted) {
         _gameStateNotifier!.value = gs;
         setState(() {});
       }
     });
-    _errorSub = adapter.watchErrors().listen(_onError);
+    _errorSub = widget.adapter.watchErrors().listen(_onError);
   }
 
   void _onError(LanServiceError err) {
@@ -94,6 +99,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     _errorSub?.cancel();
     _gameStateNotifier?.dispose();
     _touchController.reset();
+    widget.adapter.detach();
     super.dispose();
   }
 
@@ -348,7 +354,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
       final next = QuoridorEngine.switchTurn(result);
       debugPrint('[HOST-CONFIRM] next.currentPlayerIsTop=${next.currentPlayerIsTop} notifier.value set');
       _gameStateNotifier!.value = next;
-      LanServiceAdapter.instance.syncGameState(next);
+      widget.adapter.syncGameState(next);
       toc.reset();
       setState(() {});
     };
@@ -580,7 +586,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   void _resetGameState() {
     final gs = QuoridorEngine.initialize();
     _gameStateNotifier?.value = gs;
-    LanServiceAdapter.instance.syncGameState(gs);
+    widget.adapter.syncGameState(gs);
     setState(() {});
   }
 }

@@ -34,8 +34,14 @@ import 'protocol/lan_messages.dart';
 class LanClientGamePage extends StatefulWidget {
   final String roomId;
   final String hostDeviceId;
+  final LanServiceAdapter adapter; // 接收外部 adapter，避免单例竞争
 
-  const LanClientGamePage({super.key, required this.roomId, required this.hostDeviceId});
+  const LanClientGamePage({
+    super.key,
+    required this.roomId,
+    required this.hostDeviceId,
+    required this.adapter,
+  });
 
   @override
   State<LanClientGamePage> createState() => _LanClientGamePageState();
@@ -52,16 +58,15 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
   void initState() {
     super.initState();
     _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
-    var adapter = LanServiceAdapter.instance;
-    adapter.joinGameScope(widget.roomId);
-    adapter.onGameStateChanged((gs) {
+    widget.adapter.joinGameScope(widget.roomId);
+    widget.adapter.onGameStateChanged((gs) {
       if (mounted) {
         _gameStateNotifier!.value = gs;
         setState(() {});
       }
     });
-    _errorSub = adapter.watchErrors().listen(_onError);
-    _roomSub = adapter.watchRoomEvents().listen(_onRoomEvent);
+    _errorSub = widget.adapter.watchErrors().listen(_onError);
+    _roomSub = widget.adapter.watchRoomEvents().listen(_onRoomEvent);
   }
 
   void _onRoomEvent(LanRoomEvent ev) {
@@ -111,6 +116,7 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
     _roomSub?.cancel();
     _gameStateNotifier?.dispose();
     _touchController.reset();
+    widget.adapter.detach();
     super.dispose();
   }
 
@@ -354,7 +360,7 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
       }
       final next = QuoridorEngine.switchTurn(result);
       _gameStateNotifier!.value = next;
-      LanServiceAdapter.instance.syncGameState(next);
+      widget.adapter.syncGameState(next);
       toc.reset();
       setState(() {});
     };

@@ -23,6 +23,7 @@ class LanLobbyPage extends StatefulWidget {
 class _LanLobbyPageState extends State<LanLobbyPage> {
   final _aliasCtrl = TextEditingController();
   bool _started = false;
+  bool _handedOff = false;
   String? _error;
 
   @override
@@ -38,7 +39,11 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
   @override
   void dispose() {
     _aliasCtrl.dispose();
-    if (_started) LanServiceAdapter.instance.detach();
+    // 注意：路由跳转后 lobby 被销毁，detach 由 game page 接管。
+    // 如果用户从 lobby 直接退出（没进游戏），adapter 才会被 detach。
+    if (_started && !_handedOff) {
+      LanServiceAdapter.instance.detach();
+    }
     super.dispose();
   }
 
@@ -73,12 +78,13 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
 
     if (!mounted) return;
     final isHost = transport.myNodeId.compareTo(peer.id) < 0;
+    setState(() => _handedOff = true);
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => isHost
-            ? LanHostGamePage(roomId: roomId, peerDeviceId: peer.id)
-            : LanClientGamePage(roomId: roomId, hostDeviceId: peer.id),
+            ? LanHostGamePage(roomId: roomId, peerDeviceId: peer.id, adapter: adapter)
+            : LanClientGamePage(roomId: roomId, hostDeviceId: peer.id, adapter: adapter),
       ),
     );
   }
