@@ -345,124 +345,162 @@ class MasterViewState extends State<MasterView> {
     );
   }
 
-  // —————— 房间大厅 ——————
+  // —————— 房间大厅（会议风格）——————
 
   Widget _buildLobby(ThemeData theme) {
-    // master 参与 + 已发牌 → 显示自己的卡牌
-    if (_myRole != null) {
-      return _buildMyCard(theme);
-    }
+    if (_myRole != null) return _buildMyCard(theme);
     if (_allCards != null && !_masterJoins && _showAllCards) return _buildAllCardsView(theme);
-    final showAllBtn = _dealt && !_masterJoins;
-    final waiting = _needed > 0;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       children: [
-        // 房间号 + 状态
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
+        // 房号徽章
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text('房间号', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline)),
-                const SizedBox(height: 8),
-                Text(_roomCode!, style: theme.textTheme.headlineLarge?.copyWith(
-                  fontWeight: FontWeight.bold, letterSpacing: 6, color: theme.colorScheme.primary,
+                Icon(Icons.tag, size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Text(_roomCode!, style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 4, color: theme.colorScheme.primary,
                 )),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '$_roomCapacity 人房 · ${_onlinePeers.length} 人已到${waiting ? ' · 还需 $_needed 人' : ''}',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSecondaryContainer),
-                  ),
-                ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        // 在线玩家
-        _buildPlayerList(theme),
-        const SizedBox(height: 24),
-        if (showAllBtn)
-          FilledButton.icon(
-            onPressed: () => setState(() => _showAllCards = true),
-            icon: const Icon(Icons.visibility),
-            label: const Text('查看所有人身份'),
-            style: _btnStyle(theme),
+        const SizedBox(height: 6),
+        Center(
+          child: Text(
+            !_dealt
+                ? '$_roomCapacity 人房 · 还需 $_needed 人加入'
+                : '发牌完成',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+          ),
+        ),
+        const SizedBox(height: 28),
+
+        // 参与人卡片（会议风格圆环）
+        _buildParticipantsGrid(theme),
+
+        const SizedBox(height: 28),
+
+        // 底部按钮
+        if (!_dealt)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _onlinePeers.length >= (_masterJoins ? 1 : 1) ? dealCards : null,
+              icon: const Icon(Icons.style, size: 20),
+              label: Text('开始发牌'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
           )
-        else
-          FilledButton.icon(
-            onPressed: _dealt ? null : dealCards,
-            icon: Icon(_dealt ? Icons.check_circle : Icons.style),
-            label: Text(_dealt ? '已发牌' : '开始发牌'),
-            style: _btnStyle(theme),
+        else if (!_masterJoins && !_showAllCards)
+          Center(
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showAllCards = true),
+              icon: const Icon(Icons.visibility, size: 18),
+              label: const Text('查看所有人身份'),
+            ),
           ),
       ],
     );
   }
 
-  /// 在线玩家列表（复用）
-  Widget _buildPlayerList(ThemeData theme) {
+  Widget _buildParticipantsGrid(ThemeData theme) {
+    final cellSize = 64.0;
+    final totalSlots = _roomCapacity;
+    final entries = _onlinePeers.entries.toList();
+    // 按 alias 排序，让 master 在前
+    entries.sort((a, b) => a.value.compareTo(b.value));
+
+    // 首先生成所有 slot
+    final slots = <Widget>[];
+    for (var i = 0; i < totalSlots; i++) {
+      if (i < entries.length) {
+        final e = entries[i];
+        final initial = e.value.isNotEmpty ? e.value[0].toUpperCase() : '?';
+        final color = _participantColor(i, theme);
+        slots.add(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: cellSize, height: cellSize,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
+                ),
+                child: Center(
+                  child: Text(initial, style: TextStyle(
+                    fontSize: 24, fontWeight: FontWeight.bold, color: color,
+                  )),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(e.value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface)),
+              Text(e.key.length > 8 ? '${e.key.substring(0, 6)}...' : '', style: TextStyle(fontSize: 9, color: theme.colorScheme.outline)),
+            ],
+          ),
+        );
+      } else {
+        // 空位（虚环）
+        slots.add(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: cellSize, height: cellSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5), width: 2, style: BorderStyle.solid),
+                ),
+                child: Center(child: Icon(Icons.person_add_alt_1, size: 22, color: theme.colorScheme.outlineVariant)),
+              ),
+              const SizedBox(height: 6),
+              Text('等待中', style: TextStyle(fontSize: 11, color: theme.colorScheme.outline)),
+            ],
+          ),
+        );
+      }
+    }
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.people, size: 20, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text('在线 (${_onlinePeers.length})', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                const Spacer(),
-              ],
+            Text('参与者', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 24, runSpacing: 24,
+              alignment: WrapAlignment.center,
+              children: slots,
             ),
-            const SizedBox(height: 12),
-            if (_onlinePeers.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text('等待玩家加入...', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
-                ),
-              )
-            else
-              ..._onlinePeers.entries.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    _avatarLabel(e.value, theme),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(e.value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-                        Text(e.key.length > 12 ? '${e.key.substring(0, 12)}...' : e.key,
-                            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline, fontSize: 11)),
-                      ],
-                    ),
-                  ],
-                ),
-              )),
           ],
         ),
       ),
     );
+  }
+
+  Color _participantColor(int i, ThemeData theme) {
+    const colors = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.teal, Colors.pink, Colors.indigo, Colors.cyan, Colors.amber, Colors.deepOrange, Colors.lime, Colors.brown];
+    return colors[i % colors.length];
   }
 
   /// master 参与时发牌后显示自己的身份卡
@@ -552,11 +590,6 @@ class MasterViewState extends State<MasterView> {
       ],
     );
   }
-
-  ButtonStyle _btnStyle(ThemeData theme) => FilledButton.styleFrom(
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  );
 }
 
 // —————— 身份编辑卡片 ——————
