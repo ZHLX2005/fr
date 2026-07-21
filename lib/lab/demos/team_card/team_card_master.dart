@@ -3,7 +3,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -40,6 +39,15 @@ class MasterViewState extends State<MasterView> {
 
   static int _keyCounter = 0;
   static String _newKey() => 'k${_keyCounter++}';
+
+  // 当 master 参与时，自己的身份
+  String? _myRole;
+
+  // 需要等待的玩家数（在线数）
+  int get _needed => _masterJoins ? _totalCount - _onlinePeers.length : (_totalCount + 1) - _onlinePeers.length;
+
+  // 房间总人数容量
+  int get _roomCapacity => _masterJoins ? _totalCount : _totalCount + 1;
 
   // 自定义预设
   List<RoleDef>? _customPresets;
@@ -107,7 +115,7 @@ class MasterViewState extends State<MasterView> {
     try {
       final t = await fw.RelayTransport.create(relayUrl: kRelayUrl, alias: _alias);
       final info = await t.createRoom(fw.RoomConfig(
-        maxPlayers: max(rolePool.length + 2, 10),
+        maxPlayers: _roomCapacity,
         schema: {'roles': [for (final r in rolePool) {'label': r.label, 'count': r.count}]},
         canStartBeforeFull: true,
       ));
@@ -179,6 +187,12 @@ class MasterViewState extends State<MasterView> {
     await t.publish('room/$code/events', {
       'type': 'deal', 'assignments': assignments,
     });
+    // 如果 master 参与，立即显示自己的身份
+    if (_masterJoins) {
+      final myId = t.myNodeId;
+      final card = cards.where((c) => c.deviceId == myId).firstOrNull;
+      if (card != null) _myRole = card.role;
+    }
     if (mounted) setState(() => _dealt = true);
   }
 
@@ -334,12 +348,17 @@ class MasterViewState extends State<MasterView> {
   // —————— 房间大厅 ——————
 
   Widget _buildLobby(ThemeData theme) {
+    // master 参与 + 已发牌 → 显示自己的卡牌
+    if (_myRole != null) {
+      return _buildMyCard(theme);
+    }
     if (_allCards != null && !_masterJoins && _showAllCards) return _buildAllCardsView(theme);
     final showAllBtn = _dealt && !_masterJoins;
+    final waiting = _needed > 0;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 房间号
+        // 房间号 + 状态
         Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -355,63 +374,25 @@ class MasterViewState extends State<MasterView> {
                 Text(_roomCode!, style: theme.textTheme.headlineLarge?.copyWith(
                   fontWeight: FontWeight.bold, letterSpacing: 6, color: theme.colorScheme.primary,
                 )),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '$_roomCapacity 人房 · ${_onlinePeers.length} 人已到${waiting ? ' · 还需 $_needed 人' : ''}',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSecondaryContainer),
+                  ),
+                ),
               ],
             ),
           ),
         ),
         const SizedBox(height: 16),
         // 在线玩家
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.people, size: 20, color: theme.colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text('在线 (${_onlinePeers.length})', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    if (!_masterJoins && _dealt)
-                      Text('房主旁观中', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (_onlinePeers.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Center(
-                      child: Text('等待玩家加入...', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
-                    ),
-                  )
-                else
-                  ..._onlinePeers.entries.map((e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        _avatarLabel(e.value, theme),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(e.value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-                            Text(e.key.length > 12 ? '${e.key.substring(0, 12)}...' : e.key,
-                                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline, fontSize: 11)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  )),
-              ],
-            ),
-          ),
-        ),
+        _buildPlayerList(theme),
         const SizedBox(height: 24),
         if (showAllBtn)
           FilledButton.icon(
@@ -428,6 +409,93 @@ class MasterViewState extends State<MasterView> {
             style: _btnStyle(theme),
           ),
       ],
+    );
+  }
+
+  /// 在线玩家列表（复用）
+  Widget _buildPlayerList(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.people, size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('在线 (${_onlinePeers.length})', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                const Spacer(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_onlinePeers.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text('等待玩家加入...', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                ),
+              )
+            else
+              ..._onlinePeers.entries.map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    _avatarLabel(e.value, theme),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(e.value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                        Text(e.key.length > 12 ? '${e.key.substring(0, 12)}...' : e.key,
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline, fontSize: 11)),
+                      ],
+                    ),
+                  ],
+                ),
+              )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// master 参与时发牌后显示自己的身份卡
+  Widget _buildMyCard(ThemeData theme) {
+    final color = roleColor(theme, _myRole!);
+    return Center(
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: color.withValues(alpha: 0.3), width: 2),
+        ),
+        child: Container(
+          width: 260,
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72, height: 72,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                child: Icon(Icons.style, size: 36, color: color),
+              ),
+              const SizedBox(height: 20),
+              Text('你的身份', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline)),
+              const SizedBox(height: 8),
+              Text(_myRole!, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: color)),
+              const SizedBox(height: 8),
+              Text('只有你能看到这张卡', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
