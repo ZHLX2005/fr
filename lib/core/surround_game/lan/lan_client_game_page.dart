@@ -16,8 +16,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/localnet/device/device.dart';
-import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
+import 'package:xiaodouzi_fr/core/surround_game/lan/service/lan_service_adapter.dart';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
 import '../widgets/player_panel.dart';
@@ -26,23 +25,12 @@ import '../engine/game_engine.dart';
 import '../models/game_state.dart';
 import 'widgets/lan_board_stack.dart';
 import 'widgets/touch_controller_factory.dart';
-import 'protocol/lan_channels.dart';
-import 'protocol/lan_messages.dart';
-import 'service/lan_service_adapter.dart';
 import 'victory_overlay.dart';
+import 'protocol/lan_messages.dart';
 
 /// LAN 客户端游戏页面
 ///
-/// 单面板布局：棋盘居中（不翻转），底部仅显示 client 自己的 PlayerPanel。
-/// touchController 使用普通 [TouchController]（不镜像 y 坐标）。
-/// isMyTurn = !gs.currentPlayerIsTop（client 是 bottom player）。
-///
-/// 状态同步：通过 LanServiceAdapter.createGameSession 建立双端 Session，
-/// 走固定 channel 'surround/game/state'。任一端修改 ValueNotifier 都会自动
-/// serialize + 推送给对端；对端收到后用 serializer 在原 notifier 上反序列化，
-/// 触发 onChanged 回调刷新 UI。
-///
-/// Client 不主动 syncFull（等 Host 推初始 state）。
+/// 单面板布局：棋盘居中（不翻转），状态通过 DataLog scope 同步。
 class LanClientGamePage extends StatefulWidget {
   final String roomId;
   final String hostDeviceId;
@@ -56,8 +44,6 @@ class LanClientGamePage extends StatefulWidget {
 class _LanClientGamePageState extends State<LanClientGamePage> {
   TouchController _touchController = TouchController();
   ValueNotifier<GameState>? _gameStateNotifier;
-  Session<ValueNotifier<GameState>>? _session;
-  StreamSubscription<List<Device>>? _devicesSub;
   StreamSubscription<LanServiceError>? _errorSub;
   StreamSubscription<LanRoomEvent>? _roomSub;
   bool _roomClosedDialogShown = false;
@@ -66,22 +52,16 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
   void initState() {
     super.initState();
     _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
-    _session = LanServiceAdapter.instance.createGameSession(
-      peerDeviceId: widget.hostDeviceId,
-      state: _gameStateNotifier!,
-      channelName: LanChannels.gameState,
-    );
-    _session!.onChanged = () {
-      if (mounted) setState(() {});
-    };
-    // Client 不调 syncFull — 等 Host 推初始 state
-    // deviceLost 检测
-    _devicesSub = LanServiceAdapter.instance.watchDevices().listen(_onDevices);
-    // 错误 SnackBar
-    _errorSub = LanServiceAdapter.instance.watchErrors().listen(_onError);
-    // Host 关房协议 — 优先于 deviceLost 兜底
-    _roomSub =
-        LanServiceAdapter.instance.watchRoomEvents().listen(_onRoomEvent);
+    var adapter = LanServiceAdapter.instance;
+    adapter.joinGameScope(widget.roomId);
+    adapter.onGameStateChanged((gs) {
+      if (mounted) {
+        _gameStateNotifier!.value = gs;
+        setState(() {});
+      }
+    });
+    _errorSub = adapter.watchErrors().listen(_onError);
+    _roomSub = adapter.watchRoomEvents().listen(_onRoomEvent);
   }
 
   void _onRoomEvent(LanRoomEvent ev) {
@@ -90,17 +70,12 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
     }
   }
 
-  void _onDevices(List<Device> devices) {
-    if (!devices.any((d) => d.deviceId == widget.hostDeviceId)) {
-      _showDisconnectDialog();
-    }
-  }
-
   void _onError(LanServiceError err) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('网络错误: $err')),
     );
+    _showDisconnectDialog();
   }
 
   void _showDisconnectDialog() {
@@ -132,10 +107,8 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
 
   @override
   void dispose() {
-    _devicesSub?.cancel();
     _errorSub?.cancel();
     _roomSub?.cancel();
-    _session?.dispose();
     _gameStateNotifier?.dispose();
     _touchController.reset();
     super.dispose();
@@ -380,7 +353,8 @@ class _LanClientGamePageState extends State<LanClientGamePage> {
         return;
       }
       final next = QuoridorEngine.switchTurn(result);
-      _gameStateNotifier!.value = next; // Session 自动 serialize + 发
+      _gameStateNotifier!.value = next;
+      LanServiceAdapter.instance.syncGameState(next);
       toc.reset();
       setState(() {});
     };

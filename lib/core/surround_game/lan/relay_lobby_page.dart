@@ -1,23 +1,16 @@
 // lib/core/surround_game/lan/relay_lobby_page.dart
 //
 // 网络对局入口页 — 通过房间号发现对端，底层走 WS 通讯。
-//
-// 与 LanLobbyPage 共享同一份 LanServiceAdapter（按 TransportKind 分发）。
-// 适配器自动处理 Relay 模式：createChatRoom → joinChatRoom → WS 通道。
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 import '../board_theme.dart';
 import 'game_room.dart';
-import 'lan_host_view_model.dart';
-import 'lan_match_state.dart';
-import 'lan_match_event.dart';
 import 'lan_room_page.dart';
 import 'persistence/player_profile_service.dart';
 import 'service/lan_service_adapter.dart';
-import 'protocol/lan_messages.dart';
-import '../../localnet/transport/transport_kind.dart';
 
 class RelayLobbyPage extends StatefulWidget {
   const RelayLobbyPage({super.key});
@@ -31,12 +24,10 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
   final _aliasCtrl = TextEditingController();
   final _roomCodeCtrl = TextEditingController();
   final _focusNode = FocusNode();
-  StreamSubscription<LanRoomEvent>? _roomSub;
   StreamSubscription<LanServiceError>? _errorSub;
-  bool _adapterStarted = false;
   bool _isBusy = false;
   String? _error;
-
+  fw.RelayTransport? _transport;
 
   @override
   void initState() {
@@ -49,62 +40,34 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
   Future<void> _bootstrap() async {
     final savedAlias = await PlayerProfileService.loadAlias();
     if (!mounted) return;
-
     _aliasCtrl.text = savedAlias ?? '';
-
-    try {
-      await _adapter.start(myAlias: savedAlias, kind: TransportKind.relay);
-      if (!mounted) return;
-      setState(() => _adapterStarted = true);
-      _roomSub = _adapter.watchRoomEvents().listen(_onRoomEvent);
-      _errorSub = _adapter.watchErrors().listen(_onError);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _error = '启动失败: $e');
-      }
-    }
-
-    if (savedAlias == null || savedAlias.isEmpty) {
-      _focusNode.requestFocus();
-    }
-  }
-
-  void _onAliasSubmitted(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return;
-    PlayerProfileService.saveAlias(trimmed);
-    _adapter.updateAlias(trimmed);
-  }
-
-  void _onRoomEvent(LanRoomEvent ev) {
-    // Relay 模式下房间事件主要用于处理加入结果
-    if (ev is ClientJoinResult && ev.accepted && mounted) {
-      // 加入成功，自动导航到房间页
-    }
-  }
-
-  void _onError(LanServiceError err) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('网络错误: $err')),
-    );
+    _errorSub = _adapter.watchErrors().listen(_onError);
   }
 
   Future<void> _createRoom() async {
-    setState(() {
-      _isBusy = true;
-      _error = null;
-    });
+    final alias = _aliasCtrl.text.trim();
+    if (alias.isEmpty) {
+      setState(() => _error = '请先输入名称');
+      return;
+    }
+    PlayerProfileService.saveAlias(alias);
+    setState(() { _isBusy = true; _error = null; });
+
     try {
-      final hostVm = LanHostViewModel();
-      hostVm.dispatch(const HostCreateRoomPressed());
-      final state = hostVm.value;
-      final roomId = state is HostWaiting ? state.room.roomId : 'new-${DateTime.now().millisecondsSinceEpoch}';
-      final room = GameRoom.placeholder(roomId: roomId);
-      final code = await _adapter.createRoom(room);
-      hostVm.dispose();
+      final transport = await fw.RelayTransport.create(
+        relayUrl: 'http://47.110.80.47:8988',
+        alias: alias,
+      );
+      final code = await transport.createRoom();
+      await transport.joinScope('peers');
+      _adapter.attach(transport, alias: alias);
+      _transport = transport;
       if (!mounted) return;
       setState(() => _isBusy = false);
+
+      final room = GameRoom.placeholder(roomId: code);
+      await _adapter.createRoom(room);
+      if (!mounted) return;
 
       Navigator.push(
         context,
@@ -112,20 +75,19 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
           builder: (_) => LanRoomPage(
             roomId: code,
             role: 'host',
-            initialRoom: room.copyWith(hostId: _adapter.myDeviceId, hostName: _adapter.myAlias),
+            initialRoom: room.copyWith(
+              hostId: _adapter.myDeviceId,
+              hostName: alias,
+            ),
           ),
         ),
       ).then((_) {
-        // 从房间页返回时关闭连接
         _adapter.closeRoom(code);
+        _adapter.detach();
+        _transport?.stop();
       });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isBusy = false;
-          _error = '创建房间失败: $e';
-        });
-      }
+      if (mounted) setState(() { _isBusy = false; _error = '创建房间失败: $e'; });
     }
   }
 
@@ -135,20 +97,25 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
       setState(() => _error = '请输入 6 位房间号');
       return;
     }
-    setState(() {
-      _isBusy = true;
-      _error = null;
-    });
+    final alias = _aliasCtrl.text.trim();
+    if (alias.isEmpty) {
+      setState(() => _error = '请先输入名称');
+      return;
+    }
+    setState(() { _isBusy = true; _error = null; });
+
     try {
-      // Relay 模式：通过房间号加入
-      await _adapter.joinRelayRoom(code,
-        hostDeviceId: 'relay',
-        hostAlias: 'Host',
+      final transport = await fw.RelayTransport.create(
+        relayUrl: 'http://47.110.80.47:8988',
+        alias: alias,
       );
+      await transport.joinRoom(code);
+      await transport.joinScope('peers');
+      _adapter.attach(transport, alias: alias);
+      _transport = transport;
       if (!mounted) return;
       setState(() => _isBusy = false);
 
-      // 加入成功，跳转房间等待页
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -164,27 +131,27 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
         ),
       ).then((_) {
         _adapter.closeRoom(code);
+        _adapter.detach();
+        _transport?.stop();
       });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isBusy = false;
-          _error = '加入房间失败: $e';
-        });
-      }
+      if (mounted) setState(() { _isBusy = false; _error = '加入房间失败: $e'; });
     }
+  }
+
+  void _onError(LanServiceError err) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('网络错误: $err')),
+    );
   }
 
   @override
   void dispose() {
-    _roomSub?.cancel();
     _errorSub?.cancel();
     _aliasCtrl.dispose();
     _roomCodeCtrl.dispose();
     _focusNode.dispose();
-    if (_adapterStarted) {
-      _adapter.stop();
-    }
     super.dispose();
   }
 
@@ -207,49 +174,42 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
           children: [
             Icon(Icons.cloud, size: 64, color: theme.piecePlayerA),
             const SizedBox(height: 24),
-            Text(
-              '跨网络对战',
-              style: textTheme.titleLarge?.copyWith(color: theme.btnText),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '通过中继服务器实现远程联机',
-              style: textTheme.bodySmall?.copyWith(color: theme.btnSub),
-            ),
-            const SizedBox(height: 32),
+            Text('跨网络对战',
+                style: textTheme.titleLarge?.copyWith(color: theme.btnText)),
+            const SizedBox(height: 16),
 
             // 别名
-            if (!_adapterStarted || _aliasCtrl.text.isEmpty) ...[
-              SizedBox(
-                width: 200,
-                child: TextField(
-                  controller: _aliasCtrl,
-                  focusNode: _focusNode,
-                  style: TextStyle(color: theme.btnText),
-                  decoration: InputDecoration(
-                    hintText: '输入你的名称',
-                    hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.5)),
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person, color: theme.btnSub),
-                  ),
-                  maxLength: 16,
-                  onSubmitted: _onAliasSubmitted,
+            SizedBox(
+              width: 200,
+              child: TextField(
+                controller: _aliasCtrl,
+                focusNode: _focusNode,
+                style: TextStyle(color: theme.btnText),
+                decoration: InputDecoration(
+                  hintText: '输入你的名称',
+                  hintStyle:
+                      TextStyle(color: theme.btnSub.withValues(alpha: 0.5)),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person, color: theme.btnSub),
                 ),
+                maxLength: 16,
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
+            const SizedBox(height: 24),
 
             // 创建房间
             SizedBox(
               width: double.infinity,
               height: 48,
               child: FilledButton.icon(
-                onPressed: (_adapterStarted && !_isBusy) ? _createRoom : null,
+                onPressed: _isBusy ? null : _createRoom,
                 icon: _isBusy
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.add_circle_outline),
                 label: Text(_isBusy ? '创建中...' : '创建房间'),
-                style: FilledButton.styleFrom(backgroundColor: theme.piecePlayerA),
+                style: FilledButton.styleFrom(
+                    backgroundColor: theme.piecePlayerA),
               ),
             ),
 
@@ -259,9 +219,8 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
                 children: [
                   Expanded(child: Divider()),
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('或', style: TextStyle(color: Colors.grey)),
-                  ),
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('或', style: TextStyle(color: Colors.grey))),
                   Expanded(child: Divider()),
                 ],
               ),
@@ -272,10 +231,12 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
               width: 200,
               child: TextField(
                 controller: _roomCodeCtrl,
-                style: TextStyle(color: theme.btnText, letterSpacing: 4),
+                style: TextStyle(
+                    color: theme.btnText, letterSpacing: 4),
                 decoration: InputDecoration(
                   hintText: '输入 6 位房间号',
-                  hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.5)),
+                  hintStyle:
+                      TextStyle(color: theme.btnSub.withValues(alpha: 0.5)),
                   border: const OutlineInputBorder(),
                   prefixIcon: Icon(Icons.vpn_key, color: theme.btnSub),
                 ),
@@ -286,12 +247,11 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
               ),
             ),
             const SizedBox(height: 12),
-
             SizedBox(
               width: double.infinity,
               height: 48,
               child: OutlinedButton.icon(
-                onPressed: (_adapterStarted && !_isBusy) ? _joinRoom : null,
+                onPressed: _isBusy ? null : _joinRoom,
                 icon: const Icon(Icons.login),
                 label: Text(_isBusy ? '加入中...' : '加入房间'),
               ),
@@ -300,11 +260,11 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
+                child: Text(_error!,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontSize: 13),
+                    textAlign: TextAlign.center),
               ),
           ],
         ),

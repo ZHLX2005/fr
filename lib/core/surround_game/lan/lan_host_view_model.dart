@@ -11,16 +11,15 @@ import 'lan_match_event.dart';
 import 'lan_match_state.dart';
 import 'lan_host_protocol_bridge.dart';
 import 'protocol/lan_messages.dart' as proto show LanRoomEvent, HostClientLeft;
-import '../../localnet/device/device.dart' show Device;
 
 final class LanHostViewModel extends ValueNotifier<LanHostState> {
   Timer? _countdownTimer;
-  StreamSubscription<List<Device>>? _devicesSub;
+  StreamSubscription<List<String>>? _devicesSub;
   StreamSubscription<proto.LanRoomEvent>? _roomSub;
   String? _peerDeviceId;
 
   LanHostViewModel({
-    Stream<List<Device>>? devicesStream,
+    Stream<List<String>>? devicesStream,
     Stream<proto.LanRoomEvent>? roomEvents,
     String? peerDeviceId,
   }) : super(const HostLobby()) {
@@ -38,10 +37,10 @@ final class LanHostViewModel extends ValueNotifier<LanHostState> {
     _peerDeviceId = peerDeviceId;
   }
 
-  void _onDevices(List<Device> devices) {
+  void _onDevices(List<String> devices) {
     final peerId = _peerDeviceId;
     if (peerId == null) return;
-    if (!devices.any((d) => d.deviceId == peerId)) {
+    if (!devices.any((d) => d == peerId)) {
       // 走协议路径（不走 dispatch，因为 HostClientLeft 在 lan_messages 中作为
       // LanRoomEvent 子类定义，由 reduceHostProtocol 统一处理）。
       _onRoomEvent(proto.HostClientLeft());

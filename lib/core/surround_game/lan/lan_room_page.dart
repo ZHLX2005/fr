@@ -66,16 +66,11 @@ class _LanRoomPageState extends State<LanRoomPage> {
   }
 
   Future<void> _startHost() async {
-    // createRoom: LAN 开始周期多播，Relay 创建房间 + 建立 WS
     await LanServiceAdapter.instance.createRoom(widget.initialRoom);
   }
 
   Future<void> _startClient() async {
-    // LAN 模式：发 join 请求（多播）；Relay 模式：已通过 joinRelayRoom 进入
-    await LanServiceAdapter.instance.sendJoinRequest(
-      hostDeviceId: widget.initialRoom.hostId,
-      clientAlias: LanServiceAdapter.instance.myAlias,
-    );
+    LanServiceAdapter.instance.joinGameScope(widget.roomId);
   }
 
   void _onRoomEvent(LanRoomEvent ev) {
@@ -93,14 +88,8 @@ class _LanRoomPageState extends State<LanRoomPage> {
         ev.clientDeviceId,
         ev.clientAlias,
       ));
-      // 接受消息（由 sendJoinAccept 走协议通道）
-      LanServiceAdapter.instance.sendJoinAccept(
-        clientDeviceId: ev.clientDeviceId,
-        room: widget.initialRoom.copyWith(
-          clientId: ev.clientDeviceId,
-          clientName: ev.clientAlias,
-        ),
-      );
+      LanServiceAdapter.instance.acceptJoin(ev.clientDeviceId);
+      _onCountdownFinished();
     } else if (ev is ClientJoinResult && !_isHost) {
       // Client 收到 join 结果
       if (ev.accepted) {

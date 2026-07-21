@@ -11,16 +11,15 @@ import 'lan_client_protocol_bridge.dart';
 import 'lan_match_event.dart';
 import 'lan_match_state.dart';
 import 'protocol/lan_messages.dart';
-import '../../localnet/device/device.dart' show Device;
 
 final class LanClientViewModel extends ValueNotifier<LanClientState> {
   Timer? _countdownTimer;
-  StreamSubscription<List<Device>>? _devicesSub;
+  StreamSubscription<List<String>>? _devicesSub;
   StreamSubscription<LanRoomEvent>? _roomSub;
   String? _peerDeviceId;
 
   LanClientViewModel({
-    Stream<List<Device>>? devicesStream,
+    Stream<List<String>>? devicesStream,
     Stream<LanRoomEvent>? roomEvents,
     String? peerDeviceId,
   }) : super(const ClientIdle()) {
@@ -38,10 +37,10 @@ final class LanClientViewModel extends ValueNotifier<LanClientState> {
     _peerDeviceId = peerDeviceId;
   }
 
-  void _onDevices(List<Device> devices) {
+  void _onDevices(List<String> devices) {
     final peerId = _peerDeviceId;
     if (peerId == null) return;
-    if (!devices.any((d) => d.deviceId == peerId)) {
+    if (!devices.any((d) => d == peerId)) {
       // 走协议路径（不走 dispatch，因为 ClientDisconnectedProtocol 是 LanRoomEvent 子类）
       _onRoomEvent(ClientDisconnectedProtocol());
     }

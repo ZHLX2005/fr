@@ -45,6 +45,7 @@ export 'lan/lan_host_game_page.dart';
 export 'lan/lan_client_game_page.dart';
 export 'lan/widgets/lan_board_stack.dart';
 export 'lan/widgets/touch_controller_factory.dart';
+export 'lan/relay_lobby_page.dart';
 
 // 共享入口（local + lan 的模式选择页）
 export 'lobby/lobby_page.dart';

@@ -1,19 +1,11 @@
 // lib/core/surround_game/lan/lan_lobby_page.dart
 //
-// 局域网模式"建房前"入口页 — 仅当用户在 lobby 选完"局域网对局"后进入。
-//
-// 本轮改造：
-// - 进入时自动启动 adapter（如无已保存 alias 则显示页内编辑字段）
-// - 房间列表由 framework 发现的 HostRoomAnnounced 事件填充
-// - 错误流（adapter 启动失败 / 协议解析失败）以 SnackBar 展示
-// - dispose: 取消所有订阅 + adapter.stop()
-//
-// 此页是 LanHostViewModel 的持有者（建房状态机）。
-// LanClient 流程不经过此页（客户端进 LanRoomPage(role: 'client') 直接选房）。
+// 局域网模式入口页 — 使用新引擎 Transport 直接发现/连接。
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 import '../board_theme.dart';
 import 'game_room.dart';
 import 'lan_room_page.dart';
@@ -22,8 +14,6 @@ import 'lan_match_event.dart';
 import 'lan_host_view_model.dart';
 import 'persistence/player_profile_service.dart';
 import 'service/lan_service_adapter.dart';
-import 'protocol/lan_messages.dart';
-import '../../localnet/device/device.dart' show Device;
 
 class LanLobbyPage extends StatefulWidget {
   const LanLobbyPage({super.key});
@@ -33,22 +23,19 @@ class LanLobbyPage extends StatefulWidget {
 }
 
 class _LanLobbyPageState extends State<LanLobbyPage> {
-  late final LanHostViewModel _vm;
-  late final TextEditingController _aliasCtrl;
-  late final FocusNode _aliasFocus;
-  StreamSubscription<LanRoomEvent>? _roomSub;
-  StreamSubscription<List<Device>>? _deviceSub;
+  final _adapter = LanServiceAdapter.instance;
+  final _aliasCtrl = TextEditingController();
+  final _focusNode = FocusNode();
   StreamSubscription<LanServiceError>? _errorSub;
-  List<Device> _devices = const [];
-  List<HostRoomAnnounced> _rooms = const [];
-  bool _adapterStarted = false;
+  StreamSubscription<List<String>>? _peerSub;
+  List<String> _peers = [];
+  fw.Transport? _transport;
+  bool _started = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _vm = LanHostViewModel();
-    _aliasCtrl = TextEditingController();
-    _aliasFocus = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _bootstrap();
     });
@@ -57,69 +44,77 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
   Future<void> _bootstrap() async {
     final savedAlias = await PlayerProfileService.loadAlias();
     if (!mounted) return;
-
     if (savedAlias != null && savedAlias.isNotEmpty) {
       _aliasCtrl.text = savedAlias;
-      await _startAdapter();
+    }
+  }
+
+  Future<void> _startDiscovery() async {
+    final alias = _aliasCtrl.text.trim();
+    if (alias.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先输入名称')),
+      );
       return;
     }
+    PlayerProfileService.saveAlias(alias);
 
-    // 无已保存 alias → 自动启动 adapter（用默认名），并聚焦输入框
-    await _startAdapter();
-    _aliasFocus.requestFocus();
-  }
-
-  Future<void> _startAdapter() async {
     try {
-      await LanServiceAdapter.instance.start(myAlias: _aliasCtrl.text);
+      final transport = await fw.LanTransport.create();
+      await transport.joinScope('peers');
+      _adapter.attach(transport, alias: alias);
       if (!mounted) return;
-      setState(() => _adapterStarted = true);
-      _roomSub =
-          LanServiceAdapter.instance.watchRoomEvents().listen(_onRoomEvent);
-      _deviceSub =
-          LanServiceAdapter.instance.watchDevices().listen(_onDeviceEvent);
-      _errorSub =
-          LanServiceAdapter.instance.watchErrors().listen(_onError);
+      setState(() {
+        _transport = transport;
+        _started = true;
+        _error = null;
+      });
+      _errorSub = _adapter.watchErrors().listen(_onError);
+      _peerSub = _adapter.watchPeers().listen((peers) {
+        if (mounted) setState(() => _peers = peers);
+      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('框架启动失败: $e')),
-        );
-      }
+      if (mounted) setState(() => _error = '启动失败: $e');
     }
   }
 
-  /// 失焦时保存 alias 并同步到 adapter
-  void _onAliasSubmitted(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return;
-    PlayerProfileService.saveAlias(trimmed);
-    if (_adapterStarted) {
-      LanServiceAdapter.instance.updateAlias(trimmed);
-    }
+  void _onPeerTapped(String peerId) {
+    final room = GameRoom.placeholder(roomId: 'sg-$peerId');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LanRoomPage(
+          roomId: room.roomId,
+          role: 'client',
+          initialRoom: room.copyWith(hostId: peerId, hostName: peerId.substring(0, 6)),
+        ),
+      ),
+    );
   }
 
-  bool get _hasValidAlias =>
-      _aliasCtrl.text.trim().isNotEmpty && _adapterStarted;
+  Future<void> _createRoom() async {
+    if (!_started) return;
+    final vm = LanHostViewModel();
+    vm.dispatch(const HostCreateRoomPressed());
+    final state = vm.value;
+    final roomId = state is HostWaiting ? state.room.roomId : 'host-room';
+    await _adapter.createRoom(GameRoom.placeholder(roomId: roomId));
+    vm.dispose();
 
-  void _onRoomEvent(LanRoomEvent ev) {
-    if (ev is HostRoomAnnounced) {
-      setState(() {
-        _rooms = [
-          ..._rooms.where((r) => r.room.roomId != ev.room.roomId),
-          ev,
-        ];
-      });
-    } else if (ev is HostRoomClosed) {
-      // 任何 host 关房都要从列表里移除（包括自己发出去的关房）
-      setState(() {
-        _rooms = _rooms.where((r) => r.room.roomId != ev.roomId).toList();
-      });
-    }
-  }
-
-  void _onDeviceEvent(List<Device> devices) {
-    setState(() => _devices = devices);
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LanRoomPage(
+          roomId: roomId,
+          role: 'host',
+          initialRoom: GameRoom.placeholder(roomId: roomId).copyWith(
+            hostId: _adapter.myDeviceId,
+            hostName: _adapter.myAlias,
+          ),
+        ),
+      ),
+    ).then((_) => _adapter.closeRoom(roomId));
   }
 
   void _onError(LanServiceError err) {
@@ -129,66 +124,34 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
     );
   }
 
-  void _onCreateRoom() async {
-    // 建房前确保 alias 已保存
-    _onAliasSubmitted(_aliasCtrl.text);
-    _vm.dispatch(const HostCreateRoomPressed());
-    final state = _vm.value;
-    final roomId = state is HostWaiting ? state.room.roomId : 'new';
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LanRoomPage(
-          roomId: roomId,
-          role: 'host',
-          initialRoom: state is HostWaiting
-              ? state.room
-              : GameRoom.placeholder(roomId: roomId),
-        ),
-      ),
-    );
-    // 从 RoomPage 回来：host 自己广播的 HostRoomClosed 收不到（UDP 多播不 loopback），
-    // 显式从本机房间列表里移除刚创建的房间。
-    if (mounted) {
-      setState(() {
-        _rooms = _rooms.where((r) => r.room.roomId != roomId).toList();
-      });
-    }
-  }
-
   @override
   void dispose() {
-    _aliasFocus.dispose();
-    _roomSub?.cancel();
-    _deviceSub?.cancel();
     _errorSub?.cancel();
-    _vm.dispose();
+    _peerSub?.cancel();
+    _focusNode.dispose();
     _aliasCtrl.dispose();
-    if (_adapterStarted) {
-      LanServiceAdapter.instance.stop();
-    }
+    _adapter.detach();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final boardTheme = BoardTheme.of(context);
+    final theme = BoardTheme.of(context);
 
     return Scaffold(
-      backgroundColor: boardTheme.boardSurface,
+      backgroundColor: theme.boardSurface,
       appBar: AppBar(
         title: const Text('局域网对局'),
-        backgroundColor: boardTheme.panelBg,
-        foregroundColor: boardTheme.btnText,
+        backgroundColor: theme.panelBg,
+        foregroundColor: theme.btnText,
         actions: [
-          if (_adapterStarted)
+          if (_started)
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Center(
                 child: Text(
-                  '${_devices.length} 设备',
-                  style: TextStyle(color: boardTheme.btnSub, fontSize: 12),
+                  '${_peers.length} 设备',
+                  style: TextStyle(color: theme.btnSub, fontSize: 12),
                 ),
               ),
             ),
@@ -196,176 +159,169 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
       ),
       body: Column(
         children: [
-          // 本机名称编辑区 — 页内内联编辑
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(Icons.person, size: 28, color: theme.colorScheme.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 160,
-                        child: TextField(
-                          controller: _aliasCtrl,
-                          focusNode: _aliasFocus,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: boardTheme.btnText,
-                          ),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            hintText: '输入你的名称',
-                            hintStyle: TextStyle(
-                              color: boardTheme.btnSub.withValues(alpha: 0.5),
-                              fontSize: 14,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              borderSide: BorderSide(
-                                color: boardTheme.btnBorder,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              borderSide: BorderSide(
-                                color: boardTheme.btnBorder.withValues(alpha: 0.4),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              borderSide: BorderSide(
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                          maxLength: 16,
-                          // 实时更新「创建房间」按钮状态
-                          onChanged: (_) => setState(() {}),
-                          // 失焦或按回车时保存
-                          onSubmitted: _onAliasSubmitted,
-                          onEditingComplete: () {
-                            _onAliasSubmitted(_aliasCtrl.text);
-                            _aliasFocus.unfocus();
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _adapterStarted
-                                  ? Colors.green
-                                  : Colors.orange,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _adapterStarted ? '已连接' : '启动中...',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: boardTheme.btnSub,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          // 别名
+          _buildAliasField(theme),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(_error!,
+                  style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
             ),
-          ),
 
-          // 创建房间按钮
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _hasValidAlias ? _onCreateRoom : null,
-                icon: const Icon(Icons.add),
-                label: const Text('创建房间'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: boardTheme.piecePlayerA,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+          // 未启动 → 引导按钮
+          if (!_started)
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.wifi_find, size: 64),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _aliasCtrl.text.trim().isEmpty ? null : _startDiscovery,
+                      icon: const Icon(Icons.search),
+                      label: const Text('发现设备'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.piecePlayerA,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('输入名称后开始搜索局域网设备',
+                        style: TextStyle(color: theme.btnSub, fontSize: 12)),
+                  ],
                 ),
               ),
             ),
-          ),
-          const Divider(height: 1),
 
-          // 房间列表
-          Expanded(child: _buildRoomList(theme, boardTheme)),
+          // 已启动 → 设备列表 + 创建房间
+          if (_started) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _createRoom,
+                  icon: const Icon(Icons.add),
+                  label: const Text('创建房间'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.piecePlayerA,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _peers.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.wifi_find, size: 64, color: theme.btnSub),
+                          const SizedBox(height: 16),
+                          Text('等待设备上线...',
+                              style: TextStyle(color: theme.btnSub)),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _peers.length,
+                      itemBuilder: (_, i) => ListTile(
+                        leading: const Icon(Icons.phone_android),
+                        title: Text('设备 ${_peers[i].substring(0, 6)}'),
+                        subtitle: Text('ID: ${_peers[i]}'),
+                        onTap: () => _onPeerTapped(_peers[i]),
+                      ),
+                    ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildRoomList(ThemeData theme, BoardThemeData boardTheme) {
-    if (_rooms.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.wifi_find,
-                size: 64, color: theme.colorScheme.outline),
-            const SizedBox(height: 16),
-            Text(
-              '暂无可用房间',
-              style: theme.textTheme.bodyLarge
-                  ?.copyWith(color: theme.colorScheme.outline),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _devices.isEmpty
-                  ? '等待其他设备上线...'
-                  : '等待房间广播...',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
-            ),
-          ],
-        ),
-      );
-    }
-    return ListView.builder(
-      itemCount: _rooms.length,
-      itemBuilder: (ctx, i) {
-        final r = _rooms[i];
-        return ListTile(
-          leading: const Icon(Icons.meeting_room),
-          title: Text('${r.hostAlias} 的房间'),
-          subtitle: Text('ID: ${r.room.roomId}'),
-          onTap: () {
-            final realRoom = r.room.copyWith(
-              hostId: r.hostDeviceId,
-              hostName: r.hostAlias,
-            );
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => LanRoomPage(
-                  roomId: r.room.roomId,
-                  role: 'client',
-                  initialRoom: realRoom,
+  Widget _buildAliasField(BoardThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      color: Theme.of(context)
+          .colorScheme
+          .primaryContainer
+          .withValues(alpha: 0.3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.person, size: 28,
+              color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 160,
+                  child: TextField(
+                    controller: _aliasCtrl,
+                    focusNode: _focusNode,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: theme.btnText,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
+                      hintText: '输入你的名称',
+                      hintStyle: TextStyle(
+                          color: theme.btnSub.withValues(alpha: 0.5),
+                          fontSize: 14),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(color: theme.btnBorder)),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(
+                              color: theme.btnBorder.withValues(alpha: 0.4))),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(
+                              color: Theme.of(context).colorScheme.primary)),
+                    ),
+                    maxLength: 16,
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (v) {
+                      PlayerProfileService.saveAlias(v.trim());
+                    },
+                    onEditingComplete: () {
+                      PlayerProfileService.saveAlias(_aliasCtrl.text.trim());
+                      _focusNode.unfocus();
+                    },
+                  ),
                 ),
-              ),
-            );
-          },
-        );
-      },
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _started ? Colors.green : Colors.orange,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _started ? '已连接' : '未连接',
+                      style: TextStyle(color: theme.btnSub, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

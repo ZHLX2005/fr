@@ -16,9 +16,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/localnet/device/device.dart';
-import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
-import 'package:xiaodouzi_fr/core/surround_game/lan/protocol/lan_channels.dart';
 import 'package:xiaodouzi_fr/core/surround_game/lan/service/lan_service_adapter.dart';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
@@ -32,14 +29,7 @@ import 'victory_overlay.dart';
 
 /// LAN 主机游戏页面
 ///
-/// 单面板布局：棋盘居中（flipY=true 翻转，host 是 top player 视觉在下方），
-/// 底部仅显示 host 自己的 PlayerPanel。
-/// touchController 使用 [LanHostTouchControllerFactory] 创建，带 y 坐标镜像。
-///
-/// 状态同步：通过 LanServiceAdapter.createGameSession 建立双端 Session，
-/// 走固定 channel 'surround/game/state'。任一端修改 ValueNotifier 都会自动
-/// serialize + 推送给对端；对端收到后用 serializer 在原 notifier 上反序列化，
-/// 触发 onChanged 回调刷新 UI。
+/// 单面板布局：棋盘居中（flipY=true），状态通过 DataLog scope 同步。
 class LanHostGamePage extends StatefulWidget {
   final String roomId;
   final String peerDeviceId;
@@ -53,34 +43,21 @@ class LanHostGamePage extends StatefulWidget {
 class _LanHostGamePageState extends State<LanHostGamePage> {
   TouchController _touchController = TouchController();
   ValueNotifier<GameState>? _gameStateNotifier;
-  Session<ValueNotifier<GameState>>? _session;
-  StreamSubscription<List<Device>>? _devicesSub;
   StreamSubscription<LanServiceError>? _errorSub;
 
   @override
   void initState() {
     super.initState();
     _gameStateNotifier = ValueNotifier<GameState>(QuoridorEngine.initialize());
-    _session = LanServiceAdapter.instance.createGameSession(
-      peerDeviceId: widget.peerDeviceId,
-      state: _gameStateNotifier!,
-      channelName: LanChannels.gameState,
-    );
-    _session!.onChanged = () {
-      if (mounted) setState(() {});
-    };
-    // Host 主动发初始 state（让 Client 进入后立刻收到）
-    _session!.syncFull();
-    // deviceLost 检测
-    _devicesSub = LanServiceAdapter.instance.watchDevices().listen(_onDevices);
-    // 错误 SnackBar
-    _errorSub = LanServiceAdapter.instance.watchErrors().listen(_onError);
-  }
-
-  void _onDevices(List<Device> devices) {
-    if (!devices.any((d) => d.deviceId == widget.peerDeviceId)) {
-      _showDisconnectDialog();
-    }
+    var adapter = LanServiceAdapter.instance;
+    adapter.joinGameScope(widget.roomId);
+    adapter.onGameStateChanged((gs) {
+      if (mounted) {
+        _gameStateNotifier!.value = gs;
+        setState(() {});
+      }
+    });
+    _errorSub = adapter.watchErrors().listen(_onError);
   }
 
   void _onError(LanServiceError err) {
@@ -88,6 +65,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('网络错误: $err')),
     );
+    _showDisconnectDialog();
   }
 
   void _showDisconnectDialog() {
@@ -113,13 +91,9 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
 
   @override
   void dispose() {
-    _devicesSub?.cancel();
     _errorSub?.cancel();
-    _session?.dispose();
     _gameStateNotifier?.dispose();
     _touchController.reset();
-    // Host 退出游戏时关闭房间
-    LanServiceAdapter.instance.closeRoom(widget.roomId);
     super.dispose();
   }
 
@@ -373,7 +347,8 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
       }
       final next = QuoridorEngine.switchTurn(result);
       debugPrint('[HOST-CONFIRM] next.currentPlayerIsTop=${next.currentPlayerIsTop} notifier.value set');
-      _gameStateNotifier!.value = next; // Session 自动 serialize + 发
+      _gameStateNotifier!.value = next;
+      LanServiceAdapter.instance.syncGameState(next);
       toc.reset();
       setState(() {});
     };
@@ -389,8 +364,6 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   }
 
   void _onRestart() {
-    // 重置 GameState（Session 会自动 serialize + 推送给 Client，两端 overlay 消失）。
-    // 不走 VM —— GamePage 的状态由 _gameStateNotifier + Session 驱动。
     _touchController.reset();
     _resetGameState();
   }
@@ -603,9 +576,11 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     );
   }
 
-  /// 重置 GameState 到初始状态（Session 会自动同步给对端）
+  /// 重置 GameState 到初始状态（通过 DataLog 同步给对端）
   void _resetGameState() {
-    _gameStateNotifier?.value = QuoridorEngine.initialize();
+    final gs = QuoridorEngine.initialize();
+    _gameStateNotifier?.value = gs;
+    LanServiceAdapter.instance.syncGameState(gs);
     setState(() {});
   }
 }
