@@ -128,34 +128,55 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   StreamSubscription<DataLog>? _presenceSub;
 
   /// 进入等待状态：在房间 scope 上写入 presence，监听对端
-  void _enterWaiting(RelayTransport t, String code) {
+  void _enterWaiting(RelayTransport t, String code, String status) {
     final scope = 'room-$code';
     t.joinScope(scope);
-    _writePresence(t, scope, t.myNodeId, _alias, 'waiting');
+    _writePresence(t, scope, t.myNodeId, _alias, status);
     _presenceSub?.cancel();
     _presenceSub = t.watchScope(scope).listen((log) {
-      if (!_waitingForPeer || _handedOff || !mounted) return;
-      // 查看是否有别人写了 presence
-      for (final entry in log.state.entries) {
-        if (entry.key.startsWith('presence-') && entry.key != 'presence-${t.myNodeId}') {
-          final data = entry.value as Map?;
-          if (data == null) continue;
-          final did = data['deviceId'] as String?;
-          if (did == null || did == t.myNodeId) continue;
-          _handedOff = true;
-          _presenceSub?.cancel();
-          widget.onPeerSelected(
-            DiscoveredPeer(id: did, alias: data['alias'] as String? ?? '?', address: 'relay://$code'),
-            t,
-          );
-          return;
-        }
-      }
+      _checkPresence(log.state, t);
     });
+    // 订阅后立即检查：对端已写 presence 的场景（晚加入方）
+    final log = t.getScope(scope);
+    if (log != null) _checkPresence(log.state, t);
     setState(() {
       _waitingForPeer = true;
       _error = null;
     });
+  }
+
+  void _checkPresence(Map<String, dynamic> state, RelayTransport t) {
+    if (!_waitingForPeer || _handedOff || !mounted) return;
+    final code = _roomCode;
+    final myId = t.myNodeId;
+    if (code == null) return;
+    for (final entry in state.entries) {
+      if (!entry.key.startsWith('presence-') || entry.key == 'presence-$myId') continue;
+      final data = entry.value as Map?;
+      if (data == null) continue;
+      final did = data['deviceId'] as String?;
+      if (did == null || did == t.myNodeId) continue;
+      final status = data['status'] as String? ?? '';
+
+      if (status == 'joining') {
+        // 我是 host，对方加入了 → 回传 ready（三次握手）
+        _writePresence(t, 'room-$code', myId, _alias, 'ready');
+        _completeHandshake(t, code, did, data['alias'] as String? ?? '?');
+      } else if (status == 'ready') {
+        // 我是 joiner，收到 host 的 ready → 完成
+        _completeHandshake(t, code, did, data['alias'] as String? ?? '?');
+      }
+      return;
+    }
+  }
+
+  void _completeHandshake(RelayTransport t, String code, String did, String alias) {
+    _handedOff = true;
+    _presenceSub?.cancel();
+    widget.onPeerSelected(
+      DiscoveredPeer(id: did, alias: alias, address: 'relay://$code'),
+      t,
+    );
   }
 
   /// 往 scope DataLog 写入 presence（持久化，对端晚加入也能读到）
@@ -181,7 +202,7 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
       _transport = t;
       if (!mounted) return;
       setState(() { _busy = false; _roomCode = code; });
-      _enterWaiting(t, code);
+      _enterWaiting(t, code, 'waiting'); // 房主
     } catch (e) {
       if (mounted) {
         setState(() { _busy = false; _error = '创建房间失败: $e'; });
@@ -207,7 +228,7 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
       _transport = t;
       if (!mounted) return;
       setState(() { _busy = false; _roomCode = code; });
-      _enterWaiting(t, code);
+      _enterWaiting(t, code, 'joining'); // 加入者
     } catch (e) {
       if (mounted) {
         setState(() { _busy = false; _error = '加入房间失败: $e'; });

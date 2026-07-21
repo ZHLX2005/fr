@@ -213,11 +213,11 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
             }
           }
         }
-        // presence — 等待中的对端上线了
+        // presence — 等待中的对端上线了（events 路径）
         if (e.topic == 'presence' && _waitingForPeer) {
           final did = e.data['deviceId'] as String?;
           if (did != null && did != transport.myNodeId) {
-            _onPeerPresent(did, transport);
+            // 通过 DataLog 路径触发 _checkPresence（已订阅 _presenceSub）
           }
         }
       });
@@ -315,16 +315,40 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   void _watchPresenceScope(Transport t, String scope) {
     _presenceSub?.cancel();
     _presenceSub = t.watchScope(scope).listen((log) {
-      if (!_waitingForPeer || _handedOff || !mounted) return;
-      final wp = _waitingPeer;
-      if (wp == null) return;
-      final other = log.state['presence-${wp.id}'] as Map?;
-      if (other == null) return;
-      // 别人也写了自己的 presence → 双向确认
-      _handedOff = true;
-      _presenceSub?.cancel();
-      widget.onPeerSelected(wp, t);
+      _checkPresence(log.state, t);
     });
+    // 订阅后立即检查：对端 presence 可能已被 _dispatch 预写入
+    final log = t.getScope(scope);
+    if (log != null) _checkPresence(log.state, t);
+  }
+
+  /// 三次握手检测
+  void _checkPresence(Map<String, dynamic> state, Transport t) {
+    if (!_waitingForPeer || _handedOff || !mounted) return;
+    final wp = _waitingPeer;
+    final myId = _myNodeId;
+    final scope = _sessionScope;
+    if (wp == null || myId == null || scope == null) return;
+
+    final other = state['presence-${wp.id}'] as Map?;
+    if (other == null) return;
+    final otherStatus = other['status'] as String? ?? '';
+
+    if (otherStatus == 'accepted') {
+      // 我是邀请方，对方接受了 → 回传 confirmed（第三次握手）
+      _writePresence(t, scope, myId, _myAlias, 'confirmed');
+      _completeHandshake(wp, t);
+    } else if (otherStatus == 'confirmed') {
+      // 我是接受方，收到对方的 confirmed → 完成
+      _completeHandshake(wp, t);
+    }
+    // otherStatus == 'inviting' → 我是接受方，等对方 confirmed，不处理
+  }
+
+  void _completeHandshake(DiscoveredPeer peer, Transport t) {
+    _handedOff = true;
+    _presenceSub?.cancel();
+    widget.onPeerSelected(peer, t);
   }
 
   void _onPeerPresent(String deviceId, Transport transport) {
