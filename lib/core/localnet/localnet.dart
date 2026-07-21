@@ -25,7 +25,7 @@
 /// ```
 library;
 
-// 新模块（导出时主动 hide 旧类同名）
+// 新模块 — Transport + DataLog + Discovery
 export 'transport.dart';
 export 'transport_event.dart';
 export 'localnet_types.dart';
@@ -43,53 +43,4 @@ export 'services/debug_log_service.dart';
 export 'pages/localnet_debug_page.dart';
 export 'pages/localnet_settings_page.dart';
 
-// 兼容：旧模块 — 用 hide 避免冲突
-export 'framework/framework_config.dart';
-export 'framework/framework_core.dart';
-export 'framework/framework_lan_core.dart';
-export 'framework/framework_relay_core.dart';
-export 'framework/framework_status.dart';
-export 'framework/lan_framework.dart' show LanFramework;
-export 'framework/exception/framework_exception.dart';
-
-export 'event_bus/event_bus.dart';
-export 'event_bus/lan_event.dart';
-
-export 'device/device.dart';
-export 'device/device_manager.dart';
-
-// Discovery 旧类被新类同名覆盖 → 旧 LanDiscovery 用 show，新 LanDiscovery 直接是新的
-export 'discovery/discovery_service.dart';
-export 'discovery/discovery_event.dart';
-export 'discovery/discovery_peer.dart';
-export 'discovery/lan_discovery.dart' hide LanDiscovery;
-export 'discovery/relay_discovery.dart' hide RelayDiscovery;
-
-export 'channel/channel_message.dart';
-export 'channel/send_result.dart';
-export 'channel/channel_manager.dart';
-
-export 'connection/connection_quality.dart';
-export 'connection/connection_manager.dart';
-
-// Transport 旧基类用 hide
-export 'transport/transport.dart' hide Transport;
-export 'transport/transport_kind.dart';
-export 'transport/transport_config.dart';
-export 'transport/udp_transport.dart' hide UdpDatagram;
-export 'transport/http_transport.dart';
-export 'transport/ws_transport.dart';
-export 'transport/transport_frame.dart';
-
-export 'transport_channel/transport_channel.dart' hide SendResult;
-export 'transport_channel/lan_channel.dart';
-export 'transport_channel/relay_channel.dart';
-
-// TransportService 旧类 hide TransportEvent
-export 'transport_service/transport_service.dart' hide TransportEvent;
-export 'transport_service/lan_transport_service.dart';
-export 'transport_service/relay_transport_service.dart';
-
-export 'session/session.dart';
-export 'session/state_serializer.dart';
-export 'util/network_util.dart';
+// 遗留兼容 — 已删除：所有旧 framework/event_bus/device/discovery/channel/connection/transport/session/util 类

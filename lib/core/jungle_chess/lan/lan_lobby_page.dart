@@ -1,15 +1,11 @@
 // lib/core/jungle_chess/lan/lan_lobby_page.dart
 //
-// 局域网模式"建房前"入口页。
-//
-// 进入时自动启动 adapter；房间列表由 framework 发现的 HostRoomAnnounced 事件填充。
-// 错误流（adapter 启动失败 / 协议解析失败）以 SnackBar 展示。
-// dispose：取消所有订阅 + adapter.stop()。
+// 局域网模式入口页 — 使用新引擎 Transport 直接发现/连接。
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/localnet/device/device.dart' show Device;
+import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 import 'lan_match_state.dart';
 import 'lan_match_event.dart';
 import 'lan_host_view_model.dart';
@@ -27,22 +23,19 @@ class LanLobbyPage extends StatefulWidget {
 }
 
 class _LanLobbyPageState extends State<LanLobbyPage> {
-  late final LanHostViewModel _vm;
-  late final TextEditingController _aliasCtrl;
-  late final FocusNode _aliasFocus;
-  StreamSubscription<LanRoomEvent>? _roomSub;
-  StreamSubscription<List<Device>>? _deviceSub;
+  final _adapter = LanServiceAdapter.instance;
+  final _aliasCtrl = TextEditingController();
+  final _focusNode = FocusNode();
   StreamSubscription<LanServiceError>? _errorSub;
-  List<Device> _devices = const [];
-  List<HostRoomAnnounced> _rooms = const [];
-  bool _adapterStarted = false;
+  StreamSubscription<List<String>>? _peerSub;
+  List<String> _peers = [];
+  List<HostRoomAnnounced> _rooms = [];
+  fw.Transport? _transport;
+  bool _started = false;
 
   @override
   void initState() {
     super.initState();
-    _vm = LanHostViewModel();
-    _aliasCtrl = TextEditingController();
-    _aliasFocus = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _bootstrap();
     });
@@ -51,97 +44,58 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
   Future<void> _bootstrap() async {
     final savedAlias = await PlayerProfileService.loadAlias();
     if (!mounted) return;
-
     if (savedAlias != null && savedAlias.isNotEmpty) {
       _aliasCtrl.text = savedAlias;
-      await _startAdapter();
-      return;
     }
-    await _startAdapter();
-    _aliasFocus.requestFocus();
+    _errorSub = _adapter.watchErrors().listen(_onError);
+    _peerSub = _adapter.watchPeers().listen((peers) {
+      if (mounted) setState(() => _peers = peers);
+    });
   }
 
-  Future<void> _startAdapter() async {
+  Future<void> _startDiscovery() async {
+    final alias = _aliasCtrl.text.trim();
+    if (alias.isEmpty) return;
+    PlayerProfileService.saveAlias(alias);
+
     try {
-      await LanServiceAdapter.instance.start(myAlias: _aliasCtrl.text);
+      final transport = await fw.LanTransport.create();
+      await transport.joinScope('peers');
+      _adapter.attach(transport, alias: alias);
       if (!mounted) return;
-      setState(() => _adapterStarted = true);
-      _roomSub =
-          LanServiceAdapter.instance.watchRoomEvents().listen(_onRoomEvent);
-      _deviceSub =
-          LanServiceAdapter.instance.watchDevices().listen(_onDeviceEvent);
-      _errorSub =
-          LanServiceAdapter.instance.watchErrors().listen(_onError);
+      setState(() { _transport = transport; _started = true; });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('框架启动失败: $e')),
+          SnackBar(content: Text('启动失败: $e')),
         );
       }
     }
   }
 
-  void _onAliasSubmitted(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return;
-    PlayerProfileService.saveAlias(trimmed);
-    if (_adapterStarted) {
-      LanServiceAdapter.instance.updateAlias(trimmed);
-    }
-  }
-
-  bool get _hasValidAlias =>
-      _aliasCtrl.text.trim().isNotEmpty && _adapterStarted;
-
-  void _onRoomEvent(LanRoomEvent ev) {
-    if (ev is HostRoomAnnounced) {
-      setState(() {
-        _rooms = [
-          ..._rooms.where((r) => r.roomId != ev.roomId),
-          ev,
-        ];
-      });
-    } else if (ev is HostRoomClosed) {
-      setState(() => _rooms = []);
-    }
-  }
-
-  void _onDeviceEvent(List<Device> devices) {
-    setState(() => _devices = devices);
-  }
-
-  void _onError(LanServiceError err) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('网络错误: $err')),
-    );
-  }
-
   void _onCreateRoom() {
-    _onAliasSubmitted(_aliasCtrl.text);
+    if (!_started) return;
     final roomId = DateTime.now().millisecondsSinceEpoch.toString();
-    _vm.dispatch(HostCreateRoom(
+    final vm = LanHostViewModel();
+    vm.dispatch(HostCreateRoom(roomId: roomId, hostName: _adapter.myAlias));
+    final room = GameRoom(
       roomId: roomId,
-      hostName: LanServiceAdapter.instance.myAlias,
-    ));
-    final state = _vm.value;
-    final room = state is HostWaiting
-        ? state.room
-        : GameRoom(
-            roomId: roomId,
-            hostDeviceId: LanServiceAdapter.instance.myDeviceId,
-            hostName: LanServiceAdapter.instance.myAlias,
-          );
+      hostDeviceId: _adapter.myDeviceId,
+      hostName: _adapter.myAlias,
+    );
+    _adapter.announceRoom(room);
+    vm.dispose();
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => LanRoomPage(
-          roomId: room.roomId,
+          roomId: roomId,
           role: 'host',
           initialRoom: room,
         ),
       ),
-    );
+    ).then((_) => _adapter.stopRoom(roomId));
   }
 
   void _onJoinRoom(HostRoomAnnounced ann) {
@@ -162,17 +116,20 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
     );
   }
 
+  void _onError(LanServiceError err) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('网络错误: $err')),
+    );
+  }
+
   @override
   void dispose() {
-    _aliasFocus.dispose();
-    _roomSub?.cancel();
-    _deviceSub?.cancel();
     _errorSub?.cancel();
-    _vm.dispose();
+    _peerSub?.cancel();
+    _focusNode.dispose();
     _aliasCtrl.dispose();
-    if (_adapterStarted) {
-      LanServiceAdapter.instance.stop();
-    }
+    _adapter.detach();
     super.dispose();
   }
 
@@ -182,130 +139,87 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
       appBar: AppBar(
         title: const Text('斗兽棋 - 局域网'),
         actions: [
-          if (_adapterStarted)
+          if (_started)
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Center(
-                child: Text(
-                  '${_devices.length} 设备',
-                  style: const TextStyle(fontSize: 12),
-                ),
+                child: Text('${_peers.length} 设备', style: const TextStyle(fontSize: 12)),
               ),
             ),
         ],
       ),
       body: Column(
         children: [
-          // 本机名称编辑区
+          // 别名
           Container(
-            width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Icon(Icons.person, size: 28),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 160,
-                        child: TextField(
-                          controller: _aliasCtrl,
-                          focusNode: _aliasFocus,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 6,
-                            ),
-                            hintText: '输入你的名称',
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLength: 16,
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: _onAliasSubmitted,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: ShapeDecoration(
-                              shape: const CircleBorder(),
-                              color: _adapterStarted ? Colors.green : Colors.orange,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(_adapterStarted ? '已连接' : '启动中...'),
-                        ],
-                      ),
-                    ],
+                  child: TextField(
+                    controller: _aliasCtrl,
+                    focusNode: _focusNode,
+                    decoration: const InputDecoration(
+                      isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      hintText: '输入名称',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLength: 16,
+                    onSubmitted: (v) => PlayerProfileService.saveAlias(v.trim()),
                   ),
                 ),
+                const SizedBox(width: 12),
+                if (!_started)
+                  FilledButton(
+                    onPressed: _aliasCtrl.text.trim().isEmpty ? null : _startDiscovery,
+                    child: const Text('发现'),
+                  ),
               ],
             ),
           ),
 
-          // 创建房间按钮
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _hasValidAlias ? _onCreateRoom : null,
-                icon: const Icon(Icons.add),
-                label: const Text('创建房间'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+          if (_started)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _onCreateRoom,
+                  icon: const Icon(Icons.add),
+                  label: const Text('创建房间'),
                 ),
               ),
             ),
-          ),
-          const Divider(height: 1),
 
-          // 房间列表
-          Expanded(child: _buildRoomList()),
+          const Divider(height: 1),
+          Expanded(child: _buildBody()),
         ],
       ),
     );
   }
 
-  Widget _buildRoomList() {
-    if (_rooms.isEmpty) {
+  Widget _buildBody() {
+    if (!_started) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.wifi_find, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              '暂无可用房间',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _devices.isEmpty ? '等待其他设备上线...' : '等待房间广播...',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
+        child: Text('输入名称后点击"发现"',
+            style: Theme.of(context).textTheme.bodySmall),
+      );
+    }
+    if (_peers.isEmpty) {
+      return Center(
+        child: Text('等待设备上线...',
+            style: Theme.of(context).textTheme.bodySmall),
       );
     }
     return ListView.builder(
-      itemCount: _rooms.length,
-      itemBuilder: (ctx, i) {
-        final r = _rooms[i];
-        return ListTile(
-          leading: const Icon(Icons.meeting_room),
-          title: Text('${r.hostName} 的房间'),
-          subtitle: Text('ID: ${r.roomId}'),
-          onTap: () => _onJoinRoom(r),
-        );
-      },
+      itemCount: _peers.length,
+      itemBuilder: (_, i) => ListTile(
+        leading: const Icon(Icons.phone_android),
+        title: Text('设备 ${_peers[i].substring(0, 6)}'),
+        subtitle: Text('ID: ${_peers[i]}'),
+      ),
     );
   }
 }

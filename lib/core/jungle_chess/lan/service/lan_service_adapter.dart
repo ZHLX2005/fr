@@ -1,27 +1,19 @@
 // lib/core/jungle_chess/lan/service/lan_service_adapter.dart
 //
-// 业务层唯一接触 localnet 框架的边界。
-// Page / ViewModel 不直接 import 'lib/core/localnet/...'。
-//
-// 内部维护：
-//   - LanFramework.instance（启动 / 停止 / sendTo / watchChannel）
-//   - StreamController<LanRoomEvent> 桥接多个 channel
-//   - 周期性 announceRoom timer
+// 新引擎模式：Transport 由业务层直接创建（LanTransport.create()），
+// adapter.attach(transport) 绑定，DataLog 同步游戏状态。
+// 只有 LAN 模式。
 
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:xiaodouzi_fr/core/localnet/channel/send_result.dart';
-import 'package:xiaodouzi_fr/core/localnet/device/device.dart';
-import 'package:xiaodouzi_fr/core/localnet/framework/framework_config.dart';
-import 'package:xiaodouzi_fr/core/localnet/framework/lan_framework.dart';
-import 'package:xiaodouzi_fr/core/localnet/session/session.dart';
-import 'package:xiaodouzi_fr/core/jungle_chess/lan/protocol/lan_messages.dart';
-import 'package:xiaodouzi_fr/core/jungle_chess/lan/persistence/player_profile_service.dart';
-import 'package:xiaodouzi_fr/core/jungle_chess/lan/persistence/device_id_service.dart';
-import 'package:xiaodouzi_fr/core/jungle_chess/lan/serializer/game_state_serializer.dart';
-import 'package:xiaodouzi_fr/core/jungle_chess/lan/game_room.dart';
-import 'package:xiaodouzi_fr/core/jungle_chess/models/game_state.dart';
+import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
+
+import '../game_room.dart';
+import '../../models/game_state.dart';
+import '../../engine/jungle_engine.dart';
+import '../protocol/lan_messages.dart';
+import '../persistence/player_profile_service.dart';
 
 class LanServiceError {
   LanServiceError(this.message, {this.cause});
@@ -34,200 +26,207 @@ class LanServiceError {
 abstract class LanServiceAdapter {
   static final LanServiceAdapter instance = _JungleLanServiceAdapterImpl();
 
-  Future<void> start({String? myAlias});
-  Future<void> stop();
+  void attach(fw.Transport transport, {required String alias});
+  void detach();
   bool get isRunning;
-
-  void updateAlias(String newAlias);
-
-  Stream<LanServiceError> watchErrors();
-
   String get myDeviceId;
   String get myAlias;
 
-  Stream<List<Device>> watchDevices();
-
+  Stream<List<String>> watchPeers();
   Stream<LanRoomEvent> watchRoomEvents();
+  Stream<LanServiceError> watchErrors();
+
   Future<void> announceRoom(GameRoom room);
   Future<void> stopRoom(String roomId);
-
-  Future<SendResult> sendJoinRequest({
-    required String hostDeviceId,
-    required String clientAlias,
-  });
-  Future<SendResult> sendJoinAccept({
-    required String clientDeviceId,
-    required GameRoom room,
-  });
-
-  Session<ValueNotifier<GameState>> createGameSession({
-    required String peerDeviceId,
-    required ValueNotifier<GameState> state,
-    String? channelName,
-  });
+  void acceptJoin(String clientDeviceId);
+  void joinGameScope(String roomId);
+  void syncGameState(GameState newState);
+  void onGameStateChanged(void Function(GameState)? cb);
+  String? get currentGameScope;
 }
 
 class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
-  final LanFramework _fw = LanFramework.instance;
-  final StreamController<LanServiceError> _errorsCtrl =
-      StreamController<LanServiceError>.broadcast();
+  fw.Transport? _transport;
+  String? _alias;
+  String? _gameScope;
+  bool _isRunning = false;
+
+  final Set<String> _peers = {};
+  final StreamController<List<String>> _peersCtrl =
+      StreamController<List<String>>.broadcast();
   final StreamController<LanRoomEvent> _roomEventsCtrl =
       StreamController<LanRoomEvent>.broadcast();
+  final StreamController<LanServiceError> _errorsCtrl =
+      StreamController<LanServiceError>.broadcast();
+  StreamSubscription<fw.TransportEvent>? _eventSub;
+  StreamSubscription<fw.DataLog>? _gameScopeSub;
 
-  final Map<String, Timer> _announceTimers = {};
-  StreamSubscription<Map<String, dynamic>>? _multicastSub;
-
-  bool _isRunning = false;
-  String _alias = '';
+  void Function(GameState)? _onGameStateChanged;
 
   @override
   bool get isRunning => _isRunning;
+  @override
+  String get myDeviceId => _transport?.myNodeId ?? '';
+  @override
+  String get myAlias => _alias ?? '';
+  @override
+  String? get currentGameScope => _gameScope;
 
   @override
-  String get myDeviceId => _fw.myDeviceId;
+  void attach(fw.Transport transport, {required String alias}) {
+    detach();
+    _transport = transport;
+    _alias = alias;
+    _isRunning = true;
 
-  @override
-  String get myAlias => _alias;
-
-  @override
-  void updateAlias(String newAlias) {
-    if (newAlias.trim().isEmpty) return;
-    _alias = newAlias.trim();
-    PlayerProfileService.saveAlias(_alias);
-  }
-
-  @override
-  Future<void> start({String? myAlias}) async {
-    if (_isRunning) return;
-    final persistedAlias = await PlayerProfileService.loadAlias();
-    final aliasToUse = (myAlias != null && myAlias.isNotEmpty)
-        ? myAlias
-        : (persistedAlias ?? 'Player');
-    if (myAlias != null && myAlias.isNotEmpty && myAlias != persistedAlias) {
-      await PlayerProfileService.saveAlias(myAlias);
-    }
-    final deviceId = await DeviceIdService.load();
-    _alias = aliasToUse;
-    try {
-      await _fw.start(FrameworkConfig(
-        deviceAlias: aliasToUse,
-        deviceId: deviceId,
-      ));
-      _isRunning = true;
-      _multicastSub = _fw.watchMulticast().listen((msg) {
-        final key = msg['key'] as String?;
-        final payload = msg['payload'] as Map<String, dynamic>?;
-        if (payload == null) return;
-
-        if (key == 'room_announce' || key == 'room_join') {
-          try {
-            final ev = LanRoomEvent.fromJson(payload);
-            _roomEventsCtrl.add(ev);
-          } catch (e) {
-            _errorsCtrl.add(
-              LanServiceError('$key parse failed', cause: e),
-            );
-          }
+    _eventSub = transport.events.listen((ev) {
+      if (ev.topic == 'peer-joined-scope') {
+        final from = ev.data['from'] as String?;
+        if (from != null && from != transport.myNodeId) {
+          _peers.add(from);
+          _peersCtrl.add(List.unmodifiable(_peers));
         }
-      });
-    } catch (e) {
-      _errorsCtrl.add(LanServiceError('framework start failed', cause: e));
-      rethrow;
-    }
+      }
+    });
   }
 
   @override
-  Future<void> stop() async {
-    if (!_isRunning) return;
-    for (final t in _announceTimers.values) {
-      t.cancel();
-    }
-    _announceTimers.clear();
-    await _multicastSub?.cancel();
-    await _fw.stop();
+  void detach() {
+    _eventSub?.cancel();
+    _eventSub = null;
+    _gameScopeSub?.cancel();
+    _gameScopeSub = null;
+    _peers.clear();
+    _gameScope = null;
+    _transport = null;
+    _alias = null;
+    _onGameStateChanged = null;
     _isRunning = false;
   }
 
   @override
+  Stream<List<String>> watchPeers() => _peersCtrl.stream;
+  @override
+  Stream<LanRoomEvent> watchRoomEvents() => _roomEventsCtrl.stream;
+  @override
   Stream<LanServiceError> watchErrors() => _errorsCtrl.stream;
 
   @override
-  Stream<List<Device>> watchDevices() => _fw.watchDevices();
-
-  @override
-  Stream<LanRoomEvent> watchRoomEvents() => _roomEventsCtrl.stream;
-
-  @override
   Future<void> announceRoom(GameRoom room) async {
-    if (!_isRunning) return;
-    final payload = HostRoomAnnounced(
-      hostDeviceId: myDeviceId,
-      hostName: _alias,
+    final t = _transport;
+    if (t == null) return;
+    _gameScope = 'game-${room.roomId}';
+    await t.joinScope(_gameScope!);
+    _watchGameScope();
+
+    final log = t.getScope(_gameScope!);
+    log?.merge({
+      'phase': 'waiting',
+      'host': {'id': t.myNodeId, 'alias': _alias},
+    }, localNodeId: t.myNodeId);
+    t.broadcastScope(_gameScope!);
+
+    _roomEventsCtrl.add(HostRoomAnnounced(
+      hostDeviceId: t.myNodeId,
+      hostName: _alias ?? '',
       roomId: room.roomId,
-    ).toJson();
-    _announceTimers[room.roomId]?.cancel();
-    _announceTimers[room.roomId] =
-        Timer.periodic(const Duration(seconds: 5), (_) => _sendOne(payload));
-    // 立即发一次（走 UDP 多播）
-    await _sendOne(payload);
+    ));
+  }
+
+  @override
+  void joinGameScope(String roomId) {
+    final t = _transport;
+    if (t == null) return;
+    _gameScope = 'game-$roomId';
+    t.joinScope(_gameScope!);
+    _watchGameScope();
+
+    final log = t.getScope(_gameScope!);
+    log?.merge({
+      'client': {'id': t.myNodeId, 'alias': _alias, 'joinRequested': true},
+    }, localNodeId: t.myNodeId);
+    t.broadcastScope(_gameScope!);
+  }
+
+  void _watchGameScope() {
+    final scope = _gameScope;
+    final t = _transport;
+    if (scope == null || t == null) return;
+    _gameScopeSub?.cancel();
+    _gameScopeSub = t.watchScope(scope).listen(_onGameScopeChanged);
+  }
+
+  void _onGameScopeChanged(fw.DataLog log) {
+    final fromId = log.fromNodeId;
+    final t = _transport;
+    if (t == null || fromId == t.myNodeId) return;
+
+    final phase = log.state['phase'] as String? ?? '';
+    final host = log.state['host'] as Map<String, dynamic>?;
+    final client = log.state['client'] as Map<String, dynamic>?;
+
+    if (client?['joinRequested'] == true && host != null) {
+      _roomEventsCtrl.add(ClientJoinRequested(
+        clientDeviceId: client!['id'] as String,
+        clientAlias: client['alias'] as String? ?? '?',
+      ));
+    }
+    if (host?['accepted'] == true && client != null) {
+      _roomEventsCtrl.add(ClientJoinResult(accepted: true));
+    }
+    if (phase == 'playing') {
+      final gsRaw = log.state['gameState'] as Map<String, dynamic>?;
+      if (gsRaw != null) {
+        _onGameStateChanged?.call(GameState.fromJson(gsRaw));
+      }
+    }
+    if (log.state['closed'] == true) {
+      _roomEventsCtrl.add(HostRoomClosed());
+    }
+  }
+
+  @override
+  void syncGameState(GameState newState) {
+    final t = _transport;
+    final scope = _gameScope;
+    if (t == null || scope == null) return;
+    final log = t.getScope(scope);
+    if (log == null) return;
+    log.merge({'gameState': newState.toJson()}, localNodeId: t.myNodeId);
+    t.broadcastScope(scope);
+  }
+
+  @override
+  void onGameStateChanged(void Function(GameState)? cb) {
+    _onGameStateChanged = cb;
+  }
+
+  @override
+  void acceptJoin(String clientDeviceId) {
+    final t = _transport;
+    final scope = _gameScope;
+    if (t == null || scope == null) return;
+    final log = t.getScope(scope);
+    if (log == null) return;
+    log.merge({
+      'phase': 'playing',
+      'client': {
+        ...((log.state['client'] as Map?)?.cast<String, dynamic>() ?? {}),
+        'accepted': true,
+      },
+      'gameState': JungleEngine.createInitialState().toJson(),
+    }, localNodeId: t.myNodeId);
+    t.broadcastScope(scope);
   }
 
   @override
   Future<void> stopRoom(String roomId) async {
-    _announceTimers.remove(roomId)?.cancel();
-    if (!_isRunning) return;
-    // 广播关房，让 client 知道 host 已离开
-    await _fw.sendMulticast(
-      key: 'room_announce',
-      payload: HostRoomClosed().toJson(),
-    );
-  }
-
-  Future<void> _sendOne(Map<String, dynamic> payload) async {
-    if (!_isRunning) return;
-    await _fw.sendMulticast(key: 'room_announce', payload: payload);
-  }
-
-  @override
-  Future<SendResult> sendJoinRequest({
-    required String hostDeviceId,
-    required String clientAlias,
-  }) async {
-    final payload = ClientJoinRequested(
-      clientDeviceId: myDeviceId,
-      clientAlias: clientAlias,
-    ).toJson();
-    return await _fw.sendMulticast(key: 'room_join', payload: {
-      'toDeviceId': hostDeviceId,
-      ...payload,
-    });
-  }
-
-  @override
-  Future<SendResult> sendJoinAccept({
-    required String clientDeviceId,
-    required GameRoom room,
-  }) async {
-    final payload = ClientJoinResult(
-      accepted: true,
-    ).toJson();
-    return await _fw.sendMulticast(key: 'room_join', payload: {
-      'toDeviceId': clientDeviceId,
-      ...payload,
-    });
-  }
-
-  @override
-  Session<ValueNotifier<GameState>> createGameSession({
-    required String peerDeviceId,
-    required ValueNotifier<GameState> state,
-    String? channelName,
-  }) {
-    return _fw.createSession<ValueNotifier<GameState>>(
-      peerId: peerDeviceId,
-      state: state,
-      serializer: const GameStateSerializer(),
-      channelName: channelName,
-    );
+    final t = _transport;
+    final scope = _gameScope;
+    if (t == null || scope == null) return;
+    final log = t.getScope(scope);
+    log?.merge({'closed': true}, localNodeId: t.myNodeId);
+    t.broadcastScope(scope);
+    _roomEventsCtrl.add(HostRoomClosed());
   }
 }

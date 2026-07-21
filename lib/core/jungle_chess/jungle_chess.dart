@@ -22,5 +22,4 @@ export 'lan/lan_host_protocol_bridge.dart';
 export 'lan/lan_client_protocol_bridge.dart';
 export 'lan/protocol/lan_channels.dart';
 export 'lan/protocol/lan_messages.dart';
-export 'lan/serializer/game_state_serializer.dart';
 export 'lan/service/lan_service_adapter.dart';

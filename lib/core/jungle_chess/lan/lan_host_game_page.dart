@@ -2,10 +2,10 @@
 //
 // LAN 主机端游戏页。
 //
-// 单一 source of truth = gameStateNotifier (ValueNotifier<GameState>)
-// - ViewModel 走 start/countdown/finish 编排
-// - ViewModel 走棋后 reducer 更新 gameStateNotifier.value
-// - Session 监听 gameStateNotifier → 自动推送给 Client
+/// 单一 source of truth = gameStateNotifier (ValueNotifier<GameState>)
+/// - ViewModel 走 start/countdown/finish 编排
+/// - ViewModel 走棋后 reducer 更新 gameStateNotifier.value
+/// - DataLog scope 同步推送给 Client
 
 import 'package:flutter/material.dart';
 import '../widgets/jungle_board.dart';
@@ -42,7 +42,6 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   late final ValueNotifier<GameState> _gameStateNotifier;
   late final JungleTouchController _touchController;
   late final Stopwatch _boardSizeWatch;
-  dynamic _session; // Session<ValueNotifier<GameState>>
   VoidCallback? _vmListener;
 
   @override
@@ -50,19 +49,20 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     super.initState();
     _gameStateNotifier =
         ValueNotifier<GameState>(JungleEngine.createInitialState());
-    // 棋盘尺寸先用一个合理默认值；LayoutBuilder 完成后通过 setBoardSize 注入
     _touchController = JungleHostTouchControllerFactory(
-      boardSize: kCellSize * kBoardRows,  // 64.0 * 9 = 576px
+      boardSize: kCellSize * kBoardRows,
     ).create();
     _boardSizeWatch = Stopwatch()..start();
     _vmListener = _syncNotifierFromVm;
     widget.viewModel.addListener(_vmListener!);
     _syncNotifierFromVm();
-    // 创建 Session
-    _session = LanServiceAdapter.instance.createGameSession(
-      peerDeviceId: widget.peerDeviceId,
-      state: _gameStateNotifier,
-    );
+
+    // DataLog scope 同步
+    final adapter = LanServiceAdapter.instance;
+    adapter.joinGameScope(widget.roomId);
+    adapter.onGameStateChanged((gs) {
+      if (mounted) _gameStateNotifier.value = gs;
+    });
   }
 
   /// 把 ViewModel 当前的 GameState 同步到 gameStateNotifier
@@ -79,7 +79,18 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   void _onMoveConfirmed(Coord from, Coord to) {
     widget.viewModel.dispatch(HostMoveCommitted(from: from, to: to));
     _syncNotifierFromVm();
+    _syncToClient();
     _checkGameOver();
+  }
+
+  /// 把当前 GameState 广播给 Client
+  void _syncToClient() {
+    final s = widget.viewModel.value;
+    if (s is HostInGame) {
+      LanServiceAdapter.instance.syncGameState(s.gameState);
+    } else if (s is HostFinished) {
+      LanServiceAdapter.instance.syncGameState(s.gameState);
+    }
   }
 
   void _checkGameOver() {
@@ -110,13 +121,6 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
     }
     _gameStateNotifier.dispose();
     _touchController.dispose();
-    if (_session != null) {
-      try {
-        _session.dispose();
-      } catch (_) {
-        // best-effort cleanup
-      }
-    }
     _boardSizeWatch.stop();
     super.dispose();
   }

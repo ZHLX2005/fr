@@ -66,33 +66,23 @@ class _LanRoomPageState extends State<LanRoomPage> {
   }
 
   Future<void> _startHost() async {
-    await LanServiceAdapter.instance.announceRoom(widget.initialRoom);
+    // already announced from lobby
   }
 
   Future<void> _startClient() async {
-    await LanServiceAdapter.instance.sendJoinRequest(
-      hostDeviceId: widget.initialRoom.hostDeviceId,
-      clientAlias: LanServiceAdapter.instance.myAlias,
-    );
+    LanServiceAdapter.instance.joinGameScope(widget.roomId);
   }
 
   void _onRoomEvent(LanRoomEvent ev) {
     if (!mounted) return;
     if (ev is ClientJoinRequested && _isHost) {
       if (ev.clientDeviceId == LanServiceAdapter.instance.myDeviceId) {
-        return; // 忽略自己
+        return;
       }
       setState(() {
         _clientDeviceId = ev.clientDeviceId;
       });
-      // 接受消息
-      LanServiceAdapter.instance.sendJoinAccept(
-        clientDeviceId: ev.clientDeviceId,
-        room: widget.initialRoom.copyWith(
-          clientDeviceId: ev.clientDeviceId,
-          clientName: ev.clientAlias,
-        ),
-      );
+      LanServiceAdapter.instance.acceptJoin(ev.clientDeviceId);
       _startCountdown();
     } else if (ev is ClientJoinResult && !_isHost) {
       if (ev.accepted) {
