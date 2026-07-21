@@ -25,7 +25,6 @@ class MasterViewState extends State<MasterView> {
   ];
   String _alias = '房主';
   final _aliasCtrl = TextEditingController();
-  bool _aliasLoaded = false;
   bool _masterJoins = true;
 
   fw.RelayTransport? _transport;
@@ -42,6 +41,11 @@ class MasterViewState extends State<MasterView> {
   static int _keyCounter = 0;
   static String _newKey() => 'k${_keyCounter++}';
 
+  // 自定义预设
+  List<RoleDef>? _customPresets;
+
+  int get _totalCount => rolePool.fold(0, (s, r) => s + r.count);
+
   @override
   void initState() {
     super.initState();
@@ -50,12 +54,52 @@ class MasterViewState extends State<MasterView> {
         setState(() {
           _alias = saved;
           _aliasCtrl.text = saved;
-          _aliasLoaded = true;
         });
       } else if (mounted) {
-        setState(() => _aliasLoaded = true);
       }
     });
+    CustomPresetPrefs.load().then((preset) {
+      if (preset != null && mounted) {
+        setState(() {
+          _customPresets = preset;
+        });
+      } else if (mounted) {
+      }
+    });
+  }
+
+  /// 应用预设到 rolePool
+  void _applyPreset(RolePreset preset) {
+    for (final r in rolePool) { r.dispose(); }
+    rolePool.clear();
+    rolePool.addAll(preset.toRoleDefs());
+    setState(() {});
+  }
+
+  /// 保存当前配置为自定义预设
+  Future<void> _saveCustomPreset() async {
+    for (final r in rolePool) { r.sync(); }
+    await CustomPresetPrefs.save(rolePool);
+    // 重建 _customPresets 从预存
+    CustomPresetPrefs.load().then((p) {
+      if (mounted) setState(() => _customPresets = p);
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('自定义预设已保存'), duration: Duration(seconds: 1)),
+      );
+    }
+  }
+
+  /// 加载自定义预设到 rolePool
+  void _loadCustomPreset(List<RoleDef> preset) {
+    for (final r in rolePool) { r.dispose(); }
+    rolePool.clear();
+    // deep copy
+    for (final r in preset) {
+      rolePool.add(RoleDef(label: r.label, count: r.count, key: 'k${_keyCounter++}'));
+    }
+    setState(() {});
   }
 
   Future<void> createRoom() async {
@@ -154,14 +198,58 @@ class MasterViewState extends State<MasterView> {
     return _buildLobby(theme);
   }
 
-  // —————— 身份池配置 ——————
+  // —————— 身份池配置 + 预选方案 ——————
 
   Widget _buildSetup(ThemeData theme) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('身份池配置', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+        // 预选方案
+        Text('快速预选', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
+        Wrap(
+          spacing: 8, runSpacing: 8,
+          children: [
+            ...kBuiltinPresets.map((p) => ActionChip(
+              label: Text(p.name, style: const TextStyle(fontSize: 12)),
+              onPressed: () => _applyPreset(p),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            )),
+            if (_customPresets != null)
+              ActionChip(
+                label: const Text('我的预设', style: TextStyle(fontSize: 12)),
+                onPressed: () => _loadCustomPreset(_customPresets!),
+                avatar: const Icon(Icons.person, size: 16),
+                side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        // 身份池 + 总人数
+        Row(
+          children: [
+            Text('身份池', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text('共 $_totalCount 人', style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: theme.colorScheme.onPrimaryContainer,
+              )),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
         ...rolePool.asMap().entries.map((e) => _RoleCard(
           index: e.key,
           def: e.value,
@@ -170,26 +258,42 @@ class MasterViewState extends State<MasterView> {
             rolePool.removeAt(e.key);
           }) : null,
         )),
+
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: OutlinedButton.icon(
-            onPressed: () => setState(() => rolePool.add(RoleDef(label: '', count: 1, key: 'k${++_keyCounter}'))),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('添加身份'),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: theme.colorScheme.outlineVariant),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() => rolePool.add(RoleDef(label: '', count: 1, key: 'k${++_keyCounter}'))),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('添加身份'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: theme.colorScheme.outlineVariant),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _saveCustomPreset,
+                icon: const Icon(Icons.save, size: 16),
+                label: const Text('保存预设', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: theme.colorScheme.outlineVariant),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
+
+        const SizedBox(height: 12),
+
         // 参与开关
         Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: theme.colorScheme.outlineVariant)),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: SwitchListTile(
@@ -200,13 +304,10 @@ class MasterViewState extends State<MasterView> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         TextField(
           controller: _aliasCtrl,
-          decoration: InputDecoration(
-            labelText: '你的名字',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          ),
+          decoration: InputDecoration(labelText: '你的名字', border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
           onChanged: (v) {
             _alias = v.trim().isEmpty ? '房主' : v.trim();
             AliasPrefs.save(v.trim());
@@ -219,9 +320,7 @@ class MasterViewState extends State<MasterView> {
         const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: _busy ? null : createRoom,
-          icon: _busy
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.meeting_room),
+          icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.meeting_room),
           label: const Text('创建房间'),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
