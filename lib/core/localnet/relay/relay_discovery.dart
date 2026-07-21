@@ -93,19 +93,24 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   bool _busy = false;
   bool _handedOff = false;
   String _alias = 'Flutter Device';
+  String _effectiveRelayUrl = '';
 
   bool get _inRoom => _roomCode != null;
 
   @override
   void initState() {
     super.initState();
-    _loadAlias();
+    _loadPrefs();
   }
 
-  Future<void> _loadAlias() async {
+  Future<void> _loadPrefs() async {
     final alias = await _RelayPrefs.getAlias();
+    final url = await _RelayPrefs.getRelayUrl();
     if (!mounted) return;
-    setState(() => _alias = alias);
+    setState(() {
+      _alias = alias;
+      _effectiveRelayUrl = url ?? widget.relayUrl;
+    });
   }
 
   @override
@@ -123,7 +128,7 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
     });
     try {
       final t = await RelayTransport.create(
-        relayUrl: widget.relayUrl,
+        relayUrl: _effectiveRelayUrl,
         alias: _alias,
       );
       final code = await t.createRoom();
@@ -211,7 +216,7 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
         children: [
           const Icon(Icons.cloud, size: 64),
           const SizedBox(height: 24),
-          Text('中继: ${widget.relayUrl}', style: const TextStyle(fontSize: 12)),
+          Text('中继: $_effectiveRelayUrl', style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,

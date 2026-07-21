@@ -67,6 +67,8 @@ class DiscoveredPeer {
 /// LAN 设置持久化（私有 key，biz 不感知）
 class _LanPrefs {
   static const _kAlias = 'localnet.lan.alias';
+  static const _kMulticastPort = 'localnet.lan.port';
+  static const _kMulticastAddress = 'localnet.lan.address';
 
   static Future<String> getAlias() async {
     final p = await SharedPreferences.getInstance();
@@ -76,6 +78,26 @@ class _LanPrefs {
   static Future<void> setAlias(String alias) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kAlias, alias);
+  }
+
+  static Future<int> getMulticastPort() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(_kMulticastPort) ?? 5678;
+  }
+
+  static Future<void> setMulticastPort(int port) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_kMulticastPort, port);
+  }
+
+  static Future<String> getMulticastAddress() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kMulticastAddress) ?? '239.255.255.255';
+  }
+
+  static Future<void> setMulticastAddress(String addr) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kMulticastAddress, addr);
   }
 }
 
@@ -103,6 +125,27 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   Transport? _transport;
   bool _scanning = false;
   bool _handedOff = false;
+  String _myAlias = '';
+  int _effectivePort = 5678;
+  String _effectiveAddress = '239.255.255.255';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final alias = await _LanPrefs.getAlias();
+    final port = await _LanPrefs.getMulticastPort();
+    final addr = await _LanPrefs.getMulticastAddress();
+    if (!mounted) return;
+    setState(() {
+      _myAlias = alias;
+      _effectivePort = port;
+      _effectiveAddress = addr;
+    });
+  }
 
   @override
   void dispose() {
@@ -124,8 +167,8 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
       _handedOff = false;
 
       final transport = await LanTransport.create(
-        multicastAddress: widget.multicastAddress,
-        multicastPort: widget.multicastPort,
+        multicastAddress: _effectiveAddress,
+        multicastPort: _effectivePort,
       );
       _transport = transport;
       _myNodeId = transport.myNodeId;
@@ -329,6 +372,8 @@ class _LanSettingsPage extends StatefulWidget {
 
 class _LanSettingsPageState extends State<_LanSettingsPage> {
   final _aliasCtrl = TextEditingController();
+  final _portCtrl = TextEditingController();
+  final _addrCtrl = TextEditingController();
   bool _ready = false;
 
   @override
@@ -339,9 +384,13 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
 
   Future<void> _load() async {
     final alias = await _LanPrefs.getAlias();
+    final port = await _LanPrefs.getMulticastPort();
+    final addr = await _LanPrefs.getMulticastAddress();
     if (!mounted) return;
     setState(() {
       _aliasCtrl.text = alias;
+      _portCtrl.text = port.toString();
+      _addrCtrl.text = addr;
       _ready = true;
     });
   }
@@ -349,11 +398,17 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
   @override
   void dispose() {
     _aliasCtrl.dispose();
+    _portCtrl.dispose();
+    _addrCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     await _LanPrefs.setAlias(_aliasCtrl.text.trim());
+    final port = int.tryParse(_portCtrl.text.trim()) ?? widget.multicastPort;
+    await _LanPrefs.setMulticastPort(port);
+    final addr = _addrCtrl.text.trim().isEmpty ? widget.multicastAddress : _addrCtrl.text.trim();
+    await _LanPrefs.setMulticastAddress(addr);
     if (!mounted) return;
     widget.onSaved?.call();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -397,9 +452,23 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _infoRow(Icons.wifi, '多播端口', '${widget.multicastPort}'),
-                const Divider(height: 16),
-                _infoRow(Icons.router, '多播地址', widget.multicastAddress),
+                TextField(
+                  controller: _portCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '多播端口',
+                    prefixIcon: Icon(Icons.wifi),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _addrCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '多播地址',
+                    prefixIcon: Icon(Icons.router),
+                  ),
+                  keyboardType: TextInputType.url,
+                ),
                 const SizedBox(height: 8),
                 Text('修改端口/地址后需要重新扫描才能生效。',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -416,22 +485,6 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
           icon: const Icon(Icons.save),
           label: const Text('保存'),
         ),
-      ],
-    );
-  }
-
-  Widget _infoRow(IconData icon, String label, String value) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
-        const SizedBox(width: 12),
-        Text(label, style: theme.textTheme.bodyMedium),
-        const Spacer(),
-        Text(value, style: theme.textTheme.bodySmall?.copyWith(
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.bold,
-        )),
       ],
     );
   }
