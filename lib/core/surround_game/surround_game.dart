@@ -40,7 +40,6 @@ export 'local/local_game_page.dart';
 
 // 局域网
 export 'lan/lan_lobby_page.dart';
-export 'lan/lan_room_page.dart';
 export 'lan/lan_host_game_page.dart';
 export 'lan/lan_client_game_page.dart';
 export 'lan/widgets/lan_board_stack.dart';
