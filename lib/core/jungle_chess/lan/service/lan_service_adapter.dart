@@ -63,6 +63,10 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
 
   void Function(GameState)? _onGameStateChanged;
 
+  // presence 追踪
+  final Set<String> _presentNodes = {};
+  void Function(String deviceId, String alias, String role)? onPeerPresent;
+
   @override
   bool get isRunning => _isRunning;
   @override
@@ -71,6 +75,19 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
   String get myAlias => _alias ?? '';
   @override
   String? get currentGameScope => _gameScope;
+
+  void _broadcastPresence(String role, String status) {
+    final t = _transport;
+    if (t == null) return;
+    for (final scope in t.activeScopes) {
+      t.sendEvent(scope, 'presence', {
+        'deviceId': t.myNodeId,
+        'alias': _alias ?? '',
+        'role': role,
+        'status': status,
+      });
+    }
+  }
 
   @override
   void attach(fw.Transport transport, {required String alias}) {
@@ -87,6 +104,32 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
           _peersCtrl.add(List.unmodifiable(_peers));
         }
       }
+      // 握手 — host 收到 client 加入请求
+      if (ev.topic == 'handshake-join') {
+        final cid = ev.data['clientDeviceId'] as String?;
+        final alias = ev.data['clientAlias'] as String? ?? '?';
+        if (cid != null && cid != transport.myNodeId) {
+          _roomEventsCtrl.add(ClientJoinRequested(
+            clientDeviceId: cid,
+            clientAlias: alias,
+          ));
+        }
+      }
+      // 握手 — client 收到 host 接受
+      if (ev.topic == 'handshake-accepted') {
+        _roomEventsCtrl.add(ClientJoinResult(accepted: true));
+      }
+      // presence — 对端状态上报
+      if (ev.topic == 'presence') {
+        final did = ev.data['deviceId'] as String?;
+        if (did == null || did == transport.myNodeId) return;
+        _presentNodes.add(did);
+        onPeerPresent?.call(
+          did,
+          ev.data['alias'] as String? ?? '?',
+          ev.data['role'] as String? ?? '?',
+        );
+      }
     });
   }
 
@@ -97,6 +140,7 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
     _gameScopeSub?.cancel();
     _gameScopeSub = null;
     _peers.clear();
+    _presentNodes.clear();
     _gameScope = null;
     _transport = null;
     _alias = null;
@@ -131,6 +175,9 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
       hostName: _alias ?? '',
       roomId: room.roomId,
     ));
+
+    // presence：host 就绪
+    _broadcastPresence('host', 'waiting');
   }
 
   @override
@@ -146,6 +193,16 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
       'client': {'id': t.myNodeId, 'alias': _alias, 'joinRequested': true},
     }, localNodeId: t.myNodeId);
     t.broadcastScope(_gameScope!);
+
+    // 握手：事件总线通知 host
+    t.sendEvent(_gameScope!, 'handshake-join', {
+      'clientDeviceId': t.myNodeId,
+      'clientAlias': _alias ?? '',
+      'roomId': roomId,
+    });
+
+    // presence
+    _broadcastPresence('client', 'joining');
   }
 
   void _watchGameScope() {
@@ -166,12 +223,14 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
     final client = log.state['client'] as Map<String, dynamic>?;
 
     if (client?['joinRequested'] == true && host != null) {
+      final c = client!;
       _roomEventsCtrl.add(ClientJoinRequested(
-        clientDeviceId: client!['id'] as String,
+        clientDeviceId: c['id'] as String,
         clientAlias: client['alias'] as String? ?? '?',
       ));
     }
-    if (host?['accepted'] == true && client != null) {
+    // accepted 写入 client 字段
+    if (client?['accepted'] == true) {
       _roomEventsCtrl.add(ClientJoinResult(accepted: true));
     }
     if (phase == 'playing') {
@@ -206,17 +265,29 @@ class _JungleLanServiceAdapterImpl implements LanServiceAdapter {
     final t = _transport;
     final scope = _gameScope;
     if (t == null || scope == null) return;
+
+    // DataLog 路径
     final log = t.getScope(scope);
-    if (log == null) return;
-    log.merge({
-      'phase': 'playing',
-      'client': {
-        ...((log.state['client'] as Map?)?.cast<String, dynamic>() ?? {}),
-        'accepted': true,
-      },
-      'gameState': JungleEngine.createInitialState().toJson(),
-    }, localNodeId: t.myNodeId);
-    t.broadcastScope(scope);
+    if (log != null) {
+      log.merge({
+        'phase': 'playing',
+        'client': {
+          ...((log.state['client'] as Map?)?.cast<String, dynamic>() ?? {}),
+          'accepted': true,
+        },
+        'gameState': JungleEngine.createInitialState().toJson(),
+      }, localNodeId: t.myNodeId);
+      t.broadcastScope(scope);
+    }
+
+    // 握手路径
+    t.sendEvent(scope, 'handshake-accepted', {
+      'roomId': scope.startsWith('game-') ? scope.substring(5) : scope,
+      'clientDeviceId': clientDeviceId,
+    });
+
+    // presence
+    _broadcastPresence('host', 'ready');
   }
 
   @override

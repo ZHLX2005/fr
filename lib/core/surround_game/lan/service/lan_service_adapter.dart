@@ -93,6 +93,12 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
   // 游戏状态回调（由 game page 注册）
   void Function(GameState)? _onGameStateChanged;
 
+  // presence 追踪：记录 scope 内有哪些节点在线
+  final Set<String> _presentNodes = {};
+
+  // presence 回调 — 业务层在此获知对端上线
+  void Function(String deviceId, String alias, String role)? onPeerPresent;
+
   @override
   bool get isRunning => _isRunning;
 
@@ -105,6 +111,20 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
   @override
   String? get currentGameScope => _gameScope;
 
+  /// 在所有已加入 scope 上广播自身状态
+  void _broadcastPresence(String role, String status) {
+    final t = _transport;
+    if (t == null) return;
+    for (final scope in t.activeScopes) {
+      t.sendEvent(scope, 'presence', {
+        'deviceId': t.myNodeId,
+        'alias': _alias ?? '',
+        'role': role,
+        'status': status,
+      });
+    }
+  }
+
   @override
   void attach(fw.Transport transport, {required String alias}) {
     detach();
@@ -112,7 +132,7 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
     _alias = alias;
     _isRunning = true;
 
-    // 监听事件总线：peer 加入/离开
+    // 监听事件总线：peer 加入 + 握手 + presence
     _eventSub = transport.events.listen((ev) {
       if (ev.topic == 'peer-joined-scope') {
         final from = ev.data['from'] as String?;
@@ -120,6 +140,38 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
           _peers.add(from);
           _peersCtrl.add(List.unmodifiable(_peers));
         }
+      }
+      // 握手 — host 收到 client 加入请求
+      if (ev.topic == 'handshake-join') {
+        final cid = ev.data['clientDeviceId'] as String?;
+        final alias = ev.data['clientAlias'] as String? ?? '?';
+        final rid = ev.data['roomId'] as String? ?? '';
+        if (cid != null && cid != transport.myNodeId) {
+          _roomEventsCtrl.add(ClientJoinRequested(
+            clientDeviceId: cid,
+            clientAlias: alias,
+            roomId: rid,
+          ));
+        }
+      }
+      // 握手 — client 收到 host 接受
+      if (ev.topic == 'handshake-accepted') {
+        _roomEventsCtrl.add(ClientJoinResult(
+          roomId: ev.data['roomId'] as String? ?? '',
+          clientDeviceId: ev.data['clientDeviceId'] as String? ?? '',
+          accepted: true,
+        ));
+      }
+      // presence — 对端状态上报（用于探查房间是否可开）
+      if (ev.topic == 'presence') {
+        final did = ev.data['deviceId'] as String?;
+        if (did == null || did == transport.myNodeId) return;
+        _presentNodes.add(did);
+        onPeerPresent?.call(
+          did,
+          ev.data['alias'] as String? ?? '?',
+          ev.data['role'] as String? ?? '?',
+        );
       }
     });
   }
@@ -132,6 +184,7 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
     _gameScopeSub = null;
     _peers.clear();
     _peersCtrl.add(List.unmodifiable(_peers));
+    _presentNodes.clear();
     _gameScope = null;
     _transport = null;
     _alias = null;
@@ -172,6 +225,9 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
       hostDeviceId: t.myNodeId,
       hostAlias: _alias ?? '',
     ));
+
+    // presence：自动上报自身状态，让 client 感知房间已创建
+    _broadcastPresence('host', 'waiting');
     return room.roomId;
   }
 
@@ -183,12 +239,22 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
     t.joinScope(_gameScope!);
     _watchGameScope();
 
-    // 写入：client 身份 + join 请求
+    // 写入：client 身份 + join 请求（DataLog 路径兼容）
     final log = t.getScope(_gameScope!);
     log?.merge({
       'client': {'id': t.myNodeId, 'alias': _alias, 'joinRequested': true},
     }, localNodeId: t.myNodeId);
     t.broadcastScope(_gameScope!);
+
+    // 握手：通过事件总线通知 host（事件路径更可靠）
+    t.sendEvent(_gameScope!, 'handshake-join', {
+      'clientDeviceId': t.myNodeId,
+      'clientAlias': _alias ?? '',
+      'roomId': roomId,
+    });
+
+    // presence：自动上报自身状态
+    _broadcastPresence('client', 'joining');
   }
 
   void _watchGameScope() {
@@ -213,18 +279,20 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
 
     // client 请求加入
     if (client?['joinRequested'] == true && host != null) {
+      final c = client!;
       _roomEventsCtrl.add(ClientJoinRequested(
-        clientDeviceId: client!['id'] as String,
+        clientDeviceId: c['id'] as String,
         clientAlias: client['alias'] as String? ?? '?',
         roomId: scopeFromLog(log) ?? '',
       ));
     }
 
-    // host 接受加入
-    if (host?['accepted'] == true && client != null) {
+    // host 接受加入（accepted 写入 client 字段）
+    if (client?['accepted'] == true) {
+      final c = client!;
       _roomEventsCtrl.add(ClientJoinResult(
         roomId: scopeFromLog(log) ?? '',
-        clientDeviceId: client['id'] as String,
+        clientDeviceId: c['id'] as String,
         accepted: true,
       ));
     }
@@ -289,17 +357,30 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
     final t = _transport;
     final scope = _gameScope;
     if (t == null || scope == null) return;
+
+    // DataLog 路径：标记 accepted
     final log = t.getScope(scope);
-    if (log == null) return;
-    log.merge({
-      'phase': 'playing',
-      'client': {
-        ...((log.state['client'] as Map?)?.cast<String, dynamic>() ?? {}),
-        'accepted': true,
-      },
-      'gameState': QuoridorEngine.initialize().toJson(),
-    }, localNodeId: t.myNodeId);
-    t.broadcastScope(scope);
+    if (log != null) {
+      log.merge({
+        'phase': 'playing',
+        'client': {
+          ...((log.state['client'] as Map?)?.cast<String, dynamic>() ?? {}),
+          'accepted': true,
+        },
+        'gameState': QuoridorEngine.initialize().toJson(),
+      }, localNodeId: t.myNodeId);
+      t.broadcastScope(scope);
+    }
+
+    // 握手路径：事件总线回复
+    final roomId = scope.startsWith('game-') ? scope.substring(5) : scope;
+    t.sendEvent(scope, 'handshake-accepted', {
+      'roomId': roomId,
+      'clientDeviceId': clientDeviceId,
+    });
+
+    // presence：告知 client host 已准备
+    _broadcastPresence('host', 'ready');
   }
 
   Future<void> sendJoinRequest() async {

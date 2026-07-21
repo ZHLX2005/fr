@@ -41,6 +41,9 @@ abstract class Transport {
   /// 调用者应先通过 [getScope] 获取 DataLog，修改 state 后调用此方法。
   Future<void> broadcastScope(String scope);
 
+  /// 通过事件总线向所有同 scope 节点发送一条事件（topic 驱动）
+  Future<void> sendEvent(String scope, String topic, Map<String, dynamic> data);
+
   /// 主动发布事件到 events 流（仅本地，不广播）
   void emit(TransportEvent event);
 
@@ -76,9 +79,9 @@ class DataLog {
     _ctrl.add(this);
   }
 
-  /// 收到对端变更（应用）
+  /// 收到对端变更（合并，不覆盖本地已有字段）
   void applyRemote(DataLog remote) {
-    state = Map<String, dynamic>.from(remote.state);
+    state.addAll(remote.state);
     fromNodeId = remote.fromNodeId;
     _ctrl.add(this);
   }

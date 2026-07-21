@@ -71,7 +71,7 @@ class RelayTransport extends Transport {
   Future<void> joinScope(String scope) async {
     if (_active.contains(scope)) return;
     _active.add(scope);
-    _scopes[scope] = DataLog(scope: scope, fromNodeId: _nodeId);
+    _scopes.putIfAbsent(scope, () => DataLog(scope: scope, fromNodeId: _nodeId));
     await _send({'type': 'scope-join', 'scope': scope, 'from': _nodeId});
   }
 
@@ -94,6 +94,19 @@ class RelayTransport extends Transport {
       'type': 'scope-update',
       'scope': scope,
       'state': log.state,
+      'from': _nodeId,
+    });
+  }
+
+  @override
+  Future<void> sendEvent(
+      String scope, String topic, Map<String, dynamic> data) async {
+    if (!_active.contains(scope)) return;
+    await _send({
+      'type': 'event',
+      'scope': scope,
+      'topic': topic,
+      'data': data,
       'from': _nodeId,
     });
   }
@@ -183,6 +196,9 @@ class RelayTransport extends Transport {
       case 'event':
         final topic = env['topic'] as String? ?? '';
         final data = (env['data'] as Map?)?.cast<String, dynamic>() ?? const {};
+        // 只处理本节点已加入 scope 的事件
+        final scope = env['scope'] as String? ?? '';
+        if (scope.isNotEmpty && !_active.contains(scope)) return;
         final ts = DateTime.tryParse(env['ts'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0);
         _eventCtrl.add(TransportEvent(topic: topic, data: data, timestamp: ts));

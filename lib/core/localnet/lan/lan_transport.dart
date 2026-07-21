@@ -68,7 +68,7 @@ class LanTransport extends Transport {
   Future<void> joinScope(String scope) async {
     if (_active.contains(scope)) return;
     _active.add(scope);
-    _scopes[scope] = DataLog(scope: scope, fromNodeId: _nodeId);
+    _scopes.putIfAbsent(scope, () => DataLog(scope: scope, fromNodeId: _nodeId));
     // 广播心跳让对端知道我在这个 scope（用 topic 标记）
     await _broadcast({
       'type': 'scope-join',
@@ -96,6 +96,19 @@ class LanTransport extends Transport {
       'type': 'scope-update',
       'scope': scope,
       'state': log.state,
+      'from': _nodeId,
+    });
+  }
+
+  @override
+  Future<void> sendEvent(
+      String scope, String topic, Map<String, dynamic> data) async {
+    if (!_active.contains(scope)) return;
+    await _broadcast({
+      'type': 'event',
+      'scope': scope,
+      'topic': topic,
+      'data': data,
       'from': _nodeId,
     });
   }
@@ -148,6 +161,9 @@ class LanTransport extends Transport {
         // 通用事件：业务层订阅 transport.events
         final topic = env['topic'] as String? ?? '';
         final data = (env['data'] as Map?)?.cast<String, dynamic>() ?? const {};
+        // 只处理本节点已加入 scope 的事件
+        final scope = env['scope'] as String? ?? '';
+        if (scope.isNotEmpty && !_active.contains(scope)) return;
         final ts = DateTime.tryParse(env['ts'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0);
         _eventCtrl.add(TransportEvent(topic: topic, data: data, timestamp: ts));
