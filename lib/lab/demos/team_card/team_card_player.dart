@@ -25,6 +25,16 @@ class _PlayerViewState extends State<PlayerView> {
   bool _joined = false;
   String? _myRole;
 
+  @override
+  void initState() {
+    super.initState();
+    AliasPrefs.load().then((saved) {
+      if (saved.isNotEmpty && mounted) {
+        setState(() => _aliasCtrl.text = saved);
+      }
+    });
+  }
+
   Future<void> _joinRoom() async {
     final code = _codeCtrl.text.trim();
     final alias = _aliasCtrl.text.trim().isEmpty ? '玩家' : _aliasCtrl.text.trim();
@@ -85,6 +95,7 @@ class _PlayerViewState extends State<PlayerView> {
             labelText: '你的名字',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           ),
+          onChanged: (v) => AliasPrefs.save(v.trim()),
         ),
         const SizedBox(height: 12),
         TextField(

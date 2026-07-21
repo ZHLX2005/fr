@@ -24,6 +24,8 @@ class MasterViewState extends State<MasterView> {
     RoleDef(label: '平民', count: 5, key: _newKey()),
   ];
   String _alias = '房主';
+  final _aliasCtrl = TextEditingController();
+  bool _aliasLoaded = false;
   bool _masterJoins = true;
 
   fw.RelayTransport? _transport;
@@ -39,6 +41,22 @@ class MasterViewState extends State<MasterView> {
 
   static int _keyCounter = 0;
   static String _newKey() => 'k${_keyCounter++}';
+
+  @override
+  void initState() {
+    super.initState();
+    AliasPrefs.load().then((saved) {
+      if (saved.isNotEmpty && mounted) {
+        setState(() {
+          _alias = saved;
+          _aliasCtrl.text = saved;
+          _aliasLoaded = true;
+        });
+      } else if (mounted) {
+        setState(() => _aliasLoaded = true);
+      }
+    });
+  }
 
   Future<void> createRoom() async {
     setState(() { _busy = true; _error = null; });
@@ -184,11 +202,15 @@ class MasterViewState extends State<MasterView> {
         ),
         const SizedBox(height: 16),
         TextField(
+          controller: _aliasCtrl,
           decoration: InputDecoration(
             labelText: '你的名字',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          onChanged: (v) => _alias = v.trim().isEmpty ? '房主' : v.trim(),
+          onChanged: (v) {
+            _alias = v.trim().isEmpty ? '房主' : v.trim();
+            AliasPrefs.save(v.trim());
+          },
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
