@@ -131,7 +131,7 @@ class _LanHostGamePageState extends State<LanHostGamePage> {
   }
 
   Widget _buildBody(GameState gs, BoardThemeData theme) {
-    final isMyTurn = gs.currentPlayerIsTop; // host 是 top player
+    final isMyTurn = gs.currentPlayerIsTop; // host = top player
     final isRunning = gs.status == GameStatus.running;
     return _buildGameScreen(gs, theme, isRunning: isRunning, isMyTurn: isMyTurn);
   }

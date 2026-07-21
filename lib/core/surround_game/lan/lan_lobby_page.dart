@@ -62,22 +62,28 @@ class _LanLobbyPageState extends State<LanLobbyPage> {
 
   Future<void> _onPeerSelected(fw.DiscoveredPeer peer, fw.Transport transport) async {
     final alias = _aliasCtrl.text.trim();
-    final adapter = LanServiceAdapter.instance;
+    final adapter = LanServiceAdapter();
     adapter.attach(transport, alias: alias);
 
-    // 构造房间 ID（基于双方 nodeId 排序）
+    // Discovery widget 内部已经协商好 transport.myRole / peerNodeId
+    final isHost = transport.myRole == fw.NodeRole.host;
     final roomId = _computeRoomId(transport.myNodeId, peer.id);
+
     final room = GameRoom(
       roomId: roomId,
-      hostId: transport.myNodeId, // 谁先邀请谁是 host
-      hostName: alias,
-      clientId: peer.id,
-      clientName: peer.alias,
+      hostId: isHost ? transport.myNodeId : peer.id,
+      hostName: isHost ? alias : peer.alias,
+      clientId: isHost ? peer.id : transport.myNodeId,
+      clientName: isHost ? peer.alias : alias,
     );
-    await adapter.createRoom(room);
+
+    if (isHost) {
+      await adapter.createRoom(room);
+    } else {
+      adapter.joinGameScope(roomId);
+    }
 
     if (!mounted) return;
-    final isHost = transport.myNodeId.compareTo(peer.id) < 0;
     setState(() => _handedOff = true);
     Navigator.pushReplacement(
       context,

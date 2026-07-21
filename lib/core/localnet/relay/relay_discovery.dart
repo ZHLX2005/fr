@@ -173,6 +173,11 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   void _completeHandshake(RelayTransport t, String code, String did, String alias) {
     _handedOff = true;
     _presenceSub?.cancel();
+    // 协商角色：myNodeId 较小的是 host
+    final myIsHost = t.myNodeId.compareTo(did) < 0;
+    t.setRole(myIsHost ? NodeRole.host : NodeRole.client);
+    t.setPeerNodeId(did);
+    t.setPeerRole(myIsHost ? NodeRole.client : NodeRole.host);
     widget.onPeerSelected(
       DiscoveredPeer(id: did, alias: alias, address: 'relay://$code'),
       t,

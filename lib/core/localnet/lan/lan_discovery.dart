@@ -368,6 +368,11 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
   void _completeHandshake(DiscoveredPeer peer, Transport t) {
     _handedOff = true;
+    // 协商身份：myNodeId 较小的一方是 host
+    final myIsHost = t.myNodeId.compareTo(peer.id) < 0;
+    t.setRole(myIsHost ? NodeRole.host : NodeRole.client);
+    t.setPeerNodeId(peer.id);
+    t.setPeerRole(myIsHost ? NodeRole.client : NodeRole.host);
     widget.onPeerSelected(peer, t);
   }
 

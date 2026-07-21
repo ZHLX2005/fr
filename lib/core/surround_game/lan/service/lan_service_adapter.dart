@@ -25,45 +25,35 @@ class LanServiceError {
   String toString() => 'LanServiceError($message)';
 }
 
-abstract class LanServiceAdapter {
-  static final LanServiceAdapter instance = _GameServiceAdapterImpl();
+/// 业务层 LAN 服务适配器（具体类，可直接 new）
+class LanServiceAdapter {
+  static LanServiceAdapter instance = LanServiceAdapter();
 
   /// 绑定一个已建立双向连接的 Transport（由 Discovery widget 交回）
-  void attach(fw.Transport transport, {required String alias});
+  void attach(fw.Transport transport, {required String alias}) {
+    detach();
+    _transport = transport;
+    _alias = alias;
+    _isRunning = true;
+
+    _eventSub = transport.events.listen((ev) {
+      // 关房事件由 host 写入 DataLog 触发
+    });
+  }
 
   /// 解绑，清理订阅
-  void detach();
+  void detach() {
+    _eventSub?.cancel();
+    _eventSub = null;
+    _gameScopeSub?.cancel();
+    _gameScopeSub = null;
+    _gameScope = null;
+    _transport = null;
+    _alias = null;
+    _onGameStateChanged = null;
+    _isRunning = false;
+  }
 
-  bool get isRunning;
-  String get myDeviceId;
-  String get myAlias;
-
-  /// 房间事件流
-  Stream<LanRoomEvent> watchRoomEvents();
-
-  /// 错误流
-  Stream<LanServiceError> watchErrors();
-
-  /// 创建游戏房间（host 调用）
-  Future<String> createRoom(GameRoom room);
-
-  /// 加入房间 scope
-  void joinGameScope(String roomId);
-
-  /// 注册游戏状态回调（game page initState 调用）
-  void onGameStateChanged(void Function(GameState)? cb);
-
-  /// 推送游戏状态（本地 → scope）
-  void syncGameState(GameState newState);
-
-  /// 当前加入的游戏 scope 名
-  String? get currentGameScope;
-
-  /// 关闭房间（host 调用）
-  Future<void> closeRoom(String roomId);
-}
-
-class _GameServiceAdapterImpl implements LanServiceAdapter {
   fw.Transport? _transport;
   String? _alias;
   String? _gameScope;
@@ -79,50 +69,15 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
 
   void Function(GameState)? _onGameStateChanged;
 
-  @override
   bool get isRunning => _isRunning;
-
-  @override
   String get myDeviceId => _transport?.myNodeId ?? '';
-
-  @override
   String get myAlias => _alias ?? '';
-
-  @override
   String? get currentGameScope => _gameScope;
 
-  @override
-  void attach(fw.Transport transport, {required String alias}) {
-    detach();
-    _transport = transport;
-    _alias = alias;
-    _isRunning = true;
-
-    _eventSub = transport.events.listen((ev) {
-      // 关房事件由 host 写入 DataLog 触发
-    });
-  }
-
-  @override
-  void detach() {
-    _eventSub?.cancel();
-    _eventSub = null;
-    _gameScopeSub?.cancel();
-    _gameScopeSub = null;
-    _gameScope = null;
-    _transport = null;
-    _alias = null;
-    _onGameStateChanged = null;
-    _isRunning = false;
-  }
-
-  @override
   Stream<LanRoomEvent> watchRoomEvents() => _roomEventsCtrl.stream;
-
-  @override
   Stream<LanServiceError> watchErrors() => _errorsCtrl.stream;
 
-  @override
+  /// 创建游戏房间（host 调用）
   Future<String> createRoom(GameRoom room) async {
     final t = _transport;
     if (t == null) throw LanServiceError('未连接');
@@ -146,7 +101,7 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
     return room.roomId;
   }
 
-  @override
+  /// 加入房间 scope
   void joinGameScope(String roomId) {
     final t = _transport;
     if (t == null) return;
@@ -167,8 +122,6 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
     final t = _transport;
     if (t == null || log.fromNodeId == t.myNodeId) return;
 
-    final phase = log.state['phase'] as String? ?? '';
-
     // gameState 变化 → 更新本地 notifier
     final gsRaw = log.state['gameState'] as Map<String, dynamic>?;
     if (gsRaw != null) {
@@ -182,11 +135,14 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
     if (log.state['closed'] == true) {
       _roomEventsCtrl.add(HostRoomClosed(roomId: _gameScope ?? ''));
     }
-    // 保留 phase 用于未来扩展
-    phase;
   }
 
-  @override
+  /// 注册游戏状态回调（game page initState 调用）
+  void onGameStateChanged(void Function(GameState)? cb) {
+    _onGameStateChanged = cb;
+  }
+
+  /// 推送游戏状态（本地 → scope）
   void syncGameState(GameState newState) {
     final t = _transport;
     final scope = _gameScope;
@@ -197,12 +153,7 @@ class _GameServiceAdapterImpl implements LanServiceAdapter {
     t.broadcastScope(scope);
   }
 
-  @override
-  void onGameStateChanged(void Function(GameState)? cb) {
-    _onGameStateChanged = cb;
-  }
-
-  @override
+  /// 关闭房间（host 调用）
   Future<void> closeRoom(String roomId) async {
     final t = _transport;
     final scope = _gameScope;

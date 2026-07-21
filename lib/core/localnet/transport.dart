@@ -2,21 +2,63 @@ import 'dart:async';
 
 import 'transport_event.dart';
 
+/// 节点在房间中的角色
+///
+/// Discovery widget 完成 HTTP 握手后，应用层会调用 [Transport.setRole]
+/// 声明自己的角色（通常是 host 或 client）。
+enum NodeRole {
+  /// 角色未声明（初始状态，握手未完成）
+  unknown,
+
+  /// 房主 / 邀请方
+  host,
+
+  /// 加入者 / 受邀方
+  client,
+}
+
 /// 传输层抽象 — LAN/Relay 共性
 ///
 /// ## 核心 API
 ///
+/// - **myNodeId / myRole / peerNodeId**: 本节点身份 + 在房间中的角色 + 对端身份
 /// - **events**: 事件总线原语（业务层订阅）
-/// - **joinScope/watchScope**: 加入 scope 后自动同步（raft 风格最终一致）
-/// - **emit**: 主动发布事件
+/// - **joinScope/watchScope/broadcastScope**: scope 内最终一致状态同步
 ///
-/// ## 实现要求
+/// ## 角色协商
 ///
+/// 1. Discovery widget 完成 HTTP 三次握手
+/// 2. 应用层根据业务逻辑（如 surround_game 邀请/接受方向）调用 [setRole] 声明角色
+/// 3. DataLog 完全用于业务数据（游戏状态、房间成员列表等），不再承担身份推断
+///
+/// 实现要求：
 /// - LAN ([LanTransport]): UDP 多播传输
 /// - Relay ([RelayTransport]): HTTP 房间 + WebSocket
 abstract class Transport {
-  /// 节点身份（创建时随机生成或持久化）
+  /// 本节点身份（创建时随机生成或持久化）
   String get myNodeId;
+
+  /// 本节点在当前房间中的角色（由应用层通过 [setRole] 声明）
+  ///
+  /// **为什么不在 Transport 层协商角色**：角色是业务概念（房主 vs 加入者、
+  /// 先手 vs 后手、白方 vs 黑方），不同应用规则不同。Transport 只负责通信，
+  /// 角色由应用层基于其业务规则声明。
+  NodeRole get myRole;
+
+  /// 设置本节点角色。Discovery widget 完成 HTTP 握手后由业务层调用。
+  void setRole(NodeRole role);
+
+  /// 已确认的对端 nodeId（HTTP 握手后由 Discovery widget 设置）
+  String? get peerNodeId;
+
+  /// 设置对端 nodeId。Discovery widget 完成握手后调用。
+  void setPeerNodeId(String? nodeId);
+
+  /// 对端的角色（业务层可推断后设置）
+  NodeRole get peerRole;
+
+  /// 设置对端角色
+  void setPeerRole(NodeRole role);
 
   /// 事件总线原语 — 业务层用 `transport.events.where(...)` 订阅
   Stream<TransportEvent> get events;
@@ -54,7 +96,7 @@ abstract class Transport {
   Future<void> stop();
 }
 
-/// scope 内的最终一致状态
+/// scope 内的最终一致状态 — 纯数据容器，不承担身份/角色语义
 class DataLog {
   DataLog({
     required this.scope,

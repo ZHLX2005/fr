@@ -40,6 +40,9 @@ class RelayTransport extends Transport {
   final Map<String, DataLog> _scopes = {};
   final Map<String, StreamController<DataLog>> _scopeCtrls = {};
   final Set<String> _active = {};
+  NodeRole _role = NodeRole.unknown;
+  NodeRole _peerRole = NodeRole.unknown;
+  String? _peerNodeId;
 
   WebSocketChannel? _ws;
   StreamSubscription<dynamic>? _wsSub;
@@ -50,6 +53,30 @@ class RelayTransport extends Transport {
 
   @override
   String get myNodeId => _nodeId;
+
+  @override
+  NodeRole get myRole => _role;
+
+  @override
+  void setRole(NodeRole role) {
+    _role = role;
+  }
+
+  @override
+  String? get peerNodeId => _peerNodeId;
+
+  @override
+  void setPeerNodeId(String? nodeId) {
+    _peerNodeId = nodeId;
+  }
+
+  @override
+  NodeRole get peerRole => _peerRole;
+
+  @override
+  void setPeerRole(NodeRole role) {
+    _peerRole = role;
+  }
 
   @override
   Stream<TransportEvent> get events => _eventCtrl.stream;
