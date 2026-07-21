@@ -345,7 +345,7 @@ class MasterViewState extends State<MasterView> {
     );
   }
 
-  // —————— 房间大厅（会议风格）——————
+  // —————— 房间大厅（会议风格 + 动画）——————
 
   Widget _buildLobby(ThemeData theme) {
     if (_myRole != null) return _buildMyCard(theme);
@@ -354,53 +354,63 @@ class MasterViewState extends State<MasterView> {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       children: [
         // 房号徽章
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.15)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.tag, size: 16, color: theme.colorScheme.primary),
-                const SizedBox(width: 6),
-                Text(_roomCode!, style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 4, color: theme.colorScheme.primary,
-                )),
-              ],
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          child: Center(
+            key: ValueKey(_roomCode),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.15)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.tag, size: 16, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(_roomCode!, style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 20, letterSpacing: 6, color: theme.colorScheme.primary,
+                  )),
+                ],
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 6),
-        Center(
-          child: Text(
-            !_dealt
-                ? '$_roomCapacity 人房 · 还需 $_needed 人加入'
-                : '发牌完成',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+        const SizedBox(height: 8),
+        // 人数状态（带计数器变化动画）
+        TweenAnimationBuilder<int>(
+          tween: IntTween(begin: 0, end: _onlinePeers.length),
+          duration: const Duration(milliseconds: 300),
+          builder: (_, count, _) => Center(
+            child: Text(
+              !_dealt
+                  ? '$_roomCapacity 人房 · 已到 $count 人 · 还需 $_needed 人'
+                  : '发牌完成',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline, fontSize: 13),
+            ),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 32),
 
-        // 参与人卡片（会议风格圆环）
+        // 参与人网格
         _buildParticipantsGrid(theme),
 
-        const SizedBox(height: 28),
+        const SizedBox(height: 32),
 
         // 底部按钮
         if (!_dealt)
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _onlinePeers.length >= (_masterJoins ? 1 : 1) ? dealCards : null,
+              onPressed: _onlinePeers.isNotEmpty ? dealCards : null,
               icon: const Icon(Icons.style, size: 20),
               label: Text('开始发牌'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
           )
@@ -417,59 +427,53 @@ class MasterViewState extends State<MasterView> {
   }
 
   Widget _buildParticipantsGrid(ThemeData theme) {
-    final cellSize = 64.0;
+    final cellSize = 66.0;
     final totalSlots = _roomCapacity;
     final entries = _onlinePeers.entries.toList();
-    // 按 alias 排序，让 master 在前
     entries.sort((a, b) => a.value.compareTo(b.value));
 
-    // 首先生成所有 slot
     final slots = <Widget>[];
     for (var i = 0; i < totalSlots; i++) {
+      final delay = i * 60;
       if (i < entries.length) {
         final e = entries[i];
         final initial = e.value.isNotEmpty ? e.value[0].toUpperCase() : '?';
         final color = _participantColor(i, theme);
         slots.add(
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: cellSize, height: cellSize,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
+          _AnimatedSlot(
+            delay: delay,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: cellSize, height: cellSize,
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.08)],
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: color.withValues(alpha: 0.5), width: 2.5),
+                    boxShadow: [BoxShadow(color: color.withValues(alpha: 0.15), blurRadius: 8, spreadRadius: 1)],
+                  ),
+                  child: Center(
+                    child: Text(initial, style: TextStyle(
+                      fontSize: 26, fontWeight: FontWeight.bold, color: color, letterSpacing: 0,
+                    )),
+                  ),
                 ),
-                child: Center(
-                  child: Text(initial, style: TextStyle(
-                    fontSize: 24, fontWeight: FontWeight.bold, color: color,
-                  )),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(e.value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface)),
-              Text(e.key.length > 8 ? '${e.key.substring(0, 6)}...' : '', style: TextStyle(fontSize: 9, color: theme.colorScheme.outline)),
-            ],
+                const SizedBox(height: 8),
+                Text(e.value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
+                Text('已就绪', style: TextStyle(fontSize: 10, color: Colors.green.shade400)),
+              ],
+            ),
           ),
         );
       } else {
-        // 空位（虚环）
+        // 空位（呼吸动画）
         slots.add(
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: cellSize, height: cellSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5), width: 2, style: BorderStyle.solid),
-                ),
-                child: Center(child: Icon(Icons.person_add_alt_1, size: 22, color: theme.colorScheme.outlineVariant)),
-              ),
-              const SizedBox(height: 6),
-              Text('等待中', style: TextStyle(fontSize: 11, color: theme.colorScheme.outline)),
-            ],
+          _AnimatedSlot(
+            delay: delay,
+            child: _EmptySlot(cellSize: cellSize, theme: theme),
           ),
         );
       }
@@ -478,18 +482,32 @@ class MasterViewState extends State<MasterView> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Text('参与者', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 8, height: 8,
+                  decoration: BoxDecoration(color: Colors.green.shade400, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Text('参与者', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(width: 6),
+                Text('${_onlinePeers.length}/$_roomCapacity',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+              ],
+            ),
+            const SizedBox(height: 24),
             Wrap(
-              spacing: 24, runSpacing: 24,
+              spacing: 28, runSpacing: 28,
               alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.start,
               children: slots,
             ),
           ],
@@ -499,38 +517,77 @@ class MasterViewState extends State<MasterView> {
   }
 
   Color _participantColor(int i, ThemeData theme) {
-    const colors = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.teal, Colors.pink, Colors.indigo, Colors.cyan, Colors.amber, Colors.deepOrange, Colors.lime, Colors.brown];
+    const colors = [Color(0xFF4F8CF7), Color(0xFF34C759), Color(0xFFFF9500), Color(0xFFAF52DE), Color(0xFF5AC8FA), Color(0xFFFF2D55), Color(0xFF5856D6), Color(0xFF00C7BE), Color(0xFFFFD60A), Color(0xFFFF6B6B), Color(0xFFA2845E), Color(0xFFBF5AF2)];
     return colors[i % colors.length];
   }
 
-  /// master 参与时发牌后显示自己的身份卡
+  /// master 参与时发牌后显示自己的身份卡（带动画）
   Widget _buildMyCard(ThemeData theme) {
     final color = roleColor(theme, _myRole!);
     return Center(
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: color.withValues(alpha: 0.3), width: 2),
-        ),
-        child: Container(
-          width: 260,
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72, height: 72,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                child: Icon(Icons.style, size: 36, color: color),
-              ),
-              const SizedBox(height: 20),
-              Text('你的身份', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline)),
-              const SizedBox(height: 8),
-              Text(_myRole!, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: color)),
-              const SizedBox(height: 8),
-              Text('只有你能看到这张卡', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
-            ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeOutBack,
+          builder: (_, scale, _) => Transform.scale(
+            scale: scale,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 装饰顶部弧
+                Container(
+                  height: 8, width: 80,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                  ),
+                ),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                    side: BorderSide(color: color.withValues(alpha: 0.25), width: 1.5),
+                  ),
+                  child: Container(
+                    width: 260,
+                    padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 角色图标
+                        Container(
+                          width: 80, height: 80,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+                          ),
+                          child: Icon(Icons.style, size: 38, color: color),
+                        ),
+                        const SizedBox(height: 24),
+                        Text('你的身份', style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline, letterSpacing: 2)),
+                        const SizedBox(height: 10),
+                        Text(_myRole!, style: theme.textTheme.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.bold, color: color, letterSpacing: 1,
+                        )),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 3, width: 40,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text('只有你能看到', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -592,7 +649,103 @@ class MasterViewState extends State<MasterView> {
   }
 }
 
-// —————— 身份编辑卡片 ——————
+// —————— 动画辅助组件 ——————
+
+/// 依次飞入动画的 slot 容器
+class _AnimatedSlot extends StatefulWidget {
+  final int delay;
+  final Widget child;
+  const _AnimatedSlot({required this.delay, required this.child});
+
+  @override
+  State<_AnimatedSlot> createState() => _AnimatedSlotState();
+}
+
+class _AnimatedSlotState extends State<_AnimatedSlot> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack);
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, child) => Transform.scale(scale: _anim.value, child: Opacity(opacity: _anim.value, child: child)),
+      child: widget.child,
+    );
+  }
+}
+
+/// 空位呼吸动画圆圈
+class _EmptySlot extends StatefulWidget {
+  final double cellSize;
+  final ThemeData theme;
+  const _EmptySlot({required this.cellSize, required this.theme});
+
+  @override
+  State<_EmptySlot> createState() => _EmptySlotState();
+}
+
+class _EmptySlotState extends State<_EmptySlot> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000));
+    _ctrl.repeat(reverse: true);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, child) => Opacity(
+        opacity: 0.4 + _ctrl.value * 0.3,
+        child: child,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: widget.cellSize, height: widget.cellSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: widget.theme.colorScheme.outlineVariant.withValues(alpha: 0.4), width: 2, style: BorderStyle.solid),
+            ),
+            child: Center(child: Icon(Icons.person_add_alt_1, size: 24, color: widget.theme.colorScheme.outlineVariant)),
+          ),
+          const SizedBox(height: 8),
+          Text('等待中', style: TextStyle(fontSize: 11, color: widget.theme.colorScheme.outline)),
+        ],
+      ),
+    );
+  }
+}
+
+// —————— 全局首字母标签 ——————
 
 class _RoleCard extends StatefulWidget {
   final int index;
