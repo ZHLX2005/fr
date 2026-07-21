@@ -36,6 +36,11 @@ abstract class Transport {
   /// 当前 scope 的最终一致状态（null 表示未加入）
   DataLog? getScope(String scope);
 
+  /// 广播当前 scope 的全量状态给所有在该 scope 的其他节点
+  ///
+  /// 调用者应先通过 [getScope] 获取 DataLog，修改 state 后调用此方法。
+  Future<void> broadcastScope(String scope);
+
   /// 主动发布事件到 events 流（仅本地，不广播）
   void emit(TransportEvent event);
 

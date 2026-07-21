@@ -87,6 +87,18 @@ class RelayTransport extends Transport {
   }
 
   @override
+  Future<void> broadcastScope(String scope) async {
+    final log = _scopes[scope];
+    if (log == null) return;
+    await _send({
+      'type': 'scope-update',
+      'scope': scope,
+      'state': log.state,
+      'from': _nodeId,
+    });
+  }
+
+  @override
   Future<void> start() async {
     // Relay 模式无显式 start；连接在 createRoom/joinRoom 后建立
   }

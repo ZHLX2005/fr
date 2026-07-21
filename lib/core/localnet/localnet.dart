@@ -10,7 +10,7 @@
 /// 业务层调用：
 /// ```dart
 /// // 1. 选择发现方式
-/// LanDiscovery().buildPage(onPeerSelected: (peer) async {
+/// LanDiscovery().buildPage(onPeerSelected: (peer, transport) async {
 ///   // 2. 创建传输
 ///   final transport = await LanTransport.create();
 ///   // 3. 加入 scope（自动全广播同步）

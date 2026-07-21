@@ -80,7 +80,7 @@ class LocalnetService {
     // 业务层可订阅其他事件（peer-joined-scope 等）
   }
 
-  /// 本地发送消息：写到 scope 状态（其他节点自动收到）
+  /// 本地发送消息：写到 scope 状态 → 全广播（raft 风格）
   void sendMessage(LocalnetMessage msg) {
     final t = _transport;
     final scope = _activeScope;
@@ -90,6 +90,10 @@ class LocalnetService {
     final list = (log.state['messages'] as List?)?.cast<Map>() ?? <Map>[];
     list.add(msg.toJson());
     log.merge({'messages': list}, localNodeId: t.myNodeId);
+    // 本地：sender 立即看到自己的消息（广播会过滤自己的包）
+    _onScopeUpdate(log);
+    // 广播 scope 全量状态给其他节点
+    t.broadcastScope(scope);
   }
 
   // ============ 生命周期 ============

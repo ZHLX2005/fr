@@ -108,9 +108,8 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
               ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
               : _mode == MessageNetMode.lan
                   ? fw.LanDiscovery().buildPage(
-                      onPeerSelected: (peer) async {
-                        // 自动建立 transport（业务层零连接代码）
-                        final transport = await fw.LanTransport.create();
+                      onPeerSelected: (peer, transport) async {
+                        // widget 已建好 transport，业务层只需 joinScope
                         await transport.joinScope('chat-${peer.id}');
                         _onConnected(transport, peer);
                       },
@@ -119,10 +118,10 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
                   : fw.RelayDiscovery(
                       relayUrl: 'http://47.110.80.47:8988',
                     ).buildPage(
-                      onPeerSelected: (peer) async {
-                        // Relay widget 内部已经 createRoom/joinRoom
-                        // 只需从 widget 获取 transport（简化：业务层持有 transport）
-                        _onError('Relay: 通过 widget 内 transport 完成，请检查 widget 实现');
+                      onPeerSelected: (peer, transport) async {
+                        // widget 已 createRoom/joinRoom，业务层只需 joinScope
+                        await transport.joinScope('chat-${peer.id}');
+                        _onConnected(transport, peer);
                       },
                       onError: _onError,
                     ),

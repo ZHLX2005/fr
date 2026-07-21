@@ -7,9 +7,8 @@
 ```dart
 // 1. 渲染本地引擎 widget
 LanDiscovery().buildPage(
-  onPeerSelected: (peer) async {
-    // 2. 拿到 transport，订阅事件总线
-    final transport = await LanTransport.create();
+  onPeerSelected: (peer, transport) async {
+    // widget 已建好 transport，业务层只需 joinScope
     await transport.joinScope('chat-${peer.id}');
     localnetService.attach(transport, 'chat-${peer.id}');
   },

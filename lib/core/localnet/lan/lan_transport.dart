@@ -88,6 +88,18 @@ class LanTransport extends Transport {
   }
 
   @override
+  Future<void> broadcastScope(String scope) async {
+    final log = _scopes[scope];
+    if (log == null) return;
+    await _broadcast({
+      'type': 'scope-update',
+      'scope': scope,
+      'state': log.state,
+      'from': _nodeId,
+    });
+  }
+
+  @override
   Future<void> start() async {
     _started = true;
   }

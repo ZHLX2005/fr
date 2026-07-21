@@ -16,8 +16,12 @@ class RelayDiscovery {
   final String relayUrl;
 
   /// 构建发现页面 — 业务层直接渲染
+  ///
+  /// [onPeerSelected] 会带回 widget 内部已 createRoom/joinRoom 后的
+  /// [RelayTransport]，业务层直接用，**不需要自己 create**。
+  /// Transport 所有权在回调后转移给业务层，业务层负责 stop()。
   Widget buildPage({
-    required void Function(DiscoveredPeer peer) onPeerSelected,
+    required void Function(DiscoveredPeer peer, RelayTransport transport) onPeerSelected,
     void Function(String error)? onError,
   }) {
     return _RelayDiscoveryPage(
@@ -74,7 +78,7 @@ class _RelayDiscoveryPage extends StatefulWidget {
   });
 
   final String relayUrl;
-  final void Function(DiscoveredPeer peer) onPeerSelected;
+  final void Function(DiscoveredPeer peer, RelayTransport transport) onPeerSelected;
   final void Function(String error)? onError;
 
   @override
@@ -87,6 +91,7 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   String? _roomCode;
   String? _error;
   bool _busy = false;
+  bool _handedOff = false;
   String _alias = 'Flutter Device';
 
   bool get _inRoom => _roomCode != null;
@@ -106,7 +111,8 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   @override
   void dispose() {
     _roomCodeCtrl.dispose();
-    _transport?.stop();
+    // transport 所有权已转移给业务层 → 不 stop；否则泄漏
+    if (!_handedOff) _transport?.stop();
     super.dispose();
   }
 
@@ -176,11 +182,17 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   }
 
   void _autoNavigate(String code) {
-    widget.onPeerSelected(DiscoveredPeer(
-      id: 'relay:$code',
-      alias: 'Host',
-      address: 'relay://$code',
-    ));
+    final t = _transport;
+    if (t == null) return;
+    _handedOff = true;
+    widget.onPeerSelected(
+      DiscoveredPeer(
+        id: 'relay:$code',
+        alias: 'Host',
+        address: 'relay://$code',
+      ),
+      t,
+    );
   }
 
   @override

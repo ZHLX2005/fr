@@ -23,8 +23,12 @@ class LanDiscovery {
   Future<String> getAlias() => _LanPrefs.getAlias();
 
   /// 构建发现页面 — 业务层直接渲染
+  ///
+  /// [onPeerSelected] 会带回 widget 内部已创建好的 [Transport]，
+  /// 业务层直接用，**不需要自己 create**。Transport 所有权在回调后
+  /// 转移给业务层，业务层负责 stop()。
   Widget buildPage({
-    required void Function(DiscoveredPeer peer) onPeerSelected,
+    required void Function(DiscoveredPeer peer, Transport transport) onPeerSelected,
     void Function(String error)? onError,
   }) {
     return _LanDiscoveryPage(
@@ -82,7 +86,7 @@ class _LanDiscoveryPage extends StatefulWidget {
 
   final String multicastAddress;
   final int multicastPort;
-  final void Function(DiscoveredPeer peer) onPeerSelected;
+  final void Function(DiscoveredPeer peer, Transport transport) onPeerSelected;
   final void Function(String error)? onError;
 
   @override
@@ -94,6 +98,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   String? _myNodeId;
   String? _error;
   Transport? _transport;
+  bool _handedOff = false;
 
   @override
   void initState() {
@@ -139,7 +144,8 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
   @override
   void dispose() {
-    _transport?.stop();
+    // transport 所有权已转移给业务层 → 不 stop；否则泄漏
+    if (!_handedOff) _transport?.stop();
     super.dispose();
   }
 
@@ -168,7 +174,12 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
                               title: Text(p.alias),
                               subtitle: Text(p.address),
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () => widget.onPeerSelected(p),
+                              onTap: () {
+                                final t = _transport;
+                                if (t == null) return;
+                                _handedOff = true;
+                                widget.onPeerSelected(p, t);
+                              },
                             );
                           },
                         ),
