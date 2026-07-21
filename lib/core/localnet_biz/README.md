@@ -1,28 +1,35 @@
-# LocalNet 旧 API（已废弃）
+# LocalNet 业务层（标准化案例）
 
-此目录下的 API 已废弃，仅为向后兼容保留。
+业务层订阅 `Transport.events` 和 `Transport.watchScope` 即可，**零发现、零连接、零配置代码**。
 
-**新代码请使用 `LanFramework.instance`：**
+## 接入方式
 
 ```dart
-import 'package:xiaodouzi_fr/core/localnet/localnet.dart';
-
-final fw = LanFramework.instance;
-await fw.start(FrameworkConfig(deviceAlias: 'MyPhone'));
-fw.watchDevices().listen((devices) => updateUI(devices));
+// 1. 渲染本地引擎 widget
+LanDiscovery().buildPage(
+  onPeerSelected: (peer) async {
+    // 2. 拿到 transport，订阅事件总线
+    final transport = await LanTransport.create();
+    await transport.joinScope('chat-${peer.id}');
+    localnetService.attach(transport, 'chat-${peer.id}');
+  },
+)
+  ↓ transport.events / watchScope 流式驱动 UI
+LocalnetChatPage(scope: scope)  // 订阅 messagesStream
 ```
 
-## 迁移对照
+## 业务层职责
 
-| 旧 API | 新 API |
-|---|---|
-| `localnetService.start()` | `LanFramework.instance.start(FrameworkConfig)` |
-| `localnetService.devicesStream` | `LanFramework.instance.watchDevices()` |
-| `localnetService.sendMessage(device, text)` | `LanFramework.instance.sendTo(device.id, 'chat', {'text': text})` |
-| `discoveryService.onMessageReceived = ...` | `LanFramework.instance.watchChannel('chat').listen(...)` |
-| `discoveryService.registerRoute(path, h)` | `LanFramework.instance.sendTo(...)` / `watchChannel(...)` |
-| `localnetService.config` | `FrameworkConfig` |
+- **不做**：发现、连接、认证、配置持久化
+- **做**：解析 transport 事件 / scope 状态 → 更新本地模型 → 渲染
 
-## 清理计划
+## 设置
 
-待业务侧全部迁移到新 API 后（下一轮），此目录将被删除。
+`LocalnetSettingsPage` 是零配置壳 — 仅根据模式渲染对应 Discovery 的 `buildSettingsPage()`：
+
+```dart
+fw.LanDiscovery().buildSettingsPage()                    // alias + 多播
+fw.RelayDiscovery(relayUrl: ...).buildSettingsPage()     // alias + relayUrl
+```
+
+每个 Discovery 内部用 SharedPreferences 私有 key 持久化，biz 不感知。

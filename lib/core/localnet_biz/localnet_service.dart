@@ -2,11 +2,7 @@ import 'dart:async';
 
 import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 
-import 'models/localnet_config.dart';
-import 'models/localnet_device.dart';
 import 'models/localnet_message.dart';
-import 'services/config_service.dart';
-import 'services/device_id_service.dart';
 
 /// LocalNet biz 服务 — 订阅 Transport 事件总线，驱动 UI
 ///
@@ -16,8 +12,6 @@ class LocalnetService {
   static final LocalnetService _instance = LocalnetService._internal();
   factory LocalnetService() => _instance;
   LocalnetService._internal();
-
-  final ConfigService config = configService;
 
   fw.Transport? _transport;
   String? _activeScope;
@@ -99,33 +93,6 @@ class LocalnetService {
   }
 
   // ============ 生命周期 ============
-
-  Future<void> init() async {
-    await config.init();
-  }
-
-  /// 更新配置（重新启动）
-  Future<void> updateConfig(LocalnetConfig newConfig) async {
-    await config.updateConfig(newConfig);
-    if (_transport != null) {
-      // 重启连接
-      await _transport!.stop();
-      detach();
-    }
-  }
-
-  /// 兼容旧 API：serviceState
-  String get serviceState => isReady ? 'RUNNING' : 'STOPPED';
-
-  /// 兼容旧 API：isReady（基于是否有活跃 transport）
-  bool get isReady => _transport != null;
-
-  /// 兼容旧 API：devices（返回空，因为 biz 层不直接管理节点）
-  List<LocalnetDevice> get devices => const [];
-
-  Future<void> stop() async {
-    detach();
-  }
 
   StreamSubscription<fw.DataLog>? _chatSub;
   StreamSubscription<fw.TransportEvent>? _evtSub;

@@ -8,7 +8,5 @@ export 'localnet_discovery_host.dart';
 export 'pages/localnet_chat_page.dart';
 export 'pages/localnet_debug_page.dart';
 export 'pages/localnet_settings_page.dart';
-export 'models/localnet_config.dart';
-export 'models/localnet_constants.dart';
-export 'models/localnet_device.dart';
+export 'models/localnet_types.dart';
 export 'models/localnet_message.dart';

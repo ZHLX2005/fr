@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 
 import 'localnet_service.dart';
-import 'models/localnet_config.dart';
+import 'models/localnet_types.dart';
 import 'pages/localnet_chat_page.dart';
 import 'pages/localnet_debug_page.dart';
 import 'pages/localnet_settings_page.dart';
@@ -73,7 +73,14 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const LocalnetSettingsPage()),
+              MaterialPageRoute(
+                builder: (_) => LocalnetSettingsPage(
+                  mode: _mode,
+                  multicastPort: 5678,
+                  multicastAddress: '239.255.255.255',
+                  relayUrl: 'http://47.110.80.47:8988',
+                ),
+              ),
             ),
           ),
           IconButton(

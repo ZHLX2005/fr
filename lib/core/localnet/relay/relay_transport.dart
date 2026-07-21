@@ -10,18 +10,28 @@ import '../transport_event.dart';
 
 /// Relay 传输实现 — HTTP 房间 + WebSocket
 class RelayTransport extends Transport {
-  RelayTransport._({required this.relayUrl, http.Client? httpClient})
-      : _http = httpClient ?? http.Client();
+  RelayTransport._({
+    required this.relayUrl,
+    required String alias,
+    http.Client? httpClient,
+  })  : _alias = alias,
+        _http = httpClient ?? http.Client();
 
   /// 创建 Relay 传输（仅初始化 http client，连接在 [createRoom]/[joinRoom] 后建立）
   static Future<RelayTransport> create({
     required String relayUrl,
+    String alias = 'Flutter Device',
     http.Client? httpClient,
   }) async {
-    return RelayTransport._(relayUrl: relayUrl, httpClient: httpClient);
+    return RelayTransport._(
+      relayUrl: relayUrl,
+      alias: alias,
+      httpClient: httpClient,
+    );
   }
 
   final String relayUrl;
+  final String _alias;
   final http.Client _http;
 
   final String _nodeId = DateTime.now().microsecondsSinceEpoch.toString();
@@ -86,7 +96,7 @@ class RelayTransport extends Transport {
     final resp = await _http.post(
       Uri.parse('$relayUrl/api/v1/relay/rooms'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'alias': '', 'deviceId': _nodeId}),
+      body: jsonEncode({'alias': _alias, 'deviceId': _nodeId}),
     );
     if (resp.statusCode != 201) {
       throw _RelayException('创建房间失败: HTTP ${resp.statusCode}');
@@ -104,7 +114,7 @@ class RelayTransport extends Transport {
     final resp = await _http.post(
       Uri.parse('$relayUrl/api/v1/relay/rooms/$code/join'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'deviceId': _nodeId, 'alias': ''}),
+      body: jsonEncode({'deviceId': _nodeId, 'alias': _alias}),
     );
     if (resp.statusCode == 404) {
       throw _RelayNotFoundException('房间 $code 不存在');
