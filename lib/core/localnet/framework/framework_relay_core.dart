@@ -124,7 +124,6 @@ class FrameworkRelayCore implements FrameworkCore {
     // 6. SessionManager
     sessionManager = SessionManager(
       channelManager: channelManager,
-      eventBus: eventBus,
     );
 
     _isRunning = true;
@@ -203,11 +202,6 @@ class FrameworkRelayCore implements FrameworkCore {
     }
   }
 
-  void _assertConnected() {
-    if (_channel == null || _ws == null) {
-      throw StateError('未连接聊天室，请先调用 createChatRoom 或 joinChatRoom');
-    }
-  }
 
   /// 完整 WS 连接流程：open → WsTransport → RelayChannel → RelayTransportService → subscribe → identify
   Future<void> _connectAndIdentify(String wsUrl, {required String role}) async {

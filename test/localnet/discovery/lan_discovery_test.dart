@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/localnet/discovery/lan_discovery.dart';
-import 'package:xiaodouzi_fr/core/localnet/discovery/discovery_peer.dart';
 import 'package:xiaodouzi_fr/core/localnet/discovery/discovery_event.dart';
 import 'package:xiaodouzi_fr/core/localnet/transport/transport_config.dart';
 import 'package:xiaodouzi_fr/core/localnet/transport/udp_transport.dart';

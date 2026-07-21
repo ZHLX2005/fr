@@ -37,7 +37,6 @@ class _RelayLobbyPageState extends State<RelayLobbyPage> {
   bool _isBusy = false;
   String? _error;
 
-  bool get _inRoom => _adapter.currentRoomCode != null;
 
   @override
   void initState() {

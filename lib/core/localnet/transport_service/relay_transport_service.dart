@@ -26,7 +26,7 @@ class RelayTransportService implements TransportService {
       StreamController<TransportEvent>.broadcast();
   final Map<String, List<StreamController<TransportMessage>>> _watchers = {};
   StreamSubscription<TransportFrame>? _wsFrameSub;
-  bool _started = false;
+
 
   @override
   TransportConnectionState connectionState =
@@ -42,7 +42,6 @@ class RelayTransportService implements TransportService {
   void connect(WsTransport ws, RelayChannel channel) {
     _ws = ws;
     _channel = channel;
-    _started = true;
     connectionState = TransportConnectionState.connected;
     _eventCtrl.add(const Connected());
 
@@ -86,7 +85,6 @@ class RelayTransportService implements TransportService {
   void disconnect() {
     _wsFrameSub?.cancel();
     _wsFrameSub = null;
-    _started = false;
     connectionState = TransportConnectionState.disconnected;
     _eventCtrl.add(const Disconnected());
   }

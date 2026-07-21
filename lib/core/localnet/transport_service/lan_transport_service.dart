@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '../channel/channel_manager.dart';
-import '../channel/send_result.dart' as ch;
+
 import '../device/device_manager.dart';
 import '../event_bus/event_bus.dart';
 import '../event_bus/lan_event.dart';

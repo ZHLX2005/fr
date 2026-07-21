@@ -9,7 +9,6 @@ import 'package:xiaodouzi_fr/core/localnet/transport/ws_transport.dart';
 
 class _FakeChannel implements WebSocketChannel {
   final _in = StreamController<dynamic>.broadcast();
-  final _out = StreamController<String>.broadcast();
   final List<String> sent = [];
   bool closed = false;
 

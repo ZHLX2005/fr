@@ -137,7 +137,6 @@ class FrameworkLanCore implements FrameworkCore {
     // 7. SessionManager
     sessionManager = SessionManager(
       channelManager: channelManager,
-      eventBus: eventBus,
     );
 
     // 8. 串联：UDP 业务多播 → 业务事件总线

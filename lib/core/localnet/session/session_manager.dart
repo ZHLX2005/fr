@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../channel/channel_manager.dart';
-import '../event_bus/event_bus.dart';
 import 'session.dart';
 import 'state_serializer.dart';
 
@@ -10,12 +9,9 @@ import 'state_serializer.dart';
 class SessionManager {
   SessionManager({
     required ChannelManager channelManager,
-    required EventBus eventBus,
-  })  : _channelManager = channelManager,
-        _eventBus = eventBus;
+  }) : _channelManager = channelManager;
 
   final ChannelManager _channelManager;
-  final EventBus _eventBus;
   final Map<String, Session> _sessions = {};
 
   /// Create a new Session
