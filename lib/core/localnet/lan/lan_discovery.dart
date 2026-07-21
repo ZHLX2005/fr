@@ -71,12 +71,15 @@ class DiscoveredPeer {
     required this.address,
     this.ip = '',
     this.httpPort = 0,
+    this.myCreatedAt = 0,
   });
   final String id;
   final String alias;
   final String address;
   final String ip;
   final int httpPort;
+  /// 对端 transport 创建时间（microsecond），用于 master 选举
+  final int myCreatedAt;
 }
 
 /// LAN 设置持久化（私有 key，biz 不感知）
@@ -206,6 +209,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
         final fromId = body['from'] as String?;
         final alias = body['alias'] as String? ?? '?';
         final httpPort = body['httpPort'] as int? ?? 0;
+        final peerCreatedAt = body['createdAt'] as int? ?? 0;
         if (fromId != null && mounted) {
           setState(() {
             _inviteFrom = DiscoveredPeer(
@@ -214,6 +218,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
               address: 'lan://$fromId',
               ip: remoteIp,
               httpPort: httpPort,
+              myCreatedAt: peerCreatedAt,
             );
           });
         }
@@ -249,6 +254,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
                 address: 'lan://$from',
                 ip: e.data['ip'] as String? ?? '',
                 httpPort: e.data['httpPort'] as int? ?? 0,
+                myCreatedAt: e.data['createdAt'] as int? ?? 0,
               );
             });
           }
@@ -324,6 +330,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
         'from': myId,
         'alias': _myAlias,
         'httpPort': _httpPort,
+        'createdAt': _transport?.myCreatedAt ?? 0,
       },
     ).then((resp) {
       if (resp.isOk) {
@@ -368,8 +375,8 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
   void _completeHandshake(DiscoveredPeer peer, Transport t) {
     _handedOff = true;
-    // 协商身份：myNodeId 较小的一方是 host
-    final myIsHost = t.myNodeId.compareTo(peer.id) < 0;
+    // 协商身份：先创建（myCreatedAt 较小）的是 host
+    final myIsHost = t.myCreatedAt <= peer.myCreatedAt;
     t.setRole(myIsHost ? NodeRole.host : NodeRole.client);
     t.setPeerNodeId(peer.id);
     t.setPeerRole(myIsHost ? NodeRole.client : NodeRole.host);

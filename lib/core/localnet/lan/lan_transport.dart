@@ -1,22 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import '../io/udp_socket.dart';
 import '../transport.dart';
-import '../transport_event.dart';
 
-/// LAN 传输实现 — UDP 多播
-class LanTransport extends Transport {
+/// LAN 传输实现 — UDP 发现 + HTTP pub/sub（双 API 兼容）
+///
+/// v1 scope API 内部用 topic + 内存 DataLog 镜像实现
+/// v2 pub/sub API 走 HTTP POST（直接投递到对端 HTTP server）
+class LanTransport implements Transport {
   LanTransport._({
     required String multicastAddress,
     required int multicastPort,
     required int httpPort,
-  }) : _multicastAddress = multicastAddress,
-       _multicastPort = multicastPort,
-       _httpPort = httpPort;
+  })  : _multicastAddress = multicastAddress,
+        _multicastPort = multicastPort,
+        _httpPort = httpPort;
 
-  /// 创建 LAN 传输
   static Future<LanTransport> create({
     String multicastAddress = '239.255.255.255',
     int multicastPort = 5678,
@@ -29,7 +29,6 @@ class LanTransport extends Transport {
     );
     await t._socket.bind(multicastAddress: multicastAddress, port: multicastPort);
     t._socket.datagrams.listen(t._onDatagram);
-    t._started = true;
     return t;
   }
 
@@ -40,7 +39,16 @@ class LanTransport extends Transport {
   final int _httpPort;
   final UdpMulticastSocket _socket = UdpMulticastSocket();
 
-  final String _nodeId = DateTime.now().microsecondsSinceEpoch.toString();
+  final int _createdAt = DateTime.now().microsecondsSinceEpoch;
+  final String _nodeId = '${DateTime.now().microsecondsSinceEpoch}-${DateTime.now().millisecondsSinceEpoch % 1000}';
+
+  // 已知 peer：nodeId -> (ip, httpPort)
+  final Map<String, _PeerEndpoint> _peers = {};
+
+  // v2 pub/sub
+  final Map<String, StreamController<RemoteEvent>> _subCtrl = {};
+
+  // v1 scope 兼容
   final StreamController<TransportEvent> _eventCtrl =
       StreamController<TransportEvent>.broadcast();
   final Map<String, DataLog> _scopes = {};
@@ -50,34 +58,83 @@ class LanTransport extends Transport {
   NodeRole _peerRole = NodeRole.unknown;
   String? _peerNodeId;
 
-  bool _started = false;
+  // HTTP publish client (set by LanDiscovery widget after starting HTTP server)
+  _HttpPublishClient? _publishClient;
 
   @override
   String get myNodeId => _nodeId;
 
   @override
+  int get myCreatedAt => _createdAt;
+
+  @override
   NodeRole get myRole => _role;
 
   @override
-  void setRole(NodeRole role) {
-    _role = role;
-  }
+  void setRole(NodeRole role) => _role = role;
 
   @override
   String? get peerNodeId => _peerNodeId;
 
   @override
-  void setPeerNodeId(String? nodeId) {
-    _peerNodeId = nodeId;
-  }
+  void setPeerNodeId(String? nodeId) => _peerNodeId = nodeId;
 
   @override
   NodeRole get peerRole => _peerRole;
 
   @override
-  void setPeerRole(NodeRole role) {
-    _peerRole = role;
+  void setPeerRole(NodeRole role) => _peerRole = role;
+
+  @override
+  bool get isConnected => _publishClient != null;
+
+  // ---------------- v2 pub/sub ----------------
+
+  @override
+  Future<void> connect() async {}
+
+  @override
+  Future<void> close() async => stop();
+
+  @override
+  Stream<RemoteEvent> subscribe(String topic) {
+    return _subCtrl
+        .putIfAbsent(topic, () => StreamController<RemoteEvent>.broadcast())
+        .stream;
   }
+
+  @override
+  Future<void> unsubscribe(String topic) async {
+    final ctrl = _subCtrl.remove(topic);
+    if (ctrl != null) await ctrl.close();
+  }
+
+  @override
+  Future<void> publish(String topic, Map<String, dynamic> payload) async {
+    final client = _publishClient;
+    if (client == null) {
+      throw StateError('LanTransport.publish before setPublishClient');
+    }
+    for (final peer in _peers.values) {
+      unawaited(client.post(peer.ip, peer.httpPort, topic, payload));
+    }
+  }
+
+  /// Incoming HTTP-published event from a peer (called by LanDiscovery).
+  void deliverRemoteEvent(RemoteEvent event) {
+    final ctrl = _subCtrl[event.topic];
+    if (ctrl == null || ctrl.isClosed) return;
+    ctrl.add(event);
+  }
+
+  void setPublishClient(_HttpPublishClient client) {
+    _publishClient = client;
+  }
+
+  /// Currently known peer endpoints (read-only view for the widget).
+  Map<String, _PeerEndpoint> get knownPeers => Map.unmodifiable(_peers);
+
+  // ---------------- v1 scope compat ----------------
 
   @override
   Stream<TransportEvent> get events => _eventCtrl.stream;
@@ -86,27 +143,10 @@ class LanTransport extends Transport {
   Set<String> get activeScopes => Set.unmodifiable(_active);
 
   @override
-  DataLog? getScope(String scope) => _scopes[scope];
-
-  @override
-  Stream<DataLog> watchScope(String scope) {
-    return _scopeCtrls
-        .putIfAbsent(scope, () => StreamController<DataLog>.broadcast())
-        .stream;
-  }
-
-  @override
   Future<void> joinScope(String scope) async {
     if (_active.contains(scope)) return;
     _active.add(scope);
     _scopes.putIfAbsent(scope, () => DataLog(scope: scope, fromNodeId: _nodeId));
-    // 广播心跳让对端知道我在这个 scope（用 topic 标记）
-    await _broadcast({
-      'type': 'scope-join',
-      'scope': scope,
-      'from': _nodeId,
-      'httpPort': _httpPort,
-    });
   }
 
   @override
@@ -116,45 +156,56 @@ class LanTransport extends Transport {
   }
 
   @override
-  void emit(TransportEvent event) {
-    _eventCtrl.add(event);
+  Stream<DataLog> watchScope(String scope) {
+    return _scopeCtrls
+        .putIfAbsent(scope, () => StreamController<DataLog>.broadcast())
+        .stream;
   }
+
+  @override
+  DataLog? getScope(String scope) => _scopes[scope];
 
   @override
   Future<void> broadcastScope(String scope) async {
     final log = _scopes[scope];
     if (log == null) return;
-    await _broadcast({
+    final env = {
       'type': 'scope-update',
       'scope': scope,
       'state': log.state,
       'from': _nodeId,
-    });
+    };
+    final wire = utf8.encode(jsonEncode(env));
+    await _socket.send(wire);
   }
 
   @override
   Future<void> sendEvent(
       String scope, String topic, Map<String, dynamic> data) async {
     if (!_active.contains(scope)) return;
-    await _broadcast({
+    final env = {
       'type': 'event',
       'scope': scope,
       'topic': topic,
       'data': data,
       'from': _nodeId,
-    });
+    };
+    final wire = utf8.encode(jsonEncode(env));
+    await _socket.send(wire);
   }
 
   @override
-  Future<void> start() async {
-    _started = true;
-  }
+  void emit(TransportEvent event) => _eventCtrl.add(event);
+
+  @override
+  Future<void> start() async {}
 
   @override
   Future<void> stop() async {
-    _started = false;
-    await _socket.close();
-    await _eventCtrl.close();
+    for (final ctrl in _subCtrl.values) {
+      await ctrl.close();
+    }
+    _subCtrl.clear();
     for (final c in _scopeCtrls.values) {
       await c.close();
     }
@@ -163,77 +214,97 @@ class LanTransport extends Transport {
       await s.dispose();
     }
     _scopes.clear();
+    await _eventCtrl.close();
+    await _socket.close();
   }
 
-  // ============ 内部 ============
+  // ---------------- 房间 (v2) ----------------
 
-  Future<void> _broadcast(Map<String, dynamic> envelope) async {
-    if (!_started) return;
-    final wire = jsonEncode(envelope);
-    await _socket.send(utf8.encode(wire));
+  @override
+  Future<RoomInfo> createRoom(RoomConfig config) async {
+    throw UnsupportedError(
+      'LanTransport.createRoom: rooms are created via LanDiscovery widget',
+    );
   }
+
+  @override
+  Future<void> joinRoom(String code, String token) async {
+    throw UnsupportedError(
+      'LanTransport.joinRoom: rooms are joined via LanDiscovery widget',
+    );
+  }
+
+  @override
+  Future<void> leaveRoom(String code) async {
+    await unsubscribe('room/$code/events');
+  }
+
+  // ---------------- UDP 发现 ----------------
 
   void _onDatagram(UdpDatagram dg) {
     try {
       final text = utf8.decode(dg.data, allowMalformed: true);
       final env = jsonDecode(text) as Map<String, dynamic>;
-      env['_senderIp'] = dg.senderAddress.address;
-      _dispatch(env);
-    } catch (_) {
-      // 忽略非法包
-    }
-  }
-
-  void _dispatch(Map<String, dynamic> env) {
-    final type = env['type'] as String? ?? '';
-    final from = env['from'] as String?;
-    if (from == _nodeId) return; // 忽略自己
-
-    switch (type) {
-      case 'event':
-        // 通用事件：业务层订阅 transport.events
-        final topic = env['topic'] as String? ?? '';
-        final data = (env['data'] as Map?)?.cast<String, dynamic>() ?? const {};
-        // 只处理本节点已加入 scope 的事件
-        final scope = env['scope'] as String? ?? '';
-        if (scope.isNotEmpty && !_active.contains(scope)) return;
-        final ts = DateTime.tryParse(env['ts'] as String? ?? '') ??
-            DateTime.fromMillisecondsSinceEpoch(0);
-        _eventCtrl.add(TransportEvent(topic: topic, data: data, timestamp: ts));
-        break;
-
-      case 'scope-update':
-        // scope 状态更新
-        final scope = env['scope'] as String?;
-        if (scope == null) return;
-        final log = DataLog.fromJson({
-          'scope': scope,
-          'state': (env['state'] as Map?)?.cast<String, dynamic>() ?? const {},
-          'from': from,
-        });
-        final local = _scopes.putIfAbsent(
-          scope,
-          () => DataLog(scope: scope, fromNodeId: from ?? ''),
-        );
-        local.applyRemote(log);
-        _scopeCtrls[scope]?.add(local);
-        break;
-
-      case 'scope-join':
-        // 有人加入 scope — 触发本地事件供业务层观察
-        final scope = env['scope'] as String?;
-        if (scope == null) return;
+      final from = env['from'] as String?;
+      if (from == null || from == _nodeId) return;
+      // v1 scope-join UDP 包
+      if (env['type'] == 'scope-join') {
+        _active.add(env['scope'] as String? ?? '');
         _eventCtrl.add(TransportEvent(
           topic: 'peer-joined-scope',
           data: {
-            'scope': scope,
+            'scope': env['scope'],
             'from': from,
-            'ip': env['_senderIp'] as String? ?? '',
+            'ip': dg.senderAddress.address,
             'httpPort': env['httpPort'] as int? ?? 0,
+            'createdAt': env['createdAt'] as int? ?? 0,
           },
           timestamp: DateTime.now(),
         ));
-        break;
-    }
+      }
+      // v2 discovery 包
+      if (env['type'] == 'discovery') {
+        _peers[from] = _PeerEndpoint(
+          ip: dg.senderAddress.address,
+          httpPort: env['httpPort'] as int? ?? 0,
+        );
+      }
+    } catch (_) {}
   }
+
+  /// Broadcast v2 discovery presence. Called by LanDiscovery periodically.
+  void broadcastDiscovery() {
+    final env = {
+      'type': 'discovery',
+      'from': _nodeId,
+      'httpPort': _httpPort,
+      'createdAt': _createdAt,
+    };
+    final wire = utf8.encode(jsonEncode(env));
+    _socket.send(wire);
+  }
+
+  /// Broadcast v1 scope-join (used by v1 compat path during migration).
+  void broadcastScopeJoin(String scope) {
+    final env = {
+      'type': 'scope-join',
+      'scope': scope,
+      'from': _nodeId,
+      'httpPort': _httpPort,
+      'createdAt': _createdAt,
+    };
+    final wire = utf8.encode(jsonEncode(env));
+    _socket.send(wire);
+  }
+}
+
+class _PeerEndpoint {
+  _PeerEndpoint({required this.ip, required this.httpPort});
+  final String ip;
+  final int httpPort;
+}
+
+abstract class _HttpPublishClient {
+  Future<void> post(
+      String ip, int port, String topic, Map<String, dynamic> payload);
 }

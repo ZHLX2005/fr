@@ -173,11 +173,16 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
   void _completeHandshake(RelayTransport t, String code, String did, String alias) {
     _handedOff = true;
     _presenceSub?.cancel();
-    // 协商角色：myNodeId 较小的是 host
-    final myIsHost = t.myNodeId.compareTo(did) < 0;
-    t.setRole(myIsHost ? NodeRole.host : NodeRole.client);
+    // 协商角色：建房者（调用了 createRoom 的）= host，加入者 = client
+    // _roomCode != null 表示当前 Discovery 实例是建房者
+    if (_roomCode != null) {
+      t.setRole(NodeRole.host);
+      t.setPeerRole(NodeRole.client);
+    } else {
+      t.setRole(NodeRole.client);
+      t.setPeerRole(NodeRole.host);
+    }
     t.setPeerNodeId(did);
-    t.setPeerRole(myIsHost ? NodeRole.client : NodeRole.host);
     widget.onPeerSelected(
       DiscoveredPeer(id: did, alias: alias, address: 'relay://$code'),
       t,
@@ -202,7 +207,7 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
         relayUrl: _effectiveRelayUrl,
         alias: _alias,
       );
-      final code = await t.createRoom();
+      final code = await t.createRoomCompat();
       await t.joinScope('peers');
       _transport = t;
       if (!mounted) return;
@@ -228,7 +233,7 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
         relayUrl: _effectiveRelayUrl,
         alias: _alias,
       );
-      await t.joinRoom(code);
+      await t.joinRoomCompat(code);
       await t.joinScope('peers');
       _transport = t;
       if (!mounted) return;
