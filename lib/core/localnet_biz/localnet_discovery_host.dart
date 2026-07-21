@@ -8,10 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 
 import 'localnet_service.dart';
-import 'models/localnet_types.dart';
 import 'pages/localnet_chat_page.dart';
-import 'pages/localnet_debug_page.dart';
-import 'pages/localnet_settings_page.dart';
 
 /// biz 入口页面 — 直接渲染 localnet widget
 class LocalnetBizHostPage extends StatefulWidget {
@@ -22,13 +19,13 @@ class LocalnetBizHostPage extends StatefulWidget {
 }
 
 class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
-  MessageNetMode _mode = MessageNetMode.lan;
+  fw.MessageNetMode _mode = fw.MessageNetMode.lan;
   fw.Transport? _transport;
   String? _scope;
   String? _error;
 
   /// 选模式
-  void _switchMode(MessageNetMode mode) {
+  void _switchMode(fw.MessageNetMode mode) {
     setState(() {
       _mode = mode;
       _transport = null;
@@ -74,7 +71,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => LocalnetSettingsPage(
+                builder: (_) => fw.LocalnetSettingsPage(
                   mode: _mode,
                   multicastPort: 5678,
                   multicastAddress: '239.255.255.255',
@@ -87,7 +84,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
             icon: const Icon(Icons.bug_report),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const LocalnetDebugPage()),
+              MaterialPageRoute(builder: (_) => const fw.LocalnetDebugPage()),
             ),
           ),
         ],
@@ -106,7 +103,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
         Expanded(
           child: _error != null
               ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-              : _mode == MessageNetMode.lan
+              : _mode == fw.MessageNetMode.lan
                   ? fw.LanDiscovery().buildPage(
                       onPeerSelected: (peer, transport) async {
                         // widget 已建好 transport，业务层只需 joinScope
@@ -161,15 +158,15 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
   Widget _buildModeSwitcher() {
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: SegmentedButton<MessageNetMode>(
+      child: SegmentedButton<fw.MessageNetMode>(
         segments: const [
           ButtonSegment(
-            value: MessageNetMode.lan,
+            value: fw.MessageNetMode.lan,
             icon: Icon(Icons.wifi),
             label: Text('局域网'),
           ),
           ButtonSegment(
-            value: MessageNetMode.relay,
+            value: fw.MessageNetMode.relay,
             icon: Icon(Icons.cloud),
             label: Text('跨网络'),
           ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 
-import '../models/localnet_types.dart';
+import '../localnet_types.dart';
 
 /// LAN / Relay 综合设置壳
 ///

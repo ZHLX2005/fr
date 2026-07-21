@@ -28,6 +28,7 @@ library;
 // 新模块（导出时主动 hide 旧类同名）
 export 'transport.dart';
 export 'transport_event.dart';
+export 'localnet_types.dart';
 
 export 'lan/lan_transport.dart';
 export 'lan/lan_discovery.dart';
@@ -36,6 +37,11 @@ export 'relay/relay_transport.dart';
 export 'relay/relay_discovery.dart';
 
 export 'io/udp_socket.dart' hide UdpDatagram;
+
+// 服务 / 页面
+export 'services/debug_log_service.dart';
+export 'pages/localnet_debug_page.dart';
+export 'pages/localnet_settings_page.dart';
 
 // 兼容：旧模块 — 用 hide 避免冲突
 export 'framework/framework_config.dart';
