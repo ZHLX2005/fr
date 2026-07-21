@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import '../io/udp_socket.dart';
 import '../transport.dart';
@@ -10,19 +11,21 @@ class LanTransport extends Transport {
   LanTransport._({
     required String multicastAddress,
     required int multicastPort,
+    required int httpPort,
   }) : _multicastAddress = multicastAddress,
-       _multicastPort = multicastPort {
-    // ignore: unused_field
-  }
+       _multicastPort = multicastPort,
+       _httpPort = httpPort;
 
   /// 创建 LAN 传输
   static Future<LanTransport> create({
     String multicastAddress = '239.255.255.255',
     int multicastPort = 5678,
+    int httpPort = 53318,
   }) async {
     final t = LanTransport._(
       multicastAddress: multicastAddress,
       multicastPort: multicastPort,
+      httpPort: httpPort,
     );
     await t._socket.bind(multicastAddress: multicastAddress, port: multicastPort);
     t._socket.datagrams.listen(t._onDatagram);
@@ -34,6 +37,7 @@ class LanTransport extends Transport {
   final String _multicastAddress;
   // ignore: unused_field
   final int _multicastPort;
+  final int _httpPort;
   final UdpMulticastSocket _socket = UdpMulticastSocket();
 
   final String _nodeId = DateTime.now().microsecondsSinceEpoch.toString();
@@ -74,6 +78,7 @@ class LanTransport extends Transport {
       'type': 'scope-join',
       'scope': scope,
       'from': _nodeId,
+      'httpPort': _httpPort,
     });
   }
 
@@ -145,6 +150,7 @@ class LanTransport extends Transport {
     try {
       final text = utf8.decode(dg.data, allowMalformed: true);
       final env = jsonDecode(text) as Map<String, dynamic>;
+      env['_senderIp'] = dg.senderAddress.address;
       _dispatch(env);
     } catch (_) {
       // 忽略非法包
@@ -192,7 +198,12 @@ class LanTransport extends Transport {
         if (scope == null) return;
         _eventCtrl.add(TransportEvent(
           topic: 'peer-joined-scope',
-          data: {'scope': scope, 'from': from},
+          data: {
+            'scope': scope,
+            'from': from,
+            'ip': env['_senderIp'] as String? ?? '',
+            'httpPort': env['httpPort'] as int? ?? 0,
+          },
           timestamp: DateTime.now(),
         ));
         break;

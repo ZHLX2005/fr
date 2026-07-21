@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../http/http_client.dart';
+import '../http/http_endpoints.dart';
+import '../http/http_server.dart';
 import '../transport.dart';
 import '../lan/lan_transport.dart';
 
@@ -60,10 +64,18 @@ class LanDiscovery {
 
 /// LAN 发现到的对端
 class DiscoveredPeer {
-  DiscoveredPeer({required this.id, required this.alias, required this.address});
+  DiscoveredPeer({
+    required this.id,
+    required this.alias,
+    required this.address,
+    this.ip = '',
+    this.httpPort = 0,
+  });
   final String id;
   final String alias;
   final String address;
+  final String ip;
+  final int httpPort;
 }
 
 /// LAN 设置持久化（私有 key，biz 不感知）
@@ -133,7 +145,9 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   bool _waitingForPeer = false;
   DiscoveredPeer? _waitingPeer;
   String? _sessionScope;
-  DiscoveredPeer? _inviteFrom; // 别人邀请我
+  DiscoveredPeer? _inviteFrom;
+  LocalHttpServer? _httpServer;
+  int _httpPort = 53318; // 别人邀请我
 
   @override
   void initState() {
@@ -155,7 +169,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
   @override
   void dispose() {
-    _presenceSub?.cancel();
+    _httpServer?.stop();
     if (!_handedOff) _transport?.stop();
     super.dispose();
   }
@@ -178,9 +192,49 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
       final transport = await LanTransport.create(
         multicastAddress: _effectiveAddress,
         multicastPort: _effectivePort,
+        httpPort: _httpPort,
       );
       _transport = transport;
       _myNodeId = transport.myNodeId;
+
+      // 启动 HTTP Server（处理邀请/接受等请求）
+      final httpServer = LocalHttpServer(port: _httpPort);
+      httpServer.on(HttpEndpoints.invite, (body) async {
+        // 收到远程邀请
+        final fromId = body['from'] as String?;
+        final alias = body['alias'] as String? ?? '?';
+        final ip = body['ip'] as String? ?? '';
+        final port = body['httpPort'] as int? ?? 0;
+        final roomId = body['roomId'] as String? ?? '';
+        if (fromId != null && mounted) {
+          setState(() {
+            _inviteFrom = DiscoveredPeer(
+              id: fromId,
+              alias: alias,
+              address: 'lan://$fromId',
+              ip: ip,
+              httpPort: port,
+            );
+          });
+        }
+        return {'ok': true, 'deviceId': transport.myNodeId, 'alias': _myAlias};
+      });
+      httpServer.on(HttpEndpoints.accept, (body) async {
+        // 收到对方接受邀请 → presence 确认
+        final fromId = body['from'] as String?;
+        if (fromId != null && mounted && _waitingForPeer) {
+          final wp = _waitingPeer;
+          if (wp != null && wp.id == fromId) {
+            _completeHandshake(wp, transport);
+          }
+        }
+        return {'ok': true};
+      });
+      httpServer.on(HttpEndpoints.gameState, (body) async {
+        return {'ok': true};
+      });
+      await httpServer.start();
+      _httpServer = httpServer;
 
       transport.events.listen((e) {
         if (!mounted) return;
@@ -193,6 +247,8 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
                 id: from,
                 alias: from.substring(0, 6),
                 address: 'lan://$from',
+                ip: e.data['ip'] as String? ?? '',
+                httpPort: e.data['httpPort'] as int? ?? 0,
               );
             });
           }
@@ -239,7 +295,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   }
 
   void _stopScan() {
-    _presenceSub?.cancel();
+    _httpServer?.stop();
     if (!_handedOff) {
       _transport?.stop();
       _transport = null;
@@ -255,119 +311,66 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
     });
   }
 
-  /// 主动邀请对方
+  /// 主动邀请对方（HTTP POST → 对端 /invite）
   void _sendInvite(DiscoveredPeer p) {
-    final t = _transport;
     final myId = _myNodeId;
-    if (t == null || myId == null) return;
+    if (myId == null || p.ip.isEmpty || p.httpPort == 0) return;
 
-    // 发送邀请事件（所有人在 peers scope 都能收到）
-    t.sendEvent('peers', 'invite', {
-      'from': myId,
-      'alias': _myAlias,
-      'targetDeviceId': p.id,
-    });
-
-    // 接入 session scope
-    final ids = [myId, p.id];
-    ids.sort();
-    _sessionScope = 'session-${ids[0]}-${ids[1]}';
-    t.joinScope(_sessionScope!);
-    _watchPresenceScope(t, _sessionScope!);
-
-    // 用 DataLog 广播自身 presence（持久化，对端晚到也能读到）
-    _writePresence(t, _sessionScope!, myId, _myAlias, 'inviting');
-
-    setState(() {
-      _waitingForPeer = true;
-      _waitingPeer = p;
-      _error = null;
+    httpPost(
+      ip: p.ip,
+      port: p.httpPort,
+      path: HttpEndpoints.invite,
+      body: {
+        'from': myId,
+        'alias': _myAlias,
+        'httpPort': _httpPort,
+      },
+    ).then((resp) {
+      if (resp.isOk) {
+        setState(() {
+          _waitingForPeer = true;
+          _waitingPeer = p;
+          _error = null;
+        });
+      } else {
+        if (mounted) setState(() => _error = '邀请失败 (${resp.statusCode})');
+      }
+    }).catchError((e) {
+      if (mounted) setState(() => _error = '邀请发送失败: $e');
     });
   }
 
-  /// 接受别人的邀请
+  /// 接受对方的邀请（HTTP POST → 邀请方 /accept）
   void _acceptInvite() {
-    final t = _transport;
     final myId = _myNodeId;
     final inviter = _inviteFrom;
-    if (t == null || myId == null || inviter == null) return;
+    if (myId == null || inviter == null || inviter.ip.isEmpty || inviter.httpPort == 0) return;
 
-    final ids = [myId, inviter.id];
-    ids.sort();
-    _sessionScope = 'session-${ids[0]}-${ids[1]}';
-    t.joinScope(_sessionScope!);
-    _watchPresenceScope(t, _sessionScope!);
-    _writePresence(t, _sessionScope!, myId, _myAlias, 'accepted');
-
-    setState(() {
-      _waitingForPeer = true;
-      _waitingPeer = inviter;
-      _inviteFrom = null;
+    httpPost(
+      ip: inviter.ip,
+      port: inviter.httpPort,
+      path: HttpEndpoints.accept,
+      body: {
+        'from': myId,
+        'alias': _myAlias,
+        'httpPort': _httpPort,
+      },
+    ).then((resp) {
+      if (resp.isOk) {
+        setState(() {
+          _waitingForPeer = true;
+          _waitingPeer = inviter;
+          _inviteFrom = null;
+        });
+      }
+    }).catchError((e) {
+      if (mounted) setState(() => _error = '接受邀请失败: $e');
     });
-  }
-
-  /// 往 scope DataLog 写入 presence（持久化，对端 join scope 后能读到）
-  void _writePresence(Transport t, String scope, String deviceId, String alias, String status) {
-    final log = t.getScope(scope);
-    if (log == null) return;
-    log.merge({'presence-$deviceId': {'deviceId': deviceId, 'alias': alias, 'status': status}},
-        localNodeId: deviceId);
-    t.broadcastScope(scope);
-    // events 路径辅助即时投递
-    t.sendEvent(scope, 'presence', {'deviceId': deviceId, 'alias': alias, 'status': status});
-  }
-
-  /// 监听 session scope DataLog — 对端 presence 出现即确认
-  StreamSubscription<DataLog>? _presenceSub;
-  void _watchPresenceScope(Transport t, String scope) {
-    _presenceSub?.cancel();
-    _presenceSub = t.watchScope(scope).listen((log) {
-      _checkPresence(log.state, t);
-    });
-    // 订阅后立即检查：对端 presence 可能已被 _dispatch 预写入
-    final log = t.getScope(scope);
-    if (log != null) _checkPresence(log.state, t);
-  }
-
-  /// 三次握手检测
-  void _checkPresence(Map<String, dynamic> state, Transport t) {
-    if (!_waitingForPeer || _handedOff || !mounted) return;
-    final wp = _waitingPeer;
-    final myId = _myNodeId;
-    final scope = _sessionScope;
-    if (wp == null || myId == null || scope == null) return;
-
-    final other = state['presence-${wp.id}'] as Map?;
-    if (other == null) return;
-    final otherStatus = other['status'] as String? ?? '';
-
-    if (otherStatus == 'accepted') {
-      // 我是邀请方，对方接受了 → 回传 confirmed（DataLog + event 双路径）
-      _writePresence(t, scope, myId, _myAlias, 'confirmed');
-      t.sendEvent(scope, 'handshake-confirmed', {
-        'deviceId': myId,
-        'peerId': wp.id,
-      });
-      _completeHandshake(wp, t);
-    } else if (otherStatus == 'confirmed') {
-      // 我是接受方，收到对方的 confirmed → 完成
-      _completeHandshake(wp, t);
-    }
-    // otherStatus == 'inviting' → 我是接受方，等对方 confirmed，不处理
   }
 
   void _completeHandshake(DiscoveredPeer peer, Transport t) {
     _handedOff = true;
-    _presenceSub?.cancel();
     widget.onPeerSelected(peer, t);
-  }
-
-  void _onPeerPresent(String deviceId, Transport transport) {
-    final wp = _waitingPeer;
-    if (wp == null || deviceId != wp.id) return;
-    _handedOff = true;
-    _presenceSub?.cancel();
-    widget.onPeerSelected(wp, transport);
   }
 
   Widget _buildInviteUi(ThemeData theme) {

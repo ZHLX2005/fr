@@ -25,7 +25,7 @@
 /// ```
 library;
 
-// 新模块 — Transport + DataLog + Discovery
+// 新模块 — Transport + DataLog + Discovery + HTTP
 export 'transport.dart';
 export 'transport_event.dart';
 export 'localnet_types.dart';
@@ -37,6 +37,11 @@ export 'relay/relay_transport.dart';
 export 'relay/relay_discovery.dart';
 
 export 'io/udp_socket.dart' hide UdpDatagram;
+
+// HTTP 可靠通信
+export 'http/http_server.dart';
+export 'http/http_client.dart';
+export 'http/http_endpoints.dart';
 
 // 服务 / 页面
 export 'services/debug_log_service.dart';
