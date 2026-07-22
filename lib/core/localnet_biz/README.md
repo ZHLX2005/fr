@@ -1,34 +1,43 @@
-# LocalNet 业务层（标准化案例）
+# LocalNet 业务层（v2 标准化案例）
 
-业务层订阅 `Transport.events` 和 `Transport.watchScope` 即可，**零发现、零连接、零配置代码**。
+基于 `RelayTransport` pub/sub 的开箱即用聊天支持。
 
-## 接入方式
-
-```dart
-// 1. 渲染本地引擎 widget
-LanDiscovery().buildPage(
-  onPeerSelected: (peer, transport) async {
-    // widget 已建好 transport，业务层只需 joinScope
-    await transport.joinScope('chat-${peer.id}');
-    localnetService.attach(transport, 'chat-${peer.id}');
-  },
-)
-  ↓ transport.events / watchScope 流式驱动 UI
-LocalnetChatPage(scope: scope)  // 订阅 messagesStream
-```
-
-## 业务层职责
-
-- **不做**：发现、连接、认证、配置持久化
-- **做**：解析 transport 事件 / scope 状态 → 更新本地模型 → 渲染
-
-## 设置
-
-`LocalnetSettingsPage` 是零配置壳 — 仅根据模式渲染对应 Discovery 的 `buildSettingsPage()`：
+## 使用方式
 
 ```dart
-fw.LanDiscovery().buildSettingsPage()                    // alias + 多播
-fw.RelayDiscovery(relayUrl: ...).buildSettingsPage()     // alias + relayUrl
+// 房主（自定义人数）
+await localnetService.createRoom(
+  relayUrl: '...',
+  alias: '我',
+  maxPlayers: 4,
+);
+localnetService.subscribeRoom(code);
+localnetService.events.listen((e) { ... });
+
+// 玩家加入
+await localnetService.joinRoom(
+  relayUrl: '...',
+  alias: '玩家',
+  roomCode: code,
+);
+localnetService.subscribeRoom(code);
+
+// 发消息
+await localnetService.sendMessage(text: 'hello');
+
+// 房间内置 UI
+LocalnetBizHostPage()
 ```
 
-每个 Discovery 内部用 SharedPreferences 私有 key 持久化，biz 不感知。
+## 核心架构
+
+```
+localnet_biz/
+├── localnet_biz.dart           barrel
+├── localnet_discovery_host.dart  全功能 demo 页
+├── localnet_message.dart          消息模型
+├── localnet_service.dart          房间/消息服务
+└── README.md
+```
+
+所有通信经 `room/<code>/events` topic，消息用 publish / subscribe，不再依赖 DataLog / scope。

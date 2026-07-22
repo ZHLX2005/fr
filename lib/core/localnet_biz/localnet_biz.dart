@@ -1,9 +1,6 @@
-/// LocalNet biz 服务 — 业务层只使用 transport 事件驱动
-///
-/// 业务层不再自己维护发现/连接/UI — 全部委托 localnet 的 widget。
-/// 通过订阅 [Transport.events] 和 [Transport.watchScope] 接收数据驱动。
+/// LocalNet biz 服务 — 基于 v2 pub/sub 的业务层封装
 library;
 
 export 'localnet_discovery_host.dart';
-export 'pages/localnet_chat_page.dart';
-export 'models/localnet_message.dart';
+export 'localnet_message.dart';
+export 'localnet_service.dart';
