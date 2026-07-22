@@ -1,69 +1,21 @@
-/// LocalNet biz 入口页面 — 直接使用 localnet 的 widget
-///
-/// 业务层不自己维护发现/连接/UI，全部委托：
-/// - 选 LAN：`LanDiscovery().buildPage(...)` → 拿到 peer + transport
-/// - 选 Relay：`RelayDiscovery().buildPage(...)` → 拿到 room code + transport
-/// - 拿到 transport 后传给 localnetService.attach()，订阅 events 驱动 UI
+// lib/core/localnet_biz/localnet_discovery_host.dart
+//
+// LocalNet biz 入口 — 演示 localnet 一体化 2 人房聊天（开箱即用）
+//
+// 业务层 0 逻辑：直接调 fw.RelayRoomChatWidget（discovery+transport+room+chat 都包好）
+
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 
-import 'localnet_service.dart';
-import 'pages/localnet_chat_page.dart';
-
-/// biz 入口页面 — 直接渲染 localnet widget
-class LocalnetBizHostPage extends StatefulWidget {
+/// biz 入口 — 直接渲染 localnet 的 2 人房聊天 widget
+class LocalnetBizHostPage extends StatelessWidget {
   const LocalnetBizHostPage({super.key});
-
-  @override
-  State<LocalnetBizHostPage> createState() => _LocalnetBizHostPageState();
-}
-
-class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
-  fw.MessageNetMode _mode = fw.MessageNetMode.lan;
-  fw.Transport? _transport;
-  String? _scope;
-  String? _error;
-
-  /// 选模式
-  void _switchMode(fw.MessageNetMode mode) {
-    setState(() {
-      _mode = mode;
-      _transport = null;
-      _scope = null;
-      _error = null;
-    });
-  }
-
-  /// localnet widget 触发连接成功
-  void _onConnected(fw.Transport transport, String scope) {
-    setState(() {
-      _transport = transport;
-      _scope = scope;
-      _error = null;
-    });
-    localnetService.attach(transport, scope);
-  }
-
-  /// localnet widget 触发错误
-  void _onError(String error) {
-    setState(() => _error = error);
-  }
-
-  /// 断开
-  Future<void> _disconnect() async {
-    await _transport?.stop();
-    setState(() {
-      _transport = null;
-      _scope = null;
-    });
-    localnetService.detach();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MessageNet'),
+        title: const Text('LocalNet Demo'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -71,7 +23,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
               context,
               MaterialPageRoute(
                 builder: (_) => fw.LocalnetSettingsPage(
-                  mode: _mode,
+                  mode: fw.MessageNetMode.relay,
                   multicastPort: 5678,
                   multicastAddress: '239.255.255.255',
                   relayUrl: 'http://47.110.80.47:8988',
@@ -88,95 +40,8 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
           ),
         ],
       ),
-      body: _transport == null
-          ? _buildDiscoveryView()
-          : _buildChatView(),
-    );
-  }
-
-  /// 未连接：渲染 localnet 的发现 widget
-  Widget _buildDiscoveryView() {
-    return Column(
-      children: [
-        _buildModeSwitcher(),
-        Expanded(
-          child: _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-              : _mode == fw.MessageNetMode.lan
-                  ? fw.LanDiscovery().buildPage(
-                      onPeerSelected: (peer, transport) async {
-                        // 双方用相同 scope：按 nodeId 排序拼接
-                        final ids = [transport.myNodeId, peer.id];
-                        ids.sort();
-                        final scope = 'chat-${ids[0]}-${ids[1]}';
-                        await transport.joinScope(scope);
-                        _onConnected(transport, scope);
-                      },
-                      onError: _onError,
-                    )
-                  : fw.RelayDiscovery(
-                      relayUrl: 'http://47.110.80.47:8988',
-                    ).buildPage(
-                      onPeerSelected: (peer, transport) async {
-                        final ids = [transport.myNodeId, peer.id];
-                        ids.sort();
-                        final scope = 'chat-${ids[0]}-${ids[1]}';
-                        await transport.joinScope(scope);
-                        _onConnected(transport, scope);
-                      },
-                      onError: _onError,
-                    ),
-        ),
-      ],
-    );
-  }
-
-  /// 已连接：进入聊天
-  Widget _buildChatView() {
-    return Column(
-      children: [
-        _buildConnectionBar(),
-        Expanded(child: LocalnetChatPage(scope: _scope!)),
-      ],
-    );
-  }
-
-  Widget _buildConnectionBar() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 8),
-          Expanded(child: Text('已连接 · scope: $_scope')),
-          TextButton(
-            onPressed: _disconnect,
-            child: const Text('断开'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModeSwitcher() {
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: SegmentedButton<fw.MessageNetMode>(
-        segments: const [
-          ButtonSegment(
-            value: fw.MessageNetMode.lan,
-            icon: Icon(Icons.wifi),
-            label: Text('局域网'),
-          ),
-          ButtonSegment(
-            value: fw.MessageNetMode.relay,
-            icon: Icon(Icons.cloud),
-            label: Text('跨网络'),
-          ),
-        ],
-        selected: {_mode},
-        onSelectionChanged: (s) => _switchMode(s.first),
+      body: const fw.RelayRoomChatWidget(
+        relayUrl: 'http://47.110.80.47:8988',
       ),
     );
   }

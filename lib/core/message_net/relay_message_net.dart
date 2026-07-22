@@ -1,20 +1,22 @@
+// lib/core/message_net/relay_message_net.dart
+//
+// Relay 模式实现 — 用 localnet 引擎的 RelayTransport 替代原自实现 WebSocket
+//
+// 内部实现。业务层通过 [MessageNet.start] 获取 [MessageNet] 实例即可。
+// LAN 实现保持不变，仅 Relay 路径换为引擎驱动。
+
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:web_socket_channel/io.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
 
 import 'message_net.dart';
 
-/// Relay 模式实现 — HTTP 房间 + WebSocket（独立实现，不复用任何已有代码）
-///
-/// 内部实现。业务层通过 [MessageNet.start] 获取 [MessageNet] 实例即可。
 class RelayMessageNet implements MessageNet {
   RelayMessageNet._({required this.relayUrl, http.Client? httpClient})
       : _http = httpClient ?? http.Client();
 
-  /// 工厂：仅初始化 http client，连接在 [createRoom]/[joinRoom] 后建立
   static Future<RelayMessageNet> create({
     required String relayUrl,
     http.Client? httpClient,
@@ -25,8 +27,8 @@ class RelayMessageNet implements MessageNet {
   final String relayUrl;
   final http.Client _http;
 
-  WebSocketChannel? _ws;
-  StreamSubscription<dynamic>? _wsSub;
+  fw.RelayTransport? _transport;
+  StreamSubscription<fw.RemoteEvent>? _sub;
   bool _disposed = false;
 
   final StreamController<LogEntry> _anyCtrl =
@@ -46,17 +48,18 @@ class RelayMessageNet implements MessageNet {
     final resp = await _http.post(
       Uri.parse(_roomsUrl),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'alias': '', 'deviceId': ''}),
+      body: jsonEncode({'deviceId': '', 'alias': 'host', 'maxPlayers': 100, 'canStartBeforeFull': true}),
     );
     if (resp.statusCode != 201) {
-      throw _RelayException('创建房间失败: HTTP ${resp.statusCode}');
+      throw StateError('createRoom failed: ${resp.statusCode}');
     }
-    final json = jsonDecode(resp.body) as Map<String, dynamic>;
-    final roomCode = json['roomCode'] as String;
-    final wsUrl = json['wsUrl'] as String;
-    _roomCode = roomCode;
-    await _connect(wsUrl);
-    return roomCode;
+    final j = jsonDecode(resp.body) as Map<String, dynamic>;
+    _roomCode = j['roomCode'] as String?;
+    
+    final t = await fw.RelayTransport.create(relayUrl: relayUrl, alias: 'host');
+    _transport = t;
+    _subscribe();
+    return _roomCode;
   }
 
   @override
@@ -64,63 +67,68 @@ class RelayMessageNet implements MessageNet {
     final resp = await _http.post(
       Uri.parse('$_roomsUrl/$code/join'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'deviceId': '', 'alias': ''}),
+      body: jsonEncode({'deviceId': '', 'alias': 'guest', 'token': ''}),
     );
-    if (resp.statusCode == 404) {
-      throw _RelayNotFoundException('房间 $code 不存在');
-    }
-    if (resp.statusCode == 409) {
-      throw _RelayFullException('房间 $code 已满');
-    }
     if (resp.statusCode != 200) {
-      throw _RelayException('加入房间失败: HTTP ${resp.statusCode}');
+      throw StateError('joinRoom failed: ${resp.statusCode}');
     }
-    final json = jsonDecode(resp.body) as Map<String, dynamic>;
-    final wsUrl = json['wsUrl'] as String?;
-    if (wsUrl == null || wsUrl.isEmpty) {
-      throw _RelayException('加入房间响应缺少 wsUrl');
-    }
+    final t = await fw.RelayTransport.create(relayUrl: relayUrl, alias: 'guest');
+    _transport = t;
     _roomCode = code;
-    await _connect(wsUrl);
+    _subscribe();
   }
 
-  Future<void> _connect(String wsUrl) async {
-    final ws = IOWebSocketChannel.connect(Uri.parse(wsUrl));
-    _ws = ws;
-    _wsSub = ws.stream.listen(
-      _onFrame,
-      onError: (_) {},  // TODO: 错误流（API 暂未暴露）
-      onDone: () {},    // TODO: 重连机制
-    );
+  @override
+  void leaveRoom() {
+    _transport?.close();
+    _transport = null;
+    _roomCode = null;
   }
 
-  void _onFrame(dynamic data) {
-    if (data is! String) return;
-    try {
-      final entry = LogEntry.decode(data);
-      _dispatch(entry);
-    } catch (_) {
-      // 忽略非法帧
-    }
+  void _subscribe() {
+    _sub?.cancel();
+    final t = _transport;
+    final code = _roomCode;
+    if (t == null || code == null) return;
+    _sub = t.subscribe('room/$code/events').listen((ev) {
+      final p = ev.payload;
+      if (p['type'] != 'log') return;
+      try {
+        final raw = p['data'] as String? ?? '';
+        final entry = LogEntry.decode(raw);
+        _dispatch(entry);
+      } catch (_) {}
+    });
   }
 
   void _dispatch(LogEntry entry) {
     _anyCtrl.add(entry);
-    final ctrl = _topicCtrls[entry.topic];
-    if (ctrl != null && !ctrl.isClosed) {
-      ctrl.add(entry);
-    }
+    final ctrl = _topicCtrls.putIfAbsent(entry.topic, () => StreamController<LogEntry>.broadcast());
+    ctrl.add(entry);
   }
 
   @override
   void append(LogEntry entry) {
-    final ws = _ws;
-    if (ws != null) {
-      // WS 已连接：立即发
-      ws.sink.add(entry.encode());
-    } else {
-      // WS 未连接：积压（连接建立后暂不自动 flush，等业务决定）
-      _queue.add(entry);
+    _queue.add(entry);
+    _flush();
+  }
+
+  Future<void> _flush() async {
+    final t = _transport;
+    final code = _roomCode;
+    if (t == null || code == null) return;
+    if (_queue.isEmpty) return;
+    final items = List<LogEntry>.from(_queue);
+    _queue.clear();
+    for (final e in items) {
+      try {
+        await t.publish('room/$code/events', {
+          'type': 'log',
+          'data': e.encode(),
+        });
+      } catch (_) {
+        _queue.add(e);
+      }
     }
   }
 
@@ -135,40 +143,16 @@ class RelayMessageNet implements MessageNet {
   Stream<LogEntry> get onAny => _anyCtrl.stream;
 
   @override
-  void leaveRoom() {
-    _wsSub?.cancel();
-    _wsSub = null;
-    _ws?.sink.close();
-    _ws = null;
-    _roomCode = null;
-  }
-
-  @override
   Future<void> stop() async {
     if (_disposed) return;
     _disposed = true;
-    leaveRoom();
-    _http.close();
-    await _anyCtrl.close();
+    await _sub?.cancel();
     for (final c in _topicCtrls.values) {
       await c.close();
     }
     _topicCtrls.clear();
-    _queue.clear();
+    await _anyCtrl.close();
+    await _transport?.close();
+    _http.close();
   }
-}
-
-class _RelayException implements Exception {
-  _RelayException(this.message);
-  final String message;
-  @override
-  String toString() => message;
-}
-
-class _RelayNotFoundException extends _RelayException {
-  _RelayNotFoundException(super.message);
-}
-
-class _RelayFullException extends _RelayException {
-  _RelayFullException(super.message);
 }

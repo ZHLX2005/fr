@@ -34,6 +34,7 @@ export 'lan/lan_discovery.dart';
 
 export 'relay/relay_transport.dart';
 export 'relay/relay_discovery.dart';
+export 'relay/relay_room_chat.dart';
 
 export 'io/udp_socket.dart' hide UdpDatagram;
 
