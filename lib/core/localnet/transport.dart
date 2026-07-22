@@ -29,6 +29,7 @@ class RoomInfo {
     required this.hostNodeId,
     required this.maxPlayers,
     required this.token,
+    this.config,
   });
   final String code;
   final String hostNodeId;
@@ -36,6 +37,9 @@ class RoomInfo {
 
   /// 房间 token（加入 / subscribe 时需要）
   final String token;
+
+  /// 建房时的原始配置（engine 存储，业务层可读取）
+  final RoomConfig? config;
 }
 
 /// 远端事件 — 来自 topic 的消息
@@ -148,6 +152,9 @@ abstract class Transport {
 
   /// 本节点创建时间（microsecond）
   int get myCreatedAt;
+
+  /// 当前房间信息（createRoom/joinRoom 后 engine 自动填充）
+  RoomInfo? get roomInfo;
 
   /// 本节点在当前房间中的角色
   NodeRole get myRole;

@@ -68,6 +68,9 @@ class LanTransport implements Transport {
   int get myCreatedAt => _createdAt;
 
   @override
+  RoomInfo? get roomInfo => null;
+
+  @override
   NodeRole get myRole => _role;
 
   @override

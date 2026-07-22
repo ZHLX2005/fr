@@ -39,6 +39,7 @@ class RelayTransport implements Transport {
 
   final int _createdAt = DateTime.now().microsecondsSinceEpoch;
   final String _nodeId = '${DateTime.now().microsecondsSinceEpoch}-${DateTime.now().millisecondsSinceEpoch % 1000}';
+  RoomInfo? _roomInfo;
   bool _disposed = false;
   WebSocketChannel? _ws;
   StreamSubscription<dynamic>? _wsSub;
@@ -62,6 +63,9 @@ class RelayTransport implements Transport {
 
   @override
   int get myCreatedAt => _createdAt;
+
+  @override
+  RoomInfo? get roomInfo => _roomInfo;
 
   @override
   NodeRole get myRole => _role;
@@ -233,12 +237,15 @@ class RelayTransport implements Transport {
     final wsUrl = json['wsUrl'] as String;
     final token = json['token'] as String? ?? '';
     await _connect(wsUrl);
-    return RoomInfo(
+    final info = RoomInfo(
       code: json['roomCode'] as String,
       hostNodeId: _nodeId,
       maxPlayers: config.maxPlayers,
       token: token,
+      config: config,
     );
+    _roomInfo = info;
+    return info;
   }
 
   @override
@@ -275,6 +282,7 @@ class RelayTransport implements Transport {
       throw _RelayException('加入房间响应缺少 wsUrl');
     }
     await _connect(wsUrl);
+    _roomInfo = RoomInfo(code: code, hostNodeId: '', maxPlayers: 0, token: '');
   }
 
   @override
