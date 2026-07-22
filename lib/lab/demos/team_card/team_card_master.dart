@@ -128,7 +128,10 @@ class MasterViewState extends State<MasterView> {
         if (type == 'peer-joined' || type == 'peer-online') {
           final did = ev.payload['deviceId'] as String?;
           final alias = ev.payload['alias'] as String? ?? '?';
-          if (did != null) _onlinePeers[did] = alias;
+          // 房主不参与时不计算自己
+          if (did != null && (did != _transport?.myNodeId || _masterJoins)) {
+            _onlinePeers[did] = alias;
+          }
           if (mounted) setState(() {});
         }
         if (type == 'peer-left') {
@@ -215,34 +218,12 @@ class MasterViewState extends State<MasterView> {
   // —————— 身份池配置 + 预选方案 ——————
 
   Widget _buildSetup(ThemeData theme) {
+    // 匹配当前总人数的预设
+    final matchedPresets = kBuiltinPresets.where((p) => p.total == _totalCount).toList();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 预选方案
-        Text('快速预选', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8, runSpacing: 8,
-          children: [
-            ...kBuiltinPresets.map((p) => ActionChip(
-              label: Text(p.name, style: const TextStyle(fontSize: 12)),
-              onPressed: () => _applyPreset(p),
-              side: BorderSide(color: theme.colorScheme.outlineVariant),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            )),
-            if (_customPresets != null)
-              ActionChip(
-                label: const Text('我的预设', style: TextStyle(fontSize: 12)),
-                onPressed: () => _loadCustomPreset(_customPresets!),
-                avatar: const Icon(Icons.person, size: 16),
-                side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
         // 身份池 + 总人数
         Row(
           children: [
@@ -255,14 +236,40 @@ class MasterViewState extends State<MasterView> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text('共 $_totalCount 人', style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+                fontWeight: FontWeight.w600, fontSize: 13,
                 color: theme.colorScheme.onPrimaryContainer,
               )),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+
+        // 匹配的预选方案列表
+        if (matchedPresets.isNotEmpty || _customPresets != null) ...[
+          const SizedBox(height: 12),
+          Text('快速预选（$_totalCount 人配置）', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline)),
+          const SizedBox(height: 8),
+          ...matchedPresets.map((p) => _PresetTile(
+            name: p.name,
+            roles: p.roles.map((r) => '${r.label}×${r.count}').join(' · '),
+            onTap: () => _applyPreset(p),
+            theme: theme,
+          )),
+          if (_customPresets != null)
+            _PresetTile(
+              name: '我的预设',
+              roles: _customPresets!.map((r) => '${r.label}×${r.count}').join(' · '),
+              onTap: () => _loadCustomPreset(_customPresets!),
+              theme: theme,
+              isCustom: true,
+            ),
+        ],
+
+        // 无匹配时引导
+        if (matchedPresets.isEmpty && _customPresets == null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text('可自行添加身份或修改数量以匹配预设', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+          ),
 
         ...rolePool.asMap().entries.map((e) => _RoleCard(
           index: e.key,
@@ -745,7 +752,60 @@ class _EmptySlotState extends State<_EmptySlot> with SingleTickerProviderStateMi
   }
 }
 
-// —————— 全局首字母标签 ——————
+// —————— 预设列表卡片 ——————
+
+class _PresetTile extends StatelessWidget {
+  final String name;
+  final String roles;
+  final VoidCallback onTap;
+  final ThemeData theme;
+  final bool isCustom;
+  const _PresetTile({required this.name, required this.roles, required this.onTap, required this.theme, this.isCustom = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isCustom ? theme.colorScheme.primary.withValues(alpha: 0.4) : theme.colorScheme.outlineVariant),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: isCustom ? theme.colorScheme.primaryContainer : theme.colorScheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(isCustom ? Icons.person : Icons.auto_awesome, size: 18, color: isCustom ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onTertiaryContainer),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(roles, style: TextStyle(fontSize: 11, color: theme.colorScheme.outline)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 18, color: theme.colorScheme.outline),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// —————— 身份编辑卡片 ——————
 
 class _RoleCard extends StatefulWidget {
   final int index;

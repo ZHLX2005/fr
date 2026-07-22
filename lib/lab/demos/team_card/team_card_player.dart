@@ -24,6 +24,8 @@ class _PlayerViewState extends State<PlayerView> {
   String? _error;
   bool _joined = false;
   String? _myRole;
+  int _onlineCount = 0;
+  int _roomCapacity = 0;
 
   @override
   void initState() {
@@ -44,11 +46,16 @@ class _PlayerViewState extends State<PlayerView> {
       final t = await fw.RelayTransport.create(relayUrl: kRelayUrl, alias: alias);
       await t.joinRoom(code, '');
       _transport = t;
+      _roomCapacity = t.roomInfo?.maxPlayers ?? 0;
       _sub = t.subscribe('room/$code/events').listen((ev) {
-        if (ev.payload['type'] == 'deal') {
-          final assignments = (ev.payload['assignments'] as Map?)?.cast<String, String>() ?? {};
+        final p = ev.payload;
+        if (p['type'] == 'deal') {
+          final assignments = (p['assignments'] as Map?)?.cast<String, String>() ?? {};
           final role = assignments[t.myNodeId];
           if (role != null && mounted) setState(() => _myRole = role);
+        }
+        if (p['type'] == 'peer-joined' || p['type'] == 'peer-online') {
+          if (mounted) setState(() => _onlineCount++);
         }
       });
       if (mounted) setState(() { _busy = false; _joined = true; });
@@ -71,14 +78,32 @@ class _PlayerViewState extends State<PlayerView> {
     final theme = Theme.of(context);
     if (_myRole != null) return _buildRoleCard(theme);
     if (_joined) {
+      final waiting = _roomCapacity > 0;
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(width: 48, height: 48, child: CircularProgressIndicator(strokeWidth: 3)),
-            const SizedBox(height: 24),
-            Text('已加入房间，等待发牌...', style: theme.textTheme.titleMedium),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(width: 48, height: 48, child: CircularProgressIndicator(strokeWidth: 3)),
+              const SizedBox(height: 24),
+              Text('已加入房间，等待发牌...', style: theme.textTheme.titleMedium),
+              if (waiting) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '$_roomCapacity 人房 · 已有 $_onlineCount 人',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: theme.colorScheme.onSecondaryContainer),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }

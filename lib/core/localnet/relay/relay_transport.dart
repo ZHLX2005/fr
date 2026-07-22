@@ -282,7 +282,8 @@ class RelayTransport implements Transport {
       throw _RelayException('加入房间响应缺少 wsUrl');
     }
     await _connect(wsUrl);
-    _roomInfo = RoomInfo(code: code, hostNodeId: '', maxPlayers: 0, token: '');
+    final maxPlayers = (json['maxPlayers'] as int?) ?? 0;
+    _roomInfo = RoomInfo(code: code, hostNodeId: '', maxPlayers: maxPlayers, token: '');
   }
 
   @override
