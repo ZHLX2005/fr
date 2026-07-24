@@ -168,12 +168,17 @@ class NativeControllerPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: () => _openAppSettings(context),
                       icon: const Icon(Icons.open_in_new),
                       label: const Text('打开权限设置'),
-                      style: FilledButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(
+                          color: theme.colorScheme.primary
+                              .withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                   ),

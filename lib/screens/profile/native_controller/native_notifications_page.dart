@@ -387,10 +387,17 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                       Row(
                         children: [
                           Expanded(
-                            child: ElevatedButton.icon(
+                            child: OutlinedButton.icon(
                               onPressed: _requestPermissions,
                               icon: const Icon(Icons.lock_open),
                               label: const Text('请求通知权限'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: theme.colorScheme.primary,
+                                side: BorderSide(
+                                  color: theme.colorScheme.primary
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -547,15 +554,17 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: OutlinedButton.icon(
                           onPressed: _isInitialized
                               ? _cancelAllNotifications
                               : null,
                           icon: const Icon(Icons.delete_sweep),
                           label: const Text('取消所有通知'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: BorderSide(
+                              color: Colors.red.withValues(alpha: 0.5),
+                            ),
                           ),
                         ),
                       ),
@@ -616,10 +625,15 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
   }
 
   Widget _buildNotifyButton(String label, VoidCallback onPressed) {
-    return ElevatedButton(
+    final theme = Theme.of(context);
+    return OutlinedButton(
       onPressed: _isInitialized ? onPressed : null,
-      style: ElevatedButton.styleFrom(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: theme.colorScheme.primary,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        side: BorderSide(
+          color: theme.colorScheme.primary.withValues(alpha: 0.5),
+        ),
       ),
       child: Text(label),
     );

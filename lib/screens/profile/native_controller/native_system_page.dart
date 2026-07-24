@@ -214,10 +214,18 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                     ),
                     if (!_hasUsagePermission) ...[
                       const SizedBox(height: 12),
-                      FilledButton.icon(
+                      OutlinedButton.icon(
                         onPressed: _openUsageSettings,
                         icon: const Icon(Icons.settings),
                         label: const Text('打开设置'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.colorScheme.primary,
+                          side: BorderSide(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ],
@@ -246,20 +254,52 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        ElevatedButton(
+                        OutlinedButton(
                           onPressed: () => _vibrate(duration: 100),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                            side: BorderSide(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
                           child: const Text('轻震 (100ms)'),
                         ),
-                        ElevatedButton(
+                        OutlinedButton(
                           onPressed: () => _vibrate(duration: 300),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                            side: BorderSide(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
                           child: const Text('中震 (300ms)'),
                         ),
-                        ElevatedButton(
+                        OutlinedButton(
                           onPressed: () => _vibrate(duration: 500),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                            side: BorderSide(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
                           child: const Text('强震 (500ms)'),
                         ),
-                        ElevatedButton(
+                        OutlinedButton(
                           onPressed: () => _vibrate(duration: 1000),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.primary,
+                            side: BorderSide(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
                           child: const Text('长震 (1000ms)'),
                         ),
                       ],
@@ -289,7 +329,7 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    FilledButton.icon(
+                    OutlinedButton.icon(
                       onPressed: _hasUsagePermission && !_isLoading
                           ? _queryAppUsage
                           : null,
@@ -304,6 +344,14 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                             )
                           : const Icon(Icons.query_stats),
                       label: Text(_isLoading ? '查询中...' : '查询今日应用使用时长'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
+                        side: BorderSide(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),

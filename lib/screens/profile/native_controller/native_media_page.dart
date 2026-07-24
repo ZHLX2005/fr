@@ -367,39 +367,59 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                   children: [
                     Text('功能测试', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 12),
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       onPressed: _isLoading ? null : _pickFromGallery,
                       icon: const Icon(Icons.photo_library),
                       label: const Text('从图库选择图片'),
-                      style: ElevatedButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(
+                          color: theme.colorScheme.primary
+                              .withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       onPressed: _isLoading ? null : _takePicture,
                       icon: const Icon(Icons.camera_alt),
                       label: const Text('拍照'),
-                      style: ElevatedButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(
+                          color: theme.colorScheme.primary
+                              .withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       onPressed: _isLoading ? null : _pickVideo,
                       icon: const Icon(Icons.videocam),
                       label: const Text('选择视频'),
-                      style: ElevatedButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(
+                          color: theme.colorScheme.primary
+                              .withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       onPressed: _isLoading ? null : _pickFile,
                       icon: const Icon(Icons.attach_file),
                       label: const Text('选择文件'),
-                      style: ElevatedButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(
+                          color: theme.colorScheme.primary
+                              .withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -410,29 +430,36 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton.icon(
+                          child: OutlinedButton.icon(
                             onPressed: _isAudioRecording
                                 ? null
                                 : _startRecording,
                             icon: const Icon(Icons.mic),
                             label: const Text('开始录音'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
                               padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(
+                                color: Colors.red.withValues(alpha: 0.5),
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: ElevatedButton.icon(
+                          child: OutlinedButton.icon(
                             onPressed: _isAudioRecording
                                 ? _stopRecording
                                 : null,
                             icon: const Icon(Icons.stop),
                             label: const Text('停止录音'),
-                            style: ElevatedButton.styleFrom(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.primary,
                               padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(
+                                color: theme.colorScheme.primary
+                                    .withValues(alpha: 0.5),
+                              ),
                             ),
                           ),
                         ),
