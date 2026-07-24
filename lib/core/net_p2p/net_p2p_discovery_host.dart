@@ -179,7 +179,9 @@ class _NetP2PPageState extends State<NetP2PPage> {
       ),
       body: NetP2PChatPage(
         transport: _relayTransport!,
-        scope: 'room/${_relayTransport!.roomInfo?.code ?? ''}/events',
+        // 注意：RelayTransport.joinScope 对 'room/X' 会自动拼 'events' 后缀，
+        // 所以这里传 'room/<code>' 而不是 'room/<code>/events'
+        scope: 'room/${_relayTransport!.roomInfo?.code ?? ''}',
         myNodeId: _myNodeId!,
         peerAlias: '对方',
         onLeave: _disconnect,
