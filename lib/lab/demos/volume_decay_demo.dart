@@ -198,12 +198,15 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
           // 开关按钮
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
+            child: OutlinedButton.icon(
               onPressed: _isRunning ? _turnOff : _turnOn,
               icon: Icon(_isRunning ? Icons.stop : Icons.play_arrow),
               label: Text(_isRunning ? '关闭响度衰减' : '开启响度衰减'),
-              style: FilledButton.styleFrom(
-                backgroundColor: _isRunning ? Colors.red : Colors.green,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _isRunning ? Colors.red : Colors.green,
+                side: BorderSide(
+                  color: (_isRunning ? Colors.red : Colors.green).withValues(alpha: 0.5),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
@@ -212,7 +215,14 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
 
           // 说明
           Card(
-            color: Colors.blue.shade50,
+            color: Colors.blue.withValues(alpha: 0.08),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: Colors.blue.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

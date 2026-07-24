@@ -639,7 +639,13 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Cancel'),
               ),
-              ElevatedButton(
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.blue,
+                  side: BorderSide(
+                    color: Colors.blue.withValues(alpha: 0.5),
+                  ),
+                ),
                 onPressed: () async {
                   final title = titleController.text.trim();
                   var url = urlController.text.trim();

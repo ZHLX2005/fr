@@ -1049,13 +1049,13 @@ class _KeyDetailSheet extends StatelessWidget {
                 ),
                 child: SizedBox(
                   width: double.infinity,
-                  child: FilledButton.icon(
+                  child: OutlinedButton.icon(
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete),
                     label: const Text('删除此项'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
@@ -1518,13 +1518,13 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
                 ),
                 child: SizedBox(
                   width: double.infinity,
-                  child: FilledButton.icon(
+                  child: OutlinedButton.icon(
                     onPressed: widget.onDelete,
                     icon: const Icon(Icons.delete),
                     label: const Text('删除笔记'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),

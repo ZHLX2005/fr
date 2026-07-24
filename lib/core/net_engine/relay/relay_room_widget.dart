@@ -26,6 +26,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../net_engine.dart' as fw;
+import '../widgets/participants_grid.dart';
 
 /// 房间就绪回调 — transport 已连接，可安全 publish/subscribe
 typedef RoomReadyCallback = void Function(fw.RelayTransport transport, String roomCode);
@@ -358,8 +359,11 @@ class _RelayRoomWidgetState extends State<RelayRoomWidget> {
                 ),
               ),
               const SizedBox(height: 24),
-              // 参与者圆环
-              _buildParticipants(theme),
+              // 参与者圆环卡片（复用 LobbyParticipants）
+              LobbyParticipants(
+                capacity: _capacity,
+                participants: _onlineAliases,
+              ),
               const SizedBox(height: 32),
               // 进入按钮
               if (_isHost)
@@ -385,64 +389,5 @@ class _RelayRoomWidgetState extends State<RelayRoomWidget> {
         ),
       ),
     );
-  }
-
-  Widget _buildParticipants(ThemeData theme) {
-    final entries = _onlineAliases.entries.toList();
-    final emptySlots = _capacity - entries.length;
-    final slots = <Widget>[];
-
-    for (var i = 0; i < entries.length; i++) {
-      final e = entries[i];
-      final color = _participantColor(i);
-      slots.add(_avatarCircle(e.value, color, theme));
-    }
-    for (var i = 0; i < emptySlots; i++) {
-      slots.add(_emptyCircle(theme));
-    }
-
-    return Wrap(spacing: 20, runSpacing: 20, alignment: WrapAlignment.center, children: slots);
-  }
-
-  Widget _avatarCircle(String name, Color color, ThemeData theme) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 56, height: 56,
-          decoration: BoxDecoration(
-            gradient: RadialGradient(colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.08)]),
-            shape: BoxShape.circle,
-            border: Border.all(color: color.withValues(alpha: 0.5), width: 2),
-          ),
-          child: Center(child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color))),
-        ),
-        const SizedBox(height: 4),
-        Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
-      ],
-    );
-  }
-
-  Widget _emptyCircle(ThemeData theme) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 56, height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4), width: 2),
-          ),
-          child: Icon(Icons.person_add_alt_1, size: 20, color: theme.colorScheme.outlineVariant),
-        ),
-        const SizedBox(height: 4),
-        Text('等待中', style: TextStyle(fontSize: 10, color: theme.colorScheme.outline)),
-      ],
-    );
-  }
-
-  Color _participantColor(int i) {
-    const colors = [Color(0xFF4F8CF7), Color(0xFF34C759), Color(0xFFFF9500), Color(0xFFAF52DE), Color(0xFF5AC8FA), Color(0xFFFF2D55), Color(0xFF5856D6), Color(0xFF00C7BE), Color(0xFFFFD60A), Color(0xFFFF6B6B), Color(0xFFA2845E), Color(0xFFBF5AF2)];
-    return colors[i % colors.length];
   }
 }

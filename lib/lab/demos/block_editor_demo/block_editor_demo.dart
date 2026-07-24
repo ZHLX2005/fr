@@ -125,8 +125,14 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('取消'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(ctx).colorScheme.primary,
+              side: BorderSide(
+                color: Theme.of(ctx).colorScheme.primary.withValues(alpha: 0.5),
+              ),
+            ),
             child: const Text('导入'),
           ),
         ],
@@ -315,10 +321,16 @@ class _AiPendingBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            FilledButton.icon(
+            OutlinedButton.icon(
               onPressed: onAccept,
               icon: const Icon(Icons.check, size: 16),
               label: const Text('应用'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                side: BorderSide(
+                  color: colorScheme.primary.withValues(alpha: 0.5),
+                ),
+              ),
             ),
           ],
         ),

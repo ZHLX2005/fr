@@ -320,16 +320,18 @@ class _Game2048PageState extends State<_Game2048Page> {
                     '合并数字，达到 2048!',
                     style: TextStyle(fontSize: 14, color: Color(0xFF776E65)),
                   ),
-                  ElevatedButton(
+                  OutlinedButton(
                     onPressed: () {
                       setState(() {
                         _bestScore = max(_bestScore, _score);
                         _initGame();
                       });
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8F7A66),
-                      foregroundColor: Colors.white,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF8F7A66),
+                      side: BorderSide(
+                        color: const Color(0xFF8F7A66).withValues(alpha: 0.5),
+                      ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 10,

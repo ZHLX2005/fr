@@ -642,13 +642,13 @@ class _ClockDemoPageState extends State<_ClockDemoPage>
             const SizedBox(height: 16),
             Text('暂无时钟', style: TextStyle(color: const Color(0xFF8E8E93))),
             const SizedBox(height: 8),
-            ElevatedButton.icon(
+            OutlinedButton.icon(
               onPressed: () => _addClock(context),
               icon: const Icon(Icons.add),
               label: const Text('添加时钟'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).primaryColor,
+                side: BorderSide(color: Theme.of(context).primaryColor.withValues(alpha: 0.5)),
               ),
             ),
           ],
@@ -1057,7 +1057,7 @@ class _ClockDemoPageState extends State<_ClockDemoPage>
               SizedBox(
                 width: double.infinity,
                 height: 50,
-                child: ElevatedButton(
+                child: OutlinedButton(
                   onPressed: () {
                     final provider = context.read<LabClockProvider>();
                     final totalSeconds = hours * 3600 + minutes * 60 + seconds;
@@ -1081,9 +1081,9 @@ class _ClockDemoPageState extends State<_ClockDemoPage>
                     }
                     Navigator.pop(ctx);
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(ctx).primaryColor,
-                    foregroundColor: Colors.white,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(ctx).primaryColor,
+                    side: BorderSide(color: Theme.of(ctx).primaryColor.withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

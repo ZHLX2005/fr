@@ -81,11 +81,15 @@ class _CrashLogDemoPageState extends State<CrashLogDemoPage> {
                         onPressed: () => Navigator.pop(ctx),
                         child: const Text('取消'),
                       ),
-                      FilledButton(
+                      OutlinedButton(
                         onPressed: () {
                           Navigator.pop(ctx);
                           _clearLogs();
                         },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+                        ),
                         child: const Text('清除'),
                       ),
                     ],

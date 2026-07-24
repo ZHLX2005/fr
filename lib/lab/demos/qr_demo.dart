@@ -313,13 +313,15 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
               ),
             ),
             const SizedBox(height: 40),
-            ElevatedButton.icon(
+            OutlinedButton.icon(
               onPressed: _startScan,
               icon: const Icon(Icons.camera_alt),
               label: const Text('开始扫描'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0A84FF),
-                foregroundColor: Colors.white,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0A84FF),
+                side: const BorderSide(
+                  color: Color(0xFF0A84FF).withValues(alpha: 0.5),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
             ),
@@ -360,13 +362,15 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
               ),
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
+            OutlinedButton.icon(
               onPressed: _requestCameraPermission,
               icon: const Icon(Icons.camera_alt),
               label: const Text('授权相机'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0A84FF),
-                foregroundColor: Colors.white,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0A84FF),
+                side: const BorderSide(
+                  color: Color(0xFF0A84FF).withValues(alpha: 0.5),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
             ),
@@ -430,13 +434,15 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
           if (isUrl)
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: () => _launchUrl(_scanResult!),
                 icon: const Icon(Icons.open_in_browser),
                 label: const Text('打开链接'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0A84FF),
-                  foregroundColor: Colors.white,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0A84FF),
+                  side: const BorderSide(
+                    color: Color(0xFF0A84FF).withValues(alpha: 0.5),
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
@@ -549,15 +555,17 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: OutlinedButton.icon(
                     onPressed: () {
                       _tabController.animateTo(0);
                     },
                     icon: const Icon(Icons.qr_code_scanner),
                     label: const Text('去扫描'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0A84FF),
-                      foregroundColor: Colors.white,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0A84FF),
+                      side: const BorderSide(
+                        color: Color(0xFF0A84FF).withValues(alpha: 0.5),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),

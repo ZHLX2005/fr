@@ -129,8 +129,14 @@ class _GithubDemoShellState extends State<_GithubDemoShell> {
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: OutlinedButton(
                   onPressed: _confirm,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: BorderSide(
+                      color: Colors.blue.withValues(alpha: 0.5),
+                    ),
+                  ),
                   child: const Text('确认并进入'),
                 ),
               ),

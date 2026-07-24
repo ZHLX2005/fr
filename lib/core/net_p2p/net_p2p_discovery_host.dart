@@ -1,13 +1,13 @@
 // lib/core/net_p2p/net_p2p_discovery_host.dart
 //
-// NetP2P 入口 — LAN 局域网发现 + Relay 互联网房间
+// NetP2P 入口 — LAN 局域网发现 / Relay 互联网房间
 
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
 
 import 'pages/net_p2p_chat_page.dart';
 
-/// biz 入口页面 — LAN 局域网发现 / Relay 互联网房间
+/// P2P 入口页面 — LAN 局域网发现 / Relay 互联网房间
 class NetP2PPage extends StatefulWidget {
   const NetP2PPage({super.key});
   @override
@@ -19,54 +19,64 @@ enum _Mode { lan, relay }
 class _NetP2PPageState extends State<NetP2PPage> {
   _Mode _mode = _Mode.lan;
 
-  // 连接后
+  // 连接后（LAN 模式使用 scope chat，Relay 模式通过 RelayRoomWidget 交付）
   fw.Transport? _transport;
   String? _myNodeId;
   String? _peerAlias;
   String? _sessionScope;
 
+  // Relay 模式通过 RelayRoomWidget 交付后直接推送到这里
+  fw.RelayTransport? _relayTransport;
+  bool _inRelayChat = false;
+
   @override
   void dispose() {
     _transport?.stop();
+    _relayTransport?.close();
     super.dispose();
   }
 
-  /// LAN 模式：LanDiscovery 完成握手后回调
+  // ——— LAN 模式 ———
+
   void _onLanConnected(fw.DiscoveredPeer peer, fw.Transport transport) {
-    _onConnected(transport, peer.id, peer.alias);
-  }
-
-  /// Relay 模式：RelayDiscovery 完成握手后回调
-  void _onRelayConnected(fw.DiscoveredPeer peer, fw.RelayTransport transport) {
-    _onConnected(transport, peer.id, peer.alias);
-  }
-
-  void _onConnected(fw.Transport transport, String peerId, String peerAlias) {
-    // 用排序后的 nodeId 拼 scope
-    final ids = [transport.myNodeId, peerId];
+    final ids = [transport.myNodeId, peer.id];
     ids.sort();
     final scope = 'chat-${ids[0]}-${ids[1]}';
     transport.joinScope(scope);
     setState(() {
       _transport = transport;
       _myNodeId = transport.myNodeId;
-      _peerAlias = peerAlias;
+      _peerAlias = peer.alias;
       _sessionScope = scope;
+    });
+  }
+
+  // ——— Relay 模式 ———
+
+  void _onRelayRoomReady(fw.RelayTransport transport, String code) {
+    setState(() {
+      _relayTransport = transport;
+      _myNodeId = transport.myNodeId;
+      _inRelayChat = true;
     });
   }
 
   void _disconnect() {
     _transport?.stop();
+    _relayTransport?.close();
     setState(() {
       _transport = null;
+      _relayTransport = null;
       _myNodeId = null;
       _peerAlias = null;
       _sessionScope = null;
+      _inRelayChat = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // LAN 聊天中
     if (_transport != null && _sessionScope != null) {
       return NetP2PChatPage(
         transport: _transport!,
@@ -76,9 +86,17 @@ class _NetP2PPageState extends State<NetP2PPage> {
         onLeave: _disconnect,
       );
     }
+    // Relay 聊天中
+    if (_inRelayChat && _relayTransport != null) {
+      return _buildRelayChat();
+    }
+
+    // 模式选择 + 发现视图
     return Scaffold(
       appBar: AppBar(
-        title: const Text('NetP2P'),
+        title: Text(_mode == _Mode.lan ? '局域网发现' : '互联网房间'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -115,16 +133,8 @@ class _NetP2PPageState extends State<NetP2PPage> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: SegmentedButton<_Mode>(
         segments: const [
-          ButtonSegment(
-            value: _Mode.lan,
-            icon: Icon(Icons.wifi),
-            label: Text('局域网'),
-          ),
-          ButtonSegment(
-            value: _Mode.relay,
-            icon: Icon(Icons.cloud),
-            label: Text('跨网络'),
-          ),
+          ButtonSegment(value: _Mode.lan, icon: Icon(Icons.wifi), label: Text('局域网')),
+          ButtonSegment(value: _Mode.relay, icon: Icon(Icons.cloud), label: Text('跨网络')),
         ],
         selected: {_mode},
         onSelectionChanged: (s) => setState(() => _mode = s.first),
@@ -145,17 +155,35 @@ class _NetP2PPageState extends State<NetP2PPage> {
         },
       );
     }
-    return fw.RelayDiscovery(
+    // Relay 模式：使用 RelayRoomWidget（含参与者圆环大厅）
+    return fw.RelayRoomWidget(
       relayUrl: 'http://47.110.80.47:8988',
-    ).buildPage(
-      onPeerSelected: _onRelayConnected,
-      onError: (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Relay 错误: $e')),
-          );
-        }
-      },
+      defaultMaxPlayers: 2,
+      maxPlayersRange: const [2],
+      title: 'P2P 聊天',
+      onRoomReady: _onRelayRoomReady,
+    );
+  }
+
+  Widget _buildRelayChat() {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('聊天中'),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(Icons.close), onPressed: _disconnect, tooltip: '断开'),
+        ],
+      ),
+      body: NetP2PChatPage(
+        transport: _relayTransport!,
+        scope: 'room/${_relayTransport!.roomInfo?.code ?? ''}/events',
+        myNodeId: _myNodeId!,
+        peerAlias: '对方',
+        onLeave: _disconnect,
+      ),
     );
   }
 }

@@ -35,6 +35,7 @@ export 'lan/lan_discovery.dart';
 export 'relay/relay_transport.dart';
 export 'relay/relay_discovery.dart';
 export 'relay/relay_room_chat.dart';
+export 'relay/relay_room_widget.dart';
 
 export 'io/udp_socket.dart' hide UdpDatagram;
 
@@ -47,5 +48,8 @@ export 'http/http_endpoints.dart';
 export 'services/debug_log_service.dart';
 export 'pages/net_engine_debug_page.dart';
 export 'pages/net_engine_settings_page.dart';
+
+// Widgets
+export 'widgets/participants_grid.dart';
 
 // 遗留兼容 — 已删除：所有旧 framework/event_bus/device/discovery/channel/connection/transport/session/util 类
