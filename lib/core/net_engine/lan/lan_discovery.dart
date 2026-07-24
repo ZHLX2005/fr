@@ -151,7 +151,8 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   String? _sessionScope;
   DiscoveredPeer? _inviteFrom;
   LocalHttpServer? _httpServer;
-  int _httpPort = 53318; // 别人邀请我
+  int _httpPort = 53318;
+  Timer? _discoveryTimer;
 
   @override
   void initState() {
@@ -173,6 +174,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
   @override
   void dispose() {
+    _discoveryTimer?.cancel();
     _httpServer?.stop();
     if (!_handedOff) _transport?.stop();
     super.dispose();
@@ -197,6 +199,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
         multicastAddress: _effectiveAddress,
         multicastPort: _effectivePort,
         httpPort: _httpPort,
+        alias: _myAlias,
       );
       _transport = transport;
       _myNodeId = transport.myNodeId;
@@ -250,7 +253,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
             setState(() {
               _peers[from] = DiscoveredPeer(
                 id: from,
-                alias: from.substring(0, 6),
+                alias: e.data['alias'] as String? ?? from.substring(0, 6),
                 address: 'lan://$from',
                 ip: e.data['ip'] as String? ?? '',
                 httpPort: e.data['httpPort'] as int? ?? 0,
@@ -292,6 +295,11 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
       });
 
       await transport.joinScope('peers');
+      // 定期广播自身存在（每 2 秒），让同网络下的设备发现本机
+      transport.broadcastDiscovery();
+      _discoveryTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        transport.broadcastDiscovery();
+      });
       if (mounted) setState(() {});
     } catch (e) {
       _error = '扫描失败: $e';
@@ -301,6 +309,8 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   }
 
   void _stopScan() {
+    _discoveryTimer?.cancel();
+    _discoveryTimer = null;
     _httpServer?.stop();
     if (!_handedOff) {
       _transport?.stop();

@@ -13,19 +13,23 @@ class LanTransport implements Transport {
     required String multicastAddress,
     required int multicastPort,
     required int httpPort,
+    required String alias,
   })  : _multicastAddress = multicastAddress,
         _multicastPort = multicastPort,
-        _httpPort = httpPort;
+        _httpPort = httpPort,
+        _alias = alias;
 
   static Future<LanTransport> create({
     String multicastAddress = '239.255.255.255',
     int multicastPort = 5678,
     int httpPort = 53318,
+    String alias = 'Flutter Device',
   }) async {
     final t = LanTransport._(
       multicastAddress: multicastAddress,
       multicastPort: multicastPort,
       httpPort: httpPort,
+      alias: alias,
     );
     await t._socket.bind(multicastAddress: multicastAddress, port: multicastPort);
     t._socket.datagrams.listen(t._onDatagram);
@@ -37,6 +41,7 @@ class LanTransport implements Transport {
   // ignore: unused_field
   final int _multicastPort;
   final int _httpPort;
+  final String _alias;
   final UdpMulticastSocket _socket = UdpMulticastSocket();
 
   final int _createdAt = DateTime.now().microsecondsSinceEpoch;
@@ -250,6 +255,7 @@ class LanTransport implements Transport {
       final env = jsonDecode(text) as Map<String, dynamic>;
       final from = env['from'] as String?;
       if (from == null || from == _nodeId) return;
+      final alias = env['alias'] as String? ?? from.substring(0, 6);
       // v1 scope-join UDP 包
       if (env['type'] == 'scope-join') {
         _active.add(env['scope'] as String? ?? '');
@@ -258,6 +264,7 @@ class LanTransport implements Transport {
           data: {
             'scope': env['scope'],
             'from': from,
+            'alias': alias,
             'ip': dg.senderAddress.address,
             'httpPort': env['httpPort'] as int? ?? 0,
             'createdAt': env['createdAt'] as int? ?? 0,
@@ -265,12 +272,24 @@ class LanTransport implements Transport {
           timestamp: DateTime.now(),
         ));
       }
-      // v2 discovery 包
+      // v2 discovery 包 — 也触发 peer-joined-scope 事件
       if (env['type'] == 'discovery') {
         _peers[from] = _PeerEndpoint(
           ip: dg.senderAddress.address,
           httpPort: env['httpPort'] as int? ?? 0,
         );
+        _eventCtrl.add(TransportEvent(
+          topic: 'peer-joined-scope',
+          data: {
+            'scope': 'peers',
+            'from': from,
+            'alias': alias,
+            'ip': dg.senderAddress.address,
+            'httpPort': env['httpPort'] as int? ?? 0,
+            'createdAt': env['createdAt'] as int? ?? 0,
+          },
+          timestamp: DateTime.now(),
+        ));
       }
     } catch (_) {}
   }
@@ -280,6 +299,7 @@ class LanTransport implements Transport {
     final env = {
       'type': 'discovery',
       'from': _nodeId,
+      'alias': _alias,
       'httpPort': _httpPort,
       'createdAt': _createdAt,
     };
@@ -293,6 +313,7 @@ class LanTransport implements Transport {
       'type': 'scope-join',
       'scope': scope,
       'from': _nodeId,
+      'alias': _alias,
       'httpPort': _httpPort,
       'createdAt': _createdAt,
     };
