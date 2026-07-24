@@ -1,4 +1,4 @@
-// lib/core/localnet/relay/relay_room_chat.dart
+// lib/core/net_engine/relay/relay_room_chat.dart
 //
 // 2人房聊天 widget（房主开房 → 玩家输入房号加入 → 自动开聊）
 //
@@ -12,7 +12,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
+import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
 
 /// 2人房聊天 widget
 ///

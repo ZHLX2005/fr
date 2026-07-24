@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/debug_log_service.dart';
 
-class LocalnetDebugPage extends StatelessWidget {
-  const LocalnetDebugPage({super.key});
+class NetEngineDebugPage extends StatelessWidget {
+  const NetEngineDebugPage({super.key});
 
   @override
   Widget build(BuildContext context) {

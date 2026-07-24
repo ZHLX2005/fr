@@ -1,4 +1,4 @@
-// lib/core/localnet/http/http_endpoints.dart
+// lib/core/net_engine/http/http_endpoints.dart
 //
 // 通用 P2P HTTP 端点定义 — 所有游戏模块共用。
 

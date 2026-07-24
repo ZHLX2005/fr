@@ -1,24 +1,24 @@
-// lib/core/localnet_biz/localnet_discovery_host.dart
+// lib/core/net_engine_biz/net_engine_discovery_host.dart
 //
-// LocalNet biz 入口 — 使用 v2 引擎 + 自定义人数开房
+// NetEngine biz 入口 — 使用 v2 引擎 + 自定义人数开房
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
+import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
 
-import 'localnet_message.dart';
-import 'localnet_service.dart';
+import 'net_engine_message.dart';
+import 'net_engine_service.dart';
 
-class LocalnetBizHostPage extends StatefulWidget {
-  const LocalnetBizHostPage({super.key});
+class NetEngineBizHostPage extends StatefulWidget {
+  const NetEngineBizHostPage({super.key});
   @override
-  State<LocalnetBizHostPage> createState() => _LocalnetBizHostPageState();
+  State<NetEngineBizHostPage> createState() => _NetEngineBizHostPageState();
 }
 
 enum _Role { master, player }
 
-class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
+class _NetEngineBizHostPageState extends State<NetEngineBizHostPage> {
   _Role _role = _Role.master;
   int _maxPlayers = 4;
   final _aliasCtrl = TextEditingController();
@@ -28,7 +28,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
   // 连接后
   String? _roomCode;
   StreamSubscription<RoomEvent>? _sub;
-  final _msgs = <LocalnetMessage>[];
+  final _msgs = <NetEngineMessage>[];
   final _textCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -45,22 +45,22 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
     _textCtrl.dispose();
     _scrollCtrl.dispose();
     _sub?.cancel();
-    localnetService.stop();
+    netEngineService.stop();
     super.dispose();
   }
 
   Future<void> _createRoom() async {
     setState(() { _busy = true; });
     try {
-      await localnetService.createRoom(
+      await netEngineService.createRoom(
         relayUrl: 'http://47.110.80.47:8988',
         alias: _aliasCtrl.text.trim(),
         maxPlayers: _maxPlayers,
       );
-      localnetService.subscribeRoom(localnetService.roomCode!);
-      _sub = localnetService.events.listen(_onEvent);
+      netEngineService.subscribeRoom(netEngineService.roomCode!);
+      _sub = netEngineService.events.listen(_onEvent);
       setState(() {
-        _roomCode = localnetService.roomCode;
+        _roomCode = netEngineService.roomCode;
         _busy = false;
       });
     } catch (e) {
@@ -74,13 +74,13 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
     if (code.length != 6) { setState(() => _codeCtrl.text = ''); return; }
     setState(() { _busy = true; });
     try {
-      await localnetService.joinRoom(
+      await netEngineService.joinRoom(
         relayUrl: 'http://47.110.80.47:8988',
         alias: _aliasCtrl.text.trim(),
         roomCode: code,
       );
-      localnetService.subscribeRoom(code);
-      _sub = localnetService.events.listen(_onEvent);
+      netEngineService.subscribeRoom(code);
+      _sub = netEngineService.events.listen(_onEvent);
       setState(() { _roomCode = code; _busy = false; });
     } catch (e) {
       setState(() => _busy = false);
@@ -100,7 +100,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
   void _send() async {
     final text = _textCtrl.text.trim();
     if (text.isEmpty) return;
-    await localnetService.sendMessage(text: text);
+    await netEngineService.sendMessage(text: text);
     _textCtrl.clear();
   }
 
@@ -113,9 +113,9 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
 
   Widget _buildLobby(ThemeData theme) {
     return Scaffold(
-      appBar: AppBar(title: const Text('LocalNet'), actions: [
-        IconButton(icon: const Icon(Icons.settings), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => fw.LocalnetSettingsPage(mode: fw.MessageNetMode.relay, relayUrl: 'http://47.110.80.47:8988')))),
-        IconButton(icon: const Icon(Icons.bug_report), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const fw.LocalnetDebugPage()))),
+      appBar: AppBar(title: const Text('NetEngine'), actions: [
+        IconButton(icon: const Icon(Icons.settings), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => fw.NetEngineSettingsPage(mode: fw.MessageNetMode.relay, relayUrl: 'http://47.110.80.47:8988')))),
+        IconButton(icon: const Icon(Icons.bug_report), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const fw.NetEngineDebugPage()))),
       ]),
       body: Padding(
         padding: const EdgeInsets.all(24),
@@ -170,7 +170,7 @@ class _LocalnetBizHostPageState extends State<LocalnetBizHostPage> {
                     itemCount: _msgs.length,
                     itemBuilder: (_, i) {
                       final m = _msgs[i];
-                      final mine = m.fromNodeId == localnetService.myNodeId;
+                      final mine = m.fromNodeId == netEngineService.myNodeId;
                       return Align(
                         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(

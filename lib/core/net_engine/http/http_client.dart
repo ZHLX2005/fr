@@ -1,4 +1,4 @@
-// lib/core/localnet/http/http_client.dart
+// lib/core/net_engine/http/http_client.dart
 //
 // HTTP 客户端 — 向对端的 HTTP Server 发起请求，用于可靠 P2P 通信。
 //

@@ -1,6 +1,6 @@
 // lib/core/message_net/relay_message_net.dart
 //
-// Relay 模式实现 — 用 localnet 引擎的 RelayTransport 替代原自实现 WebSocket
+// Relay 模式实现 — 用 net_engine 引擎的 RelayTransport 替代原自实现 WebSocket
 //
 // 内部实现。业务层通过 [MessageNet.start] 获取 [MessageNet] 实例即可。
 // LAN 实现保持不变，仅 Relay 路径换为引擎驱动。
@@ -9,7 +9,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
+import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
 
 import 'message_net.dart';
 

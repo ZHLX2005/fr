@@ -1,9 +1,9 @@
-// lib/core/localnet_biz/localnet_message.dart
+// lib/core/net_engine_biz/net_engine_message.dart
 //
 // 通用消息模型 — 业务层传到 room topic 后由各端按 fromNodeId 过滤
 // 与具体业务（聊天/发牌/文件）解耦。
 
-class LocalnetMessage {
+class NetEngineMessage {
   final String id;
   final String fromNodeId;
   final String fromAlias;
@@ -11,7 +11,7 @@ class LocalnetMessage {
   final DateTime ts;
   final Map<String, dynamic>? extra;
 
-  LocalnetMessage({
+  NetEngineMessage({
     required this.id,
     required this.fromNodeId,
     required this.fromAlias,
@@ -30,8 +30,8 @@ class LocalnetMessage {
         if (extra != null) ...extra!,
       };
 
-  factory LocalnetMessage.fromTransportEvent(Map<String, dynamic> payload) {
-    return LocalnetMessage(
+  factory NetEngineMessage.fromTransportEvent(Map<String, dynamic> payload) {
+    return NetEngineMessage(
       id: (payload['id'] as String?) ?? '',
       fromNodeId: (payload['from'] as String?) ?? '',
       fromAlias: (payload['fromAlias'] as String?) ?? '',

@@ -1,12 +1,12 @@
-// lib/core/localnet_biz/localnet_service.dart
+// lib/core/net_engine_biz/net_engine_service.dart
 //
-// LocalNet biz 服务 — v2 pub/sub 模式（不再依赖 DataLog/scope）
+// NetEngine biz 服务 — v2 pub/sub 模式（不再依赖 DataLog/scope）
 
 import 'dart:async';
 
-import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
+import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
 
-import 'localnet_message.dart';
+import 'net_engine_message.dart';
 
 /// 房间事件（业务层订阅此流驱动 UI）
 sealed class RoomEvent {}
@@ -23,7 +23,7 @@ class PeerLeft extends RoomEvent {
 }
 
 class MessageReceived extends RoomEvent {
-  final LocalnetMessage msg;
+  final NetEngineMessage msg;
   MessageReceived(this.msg);
 }
 
@@ -34,7 +34,7 @@ class MessageReceived extends RoomEvent {
 /// 2. player: joinRoom(code, alias)
 /// 3. 两者都要 subscribeRoom(code) 监听事件
 /// 4. sendMessage() 发消息
-class LocalnetService {
+class NetEngineService {
   fw.RelayTransport? _transport;
   StreamSubscription<fw.RemoteEvent>? _sub;
   String? _roomCode;
@@ -94,7 +94,7 @@ class LocalnetService {
         _eventsCtrl.add(PeerLeft(p['deviceId'] as String? ?? ''));
       } else if (p['type'] == 'message') {
         _eventsCtrl.add(MessageReceived(
-          LocalnetMessage.fromTransportEvent(p),
+          NetEngineMessage.fromTransportEvent(p),
         ));
       }
     });
@@ -108,7 +108,7 @@ class LocalnetService {
     final t = _transport;
     final code = _roomCode;
     if (t == null || code == null) return;
-    final msg = LocalnetMessage(
+    final msg = NetEngineMessage(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       fromNodeId: _myNodeId ?? '',
       fromAlias: '',
@@ -138,4 +138,4 @@ class LocalnetService {
   }
 }
 
-final localnetService = LocalnetService();
+final netEngineService = NetEngineService();

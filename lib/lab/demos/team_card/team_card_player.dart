@@ -4,7 +4,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
+import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
 
 import 'const_team_card.dart';
 import 'team_card_types.dart';

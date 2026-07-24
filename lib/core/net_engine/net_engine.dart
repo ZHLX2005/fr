@@ -1,4 +1,4 @@
-/// LocalNet — 数据同步层（公共导出入口）
+/// NetEngine — 数据同步层（公共导出入口）
 ///
 /// 新模块结构：
 /// - **Transport** 抽象父类：LAN 和 Relay 共性
@@ -27,7 +27,7 @@ library;
 
 // 新模块 — Transport + DataLog + Discovery + HTTP
 export 'transport.dart';
-export 'localnet_types.dart';
+export 'net_engine_types.dart';
 
 export 'lan/lan_transport.dart';
 export 'lan/lan_discovery.dart';
@@ -45,7 +45,7 @@ export 'http/http_endpoints.dart';
 
 // 服务 / 页面
 export 'services/debug_log_service.dart';
-export 'pages/localnet_debug_page.dart';
-export 'pages/localnet_settings_page.dart';
+export 'pages/net_engine_debug_page.dart';
+export 'pages/net_engine_settings_page.dart';
 
 // 遗留兼容 — 已删除：所有旧 framework/event_bus/device/discovery/channel/connection/transport/session/util 类

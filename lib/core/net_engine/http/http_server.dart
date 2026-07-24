@@ -1,4 +1,4 @@
-// lib/core/localnet/http/http_server.dart
+// lib/core/net_engine/http/http_server.dart
 //
 // 轻量 HTTP Server — 每设备运行一个实例，用于可靠点对点通信。
 // 接收 invite/accept/game-state 等请求，返回 HTTP 状态码作为 ACK。

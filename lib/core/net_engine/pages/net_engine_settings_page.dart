@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/localnet/localnet.dart' as fw;
+import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
 
-import '../localnet_types.dart';
+import '../net_engine_types.dart';
 
 /// LAN / Relay 综合设置壳
 ///
 /// 业务侧零配置代码 — 只渲染对应 Discovery 的 buildSettingsPage()。
-class LocalnetSettingsPage extends StatelessWidget {
-  const LocalnetSettingsPage({
+class NetEngineSettingsPage extends StatelessWidget {
+  const NetEngineSettingsPage({
     super.key,
     required this.mode,
     this.multicastPort = 5678,
