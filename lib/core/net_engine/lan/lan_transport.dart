@@ -272,6 +272,24 @@ class LanTransport implements Transport {
           timestamp: DateTime.now(),
         ));
       }
+      // v1 scope-update UDP 包：更新远端 scope 状态
+      if (env['type'] == 'scope-update') {
+        final scope = env['scope'] as String? ?? '';
+        if (scope.isEmpty) return;
+        try {
+          final remote = DataLog.fromJson({
+            'scope': scope,
+            'state': (env['state'] as Map?)?.cast<String, dynamic>() ?? const {},
+            'from': from,
+          });
+          final local = _scopes.putIfAbsent(
+            scope,
+            () => DataLog(scope: scope, fromNodeId: _nodeId),
+          );
+          local.applyRemote(remote);
+          _scopeCtrls[scope]?.add(local);
+        } catch (_) {}
+      }
       // v2 discovery 包 — 也触发 peer-joined-scope 事件
       if (env['type'] == 'discovery') {
         _peers[from] = _PeerEndpoint(

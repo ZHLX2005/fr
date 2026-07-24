@@ -57,7 +57,9 @@ class _NetP2PChatPageState extends State<NetP2PChatPage> {
   @override
   void initState() {
     super.initState();
-    // 订阅 scope 状态变化
+    // 必须先 joinScope 注册 scope 到 transport 内部状态，
+    // 否则 getScope/broadcastScope 会因 _scopes[scope]==null 而静默失效
+    widget.transport.joinScope(widget.scope);
     _scopeSub = widget.transport.watchScope(widget.scope).listen(_onScopeUpdate);
     // 广播自己的加入（让对端看到已有消息）
     widget.transport.broadcastScope(widget.scope);
