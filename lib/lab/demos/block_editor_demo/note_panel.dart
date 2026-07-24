@@ -124,8 +124,12 @@ class _NotePanelState extends State<NotePanel> {
                                         onPressed: () => Navigator.pop(ctx, false),
                                         child: const Text('取消'),
                                       ),
-                                      FilledButton(
+                                      OutlinedButton(
                                         onPressed: () => Navigator.pop(ctx, true),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                          side: const BorderSide(color: Colors.red),
+                                        ),
                                         child: const Text('删除'),
                                       ),
                                     ],

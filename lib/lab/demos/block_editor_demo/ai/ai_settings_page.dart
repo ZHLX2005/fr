@@ -95,10 +95,16 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
+                  OutlinedButton.icon(
                     onPressed: _save,
                     icon: const Icon(Icons.save),
                     label: const Text('保存'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.primary,
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
                   ),
                 ],
               ),

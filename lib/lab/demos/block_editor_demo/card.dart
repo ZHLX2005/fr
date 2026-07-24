@@ -562,8 +562,14 @@ class _BlockCardState extends State<BlockCard> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(ctx).colorScheme.primary,
+              side: BorderSide(
+                color: Theme.of(ctx).colorScheme.primary.withValues(alpha: 0.5),
+              ),
+            ),
             child: const Text('添加'),
           ),
         ],
