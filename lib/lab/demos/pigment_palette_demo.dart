@@ -628,17 +628,19 @@ class _ActionButton extends StatelessWidget {
 
     return SizedBox(
       height: 52,
-      child: FilledButton.tonalIcon(
+      child: OutlinedButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, size: 20),
         label: Text(label),
-        style: FilledButton.styleFrom(
-          backgroundColor: isPrimary
-              ? const Color(0xFF111111)
-              : const Color(0xFFF3F3F1),
+        style: OutlinedButton.styleFrom(
           foregroundColor: isPrimary ? Colors.white : const Color(0xFF111111),
-          disabledBackgroundColor: const Color(0xFFE8E8E5),
           disabledForegroundColor: const Color(0xFF9A9A96),
+          side: BorderSide(
+            color: (isPrimary
+                    ? const Color(0xFF111111)
+                    : const Color(0xFF111111))
+                .withValues(alpha: 0.5),
+          ),
           elevation: 0,
           textStyle: const TextStyle(
             fontSize: 15,

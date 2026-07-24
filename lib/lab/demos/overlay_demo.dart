@@ -206,8 +206,14 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
             ),
             const SizedBox(height: 16),
             if (!_hasPermission)
-              ElevatedButton(
+              OutlinedButton(
                 onPressed: _requestPermission,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0A84FF),
+                  side: BorderSide(
+                    color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
+                  ),
+                ),
                 child: const Text('前往授权'),
               ),
             if (_hasPermission)
@@ -253,10 +259,16 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
+                  child: OutlinedButton(
                     onPressed: (_hasPermission && _apiKey.isNotEmpty)
                         ? _toggleOverlay
                         : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0A84FF),
+                      side: BorderSide(
+                        color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
+                      ),
+                    ),
                     child: const Text('显示悬浮窗'),
                   ),
                 ),
@@ -345,8 +357,14 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: OutlinedButton(
                 onPressed: _saveConfig,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0A84FF),
+                  side: BorderSide(
+                    color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
+                  ),
+                ),
                 child: const Text('保存配置'),
               ),
             ),

@@ -340,11 +340,13 @@ class MasterViewState extends State<MasterView> {
           Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
         ],
         const SizedBox(height: 24),
-        FilledButton.icon(
+        OutlinedButton.icon(
           onPressed: _busy ? null : createRoom,
           icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.meeting_room),
           label: const Text('创建房间'),
-          style: FilledButton.styleFrom(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.colorScheme.primary,
+            side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -411,11 +413,13 @@ class MasterViewState extends State<MasterView> {
         if (!_dealt)
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
+            child: OutlinedButton.icon(
               onPressed: _onlinePeers.isNotEmpty ? dealCards : null,
               icon: const Icon(Icons.style, size: 20),
               label: Text('开始发牌'),
-              style: FilledButton.styleFrom(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.colorScheme.primary,
+                side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),

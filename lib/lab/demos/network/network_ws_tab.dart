@@ -132,19 +132,27 @@ class _NetworkWsTabState extends State<NetworkWsTab>
                   ),
                   const SizedBox(width: 12),
                   if (!_connected)
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       onPressed: _connect,
                       icon: const Icon(Icons.link),
                       label: const Text('连接'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        side: BorderSide(
+                            color: Colors.blue.withValues(alpha: 0.5)),
+                      ),
                     )
                   else
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       onPressed: _disconnect,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: NetworkConst.colorError,
-                      ),
                       icon: const Icon(Icons.link_off),
                       label: const Text('断开'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: NetworkConst.colorError,
+                        side: BorderSide(
+                            color: NetworkConst.colorError.withValues(
+                                alpha: 0.5)),
+                      ),
                     ),
                 ],
               ),
@@ -162,10 +170,15 @@ class _NetworkWsTabState extends State<NetworkWsTab>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
+                  OutlinedButton.icon(
                     onPressed: _connected ? _send : null,
                     icon: const Icon(Icons.send),
                     label: const Text('发送'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: BorderSide(
+                          color: Colors.blue.withValues(alpha: 0.5)),
+                    ),
                   ),
                 ],
               ),

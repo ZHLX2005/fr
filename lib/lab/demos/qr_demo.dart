@@ -319,8 +319,8 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
               label: const Text('开始扫描'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF0A84FF),
-                side: const BorderSide(
-                  color: Color(0xFF0A84FF).withValues(alpha: 0.5),
+                side: BorderSide(
+                  color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
@@ -368,8 +368,8 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
               label: const Text('授权相机'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF0A84FF),
-                side: const BorderSide(
-                  color: Color(0xFF0A84FF).withValues(alpha: 0.5),
+                side: BorderSide(
+                  color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
@@ -440,8 +440,8 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
                 label: const Text('打开链接'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF0A84FF),
-                  side: const BorderSide(
-                    color: Color(0xFF0A84FF).withValues(alpha: 0.5),
+                  side: BorderSide(
+                    color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -563,8 +563,8 @@ class _QrPageState extends State<_QrPage> with SingleTickerProviderStateMixin {
                     label: const Text('去扫描'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF0A84FF),
-                      side: const BorderSide(
-                        color: Color(0xFF0A84FF).withValues(alpha: 0.5),
+                      side: BorderSide(
+                        color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),

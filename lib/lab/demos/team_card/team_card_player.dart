@@ -137,13 +137,15 @@ class _PlayerViewState extends State<PlayerView> {
           Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
         ],
         const SizedBox(height: 24),
-        FilledButton.icon(
+        OutlinedButton.icon(
           onPressed: _busy ? null : _joinRoom,
           icon: _busy
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.login),
           label: const Text('加入房间'),
-          style: FilledButton.styleFrom(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.colorScheme.primary,
+            side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),

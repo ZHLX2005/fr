@@ -406,8 +406,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.grey[100],
+                            color: Colors.grey.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: Colors.grey.withValues(alpha: 0.35),
+                                width: 1.5),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,8 +528,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.blue[50],
+                          color: Colors.blue.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: Colors.blue.withValues(alpha: 0.35),
+                              width: 1.5),
                         ),
                         child: const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,8 +625,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.15),
+            color: Colors.green.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+                color: Colors.green.withValues(alpha: 0.35), width: 1.5),
           ),
           child: const Icon(Icons.android, color: Colors.green),
         ),

@@ -159,16 +159,24 @@ class _NetworkHttpTabState extends State<NetworkHttpTab>
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: OutlinedButton.icon(
               onPressed: _loading ? null : _sendRequest,
               icon: _loading
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.blue,
+                      ),
                     )
                   : const Icon(Icons.send),
               label: Text(_loading ? '请求中...' : '发送请求'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.blue,
+                side: BorderSide(
+                    color: Colors.blue.withValues(alpha: 0.5)),
+              ),
             ),
           ),
           const SizedBox(height: 16),

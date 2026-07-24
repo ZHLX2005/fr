@@ -205,32 +205,41 @@ class _NetworkBleTabState extends State<NetworkBleTab>
       child: Row(
         children: [
           Expanded(
-            child: ElevatedButton.icon(
+            child: OutlinedButton.icon(
               onPressed: _isScanning ? null : _startScan,
               icon: const Icon(Icons.search),
               label: Text(_isScanning ? '扫描中...' : '扫描设备'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.blue,
+                side: BorderSide(
+                    color: Colors.blue.withValues(alpha: 0.5)),
+              ),
             ),
           ),
           if (_isScanning) ...[
             const SizedBox(width: 8),
-            ElevatedButton.icon(
+            OutlinedButton.icon(
               onPressed: _stopScan,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: NetworkConst.colorWarn,
-              ),
               icon: const Icon(Icons.stop),
               label: const Text('停止'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: NetworkConst.colorWarn,
+                side: BorderSide(
+                    color: NetworkConst.colorWarn.withValues(alpha: 0.5)),
+              ),
             ),
           ],
           if (_isConnected) ...[
             const SizedBox(width: 8),
-            ElevatedButton.icon(
+            OutlinedButton.icon(
               onPressed: _disconnect,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: NetworkConst.colorError,
-              ),
               icon: const Icon(Icons.link_off),
               label: const Text('断开'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: NetworkConst.colorError,
+                side: BorderSide(
+                    color: NetworkConst.colorError.withValues(alpha: 0.5)),
+              ),
             ),
           ],
         ],
@@ -310,10 +319,15 @@ class _NetworkBleTabState extends State<NetworkBleTab>
             ),
           ),
           const SizedBox(width: 8),
-          ElevatedButton.icon(
+          OutlinedButton.icon(
             onPressed: _sendMessage,
             icon: const Icon(Icons.send),
             label: const Text('发送'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue,
+              side: BorderSide(
+                  color: Colors.blue.withValues(alpha: 0.5)),
+            ),
           ),
         ],
       ),
