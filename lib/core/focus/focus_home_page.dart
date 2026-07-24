@@ -684,7 +684,7 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        FilledButton(
+        OutlinedButton(
           onPressed: () async {
             if (_nameController.text.trim().isEmpty) return;
 
@@ -702,8 +702,11 @@ class _SubjectEditDialogState extends State<_SubjectEditDialog> {
             await widget.onSave(subject);
             if (context.mounted) Navigator.pop(context);
           },
-          style: FilledButton.styleFrom(
-            backgroundColor: FocusColors.availableColors[_selectedColorIndex],
+          style: OutlinedButton.styleFrom(
+            foregroundColor: FocusColors.availableColors[_selectedColorIndex],
+            side: BorderSide(
+              color: FocusColors.availableColors[_selectedColorIndex].withValues(alpha: 0.5),
+            ),
           ),
           child: const Text('保存'),
         ),

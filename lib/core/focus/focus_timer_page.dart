@@ -628,13 +628,14 @@ class _FocusTimerPageState extends State<FocusTimerPage>
           ],
         ),
         actions: [
-          FilledButton(
+          OutlinedButton(
             onPressed: () {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFB5C9A3),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFB5C9A3),
+              side: BorderSide(color: const Color(0xFFB5C9A3).withValues(alpha: 0.5)),
             ),
             child: const Text('返回'),
           ),

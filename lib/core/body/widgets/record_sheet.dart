@@ -194,10 +194,16 @@ class _RecordSheetState extends State<RecordSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SizedBox(
               width: double.infinity,
-              child: FilledButton.icon(
+              child: OutlinedButton.icon(
                 icon: Icon(_editing != null ? Icons.check : Icons.save),
                 label: Text(_editing != null ? '更新' : '保存'),
                 onPressed: _save,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                  ),
+                ),
               ),
             ),
           ),

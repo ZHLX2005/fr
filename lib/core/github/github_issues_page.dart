@@ -256,7 +256,7 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
             ),
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
+          OutlinedButton.icon(
             onPressed: _loading ? null : _createIssue,
             icon: _loading
                 ? const SizedBox(
@@ -472,7 +472,7 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('取消'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () {
               final title = titleController.text.trim();
               if (title.isEmpty) {
@@ -561,7 +561,7 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: OutlinedButton.icon(
                     onPressed: _loading ? null : _toggleState,
                     icon: _loading
                         ? const SizedBox(
@@ -574,7 +574,7 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton.icon(
+                OutlinedButton.icon(
                   onPressed: _loading ? null : _showCloneDialog,
                   icon: const Icon(Icons.copy),
                   label: const Text('克隆'),
@@ -604,7 +604,7 @@ class _GithubIssuesErrorState extends StatelessWidget {
           const SizedBox(height: 16),
           Text(message, style: const TextStyle(color: Colors.red)),
           const SizedBox(height: 16),
-          ElevatedButton.icon(
+          OutlinedButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
             label: const Text('重试'),

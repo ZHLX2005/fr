@@ -303,12 +303,16 @@ class _RelayDiscoveryPageState extends State<_RelayDiscoveryPage> {
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: FilledButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: _busy ? null : _createRoom,
                       icon: _busy
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.add_circle_outline),
                       label: Text(_busy ? '创建中...' : '创建房间'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
+                      ),
                     ),
                   ),
                 ],
@@ -577,10 +581,14 @@ class _RelaySettingsPageState extends State<_RelaySettingsPage> {
           ),
         ),
         const SizedBox(height: 24),
-        FilledButton.icon(
+        OutlinedButton.icon(
           onPressed: _save,
           icon: const Icon(Icons.save),
           label: const Text('保存'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.primary,
+            side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
+          ),
         ),
       ],
     );

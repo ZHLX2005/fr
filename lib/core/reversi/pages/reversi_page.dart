@@ -604,11 +604,11 @@ class _GameOverOverlay extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              FilledButton(
+              OutlinedButton(
                 onPressed: onRestart,
-                style: FilledButton.styleFrom(
-                  backgroundColor: accent,
-                  foregroundColor: Colors.black87,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: accent,
+                  side: BorderSide(color: accent.withValues(alpha: 0.5)),
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),

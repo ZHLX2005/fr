@@ -221,7 +221,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
           title: const Text(NovelReaderConstants.title),
         ),
         body: Center(
-          child: FilledButton(
+          child: OutlinedButton(
             onPressed: _importTxt,
             child: const Text('Import TXT'),
           ),
@@ -285,7 +285,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                     ),
                   ],
                   const SizedBox(height: 20),
-                  FilledButton(
+                  OutlinedButton(
                     onPressed: _isDownloading || _isImporting
                         ? null
                         : isDownloaded
@@ -293,8 +293,11 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                         : book.isBuiltIn
                         ? _downloadCurrentBook
                         : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF714B35),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF714B35),
+                      side: BorderSide(
+                        color: const Color(0xFF714B35).withValues(alpha: 0.5),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
@@ -728,7 +731,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                 const SizedBox(height: 12),
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 12),
-                FilledButton(onPressed: _loadBook, child: const Text('Retry')),
+                OutlinedButton(onPressed: _loadBook, child: const Text('Retry')),
               ],
             ),
           ),
@@ -1419,9 +1422,9 @@ class _ReaderBottomBar extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: FilledButton.tonal(
+                  child: OutlinedButton(
                     onPressed: canGoPrevious ? () => onPrevious?.call() : null,
-                    style: FilledButton.styleFrom(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text('Previous'),
@@ -1429,11 +1432,14 @@ class _ReaderBottomBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton(
+                  child: OutlinedButton(
                     onPressed: canGoNext ? () => onNext?.call() : null,
-                    style: FilledButton.styleFrom(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: const Color(0xFF7A5339),
+                      foregroundColor: const Color(0xFF7A5339),
+                      side: BorderSide(
+                        color: const Color(0xFF7A5339).withValues(alpha: 0.5),
+                      ),
                     ),
                     child: const Text('Next'),
                   ),

@@ -91,15 +91,16 @@ class _LocalGamePageState extends State<LocalGamePage> {
             style: TextStyle(fontSize: 14, color: theme.btnSub),
           ),
           const SizedBox(height: 32),
-          FilledButton.icon(
+          OutlinedButton.icon(
             onPressed: () {
               _touchController.reset();
               _viewModel.dispatch(const LocalStartPressed());
             },
             icon: const Icon(Icons.play_arrow),
             label: const Text('开始游戏'),
-            style: FilledButton.styleFrom(
-              backgroundColor: theme.piecePlayerA,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.piecePlayerA,
+              side: BorderSide(color: theme.piecePlayerA.withValues(alpha: 0.5)),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
@@ -576,21 +577,22 @@ class _LocalGamePageState extends State<LocalGamePage> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton(
+                  child: OutlinedButton(
                     onPressed: () {
                       Navigator.pop(ctx);
                       _touchController.reset();
                       _viewModel.dispatch(const LocalResetRequested());
                     },
-                    style: FilledButton.styleFrom(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      backgroundColor: theme.piecePlayerA,
+                      foregroundColor: theme.piecePlayerA,
+                      side: BorderSide(color: theme.piecePlayerA.withValues(alpha: 0.5)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
                     ),
-                    child: const Text('确定',
-                        style: TextStyle(color: Colors.white)),
+                    child: Text('确定',
+                        style: TextStyle(color: theme.piecePlayerA)),
                   ),
                 ),
               ],
@@ -666,21 +668,22 @@ class _LocalGamePageState extends State<LocalGamePage> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton(
+                  child: OutlinedButton(
                     onPressed: () {
                       Navigator.pop(ctx);
                       _touchController.reset();
                       _viewModel.dispatch(const LocalExitRequested());
                     },
-                    style: FilledButton.styleFrom(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      backgroundColor: theme.piecePlayerA,
+                      foregroundColor: theme.piecePlayerA,
+                      side: BorderSide(color: theme.piecePlayerA.withValues(alpha: 0.5)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
                     ),
                     child: Text('确定',
-                      style: TextStyle(color: Colors.white)),
+                      style: TextStyle(color: theme.piecePlayerA)),
                   ),
                 ),
               ],
@@ -754,21 +757,22 @@ class _LocalGamePageState extends State<LocalGamePage> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: FilledButton(
+                      child: OutlinedButton(
                         onPressed: () {
                           Navigator.pop(ctx);
                           _viewModel.dispatch(
                               const LocalUndoRequested());
                         },
-                        style: FilledButton.styleFrom(
+                        style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          backgroundColor: theme.piecePlayerA,
+                          foregroundColor: theme.piecePlayerA,
+                          side: BorderSide(color: theme.piecePlayerA.withValues(alpha: 0.5)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(24),
                           ),
                         ),
-                        child: const Text('同意',
-                            style: TextStyle(color: Colors.white)),
+                        child: Text('同意',
+                            style: TextStyle(color: theme.piecePlayerA)),
                       ),
                     ),
                   ],
@@ -843,13 +847,14 @@ class _LocalGamePageState extends State<LocalGamePage> {
                     child: const Text('观看回放'),
                   ),
                   const SizedBox(width: 12),
-                  FilledButton(
+                  OutlinedButton(
                     onPressed: () {
                       _touchController.reset();
                       _viewModel.dispatch(const LocalResetRequested());
                     },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: winColor,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: winColor,
+                      side: BorderSide(color: winColor.withValues(alpha: 0.5)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),

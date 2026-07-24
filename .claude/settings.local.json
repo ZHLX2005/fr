@@ -27,7 +27,8 @@
       "Bash(mkdir -p .claude/repo)",
       "Bash(git clone *)",
       "Bash(Select-String -Pattern \"error\" -SimpleMatch)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(xargs grep -l \"LocalnetService\\\\|LocalnetBiz\\\\|RelayTransport\")"
     ]
   }
 }

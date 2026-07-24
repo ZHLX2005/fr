@@ -412,10 +412,14 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                FilledButton.icon(
+                OutlinedButton.icon(
                   onPressed: _acceptInvite,
                   icon: const Icon(Icons.check),
                   label: const Text('接受'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 OutlinedButton.icon(
@@ -520,11 +524,13 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
                     color: theme.colorScheme.onSurfaceVariant,
                   )),
               const SizedBox(height: 24),
-              FilledButton.icon(
+              OutlinedButton.icon(
                 onPressed: _startScan,
                 icon: const Icon(Icons.search),
                 label: const Text('扫描局域网设备'),
-                style: FilledButton.styleFrom(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                  side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 ),
               ),
@@ -782,10 +788,14 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
         ),
         const SizedBox(height: 24),
 
-        FilledButton.icon(
+        OutlinedButton.icon(
           onPressed: _save,
           icon: const Icon(Icons.save),
           label: const Text('保存'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.colorScheme.primary,
+            side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+          ),
         ),
       ],
     );

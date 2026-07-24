@@ -68,14 +68,16 @@ class WordDetailPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 height: 56,
-                child: ElevatedButton(
+                child: OutlinedButton(
                   onPressed: () {
                     onComplete?.call();
                     Navigator.of(context).pop();
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue.shade600,
+                    side: BorderSide(
+                      color: Colors.blue.shade600.withValues(alpha: 0.5),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),

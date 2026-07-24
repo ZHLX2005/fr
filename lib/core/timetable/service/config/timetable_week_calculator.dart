@@ -118,11 +118,15 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
                   // 计算按钮
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: OutlinedButton(
                       onPressed: _calculate,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: TimetableColors.accent,
-                        foregroundColor: Colors.white,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: TimetableColors.accent,
+                        side: BorderSide(
+                          color: TimetableColors.accent.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),

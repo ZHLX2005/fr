@@ -278,7 +278,7 @@ class _GithubActionsErrorState extends StatelessWidget {
           const SizedBox(height: 16),
           Text(message, style: const TextStyle(color: Colors.red)),
           const SizedBox(height: 16),
-          ElevatedButton.icon(
+          OutlinedButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
             label: const Text('重试'),

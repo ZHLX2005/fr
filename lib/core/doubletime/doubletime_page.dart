@@ -261,7 +261,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                           SizedBox(
                             width: double.infinity,
                             height: 52,
-                            child: ElevatedButton(
+                            child: OutlinedButton(
                               onPressed: () {
                                 // 校验：结束必须大于开始
                                 if (endMinutes <= startMinutes) {
@@ -298,13 +298,12 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                 setState(() => _events.add(event));
                                 Navigator.pop(sheetContext);
                               },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(selectedColor),
-                                foregroundColor: Colors.white,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Color(selectedColor),
+                                side: BorderSide(color: Color(selectedColor).withValues(alpha: 0.5)),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
-                                elevation: 0,
                               ),
                               child: const Text(
                                 '添加',
@@ -539,7 +538,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                               Expanded(
                                 child: SizedBox(
                                   height: 52,
-                                  child: ElevatedButton(
+                                  child: OutlinedButton(
                                     onPressed: () {
                                       if (endMinutes <= startMinutes) {
                                         ScaffoldMessenger.of(context).showSnackBar(
@@ -580,13 +579,12 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                       });
                                       Navigator.pop(sheetContext);
                                     },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Color(selectedColor),
-                                      foregroundColor: Colors.white,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Color(selectedColor),
+                                      side: BorderSide(color: Color(selectedColor).withValues(alpha: 0.5)),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(14),
                                       ),
-                                      elevation: 0,
                                     ),
                                     child: const Text(
                                       '保存',
