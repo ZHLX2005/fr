@@ -174,6 +174,28 @@ class _RelayRoomWidgetState extends State<RelayRoomWidget> {
         final did = ev.payload['deviceId'] as String? ?? '';
         _onlineAliases.remove(did);
         if (mounted) setState(() {});
+      } else if (type == 'room-snapshot') {
+        // 后端在新订阅者连上 WS 时推送的"房间当前状态"快照。
+        // 解决晚加入者错过早期 peer-joined 事件导致看不到 host 的 bug。
+        final host = ev.payload['host'] as Map?;
+        if (host != null) {
+          final did = host['deviceId'] as String?;
+          final alias = host['alias'] as String? ?? '?';
+          if (did != null && did.isNotEmpty) {
+            _onlineAliases[did] = alias;
+          }
+        }
+        final guests = ev.payload['guests'] as List? ?? [];
+        for (final g in guests) {
+          if (g is Map) {
+            final did = g['deviceId'] as String?;
+            final alias = g['alias'] as String? ?? '?';
+            if (did != null && did.isNotEmpty) {
+              _onlineAliases[did] = alias;
+            }
+          }
+        }
+        if (mounted) setState(() {});
       }
     });
   }
@@ -268,11 +290,13 @@ class _RelayRoomWidgetState extends State<RelayRoomWidget> {
                   )).toList(),
                 ),
                 const SizedBox(height: 20),
-                FilledButton.icon(
+                OutlinedButton.icon(
                   onPressed: _busy ? null : _createRoom,
                   icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add),
                   label: const Text('创建房间'),
-                  style: FilledButton.styleFrom(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 32),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -289,11 +313,13 @@ class _RelayRoomWidgetState extends State<RelayRoomWidget> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                FilledButton.icon(
+                OutlinedButton.icon(
                   onPressed: _busy ? null : _joinRoom,
                   icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.login),
                   label: const Text('加入房间'),
-                  style: FilledButton.styleFrom(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 32),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -367,11 +393,13 @@ class _RelayRoomWidgetState extends State<RelayRoomWidget> {
               const SizedBox(height: 32),
               // 进入按钮
               if (_isHost)
-                FilledButton.icon(
+                OutlinedButton.icon(
                   onPressed: _handoff,
                   icon: const Icon(Icons.play_arrow),
                   label: Text(_waiting > 0 ? '提前开始（$_online/$_capacity）' : '开始'),
-                  style: FilledButton.styleFrom(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 32),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
