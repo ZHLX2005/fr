@@ -350,7 +350,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
+          preferredSize: const Size.fromHeight(48),
           child: RepaintBoundary(
             child: ClipRect(
               child: Align(
@@ -361,6 +361,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                   child: Opacity(
                     opacity: appBarReveal,
                     child: AppBar(
+                      toolbarHeight: 48,
                       title: const Text('Lab'),
                       actions: [
                         IconButton(

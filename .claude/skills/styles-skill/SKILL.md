@@ -66,6 +66,7 @@ description: Flutter 项目中"样式"相关工程的渐进式披露指南。当
 | **按钮 / Icon 容器 — 视觉减负** | Border-Emphasis 边框强调式 | 改造纯色填充按钮/icon 容器 / 减负密集按钮区 / "左重右轻" / 装饰性 vs 功能性颜色决策 | [[border-emphasis-style]] |
 | **嵌套 sheet 异步加载** | Async Load Flag Pattern | 嵌套 ModalBottomSheet 异步加载 race condition（"空空如也"/缓存竞态）；必须 `_loadingXxx` flag + try/finally + mounted 检查 + picker 守卫 | [[async-load-flag-pattern]] |
 | **多风格挑选流程** | Style Lottery | 用户说"生成 N 套不同风格让我挑"/"再生成几个备选"/多轮迭代挑选 | [[lottery-workflow]] |
+| **大规模治理** | Subagent 批量检查 | 需要对整个 lab/demos 目录（或某批 demo）统一做样式改造/检查（如 border-emphasis 转换、去 withOpacity、统一按钮风格）时；适用"批量发现 → 并行修复 → 统一验证"场景 | [[batch-checking-subagent]] |
 
 > 当你要加入**新的样式方案**（例如 Card 自定义、Button 自定义、NavigationBar 自定义等），按相同规范在表里追加一行，并在 `references/` 目录下新增一个方案文件。两文件结构一致：**1. 实现思路** + **2. 踩坑总结**。
 
