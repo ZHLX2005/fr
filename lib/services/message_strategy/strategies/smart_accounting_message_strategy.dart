@@ -232,8 +232,14 @@ class _SmartAccountingContentState extends State<_SmartAccountingContent> {
     return Row(
       children: [
         Expanded(
-          child: FilledButton(
+          child: OutlinedButton(
             onPressed: _handleConfirm,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.primary,
+              side: BorderSide(
+                color: theme.colorScheme.primary.withValues(alpha: 0.5),
+              ),
+            ),
             child: const Text('确认记账'),
           ),
         ),
@@ -401,13 +407,19 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: FilledButton(
+                child: OutlinedButton(
                   onPressed: () {
                     final amount =
                         double.tryParse(_amountController.text) ?? 0;
                     widget.onSave(
                         _selectedCategory, _descController.text, amount);
                   },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
                   child: const Text('保存'),
                 ),
               ),

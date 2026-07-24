@@ -299,7 +299,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                 Row(
                   children: [
                     Expanded(
-                      child: FilledButton.icon(
+                      child: OutlinedButton.icon(
                         onPressed: _isLoading
                             ? null
                             : () => _confirmSelection(displayPath),
@@ -313,9 +313,12 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                               )
                             : const Icon(Icons.check),
                         label: const Text('确认使用'),
-                        style: FilledButton.styleFrom(
+                        style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.green,
+                          side: BorderSide(
+                            color: Colors.green.withValues(alpha: 0.5),
+                          ),
                         ),
                       ),
                     ),
@@ -337,12 +340,19 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
               // 选择图片按钮
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
+                child: OutlinedButton.icon(
                   onPressed: _isLoading ? null : _pickAndCropImage,
                   icon: const Icon(Icons.photo_library),
                   label: Text(displayPath != null ? '重新选择' : '选择图片'),
-                  style: FilledButton.styleFrom(
+                  style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    side: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
               ),

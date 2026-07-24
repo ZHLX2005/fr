@@ -267,7 +267,7 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
               const SizedBox(height: 32),
 
               // 保存按钮
-              FilledButton.icon(
+              OutlinedButton.icon(
                 onPressed: _isSaving ? null : _saveSettings,
                 icon: _isSaving
                     ? const SizedBox(
@@ -275,13 +275,19 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
                         ),
                       )
                     : const Icon(Icons.save),
                 label: Text(_isSaving ? '保存中...' : '保存设置'),
-                style: FilledButton.styleFrom(
+                style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  side: BorderSide(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.5),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

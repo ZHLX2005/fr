@@ -55,7 +55,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('下次再说'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () {
               Navigator.pop(context);
               Navigator.push(
@@ -65,6 +65,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               );
             },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.5),
+              ),
+            ),
             child: const Text('去看看'),
           ),
         ],

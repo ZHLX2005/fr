@@ -221,7 +221,19 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
           const SizedBox(height: 16),
           const Text('需要图库权限'),
           const SizedBox(height: 8),
-          ElevatedButton(onPressed: _initGallery, child: const Text('请求权限')),
+          OutlinedButton(
+            onPressed: _initGallery,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.5),
+              ),
+            ),
+            child: const Text('请求权限'),
+          ),
         ],
       ),
     );
@@ -440,13 +452,19 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
             onPressed: () => Navigator.pop(context),
             child: const Text('取消'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () {
               Navigator.pop(context);
               _deleteImages();
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+              side: BorderSide(
+                color: Theme.of(context)
+                    .colorScheme
+                    .error
+                    .withValues(alpha: 0.5),
+              ),
             ),
             child: const Text('删除'),
           ),
@@ -786,11 +804,20 @@ class _MoveImageDialogState extends State<_MoveImageDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        FilledButton(
+        OutlinedButton(
           onPressed:
               _selectedAlbum != null && _selectedAlbum != widget.currentAlbum
               ? () => widget.onMove(_selectedAlbum!)
               : null,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.primary,
+            side: BorderSide(
+              color: Theme.of(context)
+                  .colorScheme
+                  .primary
+                  .withValues(alpha: 0.5),
+            ),
+          ),
           child: const Text('移动'),
         ),
       ],

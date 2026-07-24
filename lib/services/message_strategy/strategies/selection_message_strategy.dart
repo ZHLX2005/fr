@@ -115,8 +115,14 @@ class _SelectionMessageContentState extends State<_SelectionMessageContent> {
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
+                OutlinedButton(
                   onPressed: _handleConfirm,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
                   child: const Text('确认'),
                 ),
               ],

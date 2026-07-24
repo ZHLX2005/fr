@@ -580,7 +580,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () async {
               await cacheService.clearCache();
               if (context.mounted) {
@@ -590,6 +590,10 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                 ).showSnackBar(const SnackBar(content: Text('Cache cleared')));
               }
             },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+            ),
             child: const Text('Clear Cache'),
           ),
         ],

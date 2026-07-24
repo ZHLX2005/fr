@@ -257,13 +257,19 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
             child: Row(
               children: [
                 Expanded(
-                  child: FilledButton(
+                  child: OutlinedButton(
                     onPressed: () {
                       // TODO: 导出账单
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('导出账单功能开发中')),
                       );
                     },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.colorScheme.primary,
+                      side: BorderSide(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
                     child: const Text('导出账单'),
                   ),
                 ),
