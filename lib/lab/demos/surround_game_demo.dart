@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import '../../core/surround_game/surround_game.dart';
+import '../../core/surround_game/local/local_game_page.dart';
 
 /// 围追堵截游戏 Demo
 class SurroundGameDemo extends DemoPage {
@@ -11,7 +11,7 @@ class SurroundGameDemo extends DemoPage {
   String get slug => 'surround-game';
 
   @override
-  String get description => '局域网联机游戏';
+  String get description => '本地双人对战';
 
   @override
   bool get preferFullScreen => true;
@@ -21,7 +21,7 @@ class SurroundGameDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    return const LobbyPage();
+    return const LocalGamePage();
   }
 }
 

@@ -12,7 +12,6 @@ export 'engine/game_engine.dart';
 
 // 数据模型
 export 'models/game_event.dart';
-export 'lan/game_room.dart';
 export 'models/game_state.dart';
 
 // 游戏模式类型与工厂
@@ -37,14 +36,3 @@ export 'replay/replay_page.dart';
 
 // 单机热座
 export 'local/local_game_page.dart';
-
-// 局域网
-export 'lan/lan_lobby_page.dart';
-export 'lan/lan_host_game_page.dart';
-export 'lan/lan_client_game_page.dart';
-export 'lan/widgets/lan_board_stack.dart';
-export 'lan/widgets/touch_controller_factory.dart';
-export 'lan/relay_lobby_page.dart';
-
-// 共享入口（local + lan 的模式选择页）
-export 'lobby/lobby_page.dart';
