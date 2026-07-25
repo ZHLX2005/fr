@@ -39,6 +39,7 @@ import 'demos/reversi_demo.dart';
 import 'demos/jungle_chess_demo.dart';
 import 'demos/reaction_test_demo.dart';
 import 'demos/metronome_demo.dart';
+import 'demos/team_card_lua_demo.dart' show registerTeamCardLuaDemo;
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -79,6 +80,7 @@ void registerAllDemos() {
   registerNotionImageHostDemo();
   registerReactionTestDemo();
   registerMetronomeDemo();
+  registerTeamCardLuaDemo();
 }
 
 // 初始化 Lab 模块

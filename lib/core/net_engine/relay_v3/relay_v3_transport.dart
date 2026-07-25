@@ -350,18 +350,28 @@ class RoomHandle {
   ///
   /// 成功后自动更新本地 latest + 推送 snapshot 流。
   /// 失败抛出 [RelayV3Exception]（409/422 等）。
+  ///
+  /// 自动把 `device_id` 注入到 `params.device_id`，
+  /// 让 Lua 脚本（如 `on_action_ACK`）能识别是谁触发了 action。
+  /// 后端 `RunEvent` 只把 `Action.Params` 传给 Lua handler，
+  /// `source_device_id` 不会自动合并到 `p` 里 — 必须客户端自己传。
   Future<Snapshot> applyAction({
     required String type,
     required Map<String, dynamic> params,
     int? expectVersion,
     String? sourceDeviceId,
   }) async {
+    final did = sourceDeviceId ?? transport.deviceId;
+    final injected = <String, dynamic>{
+      'device_id': did,
+      ...params,
+    };
     final snap = await transport._applyAction(
       code: code,
       type: type,
-      params: params,
+      params: injected,
       expectVersion: expectVersion,
-      sourceDeviceId: sourceDeviceId ?? transport.deviceId,
+      sourceDeviceId: did,
     );
     latest = snap;
     // 防止 dispose 后的竞态：HTTP action 成功但 controller 已被关闭。
