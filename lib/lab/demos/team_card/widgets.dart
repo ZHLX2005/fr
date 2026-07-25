@@ -356,7 +356,10 @@ class _SetupPageState extends State<SetupPage> {
               index: e.key,
               def: e.value,
               canRemove: rolePool.length > 1,
-              onChanged: _persistSetup,
+              onChanged: () {
+                setState(() {});
+                _persistSetup();
+              },
               onRemove: () {
                 setState(() {
                   e.value.dispose();
@@ -1447,22 +1450,31 @@ class _RoleRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
+        _StepperButton(
+          icon: Icons.remove,
+          onTap: def.count > 1
+              ? () {
+                  def.count = def.count - 1;
+                  def.countCtrl.text = def.count.toString();
+                  onChanged?.call();
+                }
+              : null,
+        ),
         SizedBox(
-          width: 56,
-          child: TextField(
-            controller: def.countCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '数量',
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (_) {
-              def.sync();
-              onChanged?.call();
-            },
+          width: 32,
+          child: Center(
+            child: Text('${def.count}',
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
           ),
+        ),
+        _StepperButton(
+          icon: Icons.add,
+          onTap: () {
+            def.count = def.count + 1;
+            def.countCtrl.text = def.count.toString();
+            onChanged?.call();
+          },
         ),
         if (canRemove)
           IconButton(
