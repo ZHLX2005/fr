@@ -31,6 +31,28 @@
 ///   - `history`       : [MoveRecord.toJson, …]  唯一权威状态
 ///   - `ready`         : {device_id: true, …}
 ///   - `undo_pending`  : {requester: did} 或 nil
+///   - `winner`        : "top"|"bottom"|nil（终局）
+///   - `action_permissions` : {action_key → role_rule}  ★服务端约束的单点真相
+///
+/// ## action 权限模型（★ 客户端按钮可点性的权威来源）
+///
+/// 服务端定义每个 action 谁能发，客户端**只消费**不再特判：
+///
+/// ```lua
+/// c.action_permissions = {
+///   ACK              = "any",             -- 大厅双方都能点
+///   DEAL             = "host",            -- 房主发牌
+///   MOVE             = "current_player",  -- 当前走棋方
+///   RESIGN           = "any",             -- 任一方都能认输
+///   RESET            = "host",            -- 房主重新开始
+///   WIN              = "current_player",  -- 走棋方声明胜利
+///   UNDO_REQUEST     = "current_player",  -- 走棋方（刚下完一步）请求悔棋
+///   UNDO_RESPONSE    = "non_requester",   -- 对方（非请求方）裁决
+/// }
+/// ```
+///
+/// 客户端 helper: `SgRoom.canPerform(action)` 用这份表 + 自己角色决定按钮 enable/显示。
+/// 新增 action → 只需在 Lua 加一行规则 + handler 校验；客户端零特判代码。
 ///
 /// ## 镜像策略
 ///
@@ -41,6 +63,39 @@
 ///   - guest 看到原始棋盘（自己是下方，对方在上方）
 ///   - host 看到 y 镜像棋盘（自己也是下方，对方在下方）
 const String kSurroundGameScript = r'''
+-- 角色权限检查：c.action_permissions[action] 决定谁能发。
+-- 返回 true 表示有权发；false 表示拒绝（handler 应 return c）。
+-- 角色规则：
+--   "host"           — 房主（p.device_id == c.host_id）
+--   "current_player" — 当前走棋方（last.isTopPlayer XOR p == host）
+--   "non_requester"  — 不是悔棋请求方（UNDO_RESPONSE 用）
+--   "any"            — 任何玩家
+function role_check(c, p, action)
+  local rule = c.action_permissions[action]
+  if rule == nil or rule == "any" then return true end
+  if not c.players[p.device_id] then return false end
+  if rule == "host" then return p.device_id == c.host_id end
+  if rule == "current_player" then
+    if #c.history == 0 then return p.device_id == c.top_player_id end
+    local last = c.history[#c.history]
+    local isTopTurn = not last.isTopPlayer
+    return (isTopTurn and p.device_id == c.top_player_id)
+        or (not isTopTurn and p.device_id ~= c.top_player_id)
+  end
+  -- non_current_player: 不是当前回合方 = 刚下完一步的"责任方"，可请求悔棋
+  if rule == "non_current_player" then
+    if #c.history == 0 then return false end
+    local last = c.history[#c.history]
+    local wasTop = last.isTopPlayer
+    return (wasTop and p.device_id == c.top_player_id)
+        or (not wasTop and p.device_id ~= c.top_player_id)
+  end
+  if rule == "non_requester" then
+    return c.undo_pending ~= nil and p.device_id ~= c.undo_pending.requester
+  end
+  return false
+end
+
 on_init = function(c, p)
   c.host_id = p.device_id
   -- 权威约定：host = top player（y=0），guest = bottom player（y=8）。
@@ -50,6 +105,17 @@ on_init = function(c, p)
   c.players[p.device_id] = p.alias
   c.ready = {}
   c.history = {}
+  -- 动作权限表（★客户端按钮可点性的权威来源：SgRoom.canPerform()）
+  c.action_permissions = {
+    ACK              = "any",
+    DEAL             = "host",
+    MOVE             = "current_player",
+    RESIGN           = "any",
+    WIN              = "current_player",
+    RESET            = "host",
+    UNDO_REQUEST     = "non_current_player",  -- 刚下完一步的"非当前回合方"
+    UNDO_RESPONSE    = "non_requester",       -- 不是悔棋请求方
+  }
   state = "lobby"
   return c
 end
@@ -68,6 +134,7 @@ on_leave = function(c, p)
 end
 
 on_action_ACK = function(c, p)
+  if not role_check(c, p, "ACK") then return c end
   if state == "playing" then return c end
   if c.players[p.device_id] == nil then return c end
   c.ready[p.device_id] = true
@@ -82,13 +149,14 @@ on_action_ACK = function(c, p)
 end
 
 on_action_DEAL = function(c, p)
-  if c.host_id ~= p.device_id then return c end
+  if not role_check(c, p, "DEAL") then return c end
   if state ~= "ready" then return c end
   state = "playing"
   return c
 end
 
 on_action_MOVE = function(c, p)
+  if not role_check(c, p, "MOVE") then return c end
   if state ~= "playing" then return c end
   if c.players[p.device_id] == nil then return c end
   local move = p.move
@@ -98,6 +166,7 @@ on_action_MOVE = function(c, p)
 end
 
 on_action_RESIGN = function(c, p)
+  if not role_check(c, p, "RESIGN") then return c end
   if state ~= "playing" then return c end
   if c.players[p.device_id] == nil then return c end
   -- 认输方 = 对手赢
@@ -112,6 +181,7 @@ end
 -- 双方客户端都可能发（都从同一份 history 重建 gs），幂等：state 已 ended 时忽略。
 -- 校验：只有 playing 态 + winner 与发送方角色一致才接受（防作弊上报）。
 on_action_WIN = function(c, p)
+  if not role_check(c, p, "WIN") then return c end
   if state ~= "playing" then return c end
   if c.players[p.device_id] == nil then return c end
   local winner = p.winner
@@ -127,7 +197,7 @@ on_action_WIN = function(c, p)
 end
 
 on_action_RESET = function(c, p)
-  if c.host_id ~= p.device_id then return c end
+  if not role_check(c, p, "RESET") then return c end
   c.history = {}
   c.ready = {}
   c.undo_pending = nil
@@ -136,32 +206,25 @@ on_action_RESET = function(c, p)
   return c
 end
 
--- 悔棋请求：发起方必须是刚下完一步的玩家（canRequestUndo 规则）
+-- 悔棋请求：发起方必须是刚下完一步的玩家（non_current_player 权限规则）
 -- c.undo_pending = { requester = did } → 等待对方裁决
 on_action_UNDO_REQUEST = function(c, p)
+  if not role_check(c, p, "UNDO_REQUEST") then return c end
   if state ~= "playing" then return c end
   if c.players[p.device_id] == nil then return c end
   -- 已有未决请求：忽略新的（避免重叠）
   if c.undo_pending ~= nil then return c end
-  -- 历史非空 + 当前不是该玩家的回合（= 该玩家刚下完）
+  -- 历史非空（role_check 已保证非当前回合方 = 至少一步历史；双保险）
   if #c.history == 0 then return c end
-  local last = c.history[#c.history]
-  local topId = c.top_player_id
-  local lastWasRequester = (last.isTopPlayer and p.device_id == topId)
-                          or (not last.isTopPlayer and p.device_id ~= topId)
-  if not lastWasRequester then return c end
   c.undo_pending = { requester = p.device_id }
   return c
 end
 
 -- 悔棋响应：仅非发起方能响应；接受则 history 弹栈，状态保持 playing
 on_action_UNDO_RESPONSE = function(c, p)
+  if not role_check(c, p, "UNDO_RESPONSE") then return c end
   if state ~= "playing" then return c end
   if c.undo_pending == nil then return c end
-  local pending = c.undo_pending
-  -- 仅对手能响应（不是发起方）
-  if p.device_id == pending.requester then return c end
-  if c.players[p.device_id] == nil then return c end
   local accepted = p.accepted
   if accepted == true then
     table.remove(c.history, #c.history)

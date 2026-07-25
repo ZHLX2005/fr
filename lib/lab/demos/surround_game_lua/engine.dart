@@ -64,6 +64,35 @@ class SgRoom {
   /// 从 snapshot 取 host_id
   static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
 
+  /// 从 snapshot 取 action_permissions（★服务端约束的单点真相）。
+  /// 新增 action 类型只需在 Lua on_init 加一行规则 + handler 校验，
+  /// 客户端按钮 enable 全走 canPerform(action)，零特判代码。
+  static Map<String, String> actionPermissions(Snapshot? s) {
+    final raw = s?.context['action_permissions'];
+    if (raw is! Map) return const {};
+    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+  }
+
+  /// 我能不能发这个 action？读服务端 action_permissions + 自己角色判定。
+  /// isHost/isMyTurn/justMovedByMe 由调用方传入（保持 helper 无状态）。
+  static bool canPerform(
+    String action,
+    Snapshot? snap, {
+    required bool isHost,
+    required bool isMyTurn,
+    bool isUndoRequester = false,
+    bool justMovedByMe = false,  // non_current_player (UNDO_REQUEST) 用
+  }) {
+    final perms = actionPermissions(snap);
+    final rule = perms[action];
+    if (rule == null || rule == 'any') return true;
+    if (rule == 'host') return isHost;
+    if (rule == 'current_player') return isMyTurn;
+    if (rule == 'non_current_player') return justMovedByMe;
+    if (rule == 'non_requester') return !isUndoRequester;
+    return false;
+  }
+
   /// 从 snapshot 取 top_player_id（权威服务端字段）。
   /// 客户端用 `myId == topPlayerId(s)` 判定自己是哪一方。
   /// host = top player（建立房间时即定），guest = bottom player。

@@ -350,6 +350,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     return _imTop == _gs.currentPlayerIsTop;
   }
 
+  /// ★按钮可点性的单一入口：读服务端 action_permissions + 自己角色判定。
+  /// 未来加新按钮 + 新 action，只需在 Lua 加权限规则，客户端零改动。
+  bool _canPerform(String action) {
+    // justMovedByMe：非当前回合方 = 我刚下完一步（UNDO_REQUEST 用）
+    final justMovedByMe = _isMyTurn ? false
+        : SgRoom.canRequestUndo(_snap, _gs, _room.deviceId);
+    return SgRoom.canPerform(
+      action, _snap,
+      isHost: _room.isHost,
+      isMyTurn: _isMyTurn,
+      isUndoRequester: _room.deviceId == SgRoom.undoRequester(_snap),
+      justMovedByMe: justMovedByMe,
+    );
+  }
+
   bool _validateWall(int wx, int wy, WallOrientation o) {
     return QuoridorEngine.isWallPlacementValid(
       _gs.wallGrid, _gs.adjacency, _gs.topPlayerId, _gs.bottomPlayerId,
@@ -558,18 +573,22 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               }),
               if (players.length >= 2) ...[
                 const SizedBox(height: 16),
-                // ACK 后立即变 "已准备 ✓" + disabled，不等服务端回包
-                OutlinedButton.icon(
-                  onPressed: iAmReady ? null : _ack,
-                  icon: Icon(iAmReady ? Icons.check_circle : Icons.check_circle_outlined),
-                  label: Text(iAmReady ? '已准备 ✓' : '准备好了'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: iAmReady ? Colors.green : Colors.green.shade400,
-                    side: BorderSide(color: iAmReady ? Colors.green : Colors.green.shade400),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    minimumSize: const Size(200, 48),
-                  ),
-                ),
+                // ACK 按钮可点性：未点过 + 服务端授权（any 自动 true），
+                // 已点过立即变 "已准备 ✓"（乐观） + disabled，不等服务端回包
+                Builder(builder: (_) {
+                  final canAck = !iAmReady && _canPerform('ACK');
+                  return OutlinedButton.icon(
+                    onPressed: canAck ? _ack : null,
+                    icon: Icon(iAmReady ? Icons.check_circle : Icons.check_circle_outlined),
+                    label: Text(iAmReady ? '已准备 ✓' : '准备好了'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: iAmReady ? Colors.green : Colors.green.shade400,
+                      side: BorderSide(color: iAmReady ? Colors.green : Colors.green.shade400),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      minimumSize: const Size(200, 48),
+                    ),
+                  );
+                }),
               ],
             ]),
           ),
@@ -579,6 +598,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   Widget _buildReadyWait(BoardThemeData theme) {
+    // canPerform('DEAL') 走服务端权限表 + 当前状态。
+    // host=true 时权限返回 true，客方权限 false → 不显示按钮
+    final canDeal = _canPerform('DEAL');
     return Scaffold(
       backgroundColor: theme.boardSurface,
       body: SafeArea(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -586,7 +608,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         const SizedBox(height: 16),
         Text('双方已准备好', style: TextStyle(fontSize: 18, color: theme.btnText)),
         const SizedBox(height: 24),
-        if (_room.isHost)
+        if (canDeal)
           OutlinedButton.icon(
             onPressed: _deal,
             icon: const Icon(Icons.play_arrow),
@@ -609,14 +631,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildPlaying(BoardThemeData theme) {
     final gs = _gs;
     final isRunning = gs.status == GameStatus.running;
-    // TouchView guard：
-    // ① phase==playing（Lua 状态机已进入 playing）
-    // ② _snap 已到位（_gs 反映真实历史）
-    // ③ 轮到本方走（imTop == currentPlayerIsTop）
-    // 注意：history 可为空（开局先手玩家第一步），不放宽这一步会导致开局 TouchView 永不挂载。
+    // TouchView mount guard：阶段==playing + 当前回合方（canPerform('MOVE')）
     final canMountTouchView = _snap != null
         && _snap?.state == 'playing'
-        && _isMyTurn;
+        && _canPerform('MOVE');
     return Scaffold(
       backgroundColor: theme.boardSurface,
       body: SafeArea(child: LayoutBuilder(builder: (context, constraints) {
@@ -661,12 +679,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (isRunning)
+              // 所有按钮可点性一律走 _canPerform(action)，服务端权限表
+              // action_permissions 是单点真相（Lua on_init 写一次）。
+              if (isRunning && _canPerform('RESIGN')) ...[
                 _bottomAction(Icons.flag_outlined, '认输', _showResignConfirm, theme),
-              if (isRunning) const SizedBox(width: 16),
-              if (_room.isHost)
+                const SizedBox(width: 16),
+              ],
+              if (_canPerform('RESET')) ...[
                 _bottomAction(Icons.refresh, '重新开始', _reset, theme),
-              if (_room.isHost) const SizedBox(width: 16),
+                const SizedBox(width: 16),
+              ],
               _bottomAction(Icons.exit_to_app, '退出', widget.onLeave, theme),
             ]),
           ),
@@ -759,7 +781,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final toc = _touchCtrl;
     final steps = gs.history.where((m) => !m.isWall && m.isTopPlayer == myIsTop).length;
     final walls = myIsTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
-    final canUndo = SgRoom.canRequestUndo(_snap, gs, _room.deviceId);
+    // canRequestUndo：_canPerform('UNDO_REQUEST') 已含 justMovedByMe 判定
+    final canUndo = _canPerform('UNDO_REQUEST');
     return PlayerPanel(
       rotated: false,  // 底部面板不旋转；棋盘本身已翻转
       active: active,
@@ -840,8 +863,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             const SizedBox(height: 12),
             Text(msg, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: winColor)),
             const SizedBox(height: 16),
-            // 再来一局：仅房主可操作。客方显示等房主提示，避免给"看着可点"的按钮。
-            if (_room.isHost)
+            // 再来一局：canPerform('RESET') → host=true 时 true，客方 false
+            // → 完全不显示按钮，避免"看着可点但点了不响应"的 UX 误区
+            if (_canPerform('RESET'))
               OutlinedButton(
                 onPressed: _reset,
                 style: OutlinedButton.styleFrom(
