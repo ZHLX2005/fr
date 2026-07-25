@@ -62,41 +62,33 @@ class LobbyParticipants extends StatelessWidget {
     return participants.keys.where((k) => !spectatorIds!.contains(k)).length;
   }
 
+  /// 旁观看条目
+  List<MapEntry<String, String>> get _spectatorEntries =>
+      spectatorIds == null
+          ? const []
+          : participants.entries.where((e) => spectatorIds!.contains(e.key)).toList();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final entries = participants.entries.toList();
-    // 按名字排序保持稳定
-    entries.sort((a, b) => a.value.compareTo(b.value));
+    final allEntries = participants.entries.toList();
+    // 按名字排序
+    allEntries.sort((a, b) => a.value.compareTo(b.value));
+    final playerEntries = spectatorIds == null || spectatorIds!.isEmpty
+        ? allEntries
+        : allEntries.where((e) => !spectatorIds!.contains(e.key)).toList();
+    final watcherEntries = _spectatorEntries;
 
-    final slots = <Widget>[];
-    // 圆环槽位：至少放得下所有参与者（含旁观者）
-    final totalSlots = participants.length > capacity ? participants.length : capacity;
-    for (var i = 0; i < totalSlots; i++) {
+    final playerSlots = <Widget>[];
+    // 参与者槽数 = max(牌数, 实际参与者人数)
+    final playerSlotCount = playerEntries.length > capacity ? playerEntries.length : capacity;
+    for (var i = 0; i < playerSlotCount; i++) {
       final delay = i * 60;
-      if (i < entries.length) {
-        final e = entries[i];
+      if (i < playerEntries.length) {
+        final e = playerEntries[i];
         final color = colors[i % colors.length];
         final isReady = readyMap?[e.key] == true;
-        final isSpectator = spectatorIds?.contains(e.key) ?? false;
-        final labelColor = isReady
-            ? Colors.green.shade400
-            : (isSpectator ? theme.colorScheme.outline : color);
-        final labelText = isReady
-            ? '已准备'
-            : (isSpectator ? '旁观者' : '未准备');
-        final borderColor = isReady
-            ? Colors.green.shade400.withValues(alpha: 0.9)
-            : (isSpectator
-                ? theme.colorScheme.outlineVariant.withValues(alpha: 0.5)
-                : color.withValues(alpha: 0.35));
-        final borderWidth = isReady ? 3.5 : (isSpectator ? 1.5 : 2.0);
-        final nameColor = isReady
-            ? Colors.green.shade700
-            : (isSpectator
-                ? theme.colorScheme.onSurface.withValues(alpha: 0.45)
-                : theme.colorScheme.onSurface.withValues(alpha: 0.6));
-        slots.add(_AnimatedSlot(
+        playerSlots.add(_AnimatedSlot(
           delay: delay,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -110,8 +102,10 @@ class LobbyParticipants extends StatelessWidget {
                   ),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: borderColor,
-                    width: borderWidth,
+                    color: isReady
+                        ? Colors.green.shade400.withValues(alpha: 0.9)
+                        : color.withValues(alpha: 0.35),
+                    width: isReady ? 3.5 : 2.0,
                     strokeAlign: BorderSide.strokeAlignInside,
                   ),
                   boxShadow: !isReady ? [] : [
@@ -128,7 +122,7 @@ class LobbyParticipants extends StatelessWidget {
                     style: TextStyle(
                       fontSize: slotSize * 0.4,
                       fontWeight: FontWeight.bold,
-                      color: labelColor,
+                      color: isReady ? Colors.green.shade400 : color,
                     ),
                   ),
                 ),
@@ -136,64 +130,133 @@ class LobbyParticipants extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 e.value,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: nameColor),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isReady ? Colors.green.shade700 : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
               ),
               Text(
-                labelText,
-                style: TextStyle(fontSize: 10, color: labelColor),
+                isReady ? '已准备' : '未准备',
+                style: TextStyle(fontSize: 10, color: isReady ? Colors.green.shade400 : theme.colorScheme.outline),
               ),
             ],
           ),
         ));
       } else {
-        slots.add(_AnimatedSlot(
-          delay: delay,
-          child: _EmptySlot(slotSize: slotSize),
-        ));
+        playerSlots.add(_AnimatedSlot(delay: delay, child: _EmptySlot(slotSize: slotSize)));
       }
     }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      children: [
+        // ——— 参与者卡片 ———
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(color: Colors.green.shade400, shape: BoxShape.circle),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 8, height: 8,
+                      decoration: BoxDecoration(color: Colors.green.shade400, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 6),
+                    Text('参与者',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 6),
+                    Text('$activeCount/$capacity',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '参与者',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '$activeCount/$capacity',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 28, runSpacing: 28,
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.start,
+                  children: playerSlots,
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 28,
-              runSpacing: 28,
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.start,
-              children: slots,
-            ),
-          ],
+          ),
         ),
-      ),
+        // ——— 旁观者卡片 ———
+        if (watcherEntries.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.remove_red_eye_outlined, size: 14,
+                          color: theme.colorScheme.outline),
+                      const SizedBox(width: 6),
+                      Text('旁观者',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600, color: theme.colorScheme.outline)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 28, runSpacing: 20,
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.start,
+                    children: watcherEntries.map((e) {
+                      return _AnimatedSlot(
+                        delay: 0,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: slotSize,
+                              height: slotSize,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                                  width: 2,
+                                ),
+                              ),
+                              child: Center(
+                                child: Icon(Icons.person_outline,
+                                    size: slotSize * 0.45, color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              e.value,
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45)),
+                            ),
+                            Text('旁观者',
+                                style: TextStyle(fontSize: 10,
+                                    color: theme.colorScheme.outline.withValues(alpha: 0.6))),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
