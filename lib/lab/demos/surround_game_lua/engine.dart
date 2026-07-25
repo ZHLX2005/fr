@@ -20,7 +20,18 @@ class SgRoom {
   SgRoom(this.handle);
   final RoomHandle handle;
 
-  bool get isHost => handle.transport.deviceId.startsWith('sg-');
+  /// 是否是房主 = 我的 deviceId 等于服务端 snapshot 的 host_id（权威字段，
+  /// 不依赖 deviceId 前缀，避免前后端 device 命名不一致误判）。
+  /// fallback 到前缀（handle.latest 尚未初始化时）。
+  bool get isHost {
+    final myId = handle.transport.deviceId;
+    final s = handle.latest;
+    if (s != null) {
+      final hostId = s.context['host_id']?.toString();
+      if (hostId != null) return myId == hostId;
+    }
+    return myId.startsWith('sg-host-');
+  }
   String get deviceId => handle.transport.deviceId;
 
   Future<void> ack()    => handle.applyAction(type: 'ACK', params: const {});

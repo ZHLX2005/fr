@@ -57,7 +57,7 @@ class _SetupPageState extends State<SetupPage> {
       final t = RelayV3Transport(
         relayUrl: kSgRelayUrl,
         alias: _aliasCtrl.text.trim(),
-        deviceId: 'sg-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: 'sg-host-${DateTime.now().microsecondsSinceEpoch}',
       );
       await SgAliasPrefs.save(t.alias);
       final h = await t.createRoom(
@@ -149,7 +149,7 @@ class _JoinPageState extends State<JoinPage> {
       final t = RelayV3Transport(
         relayUrl: kSgRelayUrl,
         alias: _aliasCtrl.text.trim(),
-        deviceId: 'sg-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: 'sg-guest-${DateTime.now().microsecondsSinceEpoch}',
       );
       await SgAliasPrefs.save(t.alias);
       final h = await t.joinRoom(code: code);
