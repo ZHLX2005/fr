@@ -644,6 +644,21 @@ class _PlayingViewState extends State<_PlayingView> {
         : snapCap;
     // 旁观者由 Lua 状态机管理，Lua 在 on_init 写 c.spectators
     final rawSpectators = s?.context['spectators'];
+    final Set<String> spectatorIds;
+    if (rawSpectators is Map) {
+      spectatorIds = {};
+      for (final k in rawSpectators.keys) {
+        spectatorIds.add(k.toString());
+      }
+    } else {
+      spectatorIds = const {};
+    }
+
+    debugPrint('[_PlayingView.build] '
+        'spectators=$spectatorIds '
+        'capacity=$capacity '
+        'players=${_players().keys} '
+        'rawSpectators=$rawSpectators');
 
     return _LobbyView(
       snap: s,
@@ -656,9 +671,7 @@ class _PlayingViewState extends State<_PlayingView> {
       onLeave: widget.onLeave,
       players: _players(),
       capacity: capacity,
-      spectatorIds: rawSpectators is Map
-          ? rawSpectators.keys.cast<String>().toSet()
-          : const {},
+      spectatorIds: spectatorIds,
       isMeReady: _isMeReady(),
     );
   }

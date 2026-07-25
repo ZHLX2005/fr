@@ -64,9 +64,8 @@ class LobbyParticipants extends StatelessWidget {
     entries.sort((a, b) => a.value.compareTo(b.value));
 
     final slots = <Widget>[];
-    // 参与者的槽位始终用 participants.length（含旁观者），
-    // 空位用 capacity（牌数）但至少有位置放所有参与者
-    final totalSlots = capacity > participants.length ? capacity : participants.length;
+    // 圆环槽位：至少放得下所有参与者（含旁观者）
+    final totalSlots = participants.length > capacity ? participants.length : capacity;
     for (var i = 0; i < totalSlots; i++) {
       final delay = i * 60;
       if (i < entries.length) {
