@@ -202,6 +202,20 @@ class RoomHandle {
       StreamController<WSCloseEvent>.broadcast();
   Stream<WSCloseEvent> get closeEvents => _closeEventsCtrl.stream;
 
+  /// 安全地推送 snapshot，忽略 dispose 后的竞态
+  void _emitSnapshot(Snapshot snap) {
+    if (!_snapshotsCtrl.isClosed) {
+      _snapshotsCtrl.add(snap);
+    }
+  }
+
+  /// 安全地推送 close 事件，忽略 dispose 后的竞态
+  void _emitCloseEvent(WSCloseEvent event) {
+    if (!_closeEventsCtrl.isClosed) {
+      _closeEventsCtrl.add(event);
+    }
+  }
+
   WebSocketChannel? _ws;
   StreamSubscription<dynamic>? _wsSub;
   Timer? _reconnectTimer;
@@ -219,7 +233,7 @@ class RoomHandle {
   }) {
     if (initial != null) {
       latest = initial;
-      _snapshotsCtrl.add(initial);
+      _emitSnapshot(initial);
     }
     // For tests, don't actually connect — just set up the snapshot.
   }
@@ -233,7 +247,7 @@ class RoomHandle {
   }) {
     if (initial != null) {
       latest = initial;
-      _snapshotsCtrl.add(initial);
+      _emitSnapshot(initial);
     }
     // 自动 join + connect WS（host 必须在 Subs 里才能收 broadcast）
     _joinAndConnect();
@@ -248,7 +262,7 @@ class RoomHandle {
   }) {
     if (initial != null) {
       latest = initial;
-      _snapshotsCtrl.add(initial);
+      _emitSnapshot(initial);
     }
     connect();
   }
@@ -288,7 +302,7 @@ class RoomHandle {
             if (frame.type == 'snapshot') {
               final s = Snapshot.fromJson(frame.data);
               latest = s;
-              _snapshotsCtrl.add(s);
+              _emitSnapshot(s);
             }
           } catch (_) {
             // Ignore malformed messages.
@@ -316,7 +330,7 @@ class RoomHandle {
     // 这里用默认 reconnect。closeEvents 由 callers 监听以显示 UI）
     // Channel 关闭时的 close code 无法从 WebSocketChannel 获取，
     // 所以 emit 一个未知码让 UI 感知到断连。
-    _closeEventsCtrl.add(WSCloseEvent(code: 0, reason: 'connection lost'));
+    _emitCloseEvent(WSCloseEvent(code: 0, reason: 'connection lost'));
 
     // 终端 close code：不重连（caller 通过 closeEvents 知道并处理）
     // 非终端：自动重连
@@ -350,7 +364,11 @@ class RoomHandle {
       sourceDeviceId: sourceDeviceId ?? transport.deviceId,
     );
     latest = snap;
-    _snapshotsCtrl.add(snap);
+    // 防止 dispose 后的竞态：HTTP action 成功但 controller 已被关闭。
+    // 此时 caller 仍能从返回的 snap 读到最新状态。
+    if (!_snapshotsCtrl.isClosed) {
+      _emitSnapshot(snap);
+    }
     return snap;
   }
 

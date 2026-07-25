@@ -56,6 +56,7 @@ on_init = function(c, p)
   c.max_players = p.max_players or 8
   c.started = false
   c.messages = {}
+  state = "lobby"
   return c
 end
 
@@ -74,6 +75,7 @@ on_action_START = function(c, p)
     return c
   end
   c.started = true
+  state = "playing"
   return c
 end
 

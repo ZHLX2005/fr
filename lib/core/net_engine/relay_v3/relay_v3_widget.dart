@@ -99,7 +99,7 @@ class _RelayV3LobbyState extends State<RelayV3Lobby> {
     _aliasCtrl.dispose();
     _codeCtrl.dispose();
     _snapSub?.cancel();
-    _handle?.dispose();
+    // 不 dispose handle — 所有权已转移给 onStarted 回调的接收者。
     super.dispose();
   }
 
@@ -241,6 +241,17 @@ class _RelayV3LobbyState extends State<RelayV3Lobby> {
       _phase = _LobbyPhase.pickMode;
       _error = null;
     });
+  }
+
+  // ——— 工具 ———
+
+  /// 从 snapshot context 中安全读取 int 值（JSON 可能返回 int/float）
+  static int? _snapshotToInt(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
   }
 
   // ——— 从 snapshot 提取玩家列表 ———
@@ -455,7 +466,7 @@ class _RelayV3LobbyState extends State<RelayV3Lobby> {
     final players = _extractPlayers();
     final code = snap.roomCode;
     final playerCount = players.length;
-    final maxPlayers = snap.context['max_players'] as int? ?? _maxPlayers;
+    final maxPlayers = _snapshotToInt(snap.context['max_players']) ?? _maxPlayers;
     final canStart = _isHost && !_busy && playerCount >= 1;
 
     return SingleChildScrollView(
