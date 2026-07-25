@@ -178,9 +178,10 @@ final canMountTouch = _snap?.state == 'playing' && _canPerform('MOVE');
 |------|------|------------|
 | `any` | 任何在场玩家 | ACK / RESIGN / CHAT |
 | `host` | 房主（`p == c.host_id`） | DEAL / RESET / 开始游戏 |
-| `current_player` | 当前回合方 | MOVE / WIN / 出牌 |
-| `non_current_player` | 刚下完一步的责任方 | UNDO_REQUEST（悔棋请求） |
+| `current_player` | 当前回合方（事前：轮到谁行动） | MOVE / 出牌 |
+| `non_current_player` | 刚下完一步的人（**事后：已轮到对手**） | UNDO_REQUEST（悔棋请求）/ **WIN（胜利声明）** |
 | `non_requester` | 不是某请求的发起方 | UNDO_RESPONSE（悔棋裁决） |
+| `host` | 房主 | DEAL / RESET |
 
 **新增规则**：在 `role_check` 加一个 `if rule == "xxx"` 分支 + Dart `canPerform` 对应分支。一次性，全局复用。
 
@@ -188,18 +189,55 @@ final canMountTouch = _snap?.state == 'playing' && _canPerform('MOVE');
 
 ## 5. 关键洞察：为什么 `non_current_player` ≠ `current_player`
 
-悔棋请求的发起方是**刚下完那一步的人**——他不是"当前回合方"（当前回合已切到对手）。
+**核心规律：行动 = 事前，事件 = 事后。**
+
+| 类型 | 时机 | 用谁？ |
+|------|------|-------|
+| **行动**（MOVE/出牌/落子） | 事前：轮到你要做 | `current_player`（当下轮到的人） |
+| **事后事件**（UN/WIN/UNDO_REQUEST） | 事后：已轮到对手 | `non_current_player`（刚下完的人） |
+
+这是**反直觉的**——刚下完的人**不是**当前回合方（已切到对手）。任何"事后事件"（悔棋、声明胜利、申诉等）都用 `non_current_player`，因为发起这些事件的人在事件触发时已经"不是当前回合方"。
 
 ```
+示例（悔棋）：
 host 走第一步 → 轮到 guest → host 是"刚下完" → host 能请求悔棋
                 ↑ current_player=guest     ↑ non_current_player=host
+
+示例（胜利声明）：
+white 走第 5 步连五 → 轮到 black → white 是"刚下完" → white 能声明 WIN(white)
+                       ↑ current_player=black    ↑ non_current_player=white
 ```
 
-如果误用 `current_player`，会让"该等对方走的人"反而能请求悔棋——语义反了。**这是实施时真实踩过的坑**：用 `current_player` 后 test 5（悔棋接受）直接 fail。
+### ⚠️ 错用 `current_player` 的灾难
+
+如果把 WIN/UNDO_REQUEST 用 `current_player`：
+1. **服务端静默拒绝**（return c 不报错，客户端无感知）
+2. 客户端继续触发 → 反复发 action → 反复被拒 → **setState 风暴 → 闪屏/卡死**
+3. UI 看似走棋继续，但其实"胜利/悔棋从未生效"——直到**非预期方**（current_player）走到那步误打误撞触发才能补救
+
+**这是真实踩过的坑**：五子棋白方连五后本应立即判定 WIN(white)，但因规则错用 `current_player`，服务端一直拒绝 → 客户端死循环重发 → 闪屏。围追堵截走到终点的同 bug 隐藏了（走到终点场景少触发）。
+
+### 5.1 客户端防死循环（必须做）
+
+服务端拒绝 `role_check` 失败时**仍是静默 return c**，客户端无错误反馈。因此客户端 `_maybeDeclareWin` / `_requestUndo` 这种"主动发 action"的方法**必须**加本地标志防重发：
+
+```dart
+bool _winDeclared = false;  // 配套 _winRequested 等
+
+void _maybeDeclareWin() {
+  if (_winDeclared) return;  // ★ 已声明过，不重发
+  if (_snap?.state != 'playing') return;
+  ...
+  _winDeclared = true;  // ★ 发之前置 true
+  _room.declareWin(winner);
+}
+```
+
+并在 RESET/新局时重置。
 
 ---
 
-## 6. 服务端 handler 还要不要保留状态校验？
+## 7. 服务端 handler 还要不要保留状态校验？
 
 **要**。`role_check` 只校验"角色权限"，不校验"状态合法性"：
 
@@ -218,7 +256,7 @@ end
 
 ---
 
-## 7. 客户端 canPerform 与服务端 role_check 的关系
+## 8. 客户端 canPerform 与服务端 role_check 的关系
 
 **镜像同一张表，但用途不同**：
 
@@ -233,7 +271,7 @@ end
 
 ---
 
-## 8. 测试策略（verify_lua_drivers.py）
+## 9. 测试策略（verify_lua_drivers.py）
 
 每个权限规则至少一个测试 case：
 
@@ -256,7 +294,7 @@ def test_action_permissions():
 
 ---
 
-## 9. 迁移步骤（从特判重构到表驱动）
+## 10. 迁移步骤（从特判重构到表驱动）
 
 1. **Lua**：`on_init` 加 `c.action_permissions` 表，列出所有 action 的规则
 2. **Lua**：加 `role_check(c, p, action)` helper，覆盖所有规则
@@ -268,7 +306,7 @@ def test_action_permissions():
 
 ---
 
-## 10. 反模式速查
+## 11. 反模式速查
 
 | ❌ 错误 | 后果 | ✅ 正确 |
 |--------|------|---------|
@@ -281,7 +319,7 @@ def test_action_permissions():
 
 ---
 
-## 11. 收益清单
+## 12. 收益清单
 
 - ✅ **加新 action 零客户端改动**：Lua 加一行权限规则 + handler 校验，客户端 `canPerform('NEW')` 自动生效
 - ✅ **"无效按钮"UX bug 从根上消除**：按钮可点性真相在服务端 snapshot
@@ -290,7 +328,7 @@ def test_action_permissions():
 
 ---
 
-## 12. 与其他 ref 的协作
+## 13. 与其他 ref 的协作
 
 | 场景 | 先读 |
 |------|------|
