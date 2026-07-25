@@ -115,17 +115,17 @@ return {
 /// 团建卡牌脚本（teamCard）
 ///
 /// 类似"谁是卧底""狼人杀"的身份分配。
-/// master 上传角色池 → 建房 → 玩家加入 → master 点 DEAL →
-/// 服务端洗牌 + 写 `c.assignments` → snapshot 广播。
+/// master 上传角色池 → 建房 → 玩家加入 → 选择入座玩家区 / 旁观区 →
+/// 玩家区全员 ACK → master 点 DEAL → 服务端洗牌 + 写 `c.assignments` → snapshot 广播。
 ///
 /// ## 状态机
 ///
 /// ```
-///   CreateRoom  → state="lobby"     大厅等待，玩家加入
-///   ACK         → state="ready"     玩家点"准备好了"，所有人 ready 后房主才能 DEAL
-///   DEAL        → state="dealing"   服务端正在洗牌（短暂）
-///   洗牌完成    → state="playing"   玩家查 own identity
+///   CreateRoom  → state="lobby"     大厅等待，两区入座
+///   ACK         → state="ready"     玩家区玩家点"准备好了"
+///   DEAL        → state="playing"   服务端洗牌 + 发牌
 ///   RESET       → state="lobby"     重新发牌（清空 ready）
+///   SIT         → state不变         玩家点击目标区空位入座（换区）
 /// ```
 ///
 /// ## context 字段
@@ -133,14 +133,18 @@ return {
 ///   - `host_id`       : string, 房主 device_id
 ///   - `roles`         : array of `{label, count}`, 上传的初始身份池
 ///   - `players`       : map device_id → alias
+///   - `player_slots`  : int, 玩家区容量
+///   - `spectator_slots`: int, 旁观区容量
+///   - `zones`         : map device_id → "player"|"spectator"
 ///   - `ready`         : map device_id → true (玩家已点准备)
 ///   - `assignments`   : map device_id → role（deal 后写入）
-///   - `max_players`   : 牌数（房间容量）
-///   - `master_joins`  : bool, 是否房主自己也参与
+///   - `max_players`   : player_slots + spectator_slots
 ///
 /// ## API 调用
 ///
 ///   - `on_action_ACK`  params=`{}`  点准备 → 房主才能 DEAL
+///   - `on_action_UNACK` params=`{}` 取消准备
+///   - `on_action_SIT`  params=`{zone: "player"|"spectator"}`  入座目标区
 ///   - `on_action_DEAL` params=`{}`  服务端洗牌并发牌 → state="playing"
 ///   - `on_action_RESET` params=`{}`  重新发牌 → state="lobby"
 ///   - `on_action_SET_ROLE_POOL` params=`{roles: [...]}`  更新角色池（仅 host）
@@ -148,28 +152,30 @@ return {
 /// ## 注意事项
 ///
 /// - 房间阶段：lobby (等待人数) → ready (等待准备) → playing
-/// - max_players 由 Lua 角色池自动计算
-/// - ACK 强制要求：所有可发牌者（房主参加 = 房主 + N-1玩家，否则 = N 玩家）均已 ACK
+/// - max_players = player_slots + spectator_slots（总容量）
+/// - 只发"玩家区"成员牌，"旁观区"成员看到所有人身份
+/// - 默认进入玩家区；房主创建且有旁观区时默认进旁观区
+/// - ACK 只要求"玩家区"成员全都 ready + 玩家区满员
 const String kTeamCardScript = r'''
--- 工具函数：列出本局可发牌的玩家 device_id 列表
+-- 工具函数：列出本局可发牌的玩家 device_id 列表（仅 player zone）
 function eligible_players(c)
   local ids = {}
   for did, _ in pairs(c.players) do
-    if c.master_joins or did ~= c.host_id then
+    if c.zones[did] == "player" then
       table.insert(ids, did)
     end
   end
   return ids
 end
 
--- 工具函数：检查玩家是否真的"在场"且需要 ack
+-- 工具函数：检查玩家是否需要 ack（仅 player zone 且存在）
 function is_required(c, did)
   if c.players[did] == nil then return false end
-  if not c.master_joins and did == c.host_id then return false end
+  if c.zones[did] ~= "player" then return false end
   return true
 end
 
--- 工具函数：所有必须 ack 的人是否都已 ack
+-- 工具函数：所有 player zone 的人是否都已 ack
 function all_ready(c)
   for did, _ in pairs(c.players) do
     if is_required(c, did) and c.ready[did] ~= true then
@@ -187,36 +193,47 @@ on_init = function(c, p)
   if #c.roles == 0 then
     c.roles = { { label = "平民", count = 4 } }
   end
-  c.spectators = c.spectators or {}
-  if p.master_joins == false then
-    c.spectators[p.device_id] = true
+  c.player_slots = p.player_slots or 2
+  c.spectator_slots = p.spectator_slots or 0
+  c.max_players = c.player_slots + c.spectator_slots
+  c.zones = {}
+  -- 房主：有旁观区就默认进旁观区，否则进玩家区
+  if c.spectator_slots > 0 then
+    c.zones[p.device_id] = "spectator"
+  else
+    c.zones[p.device_id] = "player"
   end
-  c.max_players = 0
-  for _, r in ipairs(c.roles) do
-    c.max_players = c.max_players + (r.count or 0)
-  end
-  c.min_players = c.max_players
   c.assignments = {}
   c.ready = {}
-  c.master_joins = p.master_joins == nil and true or p.master_joins
   state = "lobby"
   return c
 end
 
 on_join = function(c, p)
   c.players[p.device_id] = p.alias
-  -- 加入时自动重置该玩家的 ready（重新来过）
   c.ready[p.device_id] = nil
-  -- 任意玩家 ready 被清 → state 应回退到 lobby，
-  -- 避免 host 看到 ready 但某玩家已退出/重连
-  if state == "ready" and not all_ready(c) then
-    state = "lobby"
+  -- 统计两区人数
+  local pcount = 0
+  local scount = 0
+  for did, z in pairs(c.zones) do
+    if did ~= p.device_id then
+      if z == "player" then pcount = pcount + 1 else scount = scount + 1 end
+    end
   end
+  -- 默认进有空间的区：优先玩家区，其次旁观区
+  if pcount < c.player_slots then
+    c.zones[p.device_id] = "player"
+  elseif scount < c.spectator_slots then
+    c.zones[p.device_id] = "spectator"
+  end
+  -- 任意玩家 ready 被清 → 回退 lobby
+  if state == "ready" and not all_ready(c) then state = "lobby" end
   return c
 end
 
 on_leave = function(c, p)
   c.players[p.device_id] = nil
+  c.zones[p.device_id] = nil
   c.ready[p.device_id] = nil
   if c.assignments ~= nil then c.assignments[p.device_id] = nil end
   return c
@@ -227,13 +244,12 @@ on_action_ACK = function(c, p)
   if state == "playing" then return c end
   if c.players[p.device_id] == nil then return c end
   c.ready[p.device_id] = true
-  -- 全部 ack 完成 → state 跃迁到 ready（房主立即看到能发牌）
-  -- 必须先"人数到位"才能进入 ready 阶段，避免单人 ACK 就提前 ready
-  -- 人数门槛 = c.min_players（房主旁观时房主不占牌位，所以不减）
-  local need = c.min_players
-  local have = 0
-  for _, _ in pairs(c.players) do have = have + 1 end
-  if have < need then return c end
+  -- 人数门槛：玩家区必须满员
+  local pcount = 0
+  for _, z in pairs(c.zones) do
+    if z == "player" then pcount = pcount + 1 end
+  end
+  if pcount < c.player_slots then return c end
   if all_ready(c) and state == "lobby" then
     state = "ready"
   end
@@ -245,12 +261,31 @@ on_action_UNACK = function(c, p)
   if state == "playing" then return c end
   if c.players[p.device_id] == nil then return c end
   c.ready[p.device_id] = nil
-  -- 任意玩家取消 → state 应回到 lobby
   if state == "ready" then state = "lobby" end
   return c
 end
 
--- 房主发牌（必须所有 eligible 都 ready 才能发）
+-- 玩家点击目标区空位入座
+on_action_SIT = function(c, p)
+  if state == "playing" then return c end
+  if c.players[p.device_id] == nil then return c end
+  local target = p.zone
+  if target ~= "player" and target ~= "spectator" then return c end
+  -- 检查目标区是否有空位（排除自己当前占用的区槽）
+  local occupied = 0
+  for did, z in pairs(c.zones) do
+    if did ~= p.device_id and z == target then occupied = occupied + 1 end
+  end
+  local limit = target == "player" and c.player_slots or c.spectator_slots
+  if occupied >= limit then return c end
+  c.zones[p.device_id] = target
+  -- 换区时清 ready
+  c.ready[p.device_id] = nil
+  if state == "ready" and not all_ready(c) then state = "lobby" end
+  return c
+end
+
+-- 房主发牌（必须 all_ready 且玩家区满员）
 on_action_DEAL = function(c, p)
   if c.host_id ~= p.device_id then return c end
   if not all_ready(c) then return c end
@@ -299,10 +334,7 @@ on_action_SET_ROLE_POOL = function(c, p)
   if state ~= "lobby" and state ~= "ready" then return c end
   if p.roles == nil or type(p.roles) ~= "table" then return c end
   c.roles = p.roles
-  c.max_players = 0
-  for _, r in ipairs(c.roles) do c.max_players = c.max_players + (r.count or 0) end
-  c.min_players = c.max_players
-  -- 改角色池后重置 ready
+  -- 不改 player_slots/spectator_slots
   c.ready = {}
   state = "lobby"
   return c
@@ -311,7 +343,7 @@ end
 return {
   definition = { functions = {
     "on_init", "on_join", "on_leave",
-    "on_action_ACK", "on_action_UNACK",
+    "on_action_ACK", "on_action_UNACK", "on_action_SIT",
     "on_action_DEAL", "on_action_RESET", "on_action_SET_ROLE_POOL",
   }},
   on_init = on_init,
@@ -319,6 +351,7 @@ return {
   on_leave = on_leave,
   on_action_ACK = on_action_ACK,
   on_action_UNACK = on_action_UNACK,
+  on_action_SIT = on_action_SIT,
   on_action_DEAL = on_action_DEAL,
   on_action_RESET = on_action_RESET,
   on_action_SET_ROLE_POOL = on_action_SET_ROLE_POOL,
