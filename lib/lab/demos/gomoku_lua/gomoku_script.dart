@@ -59,6 +59,17 @@ function role_check(c, p, action)
     return (lastIsBlack and p.device_id ~= c.black_player_id)
         or (not lastIsBlack and p.device_id == c.black_player_id)
   end
+  -- non_current_player：刚下完最后一步的人（连五声明胜利用）
+  -- 下完连五那步的人，此时已轮到对手（non_current）。
+  -- 错用 current_player 会导致 WIN 被拒 → 客户端死循环重发 → 闪屏。
+  if rule == "non_current_player" then
+    if #c.history == 0 then return false end
+    local last = c.history[#c.history]
+    local lastIsBlack = last.isBlack
+    -- 最后一步黑 → 刚下完的是黑方（== black_player_id）；白则相反
+    return (lastIsBlack and p.device_id == c.black_player_id)
+        or (not lastIsBlack and p.device_id ~= c.black_player_id)
+  end
   return false
 end
 
@@ -76,7 +87,7 @@ on_init = function(c, p)
     DEAL   = "host",
     MOVE   = "current_player",
     RESIGN = "any",
-    WIN    = "current_player",
+    WIN    = "non_current_player",  -- 刚下完连五那步的人（下完轮到对手）
     RESET  = "host",
   }
   state = "lobby"

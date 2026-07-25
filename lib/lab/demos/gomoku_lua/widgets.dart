@@ -250,6 +250,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   /// 待确认落子点：点击空交点后进入待确认，确认才发 MOVE。
   /// null = 无待确认。回合切换/对手落子时自动清除。
   (int, int)? _pendingPoint;
+  /// 已声明过胜利（防死循环：WIN 万一被拒/网络抖动，不重复发导致闪屏）。
+  /// RESET/新局开始时重置。
+  bool _winDeclared = false;
 
   late final GomokuRoom _room;
 
@@ -275,6 +278,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     }
     if (_ackedLocally && (s.state != 'lobby' && s.state != 'ready')) {
       setState(() => _ackedLocally = false);
+    }
+    // RESET 回到 lobby → 新局开始，重置胜利声明标志
+    if (s.state == 'lobby' && _winDeclared) {
+      _winDeclared = false;
     }
     // 连五判定：本地从权威 history 重建后检查最后一步是否连五 → 发 WIN
     _maybeDeclareWin();
@@ -373,11 +380,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   /// 连五判定 → 发 WIN。双方都检测，幂等（state 已 ended 时 Lua 忽略）。
+  /// _winDeclared 防死循环：WIN 万一被拒或网络抖动，不重复发导致闪屏。
   void _maybeDeclareWin() {
+    if (_winDeclared) return;
     if (_snap?.state != 'playing') return;
     if (_moves.isEmpty) return;
     final last = _moves.last;
     if (GomokuRoom.hasFiveInRow(_board, last.x, last.y)) {
+      _winDeclared = true;
       _room.declareWin(last.isBlack ? 'black' : 'white');
     }
   }

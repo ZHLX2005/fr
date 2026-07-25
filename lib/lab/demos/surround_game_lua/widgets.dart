@@ -257,6 +257,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   /// 本地乐观状态：lobby 阶段点了"准备好了"立即置 true，不等服务端回包。
   /// 离开 lobby（→ ready/playing/ended）时清除。
   bool _ackedLocally = false;
+  /// 已声明过胜利（防死循环：WIN 万一被拒/网络抖动，不重复发导致闪屏）。
+  /// RESET/新局开始时重置。
+  bool _winDeclared = false;
 
   @override
   void initState() {
@@ -283,15 +286,20 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (_ackedLocally && (s.state != 'lobby' && s.state != 'ready')) {
       setState(() => _ackedLocally = false);
     }
+    // RESET 回到 lobby → 新局开始，重置胜利声明标志
+    if (s.state == 'lobby' && _winDeclared) {
+      _winDeclared = false;
+    }
     // 胜利检测：本地 QuoridorEngine 从权威 history 重建出 gs.status != running，
     // 但 Lua state 还在 playing（Lua 没有引擎，无法自行判胜）→ 发 WIN 让服务端记 ended+winner。
-    // 双方客户端都会检测到，幂等：state 已 ended 时 Lua 忽略第二个 WIN。
+    // _winDeclared 防死循环：WIN 万一被拒/网络抖动，不重复发导致闪屏。
     _maybeDeclareWin();
     _maybeShowUndoIncomingDialog();
   }
 
   /// 某方走到终点 / 平局时，向服务端声明胜利。
   void _maybeDeclareWin() {
+    if (_winDeclared) return;
     if (_snap?.state != 'playing') return;
     final status = _gs.status;
     if (status == GameStatus.running) return;
@@ -304,6 +312,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       // draw（围追堵截当前规则无平局，预留）
       return;
     }
+    _winDeclared = true;
     _room.declareWin(winner);
   }
 
