@@ -34,6 +34,11 @@ class SgRoom {
   Future<void> respondUndo({required bool accepted}) =>
       handle.applyAction(type: 'UNDO_RESPONSE', params: {'accepted': accepted});
 
+  /// 声明胜利（客户端用本地 QuoridorEngine 判定走到终点后调用）。
+  /// winner = "top" / "bottom"。Lua 校验发送方角色与 winner 一致。
+  Future<void> declareWin(String winner) =>
+      handle.applyAction(type: 'WIN', params: {'winner': winner});
+
   /// 从 snapshot history 重建 GameState
   static GameState rebuildGameState(Snapshot? s) {
     if (s == null) return QuoridorEngine.initialize();
@@ -73,6 +78,14 @@ class SgRoom {
     if (raw is! Map) return null;
     final r = raw['requester'];
     return r?.toString();
+  }
+
+  /// 终局胜方："top" / "bottom" / null（未结束或 RESIGN/WIN 未记）。
+  /// 客户端用 `imTop == (winner == "top")` 判定"我赢"。
+  static String? winner(Snapshot? s) {
+    final raw = s?.context['winner'];
+    if (raw == null) return null;
+    return raw.toString();
   }
 
   /// 我是否能请求悔棋（按 canRequestUndo 规则：刚下完一步 + 对方回合 + 历史非空）

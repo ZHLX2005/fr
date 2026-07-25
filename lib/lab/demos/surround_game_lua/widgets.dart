@@ -267,7 +267,28 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _touchCtrl.reset();
       setState(() {});
     }
+    // 胜利检测：本地 QuoridorEngine 从权威 history 重建出 gs.status != running，
+    // 但 Lua state 还在 playing（Lua 没有引擎，无法自行判胜）→ 发 WIN 让服务端记 ended+winner。
+    // 双方客户端都会检测到，幂等：state 已 ended 时 Lua 忽略第二个 WIN。
+    _maybeDeclareWin();
     _maybeShowUndoIncomingDialog();
+  }
+
+  /// 某方走到终点 / 平局时，向服务端声明胜利。
+  void _maybeDeclareWin() {
+    if (_snap?.state != 'playing') return;
+    final status = _gs.status;
+    if (status == GameStatus.running) return;
+    final String winner;
+    if (status == GameStatus.topWin) {
+      winner = 'top';
+    } else if (status == GameStatus.bottomWin) {
+      winner = 'bottom';
+    } else {
+      // draw（围追堵截当前规则无平局，预留）
+      return;
+    }
+    _room.declareWin(winner);
   }
 
   void _rebuildGs(Snapshot? s) {
@@ -734,19 +755,23 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildFinished(BoardThemeData theme) {
     final gs = _gs;
     final imTop = _imTop;
-    final isTopWin = gs.status == GameStatus.topWin;
+    // 优先用服务端权威 winner 字段（WIN/RESIGN 时 Lua 写入）；
+    // fallback 到本地 gs.status（snapshot 还没带回 ended 时容错）。
+    final w = SgRoom.winner(_snap);
+    final isTopWin = w == 'top' || (w == null && gs.status == GameStatus.topWin);
+    final isDraw = w == null && gs.status == GameStatus.draw;
     // 角色感知消息：
     //   我是 top：topWin → 我方获胜；bottomWin → 对方获胜
     //   我是 bottom：topWin → 对方获胜；bottomWin → 我方获胜
     final String msg;
-    if (gs.status == GameStatus.draw) {
+    if (isDraw) {
       msg = '平局';
     } else if (isTopWin == imTop) {
       msg = '我方获胜！';
     } else {
       msg = '对方获胜';
     }
-    final winColor = gs.status == GameStatus.draw
+    final winColor = isDraw
         ? Colors.orange
         : (isTopWin ? theme.piecePlayerA : theme.piecePlayerB);
     return Scaffold(

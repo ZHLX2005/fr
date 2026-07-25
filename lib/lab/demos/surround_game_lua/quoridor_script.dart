@@ -100,6 +100,28 @@ end
 on_action_RESIGN = function(c, p)
   if state ~= "playing" then return c end
   if c.players[p.device_id] == nil then return c end
+  -- 认输方 = 对手赢
+  local topId = c.top_player_id
+  c.winner = (p.device_id == topId) and "bottom" or "top"
+  state = "ended"
+  return c
+end
+
+-- 胜利声明：客户端用本地 QuoridorEngine 判定某方走到终点后发此事件。
+-- Lua 本身没有棋盘引擎，无法自行判断胜利，所以由移动方客户端权威上报。
+-- 双方客户端都可能发（都从同一份 history 重建 gs），幂等：state 已 ended 时忽略。
+-- 校验：只有 playing 态 + winner 与发送方角色一致才接受（防作弊上报）。
+on_action_WIN = function(c, p)
+  if state ~= "playing" then return c end
+  if c.players[p.device_id] == nil then return c end
+  local winner = p.winner
+  if winner ~= "top" and winner ~= "bottom" then return c end
+  local topId = c.top_player_id
+  local isFromTop = (p.device_id == topId)
+  -- winner=top 只能由 top 玩家声明；winner=bottom 只能由 bottom 玩家声明
+  if winner == "top" and not isFromTop then return c end
+  if winner == "bottom" and isFromTop then return c end
+  c.winner = winner
   state = "ended"
   return c
 end
@@ -109,6 +131,7 @@ on_action_RESET = function(c, p)
   c.history = {}
   c.ready = {}
   c.undo_pending = nil
+  c.winner = nil
   state = "lobby"
   return c
 end
@@ -151,7 +174,7 @@ return {
   definition = { functions = {
     "on_init", "on_join", "on_leave",
     "on_action_ACK", "on_action_DEAL", "on_action_MOVE",
-    "on_action_RESIGN", "on_action_RESET",
+    "on_action_RESIGN", "on_action_RESET", "on_action_WIN",
     "on_action_UNDO_REQUEST", "on_action_UNDO_RESPONSE",
   }},
   on_init = on_init,
@@ -162,6 +185,7 @@ return {
   on_action_MOVE = on_action_MOVE,
   on_action_RESIGN = on_action_RESIGN,
   on_action_RESET = on_action_RESET,
+  on_action_WIN = on_action_WIN,
   on_action_UNDO_REQUEST = on_action_UNDO_REQUEST,
   on_action_UNDO_RESPONSE = on_action_UNDO_RESPONSE,
 }
