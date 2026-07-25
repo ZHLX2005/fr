@@ -690,9 +690,9 @@ class _LobbyView extends StatelessWidget {
     final code = snap?.roomCode ?? '------';
     final state = snap?.state ?? 'lobby';
     final readyMap = (snap?.context['ready'] as Map?) ?? const {};
-    // 圆环总槽数 = max(牌数, 当前在场)，保证房主旁观时也有位置
+    // 圆环总槽数 = max(牌数, 当前在场)，保证旁观者也有自己的槽位
     final have = players.length;
-    final slotCount = capacity > 0 ? capacity : have;
+    final slotCount = have > capacity ? have : capacity;
     final readyCount = readyMap.values.where((v) => v == true).length;
     final allReady = state == 'ready';
     final canDeal = isHost && allReady;
