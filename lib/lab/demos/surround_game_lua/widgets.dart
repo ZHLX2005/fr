@@ -548,13 +548,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildPlaying(BoardThemeData theme) {
     final gs = _gs;
     final isRunning = gs.status == GameStatus.running;
-    // TouchView 三重 guard：
+    // TouchView guard：
     // ① phase==playing（Lua 状态机已进入 playing）
     // ② _snap 已到位（_gs 反映真实历史）
     // ③ 轮到本方走（imTop == currentPlayerIsTop）
+    // 注意：history 可为空（开局先手玩家第一步），不放宽这一步会导致开局 TouchView 永不挂载。
     final canMountTouchView = _snap != null
         && _snap?.state == 'playing'
-        && gs.history.isNotEmpty
         && _isMyTurn;
     return Scaffold(
       backgroundColor: theme.boardSurface,
@@ -576,6 +576,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   Transform.flip(flipY: true, child: _drawLayer(cs, boardSize, theme))
                 else
                   _drawLayer(cs, boardSize, theme),
+                // 确认按钮层：放在外层 Stack（不被 _drawLayer 的 flipY 翻转）。
+                // host 端坐标做 y 镜像后再传给 ConfirmActions，
+                // 让按钮视觉位置正确（在棋子视觉下方，与 guest/LAN bottom 一致）。
+                _buildConfirmActions(cs, boardSize, theme),
                 // 触摸层（仅本方回合挂载）
                 if (canMountTouchView)
                   TouchView(
@@ -627,9 +631,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final bottomId = pendingCellId != null && !gs.currentPlayerIsTop
         ? pendingCellId
         : gs.bottomPlayerId;
-    // ConfirmActions 用 isTopTurn 决定图标是否翻转：
-    // 当前走棋方是不是 top（与 _flipY 无关，纯走棋状态）。
-    final isTopTurnForConfirm = gs.currentPlayerIsTop;
 
     return Stack(clipBehavior: Clip.none, children: [
       ChessBoard(cellSize: cs, theme: theme),
@@ -648,20 +649,44 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         _FloatingPiece(offset: toc.dragOffset!,
             color: gs.currentPlayerIsTop ? theme.piecePlayerA : theme.piecePlayerB,
             cellSize: cs),
-      ConfirmActions(
-        phase: toc.phase,
-        pendingTargetCellId: toc.pendingTargetCellId,
-        pendingWall: toc.pendingWall,
-        isTopTurn: isTopTurnForConfirm,
-        cellSize: cs, boardSize: boardSize, theme: theme,
-        onConfirm: _onConfirm,
-        onCancel: () { toc.cancelAction(); setState(() {}); },
-        onRotate: () {
-          toc.rotatePendingWall(validateWall: _validateWall);
-          setState(() {});
-        },
-      ),
+      // 注意：ConfirmActions 不放在 _drawLayer 里（见 _buildPlaying 外层 Stack），
+      // 因为它在 host 端不能被外层 Transform.flip 翻转——否则按钮会上下镜像。
     ]);
+  }
+
+  /// 确认按钮层 — 放在外层 Stack 直接子节点（不被 _drawLayer 的 flipY 翻转）。
+  ///
+  /// host 端把规范坐标的 cellId/wall 做 y 镜像后再传给 ConfirmActions，
+  /// 这样按钮按视觉坐标系定位，出现在棋子视觉下方（与 guest/LAN bottom 一致）。
+  Widget _buildConfirmActions(double cs, double boardSize, BoardThemeData theme) {
+    final toc = _touchCtrl;
+    int? visualCellId = toc.pendingTargetCellId;
+    ({int x, int y, WallOrientation o})? visualWall = toc.pendingWall;
+    if (_flipY) {
+      // host 端：规范 y → 视觉 y = 8 - 规范 y
+      if (visualCellId != null) {
+        final x = visualCellId % 9;
+        final y = visualCellId ~/ 9;
+        visualCellId = (8 - y) * 9 + x;
+      }
+      if (visualWall != null) {
+        visualWall = (x: visualWall.x, y: 8 - visualWall.y, o: visualWall.o);
+      }
+    }
+    return ConfirmActions(
+      phase: toc.phase,
+      pendingTargetCellId: visualCellId,
+      pendingWall: visualWall,
+      // 互联网版双方视觉都"从底部看"，按钮图标都不翻转 → isTopTurn=false。
+      isTopTurn: false,
+      cellSize: cs, boardSize: boardSize, theme: theme,
+      onConfirm: _onConfirm,
+      onCancel: () { toc.cancelAction(); setState(() {}); },
+      onRotate: () {
+        toc.rotatePendingWall(validateWall: _validateWall);
+        setState(() {});
+      },
+    );
   }
 
   Widget _buildPlayerPanel(BoardThemeData theme) {
