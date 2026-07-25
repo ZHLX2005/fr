@@ -1,6 +1,6 @@
 // lib/core/net_p2p/net_p2p_discovery_host.dart
 //
-// NetP2P 入口 — LAN 局域网发现 / Relay 互联网房间（v3 snapshot + Lua）
+// NetP2P 入口 — LAN 局域网发现 / Relay 互联网房间（v3 Lua 状态机 + 大厅等待）
 
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
@@ -9,8 +9,9 @@ import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_widget.dart';
 
 import 'pages/net_p2p_chat_page.dart';
 import 'pages/net_p2p_snapshot_chat.dart';
+import 'scripts/lua_scripts.dart';
 
-/// P2P 入口页面 — LAN 局域网发现 / Relay 互联网房间（v3 snapshot）
+/// P2P 入口页面 — LAN 局域网发现 / Relay 互联网房间（v3 Lua 状态机 + 大厅等待）
 class NetP2PPage extends StatefulWidget {
   const NetP2PPage({super.key});
   @override
@@ -18,22 +19,6 @@ class NetP2PPage extends StatefulWidget {
 }
 
 enum _Mode { lan, relay }
-
-/// 聊天房间 Lua 脚本（v3 snapshot 驱动）
-///
-/// handlers 必须是 TOP-LEVEL GLOBALS，server 会按
-/// `definition.functions` 列表注入并调用。
-const String _defaultChatScript = r'''
-on_init = function(c, p) c.messages = {}; return c end
-on_join = function(c, p) return c end
-on_action_CHAT = function(c, p) table.insert(c.messages, p); return c end
-return {
-  definition = { functions = { "on_init", "on_join", "on_action_CHAT" } },
-  on_init = on_init,
-  on_join = on_join,
-  on_action_CHAT = on_action_CHAT,
-}
-''';
 
 class _NetP2PPageState extends State<NetP2PPage> {
   _Mode _mode = _Mode.lan;
@@ -44,7 +29,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
   String? _lanPeerAlias;
   String? _lanSessionScope;
 
-  // Relay v3 模式连接状态
+  // Relay v3 模式（大厅 → 游戏）
   RoomHandle? _v3Room;
 
   @override
@@ -69,9 +54,9 @@ class _NetP2PPageState extends State<NetP2PPage> {
     });
   }
 
-  // ——— Relay v3 模式 ———
+  // ——— Relay v3 模式：大厅 → 聊天 ———
 
-  void _onV3RoomReady(RoomHandle handle) {
+  void _onV3Started(RoomHandle handle) {
     setState(() => _v3Room = handle);
   }
 
@@ -89,6 +74,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
 
   @override
   Widget build(BuildContext context) {
+    // LAN 聊天页
     if (_lanTransport != null && _lanSessionScope != null) {
       return NetP2PChatPage(
         transport: _lanTransport!,
@@ -98,6 +84,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
         onLeave: _disconnect,
       );
     }
+    // Relay v3 聊天页（大厅 → onV3Started → snapshot chat）
     if (_v3Room != null) {
       return NetP2PSnapshotChatPage(
         handle: _v3Room!,
@@ -163,12 +150,13 @@ class _NetP2PPageState extends State<NetP2PPage> {
         },
       );
     }
-    return RelayV3Widget(
+    // Relay v3 大厅（建房/加入 → lobby 等待 → 开始游戏）
+    return RelayV3Lobby(
       relayUrl: 'http://47.110.80.47:8988',
-      defaultScript: _defaultChatScript,
-      defaultMaxPlayers: 2,
+      script: kLobbyChatScript,
+      maxPlayers: 2,
       title: 'P2P 聊天',
-      onRoomReady: _onV3RoomReady,
+      onStarted: _onV3Started,
     );
   }
 }

@@ -93,13 +93,11 @@ void main() {
       expect(h.code, '222222');
     });
 
-    test('applyAction hits /actions and parses snapshot', () async {
+    test('_applyAction hits /actions and parses snapshot', () async {
       final mock = MockClient((req) async {
         expect(req.url.path, '/api/v3/relay/rooms/333333/actions');
         final body = jsonDecode(req.body) as Map<String, dynamic>;
         expect(body['type'], 'CHAT');
-        // source_device_id is a request-side field, not a response field.
-        // Verify it's correctly sent in the request body.
         expect(body['source_device_id'], 'd1');
         return http.Response(jsonEncode({
           'snapshot': {
@@ -115,33 +113,28 @@ void main() {
         deviceId: 'd1',
         httpClient: mock,
       );
-      final snap = await t.applyActionPublic(
+      final snap = await t.testApplyAction(
         code: '333333',
         type: 'CHAT',
         params: {},
         sourceDeviceId: 'd1',
       );
-      // Verify the returned snapshot (not the request body).
       expect(snap.version, 5);
       expect(snap.context['n'], 3);
     });
   });
 
-  group('RoomHandle WS', () {
-    // NOTE: RoomHandle.connect() calls the static WebSocketChannel.connect()
-    // factory directly, so a fake channel cannot be injected without changing
-    // production code. Full WS frame delivery + reconnect is covered by the
-    // Task 14 integration test against the real Go server. This smoke test only
-    // exercises the snapshots stream surface (initial emission + clean dispose)
-    // that RoomHandle owns independently of the socket.
-    test('emits initial snapshot on snapshots stream and disposes cleanly',
-        () async {
-      final handle = RoomHandle(
-        transport: RelayV3Transport(
-          relayUrl: 'http://x',
-          alias: 'a',
-          deviceId: 'd1',
-        ),
+  group('RoomHandle', () {
+    test('initial snapshot is available on snapshots stream', () async {
+      final t = RelayV3Transport(
+        relayUrl: 'http://x',
+        alias: 'a',
+        deviceId: 'd1',
+        httpClient: MockClient((_) async =>
+            http.Response(jsonEncode({'ok': true}), 200)),
+      );
+      final handle = RoomHandle.testCreate(
+        transport: t,
         code: '111111',
         wsUrl: 'ws://x/ws3/111111',
         initial: Snapshot.fromJson({
@@ -158,7 +151,6 @@ void main() {
       );
       final received = <Snapshot>[];
       final sub = handle.snapshots.listen(received.add);
-      // Let the broadcast stream deliver the buffered initial emission.
       await Future<void>.delayed(Duration.zero);
 
       expect(handle.latest?.version, 1);
@@ -168,45 +160,20 @@ void main() {
       await handle.dispose();
     });
 
-    test('connect() guards against double-call via _connected flag', () async {
-      // Without DI for WebSocketChannel.connect we cannot assert no leak at the
-      // socket layer from a unit test. Instead, exercise the guard by
-      // constructing a handle that has already had connect() "succeed" and
-      // verifying that the second connect() is a no-op via direct field access
-      // isn't possible (private). Validate the contract end-to-end by
-      // confirming dispose() right after connect() doesn't throw — the
-      // idempotency of dispose() implies connect() didn't corrupt state.
-      final handle = RoomHandle(
-        transport: RelayV3Transport(
-          relayUrl: 'http://x',
-          alias: 'a',
-          deviceId: 'd1',
-        ),
-        code: 'id-1',
-        wsUrl: 'ws://127.0.0.1:1/never',
-        initial: Snapshot.fromJson(_emptySnap('id-1')),
-      );
-      // Never call connect() — guarantees we don't spawn a real socket.
-      // dispose() must be idempotent and safe without a prior connect().
-      await handle.dispose();
-      await handle.dispose();
-      await handle.dispose();
-    });
-
     test('dispose() is idempotent (no StateError on double-call)', () async {
-      final handle = RoomHandle(
-        transport: RelayV3Transport(
-          relayUrl: 'http://x',
-          alias: 'a',
-          deviceId: 'd1',
-        ),
+      final t = RelayV3Transport(
+        relayUrl: 'http://x',
+        alias: 'a',
+        deviceId: 'd1',
+        httpClient: MockClient((_) async =>
+            http.Response(jsonEncode({'ok': true}), 200)),
+      );
+      final handle = RoomHandle.testCreate(
+        transport: t,
         code: 'id-2',
         wsUrl: 'ws://127.0.0.1:1/never',
         initial: Snapshot.fromJson(_emptySnap('id-2')),
       );
-      // Simulates the real bug: leave() -> dispose() internally,
-      // then page dispose() -> dispose() again. The second call must not
-      // throw StateError on the already-closed _snapshots controller.
       await handle.dispose();
       await handle.dispose();
     });

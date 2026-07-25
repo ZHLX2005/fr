@@ -2,9 +2,11 @@
 //
 // 快照驱动的聊天页（v3 RelayV3Transport）
 //
+// 入口：大厅等待结束后（state=="playing"），进入此页面开始聊天。
 // 整个页面只渲染一个 Snapshot 对象：
-// - snapshot.context['messages'] → 聊天消息列表（业务自定义字段）
-// - snapshot.state → 房间状态（waiting / playing / ended）
+//   - snapshot.context['messages'] → 聊天消息列表
+//   - snapshot.state → 房间状态（playing / ended）
+//
 // 任何 WS 推送触发 snapshot 替换，UI 自动重绘。
 
 import 'dart:async';
@@ -30,20 +32,40 @@ class NetP2PSnapshotChatPage extends StatefulWidget {
 class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
   final _input = TextEditingController();
   final _scrollCtrl = ScrollController();
-  StreamSubscription<Snapshot>? _sub;
+  StreamSubscription<Snapshot>? _snapSub;
+  StreamSubscription<WSCloseEvent>? _closeSub;
   Snapshot? _snapshot;
 
   @override
   void initState() {
     super.initState();
     _snapshot = widget.handle.latest;
-    // Lobby widget already called connect() before handing us the handle.
-    // RoomHandle.connect() is idempotent, so this is safe either way.
-    widget.handle.connect();
-    _sub = widget.handle.snapshots.listen((snap) {
+
+    // RoomHandle 构造函数已自动 connect WS（createRoom/_create, joinRoom/_join）。
+    // 这里只需订阅 snapshot 流。
+    _snapSub = widget.handle.snapshots.listen((snap) {
       if (!mounted) return;
       setState(() => _snapshot = snap);
       _scrollToBottom();
+    });
+
+    // 监听 WS 关闭事件（断线、被踢等）
+    _closeSub = widget.handle.closeEvents.listen((event) {
+      if (!mounted) return;
+      if (event.code != 0) {
+        // 终端关闭（被踢/房间过期/慢消费者）
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(WSCloseCode.describe(event.code)),
+            action: SnackBarAction(
+              label: '断开',
+              onPressed: () {
+                widget.onLeave?.call();
+              },
+            ),
+          ),
+        );
+      }
     });
   }
 
@@ -51,12 +73,11 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
   void dispose() {
     _input.dispose();
     _scrollCtrl.dispose();
-    _sub?.cancel();
-    // leave() will call handle.dispose(); if user navigates away without
-    // leaving first, leave() was never called and we must dispose here.
-    // RoomHandle.dispose() is idempotent so a double call from leave() + this
-    // dispose() path is safe.
-    widget.handle.dispose();
+    _snapSub?.cancel();
+    _closeSub?.cancel();
+    // 页面退出时不给 handle.dispose() — 如果是从 lobby 升级来的，
+    // handle 由 NetP2PPage 拥有。如果用户按了 onLeave，NetP2PPage
+    // 会处理 dispose。
     super.dispose();
   }
 
@@ -78,19 +99,16 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
         params: {'text': text, 'alias': widget.handle.transport.alias},
       );
     } on RelayV3Exception catch (e) {
-      // CAS mismatch (409) or Lua/validation error (422) etc.
-      // Spec §8 originally embedded the current snapshot in a 409 body, but
-      // the backend's ApplyAction controller stopped doing so — clients must
-      // refetch to reconcile.
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
       );
       if (e.statusCode == 409) {
+        // CAS 版本不匹配 — refetch 最新 snapshot
         try {
           await widget.handle.transport.fetchSnapshot(widget.handle.code);
         } catch (_) {
-          // Best-effort refetch; WS will reconcile on next push anyway.
+          // best-effort; WS 下次推送时会 reconcile
         }
       }
     } catch (e) {
@@ -127,7 +145,7 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('房间 ${snap.roomCode} · ${snap.state}'),
+        title: Text('房间 ${snap.roomCode}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
