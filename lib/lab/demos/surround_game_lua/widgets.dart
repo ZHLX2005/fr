@@ -245,6 +245,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   late final SgRoom _room;
   TouchController _touchCtrl = TouchController();  // 仅在 _ensureTouchController 里首次校准；host 端在坐标回调里镜像
   String? _lastUndoRequester;
+  /// 本地乐观状态：lobby 阶段点了"准备好了"立即置 true，不等服务端回包。
+  /// 离开 lobby（→ ready/playing/ended）时清除。
+  bool _ackedLocally = false;
 
   @override
   void initState() {
@@ -266,6 +269,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (prevMyTurn && !_isMyTurn) {
       _touchCtrl.reset();
       setState(() {});
+    }
+    // 离开 lobby 阶段 → 清除本地 ACK 乐观标记
+    if (_ackedLocally && (s.state != 'lobby' && s.state != 'ready')) {
+      setState(() => _ackedLocally = false);
     }
     // 胜利检测：本地 QuoridorEngine 从权威 history 重建出 gs.status != running，
     // 但 Lua state 还在 playing（Lua 没有引擎，无法自行判胜）→ 发 WIN 让服务端记 ended+winner。
@@ -300,7 +307,17 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   void dispose() { _sub?.cancel(); super.dispose(); }
 
   // ── 网络动作 ──
-  Future<void> _ack() async { try { await _room.ack(); } catch (_) {} }
+  /// ACK：立即乐观置 _ackedLocally，UI 立刻有反馈；服务端 snapshot 回包时已正确。
+  /// 不需要等到服务端 ACK 才显示"已准备"。
+  Future<void> _ack() async {
+    if (_ackedLocally) return;
+    setState(() => _ackedLocally = true);
+    try {
+      await _room.ack();
+    } catch (_) {
+      if (mounted) setState(() => _ackedLocally = false);
+    }
+  }
   Future<void> _deal() async {
     try {
       await _room.deal();
@@ -486,6 +503,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildLobby(BoardThemeData theme) {
     final code = _snap?.roomCode ?? '------';
     final players = SgRoom.players(_snap);
+    final readyMap = SgRoom.readyMap(_snap);
+    final myId = _room.deviceId;
+    // 服务端回包的 ACK 状态 OR 本地乐观标记（点了之后立即显示 ✓，不等回包）
+    final iAmReady = _ackedLocally || (readyMap[myId] == true);
     return Scaffold(
       backgroundColor: theme.boardSurface,
       body: SafeArea(
@@ -509,23 +530,42 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               const SizedBox(height: 16),
               Text('等待对手加入…', style: TextStyle(color: theme.btnSub, fontSize: 13)),
               const SizedBox(height: 24),
-              ...players.entries.map((e) => ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: e.key == _room.deviceId ? Colors.green : Colors.grey,
-                  child: Text(e.value[0].toUpperCase()),
-                ),
-                title: Text('${e.value}${e.key == _room.deviceId ? " (我)" : ""}',
-                    style: TextStyle(color: theme.btnText)),
-              )),
+              ...players.entries.map((e) {
+                final isMe = e.key == myId;
+                final isReady = readyMap[e.key] == true;
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: isReady
+                        ? Colors.green
+                        : (isMe ? Colors.orange : Colors.grey),
+                    child: Icon(
+                      isReady ? Icons.check : Icons.person,
+                      color: Colors.white, size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    '${e.value}${isMe ? " (我)" : ""}',
+                    style: TextStyle(color: theme.btnText),
+                  ),
+                  trailing: Text(
+                    isReady ? '已准备 ✓' : '未准备',
+                    style: TextStyle(
+                      color: isReady ? Colors.green.shade400 : theme.btnSub,
+                      fontSize: 13,
+                    ),
+                  ),
+                );
+              }),
               if (players.length >= 2) ...[
                 const SizedBox(height: 16),
+                // ACK 后立即变 "已准备 ✓" + disabled，不等服务端回包
                 OutlinedButton.icon(
-                  onPressed: _ack,
-                  icon: const Icon(Icons.check_circle_outlined),
-                  label: const Text('准备好了'),
+                  onPressed: iAmReady ? null : _ack,
+                  icon: Icon(iAmReady ? Icons.check_circle : Icons.check_circle_outlined),
+                  label: Text(iAmReady ? '已准备 ✓' : '准备好了'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.green.shade400,
-                    side: BorderSide(color: Colors.green.shade400),
+                    foregroundColor: iAmReady ? Colors.green : Colors.green.shade400,
+                    side: BorderSide(color: iAmReady ? Colors.green : Colors.green.shade400),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     minimumSize: const Size(200, 48),
                   ),
@@ -800,14 +840,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             const SizedBox(height: 12),
             Text(msg, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: winColor)),
             const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: _room.isHost ? _reset : null,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: winColor, side: BorderSide(color: winColor),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            // 再来一局：仅房主可操作。客方显示等房主提示，避免给"看着可点"的按钮。
+            if (_room.isHost)
+              OutlinedButton(
+                onPressed: _reset,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: winColor, side: BorderSide(color: winColor),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                ),
+                child: const Text('再来一局'),
+              )
+            else
+              Text(
+                '等待房主开始下一局…',
+                style: TextStyle(color: theme.btnSub, fontSize: 13),
               ),
-              child: const Text('再来一局'),
-            ),
           ]),
         ))),
       ])),

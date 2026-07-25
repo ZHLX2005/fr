@@ -72,6 +72,13 @@ class SgRoom {
     return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
   }
 
+  /// 从 snapshot 取 ready map（device_id → true）。用于 lobby 阶段显示双方 ACK 状态。
+  static Map<String, bool> readyMap(Snapshot? s) {
+    final raw = s?.context['ready'];
+    if (raw is! Map) return const {};
+    return raw.map((k, v) => MapEntry(k.toString(), v == true));
+  }
+
   /// 未决悔棋请求：{requester: did} 或 null
   static String? undoRequester(Snapshot? s) {
     final raw = s?.context['undo_pending'];
