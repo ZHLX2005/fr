@@ -15,7 +15,7 @@ description: Relay-v3 Lua 状态机接入指南。新增一个互联网房间业
 | [[team-card-lobby-pattern]] | **实现"大厅 + 身份 + 就绪门 + 双区"类业务时**（团建卡牌、狼人杀、谁是卧底、观众制直播、回合制棋牌）。包含 4 个可组合机制：私有身份分配（`assignments`）、ACK/UNACK 就绪门、双区槽位（`zones`）、SIT 换区。还含前端 `TeamCardRoom` 语义封装 + widget 分文件模板。 |
 | [[role-aware-board-mirror]] | **实现"对称对战棋盘"类业务时**（围追堵截/国际象棋/围棋/五子棋/军棋——双方都看到"自己在底部"）。这是**逐元素翻转决策**，不是统一镜像：触摸坐标手动镜像、确认按钮移出 flip 层、终局消息用角色推。含完整翻转决策表 + 围追堵截 4 轮 fix 踩坑时间线。 |
 | [[server-authoritative-client-state]] | **所有 v3 互联网房间业务的"上游原则"**——客户端"我是谁/谁赢了/谁是房主"不能自查，必须用服务端权威字段（`host_id`/`top_player_id`/`winner`）。含 3 类典型自查 bug 案例（imTop/WIN/isHost）+ 乐观更新合法用法 + 围追堵截踩坑时间线。**任何业务先读这一篇。** |
-| [[action-permission-table]] | **任何有按钮/操作约束的业务**——把"谁能做哪个 action"收敛到服务端 `c.action_permissions` 单一表 + `role_check` helper，客户端 `canPerform(action)` 单点消费，零特判代码。是 [[server-authoritative-client-state]] 的"怎么做"落地篇。含 5 种角色规则（any/host/current_player/non_current_player/non_requester）+ 服务端/客户端双保险 + 迁移步骤。 |
+| [[action-permission-table]] | ⚠️ **成熟期优化，前期不推荐**——当 action 多（≥5）、规则稳定、出现"无效按钮"UX bug 时才引入。把"谁能做哪个 action"收敛到服务端 `c.action_permissions` 单一表 + `role_check` helper，客户端 `canPerform(action)` 单点消费，零特判代码。是 [[server-authoritative-client-state]] 的"怎么做"落地篇。含 5 种角色规则 + 服务端/客户端双保险 + 迁移步骤 + ★何时引入判断。 |
 
 ---
 
@@ -307,7 +307,7 @@ await handle.applyAction(
 | **团建卡牌/狼人杀（大厅+身份+就绪+双区）** | 参照 [[team-card-lobby-pattern]] — 全套 4 机制 | 0 |
 | **对称对战棋盘（围追堵截/象棋/围棋，双方镜像视角）** | 参照 [[role-aware-board-mirror]] — 逐元素翻转决策表 | 0 |
 | **任何 v3 互联网房间**（必读） | **先用 [[server-authoritative-client-state]]** —— 角色/状态用服务端字段，不用客户端自查 | 0 |
-| **有按钮/操作约束的房间** | **用 [[action-permission-table]]** —— action_permissions 表驱动，客户端零特判 | 0 |
+| **有按钮/操作约束的房间**（成熟期） | [[action-permission-table]] —— action_permissions 表驱动（前期 action 少时用特判更快） | 0 |
 
 **零 Go 代码改动。**
 

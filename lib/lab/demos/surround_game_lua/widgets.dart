@@ -74,44 +74,50 @@ class _SetupPageState extends State<SetupPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.sports_esports, size: 64, color: Colors.orange),
-        const SizedBox(height: 16),
-        const Text('建房等对手',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-        const SizedBox(height: 24),
-        TextField(
-          controller: _aliasCtrl,
-          decoration: InputDecoration(
-            labelText: '昵称',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            labelStyle: const TextStyle(color: Colors.white60),
-            enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+  Widget build(BuildContext context) {
+    final theme = BoardTheme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.sports_esports, size: 64, color: theme.piecePlayerA),
+          const SizedBox(height: 16),
+          Text('建房等对手',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.btnText)),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _aliasCtrl,
+            decoration: InputDecoration(
+              labelText: '昵称',
+              filled: true,
+              fillColor: theme.panelBg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              labelStyle: TextStyle(color: theme.btnSub),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
+              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.piecePlayerA, width: 2)),
+            ),
+            style: TextStyle(color: theme.btnText),
           ),
-          style: const TextStyle(color: Colors.white),
-        ),
-        const SizedBox(height: 16),
-        if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _create,
-          icon: _busy
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.meeting_room),
-          label: Text(_busy ? '创建中…' : '创建房间'),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 50),
-            foregroundColor: Colors.orange,
-            side: const BorderSide(color: Colors.orange),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          const SizedBox(height: 16),
+          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _create,
+            icon: _busy
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.meeting_room),
+            label: Text(_busy ? '创建中…' : '创建房间'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 50),
+              foregroundColor: theme.piecePlayerA,
+              side: BorderSide(color: theme.piecePlayerA),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
           ),
-        ),
-      ]),
-    ),
-  );
+        ]),
+      ),
+    );
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -162,58 +168,67 @@ class _JoinPageState extends State<JoinPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: SingleChildScrollView(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.vpn_key_outlined, size: 64, color: Colors.blue),
-          const SizedBox(height: 16),
-          const Text('加入房间',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _aliasCtrl,
-            decoration: InputDecoration(
-              labelText: '昵称',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              labelStyle: const TextStyle(color: Colors.white60),
-              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+  Widget build(BuildContext context) {
+    final theme = BoardTheme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.vpn_key_outlined, size: 64, color: theme.piecePlayerB),
+            const SizedBox(height: 16),
+            Text('加入房间',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.btnText)),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _aliasCtrl,
+              decoration: InputDecoration(
+                labelText: '昵称',
+                filled: true,
+                fillColor: theme.panelBg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                labelStyle: TextStyle(color: theme.btnSub),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.piecePlayerB, width: 2)),
+              ),
+              style: TextStyle(color: theme.btnText),
             ),
-            style: const TextStyle(color: Colors.white),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _codeCtrl,
-            decoration: InputDecoration(
-              labelText: '房间码',
-              hintText: '6 位数字',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              labelStyle: TextStyle(color: Colors.white60),
-              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _codeCtrl,
+              decoration: InputDecoration(
+                labelText: '房间码',
+                hintText: '6 位数字',
+                filled: true,
+                fillColor: theme.panelBg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                labelStyle: TextStyle(color: theme.btnSub),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.piecePlayerB, width: 2)),
+              ),
+              style: TextStyle(color: theme.btnText),
+              keyboardType: TextInputType.number, maxLength: 6,
             ),
-            style: const TextStyle(color: Colors.white),
-            keyboardType: TextInputType.number, maxLength: 6,
-          ),
-          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _join,
-            icon: _busy
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.login),
-            label: Text(_busy ? '加入中…' : '加入'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50),
-              foregroundColor: Colors.blue,
-              side: const BorderSide(color: Colors.blue),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _join,
+              icon: _busy
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.login),
+              label: Text(_busy ? '加入中…' : '加入'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                foregroundColor: theme.piecePlayerB,
+                side: BorderSide(color: theme.piecePlayerB),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
             ),
-          ),
-        ]),
+          ]),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 // ══════════════════════════════════════════════════════════════

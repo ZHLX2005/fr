@@ -1,6 +1,8 @@
 # action-permission-table — "谁能做哪个 action"收敛到服务端单一表
 
-> 从 surround_game_lua（围追堵截）反复出现"客方显示无效按钮"UX bug 沉淀。适用于 **任何 v3 房间业务**：当你发现客户端按钮可点性靠散落特判（`if (isHost)` / `if (isMyTurn)`）维护时，就读这个 ref。
+> ⚠️ **这是成熟期优化，前期开发不推荐。** 当 action 少（≤3-4 个）、业务规则还在频繁变时，简单的 `if (isHost)` 特判更直接、迭代更快。表驱动是"约束散落导致 bug"的解药，不是开局就该上的基础设施。**何时引入见 §1。**
+
+> 从 surround_game_lua（围追堵截）反复出现"客方显示无效按钮"UX bug 沉淀。适用于 **action 类型多、规则趋于稳定的成熟业务**：当你发现客户端按钮可点性靠散落特判（`if (isHost)` / `if (isMyTurn)`）维护、且开始出现"无效按钮"类 bug 时，就读这个 ref。
 
 > 是 [[server-authoritative-client-state]] 的姊妹篇：那篇讲"**为什么**角色不能自查"，本篇讲"**怎么做**"——把 action 约束做成服务端表 + 客户端单点消费的完整落地模式。
 
@@ -12,7 +14,38 @@
 
 ---
 
-## 1. 反模式：客户端按钮特判散落
+## 1. ★ 何时引入 / 何时不该用（必读）
+
+### ❌ 前期开发不要用
+
+| 场景 | 为什么不该用 |
+|------|-------------|
+| action 类型 ≤3-4 个 | 一两处 `if (isHost)` 特判直接、易读，表驱动反而绕 |
+| 业务规则每周都在变 | 改表 + 改 role_check + 改 canPerform 三处，比改一处特判慢 |
+| 原型 / demo / hackathon | 速度优先，约束散落暂时无害 |
+| 没有安全顾虑（内部工具） | 不需要"防绕过 UI"双保险 |
+
+**过早抽象的代价**：写完权限表发现规则不对，又要拆掉重来；或业务方向变了，表里一堆废弃规则。YAGNI。
+
+### ✅ 该引入的信号
+
+当你**第二次**遇到以下任一情况，就该考虑引入：
+
+1. **第二次写** `if (isHost) showButton() else showText()` —— 特判开始散落
+2. **第一次出现**"客方显示无效按钮"UX bug —— 约束和服务端校验已经不一致
+3. **action 类型 ≥5 个** —— 特判散落成本超过表驱动成本
+4. **业务规则稳定 ≥2 周** —— 表不会频繁返工
+5. **有黑客单独构造 HTTP 请求绕过 UI 的风险** —— 需要服务端权威校验
+
+### 渐进式引入
+
+不必一次到位：
+- **第一阶段**：客户端继续特判，但**服务端 handler 加 `role_check`**（只防安全，不动 UX）
+- **第二阶段**：UX bug 出现后，再把客户端特判换成 `canPerform`
+
+---
+
+## 2. 反模式：客户端按钮特判散落
 
 ```dart
 // ❌ 每个按钮位置写一次特判
@@ -37,7 +70,7 @@ if (isRunning && _isMyTurn)
 
 ---
 
-## 2. 正模式：服务端表 + role_check + canPerform
+## 3. 正模式：服务端表 + role_check + canPerform
 
 ### ① Lua on_init 写权限表（单点真相）
 
@@ -139,7 +172,7 @@ final canMountTouch = _snap?.state == 'playing' && _canPerform('MOVE');
 
 ---
 
-## 3. 5 种角色规则速查
+## 4. 5 种角色规则速查
 
 | 规则 | 含义 | 典型 action |
 |------|------|------------|
@@ -153,7 +186,7 @@ final canMountTouch = _snap?.state == 'playing' && _canPerform('MOVE');
 
 ---
 
-## 4. 关键洞察：为什么 `non_current_player` ≠ `current_player`
+## 5. 关键洞察：为什么 `non_current_player` ≠ `current_player`
 
 悔棋请求的发起方是**刚下完那一步的人**——他不是"当前回合方"（当前回合已切到对手）。
 
@@ -166,7 +199,7 @@ host 走第一步 → 轮到 guest → host 是"刚下完" → host 能请求悔
 
 ---
 
-## 5. 服务端 handler 还要不要保留状态校验？
+## 6. 服务端 handler 还要不要保留状态校验？
 
 **要**。`role_check` 只校验"角色权限"，不校验"状态合法性"：
 
@@ -185,7 +218,7 @@ end
 
 ---
 
-## 6. 客户端 canPerform 与服务端 role_check 的关系
+## 7. 客户端 canPerform 与服务端 role_check 的关系
 
 **镜像同一张表，但用途不同**：
 
@@ -200,7 +233,7 @@ end
 
 ---
 
-## 7. 测试策略（verify_lua_drivers.py）
+## 8. 测试策略（verify_lua_drivers.py）
 
 每个权限规则至少一个测试 case：
 
@@ -223,7 +256,7 @@ def test_action_permissions():
 
 ---
 
-## 8. 迁移步骤（从特判重构到表驱动）
+## 9. 迁移步骤（从特判重构到表驱动）
 
 1. **Lua**：`on_init` 加 `c.action_permissions` 表，列出所有 action 的规则
 2. **Lua**：加 `role_check(c, p, action)` helper，覆盖所有规则
@@ -235,7 +268,7 @@ def test_action_permissions():
 
 ---
 
-## 9. 反模式速查
+## 10. 反模式速查
 
 | ❌ 错误 | 后果 | ✅ 正确 |
 |--------|------|---------|
@@ -248,7 +281,7 @@ def test_action_permissions():
 
 ---
 
-## 10. 收益清单
+## 11. 收益清单
 
 - ✅ **加新 action 零客户端改动**：Lua 加一行权限规则 + handler 校验，客户端 `canPerform('NEW')` 自动生效
 - ✅ **"无效按钮"UX bug 从根上消除**：按钮可点性真相在服务端 snapshot
@@ -257,7 +290,7 @@ def test_action_permissions():
 
 ---
 
-## 11. 与其他 ref 的协作
+## 12. 与其他 ref 的协作
 
 | 场景 | 先读 |
 |------|------|

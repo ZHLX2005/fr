@@ -12,6 +12,7 @@
 
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
+import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'surround_game_lua/engine.dart' show RoomHandle;
 import 'surround_game_lua/widgets.dart' show SetupPage, JoinPage, OnlineGamePage;
 
@@ -56,13 +57,18 @@ class _SurroundGameLuaPageState extends State<SurroundGameLuaPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 用棋盘主题色（暖色 BoardTheme.warm），避免一进 demo 就纯黑、与游戏内色调脱节
+    final theme = BoardTheme.of(context);
+    final bg = theme.boardSurface;
+    final panelText = theme.btnText;
     if (_handle != null) {
       return Scaffold(
-        backgroundColor: Colors.grey.shade900,
+        backgroundColor: bg,
         appBar: AppBar(
           title: const Text('围追堵截'),
-          backgroundColor: Colors.grey.shade900,
-          foregroundColor: Colors.white70,
+          backgroundColor: bg,
+          foregroundColor: panelText,
+          elevation: 0,
         ),
         body: OnlineGamePage(
           handle: _handle!, isHostSide: _isHostSide, onLeave: _disconnect,
@@ -70,11 +76,12 @@ class _SurroundGameLuaPageState extends State<SurroundGameLuaPage> {
       );
     }
     return Scaffold(
-      backgroundColor: Colors.grey.shade900,
+      backgroundColor: bg,
       appBar: AppBar(
         title: const Text('围追堵截'),
-        backgroundColor: Colors.grey.shade900,
-        foregroundColor: Colors.white70,
+        backgroundColor: bg,
+        foregroundColor: panelText,
+        elevation: 0,
       ),
       body: Column(children: [
         Padding(
