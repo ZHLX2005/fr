@@ -684,12 +684,13 @@ class _LobbyView extends StatelessWidget {
     final code = snap?.roomCode ?? '------';
     final state = snap?.state ?? 'lobby';
     final readyMap = (snap?.context['ready'] as Map?) ?? const {};
-    // 人数差 = 容量 - 当前在场（房主旁观时房主不算牌位，但占一个 join 槽位）
+    // 圆环总槽数 = max(牌数, 当前在场)，保证房主旁观时也有位置
     final have = players.length;
+    final slotCount = capacity > 0 ? capacity : have;
     final readyCount = readyMap.values.where((v) => v == true).length;
     final allReady = state == 'ready';
     final canDeal = isHost && allReady;
-    final slotDiff = (capacity - have).clamp(0, capacity);
+    final slotDiff = (slotCount - have).clamp(0, slotCount);
     final readyDiff = (capacity - readyCount).clamp(0, capacity);
 
     return ListView(
@@ -704,7 +705,7 @@ class _LobbyView extends StatelessWidget {
               Text(
                 state == 'ready'
                     ? '已就绪 · 房主可以开始'
-                    : (capacity == 0
+                    : (slotCount == 0
                         ? '等待玩家加入…'
                         : (slotDiff > 0
                             ? '已加入 $have / $capacity · 还差 $slotDiff 人'
@@ -723,7 +724,7 @@ class _LobbyView extends StatelessWidget {
         ),
         const SizedBox(height: 32),
         LobbyParticipants(
-          capacity: capacity,
+          capacity: slotCount,
           participants: players,
           readyMap: (snap?.context['ready'] as Map?)?.map(
             (k, v) => MapEntry(k.toString(), v == true),
