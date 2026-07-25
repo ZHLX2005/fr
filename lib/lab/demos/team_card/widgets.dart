@@ -178,24 +178,28 @@ class _SetupPageState extends State<SetupPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                _totalRoles >= _playerSlots
+                _totalRoles == _playerSlots
                     ? '共 $_totalRoles 人 ✓'
-                    : '还差 ${_playerSlots - _totalRoles} 人',
+                    : (_totalRoles < _playerSlots
+                        ? '还差 ${_playerSlots - _totalRoles} 人'
+                        : '超出 ${_totalRoles - _playerSlots} 人'),
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
-                    color: _totalRoles >= _playerSlots
+                    color: _totalRoles == _playerSlots
                         ? theme.colorScheme.onPrimaryContainer
                         : theme.colorScheme.error),
               ),
             ),
           ],
         ),
-        if (_totalRoles < _playerSlots)
+        if (_totalRoles != _playerSlots)
           Padding(
             padding: const EdgeInsets.only(top: 4, bottom: 8),
             child: Text(
-              '至少需要 $_playerSlots 张身份牌（匹配玩家区人数）',
+              _totalRoles < _playerSlots
+                  ? '至少需要 $_playerSlots 张身份牌（匹配玩家区人数）'
+                  : '身份牌 ($_totalRoles) 超出玩家区人数 ($_playerSlots) 了',
               style: TextStyle(fontSize: 11, color: theme.colorScheme.error),
             ),
           ),
@@ -281,7 +285,7 @@ class _SetupPageState extends State<SetupPage> {
           ),
         const SizedBox(height: 24),
         OutlinedButton.icon(
-          onPressed: _busy || _totalRoles < _playerSlots ? null : _create,
+          onPressed: _busy || _totalRoles != _playerSlots ? null : _create,
           icon: _busy
               ? const SizedBox(
                   width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
