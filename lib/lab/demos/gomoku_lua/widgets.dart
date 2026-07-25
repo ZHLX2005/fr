@@ -247,8 +247,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   GomokuBoard _board = const [];
   /// 本地乐观状态：lobby 阶段点了"准备好了"立即置 true。
   bool _ackedLocally = false;
-  /// 触摸悬停预览的交点
-  (int, int)? _hoverPoint;
+  /// 待确认落子点：点击空交点后进入待确认，确认才发 MOVE。
+  /// null = 无待确认。回合切换/对手落子时自动清除。
+  (int, int)? _pendingPoint;
 
   late final GomokuRoom _room;
 
@@ -263,10 +264,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
+    // 回合切换（落子数变化）→ 清掉待确认状态，防止跨回合残留
+    final prevMoveCount = _moves.length;
     setState(() {
       _snap = s;
       _rebuild(s);
     });
+    if (_moves.length != prevMoveCount && _pendingPoint != null) {
+      setState(() => _pendingPoint = null);
+    }
     if (_ackedLocally && (s.state != 'lobby' && s.state != 'ready')) {
       setState(() => _ackedLocally = false);
     }
@@ -318,18 +324,37 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   Future<void> _deal() async => _room.deal();
-  Future<void> _reset() async => _room.reset();
-
-  /// 落子：触摸坐标 → 最近交点 → MOVE。当前回合方 + 空格才落。
-  Future<void> _placeStone(Offset localPos, double side) {
-    if (!_isMyTurn) return Future.value();
-    if (_snap?.state != 'playing') return Future.value();
-    final point = _pointFromLocal(localPos, side);
-    if (point == null) return Future.value();
-    final (x, y) = point;
-    if (_board[y][x] != 0) return Future.value();  // 已有子
-    return _room.move(GomokuMove(x: x, y: y, isBlack: _imBlack));
+  Future<void> _reset() async {
+    setState(() => _pendingPoint = null);
+    await _room.reset();
   }
+
+  /// 点击交点 → 进入待确认（不直接落子）。当前回合方 + 空格才接受。
+  /// 再次点击同一交点 = 取消；点击别的空交点 = 改主意切换。
+  void _setPending(Offset localPos, double side) {
+    if (!_isMyTurn) return;
+    if (_snap?.state != 'playing') return;
+    final point = _pointFromLocal(localPos, side);
+    if (point == null) return;
+    final (x, y) = point;
+    if (_board[y][x] != 0) return;  // 已有子
+    setState(() {
+      _pendingPoint = (_pendingPoint == (x, y)) ? null : (x, y);
+    });
+  }
+
+  /// 确认落子 → 发 MOVE + 清 pending。
+  Future<void> _confirmMove() async {
+    final p = _pendingPoint;
+    if (p == null) return;
+    if (!_isMyTurn) { setState(() => _pendingPoint = null); return; }
+    final (x, y) = p;
+    if (_board[y][x] != 0) { setState(() => _pendingPoint = null); return; }
+    setState(() => _pendingPoint = null);
+    await _room.move(GomokuMove(x: x, y: y, isBlack: _imBlack));
+  }
+
+  void _cancelPending() => setState(() => _pendingPoint = null);
 
   /// 触摸坐标 → 最近交点 (x, y)。落点在 padding 外返回 null。
   (int, int)? _pointFromLocal(Offset pos, double side) {
@@ -482,35 +507,27 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     return Scaffold(
       backgroundColor: theme.boardSurface,
       body: SafeArea(child: Column(children: [
-        // 顶部状态条：轮到谁
+        // 顶部状态条：轮到谁 / 待确认提示
         _buildTurnBar(theme),
         Expanded(
           child: Center(child: LayoutBuilder(builder: (context, constraints) {
             final side = constraints.biggest.shortestSide;
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTapDown: (d) {
-                // 落子（点击即落，五子棋无需确认）
-                _placeStone(d.localPosition, side);
-              },
-              onPanUpdate: (d) {
-                // 悬停预览（仅当前回合方）
-                if (!_isMyTurn) return;
-                final p = _pointFromLocal(d.localPosition, side);
-                if (p != _hoverPoint) setState(() => _hoverPoint = p);
-              },
-              onPanEnd: (_) {
-                if (_hoverPoint != null) setState(() => _hoverPoint = null);
-              },
+              // 点击空交点 → 进入待确认（不直接落子，需确认按钮）
+              onTapDown: (d) => _setPending(d.localPosition, side),
               child: GomokuBoardWidget(
                 board: _board,
                 lastMove: _moves.isEmpty ? null : (_moves.last.x, _moves.last.y),
-                previewPoint: _isMyTurn ? _hoverPoint : null,
+                // 待确认时显示半透明预览子（仅当前回合方）
+                previewPoint: (_isMyTurn && _pendingPoint != null) ? _pendingPoint : null,
                 previewIsBlack: _imBlack,
               ),
             );
           })),
         ),
+        // 待确认时的确认/取消按钮条
+        if (_pendingPoint != null) _buildConfirmBar(theme),
         // 底部操作栏
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -537,6 +554,17 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final myLabel = _imBlack ? '黑方' : '白方';
     final turnColor = blackTurn ? _blackColor : _whiteColor;
     final turnLabel = blackTurn ? '黑方' : '白方';
+    // 待确认时改文案，提示用户确认或换点
+    final String statusText;
+    if (_pendingPoint != null && isMine) {
+      final (px, py) = _pendingPoint!;
+      // 棋谱坐标：列 A-O，行 1-15（从下往上）— 视觉直观
+      final colLabel = String.fromCharCode('A'.codeUnitAt(0) + px);
+      final rowLabel = kGomokuSize - py;
+      statusText = '落子 $colLabel$rowLabel？点别处改点';
+    } else {
+      statusText = isMine ? '轮到你（$myLabel）落子' : '等待 $turnLabel 落子…';
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -545,7 +573,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         Icon(Icons.circle, size: 14, color: turnColor),
         const SizedBox(width: 8),
         Text(
-          isMine ? '轮到你（$myLabel）落子' : '等待 $turnLabel 落子…',
+          statusText,
           style: TextStyle(color: theme.btnText, fontSize: 14, fontWeight: FontWeight.w500),
         ),
         const SizedBox(width: 8),
@@ -554,6 +582,39 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           width: 12, height: 12,
           decoration: BoxDecoration(color: myColor, shape: BoxShape.circle,
             border: Border.all(color: theme.panelBorder)),
+        ),
+      ]),
+    );
+  }
+
+  /// 待确认时的确认/取消按钮条。
+  Widget _buildConfirmBar(BoardThemeData theme) {
+    final myColor = _imBlack ? _blackColor : _whiteColor;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        OutlinedButton.icon(
+          onPressed: _cancelPending,
+          icon: const Icon(Icons.close, size: 18),
+          label: const Text('取消'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.red.shade400,
+            side: BorderSide(color: Colors.red.shade400),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          ),
+        ),
+        const SizedBox(width: 16),
+        ElevatedButton.icon(
+          onPressed: _confirmMove,
+          icon: const Icon(Icons.check, size: 18, color: Colors.white),
+          label: const Text('确认落子', style: TextStyle(color: Colors.white)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: myColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          ),
         ),
       ]),
     );
