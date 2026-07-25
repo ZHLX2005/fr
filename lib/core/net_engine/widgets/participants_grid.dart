@@ -56,6 +56,12 @@ class LobbyParticipants extends StatelessWidget {
   final List<Color> colors;
   final double slotSize;
 
+  /// 实际参与者数量（排除旁观者）
+  int get activeCount {
+    if (spectatorIds == null || spectatorIds!.isEmpty) return participants.length;
+    return participants.keys.where((k) => !spectatorIds!.contains(k)).length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -172,7 +178,7 @@ class LobbyParticipants extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '${participants.length}/$capacity',
+                  '$activeCount/$capacity',
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
                 ),
               ],
