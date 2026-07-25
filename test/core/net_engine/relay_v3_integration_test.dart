@@ -2,12 +2,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
 const _script = '''
+on_init = function(c, p) c.messages = {}; return c end
+on_join = function(c, p) return c end
+on_leave = function(c, p) return c end
+on_action_CHAT = function(c, p) table.insert(c.messages, p); return c end
 return {
   definition = { functions = { "on_init", "on_join", "on_leave", "on_action_CHAT" } },
-  on_init = function(c, p) c.messages = {}; return c end,
-  on_join = function(c, p) return c end,
-  on_leave = function(c, p) return c end,
-  on_action_CHAT = function(c, p) table.insert(c.messages, p); return c end,
+  on_init = on_init,
+  on_join = on_join,
+  on_leave = on_leave,
+  on_action_CHAT = on_action_CHAT,
 }
 ''';
 
