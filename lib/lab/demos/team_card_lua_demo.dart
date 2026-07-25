@@ -715,6 +715,9 @@ class _LobbyView extends StatelessWidget {
         LobbyParticipants(
           capacity: capacity,
           participants: players,
+          readyMap: (snap?.context['ready'] as Map?)?.map(
+            (k, v) => MapEntry(k.toString(), v == true),
+          ),
         ),
         const SizedBox(height: 24),
         // 准备好了 / 取消准备 按钮（互斥切换）

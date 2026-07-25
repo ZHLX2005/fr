@@ -34,6 +34,7 @@ const kParticipantColors = [
 ///
 /// [capacity] 房间总人数
 /// [participants] 已就绪玩家（deviceId → alias），按 Map 插入顺序显示
+/// [readyMap] 各玩家准备状态（deviceId → true/false），默认全 true
 /// [colors] 颜色表，默认 [kParticipantColors]
 /// [slotSize] 圆环直径，默认 66
 class LobbyParticipants extends StatelessWidget {
@@ -41,12 +42,14 @@ class LobbyParticipants extends StatelessWidget {
     super.key,
     required this.capacity,
     required this.participants,
+    this.readyMap,
     this.colors = kParticipantColors,
     this.slotSize = 66,
   });
 
   final int capacity;
   final Map<String, String> participants;
+  final Map<String, bool>? readyMap;
   final List<Color> colors;
   final double slotSize;
 
@@ -63,6 +66,7 @@ class LobbyParticipants extends StatelessWidget {
       if (i < entries.length) {
         final e = entries[i];
         final color = colors[i % colors.length];
+        final isReady = readyMap?[e.key] == true;
         slots.add(_AnimatedSlot(
           delay: delay,
           child: Column(
@@ -76,12 +80,18 @@ class LobbyParticipants extends StatelessWidget {
                     colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.08)],
                   ),
                   shape: BoxShape.circle,
-                  border: Border.all(color: color.withValues(alpha: 0.5), width: 2.5),
-                  boxShadow: [
+                  border: Border.all(
+                    color: isReady
+                        ? Colors.green.shade400.withValues(alpha: 0.9)
+                        : color.withValues(alpha: 0.35),
+                    width: isReady ? 3.5 : 2.0,
+                    strokeAlign: BorderSide.strokeAlignInside,
+                  ),
+                  boxShadow: !isReady ? [] : [
                     BoxShadow(
-                      color: color.withValues(alpha: 0.15),
-                      blurRadius: 8,
-                      spreadRadius: 1,
+                      color: Colors.green.shade400.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
@@ -91,7 +101,7 @@ class LobbyParticipants extends StatelessWidget {
                     style: TextStyle(
                       fontSize: slotSize * 0.4,
                       fontWeight: FontWeight.bold,
-                      color: color,
+                      color: isReady ? Colors.green.shade400 : color,
                     ),
                   ),
                 ),
@@ -102,12 +112,17 @@ class LobbyParticipants extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface,
+                  color: isReady
+                      ? Colors.green.shade700
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
               Text(
-                '已就绪',
-                style: TextStyle(fontSize: 10, color: Colors.green.shade400),
+                isReady ? '已准备' : '未准备',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isReady ? Colors.green.shade400 : theme.colorScheme.outline,
+                ),
               ),
             ],
           ),
@@ -200,7 +215,11 @@ class _AnimatedSlotState extends State<_AnimatedSlot> with SingleTickerProviderS
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, child) => Transform.scale(scale: _anim.value, child: Opacity(opacity: _anim.value, child: child)),
+      builder: (_, child) {
+        // easeOutBack 会短暂 > 1.0（overshoot），opacity 必须 clamp
+        final v = _anim.value.clamp(0.0, 1.0);
+        return Transform.scale(scale: _anim.value, child: Opacity(opacity: v, child: child));
+      },
       child: widget.child,
     );
   }
