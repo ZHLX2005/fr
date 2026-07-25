@@ -13,7 +13,6 @@ import 'package:flutter/material.dart';
 import 'constants.dart';
 import 'engine.dart' show SgRoom, QuoridorEngine, GameState, MoveRecord,
     GameStatus, Snapshot, RoomHandle, RelayV3Transport, kSurroundGameScript;
-import 'touch_controller.dart' show SgHostTouchController;
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/surround_game/surround_game_constants.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/chess_board.dart';
@@ -244,7 +243,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Snapshot? _snap;
   GameState _gs = QuoridorEngine.initialize();
   late final SgRoom _room;
-  TouchController _touchCtrl = TouchController();  // host 端会换成 SgHostTouchController
+  TouchController _touchCtrl = TouchController();  // 仅在 _ensureTouchController 里首次校准；host 端在坐标回调里镜像
   String? _lastUndoRequester;
 
   @override
@@ -322,13 +321,28 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   // ── 触摸 ──
 
+  /// 把 Listener 内的 localPosition 转成"棋盘规范坐标系"的 localPosition。
+  ///
+  /// host 端棋盘经 Transform.flip(flipY: true) 视觉翻转，但 Listener 在
+  /// Transform.flip 之外 —— event.localPosition 是 Stack 局部坐标，与视觉
+  /// 是否翻转无关。所以棋盘视觉顶部对应 Listener 的 y=0（视觉上 = 对方棋子），
+  /// 棋盘视觉底部对应 y=boardSize（视觉上 = 自己棋子）。
+  ///
+  /// 服务端存规范坐标：host 自己 = 规范 y=0。所以必须把 localPosition 沿
+  /// boardSize 中线镜像后，才等同于"按规范坐标系看视觉棋盘"。
+  Offset _canonicalLocalPosition(Offset pos) =>
+      _flipY ? Offset(pos.dx, _boardSizePx - pos.dy) : pos;
+
+  /// 棋盘当前像素边长（Stack 内 Listener 的坐标系全长）
+  double _boardSizePx = 0;
+
   void _onPointerDown(Offset pos, double cs, double dist) {
     if (!_isMyTurn) return;
     final gs = _gs;
     final currentId = gs.currentPlayerIsTop ? gs.topPlayerId : gs.bottomPlayerId;
     final wallsPlaced = gs.currentPlayerIsTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
     final remaining = SurroundGameConstants.wallCountPerPlayer - wallsPlaced;
-    _touchCtrl.handleTouchBegan(pos, cs, dist,
+    _touchCtrl.handleTouchBegan(_canonicalLocalPosition(pos), cs, dist,
       isRunning: gs.status == GameStatus.running,
       currentPlayerId: currentId,
       canPlaceWall: remaining > 0,
@@ -339,13 +353,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void _onPointerMove(Offset pos, double cs, double dist) {
     if (!_isMyTurn) return;
-    _touchCtrl.handleTouchMoved(pos, cs, dist, validateWall: _validateWall);
+    _touchCtrl.handleTouchMoved(_canonicalLocalPosition(pos), cs, dist, validateWall: _validateWall);
     setState(() {});
   }
 
   void _onPointerUp(Offset pos, double cs, double dist) {
     if (!_isMyTurn) return;
-    _touchCtrl.handleTouchEnded(pos, cs, dist,
+    _touchCtrl.handleTouchEnded(_canonicalLocalPosition(pos), cs, dist,
       isTopTurn: _gs.currentPlayerIsTop,
       validMoves: _gs.validMoves,
       validateWall: _validateWall,
@@ -548,6 +562,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         final w = constraints.maxWidth;
         final cs = w / 11;
         final boardSize = w;
+        _boardSizePx = boardSize;  // 给触摸坐标镜像用
         // host 端：touch controller 用镜像版；client 端用基线
         _ensureTouchController(boardSize);
 
@@ -596,13 +611,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   void _ensureTouchController(double boardSize) {
-    if (_flipY) {
-      if (_touchCtrl is! SgHostTouchController ||
-          (_touchCtrl as dynamic).boardSize != boardSize) {
-        _touchCtrl = SgHostTouchController(boardSize: boardSize);
-      }
-    } else {
-      // client 端：用基线
+    // 只在首次或类型不对时重建，避免每次 build 重置触摸状态（client 端尤其严重）。
+    if (_touchCtrl is! TouchController) {
       _touchCtrl = TouchController();
     }
   }
