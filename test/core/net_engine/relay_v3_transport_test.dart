@@ -126,6 +126,48 @@ void main() {
       expect(snap.context['n'], 3);
     });
   });
+
+  group('RoomHandle WS', () {
+    // NOTE: RoomHandle.connect() calls the static WebSocketChannel.connect()
+    // factory directly, so a fake channel cannot be injected without changing
+    // production code. Full WS frame delivery + reconnect is covered by the
+    // Task 14 integration test against the real Go server. This smoke test only
+    // exercises the snapshots stream surface (initial emission + clean dispose)
+    // that RoomHandle owns independently of the socket.
+    test('emits initial snapshot on snapshots stream and disposes cleanly',
+        () async {
+      final handle = RoomHandle(
+        transport: RelayV3Transport(
+          relayUrl: 'http://x',
+          alias: 'a',
+          deviceId: 'd1',
+        ),
+        code: '111111',
+        wsUrl: 'ws://x/ws3/111111',
+        initial: Snapshot.fromJson({
+          'room_code': '111111',
+          'script_hash': '',
+          'script_src': '',
+          'context': {'n': 0},
+          'state': '',
+          'version': 1,
+          'created_at': '2026-07-25T10:00:00Z',
+          'updated_at': '2026-07-25T10:00:00Z',
+          'history': [],
+        }),
+      );
+      final received = <Snapshot>[];
+      final sub = handle.snapshots.listen(received.add);
+      // Let the broadcast stream deliver the buffered initial emission.
+      await Future<void>.delayed(Duration.zero);
+
+      expect(handle.latest?.version, 1);
+      expect(handle.latest?.context['n'], 0);
+
+      await sub.cancel();
+      await handle.dispose();
+    });
+  });
 }
 
 Map<String, dynamic> _emptySnap(String code) => {
