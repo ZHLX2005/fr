@@ -401,15 +401,20 @@ class _SetupPageState extends State<_SetupPage> {
             child: Text(_error!, style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
           ),
         const SizedBox(height: 24),
-        FilledButton.icon(
+        OutlinedButton.icon(
           onPressed: _busy ? null : _create,
           icon: _busy
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.meeting_room),
           label: Text(_busy ? '创建中…' : '创建房间'),
-          style: FilledButton.styleFrom(
+          style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            side: BorderSide(
+              color: _busy ? theme.colorScheme.outlineVariant : theme.colorScheme.primary,
+              width: 1.5,
+            ),
+            foregroundColor: _busy ? theme.colorScheme.outline : theme.colorScheme.primary,
           ),
         ),
       ],
@@ -500,15 +505,20 @@ class _JoinPageState extends State<_JoinPage> {
         if (_error != null)
           Text(_error!, style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
         const SizedBox(height: 16),
-        FilledButton.icon(
+        OutlinedButton.icon(
           onPressed: _busy ? null : _join,
           icon: _busy
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.login),
           label: Text(_busy ? '加入中…' : '加入'),
-          style: FilledButton.styleFrom(
+          style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            side: BorderSide(
+              color: _busy ? theme.colorScheme.outlineVariant : theme.colorScheme.primary,
+              width: 1.5,
+            ),
+            foregroundColor: _busy ? theme.colorScheme.outline : theme.colorScheme.primary,
           ),
         ),
       ],
@@ -729,48 +739,67 @@ class _LobbyView extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 52),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              side: const BorderSide(color: Colors.orange, width: 1.5),
+              foregroundColor: Colors.orange,
             ),
           )
         else
-          FilledButton.tonalIcon(
+          OutlinedButton.icon(
             onPressed: onAck,
-            icon: const Icon(Icons.check_circle_outline),
+            icon: const Icon(Icons.check_circle_outlined),
             label: const Text('准备好了'),
-            style: FilledButton.styleFrom(
+            style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 52),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              side: BorderSide(color: Colors.green.shade400, width: 1.5),
+              foregroundColor: Colors.green.shade600,
             ),
           ),
         const SizedBox(height: 12),
         if (isHost) Row(
           children: [
             Expanded(
-              child: FilledButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: canDeal && !busy ? onDeal : null,
-                icon: busy
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.style),
+                icon: Icon(
+                  busy ? null : Icons.style,
+                  color: canDeal && !busy ? theme.colorScheme.primary : null,
+                ),
                 label: Text(busy ? '发牌中…' : '开始发牌'),
-                style: FilledButton.styleFrom(
+                style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  side: BorderSide(
+                    color: canDeal ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            IconButton.filledTonal(
+            OutlinedButton(
               onPressed: onReset,
-              icon: const Icon(Icons.refresh),
-              tooltip: '重新发牌',
+              style: OutlinedButton.styleFrom(
+                shape: const CircleBorder(),
+                side: const BorderSide(color: Colors.teal, width: 1.5),
+                foregroundColor: Colors.teal,
+                minimumSize: const Size(52, 52),
+              ),
+              child: const Icon(Icons.refresh),
             ),
           ],
         ),
         const SizedBox(height: 8),
         Center(
-          child: TextButton.icon(
+          child: OutlinedButton.icon(
             onPressed: onLeave,
             icon: const Icon(Icons.exit_to_app),
             label: const Text('离开房间'),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: theme.colorScheme.outlineVariant, width: 1),
+              foregroundColor: theme.colorScheme.outline,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ),
       ],
