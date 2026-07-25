@@ -504,7 +504,9 @@ class _PlayingViewState extends State<PlayingView> {
       onUnack: _amSpectator ? null : _engine.unack,
       onDeal: _engine.deal,
       onReset: _engine.reset,
-      onMoveZone: (zone) => _engine.sit(zone: zone),
+      onMoveZone: _amSpectator
+          ? () => _engine.sit(zone: 'player')
+          : () => _engine.sit(zone: 'spectator'),
       onLeave: widget.onLeave,
       players: extractStringMap(_snap, 'players'),
       zoneMap: extractStringMap(_snap, 'zones'),
@@ -544,7 +546,7 @@ class LobbyView extends StatelessWidget {
   final bool isHost, busy;
   final VoidCallback? onAck, onUnack;
   final Future<void> Function() onDeal, onReset;
-  final Future<void> Function(String zone)? onMoveZone;
+  final VoidCallback? onMoveZone;
   final Future<void> Function() onLeave;
   final Map<String, String> players, zoneMap;
   final int playerSlots, spectatorSlots;
@@ -647,7 +649,7 @@ class LobbyView extends StatelessWidget {
         // 换区按钮
         if (onMoveZone != null && spectatorSlots > 0 && playerSlots > 0) ...[
           OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: onMoveZone,
             icon: const Icon(Icons.swap_horiz),
             label: const Text('换区'),
             style: OutlinedButton.styleFrom(
