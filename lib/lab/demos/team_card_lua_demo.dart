@@ -642,8 +642,8 @@ class _PlayingViewState extends State<_PlayingView> {
     final capacity = widget.hostCapacity > 0
         ? widget.hostCapacity
         : snapCap;
-    final masterJoins = (s?.context['master_joins'] as bool?) ?? true;
-    final hostId = s?.context['host_id']?.toString();
+    // 旁观者由 Lua 状态机管理，Lua 在 on_init 写 c.spectators
+    final rawSpectators = s?.context['spectators'];
 
     return _LobbyView(
       snap: s,
@@ -656,8 +656,8 @@ class _PlayingViewState extends State<_PlayingView> {
       onLeave: widget.onLeave,
       players: _players(),
       capacity: capacity,
-      spectatorIds: (!masterJoins && hostId != null)
-          ? {hostId}
+      spectatorIds: rawSpectators is Map
+          ? rawSpectators.keys.cast<String>().toSet()
           : const {},
       isMeReady: _isMeReady(),
     );

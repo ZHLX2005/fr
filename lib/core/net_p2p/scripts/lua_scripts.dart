@@ -187,6 +187,10 @@ on_init = function(c, p)
   if #c.roles == 0 then
     c.roles = { { label = "平民", count = 4 } }
   end
+  c.spectators = c.spectators or {}
+  if p.master_joins == false then
+    c.spectators[p.device_id] = true
+  end
   c.max_players = 0
   for _, r in ipairs(c.roles) do
     c.max_players = c.max_players + (r.count or 0)
