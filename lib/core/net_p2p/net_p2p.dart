@@ -3,4 +3,4 @@ library;
 
 export 'net_p2p_discovery_host.dart';
 export 'net_p2p_message.dart';
-export 'scripts/lua_scripts.dart';
+export 'scripts/lobby_chat_script.dart';

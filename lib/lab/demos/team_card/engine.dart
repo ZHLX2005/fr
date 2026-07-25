@@ -2,16 +2,16 @@
 // 团建卡牌 — Lua 状态机封装 + 语义动作方法
 //
 // 提供：
-//   - kTeamCardScript（从 lua_scripts.dart 引用）
+//   - kTeamCardScript（从 team_card_script.dart 引用，脚本随本 demo 走）
 //   - TeamCardRoom — 围绕 RoomHandle 的语义封装
 //
 // 调用方只用语义方法如 ack(), sit(), deal(), reset() 等，
 // 不直接接触 applyAction。
 
-import 'package:xiaodouzi_fr/core/net_p2p/scripts/lua_scripts.dart';
+import 'team_card_script.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
-export 'package:xiaodouzi_fr/core/net_p2p/scripts/lua_scripts.dart' show kTeamCardScript;
+export 'team_card_script.dart' show kTeamCardScript;
 export 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show Snapshot, RoomHandle, RelayV3Transport;
 

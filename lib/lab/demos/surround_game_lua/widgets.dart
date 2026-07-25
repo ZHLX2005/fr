@@ -258,10 +258,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
+    final prevMyTurn = _isMyTurn;
     setState(() {
       _snap = s;
       _rebuildGs(s);
     });
+    // 回合切换时，清掉残留的触摸/确认状态（防止按钮卡在 confirming）
+    if (prevMyTurn && !_isMyTurn) {
+      _touchCtrl.reset();
+      setState(() {});
+    }
     _maybeShowUndoIncomingDialog();
   }
 
@@ -291,14 +297,20 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   bool get _flipY => widget.isHostSide;
 
+  /// "我是不是 top player" — 用服务端权威字段 top_player_id 推导。
+  /// 与"我是 host"等价，但语义独立：万一未来出现"host 旁观、玩家换人"的场景，
+  /// 这个标志仍然正确表达"我在棋盘上对应 top/bottom"。
+  bool get _imTop {
+    final topId = SgRoom.topPlayerId(_snap);
+    if (topId == null) return false;
+    return _room.deviceId == topId;
+  }
+
   /// 当前回合是否轮到自己
-  /// host 端：自己 = top player（isTop=true）
-  /// client 端：自己 = bottom player（isTop=false）
+  /// 通用语义：`imTop == gs.currentPlayerIsTop`（与 host/client 视角无关）
   bool get _isMyTurn {
-    final hostId = SgRoom.hostId(_snap);
-    if (hostId == null) return false;
-    final imHost = _room.deviceId == hostId;
-    return imHost == _gs.currentPlayerIsTop;
+    if (_snap == null) return false;
+    return _imTop == _gs.currentPlayerIsTop;
   }
 
   bool _validateWall(int wx, int wy, WallOrientation o) {
@@ -522,6 +534,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildPlaying(BoardThemeData theme) {
     final gs = _gs;
     final isRunning = gs.status == GameStatus.running;
+    // TouchView 三重 guard：
+    // ① phase==playing（Lua 状态机已进入 playing）
+    // ② _snap 已到位（_gs 反映真实历史）
+    // ③ 轮到本方走（imTop == currentPlayerIsTop）
+    final canMountTouchView = _snap != null
+        && _snap?.state == 'playing'
+        && gs.history.isNotEmpty
+        && _isMyTurn;
     return Scaffold(
       backgroundColor: theme.boardSurface,
       body: SafeArea(child: LayoutBuilder(builder: (context, constraints) {
@@ -541,8 +561,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   Transform.flip(flipY: true, child: _drawLayer(cs, boardSize, theme))
                 else
                   _drawLayer(cs, boardSize, theme),
-                // 触摸层（不在翻转内，仅本方回合挂载）
-                if (isRunning && _isMyTurn)
+                // 触摸层（仅本方回合挂载）
+                if (canMountTouchView)
                   TouchView(
                     cellSize: cs, distance: cs * 1.25,
                     onPointerDown: _onPointerDown,
@@ -597,9 +617,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final bottomId = pendingCellId != null && !gs.currentPlayerIsTop
         ? pendingCellId
         : gs.bottomPlayerId;
-    // host 端：自己的棋子在 flipY 后实际是 top（永远是 isTopTurn=true 因为自己=top）
-    // client 端：自己=bottom → gs.currentPlayerIsTop 时对手走
-    final isTopTurnForConfirm = _flipY ? true : gs.currentPlayerIsTop;
+    // ConfirmActions 用 isTopTurn 决定图标是否翻转：
+    // 当前走棋方是不是 top（与 _flipY 无关，纯走棋状态）。
+    final isTopTurnForConfirm = gs.currentPlayerIsTop;
 
     return Stack(clipBehavior: Clip.none, children: [
       ChessBoard(cellSize: cs, theme: theme),
@@ -637,17 +657,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildPlayerPanel(BoardThemeData theme) {
     final gs = _gs;
     final isRunning = gs.status == GameStatus.running;
-    // 我始终是 top（在 host 端永远 isTop=true；在 client 端永远 isTop=false）
-    // 但 host 视角：currentPlayerIsTop 决定 active，但展示上 host 的 panel 永远底部
-    final imHost = _room.isHost;
-    final myIsTop = imHost;  // host=top, guest=bottom
+    // 我是 top：active = currentPlayerIsTop；我是 bottom：active = !currentPlayerIsTop
+    final myIsTop = _imTop;
     final active = isRunning && myIsTop == gs.currentPlayerIsTop;
     final toc = _touchCtrl;
     final steps = gs.history.where((m) => !m.isWall && m.isTopPlayer == myIsTop).length;
     final walls = myIsTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
     final canUndo = SgRoom.canRequestUndo(_snap, gs, _room.deviceId);
     return PlayerPanel(
-      rotated: _flipY,  // host 端反向显示（panel 内容翻转回正常）
+      rotated: false,  // 底部面板不旋转；棋盘本身已翻转
       active: active,
       isTop: myIsTop,
       mode: toc.mode, phase: toc.phase,
@@ -680,11 +698,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   Widget _buildFinished(BoardThemeData theme) {
     final gs = _gs;
+    final imTop = _imTop;
     final isTopWin = gs.status == GameStatus.topWin;
-    final msg = gs.status == GameStatus.draw ? '平局'
-        : (isTopWin ? (_room.isHost ? '我方获胜！' : '上方获胜')
-            : (_room.isHost ? '对方获胜' : '我方获胜！'));
-    final winColor = gs.status == GameStatus.draw ? Colors.orange
+    // 角色感知消息：
+    //   我是 top：topWin → 我方获胜；bottomWin → 对方获胜
+    //   我是 bottom：topWin → 对方获胜；bottomWin → 我方获胜
+    final String msg;
+    if (gs.status == GameStatus.draw) {
+      msg = '平局';
+    } else if (isTopWin == imTop) {
+      msg = '我方获胜！';
+    } else {
+      msg = '对方获胜';
+    }
+    final winColor = gs.status == GameStatus.draw
+        ? Colors.orange
         : (isTopWin ? theme.piecePlayerA : theme.piecePlayerB);
     return Scaffold(
       backgroundColor: theme.boardSurface,

@@ -9,7 +9,7 @@ import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_widget.dart';
 
 import 'pages/net_p2p_chat_page.dart';
 import 'pages/net_p2p_snapshot_chat.dart';
-import 'scripts/lua_scripts.dart';
+import 'scripts/lobby_chat_script.dart';
 
 /// P2P 入口页面 — LAN 局域网发现 / Relay 互联网房间（v3 Lua 状态机 + 大厅等待）
 class NetP2PPage extends StatefulWidget {

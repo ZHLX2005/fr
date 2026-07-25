@@ -6,7 +6,7 @@ import 'package:xiaodouzi_fr/core/surround_game/engine/game_engine.dart';
 import 'package:xiaodouzi_fr/core/surround_game/models/game_state.dart';
 import 'package:xiaodouzi_fr/core/surround_game/surround_game_constants.dart';
 
-export 'package:xiaodouzi_fr/core/net_p2p/scripts/lua_scripts.dart' show kSurroundGameScript;
+export 'quoridor_script.dart' show kSurroundGameScript;
 export 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show Snapshot, RoomHandle, RelayV3Transport;
 export 'package:xiaodouzi_fr/core/surround_game/engine/game_engine.dart' show QuoridorEngine;
@@ -48,6 +48,18 @@ class SgRoom {
   /// 从 snapshot 取 host_id
   static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
 
+  /// 从 snapshot 取 top_player_id（权威服务端字段）。
+  /// 客户端用 `myId == topPlayerId(s)` 判定自己是哪一方。
+  /// host = top player（建立房间时即定），guest = bottom player。
+  static String? topPlayerId(Snapshot? s) {
+    final raw = s?.context['top_player_id'];
+    if (raw == null) {
+      // 兼容旧 snapshot：fallback 到 host_id
+      return hostId(s);
+    }
+    return raw.toString();
+  }
+
   /// 从 snapshot 取 players map
   static Map<String, String> players(Snapshot? s) {
     final raw = s?.context['players'];
@@ -67,19 +79,19 @@ class SgRoom {
   static bool canRequestUndo(Snapshot? snap, GameState gs, String myId) {
     if (gs.status != GameStatus.running) return false;
     if (gs.history.isEmpty) return false;
-    final hostId_ = hostId(snap);
-    if (hostId_ == null) return false;
+    final topId = topPlayerId(snap);
+    if (topId == null) return false;
     // 我方刚下完一步 → 轮到对方 → 我方能请求悔棋
-    return gs.currentPlayerIsTop != (myId == hostId_);
+    return gs.currentPlayerIsTop != (myId == topId);
   }
 
   /// 当前是否是 host 的回合
   static bool isMyTurn(Snapshot? snap, GameState gs, String myId) {
-    final hostId_ = hostId(snap);
-    if (hostId_ == null) return false;
-    if (gs.history.isEmpty) return myId == hostId_;
+    final topId = topPlayerId(snap);
+    if (topId == null) return false;
+    if (gs.history.isEmpty) return myId == topId;
     final last = gs.history.last;
-    return last.isTopPlayer ? myId != hostId_ : myId == hostId_;
+    return last.isTopPlayer ? myId != topId : myId == topId;
   }
 }
 

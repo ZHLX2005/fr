@@ -245,7 +245,8 @@ return {
 ## 9. Flutter 端调用套路
 
 ```dart
-import 'package:xiaodouzi_fr/core/net_p2p/scripts/lua_scripts.dart';
+import 'package:xiaodouzi_fr/core/net_p2p/scripts/lobby_chat_script.dart';  // 默认大厅聊天
+// 或：import 'package:xiaodouzi_fr/lab/demos/<biz>/<biz>_script.dart';  // 业务脚本随 demo 走
 
 final transport = RelayV3Transport(
   relayUrl: 'http://47.110.80.47:8988',
