@@ -357,3 +357,122 @@ return {
   on_action_SET_ROLE_POOL = on_action_SET_ROLE_POOL,
 }
 ''';
+
+/// 围追堵截 (Quoridor) 双人对战脚本
+///
+/// ## 概述
+///
+/// 无大厅阶段，房主建房间后直接进入等待，双方都 ACK → 游戏开始。
+/// 整个游戏状态仅存 `history`（棋谱数组），
+/// 客户端从棋谱重建完整 GameState。
+///
+/// ## 状态机
+///
+/// ```
+///    CreateRoom → state="lobby"     Owner 等 Guest 加入
+///    Guest join → state="lobby"     两人生成，等 ACK
+///    ACK × 2     → state="ready"   双方 ACK
+///    DEAL (host) → state="playing" 游戏开始
+///    MOVE        → state不变       追加一步棋谱
+///    RESIGN      → state="ended"   认输
+/// ```
+///
+/// ## context 字段
+///
+///   - `host_id`       : string
+///   - `players`       : {device_id: alias, …}
+///   - `history`       : [MoveRecord.toJson, …]  — 唯一权威状态
+///   - `ready`         : {device_id: true, …}
+///
+/// ## 镜像策略
+///
+/// 服务端存**规范坐标系 (canonical)**：
+/// - 创建者（host = topPlayer）在 y=0，guest（=bottomPlayer）在 y=8
+/// - `history` 始终存规范坐标
+/// - 客户端显示时：
+///   - guest 看到原始棋盘（自己是下方，对方在上方）
+///   - host 看到 y 镜像棋盘（自己也是下方，对方在下方）
+const String kSurroundGameScript = r'''
+on_init = function(c, p)
+  c.host_id = p.device_id
+  c.players = {}
+  c.players[p.device_id] = p.alias
+  c.ready = {}
+  c.history = {}
+  state = "lobby"
+  return c
+end
+
+on_join = function(c, p)
+  c.players[p.device_id] = p.alias
+  c.ready[p.device_id] = nil
+  return c
+end
+
+on_leave = function(c, p)
+  c.players[p.device_id] = nil
+  c.ready[p.device_id] = nil
+  return c
+end
+
+on_action_ACK = function(c, p)
+  if state == "playing" then return c end
+  if c.players[p.device_id] == nil then return c end
+  c.ready[p.device_id] = true
+  local count = 0
+  for _, _ in pairs(c.players) do count = count + 1 end
+  local aready = 0
+  for _, v in pairs(c.ready) do if v then aready = aready + 1 end end
+  if count >= 2 and aready >= count and state == "lobby" then
+    state = "ready"
+  end
+  return c
+end
+
+on_action_DEAL = function(c, p)
+  if c.host_id ~= p.device_id then return c end
+  if state ~= "ready" then return c end
+  state = "playing"
+  return c
+end
+
+on_action_MOVE = function(c, p)
+  if state ~= "playing" then return c end
+  if c.players[p.device_id] == nil then return c end
+  local move = p.move
+  if move == nil then return c end
+  table.insert(c.history, move)
+  return c
+end
+
+on_action_RESIGN = function(c, p)
+  if state ~= "playing" then return c end
+  if c.players[p.device_id] == nil then return c end
+  state = "ended"
+  return c
+end
+
+on_action_RESET = function(c, p)
+  if c.host_id ~= p.device_id then return c end
+  c.history = {}
+  c.ready = {}
+  state = "lobby"
+  return c
+end
+
+return {
+  definition = { functions = {
+    "on_init", "on_join", "on_leave",
+    "on_action_ACK", "on_action_DEAL", "on_action_MOVE",
+    "on_action_RESIGN", "on_action_RESET",
+  }},
+  on_init = on_init,
+  on_join = on_join,
+  on_leave = on_leave,
+  on_action_ACK = on_action_ACK,
+  on_action_DEAL = on_action_DEAL,
+  on_action_MOVE = on_action_MOVE,
+  on_action_RESIGN = on_action_RESIGN,
+  on_action_RESET = on_action_RESET,
+}
+''';
