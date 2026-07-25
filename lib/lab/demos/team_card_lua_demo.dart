@@ -644,21 +644,27 @@ class _PlayingViewState extends State<_PlayingView> {
         : snapCap;
     // 旁观者由 Lua 状态机管理，Lua 在 on_init 写 c.spectators
     final rawSpectators = s?.context['spectators'];
+    final rawMasterJoins = s?.context['master_joins'];
+    final rawHostId = s?.context['host_id']?.toString();
     final Set<String> spectatorIds;
-    if (rawSpectators is Map) {
+    if (rawSpectators is Map && rawSpectators.isNotEmpty) {
       spectatorIds = {};
       for (final k in rawSpectators.keys) {
         spectatorIds.add(k.toString());
       }
+    } else if (rawMasterJoins == false && rawHostId != null) {
+      // 兜底：Lua 没写 spectators 时的老房间兼容
+      spectatorIds = {rawHostId};
     } else {
       spectatorIds = const {};
     }
 
-    debugPrint('[_PlayingView.build] '
+    debugPrint('[team_card] '
         'spectators=$spectatorIds '
+        'rawSpectators=$rawSpectators '
+        'masterJoins=$rawMasterJoins '
         'capacity=$capacity '
-        'players=${_players().keys} '
-        'rawSpectators=$rawSpectators');
+        'players=${_players().keys}');
 
     return _LobbyView(
       snap: s,
