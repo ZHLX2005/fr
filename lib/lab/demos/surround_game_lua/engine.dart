@@ -28,6 +28,11 @@ class SgRoom {
   Future<void> reset()  => handle.applyAction(type: 'RESET', params: const {});
   Future<void> move(MoveRecord record) =>
       handle.applyAction(type: 'MOVE', params: {'move': record.toJson()});
+  Future<void> resign() => handle.applyAction(type: 'RESIGN', params: const {});
+  Future<void> requestUndo() =>
+      handle.applyAction(type: 'UNDO_REQUEST', params: const {});
+  Future<void> respondUndo({required bool accepted}) =>
+      handle.applyAction(type: 'UNDO_RESPONSE', params: {'accepted': accepted});
 
   /// 从 snapshot history 重建 GameState
   static GameState rebuildGameState(Snapshot? s) {
@@ -48,6 +53,24 @@ class SgRoom {
     final raw = s?.context['players'];
     if (raw is! Map) return const {};
     return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+  }
+
+  /// 未决悔棋请求：{requester: did} 或 null
+  static String? undoRequester(Snapshot? s) {
+    final raw = s?.context['undo_pending'];
+    if (raw is! Map) return null;
+    final r = raw['requester'];
+    return r?.toString();
+  }
+
+  /// 我是否能请求悔棋（按 canRequestUndo 规则：刚下完一步 + 对方回合 + 历史非空）
+  static bool canRequestUndo(Snapshot? snap, GameState gs, String myId) {
+    if (gs.status != GameStatus.running) return false;
+    if (gs.history.isEmpty) return false;
+    final hostId_ = hostId(snap);
+    if (hostId_ == null) return false;
+    // 我方刚下完一步 → 轮到对方 → 我方能请求悔棋
+    return gs.currentPlayerIsTop != (myId == hostId_);
   }
 
   /// 当前是否是 host 的回合

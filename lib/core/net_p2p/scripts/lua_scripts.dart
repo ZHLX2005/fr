@@ -412,6 +412,7 @@ end
 on_leave = function(c, p)
   c.players[p.device_id] = nil
   c.ready[p.device_id] = nil
+  c.undo_pending = nil  -- 离开时清掉未决悔棋请求
   return c
 end
 
@@ -456,7 +457,42 @@ on_action_RESET = function(c, p)
   if c.host_id ~= p.device_id then return c end
   c.history = {}
   c.ready = {}
+  c.undo_pending = nil
   state = "lobby"
+  return c
+end
+
+-- 悔棋请求：发起方必须是刚下完一步的玩家（canRequestUndo 规则）
+-- c.undo_pending = { requester = did } → 等待对方裁决
+on_action_UNDO_REQUEST = function(c, p)
+  if state ~= "playing" then return c end
+  if c.players[p.device_id] == nil then return c end
+  -- 已有未决请求：忽略新的（避免重叠）
+  if c.undo_pending ~= nil then return c end
+  -- 历史非空 + 当前不是该玩家的回合（= 该玩家刚下完）
+  if #c.history == 0 then return c end
+  local last = c.history[#c.history]
+  local hostId = c.host_id
+  local lastWasRequester = (last.isTopPlayer and p.device_id == hostId)
+                          or (not last.isTopPlayer and p.device_id ~= hostId)
+  if not lastWasRequester then return c end
+  c.undo_pending = { requester = p.device_id }
+  return c
+end
+
+-- 悔棋响应：仅非发起方能响应；接受则 history 弹栈，状态保持 playing
+on_action_UNDO_RESPONSE = function(c, p)
+  if state ~= "playing" then return c end
+  if c.undo_pending == nil then return c end
+  local pending = c.undo_pending
+  -- 仅对手能响应（不是发起方）
+  if p.device_id == pending.requester then return c end
+  if c.players[p.device_id] == nil then return c end
+  local accepted = p.accepted
+  if accepted == true then
+    table.remove(c.history, #c.history)
+  end
+  c.undo_pending = nil
   return c
 end
 
@@ -465,6 +501,7 @@ return {
     "on_init", "on_join", "on_leave",
     "on_action_ACK", "on_action_DEAL", "on_action_MOVE",
     "on_action_RESIGN", "on_action_RESET",
+    "on_action_UNDO_REQUEST", "on_action_UNDO_RESPONSE",
   }},
   on_init = on_init,
   on_join = on_join,
@@ -474,5 +511,7 @@ return {
   on_action_MOVE = on_action_MOVE,
   on_action_RESIGN = on_action_RESIGN,
   on_action_RESET = on_action_RESET,
+  on_action_UNDO_REQUEST = on_action_UNDO_REQUEST,
+  on_action_UNDO_RESPONSE = on_action_UNDO_RESPONSE,
 }
 ''';

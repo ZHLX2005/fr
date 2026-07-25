@@ -258,6 +258,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _sub = widget.handle.snapshots.listen((s) {
       if (!mounted) return;
       setState(() { _snap = s; _rebuildGs(s); });
+      _maybeShowUndoIncomingDialog();
     });
   }
 
@@ -333,6 +334,53 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Future<void> _reset() async {
     _touchCtrl.reset();
     await _room.reset();
+  }
+
+  Future<void> _confirmResign() async {
+    final theme = BoardTheme.of(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.panelBg,
+        title: const Text('认输'),
+        content: const Text('确认认输？此局结束。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('认输')),
+        ],
+      ),
+    );
+    if (confirm == true) await _room.resign();
+  }
+
+  /// 监听 undo_pending：我是非发起方则弹出"同意/拒绝"对话框
+  String? _lastUndoRequester;
+  Future<void> _maybeShowUndoIncomingDialog() async {
+    final requester = SgRoom.undoRequester(_snap);
+    // undo_pending 清空 → 重置游标，下次有新请求可再次弹窗
+    if (requester == null) {
+      _lastUndoRequester = null;
+      return;
+    }
+    if (requester == _lastUndoRequester) return;
+    if (requester == _room.deviceId) return; // 自己刚发起的，跳过
+    _lastUndoRequester = requester;
+    final theme = BoardTheme.of(context);
+    if (!mounted) return;
+    final accept = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.panelBg,
+        title: const Text('对手请求悔棋'),
+        content: const Text('是否同意撤销上一步？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('拒绝')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('同意')),
+        ],
+      ),
+    );
+    if (accept != null) await _room.respondUndo(accepted: accept);
   }
 
   // ── Build ──
@@ -473,8 +521,11 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            if (isRunning && _room.isHost)
+            if (isRunning) _bottomAction(Icons.flag_outlined, '认输', theme, _confirmResign),
+            if (isRunning && _room.isHost) ...[
+              const SizedBox(width: 16),
               _bottomAction(Icons.refresh, '重新开始', theme, _reset),
+            ],
             const SizedBox(width: 16),
             _bottomAction(Icons.exit_to_app, '退出', theme, widget.onLeave),
           ]),
@@ -519,19 +570,36 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final toc = _touchCtrl;
     final steps = gs.history.where((m) => !m.isWall && m.isTopPlayer == isTop).length;
     final walls = isTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
+    final canUndo = SgRoom.canRequestUndo(_snap, gs, _room.deviceId);
     return PlayerPanel(
       rotated: rotated, active: active, isTop: isTop,
       mode: toc.mode, phase: toc.phase,
       canPlaceWall: SurroundGameConstants.wallCountPerPlayer - walls > 0,
       playerSteps: steps, remainingWalls: SurroundGameConstants.wallCountPerPlayer - walls,
-      canRequestUndo: false,
+      canRequestUndo: canUndo,
       onToggleMode: active ? () { _touchCtrl.toggleMode(); setState(() {}); } : null,
       onConfirm: (toc.phase == TouchPhase.confirming && active) ? _onConfirm : null,
       onCancel: (toc.phase == TouchPhase.confirming && active)
           ? () { _touchCtrl.cancelAction(); setState(() {}); } : null,
       onRotate: (toc.phase == TouchPhase.confirming && active)
           ? () { _touchCtrl.rotatePendingWall(validateWall: (wx, wy, o) => _mirror.validateWall(gs, wx, wy, o)); setState(() {}); } : null,
+      onUndoRequest: canUndo ? () => _showUndoRequestConfirm(theme) : null,
       pendingWall: toc.pendingWall,
+    );
+  }
+
+  void _showUndoRequestConfirm(BoardThemeData theme) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.panelBg,
+        title: const Text('请求悔棋'),
+        content: const Text('将撤销上一步，回合回到上一步的执行者。\n需对手同意才生效。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () { Navigator.pop(ctx); _room.requestUndo(); }, child: const Text('发起')),
+        ],
+      ),
     );
   }
 
