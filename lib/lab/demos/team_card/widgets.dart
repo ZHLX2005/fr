@@ -649,6 +649,7 @@ class _PlayingViewState extends State<PlayingView> {
       spectatorSlots: extractInt(_snap, 'spectator_slots'),
       readyMap: extractReadyMap(_snap),
       myReady: _isMeReady,
+      myZone: myZone(_snap, widget.handle.transport.deviceId),
     );
   }
 }
@@ -675,6 +676,7 @@ class LobbyView extends StatelessWidget {
     required this.spectatorSlots,
     required this.readyMap,
     required this.myReady,
+    required this.myZone,
   });
 
   final Snapshot? snap;
@@ -687,6 +689,8 @@ class LobbyView extends StatelessWidget {
   final int playerSlots, spectatorSlots;
   final Map<String, bool> readyMap;
   final bool myReady;
+  /// 当前所在区 "player" / "spectator" / null
+  final String? myZone;
 
   @override
   Widget build(BuildContext context) {
@@ -781,20 +785,72 @@ class LobbyView extends StatelessWidget {
             ),
           const SizedBox(height: 12),
         ],
-        // 换区按钮
+        // 换区按钮 — 目标区颜色 + 目标区图标 + 从哪来到哪去
         if (onMoveZone != null && spectatorSlots > 0 && playerSlots > 0) ...[
-          OutlinedButton.icon(
-            onPressed: onMoveZone,
-            icon: const Icon(Icons.swap_horiz),
-            label: const Text('换区'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              side: BorderSide(color: theme.colorScheme.outline, width: 1),
-              foregroundColor: theme.colorScheme.outline,
-            ),
-          ),
-          const SizedBox(height: 8),
+          Builder(builder: (_) {
+            final goingToPlayer = myZone != 'player';
+            final targetIcon = goingToPlayer ? Icons.people : Icons.remove_red_eye_outlined;
+            final targetLabel = goingToPlayer ? '去玩家区' : '去旁观区';
+            final currentLabel = myZone == 'player'
+                ? '当前：玩家'
+                : (myZone == 'spectator' ? '当前：旁观' : '未入座');
+            final tint = goingToPlayer ? Colors.green.shade600 : Colors.deepPurple.shade400;
+            return Material(
+              color: tint.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                onTap: onMoveZone,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: tint.withValues(alpha: 0.5), width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: tint.withValues(alpha: 0.18),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(targetIcon, color: tint, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              targetLabel,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: tint,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              currentLabel,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: theme.colorScheme.outline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_rounded, color: tint, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 12),
         ],
         if (isHost)
           Row(
