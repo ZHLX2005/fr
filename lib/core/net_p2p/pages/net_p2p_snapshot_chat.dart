@@ -72,10 +72,33 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
     final text = _input.text.trim();
     if (text.isEmpty) return;
     _input.clear();
-    await widget.handle.applyAction(
-      type: 'CHAT',
-      params: {'text': text, 'alias': widget.handle.transport.alias},
-    );
+    try {
+      await widget.handle.applyAction(
+        type: 'CHAT',
+        params: {'text': text, 'alias': widget.handle.transport.alias},
+      );
+    } on RelayV3Exception catch (e) {
+      // CAS mismatch (409) or Lua/validation error (422) etc.
+      // Spec §8 originally embedded the current snapshot in a 409 body, but
+      // the backend's ApplyAction controller stopped doing so — clients must
+      // refetch to reconcile.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
+      );
+      if (e.statusCode == 409) {
+        try {
+          await widget.handle.transport.fetchSnapshot(widget.handle.code);
+        } catch (_) {
+          // Best-effort refetch; WS will reconcile on next push anyway.
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    }
   }
 
   void _scrollToBottom() {
