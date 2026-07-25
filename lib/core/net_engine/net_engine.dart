@@ -1,23 +1,19 @@
 /// NetEngine — 数据同步层（公共导出入口）
 ///
-/// 新模块结构：
-/// - **Transport** 抽象父类：LAN 和 Relay 共性
-/// - **LanTransport** / **RelayTransport**：具体实现
-/// - **LanDiscovery** / **RelayDiscovery**：发现 widget（**没有抽象**，差异大）
-/// - **DataLog**：scope 内最终一致状态
+/// 模块结构：
+/// - **Transport** 抽象父类：LAN 共性；v3 有专属传输层
+/// - **LanDiscovery**：LAN 发现 widget
+/// - **RelayV3Transport / RelayV3Widget**：v3 snapshot + Lua 协议
+/// - **DataLog**：scope 内最终一致状态（LAN 沿用）
 /// - **TransportEvent**：传输层事件总线原语
 ///
 /// 业务层调用：
 /// ```dart
 /// // 1. 选择发现方式
 /// LanDiscovery().buildPage(onPeerSelected: (peer, transport) async {
-///   // 2. 创建传输
 ///   final transport = await LanTransport.create();
-///   // 3. 加入 scope（自动全广播同步）
 ///   await transport.joinScope('lobby-${peer.id}');
-///   // 4. 订阅事件总线（数据驱动）
 ///   transport.events.where((e) => e.topic == 'xxx').listen(...);
-///   // 5. 订阅 scope 状态
 ///   transport.watchScope('lobby-${peer.id}').listen((log) {
 ///     print('state: ${log.state}');
 ///   });
@@ -32,10 +28,9 @@ export 'net_engine_types.dart';
 export 'lan/lan_transport.dart';
 export 'lan/lan_discovery.dart';
 
-export 'relay/relay_transport.dart';
-export 'relay/relay_discovery.dart';
-export 'relay/relay_room_chat.dart';
-export 'relay/relay_room_widget.dart';
+// v3 — Lua state machine + snapshot-driven transport
+export 'relay_v3/relay_v3_transport.dart';
+export 'relay_v3/relay_v3_widget.dart';
 
 export 'io/udp_socket.dart' hide UdpDatagram;
 

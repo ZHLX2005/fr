@@ -2,15 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'lan_message_net.dart';
-import 'relay_message_net.dart';
 
-/// 传输模式
+/// 传输模式（保留枚举便于 LAN 单模式 API 兼容）
 enum MessageNetMode {
   /// 局域网：UDP 多播（同一子网内所有节点）
   lan,
-
-  /// 互联网：HTTP 房间号 + WebSocket 帧
-  relay,
 }
 
 /// 日志条目 — 业务载荷的统一表示
@@ -58,50 +54,35 @@ class LogEntry {
   }
 }
 
-/// MessageNet — 全广播日志同步层（独立模块）
+/// MessageNet — 全广播日志同步层（LAN 单模式实现）
 ///
 /// ## 设计哲学
 ///
 /// - **零元数据**：连接只关心"能不能连上"，业务身份信息（myId/alias）作为日志字段随每条消息传递
-/// - **零抽象**：`MessageNet` 是抽象类，子类（LAN/Relay）隐藏实现细节
+/// - **零抽象**：`MessageNet` 是抽象类，子类（LAN）隐藏实现细节
 /// - **队列积压**：`append()` 立即入队，连接建立后批量推送；连接断开时本地可继续 append
 /// - **数据驱动**：业务层订阅 topic 拿到日志，自己解释 data 字段
-///
-/// ## 两种模式
-///
-/// - **LAN**：UDP 多播（同子网内所有节点）
-/// - **Relay**：HTTP 房间号 + WebSocket（跨网络，需中继服务器）
 abstract class MessageNet {
   MessageNet._();
 
-  /// 启动网络（工厂方法）
+  /// 启动 LAN 网络（工厂方法）
   ///
-  /// LAN 模式：启动 UDP 多播监听
-  /// Relay 模式：需先调用 [createRoom] 或 [joinRoom] 才能 append
+  /// 启动 UDP 多播监听。
   static Future<MessageNet> start({
-    required MessageNetMode mode,
-    String? relayUrl,
+    MessageNetMode mode = MessageNetMode.lan,
     int multicastPort = 5678,
     String multicastAddress = '239.255.255.255',
   }) async {
-    switch (mode) {
-      case MessageNetMode.lan:
-        return await LanMessageNet.create(
-          multicastPort: multicastPort,
-          multicastAddress: multicastAddress,
-        );
-      case MessageNetMode.relay:
-        if (relayUrl == null || relayUrl.isEmpty) {
-          throw ArgumentError('relay 模式必须提供 relayUrl');
-        }
-        return await RelayMessageNet.create(relayUrl: relayUrl);
-    }
+    return await LanMessageNet.create(
+      multicastPort: multicastPort,
+      multicastAddress: multicastAddress,
+    );
   }
 
   /// 释放资源
   Future<void> stop();
 
-  /// 当前房间号（relay 模式才有）
+  /// 房间号（当前 LAN 模式恒为 null）
   String? get roomCode;
 
   /// 追加一条日志（立即入队，连接可用后批量推送）

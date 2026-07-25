@@ -50,13 +50,6 @@ void main() {
   });
 
   group('MessageNet factory', () {
-    test('relay mode without relayUrl throws ArgumentError', () async {
-      expect(
-        () => MessageNet.start(mode: MessageNetMode.relay),
-        throwsArgumentError,
-      );
-    });
-
     test('lan mode returns MessageNet instance', () async {
       // 在测试环境下绑定 UDP 可能失败 — 我们只检查返回类型
       try {

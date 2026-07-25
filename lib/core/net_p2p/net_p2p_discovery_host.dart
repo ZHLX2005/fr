@@ -116,10 +116,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => fw.NetEngineSettingsPage(
-                  mode: _mode == _Mode.lan ? fw.MessageNetMode.lan : fw.MessageNetMode.relay,
-                  relayUrl: 'http://47.110.80.47:8988',
-                ),
+                builder: (_) => const fw.NetEngineSettingsPage(),
               ),
             ),
           ),
