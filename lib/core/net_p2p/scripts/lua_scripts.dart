@@ -281,13 +281,6 @@ on_action_DEAL = function(c, p)
   state = "playing"
   return c
 end
-  for i, did in ipairs(playerIds) do
-    c.assignments[did] = pool[i] or "?"
-  end
-
-  state = "playing"
-  return c
-end
 
 on_action_RESET = function(c, p)
   if c.host_id ~= p.device_id then return c end
