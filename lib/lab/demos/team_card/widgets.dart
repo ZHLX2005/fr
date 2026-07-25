@@ -21,28 +21,51 @@ class SetupPage extends StatefulWidget {
 }
 
 class _SetupPageState extends State<SetupPage> {
-  late final List<RoleDef> rolePool =
-      widget.initialRoles.map((r) => RoleDef(label: r.label, count: r.count)).toList();
+  final List<RoleDef> rolePool = [];
   final _aliasCtrl = TextEditingController();
   int _playerSlots = 4;
   int _spectatorSlots = 0;
   bool _busy = false;
+  bool _loaded = false;
   String? _error;
-  List<RoleDef>? _customPresets;
+  /// 用户命名预设库：`{ playerSlots: [NamedPreset, ...] }`
+  Map<int, List<NamedPreset>> _presetLib = {};
 
   @override
   void initState() {
     super.initState();
+    // 别名
     AliasPrefs.load().then((v) {
       if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
     });
-    CustomPresetPrefs.load().then((p) {
-      if (mounted && p != null) setState(() => _customPresets = p);
+    // 预设库
+    PresetLibrary.load().then((lib) {
+      if (mounted) setState(() => _presetLib = lib);
+    });
+    // 恢复上次配置（数值 + 角色池）
+    SetupPrefs.load().then((s) {
+      if (!mounted) return;
+      setState(() {
+        _loaded = true;
+        if (s != null) {
+          _playerSlots = s.playerSlots;
+          _spectatorSlots = s.spectatorSlots;
+          rolePool
+            ..clear()
+            ..addAll(s.roles);
+        } else {
+          rolePool
+            ..clear()
+            ..addAll(widget.initialRoles
+                .map((r) => RoleDef(label: r.label, count: r.count)));
+        }
+      });
     });
   }
 
   @override
   void dispose() {
+    _persistSetup();
     _aliasCtrl.dispose();
     for (final r in rolePool) {
       r.dispose();
@@ -53,38 +76,122 @@ class _SetupPageState extends State<SetupPage> {
   /// 角色池总数量
   int get _totalRoles => rolePool.fold(0, (s, r) => s + r.count);
 
-  void _applyPreset(RolePreset p) {
-    for (final r in rolePool) {
-      r.dispose();
-    }
-    rolePool..clear()..addAll(p.toRoleDefs());
-    setState(() {});
-  }
-
-  void _loadCustomPreset(List<RoleDef> p) {
-    for (final r in rolePool) {
-      r.dispose();
-    }
-    rolePool.clear();
-    for (final r in p) {
-      rolePool.add(RoleDef(label: r.label, count: r.count));
-    }
-    setState(() {});
-  }
-
-  Future<void> _saveCustom() async {
+  /// 持久化当前配置（数值 + 角色池）
+  void _persistSetup() {
+    if (!_loaded) return;
     for (final r in rolePool) {
       r.sync();
     }
-    await CustomPresetPrefs.save(rolePool);
-    final p = await CustomPresetPrefs.load();
-    if (!mounted) return;
-    setState(() => _customPresets = p);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('自定义预设已保存'), duration: Duration(seconds: 1)),
-      );
+    // 深拷贝一份 RoleDef（避免 dispose 后 controller 无法读）
+    final snapshot = rolePool.map((r) => RoleDef(label: r.label, count: r.count)).toList();
+    SetupPrefs.save(SetupState(
+      playerSlots: _playerSlots,
+      spectatorSlots: _spectatorSlots,
+      roles: snapshot,
+    ));
+    // controller 无用后释放
+    for (final r in snapshot) {
+      r.dispose();
     }
+  }
+
+  void _applyBuiltinPreset(RolePreset p) {
+    for (final r in rolePool) {
+      r.dispose();
+    }
+    rolePool
+      ..clear()
+      ..addAll(p.toRoleDefs());
+    setState(() {});
+    _persistSetup();
+  }
+
+  void _applyNamedPreset(NamedPreset p) {
+    for (final r in rolePool) {
+      r.dispose();
+    }
+    rolePool
+      ..clear()
+      ..addAll(p.toRoleDefs());
+    setState(() {});
+    _persistSetup();
+  }
+
+  Future<void> _saveNamedPreset() async {
+    for (final r in rolePool) {
+      r.sync();
+    }
+    // 弹对话框询问预设名
+    final name = await _promptPresetName();
+    if (name == null || name.trim().isEmpty) return;
+    final lib = await PresetLibrary.add(
+      playerSlots: _playerSlots,
+      preset: NamedPreset.fromRoleDefs(name.trim(), rolePool),
+    );
+    if (!mounted) return;
+    setState(() => _presetLib = lib);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('预设 "${name.trim()}" 已保存到 $_playerSlots 人分组'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  Future<void> _deleteNamedPreset(NamedPreset p) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除预设'),
+        content: Text('删除 "${p.name}"？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final lib = await PresetLibrary.remove(playerSlots: _playerSlots, name: p.name);
+    if (!mounted) return;
+    setState(() => _presetLib = lib);
+  }
+
+  Future<String?> _promptPresetName() async {
+    final ctrl = TextEditingController();
+    final existing = _presetLib[_playerSlots]?.map((p) => p.name).toList() ?? [];
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('保存为预设'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: '预设名（如：狼人杀 6 人版）',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (existing.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('已有预设：${existing.join('、')}',
+                  style: TextStyle(
+                      fontSize: 11, color: Theme.of(ctx).colorScheme.outline)),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _create() async {
@@ -93,6 +200,7 @@ class _SetupPageState extends State<SetupPage> {
     }
     final alias = _aliasCtrl.text.trim().isEmpty ? '房主' : _aliasCtrl.text.trim();
     await AliasPrefs.save(alias);
+    _persistSetup();
     setState(() {
       _busy = true;
       _error = null;
@@ -125,8 +233,13 @@ class _SetupPageState extends State<SetupPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // 容量 = 玩家区
-    final matched = kBuiltinPresets.where((p) => p.total == _playerSlots).toList();
+    if (!_loaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    // 匹配当前 playerSlots 的内置 + 用户预设
+    final matchedBuiltin =
+        kBuiltinPresets.where((p) => p.total == _playerSlots).toList();
+    final myPresets = _presetLib[_playerSlots] ?? const [];
     final total = _playerSlots + _spectatorSlots;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -139,7 +252,10 @@ class _SetupPageState extends State<SetupPage> {
           icon: Icons.people,
           value: _playerSlots,
           min: 1,
-          onChanged: (v) => setState(() => _playerSlots = v),
+          onChanged: (v) {
+            setState(() => _playerSlots = v);
+            _persistSetup();
+          },
         ),
         const SizedBox(height: 8),
         _SlotStepper(
@@ -147,7 +263,10 @@ class _SetupPageState extends State<SetupPage> {
           icon: Icons.remove_red_eye_outlined,
           value: _spectatorSlots,
           min: 0,
-          onChanged: (v) => setState(() => _spectatorSlots = v),
+          onChanged: (v) {
+            setState(() => _spectatorSlots = v);
+            _persistSetup();
+          },
         ),
         const SizedBox(height: 4),
         Center(
@@ -204,40 +323,46 @@ class _SetupPageState extends State<SetupPage> {
             ),
           ),
 
-        // ——— 预设区：只展示匹配玩家区人数的预设 ———
-        if (matched.isNotEmpty || _customPresets != null) ...[
-          const SizedBox(height: 12),
-          Text('快速预设（$_playerSlots 人）',
-              style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline)),
-          const SizedBox(height: 6),
+        // ——— 预设区（内置 + 用户命名 + 空态提示） ———
+        const SizedBox(height: 12),
+        Text('快速预设（$_playerSlots 人）',
+            style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline)),
+        const SizedBox(height: 6),
+        if (matchedBuiltin.isEmpty && myPresets.isEmpty)
+          Text('当前人数下暂无预设，编辑好后点保存按钮起个名字存起来',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.outline, fontStyle: FontStyle.italic))
+        else
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              ...matched.map((p) => _PresetChip(
+              ...matchedBuiltin.map((p) => _PresetChip(
                     label: p.name,
-                    onTap: () => _applyPreset(p),
+                    onTap: () => _applyBuiltinPreset(p),
                     theme: theme,
                   )),
-              if (_customPresets != null)
-                _PresetChip(
-                  label: '我的预设',
-                  onTap: () => _loadCustomPreset(_customPresets!),
-                  theme: theme,
-                  isCustom: true,
-                ),
+              ...myPresets.map((p) => _PresetChip(
+                    label: p.name,
+                    onTap: () => _applyNamedPreset(p),
+                    onDelete: () => _deleteNamedPreset(p),
+                    theme: theme,
+                    isCustom: true,
+                  )),
             ],
           ),
-        ],
+        const SizedBox(height: 12),
         ...rolePool.asMap().entries.map((e) => _RoleRow(
               index: e.key,
               def: e.value,
               canRemove: rolePool.length > 1,
+              onChanged: _persistSetup,
               onRemove: () {
                 setState(() {
                   e.value.dispose();
                   rolePool.removeAt(e.key);
                 });
+                _persistSetup();
               },
             )),
         Padding(
@@ -246,7 +371,10 @@ class _SetupPageState extends State<SetupPage> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => setState(() => rolePool.add(RoleDef(label: '', count: 1))),
+                  onPressed: () {
+                    setState(() => rolePool.add(RoleDef(label: '', count: 1)));
+                    _persistSetup();
+                  },
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('添加身份'),
                   style: OutlinedButton.styleFrom(
@@ -257,9 +385,9 @@ class _SetupPageState extends State<SetupPage> {
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
-                onPressed: _saveCustom,
+                onPressed: _totalRoles == _playerSlots ? _saveNamedPreset : null,
                 icon: const Icon(Icons.save_outlined, size: 16),
-                label: const Text('保存', style: TextStyle(fontSize: 12)),
+                label: const Text('保存预设', style: TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: theme.colorScheme.outlineVariant),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1222,38 +1350,64 @@ class _RoomCodeBadge extends StatelessWidget {
 }
 
 class _PresetChip extends StatelessWidget {
-  const _PresetChip(
-      {required this.label, required this.onTap, required this.theme, this.isCustom = false});
+  const _PresetChip({
+    required this.label,
+    required this.onTap,
+    required this.theme,
+    this.isCustom = false,
+    this.onDelete,
+  });
   final String label;
   final VoidCallback onTap;
   final ThemeData theme;
   final bool isCustom;
+  final VoidCallback? onDelete;
 
   @override
-  Widget build(BuildContext context) => ActionChip(
+  Widget build(BuildContext context) {
+    if (onDelete != null) {
+      return InputChip(
         label: Text(label),
-        avatar: Icon(isCustom ? Icons.person : Icons.auto_awesome,
-            size: 16,
-            color: isCustom
-                ? theme.colorScheme.onPrimaryContainer
-                : theme.colorScheme.onTertiaryContainer),
+        avatar: Icon(Icons.person,
+            size: 16, color: theme.colorScheme.onPrimaryContainer),
         onPressed: onTap,
-        backgroundColor: isCustom
-            ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.tertiaryContainer,
-        side: isCustom
-            ? BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4))
-            : BorderSide.none,
+        onDeleted: onDelete,
+        deleteIcon: const Icon(Icons.close, size: 16),
+        backgroundColor: theme.colorScheme.primaryContainer,
+        side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4)),
       );
+    }
+    return ActionChip(
+      label: Text(label),
+      avatar: Icon(isCustom ? Icons.person : Icons.auto_awesome,
+          size: 16,
+          color: isCustom
+              ? theme.colorScheme.onPrimaryContainer
+              : theme.colorScheme.onTertiaryContainer),
+      onPressed: onTap,
+      backgroundColor: isCustom
+          ? theme.colorScheme.primaryContainer
+          : theme.colorScheme.tertiaryContainer,
+      side: isCustom
+          ? BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4))
+          : BorderSide.none,
+    );
+  }
 }
 
 class _RoleRow extends StatelessWidget {
-  const _RoleRow(
-      {required this.index, required this.def, required this.canRemove, required this.onRemove});
+  const _RoleRow({
+    required this.index,
+    required this.def,
+    required this.canRemove,
+    required this.onRemove,
+    this.onChanged,
+  });
   final int index;
   final RoleDef def;
   final bool canRemove;
   final VoidCallback onRemove;
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1286,7 +1440,10 @@ class _RoleRow extends StatelessWidget {
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               border: const OutlineInputBorder(),
             ),
-            onChanged: (_) => def.sync(),
+            onChanged: (_) {
+              def.sync();
+              onChanged?.call();
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -1301,7 +1458,10 @@ class _RoleRow extends StatelessWidget {
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               border: OutlineInputBorder(),
             ),
-            onChanged: (_) => def.sync(),
+            onChanged: (_) {
+              def.sync();
+              onChanged?.call();
+            },
           ),
         ),
         if (canRemove)

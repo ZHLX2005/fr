@@ -1,5 +1,5 @@
 // lib/lab/demos/team_card/constants.dart
-// 团建卡牌 — 常量 + 数据模型
+// 团建卡牌 — 常量 + 数据模型 + 持久化
 
 import 'dart:convert';
 
@@ -10,7 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const String kTeamCardRelayUrl = 'http://47.110.80.47:8988';
 const String kTeamCardAliasKey = 'team_card_lua.alias';
-const String kTeamCardCustomKey = 'team_card_lua.custom_preset';
+const String kTeamCardSetupKey = 'team_card_lua.setup_v2';       // 上次配置（int 数量 + 当前池）
+const String kTeamCardPresetsKey = 'team_card_lua.presets_v2';    // 命名预设库（Map<int, List<NamedPreset>>）
 
 // ── 别名持久化 ──
 
@@ -19,28 +20,6 @@ class AliasPrefs {
       SharedPreferences.getInstance().then((p) => p.getString(kTeamCardAliasKey) ?? '');
   static Future<void> save(String alias) =>
       SharedPreferences.getInstance().then((p) => p.setString(kTeamCardAliasKey, alias));
-}
-
-// ── 自定义预设持久化 ──
-
-class CustomPresetPrefs {
-  static Future<void> save(List<RoleDef> roles) async {
-    final data = jsonEncode(roles.map((r) => r.toJson()).toList());
-    final p = await SharedPreferences.getInstance();
-    await p.setString(kTeamCardCustomKey, data);
-  }
-
-  static Future<List<RoleDef>?> load() async {
-    final raw = (await SharedPreferences.getInstance()).getString(kTeamCardCustomKey);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      return (jsonDecode(raw) as List)
-          .map((e) => RoleDef.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return null;
-    }
-  }
 }
 
 // ── 角色定义 ──
@@ -125,6 +104,140 @@ const List<RolePreset> kBuiltinPresets = [
         (label: '村民', count: 4),
       ]),
 ];
+
+// ── 命名预设（用户自定义，按 playerSlots 分组） ──
+
+class NamedPreset {
+  final String name;
+  final List<Map<String, dynamic>> roles; // [{label, count}, ...]
+  const NamedPreset({required this.name, required this.roles});
+
+  int get total => roles.fold(0, (s, r) => s + ((r['count'] as num?)?.toInt() ?? 0));
+
+  List<RoleDef> toRoleDefs() => roles
+      .map((r) => RoleDef(
+            label: r['label'] as String? ?? '',
+            count: (r['count'] as num?)?.toInt() ?? 1,
+          ))
+      .toList();
+
+  Map<String, dynamic> toJson() => {'name': name, 'roles': roles};
+
+  factory NamedPreset.fromJson(Map<String, dynamic> j) => NamedPreset(
+        name: j['name'] as String? ?? '',
+        roles: (j['roles'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+      );
+
+  factory NamedPreset.fromRoleDefs(String name, List<RoleDef> defs) => NamedPreset(
+        name: name,
+        roles: defs.map((r) => {'label': r.label, 'count': r.count}).toList(),
+      );
+}
+
+/// 用户命名预设库：`{ playerSlots(String): [NamedPreset, ...] }`
+///
+/// 按玩家区人数分组，每组可存多个命名预设。
+class PresetLibrary {
+  static Future<Map<int, List<NamedPreset>>> load() async {
+    final raw = (await SharedPreferences.getInstance()).getString(kTeamCardPresetsKey);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return decoded.map((k, v) => MapEntry(
+            int.tryParse(k) ?? 0,
+            (v as List)
+                .map((e) => NamedPreset.fromJson(e as Map<String, dynamic>))
+                .toList(),
+          ));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> save(Map<int, List<NamedPreset>> lib) async {
+    final data = jsonEncode(lib.map(
+      (k, v) => MapEntry(k.toString(), v.map((p) => p.toJson()).toList()),
+    ));
+    final p = await SharedPreferences.getInstance();
+    await p.setString(kTeamCardPresetsKey, data);
+  }
+
+  /// 添加新命名预设到指定 playerSlots 分组
+  static Future<Map<int, List<NamedPreset>>> add({
+    required int playerSlots,
+    required NamedPreset preset,
+  }) async {
+    final lib = await load();
+    final list = List<NamedPreset>.from(lib[playerSlots] ?? []);
+    // 同名替换
+    list.removeWhere((p) => p.name == preset.name);
+    list.add(preset);
+    lib[playerSlots] = list;
+    await save(lib);
+    return lib;
+  }
+
+  /// 从指定 playerSlots 分组删除命名预设
+  static Future<Map<int, List<NamedPreset>>> remove({
+    required int playerSlots,
+    required String name,
+  }) async {
+    final lib = await load();
+    final list = List<NamedPreset>.from(lib[playerSlots] ?? []);
+    list.removeWhere((p) => p.name == name);
+    if (list.isEmpty) {
+      lib.remove(playerSlots);
+    } else {
+      lib[playerSlots] = list;
+    }
+    await save(lib);
+    return lib;
+  }
+}
+
+// ── 上次配置持久化（playerSlots + spectatorSlots + rolePool） ──
+
+class SetupPrefs {
+  static Future<SetupState?> load() async {
+    final raw = (await SharedPreferences.getInstance()).getString(kTeamCardSetupKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      return SetupState(
+        playerSlots: (j['player_slots'] as num?)?.toInt() ?? 4,
+        spectatorSlots: (j['spectator_slots'] as num?)?.toInt() ?? 0,
+        roles: (j['roles'] as List? ?? [])
+            .map((e) => RoleDef.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> save(SetupState s) async {
+    final data = jsonEncode({
+      'player_slots': s.playerSlots,
+      'spectator_slots': s.spectatorSlots,
+      'roles': s.roles.map((r) => {'label': r.label, 'count': r.count}).toList(),
+    });
+    final p = await SharedPreferences.getInstance();
+    await p.setString(kTeamCardSetupKey, data);
+  }
+}
+
+class SetupState {
+  final int playerSlots;
+  final int spectatorSlots;
+  final List<RoleDef> roles;
+  const SetupState({
+    required this.playerSlots,
+    required this.spectatorSlots,
+    required this.roles,
+  });
+}
 
 // ── 头像颜色表（复制自 participants_grid.dart 的 kParticipantColors） ──
 
