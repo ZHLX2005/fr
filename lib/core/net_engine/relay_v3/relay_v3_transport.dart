@@ -83,6 +83,7 @@ class RoomHandle {
   StreamSubscription<dynamic>? _wsSub;
   Timer? _reconnectTimer;
   bool _disposed = false;
+  bool _connected = false;
   int _backoffMs = 500;
 
   RoomHandle({
@@ -99,6 +100,7 @@ class RoomHandle {
 
   Future<void> connect() async {
     if (_disposed) return;
+    if (_connected) return; // Idempotent: lobby + chat page may both call.
     final uri = Uri.parse(wsUrl);
     try {
       _ws = WebSocketChannel.connect(uri);
@@ -119,6 +121,7 @@ class RoomHandle {
         onError: (_) => _scheduleReconnect(),
         cancelOnError: true,
       );
+      _connected = true;
       _backoffMs = 500;
     } catch (_) {
       _scheduleReconnect();
@@ -127,6 +130,7 @@ class RoomHandle {
 
   void _scheduleReconnect() {
     if (_disposed) return;
+    _connected = false; // Allow reconnect to pass the guard.
     _wsSub?.cancel();
     _wsSub = null;
     _ws = null;
@@ -164,7 +168,9 @@ class RoomHandle {
   }
 
   Future<void> dispose() async {
+    if (_disposed) return; // Idempotent: leave() and page dispose may both call.
     _disposed = true;
+    _connected = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     await _wsSub?.cancel();

@@ -37,7 +37,8 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
   void initState() {
     super.initState();
     _snapshot = widget.handle.latest;
-    // safe to call repeatedly; idempotent
+    // Lobby widget already called connect() before handing us the handle.
+    // RoomHandle.connect() is idempotent, so this is safe either way.
     widget.handle.connect();
     _sub = widget.handle.snapshots.listen((snap) {
       if (!mounted) return;
@@ -51,6 +52,10 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
     _input.dispose();
     _scrollCtrl.dispose();
     _sub?.cancel();
+    // leave() will call handle.dispose(); if user navigates away without
+    // leaving first, leave() was never called and we must dispose here.
+    // RoomHandle.dispose() is idempotent so a double call from leave() + this
+    // dispose() path is safe.
     widget.handle.dispose();
     super.dispose();
   }
