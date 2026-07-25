@@ -235,6 +235,16 @@ on_action_ACK = function(c, p)
   return c
 end
 
+-- 玩家取消准备（lobby/ready 阶段有效）
+on_action_UNACK = function(c, p)
+  if state == "playing" then return c end
+  if c.players[p.device_id] == nil then return c end
+  c.ready[p.device_id] = nil
+  -- 任意玩家取消 → state 应回到 lobby
+  if state == "ready" then state = "lobby" end
+  return c
+end
+
 -- 房主发牌（必须所有 eligible 都 ready 才能发）
 on_action_DEAL = function(c, p)
   if c.host_id ~= p.device_id then return c end
@@ -300,12 +310,14 @@ end
 return {
   definition = { functions = {
     "on_init", "on_join", "on_leave",
-    "on_action_ACK", "on_action_DEAL", "on_action_RESET", "on_action_SET_ROLE_POOL",
+    "on_action_ACK", "on_action_UNACK",
+    "on_action_DEAL", "on_action_RESET", "on_action_SET_ROLE_POOL",
   }},
   on_init = on_init,
   on_join = on_join,
   on_leave = on_leave,
   on_action_ACK = on_action_ACK,
+  on_action_UNACK = on_action_UNACK,
   on_action_DEAL = on_action_DEAL,
   on_action_RESET = on_action_RESET,
   on_action_SET_ROLE_POOL = on_action_SET_ROLE_POOL,

@@ -589,6 +589,14 @@ class _PlayingViewState extends State<_PlayingView> {
     }
   }
 
+  Future<void> _unack() async {
+    try { await widget.handle.applyAction(type: 'UNACK', params: const {}); }
+    catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('取消失败: $e')));
+    }
+  }
+
   Future<void> _deal() async {
     setState(() => _busy = true);
     try { await widget.handle.applyAction(type: 'DEAL', params: const {}); }
@@ -623,6 +631,7 @@ class _PlayingViewState extends State<_PlayingView> {
       isHost: _isHost,
       busy: _busy,
       onAck: _ack,
+      onUnack: _unack,
       onDeal: _deal,
       onReset: _reset,
       onLeave: widget.onLeave,
@@ -636,7 +645,7 @@ class _PlayingViewState extends State<_PlayingView> {
 class _LobbyView extends StatelessWidget {
   const _LobbyView({
     required this.snap, required this.isHost, required this.busy,
-    required this.onAck, required this.onDeal, required this.onReset,
+    required this.onAck, required this.onUnack, required this.onDeal, required this.onReset,
     required this.onLeave, required this.players,
     required this.eligibleIds, required this.isMeReady,
   });
@@ -645,6 +654,7 @@ class _LobbyView extends StatelessWidget {
   final bool isHost;
   final bool busy;
   final VoidCallback onAck;
+  final VoidCallback onUnack;
   final VoidCallback onDeal;
   final VoidCallback onReset;
   final Future<void> Function() onLeave;
@@ -700,16 +710,27 @@ class _LobbyView extends StatelessWidget {
           participants: players,
         ),
         const SizedBox(height: 24),
-        // 准备好 按钮
-        FilledButton.tonalIcon(
-          onPressed: isMeReady ? null : onAck,
-          icon: Icon(isMeReady ? Icons.check_circle : Icons.check_circle_outline),
-          label: Text(isMeReady ? '已准备好' : '准备好了'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(double.infinity, 52),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        // 准备好了 / 取消准备 按钮（互斥切换）
+        if (isMeReady)
+          OutlinedButton.icon(
+            onPressed: onUnack,
+            icon: const Icon(Icons.cancel_outlined),
+            label: const Text('取消准备'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          )
+        else
+          FilledButton.tonalIcon(
+            onPressed: onAck,
+            icon: const Icon(Icons.check_circle_outline),
+            label: const Text('准备好了'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
           ),
-        ),
         const SizedBox(height: 12),
         if (isHost) Row(
           children: [
