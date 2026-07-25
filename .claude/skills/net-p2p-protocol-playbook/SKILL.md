@@ -18,8 +18,9 @@ description: 当用户提及 Relay/LAN/快照/action 流/net_p2p/net_engine 协�
 
 | ref | 何时读取 |
 |---|---|
-| [[references/v2-snapshot-driven]] | **新功能默认走这个**。需要"晚加入者绝不丢状态""广播完整 state""客户端零合并算法"时。互联网 Relay 模式推荐。 |
-| [[references/v1-action-driven]] | 维护/重构老代码时。老 LAN 模式（不需升级到 v2 时）。理解为什么 v2 出现。 |
+| [[references/v3-lua-state-machine]] | **新功能默认走这个**。需要"服务端权威业务逻辑""客户端上传 Lua 定义状态机""多场景/多租户不同状态流转""排查业务逻辑前后端重复"时。v2 的继任者，已删除 v2 改用 v3。互联网 Relay 模式推荐。 |
+| [[references/v2-snapshot-driven]] | 维护老代码时（v2 已删除，仅用于理解历史和迁移）。理解 v3 为什么出现。 |
+| [[references/v1-action-driven]] | 维护 LAN 模式时。老 LAN 模式（不需升级到 v2/v3 时）。 |
 
 ---
 
@@ -28,22 +29,23 @@ description: 当用户提及 Relay/LAN/快照/action 流/net_p2p/net_engine 协�
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    Biz Layer (net_p2p)                       │
-│  NetP2PPage → NetP2PSnapshotChatPage (v2) 或 NetP2PChatPage  │
+│  NetP2PPage → NetP2PSnapshotChatPage (v3)                    │
 │  业务只调 transport.createRoom / joinRoom / applyAction       │
 ├──────────────────────────────────────────────────────────────┤
 │                Transport Layer (net_engine)                  │
 │  ┌──────────────┐  ┌──────────────────┐  ┌─────────────────┐ │
-│  │  LanTransport │  │  RelayTransport   │  │SnapshotTransport│ │
-│  │ UDP + HTTP    │  │ WS + topic pubsub│  │ WS + snapshot   │ │
+│  │  LanTransport │  │  RelayV3Transport │  │(v1/v2 已删除)  │ │
+│  │ UDP + HTTP    │  │ HTTP + WS snapshot│  │                 │ │
 │  └──────────────┘  └──────────────────┘  └─────────────────┘ │
 │  ┌──────────────────────────────────────────────────────────┐│
 │  │             LanDiscovery / RelayDiscovery               ││
 │  │   (LAN 扫描 + 邀请握手)  (Relay 建房/加入)              ││
 │  └──────────────────────────────────────────────────────────┘│
 ├──────────────────────────────────────────────────────────────┤
-│              Backend (/api/v2/relay_snapshot)                │
-│  Snapshot 单一权威源 → 任何动作广播完整 snapshot             │
-│  WS 连接时立即推一份初始 snapshot                            │
+│         Backend (/api/v3/relay + /ws3/{code})                │
+│  Lua 状态机后端：客户端上传脚本定义状态机 → 服务端权威计算     │
+│  snapshot → 任何动作广播完整 snapshot → WS 推送               │
+│  连上 WS 立即推一份初始 snapshot（晚加入者不丢）              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,10 +57,10 @@ description: 当用户提及 Relay/LAN/快照/action 流/net_p2p/net_engine 协�
 |---|--------|
 | **房间号** | 6 位数字，0-9，碰撞重试 |
 | **deviceId** | 启动时 `${microseconds}-${milliseconds%1000}`（无需持久化：每次会话独立） |
-| **房间生命周期** | server-driven TTL 30 分钟（v1）/ 手动清理（v2） |
-| **消息序列化** | `channelName` + `sourceDeviceId` + `payload`（JSON 文本帧） |
-| **可靠性** | v1: UDP fire-and-forget（LAN）/ WS pub/sub（Relay）；v2: WS snapshot 全量覆盖 |
-| **API 路径** | v1: `/api/v1/relay/...`；v2: `/api/v2/relay_snapshot/...` |
+| **房间生命周期** | server-driven TTL 30 分钟（v1）/ 手动清理（v2）/ 30 分钟空闲 TTL（v3，纯内存） |
+| **消息序列化** | `channelName` + `sourceDeviceId` + `payload`（JSON 文本帧，v1）；`{type:"snapshot", data, ts}`（v3） |
+| **可靠性** | v1: UDP fire-and-forget（LAN）/ WS pub/sub（Relay）；v3: WS snapshot 全量覆盖 + HTTP action 因果有序 |
+| **API 路径** | v1: `/api/v1/relay/...`；v3: `/api/v3/relay/...` + `/ws3/{code}`（v2 已删除） |
 
 ---
 
@@ -66,11 +68,13 @@ description: 当用户提及 Relay/LAN/快照/action 流/net_p2p/net_engine 协�
 
 | 需求 | 推荐版本 |
 |---|---|
-| 互联网 Relay 房间（跨网络） | **v2 快照** |
+| 互联网 Relay 房间（跨网络） | **v3 Lua 状态机** |
 | LAN 局域网对战 | v1 action（lan_transport + LanDiscovery 完整现成） |
-| 严格状态同步（团建卡牌发牌、游戏回合） | **v2 快照** |
-| 自由聊天 / 临时互动 | v1 action 即可 |
-| 新业务从零开始 | **v2 快照**（架构干净） |
+| 严格状态同步（团建卡牌发牌、游戏回合） | **v3 Lua 状态机**（服务端权威计算，零竞态） |
+| 自由聊天 / 临时互动 | v1 action 即可（LAN）/ v3（互联网） |
+| 多场景不同状态流转 / 多租户 | **v3 Lua 状态机**（每房间独立脚本） |
+| 需要服务端权威业务逻辑（不信任客户端） | **v3 Lua 状态机**（区别于 v2 只硬编码 chat） |
+| 新业务从零开始 | **v3 Lua 状态机**（架构最干净，扩展不改后端 Go 代码） |
 
 ---
 
@@ -145,32 +149,34 @@ Host                                              Guest
 
 ## 6. 关键文件路径
 
-### 6.1 后端（Go）
+### 6.1 后端（Go）— `D:\a_go\proj_1\dev_ctr_hello`
 
 | 文件 | 用途 |
 |---|---|
-| `internal/relay/relay.go` | v1 房间存储 + topic pub/sub |
-| `internal/relay/transport.go` | v1 WS 升级端点 |
-| `internal/relay_snapshot/state.go` | **v2 Snapshot + Service 单例** |
-| `internal/relay_snapshot/transport.go` | **v2 WS + pushInitialSnapshot** |
-| `internal/controller/relay/v1/relay.go` | v1 HTTP 控制面 |
-| `internal/controller/relay/v2/relay.go` | **v2 HTTP 控制面** |
-| `api/relay/v2/relay.go` | **v2 API 入参/出参定义** |
-| `internal/cmd/cmd.go` | 注册 `/api/v2/relay_snapshot/...` 路由 |
+| `internal/relay/v3/state.go` | **v3 Snapshot/Room/Subscriber/Action 类型 + sentinel errors** |
+| `internal/relay/v3/lua.go` | **v3 Lua 沙箱 + CompileScript + RunEvent** |
+| `internal/relay/v3/service.go` | **v3 Service 单例 + CreateRoom/ApplyAction/Join/Leave + broadcastSubs** |
+| `internal/relay/v3/transport.go` | **v3 WS HandleWS + 5s grace + 单连接 + 慢消费者 4408** |
+| `internal/controller/relay/v3/relay.go` | **v3 HTTP 控制面 + httpStatusFor 错误码映射** |
+| `api/relay/v3/relay.go` | **v3 DTO + api 包镜像 Snapshot 类型** |
+| `internal/cmd/cmd.go` | 注册 `/api/v3` group + `/ws3/{code}` 路由 |
+| ~~`internal/relay_snapshot/`~~ | v2 已删除（被 v3 取代） |
+| ~~`internal/relay/`（v1 部分）~~ | v1 Relay 已删除；LAN 不受影响 |
 
 ### 6.2 前端（Dart）
 
 | 文件 | 用途 |
 |---|---|
-| `lib/core/net_engine/localnet.dart` → 改后 `net_engine.dart` | 框架门面 |
+| `lib/core/net_engine/net_engine.dart` | 框架门面（导出 LAN + v3） |
 | `lib/core/net_engine/lan/lan_discovery.dart` | LAN 发现 + 邀请/接受 UI |
 | `lib/core/net_engine/lan/lan_transport.dart` | LAN UDP transport |
-| `lib/core/net_engine/relay/relay_room_widget.dart` | v1 大厅 + LobbyParticipants |
-| `lib/core/net_engine/relay_snapshot/relay_snapshot_transport.dart` | **v2 Snapshot transport** |
+| `lib/core/net_engine/relay_v3/relay_v3_transport.dart` | **v3 RelayV3Transport + RoomHandle + Snapshot** |
+| `lib/core/net_engine/relay_v3/relay_v3_widget.dart` | **v3 建房 lobby widget** |
 | `lib/core/net_engine/widgets/participants_grid.dart` | LobbyParticipants 圆环 |
-| `lib/core/net_p2p/net_p2p_discovery_host.dart` | NetP2PPage（LAN/Relay 模式切换） |
-| `lib/core/net_p2p/pages/net_p2p_snapshot_chat.dart` | **v2 快照聊天页** |
-| `lib/core/net_p2p/pages/net_p2p_chat_page.dart` | v1 事件聊天页 |
+| `lib/core/net_p2p/net_p2p_discovery_host.dart` | NetP2PPage（LAN/Relay 模式切换 + `_defaultChatScript`） |
+| `lib/core/net_p2p/pages/net_p2p_snapshot_chat.dart` | **v3 快照聊天页（RoomHandle 驱动）** |
+| ~~`lib/core/net_engine/relay/`~~ | v1 已删除 |
+| ~~`lib/core/net_engine/relay_snapshot/`~~ | v2 已删除（折叠进 relay_v3） |
 
 ---
 
@@ -203,14 +209,14 @@ Host                                              Guest
 
 ---
 
-## 9. 与 v1 的关系（迁移指南）
+## 9. 版本迁移指南
 
-**不要试图把 v1 的全部代码"升级"成 v2**——按场景：
+**v2 已被 v3 完全取代**（v2 后端 `internal/relay_snapshot/` + 前端 `relay_snapshot/` 已删除）。当前只有 v1（LAN 保留）和 v3（Relay 推荐）。
 
 | 场景 | 处理 |
 |---|---|
-| 新功能 / 新业务 | 直接走 v2 |
+| 新功能 / 新业务 / 互联网 Relay | 直接走 **v3 Lua 状态机** |
 | LAN 发现 + 邀请握手 | 保留 v1（LanDiscovery + HTTP server 是完整现成实现） |
-| 老 Relay 房间 + v1 event 流 | 保留 v1，不动 |
-| 团建卡牌发牌（需严格同步） | 迁移到 v2 snapshot |
-| 聊天功能 | 任选；v2 更稳 |
+| 多场景不同状态流转 / 多租户 | 走 **v3**（每房间独立 Lua 脚本，后端无需改 Go 代码） |
+| 团建卡牌发牌（需严格同步 + 服务端权威） | 走 **v3**（per-room mutex 零竞态 + 服务端权威计算） |
+| 从 v2 迁移到 v3 | 后端 `internal/relay_snapshot/` → `internal/relay/v3/`；前端 `RelaySnapshotTransport` → `RelayV3Transport`；业务 `snapshot.custom.messages` → `snapshot.context.messages`（由 Lua 脚本维护）。详见 [[references/v3-lua-state-machine]] §10 对照表 |
