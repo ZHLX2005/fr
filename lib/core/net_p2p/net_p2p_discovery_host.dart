@@ -1,16 +1,16 @@
 // lib/core/net_p2p/net_p2p_discovery_host.dart
 //
-// NetP2P 入口 — LAN 局域网发现 / Relay 互联网房间（v2 snapshot）
+// NetP2P 入口 — LAN 局域网发现 / Relay 互联网房间（v3 snapshot + Lua）
 
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
-import 'package:xiaodouzi_fr/core/net_engine/relay_snapshot/relay_snapshot_transport.dart';
-import 'package:xiaodouzi_fr/core/net_engine/relay_snapshot/relay_snapshot_widget.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_widget.dart';
 
 import 'pages/net_p2p_chat_page.dart';
 import 'pages/net_p2p_snapshot_chat.dart';
 
-/// P2P 入口页面 — LAN 局域网发现 / Relay 互联网房间（v2 snapshot）
+/// P2P 入口页面 — LAN 局域网发现 / Relay 互联网房间（v3 snapshot）
 class NetP2PPage extends StatefulWidget {
   const NetP2PPage({super.key});
   @override
@@ -18,6 +18,22 @@ class NetP2PPage extends StatefulWidget {
 }
 
 enum _Mode { lan, relay }
+
+/// 聊天房间 Lua 脚本（v3 snapshot 驱动）
+///
+/// handlers 必须是 TOP-LEVEL GLOBALS，server 会按
+/// `definition.functions` 列表注入并调用。
+const String _defaultChatScript = r'''
+on_init = function(c, p) c.messages = {}; return c end
+on_join = function(c, p) return c end
+on_action_CHAT = function(c, p) table.insert(c.messages, p); return c end
+return {
+  definition = { functions = { "on_init", "on_join", "on_action_CHAT" } },
+  on_init = on_init,
+  on_join = on_join,
+  on_action_CHAT = on_action_CHAT,
+}
+''';
 
 class _NetP2PPageState extends State<NetP2PPage> {
   _Mode _mode = _Mode.lan;
@@ -28,15 +44,13 @@ class _NetP2PPageState extends State<NetP2PPage> {
   String? _lanPeerAlias;
   String? _lanSessionScope;
 
-  // Relay 快照模式连接状态
-  RelaySnapshotTransport? _snapshotTransport;
-  RoomHandle? _snapshotRoom;
+  // Relay v3 模式连接状态
+  RoomHandle? _v3Room;
 
   @override
   void dispose() {
     _lanTransport?.stop();
-    _snapshotRoom?.dispose();
-    _snapshotTransport?.close();
+    _v3Room?.dispose();
     super.dispose();
   }
 
@@ -55,26 +69,21 @@ class _NetP2PPageState extends State<NetP2PPage> {
     });
   }
 
-  // ——— Relay 快照模式 ———
+  // ——— Relay v3 模式 ———
 
-  void _onSnapshotRoomReady(RoomHandle handle, RelaySnapshotTransport transport) {
-    setState(() {
-      _snapshotTransport = transport;
-      _snapshotRoom = handle;
-    });
+  void _onV3RoomReady(RoomHandle handle) {
+    setState(() => _v3Room = handle);
   }
 
   void _disconnect() {
     _lanTransport?.stop();
-    _snapshotRoom?.dispose();
-    _snapshotTransport?.close();
+    _v3Room?.dispose();
     setState(() {
       _lanTransport = null;
       _lanMyNodeId = null;
       _lanPeerAlias = null;
       _lanSessionScope = null;
-      _snapshotRoom = null;
-      _snapshotTransport = null;
+      _v3Room = null;
     });
   }
 
@@ -89,14 +98,10 @@ class _NetP2PPageState extends State<NetP2PPage> {
         onLeave: _disconnect,
       );
     }
-    if (_snapshotRoom != null && _snapshotTransport != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('快照聊天')),
-        body: NetP2PSnapshotChatPage(
-          handle: _snapshotRoom!,
-          myDeviceId: _snapshotTransport!.deviceId,
-          onLeave: _disconnect,
-        ),
+    if (_v3Room != null) {
+      return NetP2PSnapshotChatPage(
+        handle: _v3Room!,
+        onLeave: _disconnect,
       );
     }
 
@@ -161,12 +166,12 @@ class _NetP2PPageState extends State<NetP2PPage> {
         },
       );
     }
-    return RelaySnapshotWidget(
+    return RelayV3Widget(
       relayUrl: 'http://47.110.80.47:8988',
+      defaultScript: _defaultChatScript,
       defaultMaxPlayers: 2,
-      maxPlayersRange: const [2],
       title: 'P2P 聊天',
-      onRoomReady: _onSnapshotRoomReady,
+      onRoomReady: _onV3RoomReady,
     );
   }
 }
