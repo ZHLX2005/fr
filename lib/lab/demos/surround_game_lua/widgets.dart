@@ -89,8 +89,6 @@ class _SetupPageState extends State<SetupPage> {
             controller: _aliasCtrl,
             decoration: InputDecoration(
               labelText: '昵称',
-              filled: true,
-              fillColor: theme.panelBg,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               labelStyle: TextStyle(color: theme.btnSub),
               enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
@@ -184,8 +182,6 @@ class _JoinPageState extends State<JoinPage> {
               controller: _aliasCtrl,
               decoration: InputDecoration(
                 labelText: '昵称',
-                filled: true,
-                fillColor: theme.panelBg,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 labelStyle: TextStyle(color: theme.btnSub),
                 enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
@@ -199,8 +195,6 @@ class _JoinPageState extends State<JoinPage> {
               decoration: InputDecoration(
                 labelText: '房间码',
                 hintText: '6 位数字',
-                filled: true,
-                fillColor: theme.panelBg,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 labelStyle: TextStyle(color: theme.btnSub),
                 enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
