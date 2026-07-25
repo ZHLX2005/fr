@@ -187,10 +187,11 @@ on_init = function(c, p)
   if #c.roles == 0 then
     c.roles = { { label = "平民", count = 4 } }
   end
-  -- 后端 luaToGo bug：roles[*].count 在 snapshot 中丢失，
-  -- 所以 Lua 必须信任客户端显式传进来的 min_players / max_players。
-  c.max_players = p.max_players or 0
-  c.min_players = p.min_players or c.max_players
+  c.max_players = 0
+  for _, r in ipairs(c.roles) do
+    c.max_players = c.max_players + (r.count or 0)
+  end
+  c.min_players = c.max_players
   c.assignments = {}
   c.ready = {}
   c.master_joins = p.master_joins == nil and true or p.master_joins
@@ -250,25 +251,20 @@ on_action_DEAL = function(c, p)
   if c.host_id ~= p.device_id then return c end
   if not all_ready(c) then return c end
 
-  -- 后端 luaToGo bug：roles[*].count 在 snapshot 中被丢（数字 key 当 nil）。
-  -- 所以用 p.max_players（客户端显式传）当总牌数，按 roles[].label 比例均摊。
-  local total = p.max_players or c.max_players or 0
-  if total <= 0 then return c end
+  local total = 0
+  for _, r in ipairs(c.roles) do
+    total = total + (r.count or 0)
+  end
 
   local pool = {}
-  local labels = {}
   for _, r in ipairs(c.roles) do
-    table.insert(labels, r.label or "?")
-  end
-  if #labels == 0 then
-    labels = { "?" }
-  end
-  for i = 1, total do
-    table.insert(pool, labels[((i - 1) % #labels) + 1])
+    for i = 1, (r.count or 0) do table.insert(pool, r.label) end
   end
 
   local playerIds = eligible_players(c)
-  while #pool < #playerIds do table.insert(pool, labels[#labels]) end
+  while #pool < #playerIds do
+    table.insert(pool, c.roles[#c.roles].label)
+  end
 
   if #pool >= 2 then
     for i = #pool, 2, -1 do
@@ -278,6 +274,13 @@ on_action_DEAL = function(c, p)
   end
 
   c.assignments = {}
+  for i, did in ipairs(playerIds) do
+    c.assignments[did] = pool[i] or "?"
+  end
+
+  state = "playing"
+  return c
+end
   for i, did in ipairs(playerIds) do
     c.assignments[did] = pool[i] or "?"
   end
@@ -299,8 +302,9 @@ on_action_SET_ROLE_POOL = function(c, p)
   if state ~= "lobby" and state ~= "ready" then return c end
   if p.roles == nil or type(p.roles) ~= "table" then return c end
   c.roles = p.roles
-  c.max_players = p.max_players or 0
-  c.min_players = p.min_players or c.max_players
+  c.max_players = 0
+  for _, r in ipairs(c.roles) do c.max_players = c.max_players + (r.count or 0) end
+  c.min_players = c.max_players
   -- 改角色池后重置 ready
   c.ready = {}
   state = "lobby"

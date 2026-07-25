@@ -284,11 +284,6 @@ class _SetupPageState extends State<_SetupPage> {
           'alias': alias,
           'roles': roles,
           'master_joins': _masterJoins,
-          // 后端 luaToGo bug：roles[*].count 在 snapshot 中丢失，
-          // 所以客户端必须显式把牌数传给 Lua（max_players / min_players）。
-          // UI 端同样信任本地计算的 total。
-          'max_players': total,
-          'min_players': total,
         },
         maxPlayers: total,
       );
