@@ -642,6 +642,8 @@ class _PlayingViewState extends State<_PlayingView> {
     final capacity = widget.hostCapacity > 0
         ? widget.hostCapacity
         : snapCap;
+    final masterJoins = (s?.context['master_joins'] as bool?) ?? true;
+    final hostId = s?.context['host_id']?.toString();
 
     return _LobbyView(
       snap: s,
@@ -654,6 +656,9 @@ class _PlayingViewState extends State<_PlayingView> {
       onLeave: widget.onLeave,
       players: _players(),
       capacity: capacity,
+      spectatorIds: (!masterJoins && hostId != null)
+          ? {hostId}
+          : const {},
       isMeReady: _isMeReady(),
     );
   }
@@ -664,7 +669,7 @@ class _LobbyView extends StatelessWidget {
     required this.snap, required this.isHost, required this.busy,
     required this.onAck, required this.onUnack, required this.onDeal, required this.onReset,
     required this.onLeave, required this.players,
-    required this.capacity, required this.isMeReady,
+    required this.capacity, required this.spectatorIds, required this.isMeReady,
   });
 
   final Snapshot? snap;
@@ -677,6 +682,7 @@ class _LobbyView extends StatelessWidget {
   final Future<void> Function() onLeave;
   final Map<String, String> players;
   final int capacity;
+  final Set<String> spectatorIds;
   final bool isMeReady;
 
   @override Widget build(BuildContext context) {
@@ -726,6 +732,7 @@ class _LobbyView extends StatelessWidget {
         LobbyParticipants(
           capacity: slotCount,
           participants: players,
+          spectatorIds: spectatorIds,
           readyMap: (snap?.context['ready'] as Map?)?.map(
             (k, v) => MapEntry(k.toString(), v == true),
           ),

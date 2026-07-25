@@ -37,12 +37,14 @@ const kParticipantColors = [
 /// [readyMap] 各玩家准备状态（deviceId → true/false），默认全 true
 /// [colors] 颜色表，默认 [kParticipantColors]
 /// [slotSize] 圆环直径，默认 66
+/// [spectatorIds] 旁观者 deviceId 集合（房主不参与时标记为'旁观者'）
 class LobbyParticipants extends StatelessWidget {
   const LobbyParticipants({
     super.key,
     required this.capacity,
     required this.participants,
     this.readyMap,
+    this.spectatorIds,
     this.colors = kParticipantColors,
     this.slotSize = 66,
   });
@@ -50,6 +52,7 @@ class LobbyParticipants extends StatelessWidget {
   final int capacity;
   final Map<String, String> participants;
   final Map<String, bool>? readyMap;
+  final Set<String>? spectatorIds;
   final List<Color> colors;
   final double slotSize;
 
@@ -61,12 +64,33 @@ class LobbyParticipants extends StatelessWidget {
     entries.sort((a, b) => a.value.compareTo(b.value));
 
     final slots = <Widget>[];
-    for (var i = 0; i < capacity; i++) {
+    // 参与者的槽位始终用 participants.length（含旁观者），
+    // 空位用 capacity（牌数）但至少有位置放所有参与者
+    final totalSlots = capacity > participants.length ? capacity : participants.length;
+    for (var i = 0; i < totalSlots; i++) {
       final delay = i * 60;
       if (i < entries.length) {
         final e = entries[i];
         final color = colors[i % colors.length];
         final isReady = readyMap?[e.key] == true;
+        final isSpectator = spectatorIds?.contains(e.key) ?? false;
+        final labelColor = isReady
+            ? Colors.green.shade400
+            : (isSpectator ? theme.colorScheme.outline : color);
+        final labelText = isReady
+            ? '已准备'
+            : (isSpectator ? '旁观者' : '未准备');
+        final borderColor = isReady
+            ? Colors.green.shade400.withValues(alpha: 0.9)
+            : (isSpectator
+                ? theme.colorScheme.outlineVariant.withValues(alpha: 0.5)
+                : color.withValues(alpha: 0.35));
+        final borderWidth = isReady ? 3.5 : (isSpectator ? 1.5 : 2.0);
+        final nameColor = isReady
+            ? Colors.green.shade700
+            : (isSpectator
+                ? theme.colorScheme.onSurface.withValues(alpha: 0.45)
+                : theme.colorScheme.onSurface.withValues(alpha: 0.6));
         slots.add(_AnimatedSlot(
           delay: delay,
           child: Column(
@@ -81,10 +105,8 @@ class LobbyParticipants extends StatelessWidget {
                   ),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isReady
-                        ? Colors.green.shade400.withValues(alpha: 0.9)
-                        : color.withValues(alpha: 0.35),
-                    width: isReady ? 3.5 : 2.0,
+                    color: borderColor,
+                    width: borderWidth,
                     strokeAlign: BorderSide.strokeAlignInside,
                   ),
                   boxShadow: !isReady ? [] : [
@@ -101,7 +123,7 @@ class LobbyParticipants extends StatelessWidget {
                     style: TextStyle(
                       fontSize: slotSize * 0.4,
                       fontWeight: FontWeight.bold,
-                      color: isReady ? Colors.green.shade400 : color,
+                      color: labelColor,
                     ),
                   ),
                 ),
@@ -109,20 +131,11 @@ class LobbyParticipants extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 e.value,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: isReady
-                      ? Colors.green.shade700
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: nameColor),
               ),
               Text(
-                isReady ? '已准备' : '未准备',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isReady ? Colors.green.shade400 : theme.colorScheme.outline,
-                ),
+                labelText,
+                style: TextStyle(fontSize: 10, color: labelColor),
               ),
             ],
           ),
