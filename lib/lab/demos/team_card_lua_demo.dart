@@ -137,6 +137,7 @@ class _TeamCardLuaDemoPage extends StatefulWidget {
 class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
   bool _isMaster = true;
   RoomHandle? _handle;
+  int? _hostCapacity;
 
   @override
   void dispose() {
@@ -144,10 +145,16 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
     super.dispose();
   }
 
-  void _onStarted(RoomHandle handle) => setState(() => _handle = handle);
+  void _onStarted(RoomHandle handle, int capacity) => setState(() {
+    _handle = handle;
+    _hostCapacity = capacity;
+  });
   Future<void> _disconnect() async {
     final h = _handle;
-    setState(() => _handle = null);
+    setState(() {
+      _handle = null;
+      _hostCapacity = null;
+    });
     if (h != null) await h.leave();
   }
 
@@ -156,7 +163,11 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
     if (_handle != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('团建卡牌 v3')),
-        body: _PlayingView(handle: _handle!, onLeave: _disconnect),
+        body: _PlayingView(
+          handle: _handle!,
+          hostCapacity: _hostCapacity ?? 0,
+          onLeave: _disconnect,
+        ),
       );
     }
     return Scaffold(
@@ -195,7 +206,7 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
 class _SetupPage extends StatefulWidget {
   const _SetupPage({required this.initialRoles, required this.onStarted});
   final List<RoleDef> initialRoles;
-  final void Function(RoomHandle) onStarted;
+  final void Function(RoomHandle, int capacity) onStarted;
 
   @override State<_SetupPage> createState() => _SetupPageState();
 }
@@ -282,7 +293,7 @@ class _SetupPageState extends State<_SetupPage> {
         maxPlayers: total,
       );
       if (!mounted) return;
-      widget.onStarted(h);
+      widget.onStarted(h, total);
     } catch (e) {
       if (!mounted) return;
       setState(() { _busy = false; _error = '$e'; });
@@ -417,7 +428,7 @@ class _SetupPageState extends State<_SetupPage> {
 
 class _JoinPage extends StatefulWidget {
   const _JoinPage({required this.onStarted});
-  final void Function(RoomHandle) onStarted;
+  final void Function(RoomHandle, int capacity) onStarted;
 
   @override State<_JoinPage> createState() => _JoinPageState();
 }
@@ -453,7 +464,9 @@ class _JoinPageState extends State<_JoinPage> {
       );
       final h = await t.joinRoom(code: code);
       if (!mounted) return;
-      widget.onStarted(h);
+      // 玩家加入时无法知道房主设定的 capacity，
+      // 留 null 让 _PlayingView 从 snapshot 拿 max_players。
+      widget.onStarted(h, 0);
     } catch (e) {
       if (!mounted) return;
       setState(() { _busy = false; _error = '$e'; });
@@ -513,8 +526,15 @@ class _JoinPageState extends State<_JoinPage> {
 // ══════════════════════════════════════════════════════════════
 
 class _PlayingView extends StatefulWidget {
-  const _PlayingView({required this.handle, required this.onLeave});
+  const _PlayingView({
+    required this.handle,
+    required this.hostCapacity,
+    required this.onLeave,
+  });
   final RoomHandle handle;
+  /// 房主建房时的本地角色池 total（权威值）。
+  /// 玩家加入时为 0，UI 从 snapshot.context.max_players 取兜底。
+  final int hostCapacity;
   final Future<void> Function() onLeave;
 
   @override State<_PlayingView> createState() => _PlayingViewState();
@@ -549,20 +569,6 @@ class _PlayingViewState extends State<_PlayingView> {
     final raw = s.context['players'];
     if (raw is! Map) return const {};
     return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
-
-  /// 实际需要 ack 才能发牌的人（含房主参加模式或不参加模式）
-  List<String> _eligibleIds() {
-    final s = _snap;
-    if (s == null) return const [];
-    final ids = <String>[];
-    for (final did in _players().keys) {
-      final isHostInPool = (_snap?.context['host_id']?.toString() ?? '') == did;
-      final masterJoins = (_snap?.context['master_joins'] as bool?) ?? true;
-      if (!masterJoins && isHostInPool && _isHost) continue;
-      ids.add(did);
-    }
-    return ids;
   }
 
   bool _isMeReady() {
@@ -626,6 +632,12 @@ class _PlayingViewState extends State<_PlayingView> {
       return const Center(child: Text('已发牌'));
     }
     // lobby / ready
+    // 容量三选一：房主本地 total > snapshot.max_players > 0
+    final snapCap = (s?.context['max_players'] as num?)?.toInt() ?? 0;
+    final capacity = widget.hostCapacity > 0
+        ? widget.hostCapacity
+        : snapCap;
+
     return _LobbyView(
       snap: s,
       isHost: _isHost,
@@ -636,7 +648,7 @@ class _PlayingViewState extends State<_PlayingView> {
       onReset: _reset,
       onLeave: widget.onLeave,
       players: _players(),
-      eligibleIds: _eligibleIds(),
+      capacity: capacity,
       isMeReady: _isMeReady(),
     );
   }
@@ -647,7 +659,7 @@ class _LobbyView extends StatelessWidget {
     required this.snap, required this.isHost, required this.busy,
     required this.onAck, required this.onUnack, required this.onDeal, required this.onReset,
     required this.onLeave, required this.players,
-    required this.eligibleIds, required this.isMeReady,
+    required this.capacity, required this.isMeReady,
   });
 
   final Snapshot? snap;
@@ -659,23 +671,21 @@ class _LobbyView extends StatelessWidget {
   final VoidCallback onReset;
   final Future<void> Function() onLeave;
   final Map<String, String> players;
-  final List<String> eligibleIds;
+  final int capacity;
   final bool isMeReady;
 
   @override Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final code = snap?.roomCode ?? '------';
     final state = snap?.state ?? 'lobby';
-    // 后端 luaToGo bug: snapshot.context.max_players 不可靠，
-    // 用本地角色池重算 total 作为容量。
-    final capacity = eligibleIds.length > 0 && state == 'ready'
-        ? eligibleIds.length
-        : eligibleIds.length; // 用当前应该就绪的人数作容量
     final readyMap = (snap?.context['ready'] as Map?) ?? const {};
-    final readyCount = eligibleIds.where((id) => readyMap[id] == true).length;
+    // 人数差 = 容量 - 当前在场（房主旁观时房主不算牌位，但占一个 join 槽位）
+    final have = players.length;
+    final readyCount = readyMap.values.where((v) => v == true).length;
     final allReady = state == 'ready';
     final canDeal = isHost && allReady;
-    final remaining = (capacity - readyCount).clamp(0, capacity);
+    final slotDiff = (capacity - have).clamp(0, capacity);
+    final readyDiff = (capacity - readyCount).clamp(0, capacity);
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -691,9 +701,11 @@ class _LobbyView extends StatelessWidget {
                     ? '已就绪 · 房主可以开始'
                     : (capacity == 0
                         ? '等待玩家加入…'
-                        : (remaining == 0
-                            ? '等待房主开始…'
-                            : '差 $remaining 人未准备')),
+                        : (slotDiff > 0
+                            ? '已加入 $have / $capacity · 还差 $slotDiff 人'
+                            : (readyDiff > 0
+                                ? '等待 $readyDiff 人准备…'
+                                : '等待房主开始…'))),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: state == 'ready' ? theme.colorScheme.primary : theme.colorScheme.outline,
                   fontWeight: state == 'ready' ? FontWeight.w600 : FontWeight.w400,
