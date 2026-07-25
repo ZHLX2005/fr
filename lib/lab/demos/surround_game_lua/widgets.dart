@@ -1,13 +1,19 @@
 // lib/lab/demos/surround_game_lua/widgets.dart
 // 围追堵截 Lua 版 — UI 组件：SetupPage / JoinPage / OnlineGamePage
+//
+// 布局与 LAN host/client 完全一致：
+// - host = flipY=true（触摸 y 镜像 + 棋盘整体翻转）
+// - client = flipY=false（基线）
+// - 棋盘 + 单一 PlayerPanel（只显示自己的，底部）
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'constants.dart';
-import 'engine.dart' show SgRoom, SgMirror, QuoridorEngine, GameState, MoveRecord,
+import 'engine.dart' show SgRoom, QuoridorEngine, GameState, MoveRecord,
     GameStatus, Snapshot, RoomHandle, RelayV3Transport, kSurroundGameScript;
+import 'touch_controller.dart' show SgHostTouchController;
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/surround_game/surround_game_constants.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/chess_board.dart';
@@ -212,7 +218,11 @@ class _JoinPageState extends State<JoinPage> {
 }
 
 // ══════════════════════════════════════════════════════════════
-// Online Game Page（玩游戏）
+// Online Game Page — LAN-style 单面板布局
+//
+// host 端：棋盘整体 y 翻转 + 触摸 y 镜像；isMyTurn = (host==topPlayer)
+// client 端：棋盘原样；isMyTurn = (client==topPlayer)
+// 任意时刻都只显示自己的 PlayerPanel（底部）
 // ══════════════════════════════════════════════════════════════
 
 class OnlineGamePage extends StatefulWidget {
@@ -233,33 +243,26 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   StreamSubscription<Snapshot>? _sub;
   Snapshot? _snap;
   GameState _gs = QuoridorEngine.initialize();
-  final _touchCtrl = TouchController();
   late final SgRoom _room;
-  late final SgMirror _mirror;
-
-  SgLobbyPhase get _phase {
-    final s = _snap?.state;
-    if (s == null) return SgLobbyPhase.entering;
-    if (s == 'lobby') return SgLobbyPhase.waitingAck;
-    if (s == 'ready') return SgLobbyPhase.waitingDeal;
-    if (s == 'playing') return SgLobbyPhase.playing;
-    return SgLobbyPhase.ended;
-  }
-
-  bool get _myTurn => SgRoom.isMyTurn(_snap, _gs, _room.deviceId);
+  TouchController _touchCtrl = TouchController();  // host 端会换成 SgHostTouchController
+  String? _lastUndoRequester;
 
   @override
   void initState() {
     super.initState();
     _room = SgRoom(widget.handle);
-    _mirror = SgMirror(isHostSide: widget.isHostSide);
     _snap = widget.handle.latest;
-    _rebuildGs(widget.handle.latest);
-    _sub = widget.handle.snapshots.listen((s) {
-      if (!mounted) return;
-      setState(() { _snap = s; _rebuildGs(s); });
-      _maybeShowUndoIncomingDialog();
+    _rebuildGs(_snap);
+    _sub = widget.handle.snapshots.listen(_onSnapshot);
+  }
+
+  void _onSnapshot(Snapshot s) {
+    if (!mounted) return;
+    setState(() {
+      _snap = s;
+      _rebuildGs(s);
     });
+    _maybeShowUndoIncomingDialog();
   }
 
   void _rebuildGs(Snapshot? s) {
@@ -272,63 +275,11 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   // ── 网络动作 ──
   Future<void> _ack() async { try { await _room.ack(); } catch (_) {} }
-  Future<void> _deal() async { try { await _room.deal(); _touchCtrl.reset(); } catch (_) {} }
-
-  // ── 触摸回调 ──
-  void _onPointerDown(Offset pos, double cs, double dist) {
-    if (!_myTurn) return;
-    final gs = _gs;
-    final currentId = gs.currentPlayerIsTop ? gs.topPlayerId : gs.bottomPlayerId;
-    final remaining = SurroundGameConstants.wallCountPerPlayer -
-        (gs.currentPlayerIsTop ? gs.topWallsPlaced : gs.bottomWallsPlaced);
-    _touchCtrl.handleTouchBegan(pos, cs, dist,
-      isRunning: gs.status == GameStatus.running,
-      currentPlayerId: currentId,
-      canPlaceWall: remaining > 0,
-      validateWall: (wx, wy, o) => _mirror.validateWall(gs, wx, wy, o),
-    );
-    setState(() {});
-  }
-
-  void _onPointerMove(Offset pos, double cs, double dist) {
-    if (!_myTurn) return;
-    _touchCtrl.handleTouchMoved(pos, cs, dist,
-      validateWall: (wx, wy, o) => _mirror.validateWall(_gs, wx, wy, o),
-    );
-    setState(() {});
-  }
-
-  void _onPointerUp(Offset pos, double cs, double dist) {
-    if (!_myTurn) return;
-    _touchCtrl.handleTouchEnded(pos, cs, dist,
-      isTopTurn: _gs.currentPlayerIsTop,
-      validMoves: _gs.validMoves,
-      validateWall: (wx, wy, o) => _mirror.validateWall(_gs, wx, wy, o),
-    );
-    setState(() {});
-  }
-
-  void _onPointerCancel() { _touchCtrl.handleTouchCancelled(); setState(() {}); }
-
-  void _onConfirm() {
-    final toc = _touchCtrl;
-    if (toc.phase != TouchPhase.confirming) return;
-    if (toc.pendingWall != null) {
-      _room.move(MoveRecord.wall(
-        x: toc.pendingWall!.x, y: _mirror.mirrorY(toc.pendingWall!.y),
-        orientation: toc.pendingWall!.o,
-        isTopPlayer: _gs.currentPlayerIsTop,
-      ));
-    } else if (toc.pendingTargetCellId != null) {
-      final ty = toc.pendingTargetCellId! ~/ 9;
-      final tx = toc.pendingTargetCellId! % 9;
-      _room.move(MoveRecord.move(
-        cellId: _mirror.canonicalCellId(tx, ty),
-        isTopPlayer: _gs.currentPlayerIsTop,
-      ));
-    }
-    toc.reset();
-    setState(() {});
+  Future<void> _deal() async {
+    try {
+      await _room.deal();
+      _touchCtrl.reset();
+    } catch (_) {}
   }
 
   Future<void> _reset() async {
@@ -336,42 +287,100 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     await _room.reset();
   }
 
-  Future<void> _confirmResign() async {
-    final theme = BoardTheme.of(context);
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: theme.panelBg,
-        title: const Text('认输'),
-        content: const Text('确认认输？此局结束。'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('认输')),
-        ],
-      ),
-    );
-    if (confirm == true) await _room.resign();
+  // ── 棋盘判断 ──
+
+  bool get _flipY => widget.isHostSide;
+
+  /// 当前回合是否轮到自己
+  /// host 端：自己 = top player（isTop=true）
+  /// client 端：自己 = bottom player（isTop=false）
+  bool get _isMyTurn {
+    final hostId = SgRoom.hostId(_snap);
+    if (hostId == null) return false;
+    final imHost = _room.deviceId == hostId;
+    return imHost == _gs.currentPlayerIsTop;
   }
 
-  /// 监听 undo_pending：我是非发起方则弹出"同意/拒绝"对话框
-  String? _lastUndoRequester;
+  bool _validateWall(int wx, int wy, WallOrientation o) {
+    return QuoridorEngine.isWallPlacementValid(
+      _gs.wallGrid, _gs.adjacency, _gs.topPlayerId, _gs.bottomPlayerId,
+      wx, wy, o,
+    );
+  }
+
+  // ── 触摸 ──
+
+  void _onPointerDown(Offset pos, double cs, double dist) {
+    if (!_isMyTurn) return;
+    final gs = _gs;
+    final currentId = gs.currentPlayerIsTop ? gs.topPlayerId : gs.bottomPlayerId;
+    final wallsPlaced = gs.currentPlayerIsTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
+    final remaining = SurroundGameConstants.wallCountPerPlayer - wallsPlaced;
+    _touchCtrl.handleTouchBegan(pos, cs, dist,
+      isRunning: gs.status == GameStatus.running,
+      currentPlayerId: currentId,
+      canPlaceWall: remaining > 0,
+      validateWall: _validateWall,
+    );
+    setState(() {});
+  }
+
+  void _onPointerMove(Offset pos, double cs, double dist) {
+    if (!_isMyTurn) return;
+    _touchCtrl.handleTouchMoved(pos, cs, dist, validateWall: _validateWall);
+    setState(() {});
+  }
+
+  void _onPointerUp(Offset pos, double cs, double dist) {
+    if (!_isMyTurn) return;
+    _touchCtrl.handleTouchEnded(pos, cs, dist,
+      isTopTurn: _gs.currentPlayerIsTop,
+      validMoves: _gs.validMoves,
+      validateWall: _validateWall,
+    );
+    setState(() {});
+  }
+
+  void _onPointerCancel() {
+    _touchCtrl.handleTouchCancelled();
+    setState(() {});
+  }
+
+  void _onConfirm() {
+    final toc = _touchCtrl;
+    if (toc.phase != TouchPhase.confirming) return;
+    if (toc.pendingWall != null) {
+      _room.move(MoveRecord.wall(
+        x: toc.pendingWall!.x, y: toc.pendingWall!.y,
+        orientation: toc.pendingWall!.o,
+        isTopPlayer: _gs.currentPlayerIsTop,
+      ));
+    } else if (toc.pendingTargetCellId != null) {
+      _room.move(MoveRecord.move(
+        cellId: toc.pendingTargetCellId!,
+        isTopPlayer: _gs.currentPlayerIsTop,
+      ));
+    }
+    toc.reset();
+    setState(() {});
+  }
+
+  // ── 悔棋对话框（我是对手时弹） ──
+
   Future<void> _maybeShowUndoIncomingDialog() async {
     final requester = SgRoom.undoRequester(_snap);
-    // undo_pending 清空 → 重置游标，下次有新请求可再次弹窗
     if (requester == null) {
       _lastUndoRequester = null;
       return;
     }
     if (requester == _lastUndoRequester) return;
-    if (requester == _room.deviceId) return; // 自己刚发起的，跳过
+    if (requester == _room.deviceId) return;
     _lastUndoRequester = requester;
-    final theme = BoardTheme.of(context);
     if (!mounted) return;
     final accept = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: theme.panelBg,
         title: const Text('对手请求悔棋'),
         content: const Text('是否同意撤销上一步？'),
         actions: [
@@ -383,71 +392,112 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (accept != null) await _room.respondUndo(accepted: accept);
   }
 
+  void _showUndoRequestConfirm() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('请求悔棋'),
+        content: const Text('将撤销上一步，回合回到上一步的执行者。\n需对手同意才生效。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () { Navigator.pop(ctx); _room.requestUndo(); }, child: const Text('发起')),
+        ],
+      ),
+    );
+  }
+
+  void _showResignConfirm() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('认输'),
+        content: const Text('确认认输？此局结束。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('认输')),
+        ],
+      ),
+    );
+    if (confirm == true) await _room.resign();
+  }
+
   // ── Build ──
 
   @override
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
-    final phase = _phase;
-    if (phase == SgLobbyPhase.entering || phase == SgLobbyPhase.waitingAck) return _buildLobby(theme);
-    if (phase == SgLobbyPhase.waitingDeal) return _buildReadyWait(theme);
-    return _buildGame(theme);
+    final phase = _snap?.state;
+
+    if (phase == null || phase == 'lobby') return _buildLobby(theme);
+    if (phase == 'ready') return _buildReadyWait(theme);
+    if (phase == 'ended') return _buildFinished(theme);
+    return _buildPlaying(theme);
   }
+
+  // ── 阶段：等待对手 ──
 
   Widget _buildLobby(BoardThemeData theme) {
     final code = _snap?.roomCode ?? '------';
     final players = SgRoom.players(_snap);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-            ),
-            child: Text(code,
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold,
+    return Scaffold(
+      backgroundColor: theme.boardSurface,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.hourglass_top, size: 64, color: Colors.orange),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                ),
+                child: Text(code, style: const TextStyle(
+                    fontSize: 28, fontWeight: FontWeight.bold,
                     letterSpacing: 6, color: Colors.orange)),
-          ),
-          const SizedBox(height: 16),
-          Text('等待对手加入…', style: TextStyle(color: Colors.white60, fontSize: 13)),
-          const SizedBox(height: 24),
-          ...players.entries.map((e) => ListTile(
-            leading: CircleAvatar(
-              backgroundColor: e.key == _room.deviceId ? Colors.green : Colors.grey,
-              child: Text(e.value[0].toUpperCase()),
-            ),
-            title: Text('${e.value}${e.key == _room.deviceId ? " (我)" : ""}',
-                style: const TextStyle(color: Colors.white)),
-          )),
-          if (players.length >= 2) ...[
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _ack,
-              icon: const Icon(Icons.check_circle_outlined),
-              label: const Text('准备好了'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.green.shade400,
-                side: BorderSide(color: Colors.green.shade400),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                minimumSize: const Size(200, 48),
               ),
-            ),
-          ],
-        ]),
+              const SizedBox(height: 16),
+              Text('等待对手加入…', style: TextStyle(color: theme.btnSub, fontSize: 13)),
+              const SizedBox(height: 24),
+              ...players.entries.map((e) => ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: e.key == _room.deviceId ? Colors.green : Colors.grey,
+                  child: Text(e.value[0].toUpperCase()),
+                ),
+                title: Text('${e.value}${e.key == _room.deviceId ? " (我)" : ""}',
+                    style: TextStyle(color: theme.btnText)),
+              )),
+              if (players.length >= 2) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _ack,
+                  icon: const Icon(Icons.check_circle_outlined),
+                  label: const Text('准备好了'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green.shade400,
+                    side: BorderSide(color: Colors.green.shade400),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    minimumSize: const Size(200, 48),
+                  ),
+                ),
+              ],
+            ]),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildReadyWait(BoardThemeData theme) {
-    return Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
+    return Scaffold(
+      backgroundColor: theme.boardSurface,
+      body: SafeArea(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.hourglass_top, size: 48, color: Colors.orange),
         const SizedBox(height: 16),
-        const Text('双方已准备好', style: TextStyle(fontSize: 18, color: Colors.white)),
+        Text('双方已准备好', style: TextStyle(fontSize: 18, color: theme.btnText)),
         const SizedBox(height: 24),
         if (_room.isHost)
           OutlinedButton.icon(
@@ -462,148 +512,161 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             ),
           )
         else
-          Text('等待房主开始…', style: TextStyle(color: Colors.white60)),
-      ]),
+          Text('等待房主开始…', style: TextStyle(color: theme.btnSub)),
+      ]))),
     );
   }
 
-  // ── 游戏棋盘 ──
+  // ── 阶段：游戏中（LAN 风格单面板） ──
 
-  Widget _buildGame(BoardThemeData theme) {
+  Widget _buildPlaying(BoardThemeData theme) {
     final gs = _gs;
     final isRunning = gs.status == GameStatus.running;
-    return Stack(children: [
-      Column(children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 6),
-          child: Center(child: _buildPlayerPanel(theme, rotated: true, isTop: true)),
-        ),
-        Expanded(child: LayoutBuilder(
-          builder: (context, constraints) {
-            final w = constraints.maxWidth;
-            final cs = w / 11;
-            final dist = cs * 1.25;
-            return Center(child: SizedBox(
-              width: w, height: w,
+    return Scaffold(
+      backgroundColor: theme.boardSurface,
+      body: SafeArea(child: LayoutBuilder(builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final cs = w / 11;
+        final boardSize = w;
+        // host 端：touch controller 用镜像版；client 端用基线
+        _ensureTouchController(boardSize);
+
+        return Column(children: [
+          Expanded(
+            child: Center(child: SizedBox(
+              width: boardSize, height: boardSize,
               child: Stack(clipBehavior: Clip.none, children: [
-                ChessBoard(cellSize: cs, theme: theme),
-                _boardOverlay(gs, cs, theme, dist),
-                if (isRunning && _myTurn)
+                // 翻转的绘制层（host 镜像，client 原样）
+                if (_flipY)
+                  Transform.flip(flipY: true, child: _drawLayer(cs, boardSize, theme))
+                else
+                  _drawLayer(cs, boardSize, theme),
+                // 触摸层（不在翻转内，仅本方回合挂载）
+                if (isRunning && _isMyTurn)
                   TouchView(
-                    cellSize: cs, distance: dist,
-                    onPointerDown: (p, c, d) => _onPointerDown(p, c, d),
-                    onPointerMove: (p, c, d) => _onPointerMove(p, c, d),
-                    onPointerUp: (p, c, d) => _onPointerUp(p, c, d),
+                    cellSize: cs, distance: cs * 1.25,
+                    onPointerDown: _onPointerDown,
+                    onPointerMove: _onPointerMove,
+                    onPointerUp: _onPointerUp,
                     onPointerCancel: _onPointerCancel,
                   ),
-                ConfirmActions(
-                  phase: _touchCtrl.phase,
-                  pendingTargetCellId: _touchCtrl.pendingTargetCellId,
-                  pendingWall: _touchCtrl.pendingWall,
-                  isTopTurn: gs.currentPlayerIsTop,
-                  cellSize: cs, boardSize: w, theme: theme,
-                  onConfirm: _onConfirm,
-                  onCancel: () { _touchCtrl.cancelAction(); setState(() {}); },
-                  onRotate: () {
-                    _touchCtrl.rotatePendingWall(
-                      validateWall: (wx, wy, o) => _mirror.validateWall(gs, wx, wy, o),
-                    ); setState(() {});
-                  },
-                ),
               ]),
-            ));
-          },
-        )),
-        Padding(
-          padding: const EdgeInsets.only(top: 6, bottom: 10),
-          child: Center(child: _buildPlayerPanel(theme, rotated: false, isTop: false)),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            if (isRunning) _bottomAction(Icons.flag_outlined, '认输', theme, _confirmResign),
-            if (isRunning && _room.isHost) ...[
-              const SizedBox(width: 16),
-              _bottomAction(Icons.refresh, '重新开始', theme, _reset),
-            ],
-            const SizedBox(width: 16),
-            _bottomAction(Icons.exit_to_app, '退出', theme, widget.onLeave),
-          ]),
-        ),
-      ]),
-      if (gs.status != GameStatus.running) _buildOverlay(gs, theme),
-    ]);
+            )),
+          ),
+          // 底部自己的 PlayerPanel（只显示自己）
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 6),
+            child: Center(child: _buildPlayerPanel(theme)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              if (isRunning)
+                _bottomAction(Icons.flag_outlined, '认输', _showResignConfirm, theme),
+              if (isRunning) const SizedBox(width: 16),
+              if (_room.isHost)
+                _bottomAction(Icons.refresh, '重新开始', _reset, theme),
+              if (_room.isHost) const SizedBox(width: 16),
+              _bottomAction(Icons.exit_to_app, '退出', widget.onLeave, theme),
+            ]),
+          ),
+        ]);
+      })),
+    );
   }
 
-  Widget _boardOverlay(GameState gs, double cs, BoardThemeData theme, double dist) {
+  void _ensureTouchController(double boardSize) {
+    if (_flipY) {
+      if (_touchCtrl is! SgHostTouchController ||
+          (_touchCtrl as dynamic).boardSize != boardSize) {
+        _touchCtrl = SgHostTouchController(boardSize: boardSize);
+      }
+    } else {
+      // client 端：用基线
+      _touchCtrl = TouchController();
+    }
+  }
+
+  Widget _drawLayer(double cs, double boardSize, BoardThemeData theme) {
+    final gs = _gs;
     final toc = _touchCtrl;
-    final pendingId = toc.pendingTargetCellId;
-    final topId = pendingId != null && gs.currentPlayerIsTop ? pendingId : _mirror.displayCellId(gs.topPlayerId);
-    final bottomId = pendingId != null && !gs.currentPlayerIsTop ? pendingId : _mirror.displayCellId(gs.bottomPlayerId);
+    final pendingCellId = toc.pendingTargetCellId;
+    final topId = pendingCellId != null && gs.currentPlayerIsTop
+        ? pendingCellId
+        : gs.topPlayerId;
+    final bottomId = pendingCellId != null && !gs.currentPlayerIsTop
+        ? pendingCellId
+        : gs.bottomPlayerId;
+    // host 端：自己的棋子在 flipY 后实际是 top（永远是 isTopTurn=true 因为自己=top）
+    // client 端：自己=bottom → gs.currentPlayerIsTop 时对手走
+    final isTopTurnForConfirm = _flipY ? true : gs.currentPlayerIsTop;
 
     return Stack(clipBehavior: Clip.none, children: [
-      ChessWall(history: _mirror.displayHistory(gs.history), cellSize: cs, theme: theme),
-      PlayerPrompt(validMoves: _mirror.displayValidMoves(gs.validMoves), cellSize: cs, theme: theme, visible: toc.targetCellId != null),
+      ChessBoard(cellSize: cs, theme: theme),
+      ChessWall(history: gs.history, cellSize: cs, theme: theme),
+      PlayerPrompt(validMoves: gs.validMoves, cellSize: cs, theme: theme,
+          visible: toc.targetCellId != null),
       ChessPlayer(cellId: topId, cellSize: cs, color: theme.piecePlayerA),
       ChessPlayer(cellId: bottomId, cellSize: cs, color: theme.piecePlayerB),
-      if (pendingId != null)
-        Positioned(
-          left: (pendingId % 9) * dist + 1, top: (pendingId ~/ 9) * dist + 1,
-          child: Container(
-            width: cs - 2, height: cs - 2,
-            decoration: BoxDecoration(
-              color: theme.validMoveRing.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: theme.validMoveRing.withValues(alpha: 0.7), width: 2),
-            ),
-          ),
-        ),
-      WallPrompt(wallData: toc.previewWall ?? toc.pendingWall, cellSize: cs, theme: theme,
-          isValid: toc.wallPreviewValid, visible: toc.previewWall != null || toc.pendingWall != null),
+      if (pendingCellId != null)
+        _PendingHighlight(cellId: pendingCellId, cellSize: cs, theme: theme),
+      WallPrompt(wallData: toc.previewWall ?? toc.pendingWall,
+          cellSize: cs, theme: theme,
+          isValid: toc.wallPreviewValid,
+          visible: toc.previewWall != null || toc.pendingWall != null),
+      if (toc.dragOffset != null && toc.targetCellId != null)
+        _FloatingPiece(offset: toc.dragOffset!,
+            color: gs.currentPlayerIsTop ? theme.piecePlayerA : theme.piecePlayerB,
+            cellSize: cs),
+      ConfirmActions(
+        phase: toc.phase,
+        pendingTargetCellId: toc.pendingTargetCellId,
+        pendingWall: toc.pendingWall,
+        isTopTurn: isTopTurnForConfirm,
+        cellSize: cs, boardSize: boardSize, theme: theme,
+        onConfirm: _onConfirm,
+        onCancel: () { toc.cancelAction(); setState(() {}); },
+        onRotate: () {
+          toc.rotatePendingWall(validateWall: _validateWall);
+          setState(() {});
+        },
+      ),
     ]);
   }
 
-  Widget _buildPlayerPanel(BoardThemeData theme, {required bool rotated, required bool isTop}) {
+  Widget _buildPlayerPanel(BoardThemeData theme) {
     final gs = _gs;
     final isRunning = gs.status == GameStatus.running;
-    final active = isRunning && isTop == gs.currentPlayerIsTop;
+    // 我始终是 top（在 host 端永远 isTop=true；在 client 端永远 isTop=false）
+    // 但 host 视角：currentPlayerIsTop 决定 active，但展示上 host 的 panel 永远底部
+    final imHost = _room.isHost;
+    final myIsTop = imHost;  // host=top, guest=bottom
+    final active = isRunning && myIsTop == gs.currentPlayerIsTop;
     final toc = _touchCtrl;
-    final steps = gs.history.where((m) => !m.isWall && m.isTopPlayer == isTop).length;
-    final walls = isTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
+    final steps = gs.history.where((m) => !m.isWall && m.isTopPlayer == myIsTop).length;
+    final walls = myIsTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
     final canUndo = SgRoom.canRequestUndo(_snap, gs, _room.deviceId);
     return PlayerPanel(
-      rotated: rotated, active: active, isTop: isTop,
+      rotated: _flipY,  // host 端反向显示（panel 内容翻转回正常）
+      active: active,
+      isTop: myIsTop,
       mode: toc.mode, phase: toc.phase,
       canPlaceWall: SurroundGameConstants.wallCountPerPlayer - walls > 0,
-      playerSteps: steps, remainingWalls: SurroundGameConstants.wallCountPerPlayer - walls,
+      playerSteps: steps,
+      remainingWalls: SurroundGameConstants.wallCountPerPlayer - walls,
       canRequestUndo: canUndo,
-      onToggleMode: active ? () { _touchCtrl.toggleMode(); setState(() {}); } : null,
+      onToggleMode: active ? () { toc.toggleMode(); setState(() {}); } : null,
       onConfirm: (toc.phase == TouchPhase.confirming && active) ? _onConfirm : null,
       onCancel: (toc.phase == TouchPhase.confirming && active)
-          ? () { _touchCtrl.cancelAction(); setState(() {}); } : null,
+          ? () { toc.cancelAction(); setState(() {}); } : null,
       onRotate: (toc.phase == TouchPhase.confirming && active)
-          ? () { _touchCtrl.rotatePendingWall(validateWall: (wx, wy, o) => _mirror.validateWall(gs, wx, wy, o)); setState(() {}); } : null,
-      onUndoRequest: canUndo ? () => _showUndoRequestConfirm(theme) : null,
+          ? () { toc.rotatePendingWall(validateWall: _validateWall); setState(() {}); } : null,
+      onUndoRequest: canUndo ? _showUndoRequestConfirm : null,
       pendingWall: toc.pendingWall,
     );
   }
 
-  void _showUndoRequestConfirm(BoardThemeData theme) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: theme.panelBg,
-        title: const Text('请求悔棋'),
-        content: const Text('将撤销上一步，回合回到上一步的执行者。\n需对手同意才生效。'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          TextButton(onPressed: () { Navigator.pop(ctx); _room.requestUndo(); }, child: const Text('发起')),
-        ],
-      ),
-    );
-  }
-
-  Widget _bottomAction(IconData icon, String label, BoardThemeData theme, VoidCallback? onTap) {
+  Widget _bottomAction(IconData icon, String label, VoidCallback? onTap, BoardThemeData theme) {
     final color = theme.btnText.withValues(alpha: onTap != null ? 0.6 : 0.25);
     return GestureDetector(
       behavior: HitTestBehavior.opaque, onTap: onTap,
@@ -615,33 +678,104 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  Widget _buildOverlay(GameState gs, BoardThemeData theme) {
+  Widget _buildFinished(BoardThemeData theme) {
+    final gs = _gs;
     final isTopWin = gs.status == GameStatus.topWin;
     final msg = gs.status == GameStatus.draw ? '平局'
         : (isTopWin ? (_room.isHost ? '我方获胜！' : '上方获胜')
             : (_room.isHost ? '对方获胜' : '我方获胜！'));
     final winColor = gs.status == GameStatus.draw ? Colors.orange
         : (isTopWin ? theme.piecePlayerA : theme.piecePlayerB);
-    return Container(
-      color: Colors.black.withValues(alpha: 0.5),
-      child: Center(child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        decoration: BoxDecoration(color: theme.panelBg, borderRadius: BorderRadius.circular(16)),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.emoji_events, size: 48, color: winColor),
-          const SizedBox(height: 12),
-          Text(msg, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: winColor)),
-          const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: _room.isHost ? _reset : null,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: winColor, side: BorderSide(color: winColor),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    return Scaffold(
+      backgroundColor: theme.boardSurface,
+      body: SafeArea(child: Stack(children: [
+        LayoutBuilder(builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final cs = w / 11;
+          final boardSize = w;
+          _ensureTouchController(boardSize);
+          return Center(child: SizedBox(
+            width: boardSize, height: boardSize,
+            child: Stack(clipBehavior: Clip.none, children: [
+              if (_flipY)
+                Transform.flip(flipY: true, child: _drawLayer(cs, boardSize, theme))
+              else
+                _drawLayer(cs, boardSize, theme),
+            ]),
+          ));
+        }),
+        Container(color: Colors.black54, child: Center(child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+          decoration: BoxDecoration(color: theme.panelBg, borderRadius: BorderRadius.circular(16)),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.emoji_events, size: 48, color: winColor),
+            const SizedBox(height: 12),
+            Text(msg, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: winColor)),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: _room.isHost ? _reset : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: winColor, side: BorderSide(color: winColor),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              ),
+              child: const Text('再来一局'),
             ),
-            child: const Text('再来一局'),
-          ),
-        ]),
-      )),
+          ]),
+        ))),
+      ])),
+    );
+  }
+}
+
+// ── 待确认高亮 ──
+class _PendingHighlight extends StatelessWidget {
+  const _PendingHighlight({
+    required this.cellId, required this.cellSize, required this.theme,
+  });
+  final int cellId;
+  final double cellSize;
+  final BoardThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final distance = cellSize * 1.25;
+    final x = (cellId % 9).toDouble();
+    final y = (cellId ~/ 9).toDouble();
+    return Positioned(
+      left: x * distance + 1, top: y * distance + 1,
+      child: Container(
+        width: cellSize - 2, height: cellSize - 2,
+        decoration: BoxDecoration(
+          color: theme.validMoveRing.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: theme.validMoveRing.withValues(alpha: 0.7), width: 2),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 拖动时的浮动棋子 ──
+class _FloatingPiece extends StatelessWidget {
+  const _FloatingPiece({required this.offset, required this.color, required this.cellSize});
+  final Offset offset;
+  final Color color;
+  final double cellSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final pieceSize = cellSize * 0.7;
+    return Positioned(
+      left: offset.dx - pieceSize / 2,
+      top: offset.dy - pieceSize / 2,
+      child: Container(
+        width: pieceSize, height: pieceSize,
+        decoration: BoxDecoration(
+          color: color, shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.75), width: 2.5),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, offset: const Offset(0, 3))],
+        ),
+      ),
     );
   }
 }
