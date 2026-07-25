@@ -1,15 +1,16 @@
 // lib/core/net_p2p/net_p2p_discovery_host.dart
 //
-// NetP2P 入口 — LAN 局域网发现 / Relay 互联网房间（快照模式）
+// NetP2P 入口 — LAN 局域网发现 / Relay 互联网房间（v2 snapshot）
 
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
 import 'package:xiaodouzi_fr/core/net_engine/relay_snapshot/relay_snapshot_transport.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_snapshot/relay_snapshot_widget.dart';
 
 import 'pages/net_p2p_chat_page.dart';
 import 'pages/net_p2p_snapshot_chat.dart';
 
-/// P2P 入口页面 — LAN 局域网发现 / Relay 互联网房间（快照）
+/// P2P 入口页面 — LAN 局域网发现 / Relay 互联网房间（v2 snapshot）
 class NetP2PPage extends StatefulWidget {
   const NetP2PPage({super.key});
   @override
@@ -30,7 +31,6 @@ class _NetP2PPageState extends State<NetP2PPage> {
   // Relay 快照模式连接状态
   RelaySnapshotTransport? _snapshotTransport;
   RoomHandle? _snapshotRoom;
-  bool _inSnapshotChat = false;
 
   @override
   void dispose() {
@@ -57,23 +57,10 @@ class _NetP2PPageState extends State<NetP2PPage> {
 
   // ——— Relay 快照模式 ———
 
-  Future<void> _onSnapshotRelayRoomReady(fw.RelayTransport transport, String code) async {
-    // 拿到 transport 后改用快照协议重连（独立链路）
-    final snap = RelaySnapshotTransport(
-      relayUrl: 'http://47.110.80.47:8988',
-      alias: '我',
-    );
-    final handle = await snap.joinRoom(code);
-    if (!mounted) {
-      await handle.dispose();
-      snap.close();
-      return;
-    }
-    transport.close(); // 关闭旧 v1 transport
+  void _onSnapshotRoomReady(RoomHandle handle, RelaySnapshotTransport transport) {
     setState(() {
-      _snapshotTransport = snap;
+      _snapshotTransport = transport;
       _snapshotRoom = handle;
-      _inSnapshotChat = true;
     });
   }
 
@@ -88,7 +75,6 @@ class _NetP2PPageState extends State<NetP2PPage> {
       _lanSessionScope = null;
       _snapshotRoom = null;
       _snapshotTransport = null;
-      _inSnapshotChat = false;
     });
   }
 
@@ -103,7 +89,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
         onLeave: _disconnect,
       );
     }
-    if (_inSnapshotChat && _snapshotRoom != null && _snapshotTransport != null) {
+    if (_snapshotRoom != null && _snapshotTransport != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('快照聊天')),
         body: NetP2PSnapshotChatPage(
@@ -175,12 +161,12 @@ class _NetP2PPageState extends State<NetP2PPage> {
         },
       );
     }
-    return fw.RelayRoomWidget(
+    return RelaySnapshotWidget(
       relayUrl: 'http://47.110.80.47:8988',
       defaultMaxPlayers: 2,
       maxPlayersRange: const [2],
       title: 'P2P 聊天',
-      onRoomReady: _onSnapshotRelayRoomReady,
+      onRoomReady: _onSnapshotRoomReady,
     );
   }
 }

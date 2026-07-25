@@ -136,6 +136,9 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
 
     final msgs = _extractMessages();
 
+    final isHost = snap.host.deviceId == widget.myDeviceId;
+    final canStart = isHost && snap.status == 'waiting';
+
     return Scaffold(
       appBar: AppBar(
         title: Text('房间 ${snap.code} · ${snap.status}'),
@@ -155,6 +158,19 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
               slotSize: 56,
             ),
           ),
+          // 开始按钮（仅 host 且 status=waiting 时显示）
+          if (canStart)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => widget.handle.applyAction('start', const {}),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('开始游戏'),
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
           // 聊天消息
           Expanded(child: _buildMsgList(msgs)),
