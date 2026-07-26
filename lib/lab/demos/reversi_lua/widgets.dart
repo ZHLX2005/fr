@@ -292,6 +292,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Position? _pendingPoint;
   /// 已声明过胜利（防死循环）。
   bool _winDeclared = false;
+  /// 合法步缓存：snapshot 引用 / 当前玩家变化时重算，避免 build 内 O(64×8) 重扫。
+  int? _legalCacheKey;
+  Set<Position>? _legalCacheValue;
 
   late final ReversiRoom _room;
 
@@ -326,6 +329,22 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   void _rebuild(Snapshot? s) {
     _moves = ReversiRoom.rebuildMoves(s);
     _cells = ReversiRoom.rebuildBoard(_moves);
+    // 棋盘变化 → 清合法步缓存（_snap 引用作 key 防止同帧重复 setState 时仍返回陈旧值）
+    _legalCacheKey = null;
+    _legalCacheValue = null;
+  }
+
+  /// 缓存版合法步：仅在 _cells 或当前玩家变化时重算。
+  Set<Position> _legalMovesForCached(bool isBlackTurn) {
+    // 用 _cells 身份 + 是否为黑方回合作缓存 key。
+    // _cells 在 _rebuild 内整体替换为新 List，所以 identityHashCode 变了必重算；
+    // 同帧内 build 多次调用时 identityHashCode 不变，直接走缓存。
+    final key = Object.hash(identityHashCode(_cells), isBlackTurn);
+    if (_legalCacheKey == key) return _legalCacheValue!;
+    final result = ReversiRoom.legalMovesFor(_cells, isBlackTurn).toSet();
+    _legalCacheKey = key;
+    _legalCacheValue = result;
+    return result;
   }
 
   @override
@@ -382,7 +401,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (!_isMyTurn) return;
     if (_snap?.state != 'playing') return;
     if (_cells[row][col] != PieceType.empty) return;
-    final legalSet = ReversiRoom.legalMovesFor(_cells, _imBlack).toSet();
+    final legalSet = _legalMovesForCached(_imBlack);
     if (!legalSet.contains(Position(row, col))) return;
     setState(() {
       _pendingPoint = (_pendingPoint?.row == row && _pendingPoint?.col == col)
@@ -698,7 +717,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   Widget _buildPlaying(BoardThemeData theme) {
     final isBlackTurn = ReversiRoom.isBlackTurn(_moves);
-    final legalSet = ReversiRoom.legalMovesFor(_cells, isBlackTurn).toSet();
+    final legalSet = _legalMovesForCached(isBlackTurn);
     final lastMove = _moves.isEmpty ? null : _moves.last;
 
     return Scaffold(
@@ -732,6 +751,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                         lastMove: lastMove?.toPosition(),
                         legalHints: legalSet,
                         currentIsBlack: isBlackTurn,
+                        boardSize: side,
                       ),
                       // 待确认预览圆环
                       if (_pendingPoint != null && _isMyTurn)
@@ -977,6 +997,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     lastMove: lastMove?.toPosition(),
                     legalHints: const {},
                     currentIsBlack: false,
+                    boardSize: side,
                   ),
                 );
               },

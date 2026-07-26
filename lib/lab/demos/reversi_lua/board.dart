@@ -1,8 +1,8 @@
 // lib/lab/demos/reversi_lua/board.dart
 //
-// 黑白翻转棋棋盘 widget — 复用 core/reversi 的 4 层 painter 和立体棋子渲染，
-// 但 props 改成接 `cells` 二维矩阵 + `lastMove` + `legalHints` + `currentIsBlack`，
-// 不依赖 ReversiState / ReversiNotifier。
+// 黑白翻转棋棋盘 widget — 全量 CustomPainter 绘制（含棋子 + 高亮 + 提示点），
+// 配合 RepaintBoundary 隔离。仅在 cells/lastMove/legalHints/currentIsBlack 变化时
+// 触发整张 painter 一次重绘，避免 64 个 Positioned + 64 个 _Piece 反复重建。
 
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/reversi/board_theme.dart';
@@ -11,11 +11,14 @@ import 'package:xiaodouzi_fr/core/reversi/models/reversi_board.dart';
 import 'constants.dart';
 
 /// 8x8 棋盘。`cells[row][col]` = 棋子类型；`lastMove` 高亮；`legalHints` 渲染合法步提示点。
+/// `boardSize` 是父级 LayoutBuilder 算好的边长（px），避免内层再 LayoutBuilder 引发
+/// 双重布局导致命中测试错位 / 点击不响应。
 class ReversiBoardWidget extends StatelessWidget {
   final List<List<PieceType>> cells;
   final Position? lastMove;
   final Set<Position> legalHints;
   final bool currentIsBlack;
+  final double boardSize;
 
   const ReversiBoardWidget({
     super.key,
@@ -23,81 +26,48 @@ class ReversiBoardWidget extends StatelessWidget {
     required this.lastMove,
     required this.legalHints,
     required this.currentIsBlack,
+    required this.boardSize,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = ReversiTheme.of(context);
+    final cellPx = boardSize / kReversiSize;
 
-    return LayoutBuilder(
-      builder: (ctx, c) {
-        // 取 min(宽, 高) 确保正方形
-        final boardPx = c.maxWidth < c.maxHeight ? c.maxWidth : c.maxHeight;
-        final cellPx = boardPx / kReversiSize;
-
-        return GestureDetector(
-          onTapDown: (details) {
-            // 上层将 GestureDetector 的回调放在此 widget 外部处理 pending + 确认
-            // 此处仅返回坐标（通过 layout callback）— 但本 widget 故意不接 onTap
-            // 由父层用 LayoutBuilder + GestureDetector 自行包装。
-          },
-          child: SizedBox(
-            width: boardPx,
-            height: boardPx,
-            child: Stack(
-              children: [
-                CustomPaint(
-                  size: Size(boardPx, boardPx),
-                  painter: _BoardPainter(
-                    theme: theme,
-                    boardSize: kReversiSize,
-                  ),
-                ),
-                ...List.generate(
-                  kReversiSize * kReversiSize,
-                  (i) {
-                    final row = i ~/ kReversiSize;
-                    final col = i % kReversiSize;
-                    final pos = Position(row, col);
-                    return Positioned(
-                      left: col * cellPx,
-                      top: row * cellPx,
-                      width: cellPx,
-                      height: cellPx,
-                      child: _Piece(
-                        piece: cells[row][col],
-                        cellPx: cellPx,
-                        isLastMove: lastMove == pos,
-                        theme: theme,
-                      ),
-                    );
-                  },
-                ),
-                // 合法步提示：当前方专属颜色
-                ...legalHints.map((pos) => Positioned(
-                      left: pos.col * cellPx + cellPx * 0.35,
-                      top: pos.row * cellPx + cellPx * 0.35,
-                      child: Container(
-                        width: cellPx * 0.3,
-                        height: cellPx * 0.3,
-                        decoration: BoxDecoration(
-                          color: currentIsBlack
-                              ? theme.legalHintBlack
-                              : theme.legalHintWhite,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    )),
-              ],
+    return RepaintBoundary(
+      child: SizedBox(
+        width: boardSize,
+        height: boardSize,
+        child: Stack(
+          children: [
+            // 1. 格子底色（4 层 painter：底色/高光/暗部/描边）
+            CustomPaint(
+              size: Size(boardSize, boardSize),
+              painter: _BoardPainter(
+                theme: theme,
+                boardSize: kReversiSize,
+              ),
             ),
-          ),
-        );
-      },
+            // 2. 棋子 + 高亮 + 合法步提示（单 painter 一次画完 64 格）
+            CustomPaint(
+              size: Size(boardSize, boardSize),
+              painter: _PiecesPainter(
+                theme: theme,
+                cells: cells,
+                cellPx: cellPx,
+                lastMove: lastMove,
+                legalHints: legalHints,
+                currentIsBlack: currentIsBlack,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-// ── 内部 painter（4 层格子：底色/高光/暗部/描边）──
+// ── 内部 painter 1：格子底色（4 层）──
 
 class _BoardPainter extends CustomPainter {
   final ReversiThemeData theme;
@@ -163,67 +133,101 @@ class _BoardPainter extends CustomPainter {
       old.theme != theme || old.boardSize != boardSize;
 }
 
-// ── 棋子 widget（径向渐变 + 翻转动画）──
+// ── 内部 painter 2：棋子 + lastMove 高亮 + 合法步提示（一次画完）──
 
-class _Piece extends StatelessWidget {
-  final PieceType piece;
-  final double cellPx;
-  final bool isLastMove;
+class _PiecesPainter extends CustomPainter {
   final ReversiThemeData theme;
+  final List<List<PieceType>> cells;
+  final double cellPx;
+  final Position? lastMove;
+  final Set<Position> legalHints;
+  final bool currentIsBlack;
 
-  const _Piece({
-    required this.piece,
-    required this.cellPx,
-    required this.isLastMove,
+  _PiecesPainter({
     required this.theme,
+    required this.cells,
+    required this.cellPx,
+    required this.lastMove,
+    required this.legalHints,
+    required this.currentIsBlack,
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (piece == PieceType.empty) return const SizedBox.shrink();
+  void paint(Canvas canvas, Size size) {
+    final hintPaint = Paint()
+      ..color = currentIsBlack ? theme.legalHintBlack : theme.legalHintWhite;
 
-    final isBlack = piece == PieceType.black;
-    final pieceSize = cellPx * 0.88;
+    for (var row = 0; row < kReversiSize; row++) {
+      for (var col = 0; col < kReversiSize; col++) {
+        final pos = Position(row, col);
+        final cx = col * cellPx + cellPx / 2;
+        final cy = row * cellPx + cellPx / 2;
+        final piece = cells[row][col];
 
-    return Center(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeInOut,
-        width: pieceSize,
-        height: pieceSize,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            center: const Alignment(-0.3, -0.3),
-            radius: 0.8,
-            colors: isBlack
-                ? [
-                    theme.pieceBlackHighlight,
-                    theme.pieceBlack,
-                    theme.pieceBlackRim,
-                  ]
-                : [
-                    theme.pieceWhiteHighlight,
-                    theme.pieceWhite,
-                    theme.pieceWhiteRim,
-                  ],
-            stops: const [0.0, 0.5, 1.0],
-          ),
-          border: Border.all(
-            color: isLastMove
-                ? theme.lastMoveRing
-                : Colors.white.withValues(alpha: isBlack ? 0.15 : 0.6),
-            width: isLastMove ? 2.5 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-      ),
-    );
+        // 合法步提示
+        if (legalHints.contains(pos)) {
+          canvas.drawCircle(
+            Offset(cx, cy),
+            cellPx * 0.15,
+            hintPaint,
+          );
+        }
+
+        // 棋子
+        if (piece == PieceType.empty) continue;
+        final pieceR = cellPx * 0.42;
+
+        // 立体感：径向渐变 + 阴影
+        final pieceRect = Rect.fromCircle(center: Offset(cx, cy), radius: pieceR);
+        final isBlack = piece == PieceType.black;
+        final grad = RadialGradient(
+          center: const Alignment(-0.3, -0.3),
+          radius: 0.8,
+          colors: isBlack
+              ? [
+                  theme.pieceBlackHighlight,
+                  theme.pieceBlack,
+                  theme.pieceBlackRim,
+                ]
+              : [
+                  theme.pieceWhiteHighlight,
+                  theme.pieceWhite,
+                  theme.pieceWhiteRim,
+                ],
+          stops: const [0.0, 0.5, 1.0],
+        );
+        final piecePaint = Paint()..shader = grad.createShader(pieceRect);
+        canvas.drawCircle(Offset(cx, cy), pieceR, piecePaint);
+
+        // 描边：lastMove 高亮 vs 普通
+        final ringColor = lastMove == pos
+            ? theme.lastMoveRing
+            : Colors.white.withValues(alpha: isBlack ? 0.15 : 0.6);
+        final stroke = Paint()
+          ..color = ringColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = lastMove == pos ? 2.5 : 1;
+        canvas.drawCircle(Offset(cx, cy), pieceR, stroke);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PiecesPainter old) {
+    if (old.theme != theme) return true;
+    if (old.currentIsBlack != currentIsBlack) return true;
+    if (old.lastMove != lastMove) return true;
+    if (old.cellPx != cellPx) return true;
+    if (!identical(old.cells, cells)) {
+      // 引用变了通常意味着 _cells 内容变了（list contents may equal but identity 不同）
+      for (var r = 0; r < kReversiSize; r++) {
+        for (var c = 0; c < kReversiSize; c++) {
+          if (old.cells[r][c] != cells[r][c]) return true;
+        }
+      }
+    }
+    if (old.legalHints.length != legalHints.length) return true;
+    if (!old.legalHints.containsAll(legalHints)) return true;
+    return false;
   }
 }
