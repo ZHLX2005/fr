@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'price_compare_models.dart';
+
 class PriceTopicPickerSheet extends StatelessWidget {
   const PriceTopicPickerSheet({
     super.key,
@@ -67,6 +69,12 @@ class PriceTopicPickerSheet extends StatelessWidget {
                     final id = map['id'] as String;
                     final title = (map['title'] as String?)?.trim() ?? '';
                     final rows = (map['rows'] as List?) ?? const [];
+                    final createdAtMs = (map['createdAt'] as int?) ??
+                        (map['updatedAt'] as int?);
+                    final subtitleText = createdAtMs == null
+                        ? '${rows.length} 行'
+                        : '${rows.length} 行 · 创建于 '
+                            '${formatCreatedAt(DateTime.fromMillisecondsSinceEpoch(createdAtMs))}';
                     final isCurrent = id == currentId;
                     return Container(
                       decoration: BoxDecoration(
@@ -94,7 +102,7 @@ class PriceTopicPickerSheet extends StatelessWidget {
                                 : scheme.onSurface,
                           ),
                         ),
-                        subtitle: Text('${rows.length} 行'),
+                        subtitle: Text(subtitleText),
                         trailing: IconButton(
                           tooltip: '删除主题',
                           icon: Icon(

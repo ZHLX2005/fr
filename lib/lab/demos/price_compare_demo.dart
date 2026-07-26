@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../lab_container.dart';
+import 'price_compare/price_compare_chrome.dart';
 import 'price_compare/price_compare_models.dart';
 import 'price_compare/price_compare_row.dart';
 import 'price_compare/price_topic_picker_sheet.dart';
@@ -44,9 +45,10 @@ class _PriceComparePageState extends State<_PriceComparePage> {
   bool _loading = true;
   PriceTopic? _topic;
   final TextEditingController _titleCtrl = TextEditingController();
-  // 每行两个 controller；index 与 _topic.rows 对齐
+  // 每行三个 controller；index 与 _topic.rows 对齐
   final List<TextEditingController> _resCtrls = [];
   final List<TextEditingController> _amtCtrls = [];
+  final List<TextEditingController> _noteCtrls = [];
   Timer? _saveDebouncer;
 
   @override
@@ -92,12 +94,18 @@ class _PriceComparePageState extends State<_PriceComparePage> {
     for (final c in _amtCtrls) {
       c.dispose();
     }
+    for (final c in _noteCtrls) {
+      c.dispose();
+    }
     _resCtrls
       ..clear()
       ..addAll(t.rows.map((r) => TextEditingController(text: r.resource)));
     _amtCtrls
       ..clear()
       ..addAll(t.rows.map((r) => TextEditingController(text: r.amount)));
+    _noteCtrls
+      ..clear()
+      ..addAll(t.rows.map((r) => TextEditingController(text: r.note)));
   }
 
   void _persistDebounced() {
@@ -124,6 +132,9 @@ class _PriceComparePageState extends State<_PriceComparePage> {
     for (final c in _amtCtrls) {
       c.dispose();
     }
+    for (final c in _noteCtrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -133,12 +144,14 @@ class _PriceComparePageState extends State<_PriceComparePage> {
     _persistDebounced();
   }
 
-  void _onRowChanged(int i, {String? res, String? amt}) {
+  void _onRowChanged(int i, {String? res, String? amt, String? note}) {
     final row = _topic?.rows[i];
     if (row == null) return;
     if (res != null) row.resource = res;
     if (amt != null) row.amount = amt;
-    setState(() {}); // 触发单价重算 / 高亮刷新
+    if (note != null) row.note = note;
+    // 备注不影响单价高亮，可少一次 setState；但改动少不追求极致，统一 setState
+    setState(() {});
     _persistDebounced();
   }
 
@@ -146,6 +159,7 @@ class _PriceComparePageState extends State<_PriceComparePage> {
     _topic?.rows.add(PriceRow());
     _resCtrls.add(TextEditingController());
     _amtCtrls.add(TextEditingController());
+    _noteCtrls.add(TextEditingController());
     setState(() {});
     _persistDebounced();
   }
@@ -153,14 +167,16 @@ class _PriceComparePageState extends State<_PriceComparePage> {
   void _removeRow(int i) {
     if (_topic == null) return;
     if (_topic!.rows.length <= 1) {
-      // 至少保留一行；改成清空
+      // 至少保留一行；改成清空（同时重置时间为现在——等价于新起一行）
       _topic!.rows[i] = PriceRow();
       _resCtrls[i].clear();
       _amtCtrls[i].clear();
+      _noteCtrls[i].clear();
     } else {
       _topic!.rows.removeAt(i);
       _resCtrls.removeAt(i).dispose();
       _amtCtrls.removeAt(i).dispose();
+      _noteCtrls.removeAt(i).dispose();
     }
     setState(() {});
     _persistDebounced();
@@ -237,7 +253,6 @@ class _PriceComparePageState extends State<_PriceComparePage> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    final scheme = Theme.of(context).colorScheme;
     // 最低单价索引（用于高亮）
     final prices = _topic!.rows.map((r) => r.unitPrice).toList();
     final validPrices = prices.whereType<double>().toList();
@@ -247,7 +262,12 @@ class _PriceComparePageState extends State<_PriceComparePage> {
 
     return Column(
       children: [
-        _buildHeader(scheme),
+        PriceCompareHeader(
+          titleController: _titleCtrl,
+          createdAt: _topic!.createdAt,
+          onTitleChanged: _onTitleChanged,
+          onSwitchTopic: _switchTopic,
+        ),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
@@ -256,116 +276,23 @@ class _PriceComparePageState extends State<_PriceComparePage> {
               index: i,
               unitPrice: prices[i],
               minPrice: minPrice,
+              createdAt: _topic!.rows[i].createdAt,
               resourceController: _resCtrls[i],
               amountController: _amtCtrls[i],
+              noteController: _noteCtrls[i],
               onResourceChanged: (v) => _onRowChanged(i, res: v),
               onAmountChanged: (v) => _onRowChanged(i, amt: v),
+              onNoteChanged: (v) => _onRowChanged(i, note: v),
               onRemove: () => _removeRow(i),
             ),
           ),
         ),
-        _buildFooter(scheme),
+        PriceCompareFooter(
+          validCount: validPrices.length,
+          minPrice: minPrice,
+          onAddRow: _addRow,
+        ),
       ],
-    );
-  }
-
-  Widget _buildHeader(ColorScheme scheme) {
-    final primary = scheme.primary;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: primary.withValues(alpha: 0.06),
-        border: Border(
-          bottom: BorderSide(color: primary.withValues(alpha: 0.15)),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.receipt_long_rounded, color: primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: _titleCtrl,
-              onChanged: _onTitleChanged,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: primary,
-              ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-                hintText: '主题（例如：卫生纸比价）',
-                hintStyle: TextStyle(
-                  color: primary.withValues(alpha: 0.45),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: '切换/管理主题',
-            icon: Icon(Icons.swap_horiz_rounded, color: primary),
-            onPressed: _switchTopic,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter(ColorScheme scheme) {
-    final primary = scheme.primary;
-    // 总览：有效行数、最低单价
-    final valid = _topic!.rows.where((r) => r.unitPrice != null).toList();
-    String hint;
-    if (valid.isEmpty) {
-      hint = '输入至少一行「资源/金额」';
-    } else {
-      final min =
-          valid.map((r) => r.unitPrice!).reduce((a, b) => a < b ? a : b);
-      hint = '共 ${valid.length} 行有效 · 最低单价 ¥${formatUnitPrice(min)}';
-    }
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          border: Border(
-            top: BorderSide(color: primary.withValues(alpha: 0.12)),
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                hint,
-                style: TextStyle(
-                  color: scheme.onSurface.withValues(alpha: 0.7),
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            // border-emphasis 风格的 + 按钮
-            Container(
-              decoration: BoxDecoration(
-                color: primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: primary.withValues(alpha: 0.4)),
-              ),
-              child: TextButton.icon(
-                onPressed: _addRow,
-                style: TextButton.styleFrom(
-                  foregroundColor: primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                ),
-                icon: const Icon(Icons.add_rounded, size: 20),
-                label: const Text('新增一行'),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

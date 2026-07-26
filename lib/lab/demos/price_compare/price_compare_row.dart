@@ -1,5 +1,5 @@
 // 比价计算器 —— 单行 UI 组件（可复用 border-emphasis 风格）
-// 从 price_compare_demo.dart 抽出，规避主文件 400+ 行的分文件门槛。
+// 两行布局：第一行「资源/金额 → 单价」，第二行「备注 · 创建时间 · 删除」
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,20 +12,26 @@ class PriceCompareRow extends StatelessWidget {
     required this.index,
     required this.unitPrice,
     required this.minPrice,
+    required this.createdAt,
     required this.resourceController,
     required this.amountController,
+    required this.noteController,
     required this.onResourceChanged,
     required this.onAmountChanged,
+    required this.onNoteChanged,
     required this.onRemove,
   });
 
   final int index;
   final double? unitPrice;
   final double? minPrice;
+  final DateTime createdAt;
   final TextEditingController resourceController;
   final TextEditingController amountController;
+  final TextEditingController noteController;
   final ValueChanged<String> onResourceChanged;
   final ValueChanged<String> onAmountChanged;
+  final ValueChanged<String> onNoteChanged;
   final VoidCallback onRemove;
 
   @override
@@ -53,53 +59,109 @@ class PriceCompareRow extends StatelessWidget {
             width: isMin ? 1.4 : 1,
           ),
         ),
-        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-        child: Row(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _seqBadge(tagColor),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 3,
-              child: _NumField(
-                controller: resourceController,
-                hint: '资源',
-                onChanged: onResourceChanged,
-              ),
-            ),
-            Text('/', style: TextStyle(color: scheme.outline)),
-            Expanded(
-              flex: 3,
-              child: _NumField(
-                controller: amountController,
-                hint: '金额',
-                onChanged: onAmountChanged,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              flex: 3,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  unitPrice == null
-                      ? '—'
-                      : '¥${formatUnitPrice(unitPrice!)}',
-                  style: TextStyle(
-                    color: tagColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
+            // ---- 第一行：序号 · 资源 / 金额 · 单价 ----
+            Row(
+              children: [
+                _seqBadge(tagColor),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 3,
+                  child: _NumField(
+                    controller: resourceController,
+                    hint: '资源',
+                    onChanged: onResourceChanged,
                   ),
                 ),
-              ),
+                Text('/', style: TextStyle(color: scheme.outline)),
+                Expanded(
+                  flex: 3,
+                  child: _NumField(
+                    controller: amountController,
+                    hint: '金额',
+                    onChanged: onAmountChanged,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  flex: 3,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      unitPrice == null
+                          ? '—'
+                          : '¥${formatUnitPrice(unitPrice!)}',
+                      style: TextStyle(
+                        color: tagColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            IconButton(
-              iconSize: 20,
-              tooltip: '删除本行',
-              icon: Icon(
-                Icons.close_rounded,
-                color: scheme.outline.withValues(alpha: 0.7),
-              ),
-              onPressed: onRemove,
+            const SizedBox(height: 4),
+            // ---- 第二行：备注 · 创建时间 · 删除 ----
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 备注 icon（视觉提示，不占太多宽度）
+                Icon(
+                  Icons.sell_outlined,
+                  size: 14,
+                  color: scheme.outline.withValues(alpha: 0.7),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: noteController,
+                    onChanged: onNoteChanged,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: scheme.onSurface.withValues(alpha: 0.85),
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
+                      hintText: '备注：品牌 / 规格 / 渠道',
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        color: scheme.outline.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 创建时间
+                Text(
+                  formatCreatedAt(createdAt),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.outline.withValues(alpha: 0.8),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                // 删除
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    tooltip: '删除本行',
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: scheme.outline.withValues(alpha: 0.7),
+                    ),
+                    onPressed: onRemove,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
