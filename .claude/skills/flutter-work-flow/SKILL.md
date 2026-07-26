@@ -9,7 +9,8 @@ references/
 ├── Android-FloatingWindow-常驻截屏模式适配Android14+.md   # Android 14+ MediaProjection token 一次性问题，常驻 VirtualDisplay 方案
 ├── Flutter-自定义Scheme路由中心化-fr-Router.md   # fr:// 路由设计：authority/path 拆分 + prefix 匹配 + handler 模式（理解系统/重构时读）
 ├── Flutter-fr路由-注册规范与防腐蚀.md   # fr:// 日常使用：新页面注册SOP + 防腐蚀grep检测 + 反模式（加新页面/写跳转时读）
-└── Flutter-DemoPage-slug抽象化与别名机制.md   # kDemoSlugs 全局表迁移到 abstract slug 字段、Demo 别名机制、多 demo 合并为 Tab 容器
+├── Flutter-DemoPage-slug抽象化与别名机制.md   # kDemoSlugs 全局表迁移到 abstract slug 字段、Demo 别名机制、多 demo 合并为 Tab 容器
+└── Flutter-Lab容器-模块结构与重构模式.md   # lab/ 目录地图（lab_panel/demo_grid/game_center）+ ValueNotifier 双通道 + 手势收敛 + part→import 拆法
 `</doc-reference>`
 
 ## 何时读哪个 ref
@@ -22,6 +23,7 @@ references/
 | Flutter-自定义Scheme路由中心化-fr-Router | **改 fr:// 路由 / 重构路由系统 / 理解路由设计原理时** |
 | Flutter-fr路由-注册规范与防腐蚀 | **加新页面 / 写 fr:// 跳转 / 加 MethodChannel / 提交前自查腐蚀时** |
 | Flutter-DemoPage-slug抽象化与别名机制 | **删 kDemoSlugs 迁 abstract slug / 给 demo 加别名 slug / 合并多个 demo 为统一 Tab 容器时** |
+| Flutter-Lab容器-模块结构与重构模式 | **改 lib/screens/profile/lab/ 任何文件（Lab页/下拉面板/游戏中心/demo卡片）/ 给重手势+重动画页面做性能或模块化重构时** |
 
 
 
