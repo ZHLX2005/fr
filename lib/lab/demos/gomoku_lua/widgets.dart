@@ -15,114 +15,23 @@ import 'constants.dart';
 import 'engine.dart' show
     GomokuRoom, GomokuMove, GomokuBoard, kGomokuScript,
     Snapshot, RoomHandle, RelayV3Transport, kGomokuSize;
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
+    show RelayV3Exception;
 import 'board.dart' show GomokuBoardWidget;
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 
 // ══════════════════════════════════════════════════════════════
-// Setup Page（建房）
+// Lobby Entry Page（单表单：输入昵称 + 房间码，按按钮即尝试加入/创建）
 // ══════════════════════════════════════════════════════════════
 
-class SetupPage extends StatefulWidget {
-  const SetupPage({super.key, required this.onCreated});
-  final void Function(RoomHandle) onCreated;
-  @override State<SetupPage> createState() => _SetupPageState();
-}
-
-class _SetupPageState extends State<SetupPage> {
-  final _aliasCtrl = TextEditingController(text: '黑方');
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    GomokuAliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
-    });
-  }
-
-  @override
-  void dispose() { _aliasCtrl.dispose(); super.dispose(); }
-
-  Future<void> _create() async {
-    setState(() { _busy = true; _error = null; });
-    try {
-      final t = RelayV3Transport(
-        relayUrl: kGomokuRelayUrl,
-        alias: _aliasCtrl.text.trim(),
-        deviceId: 'gm-black-${DateTime.now().microsecondsSinceEpoch}',
-      );
-      await GomokuAliasPrefs.save(t.alias);
-      final h = await t.createRoom(
-        script: kGomokuScript,
-        initialParams: {'device_id': t.deviceId, 'alias': t.alias},
-        maxPlayers: 2,
-      );
-      if (!mounted) return;
-      widget.onCreated(h);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() { _busy = false; _error = '$e'; });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.circle, size: 64, color: _blackColor),
-          const SizedBox(height: 16),
-          Text('建房等对手（你执黑先手）',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.btnText)),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _aliasCtrl,
-            decoration: InputDecoration(
-              labelText: '昵称',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              labelStyle: TextStyle(color: theme.btnSub),
-              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
-              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _blackColor, width: 2)),
-            ),
-            style: TextStyle(color: theme.btnText),
-          ),
-          const SizedBox(height: 16),
-          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _create,
-            icon: _busy
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.meeting_room),
-            label: Text(_busy ? '创建中…' : '创建房间'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50),
-              foregroundColor: _blackColor,
-              side: BorderSide(color: _blackColor),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// Join Page（加入）
-// ══════════════════════════════════════════════════════════════
-
-class JoinPage extends StatefulWidget {
-  const JoinPage({super.key, required this.onJoined});
+class LobbyEntryPage extends StatefulWidget {
+  const LobbyEntryPage({super.key, required this.onJoined});
   final void Function(RoomHandle) onJoined;
-  @override State<JoinPage> createState() => _JoinPageState();
+  @override State<LobbyEntryPage> createState() => _LobbyEntryPageState();
 }
 
-class _JoinPageState extends State<JoinPage> {
-  final _aliasCtrl = TextEditingController(text: '白方');
+class _LobbyEntryPageState extends State<LobbyEntryPage> {
+  final _aliasCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
   bool _busy = false;
   String? _error;
@@ -131,27 +40,56 @@ class _JoinPageState extends State<JoinPage> {
   void initState() {
     super.initState();
     GomokuAliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
+      if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
+        setState(() => _aliasCtrl.text = v);
+      }
     });
   }
 
   @override
-  void dispose() { _aliasCtrl.dispose(); _codeCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _aliasCtrl.dispose();
+    _codeCtrl.dispose();
+    super.dispose();
+  }
 
-  Future<void> _join() async {
-    final code = _codeCtrl.text.trim();
-    if (code.length != 6) { setState(() => _error = '房间码为 6 位数字'); return; }
+  /// 单表单智能匹配：先按输入的房间码尝试 join；不存在则用此号创建。
+  /// 撞号（409）→ 房间已存在（已有别人是房主），提示换个号。
+  Future<void> _go() async {
+    final alias = _aliasCtrl.text.trim();
+    if (alias.isEmpty) {
+      setState(() => _error = '请输入昵称');
+      return;
+    }
+    final code = _codeCtrl.text.trim().toUpperCase();
+    if (code.length < 4 || code.length > 6) {
+      setState(() => _error = '房间码为 4–6 位大写字母数字');
+      return;
+    }
     setState(() { _busy = true; _error = null; });
     try {
       final t = RelayV3Transport(
         relayUrl: kGomokuRelayUrl,
-        alias: _aliasCtrl.text.trim(),
-        deviceId: 'gm-white-${DateTime.now().microsecondsSinceEpoch}',
+        alias: alias,
+        deviceId: 'gm-black-${DateTime.now().microsecondsSinceEpoch}',
       );
-      await GomokuAliasPrefs.save(t.alias);
-      final h = await t.joinRoom(code: code);
+      await GomokuAliasPrefs.save(alias);
+      final h = await t.tryJoinOrCreate(
+        code: code,
+        script: kGomokuScript,
+        initialParams: {'device_id': t.deviceId, 'alias': alias},
+        maxPlayers: 2,
+      );
       if (!mounted) return;
       widget.onJoined(h);
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      final msg = e.statusCode == 409
+          ? '房间号 $code 已被占用，请换一个'
+          : e.statusCode == 404
+              ? '房间号 $code 不存在且创建失败'
+              : '进入失败（${e.statusCode}）';
+      setState(() { _busy = false; _error = msg; });
     } catch (e) {
       if (!mounted) return;
       setState(() { _busy = false; _error = '$e'; });
@@ -161,59 +99,100 @@ class _JoinPageState extends State<JoinPage> {
   @override
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.circle_outlined, size: 64, color: _whiteColor),
-            const SizedBox(height: 16),
-            Text('加入房间（你执白后手）',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.btnText)),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _aliasCtrl,
-              decoration: InputDecoration(
-                labelText: '昵称',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                labelStyle: TextStyle(color: theme.btnSub),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _whiteColor, width: 2)),
-              ),
-              style: TextStyle(color: theme.btnText),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _codeCtrl,
-              decoration: InputDecoration(
-                labelText: '房间码',
-                hintText: '6 位数字',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                labelStyle: TextStyle(color: theme.btnSub),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _whiteColor, width: 2)),
-              ),
-              style: TextStyle(color: theme.btnText),
-              keyboardType: TextInputType.number, maxLength: 6,
-            ),
-            if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _join,
-              icon: _busy
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.login),
-              label: Text(_busy ? '加入中…' : '加入'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                foregroundColor: _whiteColor,
-                side: BorderSide(color: _whiteColor),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // 顶部小提示：两种操作一样
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: theme.panelBg.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: theme.panelBorder),
+          ),
+          child: Row(children: [
+            Icon(Icons.info_outline, size: 16, color: theme.btnSub),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '与朋友约定同一房间号。\n谁先到谁是房主（黑方先手），后到者执白。',
+                style: TextStyle(color: theme.btnSub, fontSize: 12, height: 1.4),
               ),
             ),
           ]),
         ),
-      ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 4,
+              child: TextField(
+                controller: _aliasCtrl,
+                decoration: InputDecoration(
+                  labelText: '昵称',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelStyle: TextStyle(color: theme.btnSub),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _blackColor, width: 2)),
+                ),
+                style: TextStyle(color: theme.btnText),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 5,
+              child: TextField(
+                controller: _codeCtrl,
+                decoration: InputDecoration(
+                  labelText: '房间码',
+                  hintText: '4–6 位',
+                  isDense: true,
+                  counterText: '',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelStyle: TextStyle(color: theme.btnSub),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: _whiteColor, width: 2)),
+                ),
+                style: TextStyle(
+                  color: theme.btnText,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  letterSpacing: 2,
+                ),
+                keyboardType: TextInputType.text,
+                textCapitalization: TextCapitalization.characters,
+                maxLength: 6,
+                onSubmitted: (_) => _busy ? null : _go(),
+              ),
+            ),
+          ],
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+          ),
+        ],
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: _busy ? null : _go,
+            icon: _busy
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.play_arrow_rounded),
+            label: Text(_busy ? '进入中…' : '进入对局'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _blackColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ]),
     );
   }
 }

@@ -456,24 +456,31 @@ class RelayV3Transport {
   /// 创建房间
   ///
   /// [initialParams] 会被传进 [maxPlayers] 给 Lua 脚本，让脚本据此设定容量。
+  /// [requestedCode] 指定自定义房间号（4–6 位，大写字母数字），由服务端保证唯一。
+  ///   - 命中冲突 → 服务端返回 409（[RelayV3Exception]），客户端可换号或 fallback。
   /// 返回的 [RoomHandle] 已自动 join host + 连接 WS。
   Future<RoomHandle> createRoom({
     required String script,
     required Map<String, dynamic> initialParams,
     int maxPlayers = 8,
+    String? requestedCode,
   }) async {
     final params = Map<String, dynamic>.from(initialParams);
     params['max_players'] = maxPlayers;
+    final body = <String, dynamic>{
+      'script': script,
+      'initial_params': params,
+      'alias': alias,
+      'device_id': deviceId,
+      'max_players': maxPlayers,
+    };
+    if (requestedCode != null && requestedCode.isNotEmpty) {
+      body['requested_code'] = requestedCode;
+    }
     final resp = await _http.post(
       _u('/api/v3/relay/rooms'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'script': script,
-        'initial_params': params,
-        'alias': alias,
-        'device_id': deviceId,
-        'max_players': maxPlayers,
-      }),
+      body: jsonEncode(body),
     );
     if (resp.statusCode != 201) {
       throw RelayV3Exception(resp.statusCode, resp.body);
@@ -509,6 +516,32 @@ class RelayV3Transport {
       wsUrl: d['ws_url'] as String,
       initial: Snapshot.fromJson(d['snapshot'] as Map<String, dynamic>),
     );
+  }
+
+  /// 自适应匹配：先尝试加入 [code]；404（房间不存在）则用 [code] 作为
+  /// requested_code 创建新房间；其余错误（撞号 → 409、其他 4xx/5xx）原样抛
+  /// [RelayV3Exception]。
+  ///
+  /// 客户端 UX：玩家只看到"输入号码 + 点按钮"，服务端决定自己是第几个进入。
+  /// 适合"双人对战不区分房主"的场景（房间号靠玩家之间口口相传）。
+  Future<RoomHandle> tryJoinOrCreate({
+    required String code,
+    required String script,
+    required Map<String, dynamic> initialParams,
+    int maxPlayers = 8,
+  }) async {
+    try {
+      return await joinRoom(code: code);
+    } on RelayV3Exception catch (e) {
+      if (e.statusCode != 404) rethrow;
+      // 房间不存在 → 创建带 requested_code 的房间
+      return await createRoom(
+        script: script,
+        initialParams: initialParams,
+        maxPlayers: maxPlayers,
+        requestedCode: code,
+      );
+    }
   }
 
   /// 拉当前 snapshot（HTTP GET，断线重连后 reconcile 用）

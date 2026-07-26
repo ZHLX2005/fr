@@ -1,46 +1,52 @@
 // lib/lab/demos/gomoku_lua/gomoku_script.dart
 //
 // 五子棋 (Gomoku) 双人对战 Lua 状态机脚本。
-// 跟随它的 demo (lib/lab/demos/gomoku_lua/) — Lua 脚本随 demo 走，不放 net_p2p。
 //
 // 与围追堵截的差异：
 //   - 棋盘 15x15 交点，落子在交点（不是格子）
 //   - 只有落子（MOVE），没有墙、没有移动、没有悔棋
 //   - 对称棋盘，无需镜像翻转
 //   - 胜负 = 连五，客户端本地判定后发 WIN
+//
+// 关于"谁是房主"：
+//   服务端不关心 client 是不是 createRoom；用户通过输入相同房间码互相约定。
+//   客户端 tryJoinOrCreate：先尝试 join 已有房间；404（不存在）→ 创建新房间，
+//   该创建者即为 host（房主 = 黑方，先手）。客户端用服务端权威 host_id
+//   推"我是黑/白"。
 
 /// 五子棋双人对战脚本 — kGomokuScript
 ///
 /// ## 状态机
 ///
 /// ```
-///    CreateRoom → state="lobby"     Owner 等 Guest 加入
-///    ACK × 2     → state="ready"    双方 ACK
-///    DEAL (host) → state="playing"  游戏开始（黑方先手）
-///    MOVE        → state不变        追加一步落子
-///    RESIGN      → state="ended"    认输
-///    WIN         → state="ended"    连五，记录 winner
+///    CreateRoom → state="lobby"     房主（host）= 黑方先手
+///    JoinRoom   → state 不变        第 2 个进入 = 白方
+///    ACK × 2    → state="ready"    双方 ACK
+///    DEAL (host) → state="playing"  房主点开始（白方同步看到"等待房主开始"）
+///    MOVE       → state 不变        追加一步落子
+///    RESIGN      → state="ended"   认输
+///    WIN         → state="ended"   连五，记录 winner
+///    RESET (host) → state="lobby"  房主重新开始
 /// ```
 ///
 /// ## context 字段
 ///
-///   - `host_id`          : string
-///   - `black_player_id`  : string  权威字段 = 创建者（host），客户端据此推"我是黑/白"
-///   - `players`          : {device_id: alias, …}
-///   - `history`          : [{x, y, isBlack}, …]  唯一权威落子序列
-///   - `ready`            : {device_id: true, …}
-///   - `winner`           : "black"|"white"|nil
-///   - `action_permissions` : {action_key → role_rule}  ★服务端约束单点真相
+///   - `host_id`           : string  创建房间者的 device_id（服务端权威）
+///   - `black_player_id`   : string  = host_id，先手方
+///   - `players`           : {device_id: alias, …}
+///   - `history`           : [{x, y, isBlack}, …]  唯一权威落子序列
+///   - `ready`             : {device_id: true, …}
+///   - `winner`            : "black"|"white"|nil
+///   - `action_permissions`: {action_key → role_rule}  ★服务端约束单点真相
 ///
 /// ## 落子记录
 ///
 /// 每次 MOVE = `{x, y, isBlack}`，x/y ∈ [0, 14]，isBlack 表示这步是黑方还是白方。
-/// 黑方先手（host = black_player_id）。
+/// 黑方先手（房主 = black_player_id）。
 ///
 /// ## 镜像策略
 ///
 /// 五子棋是**对称棋盘**（无终点方向），双方看同一棋盘，**不需要 Transform.flip**。
-/// 角色（黑/白）仅决定先手顺序和落子颜色，不影响视觉。
 const String kGomokuScript = r'''
 -- 角色权限检查（与围追堵截同模式，见 action-permission-table ref）
 function role_check(c, p, action)
@@ -49,24 +55,18 @@ function role_check(c, p, action)
   if not c.players[p.device_id] then return false end
   if rule == "host" then return p.device_id == c.host_id end
   -- current_player：由 history 最后一步推导当前轮到谁
-  -- 黑方先手：history 空 → 轮到黑（black_player_id）
-  -- 否则：与最后一步颜色相反的一方
   if rule == "current_player" then
     if #c.history == 0 then return p.device_id == c.black_player_id end
     local last = c.history[#c.history]
     local lastIsBlack = last.isBlack
-    -- 上一步黑 → 轮到白（!= black_player_id）；上一步白 → 轮到黑
     return (lastIsBlack and p.device_id ~= c.black_player_id)
         or (not lastIsBlack and p.device_id == c.black_player_id)
   end
   -- non_current_player：刚下完最后一步的人（连五声明胜利用）
-  -- 下完连五那步的人，此时已轮到对手（non_current）。
-  -- 错用 current_player 会导致 WIN 被拒 → 客户端死循环重发 → 闪屏。
   if rule == "non_current_player" then
     if #c.history == 0 then return false end
     local last = c.history[#c.history]
     local lastIsBlack = last.isBlack
-    -- 最后一步黑 → 刚下完的是黑方（== black_player_id）；白则相反
     return (lastIsBlack and p.device_id == c.black_player_id)
         or (not lastIsBlack and p.device_id ~= c.black_player_id)
   end
@@ -75,7 +75,7 @@ end
 
 on_init = function(c, p)
   c.host_id = p.device_id
-  -- 权威约定：host = 黑方（先手）。客户端用 black_player_id 推"我是黑/白"。
+  -- 权威约定：host = 黑方（先手）。客户端用 host_id / black_player_id 推"我是黑/白"。
   c.black_player_id = p.device_id
   c.players = {}
   c.players[p.device_id] = p.alias
@@ -84,11 +84,11 @@ on_init = function(c, p)
   -- 动作权限表（★客户端按钮可点性的权威来源）
   c.action_permissions = {
     ACK    = "any",
-    DEAL   = "host",
+    DEAL   = "host",             -- 房主发牌
     MOVE   = "current_player",
     RESIGN = "any",
-    WIN    = "non_current_player",  -- 刚下完连五那步的人（下完轮到对手）
-    RESET  = "host",
+    WIN    = "non_current_player", -- 刚下完连五那步的人（下完轮到对手）
+    RESET  = "host",             -- 房主重新开始
   }
   state = "lobby"
   return c
