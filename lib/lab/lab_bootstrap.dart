@@ -37,7 +37,7 @@ import 'demos/block_editor_demo.dart';
 import 'demos/bottom_bar_demo.dart';
 import 'demos/surround_game_demo.dart';
 import 'demos/surround_game_lua_demo.dart';
-import 'demos/reversi_demo.dart';
+import 'demos/reversi_demo.dart' show registerReversiLuaDemo;
 import 'demos/jungle_chess_demo.dart';
 import 'demos/reaction_test_demo.dart';
 import 'demos/metronome_demo.dart';
@@ -80,7 +80,7 @@ void registerAllDemos() {
   registerPriceCompareDemo();
   registerBottomBarDemo();
   registerSurroundGameDemo();
-  registerReversiDemo();
+  registerReversiLuaDemo();
   registerJungleChessDemo();
   registerStackCardDemo();
   registerNotionImageHostDemo();
