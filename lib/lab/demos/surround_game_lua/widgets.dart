@@ -733,23 +733,25 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         ? pendingCellId
         : gs.bottomPlayerId;
 
+    // 走棋模式下拖拽中的手指位置 —— 交给当前回合方的棋子，让它直接跟手。
+    // （以前是另画一颗 _FloatingPiece 跟手、真棋子留在原地，松手会闪一下）
+    final dragOffset = toc.targetCellId != null ? toc.dragOffset : null;
+
     return Stack(clipBehavior: Clip.none, children: [
       ChessBoard(cellSize: cs, theme: theme),
       ChessWall(history: gs.history, cellSize: cs, theme: theme),
       PlayerPrompt(validMoves: gs.validMoves, cellSize: cs, theme: theme,
           visible: toc.targetCellId != null),
-      ChessPlayer(cellId: topId, cellSize: cs, color: theme.piecePlayerA),
-      ChessPlayer(cellId: bottomId, cellSize: cs, color: theme.piecePlayerB),
+      ChessPlayer(cellId: topId, cellSize: cs, color: theme.piecePlayerA,
+          dragOffset: gs.currentPlayerIsTop ? dragOffset : null),
+      ChessPlayer(cellId: bottomId, cellSize: cs, color: theme.piecePlayerB,
+          dragOffset: gs.currentPlayerIsTop ? null : dragOffset),
       if (pendingCellId != null)
         _PendingHighlight(cellId: pendingCellId, cellSize: cs, theme: theme),
       WallPrompt(wallData: toc.previewWall ?? toc.pendingWall,
           cellSize: cs, theme: theme,
           isValid: toc.wallPreviewValid,
           visible: toc.previewWall != null || toc.pendingWall != null),
-      if (toc.dragOffset != null && toc.targetCellId != null)
-        _FloatingPiece(offset: toc.dragOffset!,
-            color: gs.currentPlayerIsTop ? theme.piecePlayerA : theme.piecePlayerB,
-            cellSize: cs),
       // 注意：ConfirmActions 不放在 _drawLayer 里（见 _buildPlaying 外层 Stack），
       // 因为它在 host 端不能被外层 Transform.flip 翻转——否则按钮会上下镜像。
     ]);
@@ -932,27 +934,5 @@ class _PendingHighlight extends StatelessWidget {
   }
 }
 
-// ── 拖动时的浮动棋子 ──
-class _FloatingPiece extends StatelessWidget {
-  const _FloatingPiece({required this.offset, required this.color, required this.cellSize});
-  final Offset offset;
-  final Color color;
-  final double cellSize;
-
-  @override
-  Widget build(BuildContext context) {
-    final pieceSize = cellSize * 0.7;
-    return Positioned(
-      left: offset.dx - pieceSize / 2,
-      top: offset.dy - pieceSize / 2,
-      child: Container(
-        width: pieceSize, height: pieceSize,
-        decoration: BoxDecoration(
-          color: color, shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.75), width: 2.5),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, offset: const Offset(0, 3))],
-        ),
-      ),
-    );
-  }
-}
+// 拖动时的浮动棋子已并入 ChessPlayer（dragOffset 参数）—— 拖的就是真棋子，
+// 松手直接滑到落点，不再有"浮动棋子消失 + 真棋子瞬移"的闪烁。

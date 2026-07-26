@@ -268,6 +268,10 @@ class _LocalGamePageState extends State<LocalGamePage> {
         ? pendingCellId
         : gs.bottomPlayerId;
 
+    // 走棋模式下拖拽中的手指位置（放墙模式没有跟手的棋子）
+    final dragOffset =
+        toc.targetCellId != null ? toc.dragOffset : null;
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -282,15 +286,19 @@ class _LocalGamePageState extends State<LocalGamePage> {
           theme: theme,
           visible: toc.targetCellId != null,
         ),
+        // 拖拽中把手指位置交给**当前回合方**的棋子，让它直接跟手；
+        // 松手后 ChessPlayer 会从手指最后的位置滑到落点（见 chess_player.dart）。
         ChessPlayer(
           cellId: topId,
           cellSize: cellSize,
           color: theme.piecePlayerA,
+          dragOffset: gs.currentPlayerIsTop ? dragOffset : null,
         ),
         ChessPlayer(
           cellId: bottomId,
           cellSize: cellSize,
           color: theme.piecePlayerB,
+          dragOffset: gs.currentPlayerIsTop ? null : dragOffset,
         ),
         // 确认阶段目标格特殊高亮
         if (pendingCellId != null)
@@ -306,13 +314,6 @@ class _LocalGamePageState extends State<LocalGamePage> {
           isValid: toc.wallPreviewValid,
           visible: toc.previewWall != null || toc.pendingWall != null,
         ),
-        if (toc.dragOffset != null && toc.targetCellId != null)
-          _buildFloatingPiece(
-            toc.dragOffset!,
-            gs.currentPlayerIsTop,
-            cellSize,
-            theme,
-          ),
       ],
     );
   }
@@ -872,38 +873,9 @@ class _LocalGamePageState extends State<LocalGamePage> {
     );
   }
 
-  Widget _buildFloatingPiece(
-    Offset offset, bool isTopTurn, double cellSize, BoardThemeData theme,
-  ) {
-    final color = isTopTurn ? theme.piecePlayerA : theme.piecePlayerB;
-    final pieceSize = cellSize * 0.7;
-    final dx = offset.dx - pieceSize / 2;
-    final dy = offset.dy - pieceSize / 2;
-
-    return Positioned(
-      left: dx,
-      top: dy,
-      child: Container(
-        width: pieceSize,
-        height: pieceSize,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.75),
-            width: 2.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // 拖拽中的浮动棋子已并入 ChessPlayer（dragOffset 参数）：
+  // 以前"另画一颗跟手 + 真棋子留在原地"，松手瞬间浮动的消失、真棋子瞬移到目标，
+  // 看起来像闪了一下。现在拖的就是真棋子，松手直接滑到落点。
 }
 
 /// 确认阶段目标格高亮 — 使用 [BoardThemeData.validMoveRing] 令牌，

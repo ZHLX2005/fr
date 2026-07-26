@@ -29,4 +29,24 @@ class SurroundGameConstants {
   // ─── 起始位置（Swift GameModel.swift:163-164）───
   static const int topPlayerStart = 4;       // x=4, y=0
   static const int bottomPlayerStart = 76;   // x=4, y=8
+
+  // ─── 棋盘尺寸 ───
+  /// 每行格子数（cellId = x + y * boardCols）
+  static const int boardCols = 9;
+
+  // ─── 棋子移动动画（见 widgets/chess_player.dart）───
+
+  /// 一次跳子的时长
+  static const Duration pieceMoveDuration = Duration(milliseconds: 280);
+
+  /// 飞行中途的最大放大倍数（"被拿起来"的观感）
+  static const double pieceLiftScale = 1.15;
+
+  /// 静止时的阴影模糊半径 / 飞行中途的阴影模糊半径
+  static const double pieceShadowBlurRest = 6;
+  static const double pieceShadowBlurLift = 16;
+
+  /// 静止时的阴影垂直偏移 / 飞行中途的阴影垂直偏移
+  static const double pieceShadowOffsetRest = 2;
+  static const double pieceShadowOffsetLift = 8;
 }
