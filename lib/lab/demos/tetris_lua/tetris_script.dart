@@ -13,12 +13,15 @@
 //   ACK × 2   → ready       双方准备
 //   START(host)→ playing    游戏开始（双方拿到共享序列，各自本地跑）
 //   SYNC(any) → 不变        客户端落定后上报自己的 board/score
-//   LOSE(any) → ended       一方堆顶 game over → 该方负
+//   BUST(any) → 不变/ended  一方堆顶 game over 上报最终分；
+//                           第一个 BUST 扣 bust_penalty（鼓励撑久）；
+//                           双方都 BUST 后比 final_score → ended，高分者赢
 //   RESET(host)→ lobby      再来一局（重生成序列）
 //
 // context：
 //   host_id / players / ready / piece_sequence(共享序列) /
-//   states{did:{board,score,lines,pieceIndex,alive}} / winner / loser_id /
+//   states{did:{board,score,lines,pieceIndex,alive}} /
+//   finished{did:{score,raw,penalty}} / bust_penalty / winner / loser_id /
 //   action_permissions
 
 /// 俄罗斯方块双人实时对战脚本 — kTetrisScript
@@ -64,11 +67,15 @@ on_init = function(c, p)
   c.piece_sequence = gen_sequence(60)
   -- 双方各自的实时状态，由各客户端 SYNC 上报。
   c.states = {}
+  -- 已 game over 的玩家最终分。双方都 finished 才比总分判胜。
+  c.finished = {}
+  -- 第一个 BUST（堆顶）扣分：鼓励撑久，但若技巧好、消行多仍可能反超。
+  c.bust_penalty = 500
   c.action_permissions = {
     ACK   = "any",
     START = "host",
     SYNC  = "any",
-    LOSE  = "any",
+    BUST  = "any",
     RESET = "host",
   }
   state = "lobby"
@@ -85,6 +92,7 @@ on_leave = function(c, p)
   c.players[p.device_id] = nil
   c.ready[p.device_id] = nil
   c.states[p.device_id] = nil
+  c.finished[p.device_id] = nil
   return c
 end
 
@@ -116,6 +124,7 @@ on_action_SYNC = function(c, p)
   if not role_check(c, p, "SYNC") then return c end
   if state ~= "playing" then return c end
   if c.players[p.device_id] == nil then return c end
+  if c.finished[p.device_id] ~= nil then return c end  -- 已 BUST 不再同步
   local s = p.state
   if s == nil then return c end
   c.states[p.device_id] = {
@@ -128,18 +137,39 @@ on_action_SYNC = function(c, p)
   return c
 end
 
--- 一方 game over → 该方负，对方赢。双方都不会再发（state 已 ended）。
-on_action_LOSE = function(c, p)
-  if not role_check(c, p, "LOSE") then return c end
+-- 一方堆顶 game over 上报最终分（p.score）。
+-- 第一个 BUST 扣 bust_penalty（鼓励撑久）；双方都 BUST 后比 final_score，
+-- 高分者赢 → ended。这样"先 GG 但消行多技巧好"的人仍可能反超。
+on_action_BUST = function(c, p)
+  if not role_check(c, p, "BUST") then return c end
   if state ~= "playing" then return c end
   if c.players[p.device_id] == nil then return c end
-  c.loser_id = p.device_id
-  local other = nil
-  for did, _ in pairs(c.players) do
-    if did ~= p.device_id then other = did end
+  if c.finished[p.device_id] ~= nil then return c end  -- 幂等
+  local raw = tonumber(p.score or 0) or 0
+  local done = 0
+  for _ in pairs(c.finished) do done = done + 1 end
+  local penalty = 0
+  if done == 0 then penalty = c.bust_penalty or 500 end
+  c.finished[p.device_id] = { score = raw - penalty, raw = raw, penalty = penalty }
+  -- 标记该方 states.alive=false，让对方面板显示 GG
+  if c.states[p.device_id] ~= nil then c.states[p.device_id].alive = false end
+  c.loser_id = p.device_id  -- 先完成（首个 BUST）的人，语义上是本局"先 GG"
+  -- 双方都完成 → 比分
+  local total = 0
+  for _ in pairs(c.players) do total = total + 1 end
+  local ndone = 0
+  for _ in pairs(c.finished) do ndone = ndone + 1 end
+  if total >= 2 and ndone >= total then
+    local best_id, best_score = nil, nil
+    for did, info in pairs(c.finished) do
+      if best_score == nil or info.score > best_score then
+        best_id = did
+        best_score = info.score
+      end
+    end
+    c.winner = best_id
+    state = "ended"
   end
-  c.winner = other
-  state = "ended"
   return c
 end
 
@@ -147,6 +177,7 @@ on_action_RESET = function(c, p)
   if not role_check(c, p, "RESET") then return c end
   c.piece_sequence = gen_sequence(60)
   c.states = {}
+  c.finished = {}
   c.ready = {}
   c.winner = nil
   c.loser_id = nil
@@ -158,7 +189,7 @@ return {
   definition = { functions = {
     "on_init", "on_join", "on_leave",
     "on_action_ACK", "on_action_START", "on_action_SYNC",
-    "on_action_LOSE", "on_action_RESET",
+    "on_action_BUST", "on_action_RESET",
   }},
   on_init = on_init,
   on_join = on_join,
@@ -166,7 +197,7 @@ return {
   on_action_ACK = on_action_ACK,
   on_action_START = on_action_START,
   on_action_SYNC = on_action_SYNC,
-  on_action_LOSE = on_action_LOSE,
+  on_action_BUST = on_action_BUST,
   on_action_RESET = on_action_RESET,
 }
 ''';

@@ -37,7 +37,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Timer? _repeatTimer; // 长按左/右/软降的重复触发
 
   bool _ackedLocally = false; // lobby 乐观
-  bool _lostDeclared = false; // 防止 LOSE 重发
+  bool _bustDeclared = false; // 防止 LOSE 重发
   DateTime? _lastSyncAt; // SYNC 节流
 
   @override
@@ -71,7 +71,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (phase == 'lobby') {
       // 新一局：清乐观/胜负标志
       _ackedLocally = false;
-      _lostDeclared = false;
+      _bustDeclared = false;
     }
     if (_ackedLocally && phase != 'lobby' && phase != 'ready') {
       _ackedLocally = false;
@@ -83,7 +83,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final seq = TetrisRoom.sequence(_snap);
     if (seq.isEmpty) return; // 序列未到位，等下一个 snapshot
     _engine = TetrisEngine(seq);
-    _lostDeclared = false;
+    _bustDeclared = false;
     _lastSyncAt = null;
     _scheduleGravity();
     _syncNow(); // 进场先报一次空板
@@ -121,7 +121,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final eng = _engine;
     if (eng == null) return;
     if (!eng.alive) {
-      _declareLose();
+      _declareBust();
     } else {
       _scheduleGravity(); // level 可能提升 → 重力变快
     }
@@ -131,7 +131,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final eng = _engine;
     if (eng == null) return;
     final now = DateTime.now();
-    if (_lastSyncAt != null && now.difference(_lastSyncAt!) < kSyncMinInterval) {
+    if (_lastSyncAt != null &&
+        now.difference(_lastSyncAt!) < kSyncMinInterval) {
       return;
     }
     _lastSyncAt = now;
@@ -144,12 +145,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  void _declareLose() {
-    if (_lostDeclared) return;
-    _lostDeclared = true;
+  void _declareBust() {
+    if (_bustDeclared) return;
+    _bustDeclared = true;
     _gravityTimer?.cancel();
     _repeatTimer?.cancel();
-    _room.lose();
+    final eng = _engine;
+    _room.bust(eng?.score ?? 0);
   }
 
   // ── 网络动作 ──
@@ -177,7 +179,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   void _move(int dx) => _engine?.moveX(dx);
-  void _rotate() => _engine?.rotateCW();
+  void _rotateCW() => _engine?.rotateCW();
+  void _rotateCCW() => _engine?.rotateCCW();
   void _softDrop() =>
       _op(() => _engine!.stepDown(scorePerCell: kSoftDropScore));
   void _hardDrop() => _op(() => _engine!.hardDrop());
@@ -187,7 +190,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final eng = _engine;
     if (eng == null || !eng.alive) return;
     eng.hold();
-    if (!eng.alive) _declareLose();
+    if (!eng.alive) _declareBust();
   }
 
   // 长按重复（左/右/软降）
@@ -379,23 +382,30 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               Expanded(
                 child: eng == null
                     ? const Center(child: CircularProgressIndicator())
-                    : Row(
+                    : Stack(
+                        fit: StackFit.expand,
                         children: [
-                          _buildSidePanel(eng),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: AnimatedBuilder(
-                                animation: eng,
-                                builder: (context, _) => TetrisBoardView(
-                                  grid: eng.grid,
-                                  current: eng.current,
-                                  ghostOffset: eng.ghostOffset(),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                _buildSidePanel(eng),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: AnimatedBuilder(
+                                    animation: eng,
+                                    builder: (context, _) => TetrisBoardView(
+                                      grid: eng.grid,
+                                      current: eng.current,
+                                      ghostOffset: eng.ghostOffset(),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
+                          // 自己已 BUST：叠等待遮罩，看对手实时分数
+                          if (!eng.alive) _buildBustWaiting(theme, oppId, opp),
                         ],
                       ),
               ),
@@ -545,41 +555,60 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   );
 
   Widget _buildControls() {
+    final eng = _engine;
+    final dead = eng != null && !eng.alive;
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 6),
       child: Row(
         children: [
+          // 左半：方向键（左移 / 软降 / 右移，长按连发）
           Expanded(
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _padButton(
                   Icons.arrow_left_rounded,
                   '左',
                   repeat: () => _move(-1),
+                  dim: dead,
                 ),
                 _padButton(
                   Icons.arrow_downward_rounded,
                   '软降',
                   repeat: _softDrop,
+                  dim: dead,
                 ),
                 _padButton(
                   Icons.arrow_right_rounded,
                   '右',
                   repeat: () => _move(1),
+                  dim: dead,
                 ),
               ],
             ),
           ),
-          SizedBox(
-            width: 120,
+          const SizedBox(width: 4),
+          // 右半：动作键（左旋 / 右旋 / 硬降，单次）
+          Expanded(
             child: Row(
               children: [
-                _padButton(Icons.rotate_right_rounded, '旋转', onTap: _rotate),
+                _padButton(
+                  Icons.rotate_left_rounded,
+                  '左旋',
+                  onTap: _rotateCCW,
+                  dim: dead,
+                ),
+                _padButton(
+                  Icons.rotate_right_rounded,
+                  '右旋',
+                  onTap: _rotateCW,
+                  dim: dead,
+                ),
                 _padButton(
                   Icons.vertical_align_bottom_rounded,
                   '硬降',
                   onTap: _hardDrop,
+                  accent: true,
+                  dim: dead,
                 ),
               ],
             ),
@@ -590,11 +619,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   /// 控制按钮：onTap 单次；repeat 长按连发（左/右/软降）。
+  /// dead=true 半透明（自己已 GG，按钮失效）；accent=true 强调色（硬降主操作）。
   Widget _padButton(
     IconData icon,
     String label, {
     VoidCallback? onTap,
     VoidCallback? repeat,
+    bool accent = false,
+    bool dim = false,
   }) {
     return Expanded(
       child: GestureDetector(
@@ -607,20 +639,36 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
           height: 58,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: accent
+                ? kTetrisAccent.withValues(alpha: 0.18)
+                : const Color(0xFF1E293B),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(
+              color: accent
+                  ? kTetrisAccent.withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.08),
+            ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 24),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: const TextStyle(color: Colors.white54, fontSize: 9),
-              ),
-            ],
+          child: Opacity(
+            opacity: dim ? 0.35 : 1,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: accent ? kTetrisAccent : Colors.white,
+                  size: 24,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: accent ? kTetrisAccent : Colors.white54,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -631,10 +679,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   Widget _buildFinished() {
     final theme = BoardTheme.of(context);
+    final myId = _room.deviceId;
+    final oppId = TetrisRoom.opponentId(_snap, myId);
     final winnerId = TetrisRoom.winner(_snap);
-    final iWon = winnerId == _room.deviceId;
+    final iWon = winnerId == myId;
     final msg = iWon ? '我方获胜！' : '对方获胜';
     final oppAlias = _opponentAlias();
+    final myFin = TetrisRoom.finishedOf(_snap, myId);
+    final oppFin = TetrisRoom.finishedOf(_snap, oppId ?? '');
     return Scaffold(
       backgroundColor: const Color(0xFF0B1120),
       body: SafeArea(
@@ -662,17 +714,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     color: iWon ? Colors.amberAccent : Colors.redAccent,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Text(
-                  '对手：$oppAlias',
-                  style: TextStyle(color: theme.btnSub, fontSize: 13),
+                  '按最终分判定（先 GG 扣 ${myFin?.penalty ?? oppFin?.penalty ?? 500}）',
+                  style: TextStyle(color: theme.btnSub, fontSize: 11),
                 ),
-                const SizedBox(height: 8),
-                if (_engine != null)
-                  Text(
-                    '本局分数 ${_engine!.score}',
-                    style: TextStyle(color: theme.btnSub, fontSize: 13),
-                  ),
+                const SizedBox(height: 14),
+                // 比分明细
+                _scoreRow('我', myFin?.score, myFin, true, theme),
+                const SizedBox(height: 6),
+                _scoreRow(oppAlias, oppFin?.score, oppFin, false, theme),
                 const SizedBox(height: 16),
                 if (_room.isHost)
                   OutlinedButton(
@@ -693,6 +744,95 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 终局比分行：名字 + 最终分（扣分后）/ 原始分（扣分明细）。
+  Widget _scoreRow(
+    String name,
+    int? finalScore,
+    TetrisFinalScore? fin,
+    bool isMe,
+    BoardThemeData theme,
+  ) {
+    final win = isMe; // 由调用方决定高亮（winner）
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            name,
+            style: TextStyle(
+              color: win ? kTetrisAccent : theme.btnText,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Text(
+          '${finalScore ?? 0}',
+          style: TextStyle(
+            color: win ? kTetrisAccent : theme.btnText,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (fin != null && fin.penalty > 0) ...[
+          const SizedBox(width: 6),
+          Text(
+            '(原 ${fin.rawScore} −${fin.penalty})',
+            style: TextStyle(
+              color: Colors.redAccent.withValues(alpha: 0.8),
+              fontSize: 10,
+            ),
+          ),
+        ] else if (fin != null) ...[
+          const SizedBox(width: 6),
+          Text(
+            '(原 ${fin.rawScore})',
+            style: TextStyle(color: theme.btnSub, fontSize: 10),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 自己已 BUST、对方仍在玩：叠在主棋盘上的等待遮罩。
+  Widget _buildBustWaiting(
+    BoardThemeData theme,
+    String? oppId,
+    TetrisPlayerState? opp,
+  ) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.55),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.hourglass_top,
+                color: Colors.amberAccent,
+                size: 40,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '你已 GG，等待对手完成…',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '对手当前分数 ${opp?.score ?? 0}',
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ],
           ),
         ),
       ),

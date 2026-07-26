@@ -9,6 +9,7 @@ import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 Widget aliasField(BoardThemeData theme) => TextField(
   decoration: InputDecoration(
     labelText: '昵称',
+    hintText: '输入你的昵称',
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     labelStyle: TextStyle(color: theme.btnSub),
     enabledBorder: OutlineInputBorder(
@@ -33,7 +34,8 @@ class SetupPage extends StatefulWidget {
 }
 
 class _SetupPageState extends State<SetupPage> {
-  final _aliasCtrl = TextEditingController(text: '玩家1');
+  // 默认空：避免 TetrisAliasPrefs.load() 异步回调把用户刚输入的昵称覆盖回旧值。
+  final _aliasCtrl = TextEditingController();
   bool _busy = false;
   String? _error;
 
@@ -41,7 +43,10 @@ class _SetupPageState extends State<SetupPage> {
   void initState() {
     super.initState();
     TetrisAliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
+      // 仅在用户还没输入（text 为空）时填入历史昵称，杜绝覆盖 race。
+      if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
+        setState(() => _aliasCtrl.text = v);
+      }
     });
   }
 
@@ -145,7 +150,8 @@ class JoinPage extends StatefulWidget {
 }
 
 class _JoinPageState extends State<JoinPage> {
-  final _aliasCtrl = TextEditingController(text: '玩家2');
+  // 默认空：同 SetupPage，避免 load 覆盖用户输入。
+  final _aliasCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
   bool _busy = false;
   String? _error;
@@ -154,7 +160,9 @@ class _JoinPageState extends State<JoinPage> {
   void initState() {
     super.initState();
     TetrisAliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
+      if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
+        setState(() => _aliasCtrl.text = v);
+      }
     });
   }
 

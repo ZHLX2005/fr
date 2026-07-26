@@ -113,6 +113,18 @@ class TetrisEngine extends ChangeNotifier {
     return r;
   }
 
+  /// 矩阵逆时针 90°：r[n-1-j][i] = m[i][j]
+  static List<List<int>> _rotateCCW(List<List<int>> m) {
+    final n = m.length;
+    final r = List.generate(n, (_) => List.filled(n, 0));
+    for (var i = 0; i < n; i++) {
+      for (var j = 0; j < n; j++) {
+        r[n - 1 - j][i] = m[i][j];
+      }
+    }
+    return r;
+  }
+
   bool _collides(List<List<int>> m, int px, int py) {
     for (var i = 0; i < m.length; i++) {
       for (var j = 0; j < m[i].length; j++) {
@@ -137,10 +149,13 @@ class TetrisEngine extends ChangeNotifier {
     return true;
   }
 
-  void rotateCW() {
+  void rotateCW() => _rotate(_rotateCW);
+  void rotateCCW() => _rotate(_rotateCCW);
+
+  void _rotate(List<List<int>> Function(List<List<int>>) rotateFn) {
     final c = current;
     if (c == null || !alive || c.type == kPieceO) return;
-    final rotated = _rotateCW(c.matrix);
+    final rotated = rotateFn(c.matrix);
     // 简化踢墙：依次尝试 0/-1/+1/-2/+2 横向偏移
     for (final dx in const [0, -1, 1, -2, 2]) {
       if (!_collides(rotated, c.x + dx, c.y)) {
@@ -287,7 +302,11 @@ class TetrisRoom {
   Future<void> ack() => handle.applyAction(type: 'ACK', params: const {});
   Future<void> start() => handle.applyAction(type: 'START', params: const {});
   Future<void> reset() => handle.applyAction(type: 'RESET', params: const {});
-  Future<void> lose() => handle.applyAction(type: 'LOSE', params: const {});
+
+  /// 自己堆顶 game over，上报最终分。服务端第一个 BUST 扣 bust_penalty，
+  /// 双方都 BUST 后比 final_score 定胜。
+  Future<void> bust(int score) =>
+      handle.applyAction(type: 'BUST', params: {'score': score});
 
   Future<void> syncState({
     required List<List<int>> board,
@@ -352,9 +371,25 @@ class TetrisRoom {
     );
   }
 
-  /// 终局赢家 device_id（未 LOSE 的那一方）。
+  /// 终局赢家 device_id（final_score 高的那一方）。
   static String? winner(Snapshot? s) => s?.context['winner']?.toString();
+
+  /// 首个 BUST（先堆顶）的那一方，用于"先 GG"语义展示。
   static String? loserId(Snapshot? s) => s?.context['loser_id']?.toString();
+
+  /// 某玩家 BUST 后的最终分（score=扣分后、raw=原始、penalty=扣分）。
+  /// 未 BUST 返回 null。
+  static TetrisFinalScore? finishedOf(Snapshot? s, String deviceId) {
+    final fin = s?.context['finished'];
+    if (fin is! Map) return null;
+    final raw = fin[deviceId];
+    if (raw is! Map) return null;
+    return TetrisFinalScore(
+      score: (raw['score'] as num?)?.toInt() ?? 0,
+      rawScore: (raw['raw'] as num?)?.toInt() ?? 0,
+      penalty: (raw['penalty'] as num?)?.toInt() ?? 0,
+    );
+  }
 
   /// 对手 device_id（players 里除自己外的一个）。
   static String? opponentId(Snapshot? s, String myId) {
@@ -364,4 +399,16 @@ class TetrisRoom {
     }
     return null;
   }
+}
+
+/// BUST 后的最终分明细。
+class TetrisFinalScore {
+  const TetrisFinalScore({
+    required this.score,
+    required this.rawScore,
+    required this.penalty,
+  });
+  final int score; // 扣分后（用于比胜）
+  final int rawScore; // 客户端上报的原始分
+  final int penalty; // 先 BUST 扣的分（第一个为 bust_penalty，其余 0）
 }
