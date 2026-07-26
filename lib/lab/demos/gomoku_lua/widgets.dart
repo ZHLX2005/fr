@@ -84,11 +84,20 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
       widget.onJoined(h);
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
-      final msg = e.statusCode == 409
-          ? '房间号 $code 已被占用，请换一个'
-          : e.statusCode == 404
-              ? '房间号 $code 不存在且创建失败'
-              : '进入失败（${e.statusCode}）';
+      // 服务端两种 409：
+      //   - "code collision" → 创建撞号（已被别人创建，tryJoinOrCreate 会回退或重试）
+      //   - "join rejected"  → 房间已满（rejected_join 触发）
+      final body = e.body.toLowerCase();
+      final String msg;
+      if (e.statusCode == 409 && body.contains('code collision')) {
+        msg = '房间号 $code 已被占用，请换一个';
+      } else if (e.statusCode == 409 && body.contains('join rejected')) {
+        msg = '房间 $code 已满员，无法加入';
+      } else if (e.statusCode == 404) {
+        msg = '房间号 $code 不存在且创建失败';
+      } else {
+        msg = '进入失败（${e.statusCode}）';
+      }
       setState(() { _busy = false; _error = msg; });
     } catch (e) {
       if (!mounted) return;
