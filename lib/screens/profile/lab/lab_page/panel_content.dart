@@ -5,10 +5,15 @@ class _LabPanelContent extends StatefulWidget {
   final List<MapEntry<String, DemoPage>> demos;
   final LabPanelColors panelColors;
   final bool scrollable;
-  final double progress;
-  final bool readyToOpen;
-  final double closeProgress;
+
+  /// 连续量：内容的位移/缩放/透明度与把手形态都跟它，每帧只重建包装层。
+  /// readyToOpen / closeProgress 都是 progress 的纯函数（见 [_panelCloseProgress]），
+  /// 不再作为独立 prop 逐帧传进来。
+  final ValueListenable<double> progress;
+
+  /// 离散量：由状态机的 expanded/draggingPanel 决定，随 setState 传入。
   final bool showCloseCue;
+
   final VoidCallback onHandleDragStart;
   final ValueChanged<double> onHandleDragUpdate;
   final ValueChanged<double> onHandleDragEnd;
@@ -20,8 +25,6 @@ class _LabPanelContent extends StatefulWidget {
     required this.panelColors,
     required this.scrollable,
     required this.progress,
-    required this.readyToOpen,
-    required this.closeProgress,
     required this.showCloseCue,
     required this.onHandleDragStart,
     required this.onHandleDragUpdate,
@@ -94,11 +97,6 @@ class _LabPanelContentState extends State<_LabPanelContent> {
 
   @override
   Widget build(BuildContext context) {
-    final contentOffset = (1.0 - widget.progress) * kLabPanelContentOffset;
-    final contentScale =
-        kLabPanelContentMinScale +
-        (widget.progress * (1.0 - kLabPanelContentMinScale));
-    final contentOpacity = widget.progress.clamp(0.0, 1.0);
     final pc = widget.panelColors;
     // 收藏列表只算一次：build 内多处（空态判断 + 格子渲染 + 拖拽索引）复用同一份，
     // 避免每处各扫一遍。
@@ -108,100 +106,108 @@ class _LabPanelContentState extends State<_LabPanelContent> {
       children: [
         Expanded(
           child: RepaintBoundary(
-            child: Transform.translate(
-              offset: Offset(0, contentOffset),
-              child: Opacity(
-                opacity: contentOpacity,
-                child: Transform.scale(
-                  scale: contentScale.clamp(kLabPanelContentMinScale, 1.0),
-                  alignment: Alignment.topCenter,
-                  child: IgnorePointer(
-                    ignoring: !widget.scrollable,
-                    child: ListView(
-                      controller: widget.scrollController,
-                      physics: const BouncingScrollPhysics(),
-                      padding: kLabPanelListPadding,
-                      children: [
-                        _PanelTitleSection(panelColors: pc),
-                        const SizedBox(height: 16),
-                        if (favoriteTitles.isNotEmpty)
-                          ReorderableBuilder<String>.builder(
-                            longPressDelay: kLabFavoriteLongPressDelay,
-                            animationConfig: const ReorderableAnimationConfig(
-                              dragFeedbackDuration: Duration.zero,
-                            ),
-                            feedbackScaleFactor: 1.0,
-                            dragChildBoxDecoration: BoxDecoration(
-                              color: Colors.black.withValues(
-                                alpha: kLabFavoritePressOverlayAlpha,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                kLabFavoriteRadius,
-                              ),
-                              boxShadow: const <BoxShadow>[],
-                            ),
-                            onDragStarted: (index) {
-                              setState(() {
-                                _draggingFavoriteTitle = favoriteTitles[index];
-                                _isDeleteZoneActive = false;
-                              });
-                              HapticFeedback.lightImpact();
-                            },
-                            onUpdatedDraggedChild: (index) {},
-                            onDragEnd: (index) {
-                              setState(() {
-                                _draggingFavoriteTitle = null;
-                                _isDeleteZoneActive = false;
-                              });
-                            },
-                            onReorder: (reorderFn) {
-                              _provider.reorderFavorites(
-                                reorderFn(favoriteTitles),
-                              );
-                            },
-                            itemCount: favoriteTitles.length,
-                            childBuilder: (itemBuilder) {
-                              return GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
+            // 列表本体作为 child 只造一次，每帧变的只有外层的位移/透明度/缩放。
+            child: ValueListenableBuilder<double>(
+              valueListenable: widget.progress,
+              builder: (context, progress, child) {
+                final contentScale =
+                    kLabPanelContentMinScale +
+                    (progress * (1.0 - kLabPanelContentMinScale));
+                return Transform.translate(
+                  offset: Offset(0, (1.0 - progress) * kLabPanelContentOffset),
+                  child: Opacity(
+                    opacity: progress.clamp(0.0, 1.0),
+                    child: Transform.scale(
+                      scale: contentScale.clamp(kLabPanelContentMinScale, 1.0),
+                      alignment: Alignment.topCenter,
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: IgnorePointer(
+                ignoring: !widget.scrollable,
+                child: ListView(
+                  controller: widget.scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: kLabPanelListPadding,
+                  children: [
+                    _PanelTitleSection(panelColors: pc),
+                    const SizedBox(height: 16),
+                    if (favoriteTitles.isNotEmpty)
+                      ReorderableBuilder<String>.builder(
+                        longPressDelay: kLabFavoriteLongPressDelay,
+                        animationConfig: const ReorderableAnimationConfig(
+                          dragFeedbackDuration: Duration.zero,
+                        ),
+                        feedbackScaleFactor: 1.0,
+                        dragChildBoxDecoration: BoxDecoration(
+                          color: Colors.black.withValues(
+                            alpha: kLabFavoritePressOverlayAlpha,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            kLabFavoriteRadius,
+                          ),
+                          boxShadow: const <BoxShadow>[],
+                        ),
+                        onDragStarted: (index) {
+                          setState(() {
+                            _draggingFavoriteTitle = favoriteTitles[index];
+                            _isDeleteZoneActive = false;
+                          });
+                          HapticFeedback.lightImpact();
+                        },
+                        onUpdatedDraggedChild: (index) {},
+                        onDragEnd: (index) {
+                          setState(() {
+                            _draggingFavoriteTitle = null;
+                            _isDeleteZoneActive = false;
+                          });
+                        },
+                        onReorder: (reorderFn) {
+                          _provider.reorderFavorites(reorderFn(favoriteTitles));
+                        },
+                        itemCount: favoriteTitles.length,
+                        childBuilder: (itemBuilder) {
+                          return GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: kLabFavoriteCrossAxisCount,
                                   mainAxisSpacing: kLabFavoriteSpacing,
                                   crossAxisSpacing: kLabFavoriteSpacing,
                                   childAspectRatio: kLabFavoriteAspectRatio,
                                 ),
-                                itemCount: favoriteTitles.length,
-                                itemBuilder: (context, index) {
-                                  final title = favoriteTitles[index];
-                                  final demo = _findDemoByTitle(title);
-                                  if (demo == null) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return itemBuilder(
-                                    CustomDraggable(
-                                      key: ValueKey(title),
-                                      data: title,
-                                      child: _FavoriteDemoShortcut(
-                                        key: ValueKey(title),
-                                        panelColors: pc,
-                                        demo: demo,
-                                        isDragActive:
-                                            _draggingFavoriteTitle == title,
-                                        onTap: () => widget.onDemoTap(demo),
-                                      ),
-                                    ),
-                                    index,
-                                  );
-                                },
+                            itemCount: favoriteTitles.length,
+                            itemBuilder: (context, index) {
+                              final title = favoriteTitles[index];
+                              final demo = _findDemoByTitle(title);
+                              if (demo == null) {
+                                return const SizedBox.shrink();
+                              }
+                              return itemBuilder(
+                                CustomDraggable(
+                                  key: ValueKey(title),
+                                  data: title,
+                                  child: _FavoriteDemoShortcut(
+                                    key: ValueKey(title),
+                                    panelColors: pc,
+                                    demo: demo,
+                                    isDragActive:
+                                        _draggingFavoriteTitle == title,
+                                    onTap: () => widget.onDemoTap(demo),
+                                  ),
+                                ),
+                                index,
                               );
                             },
-                          )
-                        else
-                          _PanelEmptyFavorites(panelColors: pc),
-                      ],
-                    ),
-                  ),
+                          );
+                        },
+                      )
+                    else
+                      _PanelEmptyFavorites(panelColors: pc),
+                  ],
                 ),
               ),
             ),
@@ -252,8 +258,6 @@ class _LabPanelContentState extends State<_LabPanelContent> {
                           child: _PanelHandle(
                             panelColors: pc,
                             progress: widget.progress,
-                            readyToOpen: widget.readyToOpen,
-                            closeProgress: widget.closeProgress,
                             showCloseCue: widget.showCloseCue,
                           ),
                         ),
@@ -477,11 +481,12 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: pc.text,
-                            fontWeight: FontWeight.w700,
-                            height: 1.0,
-                          ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: pc.text,
+                                fontWeight: FontWeight.w700,
+                                height: 1.0,
+                              ),
                         ),
                       ),
                     ],
@@ -548,76 +553,88 @@ class _PanelEmptyFavorites extends StatelessWidget {
   }
 }
 
+/// progress 的纯函数：与 LabPullPanelStateMachine.closeProgress 同一公式。
+/// 把手要按帧变形，走 notifier 自己算，避免为此逐帧 setState 整个面板。
+double _panelCloseProgress(double progress) {
+  if (progress >= 1.0) return 0.0;
+  return ((1.0 - progress) / LabPullPanelMetrics.openThreshold).clamp(0.0, 1.0);
+}
+
 class _PanelHandle extends StatelessWidget {
   final LabPanelColors panelColors;
-  final double progress;
-  final bool readyToOpen;
-  final double closeProgress;
+  final ValueListenable<double> progress;
   final bool showCloseCue;
 
   const _PanelHandle({
     required this.panelColors,
     required this.progress,
-    required this.readyToOpen,
-    required this.closeProgress,
     required this.showCloseCue,
   });
 
   @override
   Widget build(BuildContext context) {
     final pc = panelColors;
-    final handleWidth =
-        kLabHandleWidthBase +
-        progress * kLabHandleWidthGain -
-        closeProgress * kLabHandleWidthShrink;
-    final handleHeight = kLabHandleHeightBase + progress * kLabHandleHeightGain;
     final strokeColor = pc.accentDeep;
     final bgColor = pc.accent.withValues(alpha: 0.12);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedContainer(
-          duration: kLabHandleAnimDuration,
-          curve: Curves.easeOut,
-          width: handleWidth.clamp(kLabHandleWidthMin, kLabHandleWidthMax),
-          height: handleHeight.clamp(
-            kLabHandleHeightBase,
-            kLabHandleHeightMax,
-          ),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.88),
-                pc.accentSoft.withValues(alpha: 0.68),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: [
-              BoxShadow(
-                color: pc.accentDeep.withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+    return ValueListenableBuilder<double>(
+      valueListenable: progress,
+      builder: (context, value, _) {
+        final closeProgress = _panelCloseProgress(value);
+        final readyToOpen = value >= LabPullPanelMetrics.openThreshold;
+        final handleWidth =
+            kLabHandleWidthBase +
+            value * kLabHandleWidthGain -
+            closeProgress * kLabHandleWidthShrink;
+        final handleHeight =
+            kLabHandleHeightBase + value * kLabHandleHeightGain;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: kLabHandleAnimDuration,
+              curve: Curves.easeOut,
+              width: handleWidth.clamp(kLabHandleWidthMin, kLabHandleWidthMax),
+              height: handleHeight.clamp(
+                kLabHandleHeightBase,
+                kLabHandleHeightMax,
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: kLabHandleRingSize,
-          height: kLabHandleRingSize,
-          child: CustomPaint(
-            painter: _HandleStatePainter(
-              progress: readyToOpen ? 1.0 : progress.clamp(0.0, 1.0),
-              closeProgress: closeProgress,
-              strokeColor: strokeColor,
-              bgColor: bgColor,
-              readyToOpen: readyToOpen,
-              showCloseCue: showCloseCue,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.88),
+                    pc.accentSoft.withValues(alpha: 0.68),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: [
+                  BoxShadow(
+                    color: pc.accentDeep.withValues(alpha: 0.10),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ],
+            const SizedBox(height: 10),
+            SizedBox(
+              width: kLabHandleRingSize,
+              height: kLabHandleRingSize,
+              child: CustomPaint(
+                painter: _HandleStatePainter(
+                  progress: readyToOpen ? 1.0 : value.clamp(0.0, 1.0),
+                  closeProgress: closeProgress,
+                  strokeColor: strokeColor,
+                  bgColor: bgColor,
+                  readyToOpen: readyToOpen,
+                  showCloseCue: showCloseCue,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

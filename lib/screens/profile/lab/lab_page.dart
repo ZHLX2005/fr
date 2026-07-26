@@ -60,6 +60,16 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   double _lastViewportHeight = 0.0;
   late final TimingsCallback _timingsCallback = _onFrameTimings;
 
+  /// 面板展开进度的**连续**通道：拖拽/动画每帧只改它，不走 setState。
+  /// 订阅方（AppBar 折叠、主内容位移、面板高度、面板内部变换、把手）各自
+  /// ValueListenableBuilder，重建范围收敛到几个包装 widget；demo 网格与面板
+  /// 列表实例在 build 里只造一次，靠 widget identity 短路，子树完全不重建。
+  final ValueNotifier<double> _progressNotifier = ValueNotifier<double>(0.0);
+
+  /// 状态机的**离散**通道：只有 state 真的换了才 setState（影响可交互性、
+  /// 可滚动性、返回键拦截这些非每帧变化的东西）。
+  LabPullPanelState _publishedState = LabPullPanelState.collapsed;
+
   @override
   void initState() {
     super.initState();
@@ -73,11 +83,14 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     // rive-pendulum + rive-data-bind + demo-lab 4 个 slug 指向同一实例）。
     // 按 entries 顺序保留首个 slug = 注册时最先写的主 slug。
     final seen = <DemoPage>{};
-    _demos = (widget.excludeGames
-            ? demoRegistry.getAll().where((e) => e.value.type != DemoType.game)
-            : demoRegistry.getAll())
-        .where((e) => seen.add(e.value))
-        .toList();
+    _demos =
+        (widget.excludeGames
+                ? demoRegistry.getAll().where(
+                    (e) => e.value.type != DemoType.game,
+                  )
+                : demoRegistry.getAll())
+            .where((e) => seen.add(e.value))
+            .toList();
     if (_kLabPanelPerfDebug && kDebugMode) {
       SchedulerBinding.instance.addTimingsCallback(_timingsCallback);
     }
@@ -88,6 +101,17 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
       _progress > LabPullPanelMetrics.collapsedEpsilon ||
       _sm.state == LabPullPanelState.settling;
 
+  /// 状态机变更后统一从这里出口：连续量走 notifier，离散量才 setState。
+  /// 所有原先「改完 _sm 就 setState(() {})」的位置一律换成本方法。
+  void _publish() {
+    if (!mounted) return;
+    _progressNotifier.value = _sm.progress;
+    if (_publishedState != _sm.state) {
+      _publishedState = _sm.state;
+      setState(() {});
+    }
+  }
+
   @override
   void dispose() {
     if (_kLabPanelPerfDebug && kDebugMode) {
@@ -97,6 +121,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _anim.dispose();
     _gridScrollController.dispose();
     _panelScrollController.dispose();
+    _progressNotifier.dispose();
     super.dispose();
   }
 
@@ -144,7 +169,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
       CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
     )..addListener(_onAnimTick);
 
-    setState(() {});
+    _publish();
     _anim.forward(from: 0.0);
   }
 
@@ -152,9 +177,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     final animation = _progressAnim;
     if (animation == null) return;
     _sm.syncProgress(animation.value);
-    if (mounted) {
-      setState(() {});
-    }
+    _publish();
   }
 
   void _onAnimationStatusChanged(AnimationStatus status) {
@@ -177,15 +200,13 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _labPerfLog(
       'animation completed target=${target.toStringAsFixed(3)} state=${_sm.state.name}',
     );
-    if (mounted) {
-      setState(() {});
-    }
+    _publish();
   }
 
   void _runAction(LabPullPanelAction action) {
     switch (action.type) {
       case LabPullPanelActionType.none:
-        setState(() {});
+        _publish();
       case LabPullPanelActionType.animateTo:
         _animateTo(action.targetProgress!);
     }
@@ -225,7 +246,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
         deltaDy: event.delta.dy,
         fullHeight: _lastViewportHeight,
       );
-      setState(() {});
+      _publish();
     }
   }
 
@@ -249,9 +270,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     if (!atTop) return false;
 
     if (notification is ScrollStartNotification) {
-      _labPerfLog(
-        'main scroll start progress=${_progress.toStringAsFixed(3)}',
-      );
+      _labPerfLog('main scroll start progress=${_progress.toStringAsFixed(3)}');
       _stopCurrentAnimation(settleToTarget: true);
       _sm.beginMainDrag();
       return false;
@@ -265,7 +284,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
         _labPerfLog(
           'main drag update dy=${dy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
         );
-        setState(() {});
+        _publish();
         return true;
       }
     }
@@ -280,7 +299,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
         _labPerfLog(
           'main overscroll dy=${dy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
         );
-        setState(() {});
+        _publish();
         return true;
       }
     }
@@ -301,7 +320,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _stopCurrentAnimation(settleToTarget: true);
     _sm.beginPanelDrag();
     _labPerfLog('panel drag start progress=${_progress.toStringAsFixed(3)}');
-    setState(() {});
+    _publish();
   }
 
   void _onPanelHandleDragUpdate(double deltaDy, double fullHeight) {
@@ -309,7 +328,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _labPerfLog(
       'panel drag update dy=${deltaDy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
     );
-    setState(() {});
+    _publish();
   }
 
   void _onPanelHandleDragEnd(double velocityDy) {
@@ -334,7 +353,27 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
       theme.colorScheme,
       brightness: theme.brightness,
     );
-    final appBarReveal = (1.0 - _progress).clamp(0.0, 1.0);
+    // 下面三块是「重活」：主内容网格、面板背景、面板内容。
+    // 它们在一次 build 里各造一个实例，随后每帧的 ValueListenableBuilder 都把
+    // **同一个实例**传下去 —— Element.update 遇到 identical(newWidget, oldWidget)
+    // 直接短路，子树不进 build。这是"拖拽不再整页重建"的关键。
+    final mainContent = RepaintBoundary(
+      child: demos.isEmpty ? _buildEmptyState(theme) : _buildDemoGrid(demos),
+    );
+
+    final panelBackground = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            panelColors.gradientTop,
+            panelColors.gradientMiddle,
+            panelColors.gradientBottom,
+          ],
+        ),
+      ),
+    );
 
     return PopScope(
       canPop: !_panelConsumesBack,
@@ -348,31 +387,35 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: RepaintBoundary(
-            child: ClipRect(
-              child: Align(
-                alignment: Alignment.topCenter,
-                heightFactor: appBarReveal,
-                child: IgnorePointer(
-                  ignoring: appBarReveal <= 0.0,
-                  child: Opacity(
-                    opacity: appBarReveal,
-                    child: AppBar(
-                      toolbarHeight: 48,
-                      title: const Text('Lab'),
-                      actions: [
-                        IconButton(
-                          icon: const Icon(Icons.cleaning_services_outlined),
-                          onPressed: () => _showCacheInfo(context),
-                          tooltip: '缓存',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.info_outline),
-                          onPressed: () => _showLabInfo(context),
-                        ),
-                      ],
+            child: ValueListenableBuilder<double>(
+              valueListenable: _progressNotifier,
+              builder: (context, progress, child) {
+                final reveal = (1.0 - progress).clamp(0.0, 1.0);
+                return ClipRect(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    heightFactor: reveal,
+                    child: IgnorePointer(
+                      ignoring: reveal <= 0.0,
+                      child: Opacity(opacity: reveal, child: child),
                     ),
                   ),
-                ),
+                );
+              },
+              child: AppBar(
+                toolbarHeight: 48,
+                title: const Text('Lab'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.cleaning_services_outlined),
+                    onPressed: () => _showCacheInfo(context),
+                    tooltip: '缓存',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.info_outline),
+                    onPressed: () => _showLabInfo(context),
+                  ),
+                ],
               ),
             ),
           ),
@@ -385,88 +428,72 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
             builder: (context, constraints) {
               final fullHeight = constraints.maxHeight;
               _lastViewportHeight = fullHeight;
-              final mainPush =
-                  fullHeight * LabPullPanelMetrics.mainPushRatio * _progress;
-              final panelHeight = fullHeight * _progress;
 
-              return Stack(
-                children: [
-                  Transform.translate(
-                    offset: Offset(0, mainPush),
-                    child: IgnorePointer(
-                      ignoring: !_sm.mainContentInteractive,
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: (notification) {
-                          return _onMainContentNotification(
-                            notification,
-                            fullHeight,
-                          );
-                        },
-                        child: RepaintBoundary(
+              // 主内容层与面板内容层各自只造一次；下面的 VLB 每帧只重建
+              // Stack / Transform / Positioned 这几个轻量包装。
+              final mainLayer = IgnorePointer(
+                ignoring: !_sm.mainContentInteractive,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    return _onMainContentNotification(notification, fullHeight);
+                  },
+                  child: mainContent,
+                ),
+              );
+
+              final panelContent = _LabPanelContent(
+                scrollController: _panelScrollController,
+                demos: demos,
+                panelColors: panelColors,
+                scrollable: _sm.panelScrollable,
+                progress: _progressNotifier,
+                showCloseCue: _sm.showCloseCue,
+                onHandleDragStart: _onPanelHandleDragStart,
+                onHandleDragUpdate: (deltaDy) {
+                  _onPanelHandleDragUpdate(deltaDy, fullHeight);
+                },
+                onHandleDragEnd: _onPanelHandleDragEnd,
+                onDemoTap: (demo) => _openDemoPage(context, demo),
+              );
+
+              return ValueListenableBuilder<double>(
+                valueListenable: _progressNotifier,
+                builder: (context, progress, _) {
+                  final mainPush =
+                      fullHeight * LabPullPanelMetrics.mainPushRatio * progress;
+                  return Stack(
+                    children: [
+                      Transform.translate(
+                        offset: Offset(0, mainPush),
+                        child: mainLayer,
+                      ),
+                      // 面板高度必须真的随 progress 收缩（把手要跟着上边缘走），
+                      // 所以这里保持 Positioned + height，不能改成 Align 裁剪。
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: fullHeight * progress,
+                        child: ClipRect(
                           child: Stack(
                             children: [
-                              if (demos.isEmpty)
-                                _buildEmptyState(Theme.of(context))
-                              else
-                                _buildDemoGrid(demos),
+                              Positioned.fill(child: panelBackground),
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _PanelSurfacePainter(
+                                    progress: progress,
+                                    colors: panelColors,
+                                  ),
+                                ),
+                              ),
+                              panelContent,
                             ],
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: panelHeight,
-                    child: ClipRect(
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    panelColors.gradientTop,
-                                    panelColors.gradientMiddle,
-                                    panelColors.gradientBottom,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: _PanelSurfacePainter(
-                                progress: _progress,
-                                colors: panelColors,
-                              ),
-                            ),
-                          ),
-                          _LabPanelContent(
-                            scrollController: _panelScrollController,
-                            demos: demos,
-                            panelColors: panelColors,
-                            scrollable: _sm.panelScrollable,
-                            progress: _progress,
-                            readyToOpen: _sm.readyToOpen,
-                            closeProgress: _sm.closeProgress,
-                            showCloseCue: _sm.showCloseCue,
-                            onHandleDragStart: _onPanelHandleDragStart,
-                            onHandleDragUpdate: (deltaDy) {
-                              _onPanelHandleDragUpdate(deltaDy, fullHeight);
-                            },
-                            onHandleDragEnd: _onPanelHandleDragEnd,
-                            onDemoTap: (demo) => _openDemoPage(context, demo),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               );
             },
           ),
