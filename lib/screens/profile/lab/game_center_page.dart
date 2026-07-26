@@ -150,11 +150,11 @@ class _GameCenterPageState extends State<GameCenterPage>
                   gradient: _headerGradient(scheme),
                   boxShadow: [
                     BoxShadow(
-                      color: scheme.primary.withValues(
-                        alpha: 0.22 * _titleReveal,
+                      color: Colors.black.withValues(
+                        alpha: 0.10 * _titleReveal,
                       ),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
@@ -376,13 +376,28 @@ class _GameCenterPageState extends State<GameCenterPage>
 // ══════════════════════════════════════════════════════════════
 
 /// Hero 头部与 AppBar 共用的渐变。
+///
 /// 两处必须同源：AppBar 是"头部滑走后补上的那一截"，用不同色系会在
-/// 滚动中途出现明显的色带断层（浅色 surface 撞蓝色 banner）。
-LinearGradient _headerGradient(ColorScheme scheme) => LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [scheme.primary, scheme.tertiary],
-);
+/// 滚动中途出现明显的色带断层。
+///
+/// 调性：头部是**背景**不是主角，所以
+///   - 降饱和（primary 的 60%）—— 原 primary→tertiary 双色相太艳；
+///   - 亮度夹到 0.30~0.44 —— 深浅主题下都足够暗，白字始终可读；
+///   - 渐变只做 5% 亮度差、同一色相 —— 有层次但不喧宾夺主。
+LinearGradient _headerGradient(ColorScheme scheme) {
+  final hsl = HSLColor.fromColor(scheme.primary);
+  final base = hsl
+      .withSaturation((hsl.saturation * 0.60).clamp(0.0, 1.0))
+      .withLightness(hsl.lightness.clamp(0.30, 0.44));
+  return LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      base.toColor(),
+      base.withLightness((base.lightness + 0.05).clamp(0.0, 1.0)).toColor(),
+    ],
+  );
+}
 
 /// 分节标题：左侧主题色竖条 + 标题 + 次要说明
 class _SectionTitle extends StatelessWidget {
