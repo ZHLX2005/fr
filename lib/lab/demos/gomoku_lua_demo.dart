@@ -95,26 +95,56 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
               onBack: () => setState(() => _showOpeningStudy = false),
             )
           : SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
+                  constraints: const BoxConstraints(maxWidth: 480),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _EntryCard(
-                        title: '进入对局',
-                        subtitle: '输入昵称 + 房间号 · 第一个到的成为房主',
-                        child: LobbyEntryPage(onJoined: _onJoined),
+                      // ── 顶部无边框大字标题 ──
+                      const Text(
+                        '五子棋',
+                        style: TextStyle(
+                          color: Color(0xFF1F1B16),
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
+                      // 短分割线（不画完整边）
+                      Container(
+                        width: 32,
+                        height: 2,
+                        color: const Color(0xFF1F1B16),
+                      ),
+                      const SizedBox(height: 16),
+                      // 单行 hint
+                      Text(
+                        '与朋友约定同一房间号，谁先到谁是房主',
+                        style: TextStyle(
+                          color: theme.btnSub,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      // ── 表单区（无 Card） ──
+                      LobbyEntryPage(onJoined: _onJoined),
+                      const SizedBox(height: 24),
+                      // ── 底部次要入口（纯文字链） ──
                       Align(
                         alignment: Alignment.center,
-                        child: TextButton.icon(
+                        child: TextButton(
                           onPressed: () =>
                               setState(() => _showOpeningStudy = true),
-                          icon: const Icon(Icons.school_outlined, size: 18),
-                          label: const Text('开局学习'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            foregroundColor: theme.btnSub,
+                          ),
+                          child: const Text('开局学习',
+                              style: TextStyle(fontSize: 13, letterSpacing: 1)),
                         ),
                       ),
                     ],
@@ -126,45 +156,4 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
   }
 }
 
-class _EntryCard extends StatelessWidget {
-  const _EntryCard({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
-
-  final String title;
-  final String subtitle;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: theme.panelBg,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: theme.panelBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title,
-                style: TextStyle(
-                    color: theme.btnText,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(subtitle,
-                style: TextStyle(color: theme.btnSub, fontSize: 13)),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-}
+// （_EntryCard 已废弃 —— 改为无边框布局后不再需要）
