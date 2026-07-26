@@ -98,18 +98,10 @@ String formatUnitPrice(double v) {
   return s;
 }
 
-/// 时间格式化：智能显示——今天只显示时分，其它显示 M/d，跨年显示 y/M/d
+/// 日期格式化：价格历史按天观察，统一显示 yyyy/MM/dd，不显示时分。
 String formatCreatedAt(DateTime t) {
-  final now = DateTime.now();
-  final isSameDay =
-      t.year == now.year && t.month == now.month && t.day == now.day;
-  if (isSameDay) {
-    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-  }
-  if (t.year == now.year) {
-    return '${t.month}/${t.day}';
-  }
-  return '${t.year}/${t.month}/${t.day}';
+  String p(int n) => n.toString().padLeft(2, '0');
+  return '${t.year}/${p(t.month)}/${p(t.day)}';
 }
 
 /// 完整时间：yyyy/MM/dd HH:mm，主题创建时间副标题用
