@@ -274,6 +274,29 @@ VersusRoomShell(
 | 第 2 个游戏就抽 widget 组件 | 过早抽象耦合演进 | 先沉淀 skill，第 3 个再抽 |
 | `_maybeDeclareWin` 不防循环 | WIN 被拒→重发风暴 | `_winDeclared` 标志 |
 | 棋盘存二维数组到服务端 | 冗余 + 不一致 | 只存 history，棋盘客户端重建 |
+| `AliasPrefs.load()` 异步覆盖输入 | 用户改的昵称被旧值冲掉，"名字没生效" | controller 默认空，load 仅在 `text.isEmpty` 时填 |
+
+### SetupPage 别名加载 race（所有房间表单通用）
+
+**症状**：建房/加入表单输入昵称 → 进入房间后显示的是上次的旧昵称，"名字没生效"。
+
+**根因**：`AliasPrefs.load()` 是异步的（SharedPreferences），常见写法在 `initState`
+里 `.then((v) => setState(() => _aliasCtrl.text = v))`。用户在 load 返回前已手动输入，
+回调一到就把用户输入覆盖回历史保存值（默认值也会被 `save(t.alias)` 存进去，下次 load
+就是这个旧值）。
+
+**修法**（gomoku/tetris 的 SetupPage/JoinPage 通用）：
+```dart
+final _aliasCtrl = TextEditingController();            // 默认空，配 hintText
+TetrisAliasPrefs.load().then((v) {
+  // 只在用户还没输入时填历史值，杜绝覆盖
+  if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
+    setState(() => _aliasCtrl.text = v);
+  }
+});
+```
+排查捷径：alias 是否进 `c.players` 用 `.tool/relay-v3-simulator` 的 Python 脚本
+（`create(device, alias)` 后看 `snapshot.context.players`）一验便知——后端正常就是这场 race。
 
 ---
 
