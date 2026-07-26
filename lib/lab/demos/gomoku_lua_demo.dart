@@ -15,6 +15,7 @@ import '../lab_container.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'gomoku_lua/engine.dart' show RoomHandle;
 import 'gomoku_lua/widgets.dart' show SetupPage, JoinPage, OnlineGamePage;
+import 'gomoku_lua/opening/gomoku_opening_player.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -22,13 +23,19 @@ import 'gomoku_lua/widgets.dart' show SetupPage, JoinPage, OnlineGamePage;
 
 class GomokuLuaDemo extends DemoPage {
   GomokuLuaDemo();
-  @override String get title => '五子棋（Lua）';
-  @override String get slug => 'gomoku-lua';
-  @override String get description => 'Gomoku 互联网双人对战 · Lua 服务端权威棋谱';
-  @override bool get preferFullScreen => true;
+  @override
+  String get title => '五子棋（Lua）';
+  @override
+  String get slug => 'gomoku-lua';
+  @override
+  String get description => 'Gomoku 互联网双人对战 · Lua 服务端权威棋谱';
+  @override
+  bool get preferFullScreen => true;
   // 归属游戏中心（联机 · 棋游），不再出现在 Lab 列表
-  @override DemoType get type => DemoType.game;
-  @override Widget buildPage(BuildContext context) => const GomokuLuaPage();
+  @override
+  DemoType get type => DemoType.game;
+  @override
+  Widget buildPage(BuildContext context) => const GomokuLuaPage();
 }
 
 void registerGomokuLuaDemo() => demoRegistry.register(GomokuLuaDemo());
@@ -39,17 +46,23 @@ void registerGomokuLuaDemo() => demoRegistry.register(GomokuLuaDemo());
 
 class GomokuLuaPage extends StatefulWidget {
   const GomokuLuaPage({super.key});
-  @override State<GomokuLuaPage> createState() => _GomokuLuaPageState();
+  @override
+  State<GomokuLuaPage> createState() => _GomokuLuaPageState();
 }
 
 class _GomokuLuaPageState extends State<GomokuLuaPage> {
   RoomHandle? _handle;
   bool _isMaster = true;
+  bool _showOpeningStudy = false;
 
   @override
-  void dispose() { _handle?.dispose(); super.dispose(); }
+  void dispose() {
+    _handle?.dispose();
+    super.dispose();
+  }
+
   void _onCreated(RoomHandle h) => setState(() => _handle = h);
-  void _onJoined(RoomHandle h)  => setState(() => _handle = h);
+  void _onJoined(RoomHandle h) => setState(() => _handle = h);
   Future<void> _disconnect() async {
     final h = _handle;
     setState(() => _handle = null);
@@ -82,20 +95,39 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
         foregroundColor: panelText,
         elevation: 0,
       ),
-      body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true,  label: Text('建房')),
-              ButtonSegment(value: false, label: Text('加入')),
-            ],
-            selected: {_isMaster},
-            onSelectionChanged: (s) => setState(() => _isMaster = s.first),
-          ),
-        ),
-        Expanded(child: _isMaster ? SetupPage(onCreated: _onCreated) : JoinPage(onJoined: _onJoined)),
-      ]),
+      body: _showOpeningStudy
+          ? GomokuOpeningPlayer(
+              onBack: () => setState(() => _showOpeningStudy = false),
+            )
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: true, label: Text('建房')),
+                      ButtonSegment(value: false, label: Text('加入')),
+                    ],
+                    selected: {_isMaster},
+                    onSelectionChanged: (s) =>
+                        setState(() => _isMaster = s.first),
+                  ),
+                ),
+                Expanded(
+                  child: _isMaster
+                      ? SetupPage(onCreated: _onCreated)
+                      : JoinPage(onJoined: _onJoined),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _showOpeningStudy = true),
+                    icon: const Icon(Icons.school_outlined, size: 18),
+                    label: const Text('开局学习'),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
