@@ -120,8 +120,18 @@ class MetronomeDefaults {
   /// 节拍音持续时间（秒）
   static const double clickDurationSec = 0.05;
 
-  /// 缓冲区时长（秒）- 生成足够长的时间以循环播放
-  static const double bufferDurationSec = 4.0;
+  /// 循环缓冲区的**最短**时长（秒）。
+  ///
+  /// 实际长度会向上取到整数小节 —— 循环缝本身就是一次真实拍点，长度必须是整数拍
+  /// 才不会在接缝处抢敲一下；必须是整数**小节**，下一轮的强拍才不会平移。
+  /// 详见 test/lab/metronome/beat_buffer_generator_test.dart。
+  static const double minLoopSec = 4.0;
+
+  /// 播放中改 BPM / 拍号后，等待多久才真正重新生成音频（毫秒）。
+  ///
+  /// 拖 Slider 时 onChanged 每帧都触发，没有这个防抖就会每帧重写一个 WAV 并
+  /// 重启播放器 —— 这是"按钮失效"和卡顿的来源。
+  static const int reloadDebounceMs = 140;
 
   /// Tap Tempo 参数
   static const int tapTempoHistorySize = 4;

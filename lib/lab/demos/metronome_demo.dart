@@ -28,8 +28,40 @@ class MetronomeDemo extends DemoPage {
   }
 }
 
-class _MetronomePage extends StatelessWidget {
+class _MetronomePage extends StatefulWidget {
   const _MetronomePage();
+
+  @override
+  State<_MetronomePage> createState() => _MetronomePageState();
+}
+
+class _MetronomePageState extends State<_MetronomePage> {
+  MetronomeController? _boundController;
+
+  void _onError() {
+    final err = _boundController?.errorNotifier.value;
+    if (err == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('节拍器出错：$err')));
+    _boundController!.errorNotifier.value = null;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final c = context.read<MetronomeController>();
+    if (identical(_boundController, c)) return;
+    _boundController?.errorNotifier.removeListener(_onError);
+    _boundController = c;
+    _boundController!.errorNotifier.addListener(_onError);
+  }
+
+  @override
+  void dispose() {
+    _boundController?.errorNotifier.removeListener(_onError);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +109,7 @@ class _MetronomePage extends StatelessWidget {
         // 节拍指示器
         BeatIndicator(
           beatCount: controller.beatPattern.beatsPerMeasure,
-          currentBeat: controller.currentBeatIndex,
+          currentBeatListenable: controller.currentBeatNotifier,
           isPlaying: controller.isPlaying,
           beatPattern: controller.beatPattern,
         ),
@@ -120,7 +152,7 @@ class _MetronomePage extends StatelessWidget {
               const SizedBox(height: 16),
               BeatIndicator(
                 beatCount: controller.beatPattern.beatsPerMeasure,
-                currentBeat: controller.currentBeatIndex,
+                currentBeatListenable: controller.currentBeatNotifier,
                 isPlaying: controller.isPlaying,
                 beatPattern: controller.beatPattern,
               ),
@@ -288,7 +320,7 @@ class _MetronomePage extends StatelessWidget {
       children: [
         // 暂停按钮（可选）
         IconButton(
-          onPressed: controller.isPlaying ? controller.pause : null,
+          onPressed: controller.isPlaying ? () => controller.pause() : null,
           icon: Icon(
             Icons.pause_rounded,
             color: controller.isPlaying ? Colors.grey[700] : Colors.grey[300],
@@ -301,7 +333,7 @@ class _MetronomePage extends StatelessWidget {
         // 播放/停止按钮
         PlayControlButton(
           isPlaying: controller.isPlaying,
-          onPressed: controller.togglePlay,
+          onPressed: () => controller.togglePlay(),
         ),
 
         const SizedBox(width: 16),

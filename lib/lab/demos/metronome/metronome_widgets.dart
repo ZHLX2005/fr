@@ -1,37 +1,46 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'const_metronome.dart';
 
 /// 节拍可视化指示器组件
+///
+/// 用 [ValueListenable] 单独订阅 currentBeat，一拍闪一下的时候只有这几个圆点
+/// 重建；顶层的 BPM/拍号/播放按钮不会跟着一起 rebuild。
 class BeatIndicator extends StatelessWidget {
   const BeatIndicator({
     super.key,
     required this.beatCount,
-    required this.currentBeat,
+    required this.currentBeatListenable,
     required this.isPlaying,
     required this.beatPattern,
   });
 
   final int beatCount;
-  final int currentBeat;
+  final ValueListenable<int> currentBeatListenable;
   final bool isPlaying;
   final BeatPattern beatPattern;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 12,
-      runSpacing: 12,
-      children: List.generate(beatCount, (index) {
-        final accentLevel = beatPattern.getAccentLevel(index);
-        final isActive = index == currentBeat && isPlaying;
-        return _BeatDot(
-          accentLevel: accentLevel,
-          isActive: isActive,
-          beatIndex: index,
+    return ValueListenableBuilder<int>(
+      valueListenable: currentBeatListenable,
+      builder: (context, currentBeat, _) {
+        return Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 12,
+          children: List.generate(beatCount, (index) {
+            final accentLevel = beatPattern.getAccentLevel(index);
+            final isActive = index == currentBeat && isPlaying;
+            return _BeatDot(
+              accentLevel: accentLevel,
+              isActive: isActive,
+              beatIndex: index,
+            );
+          }),
         );
-      }),
+      },
     );
   }
 }

@@ -73,58 +73,89 @@ class WavGenerator {
   }
 }
 
+/// 一段可无缝循环的节拍音频
+class BeatLoop {
+  const BeatLoop({
+    required this.wav,
+    required this.beatsPerLoop,
+    required this.loopSamples,
+    required this.sampleRate,
+  });
+
+  /// WAV 字节（含 44 字节头）
+  final Uint8List wav;
+
+  /// 一个循环里有多少拍（保证是 beatsPerMeasure 的整数倍）
+  final int beatsPerLoop;
+
+  /// 一个循环的采样点数
+  final int loopSamples;
+
+  final int sampleRate;
+
+  /// 一个循环的时长
+  Duration get loopDuration =>
+      Duration(microseconds: (loopSamples * 1000000 / sampleRate).round());
+
+  /// 一拍的时长（由循环长度均分得到，与音频里实际的拍点位置一致）
+  Duration get beatDuration => Duration(
+      microseconds:
+          (loopSamples * 1000000 / sampleRate / beatsPerLoop).round());
+}
+
 /// 节拍缓冲区生成器
 class BeatBufferGenerator {
-  /// 生成节拍缓冲区（WAV 格式）
+  /// 生成一段**可无缝循环**的节拍音频。
   ///
-  /// [bpm] 每分钟节拍数
-  /// [beatPattern] 节拍模式
-  /// [sampleRate] 采样率（默认 44100）
-  /// [durationSec] 生成的总时长（秒）
-  static Uint8List generate({
+  /// 这里有两条硬约束，破了任何一条都会被用户听出来：
+  ///
+  /// 1. **循环长度必须是整数拍**。播放用的是 LoopMode.all，循环缝就是一次真实
+  ///    拍点。旧实现固定生成 4.0 秒，只有 bpm 是 15 的倍数时才凑巧对齐；
+  ///    bpm=140 时最后一拍到循环点只隔了三分之一拍 —— 每 4 秒抢敲一下，
+  ///    听起来就是"声音多重"，相位也跟着每 4 秒跳一次（"音画偏移"）。
+  /// 2. **循环长度必须是整数小节**，否则下一轮的强拍落在小节中间，
+  ///    3/4、6/8、5/4、7/8 会明显串味。
+  ///
+  /// 做法：先按 [minLoopSec] 向上取整到整数小节得到 [BeatLoop.beatsPerLoop]，
+  /// 再把第 k 拍放在 `round(k * loopSamples / beatsPerLoop)` —— 用整数采样点
+  /// 均分，取整误差不累积（单拍最多差半个采样点，约 11µs）。
+  static BeatLoop generateLoop({
     required int bpm,
     required BeatPattern beatPattern,
     int sampleRate = MetronomeDefaults.sampleRate,
-    double durationSec = MetronomeDefaults.bufferDurationSec,
+    double minLoopSec = MetronomeDefaults.minLoopSec,
   }) {
-    final beatIntervalSec = 60.0 / bpm;
-    final totalSamples = (sampleRate * durationSec).toInt();
-    final buffer = Int16List(totalSamples);
+    final beatsPerMeasure = beatPattern.beatsPerMeasure;
+    final measureSec = 60.0 / bpm * beatsPerMeasure;
+    final measures = math.max(1, (minLoopSec / measureSec).ceil());
+    final beatsPerLoop = measures * beatsPerMeasure;
 
-    // 节拍音参数
-    final clickSamples = (sampleRate * MetronomeDefaults.clickDurationSec).toInt();
+    final loopSamples = (sampleRate * 60.0 * beatsPerLoop / bpm).round();
+    final buffer = Int16List(loopSamples);
+    final clickSamples =
+        (sampleRate * MetronomeDefaults.clickDurationSec).toInt();
 
-    // 填充缓冲区
-    double time = 0.0;
-    int beatIndex = 0;
-    while (time < durationSec) {
-      final startSample = (time * sampleRate).toInt();
-      if (startSample >= totalSamples) break;
+    for (int k = 0; k < beatsPerLoop; k++) {
+      // 用循环总长均分，而不是累加 beatIntervalSec —— 累加会把浮点误差攒起来
+      final startSample = (k * loopSamples / beatsPerLoop).round();
+      final accentLevel = beatPattern.getAccentLevel(k % beatsPerMeasure);
 
-      // 获取当前拍的重音级别
-      final accentLevel = beatPattern.getAccentLevel(beatIndex % beatPattern.beatsPerMeasure);
-
-      // 获取对应参数
-      final amplitude = AccentVolume.getVolume(accentLevel);
-      final frequency = AccentFrequency.getFrequency(accentLevel);
-
-      // 生成点击音
       _generateClick(
         buffer: buffer,
         startSample: startSample,
         clickSamples: clickSamples,
-        amplitude: amplitude,
-        frequency: frequency,
+        amplitude: AccentVolume.getVolume(accentLevel),
+        frequency: AccentFrequency.getFrequency(accentLevel),
         sampleRate: sampleRate,
       );
-
-      // 前进到下一拍
-      time += beatIntervalSec;
-      beatIndex++;
     }
 
-    // 转换为 WAV 格式
-    return WavGenerator.generateWav(pcmData: buffer, sampleRate: sampleRate);
+    return BeatLoop(
+      wav: WavGenerator.generateWav(pcmData: buffer, sampleRate: sampleRate),
+      beatsPerLoop: beatsPerLoop,
+      loopSamples: loopSamples,
+      sampleRate: sampleRate,
+    );
   }
 
   /// 生成点击音
@@ -148,31 +179,5 @@ class BeatBufferGenerator {
       final value = (amplitude * wave * envelope * 32767).round();
       buffer[startSample + i] = value.clamp(-32768, 32767);
     }
-  }
-
-  /// 生成单拍音（用于预加载）
-  ///
-  /// [accentLevel] 重音级别
-  /// [sampleRate] 采样率
-  static Uint8List generateSingleClick({
-    required AccentLevel accentLevel,
-    int sampleRate = MetronomeDefaults.sampleRate,
-  }) {
-    final clickDurationSec = 0.08;
-    final clickSamples = (sampleRate * clickDurationSec).toInt();
-    final buffer = Int16List(clickSamples);
-
-    final amplitude = AccentVolume.getVolume(accentLevel);
-    final frequency = AccentFrequency.getFrequency(accentLevel);
-
-    for (int i = 0; i < clickSamples; i++) {
-      final t = i / sampleRate;
-      final envelope = math.exp(-t * 60);
-      final sine = math.sin(2 * math.pi * frequency * t);
-      final value = (amplitude * sine * envelope * 32767).round();
-      buffer[i] = value.clamp(-32768, 32767);
-    }
-
-    return WavGenerator.generateWav(pcmData: buffer, sampleRate: sampleRate);
   }
 }
