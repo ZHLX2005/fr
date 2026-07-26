@@ -4,17 +4,16 @@
 // 与五子棋/围追堵截（回合制）的本质差异：双方各自本地实时玩，
 // 服务端只下发共享方块序列 + 广播双方堆积状态/分数。非回合制。
 //
-// 流程：
-//   房主创建房间 → 玩家输入码加入 → 双方 ACK → 房主点开始 → playing
-//   → 各自本地玩（共享序列），落定时 SYNC 自己的板/分给对方看
-//   → 一方堆顶 game over 发 LOSE → ended
+// UI 规范（versus-game-room-template v2026-07-26）：
+//   - 单表单智能匹配：昵称 + 房间号 + 「进入对局」→ tryJoinOrCreate
+//   - 谁先到谁是房主；服务端 host_id 权威
+//   - lobby / ready 同一张卡片，按钮三态原地切换（准备好了 / 已准备 / 开始游戏）
 
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
-import 'tetris_lua/engine.dart' show RoomHandle, kTetrisAccent;
-import 'tetris_lua/widgets.dart' show OnlineGamePage;
-import 'tetris_lua/tetris_forms.dart' show SetupPage, JoinPage;
+import 'tetris_lua/engine.dart' show RoomHandle;
+import 'tetris_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -51,7 +50,6 @@ class TetrisLuaPage extends StatefulWidget {
 
 class _TetrisLuaPageState extends State<TetrisLuaPage> {
   RoomHandle? _handle;
-  bool _isMaster = true;
 
   @override
   void dispose() {
@@ -59,7 +57,6 @@ class _TetrisLuaPageState extends State<TetrisLuaPage> {
     super.dispose();
   }
 
-  void _onCreated(RoomHandle h) => setState(() => _handle = h);
   void _onJoined(RoomHandle h) => setState(() => _handle = h);
 
   Future<void> _disconnect() async {
@@ -70,56 +67,83 @@ class _TetrisLuaPageState extends State<TetrisLuaPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 进入房间后交给 OnlineGamePage 全权管理（各阶段自带 Scaffold），
-    // playing 用深色沉浸、lobby/ready 暖色，不再套外层 AppBar 避免色系割裂。
+    final theme = BoardTheme.of(context);
+    final bg = theme.boardSurface;
+    final panelText = theme.btnText;
     if (_handle != null) {
+      // 进入房间后交给 OnlineGamePage 全权管理（各阶段自带 Scaffold）
       return OnlineGamePage(handle: _handle!, onLeave: _disconnect);
     }
-    final theme = BoardTheme.of(context);
     return Scaffold(
-      backgroundColor: theme.boardSurface,
+      backgroundColor: bg,
+      appBar: AppBar(
+        title: const Text('俄罗斯方块'),
+        backgroundColor: bg,
+        foregroundColor: panelText,
+        elevation: 0,
+      ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    color: theme.btnText,
-                    onPressed: () => Navigator.maybePop(context),
-                  ),
-                  Icon(Icons.grid_view_rounded, color: kTetrisAccent, size: 26),
-                  const SizedBox(width: 8),
-                  Text(
-                    '俄罗斯方块',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: theme.btnText,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.panelBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: theme.panelBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Hero 标题
+                    Text(
+                      '俄罗斯方块',
+                      style: TextStyle(
+                        color: theme.btnText,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(width: 24, height: 2, color: theme.btnText),
+                    const SizedBox(height: 14),
+                    // chip 副标题
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: theme.btnText.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '自动匹配对战',
+                        style: TextStyle(
+                          color: theme.btnText,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // 表单
+                    LobbyEntryPage(onJoined: _onJoined),
+                  ],
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: true, label: Text('建房')),
-                  ButtonSegment(value: false, label: Text('加入')),
-                ],
-                selected: {_isMaster},
-                onSelectionChanged: (s) => setState(() => _isMaster = s.first),
-              ),
-            ),
-            Expanded(
-              child: _isMaster
-                  ? SetupPage(onCreated: _onCreated)
-                  : JoinPage(onJoined: _onJoined),
-            ),
-          ],
+          ),
         ),
       ),
     );

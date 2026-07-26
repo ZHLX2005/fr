@@ -348,6 +348,21 @@ class TetrisRoom {
     return raw.map((k, v) => MapEntry(k.toString(), v == true));
   }
 
+  static Map<String, String> actionPermissions(Snapshot? s) {
+    final raw = s?.context['action_permissions'];
+    if (raw is! Map) return const {};
+    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+  }
+
+  /// 我能不能发这个 action？读服务端 action_permissions + 自己角色判定。
+  /// tetris 只区分 host / any（无回合概念）。
+  static bool canPerform(String action, Snapshot? snap, {required bool isHost}) {
+    final rule = actionPermissions(snap)[action];
+    if (rule == null || rule == 'any') return true;
+    if (rule == 'host') return isHost;
+    return false;
+  }
+
   /// 某玩家的实时状态。未 SYNC 过返回 null。
   static TetrisPlayerState? stateOf(Snapshot? s, String deviceId) {
     final states = s?.context['states'];

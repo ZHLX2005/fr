@@ -1,10 +1,13 @@
 // lib/lab/demos/surround_game_lua/widgets.dart
-// 围追堵截 Lua 版 — UI 组件：SetupPage / JoinPage / OnlineGamePage
+// 围追堵截 Lua 版 — UI 组件：LobbyEntryPage / OnlineGamePage
 //
-// 布局与 LAN host/client 完全一致：
-// - host = flipY=true（触摸 y 镜像 + 棋盘整体翻转）
-// - client = flipY=false（基线）
-// - 棋盘 + 单一 PlayerPanel（只显示自己的，底部）
+// 按 versus-game-room-template 标准（v2026-07-26）与 gomoku_lua 对齐：
+//   - 单表单智能匹配（无建房/加入二选一）：昵称 + 房间号 → tryJoinOrCreate
+//   - lobby / ready 同一张卡片，底部按钮三态原地切换
+//   - 卡片外观统一（圆角 20 + 微阴影 + 1px 边框）
+//
+// 围追堵截特有的**镜像逻辑**（top_player_id / Transform.flip / 触摸坐标镜像）
+// 保留不动，业务规则（走子/放墙/胜负/悔棋）零改动。
 
 import 'dart:async';
 
@@ -13,6 +16,8 @@ import 'package:flutter/material.dart';
 import 'constants.dart';
 import 'engine.dart' show SgRoom, QuoridorEngine, GameState, MoveRecord,
     GameStatus, Snapshot, RoomHandle, RelayV3Transport, kSurroundGameScript;
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
+    show RelayV3Exception;
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/surround_game/surround_game_constants.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/chess_board.dart';
@@ -26,110 +31,18 @@ import 'package:xiaodouzi_fr/core/surround_game/widgets/player_panel.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/confirm_actions.dart';
 
 // ══════════════════════════════════════════════════════════════
-// Setup Page（建房）
+// Lobby Entry Page（单表单：输入昵称 + 房间码，按按钮即尝试加入/创建）
 // ══════════════════════════════════════════════════════════════
 
-class SetupPage extends StatefulWidget {
-  const SetupPage({super.key, required this.onCreated});
-  final void Function(RoomHandle) onCreated;
-  @override State<SetupPage> createState() => _SetupPageState();
+class LobbyEntryPage extends StatefulWidget {
+  const LobbyEntryPage({super.key, required this.onJoined});
+  /// 回调：进入房间成功后调用。isHostSide = 我是不是这次创建的房间。
+  final void Function(RoomHandle handle, bool isHostSide) onJoined;
+  @override State<LobbyEntryPage> createState() => _LobbyEntryPageState();
 }
 
-class _SetupPageState extends State<SetupPage> {
-  final _aliasCtrl = TextEditingController(text: '红方');
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    SgAliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
-    });
-  }
-
-  @override
-  void dispose() { _aliasCtrl.dispose(); super.dispose(); }
-
-  Future<void> _create() async {
-    setState(() { _busy = true; _error = null; });
-    try {
-      final t = RelayV3Transport(
-        relayUrl: kSgRelayUrl,
-        alias: _aliasCtrl.text.trim(),
-        deviceId: 'sg-host-${DateTime.now().microsecondsSinceEpoch}',
-      );
-      await SgAliasPrefs.save(t.alias);
-      final h = await t.createRoom(
-        script: kSurroundGameScript,
-        initialParams: {'device_id': t.deviceId, 'alias': t.alias},
-        maxPlayers: 2,
-      );
-      if (!mounted) return;
-      widget.onCreated(h);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() { _busy = false; _error = '$e'; });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.sports_esports, size: 64, color: theme.piecePlayerA),
-          const SizedBox(height: 16),
-          Text('建房等对手',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.btnText)),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _aliasCtrl,
-            decoration: InputDecoration(
-              labelText: '昵称',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              labelStyle: TextStyle(color: theme.btnSub),
-              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
-              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.piecePlayerA, width: 2)),
-            ),
-            style: TextStyle(color: theme.btnText),
-          ),
-          const SizedBox(height: 16),
-          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _create,
-            icon: _busy
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.meeting_room),
-            label: Text(_busy ? '创建中…' : '创建房间'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50),
-              foregroundColor: theme.piecePlayerA,
-              side: BorderSide(color: theme.piecePlayerA),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// Join Page（加入）— 带房间码输入
-// ══════════════════════════════════════════════════════════════
-
-class JoinPage extends StatefulWidget {
-  const JoinPage({super.key, required this.onJoined});
-  final void Function(RoomHandle) onJoined;
-  @override State<JoinPage> createState() => _JoinPageState();
-}
-
-class _JoinPageState extends State<JoinPage> {
-  final _aliasCtrl = TextEditingController(text: '蓝方');
+class _LobbyEntryPageState extends State<LobbyEntryPage> {
+  final _aliasCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
   bool _busy = false;
   String? _error;
@@ -137,28 +50,72 @@ class _JoinPageState extends State<JoinPage> {
   @override
   void initState() {
     super.initState();
+    // AliasPrefs 竞态修复：先空控件，加载完再回填（若用户没抢先输入）
     SgAliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
+      if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
+        setState(() => _aliasCtrl.text = v);
+      }
     });
   }
 
   @override
-  void dispose() { _aliasCtrl.dispose(); _codeCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _aliasCtrl.dispose();
+    _codeCtrl.dispose();
+    super.dispose();
+  }
 
-  Future<void> _join() async {
-    final code = _codeCtrl.text.trim();
-    if (code.length != 6) { setState(() => _error = '房间码为 6 位数字'); return; }
+  /// 单表单智能匹配：按房间号 join；不存在则用此号创建。
+  /// 409 code collision → 撞号提示换号；409 join rejected → 已满员。
+  Future<void> _go() async {
+    final alias = _aliasCtrl.text.trim();
+    if (alias.isEmpty) {
+      setState(() => _error = '请输入昵称');
+      return;
+    }
+    final code = _codeCtrl.text.trim().toUpperCase();
+    if (code.length < 4 || code.length > 6) {
+      setState(() => _error = '房间码为 4–6 位大写字母数字');
+      return;
+    }
     setState(() { _busy = true; _error = null; });
     try {
       final t = RelayV3Transport(
         relayUrl: kSgRelayUrl,
-        alias: _aliasCtrl.text.trim(),
-        deviceId: 'sg-guest-${DateTime.now().microsecondsSinceEpoch}',
+        alias: alias,
+        deviceId: 'sg-p-${DateTime.now().microsecondsSinceEpoch}',
       );
-      await SgAliasPrefs.save(t.alias);
-      final h = await t.joinRoom(code: code);
+      await SgAliasPrefs.save(alias);
+      // tryJoinOrCreate 内部：先 join，404 则用此 code 作 requested_code 创建。
+      // 我们分不清最终走的是哪个分支——但可以用 snapshot.host_id == deviceId 判定。
+      final h = await t.tryJoinOrCreate(
+        code: code,
+        script: kSurroundGameScript,
+        initialParams: {'device_id': t.deviceId, 'alias': alias},
+        maxPlayers: 2,
+      );
       if (!mounted) return;
-      widget.onJoined(h);
+      // 判定 host 端：snapshot 的 host_id 等于我的 deviceId ⇒ 我是本次创建者
+      final hostId = SgRoom.hostId(h.latest);
+      final isHostSide = hostId != null && hostId == t.deviceId;
+      widget.onJoined(h, isHostSide);
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      // 服务端两种 409：
+      //   - "code collision" → 撞号（别人已建同号）
+      //   - "join rejected"  → 房间已满（rejected_join 触发）
+      final body = e.body.toLowerCase();
+      final String msg;
+      if (e.statusCode == 409 && body.contains('code collision')) {
+        msg = '房间号 $code 已被占用，请换一个';
+      } else if (e.statusCode == 409 && body.contains('join rejected')) {
+        msg = '房间 $code 已满员，无法加入';
+      } else if (e.statusCode == 404) {
+        msg = '房间号 $code 不存在且创建失败';
+      } else {
+        msg = '进入失败（${e.statusCode}）';
+      }
+      setState(() { _busy = false; _error = msg; });
     } catch (e) {
       if (!mounted) return;
       setState(() { _busy = false; _error = '$e'; });
@@ -168,62 +125,130 @@ class _JoinPageState extends State<JoinPage> {
   @override
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.vpn_key_outlined, size: 64, color: theme.piecePlayerB),
-            const SizedBox(height: 16),
-            Text('加入房间',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.btnText)),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _aliasCtrl,
-              decoration: InputDecoration(
-                labelText: '昵称',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                labelStyle: TextStyle(color: theme.btnSub),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.piecePlayerB, width: 2)),
-              ),
-              style: TextStyle(color: theme.btnText),
+    // 圆角浅底输入框（聚焦时边框变粗变深）
+    InputDecoration inputDec(String hint) => InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.6)),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          filled: true,
+          fillColor: theme.btnBg,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.panelBorder, width: 1),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.panelBorder, width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.btnText, width: 1.6),
+          ),
+        );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      TextField(
+        controller: _aliasCtrl,
+        decoration: inputDec('昵称（如：红方）'),
+        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: theme.btnText),
+        textAlignVertical: TextAlignVertical.center,
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        controller: _codeCtrl,
+        decoration: inputDec('房间号（4–6 位大写字母数字）'),
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: theme.btnText,
+          letterSpacing: 2,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+        keyboardType: TextInputType.text,
+        textCapitalization: TextCapitalization.characters,
+        maxLength: 6,
+        onSubmitted: (_) => _busy ? null : _go(),
+      ),
+      const SizedBox(height: 12),
+
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.btnText.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Text('◐',
+                style: TextStyle(color: theme.btnSub, fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '输入同一号码即可对战，谁先到谁是房主',
+              style: TextStyle(color: theme.btnSub, fontSize: 12, height: 1.4),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _codeCtrl,
-              decoration: InputDecoration(
-                labelText: '房间码',
-                hintText: '6 位数字',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                labelStyle: TextStyle(color: theme.btnSub),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.panelBorder)),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: theme.piecePlayerB, width: 2)),
-              ),
-              style: TextStyle(color: theme.btnText),
-              keyboardType: TextInputType.number, maxLength: 6,
+          ),
+        ]),
+      ),
+
+      if (_error != null) ...[
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _warnColor.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Text('◉', style: TextStyle(color: _warnColor, fontSize: 12)),
             ),
-            if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _join,
-              icon: _busy
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.login),
-              label: Text(_busy ? '加入中…' : '加入'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                foregroundColor: theme.piecePlayerB,
-                side: BorderSide(color: theme.piecePlayerB),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _error!,
+                style: const TextStyle(color: _warnColor, fontSize: 12, height: 1.4),
               ),
             ),
           ]),
         ),
+      ],
+
+      const SizedBox(height: 20),
+
+      SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: FilledButton(
+          onPressed: _busy ? null : _go,
+          style: FilledButton.styleFrom(
+            backgroundColor: theme.btnText,
+            foregroundColor: theme.panelBg,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 0,
+          ),
+          child: _busy
+              ? SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.panelBg,
+                  ),
+                )
+              : const Text('进入对局',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 2)),
+        ),
       ),
-    );
+    ]);
   }
 }
+
+// 暖红色（错误提示，避免纯红）
+const Color _warnColor = Color(0xFFB33A1F);
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page — LAN-style 单面板布局
@@ -252,7 +277,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Snapshot? _snap;
   GameState _gs = QuoridorEngine.initialize();
   late final SgRoom _room;
-  TouchController _touchCtrl = TouchController();  // 仅在 _ensureTouchController 里首次校准；host 端在坐标回调里镜像
+  final TouchController _touchCtrl = TouchController();  // 首次初始化后不再重建；host 端在坐标回调里镜像
   String? _lastUndoRequester;
   /// 本地乐观状态：lobby 阶段点了"准备好了"立即置 true，不等服务端回包。
   /// 离开 lobby（→ ready/playing/ended）时清除。
@@ -282,7 +307,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _touchCtrl.reset();
       setState(() {});
     }
-    // 离开 lobby 阶段 → 清除本地 ACK 乐观标记
+    // 离开 lobby/ready 阶段 → 清除本地 ACK 乐观标记
     if (_ackedLocally && (s.state != 'lobby' && s.state != 'ready')) {
       setState(() => _ackedLocally = false);
     }
@@ -326,7 +351,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   // ── 网络动作 ──
   /// ACK：立即乐观置 _ackedLocally，UI 立刻有反馈；服务端 snapshot 回包时已正确。
-  /// 不需要等到服务端 ACK 才显示"已准备"。
   Future<void> _ack() async {
     if (_ackedLocally) return;
     setState(() => _ackedLocally = true);
@@ -353,8 +377,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   bool get _flipY => widget.isHostSide;
 
   /// "我是不是 top player" — 用服务端权威字段 top_player_id 推导。
-  /// 与"我是 host"等价，但语义独立：万一未来出现"host 旁观、玩家换人"的场景，
-  /// 这个标志仍然正确表达"我在棋盘上对应 top/bottom"。
   bool get _imTop {
     final topId = SgRoom.topPlayerId(_snap);
     if (topId == null) return false;
@@ -362,16 +384,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   /// 当前回合是否轮到自己
-  /// 通用语义：`imTop == gs.currentPlayerIsTop`（与 host/client 视角无关）
   bool get _isMyTurn {
     if (_snap == null) return false;
     return _imTop == _gs.currentPlayerIsTop;
   }
 
   /// ★按钮可点性的单一入口：读服务端 action_permissions + 自己角色判定。
-  /// 未来加新按钮 + 新 action，只需在 Lua 加权限规则，客户端零改动。
   bool _canPerform(String action) {
-    // justMovedByMe：非当前回合方 = 我刚下完一步（UNDO_REQUEST 用）
     final justMovedByMe = _isMyTurn ? false
         : SgRoom.canRequestUndo(_snap, _gs, _room.deviceId);
     return SgRoom.canPerform(
@@ -392,19 +411,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   // ── 触摸 ──
 
-  /// 把 Listener 内的 localPosition 转成"棋盘规范坐标系"的 localPosition。
-  ///
-  /// host 端棋盘经 Transform.flip(flipY: true) 视觉翻转，但 Listener 在
-  /// Transform.flip 之外 —— event.localPosition 是 Stack 局部坐标，与视觉
-  /// 是否翻转无关。所以棋盘视觉顶部对应 Listener 的 y=0（视觉上 = 对方棋子），
-  /// 棋盘视觉底部对应 y=boardSize（视觉上 = 自己棋子）。
-  ///
-  /// 服务端存规范坐标：host 自己 = 规范 y=0。所以必须把 localPosition 沿
-  /// boardSize 中线镜像后，才等同于"按规范坐标系看视觉棋盘"。
   Offset _canonicalLocalPosition(Offset pos) =>
       _flipY ? Offset(pos.dx, _boardSizePx - pos.dy) : pos;
 
-  /// 棋盘当前像素边长（Stack 内 Listener 的坐标系全长）
   double _boardSizePx = 0;
 
   void _onPointerDown(Offset pos, double cs, double dist) {
@@ -524,123 +533,244 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
     final phase = _snap?.state;
-
-    if (phase == null || phase == 'lobby') return _buildLobby(theme);
-    if (phase == 'ready') return _buildReadyWait(theme);
+    // lobby 与 ready 共用同一张卡片，只切换底部按钮区，避免布局跳跃
+    if (phase == null || phase == 'lobby' || phase == 'ready') {
+      return _buildLobby(theme);
+    }
     if (phase == 'ended') return _buildFinished(theme);
     return _buildPlaying(theme);
   }
 
-  // ── 阶段：等待对手 ──
+  // ── 阶段：等待对手 + 准备（合并 lobby/ready，底部按钮三态原地切换） ──
 
   Widget _buildLobby(BoardThemeData theme) {
     final code = _snap?.roomCode ?? '------';
     final players = SgRoom.players(_snap);
     final readyMap = SgRoom.readyMap(_snap);
     final myId = _room.deviceId;
-    // 服务端回包的 ACK 状态 OR 本地乐观标记（点了之后立即显示 ✓，不等回包）
-    final iAmReady = _ackedLocally || (readyMap[myId] == true);
+    final phase = _snap?.state;
+    final bothReady = phase == 'ready';
+    final iAmReady =
+        bothReady || _ackedLocally || (readyMap[myId] == true);
+    final canDeal = _canPerform('DEAL');
+    final title = bothReady ? '双方已就绪' : '等待对手';
+
     return Scaffold(
       backgroundColor: theme.boardSurface,
       body: SafeArea(
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.hourglass_top, size: 64, color: Colors.orange),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  color: theme.panelBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: theme.panelBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Text(code, style: const TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.bold,
-                    letterSpacing: 6, color: Colors.orange)),
+                padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                          color: theme.btnText,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
+                        )),
+                    const SizedBox(height: 6),
+                    Container(width: 24, height: 2, color: theme.btnText),
+                    const SizedBox(height: 18),
+
+                    // 房间号 chip
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: theme.btnText.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color: theme.btnText.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        code,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 8,
+                          color: theme.btnText,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+
+                    // 玩家头像列表（圆环 + ACK 状态）
+                    ...players.entries.map((e) {
+                      final isMe = e.key == myId;
+                      final isReady = readyMap[e.key] == true;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(children: [
+                          _ReadyAvatar(
+                            name: e.value,
+                            isReady: isReady,
+                            color: theme.btnText,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Text(
+                              '${e.value}${isMe ? "  (我)" : ""}',
+                              style: TextStyle(
+                                color: theme.btnText,
+                                fontSize: 15,
+                                fontWeight: isMe
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isReady
+                                  ? const Color(0xFF16A34A)
+                                      .withValues(alpha: 0.12)
+                                  : theme.btnSub.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              isReady ? '已准备 ✓' : '未准备',
+                              style: TextStyle(
+                                color: isReady
+                                    ? const Color(0xFF16A34A)
+                                    : theme.btnSub,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ]),
+                      );
+                    }),
+
+                    if (players.length < 2) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        '把房间号发给朋友',
+                        style: TextStyle(
+                          color: theme.btnSub,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+
+                    if (players.length >= 2) ...[
+                      const SizedBox(height: 22),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: bothReady
+                            ? (canDeal
+                                ? FilledButton(
+                                    onPressed: _deal,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: theme.btnText,
+                                      foregroundColor: theme.panelBg,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: const Text(
+                                      '开始游戏 ▸',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: Text(
+                                      '等待房主开始…',
+                                      style: TextStyle(
+                                        color: theme.btnSub,
+                                        fontSize: 13,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                  ))
+                            : (iAmReady
+                                ? FilledButton(
+                                    onPressed: null,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: theme.btnSub
+                                          .withValues(alpha: 0.4),
+                                      foregroundColor: theme.panelBg,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: const Text(
+                                      '已准备 ✓',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  )
+                                : OutlinedButton(
+                                    onPressed:
+                                        _canPerform('ACK') ? _ack : null,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor:
+                                          const Color(0xFF16A34A),
+                                      side: const BorderSide(
+                                        color: Color(0xFF16A34A),
+                                        width: 1.6,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      '准备好了',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  )),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              Text('等待对手加入…', style: TextStyle(color: theme.btnSub, fontSize: 13)),
-              const SizedBox(height: 24),
-              ...players.entries.map((e) {
-                final isMe = e.key == myId;
-                final isReady = readyMap[e.key] == true;
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isReady
-                        ? Colors.green
-                        : (isMe ? Colors.orange : Colors.grey),
-                    child: Icon(
-                      isReady ? Icons.check : Icons.person,
-                      color: Colors.white, size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    '${e.value}${isMe ? " (我)" : ""}',
-                    style: TextStyle(color: theme.btnText),
-                  ),
-                  trailing: Text(
-                    isReady ? '已准备 ✓' : '未准备',
-                    style: TextStyle(
-                      color: isReady ? Colors.green.shade400 : theme.btnSub,
-                      fontSize: 13,
-                    ),
-                  ),
-                );
-              }),
-              if (players.length >= 2) ...[
-                const SizedBox(height: 16),
-                // ACK 按钮可点性：未点过 + 服务端授权（any 自动 true），
-                // 已点过立即变 "已准备 ✓"（乐观） + disabled，不等服务端回包
-                Builder(builder: (_) {
-                  final canAck = !iAmReady && _canPerform('ACK');
-                  return OutlinedButton.icon(
-                    onPressed: canAck ? _ack : null,
-                    icon: Icon(iAmReady ? Icons.check_circle : Icons.check_circle_outlined),
-                    label: Text(iAmReady ? '已准备 ✓' : '准备好了'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: iAmReady ? Colors.green : Colors.green.shade400,
-                      side: BorderSide(color: iAmReady ? Colors.green : Colors.green.shade400),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      minimumSize: const Size(200, 48),
-                    ),
-                  );
-                }),
-              ],
-            ]),
+            ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildReadyWait(BoardThemeData theme) {
-    // canPerform('DEAL') 走服务端权限表 + 当前状态。
-    // host=true 时权限返回 true，客方权限 false → 不显示按钮
-    final canDeal = _canPerform('DEAL');
-    return Scaffold(
-      backgroundColor: theme.boardSurface,
-      body: SafeArea(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.hourglass_top, size: 48, color: Colors.orange),
-        const SizedBox(height: 16),
-        Text('双方已准备好', style: TextStyle(fontSize: 18, color: theme.btnText)),
-        const SizedBox(height: 24),
-        if (canDeal)
-          OutlinedButton.icon(
-            onPressed: _deal,
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('开始游戏'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.green,
-              side: const BorderSide(color: Colors.green),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              minimumSize: const Size(200, 48),
-            ),
-          )
-        else
-          Text('等待房主开始…', style: TextStyle(color: theme.btnSub)),
-      ]))),
     );
   }
 
@@ -649,7 +779,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildPlaying(BoardThemeData theme) {
     final gs = _gs;
     final isRunning = gs.status == GameStatus.running;
-    // TouchView mount guard：阶段==playing + 当前回合方（canPerform('MOVE')）
     final canMountTouchView = _snap != null
         && _snap?.state == 'playing'
         && _canPerform('MOVE');
@@ -659,8 +788,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         final w = constraints.maxWidth;
         final cs = w / 11;
         final boardSize = w;
-        _boardSizePx = boardSize;  // 给触摸坐标镜像用
-        // host 端：touch controller 用镜像版；client 端用基线
+        _boardSizePx = boardSize;
         _ensureTouchController(boardSize);
 
         return Column(children: [
@@ -668,16 +796,11 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             child: Center(child: SizedBox(
               width: boardSize, height: boardSize,
               child: Stack(clipBehavior: Clip.none, children: [
-                // 翻转的绘制层（host 镜像，client 原样）
                 if (_flipY)
                   Transform.flip(flipY: true, child: _drawLayer(cs, boardSize, theme))
                 else
                   _drawLayer(cs, boardSize, theme),
-                // 确认按钮层：放在外层 Stack（不被 _drawLayer 的 flipY 翻转）。
-                // host 端坐标做 y 镜像后再传给 ConfirmActions，
-                // 让按钮视觉位置正确（在棋子视觉下方，与 guest/LAN bottom 一致）。
                 _buildConfirmActions(cs, boardSize, theme),
-                // 触摸层（仅本方回合挂载）
                 if (canMountTouchView)
                   TouchView(
                     cellSize: cs, distance: cs * 1.25,
@@ -689,7 +812,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               ]),
             )),
           ),
-          // 底部自己的 PlayerPanel（只显示自己）
           Padding(
             padding: const EdgeInsets.only(top: 6, bottom: 6),
             child: Center(child: _buildPlayerPanel(theme)),
@@ -697,8 +819,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              // 所有按钮可点性一律走 _canPerform(action)，服务端权限表
-              // action_permissions 是单点真相（Lua on_init 写一次）。
               if (isRunning && _canPerform('RESIGN')) ...[
                 _bottomAction(Icons.flag_outlined, '认输', _showResignConfirm, theme),
                 const SizedBox(width: 16),
@@ -716,10 +836,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   void _ensureTouchController(double boardSize) {
-    // 只在首次或类型不对时重建，避免每次 build 重置触摸状态（client 端尤其严重）。
-    if (_touchCtrl is! TouchController) {
-      _touchCtrl = TouchController();
-    }
+    // TouchController 已在字段初始化时创建；这里保留占位以兼容旧调用点，
+    // 未来若需要"按棋盘大小重建"再在此处 rebuild。
   }
 
   Widget _drawLayer(double cs, double boardSize, BoardThemeData theme) {
@@ -733,8 +851,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         ? pendingCellId
         : gs.bottomPlayerId;
 
-    // 走棋模式下拖拽中的手指位置 —— 交给当前回合方的棋子，让它直接跟手。
-    // （以前是另画一颗 _FloatingPiece 跟手、真棋子留在原地，松手会闪一下）
     final dragOffset = toc.targetCellId != null ? toc.dragOffset : null;
 
     return Stack(clipBehavior: Clip.none, children: [
@@ -752,21 +868,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           cellSize: cs, theme: theme,
           isValid: toc.wallPreviewValid,
           visible: toc.previewWall != null || toc.pendingWall != null),
-      // 注意：ConfirmActions 不放在 _drawLayer 里（见 _buildPlaying 外层 Stack），
-      // 因为它在 host 端不能被外层 Transform.flip 翻转——否则按钮会上下镜像。
     ]);
   }
 
-  /// 确认按钮层 — 放在外层 Stack 直接子节点（不被 _drawLayer 的 flipY 翻转）。
-  ///
-  /// host 端把规范坐标的 cellId/wall 做 y 镜像后再传给 ConfirmActions，
-  /// 这样按钮按视觉坐标系定位，出现在棋子视觉下方（与 guest/LAN bottom 一致）。
   Widget _buildConfirmActions(double cs, double boardSize, BoardThemeData theme) {
     final toc = _touchCtrl;
     int? visualCellId = toc.pendingTargetCellId;
     ({int x, int y, WallOrientation o})? visualWall = toc.pendingWall;
     if (_flipY) {
-      // host 端：规范 y → 视觉 y = 8 - 规范 y
       if (visualCellId != null) {
         final x = visualCellId % 9;
         final y = visualCellId ~/ 9;
@@ -780,7 +889,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       phase: toc.phase,
       pendingTargetCellId: visualCellId,
       pendingWall: visualWall,
-      // 互联网版双方视觉都"从底部看"，按钮图标都不翻转 → isTopTurn=false。
       isTopTurn: false,
       cellSize: cs, boardSize: boardSize, theme: theme,
       onConfirm: _onConfirm,
@@ -795,16 +903,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildPlayerPanel(BoardThemeData theme) {
     final gs = _gs;
     final isRunning = gs.status == GameStatus.running;
-    // 我是 top：active = currentPlayerIsTop；我是 bottom：active = !currentPlayerIsTop
     final myIsTop = _imTop;
     final active = isRunning && myIsTop == gs.currentPlayerIsTop;
     final toc = _touchCtrl;
     final steps = gs.history.where((m) => !m.isWall && m.isTopPlayer == myIsTop).length;
     final walls = myIsTop ? gs.topWallsPlaced : gs.bottomWallsPlaced;
-    // canRequestUndo：_canPerform('UNDO_REQUEST') 已含 justMovedByMe 判定
     final canUndo = _canPerform('UNDO_REQUEST');
     return PlayerPanel(
-      rotated: false,  // 底部面板不旋转；棋盘本身已翻转
+      rotated: false,
       active: active,
       isTop: myIsTop,
       mode: toc.mode, phase: toc.phase,
@@ -838,14 +944,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildFinished(BoardThemeData theme) {
     final gs = _gs;
     final imTop = _imTop;
-    // 优先用服务端权威 winner 字段（WIN/RESIGN 时 Lua 写入）；
-    // fallback 到本地 gs.status（snapshot 还没带回 ended 时容错）。
     final w = SgRoom.winner(_snap);
     final isTopWin = w == 'top' || (w == null && gs.status == GameStatus.topWin);
     final isDraw = w == null && gs.status == GameStatus.draw;
-    // 角色感知消息：
-    //   我是 top：topWin → 我方获胜；bottomWin → 对方获胜
-    //   我是 bottom：topWin → 对方获胜；bottomWin → 我方获胜
     final String msg;
     if (isDraw) {
       msg = '平局';
@@ -883,8 +984,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             const SizedBox(height: 12),
             Text(msg, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: winColor)),
             const SizedBox(height: 16),
-            // 再来一局：canPerform('RESET') → host=true 时 true，客方 false
-            // → 完全不显示按钮，避免"看着可点但点了不响应"的 UX 误区
             if (_canPerform('RESET'))
               OutlinedButton(
                 onPressed: _reset,
@@ -934,5 +1033,56 @@ class _PendingHighlight extends StatelessWidget {
   }
 }
 
-// 拖动时的浮动棋子已并入 ChessPlayer（dragOffset 参数）—— 拖的就是真棋子，
-// 松手直接滑到落点，不再有"浮动棋子消失 + 真棋子瞬移"的闪烁。
+// ══════════════════════════════════════════════════════════════
+// 小组件：圆环头像 + 打勾圆（从 gomoku_lua/widgets.dart 内嵌复用；
+// YAGNI：等第 3 个 versus demo 出现时再抽公共文件）
+// ══════════════════════════════════════════════════════════════
+
+class _ReadyAvatar extends StatelessWidget {
+  const _ReadyAvatar({
+    required this.name,
+    required this.isReady,
+    required this.color,
+  });
+
+  final String name;
+  final bool isReady;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isReady ? const Color(0xFF16A34A).withValues(alpha: 0.12) : Colors.transparent,
+              border: Border.all(
+                color: isReady ? const Color(0xFF16A34A) : color.withValues(alpha: 0.35),
+                width: isReady ? 2.4 : 1.6,
+              ),
+            ),
+          ),
+          if (isReady)
+            const Icon(Icons.check_rounded, size: 22, color: Color(0xFF16A34A))
+          else
+            Text(
+              letter,
+              style: TextStyle(
+                color: color.withValues(alpha: 0.75),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

@@ -62,6 +62,8 @@ on_init = function(c, p)
   c.players = {}
   c.players[p.device_id] = p.alias
   c.ready = {}
+  -- 人数上限（Lua 业务责任）：满员通过 rejected_join 让服务端返 409。
+  c.max_players = p.max_players or 2
   -- 共享方块序列：60 组 7-bag = 420 个方块，足够一局长对战。
   -- 双方从 snapshot 拿同一份，本地按 index 取用 → 序列完全一致。
   c.piece_sequence = gen_sequence(60)
@@ -83,6 +85,20 @@ on_init = function(c, p)
 end
 
 on_join = function(c, p)
+  -- 幂等：已加入（同 device_id）不再处理
+  if c.players[p.device_id] ~= nil then
+    return c
+  end
+
+  -- 人数上限（Lua 业务责任）：满员则通过 rejected_join 让服务端返 409。
+  local count = 0
+  for _, _ in pairs(c.players) do count = count + 1 end
+  if count >= c.max_players then
+    c.rejected_join = c.rejected_join or {}
+    c.rejected_join[p.device_id] = true
+    return c
+  end
+
   c.players[p.device_id] = p.alias
   c.ready[p.device_id] = nil
   return c
@@ -102,10 +118,10 @@ on_action_ACK = function(c, p)
   if c.players[p.device_id] == nil then return c end
   c.ready[p.device_id] = true
   local count = 0
-  for _ in pairs(c.players) do count = count + 1 end
+  for _, _ in pairs(c.players) do count = count + 1 end
   local aready = 0
   for _, v in pairs(c.ready) do if v then aready = aready + 1 end end
-  if count >= 2 and aready >= count and state == "lobby" then
+  if count >= c.max_players and aready >= count and state == "lobby" then
     state = "ready"
   end
   return c

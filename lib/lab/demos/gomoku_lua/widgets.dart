@@ -434,8 +434,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
     final phase = _snap?.state;
-    if (phase == null || phase == 'lobby') return _buildLobby(theme);
-    if (phase == 'ready') return _buildReadyWait(theme);
+    // lobby 与 ready 共用同一张卡片，只切换底部按钮区，避免布局跳跃/缩放
+    if (phase == null || phase == 'lobby' || phase == 'ready') {
+      return _buildLobby(theme);
+    }
     if (phase == 'ended') return _buildFinished(theme);
     return _buildPlaying(theme);
   }
@@ -447,7 +449,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final players = GomokuRoom.players(_snap);
     final readyMap = GomokuRoom.readyMap(_snap);
     final myId = _room.deviceId;
-    final iAmReady = _ackedLocally || (readyMap[myId] == true);
+    final phase = _snap?.state;
+    final bothReady = phase == 'ready';
+    final iAmReady =
+        bothReady || _ackedLocally || (readyMap[myId] == true);
+    final canDeal = _canPerform('DEAL');
+    final title = bothReady ? '双方已就绪' : '等待对手';
 
     return Scaffold(
       backgroundColor: theme.boardSurface,
@@ -474,7 +481,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('等待对手',
+                    Text(title,
                         style: TextStyle(
                           color: theme.btnText,
                           fontSize: 18,
@@ -578,144 +585,86 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       SizedBox(
                         width: double.infinity,
                         height: 48,
-                        child: iAmReady
-                            ? FilledButton(
-                                onPressed: null,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: theme.btnSub
-                                      .withValues(alpha: 0.4),
-                                  foregroundColor: theme.panelBg,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                child: const Text(
-                                  '已准备 ✓',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                              )
-                            : OutlinedButton(
-                                onPressed:
-                                    _canPerform('ACK') ? _ack : null,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF16A34A),
-                                  side: const BorderSide(
-                                    color: Color(0xFF16A34A),
-                                    width: 1.6,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                child: const Text(
-                                  '准备好了',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                              ),
+                        child: bothReady
+                            ? (canDeal
+                                ? FilledButton(
+                                    onPressed: _deal,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: theme.btnText,
+                                      foregroundColor: theme.panelBg,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: const Text(
+                                      '开始游戏 ▸',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: Text(
+                                      '等待房主开始…',
+                                      style: TextStyle(
+                                        color: theme.btnSub,
+                                        fontSize: 13,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                  ))
+                            : (iAmReady
+                                ? FilledButton(
+                                    onPressed: null,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: theme.btnSub
+                                          .withValues(alpha: 0.4),
+                                      foregroundColor: theme.panelBg,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: const Text(
+                                      '已准备 ✓',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  )
+                                : OutlinedButton(
+                                    onPressed:
+                                        _canPerform('ACK') ? _ack : null,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor:
+                                          const Color(0xFF16A34A),
+                                      side: const BorderSide(
+                                        color: Color(0xFF16A34A),
+                                        width: 1.6,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      '准备好了',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  )),
                       ),
                     ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReadyWait(BoardThemeData theme) {
-    final canDeal = _canPerform('DEAL');
-    return Scaffold(
-      backgroundColor: theme.boardSurface,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.panelBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.panelBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // 双勾 icon
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _CheckCircle(filled: true, color: const Color(0xFF16A34A)),
-                        const SizedBox(width: 8),
-                        _CheckCircle(filled: true, color: const Color(0xFF16A34A)),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      canDeal ? '双方已就绪' : '双方已准备',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 2,
-                        color: theme.btnText,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(width: 24, height: 2, color: theme.btnText),
-                    const SizedBox(height: 26),
-                    if (canDeal)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: FilledButton(
-                          onPressed: _deal,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: theme.btnText,
-                            foregroundColor: theme.panelBg,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Text(
-                            '开始游戏 ▸',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      Text(
-                        '等待房主开始…',
-                        style: TextStyle(
-                          color: theme.btnSub,
-                          fontSize: 13,
-                          letterSpacing: 1,
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -981,27 +930,4 @@ class _ReadyAvatar extends StatelessWidget {
   }
 }
 
-/// 双方 ACK 完成时的双勾
-class _CheckCircle extends StatelessWidget {
-  const _CheckCircle({required this.filled, required this.color});
-  final bool filled;
-  final Color color;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: filled ? color.withValues(alpha: 0.15) : Colors.transparent,
-        border: Border.all(color: color, width: filled ? 2 : 1.5),
-      ),
-      child: Icon(
-        filled ? Icons.check_rounded : null,
-        size: 16,
-        color: color,
-      ),
-    );
-  }
-}
