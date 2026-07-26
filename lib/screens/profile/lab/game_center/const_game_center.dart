@@ -239,6 +239,12 @@ const double kGcGridMaxExtent = 210.0;
 /// 网格单元宽高比
 const double kGcGridAspectRatio = 0.80;
 
+/// 入场动画节奏（喂给共享 RevealItem；比 Lab 网格稍快、位移稍小）
+const double kGcRevealDelayStep = 0.05;
+const double kGcRevealMaxDelay = 0.6;
+const double kGcRevealItemDuration = 0.3;
+const double kGcRevealTranslateY = 20.0;
+
 /// 滚动到该偏移时，AppBar 的同色渐变与标题完全淡入。
 /// 取 Hero 头部高度：头部正文刚滑出视野的那一刻，AppBar 恰好补齐同色底，
 /// 视觉上就是"banner 收拢成头部"。

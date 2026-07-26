@@ -7,11 +7,11 @@
 //
 // 配色 / 图标 / 图案的登记表在 const_game_center.dart。
 
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../demo_cover_image.dart';
 import 'const_game_center.dart';
 
 class GameArtwork extends StatelessWidget {
@@ -33,11 +33,6 @@ class GameArtwork extends StatelessWidget {
 
   bool get _hasImage => backgroundPath != null && backgroundPath!.isNotEmpty;
 
-  bool get _isLocal =>
-      _hasImage &&
-      (backgroundPath!.startsWith('/') ||
-          backgroundPath!.contains('applicationDocuments'));
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -54,7 +49,13 @@ class GameArtwork extends StatelessWidget {
           ),
         ),
         if (_hasImage)
-          Positioned.fill(child: _buildImage())
+          // 透明兜底：加载中/失败时露出下层专属渐变，不需要占位底色
+          Positioned.fill(
+            child: DemoCoverImage(
+              path: backgroundPath!,
+              transparentFallback: true,
+            ),
+          )
         else
           Positioned.fill(
             child: CustomPaint(painter: _ArtPatternPainter(meta.pattern)),
@@ -83,24 +84,6 @@ class GameArtwork extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildImage() {
-    if (_isLocal) {
-      return Image.file(
-        File(backgroundPath!),
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-      );
-    }
-    return Image.network(
-      backgroundPath!,
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-      loadingBuilder: (_, child, progress) =>
-          progress == null ? child : const SizedBox.shrink(),
     );
   }
 }

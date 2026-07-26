@@ -1,10 +1,11 @@
-// demo 网格与逐项错峰入场动画。
+// demo 网格：2 列固定网格 + 共享 RevealItem 入场动画。
 
 import 'package:flutter/material.dart';
 
 import '../../../../lab/lab_container.dart';
 import '../lab_panel/const_lab_panel.dart';
 import '../lab_perf_log.dart';
+import '../reveal_item.dart';
 import 'demo_card.dart';
 
 class DemoScrollRevealGrid extends StatefulWidget {
@@ -75,52 +76,4 @@ class _DemoScrollRevealGridState extends State<DemoScrollRevealGrid>
   }
 }
 
-class RevealItem extends StatefulWidget {
-  const RevealItem({
-    super.key,
-    required this.index,
-    required this.controller,
-    required this.child,
-  });
-
-  final int index;
-  final AnimationController controller;
-  final Widget child;
-
-  @override
-  State<RevealItem> createState() => _RevealItemState();
-}
-
-class _RevealItemState extends State<RevealItem> {
-  double get _delay =>
-      (widget.index * kLabRevealDelayStep).clamp(0.0, kLabRevealMaxDelay);
-  double get _dur => kLabRevealItemDuration;
-
-  double _progress(double t) {
-    final start = _delay;
-    final end = start + _dur;
-    if (t < start) return 0.0;
-    if (t >= end) return 1.0;
-    return Curves.easeOutCubic.transform((t - start) / (end - start));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        final p = _progress(widget.controller.value);
-        if (p >= 1.0) {
-          return widget.child;
-        }
-        return Opacity(
-          opacity: p,
-          child: Transform.translate(
-            offset: Offset(0, kLabRevealTranslateY * (1 - p)),
-            child: widget.child,
-          ),
-        );
-      },
-    );
-  }
-}
+// RevealItem 已提升为共享组件（../reveal_item.dart），游戏中心同用。

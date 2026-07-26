@@ -1,12 +1,9 @@
 // demo 卡片与它的长按背景设置面板。
 
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../services/lab_image_cache_service.dart';
 import '../../../../widgets/image_picker_widget.dart';
+import '../demo_cover_image.dart';
 import '../lab_panel/const_lab_panel.dart';
 import '../providers/lab_card_provider.dart';
 
@@ -28,21 +25,20 @@ class DemoCard extends StatefulWidget {
 
 class _DemoCardState extends State<DemoCard> {
   final _provider = LabCardProvider();
-  final _cacheService = LabImageCacheService();
   bool _isPressed = false;
-  Uint8List? _cachedImageBytes;
 
   @override
   void initState() {
     super.initState();
     _provider.addListener(_onProviderChanged);
-    _cacheService.init();
-    _initAndPreload();
+    // 首次进入时 provider 可能还没读完 SharedPreferences：等它读完刷一次，
+    // 让已设置的背景图显示出来。缩略图加载由 DemoCoverImage 自理。
+    _awaitProviderLoaded();
   }
 
-  Future<void> _initAndPreload() async {
+  Future<void> _awaitProviderLoaded() async {
     await _provider.onLoaded;
-    if (mounted) _preloadImage();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -51,35 +47,17 @@ class _DemoCardState extends State<DemoCard> {
     super.dispose();
   }
 
-  void _onProviderChanged() async {
+  void _onProviderChanged() {
     final key = _provider.lastChangedKey;
     // 收藏/排序变更(key==null) 或 其他 demo 背景变更 → 本卡无需重建
     if (key != null && key != widget.title && key != '__all__') return;
-    if (!mounted) return;
-    await _provider.onLoaded;
-    if (!mounted) return;
-    _preloadImage();
-    setState(() {});
-  }
-
-  Future<void> _preloadImage() async {
-    final backgroundUrl = _provider.getBackground(widget.title);
-    if (backgroundUrl != null && _provider.isLocalFile(widget.title)) {
-      final bytes = await _cacheService.getThumbnailBytes(backgroundUrl);
-      if (bytes != null && mounted) {
-        setState(() {
-          _cachedImageBytes = bytes;
-        });
-      }
-    }
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final backgroundUrl = _provider.getBackground(widget.title);
-    final isLocalFile =
-        backgroundUrl != null && _provider.isLocalFile(widget.title);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -98,11 +76,7 @@ class _DemoCardState extends State<DemoCard> {
             fit: StackFit.expand,
             children: [
               if (backgroundUrl != null && backgroundUrl.isNotEmpty)
-                Positioned.fill(
-                  child: isLocalFile
-                      ? _buildLocalImage(backgroundUrl, theme)
-                      : _buildNetworkImage(backgroundUrl, theme),
-                ),
+                Positioned.fill(child: DemoCoverImage(path: backgroundUrl)),
               if (backgroundUrl != null && backgroundUrl.isNotEmpty)
                 Positioned.fill(
                   child: Container(
@@ -164,51 +138,6 @@ class _DemoCardState extends State<DemoCard> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildNetworkImage(String url, ThemeData theme) {
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(),
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(color: theme.colorScheme.surfaceContainerHighest);
-      },
-    );
-  }
-
-  Widget _buildLocalImage(String path, ThemeData theme) {
-    if (_cachedImageBytes != null) {
-      return Image.memory(
-        _cachedImageBytes!,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: theme.colorScheme.surfaceContainerHighest,
-          child: const Icon(Icons.broken_image),
-        ),
-      );
-    }
-
-    return Image.file(
-      File(path),
-      fit: BoxFit.cover,
-      gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) => Container(
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: const Icon(Icons.broken_image),
-      ),
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded) return child;
-        return AnimatedOpacity(
-          opacity: frame == null ? 0 : 1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          child: child,
-        );
-      },
     );
   }
 

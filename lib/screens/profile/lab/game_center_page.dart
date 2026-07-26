@@ -21,6 +21,7 @@ import 'demo_detail_page.dart';
 import 'game_center/const_game_center.dart';
 import 'game_center/game_center_cards.dart';
 import 'providers/lab_card_provider.dart';
+import 'reveal_item.dart';
 
 class GameCenterPage extends StatefulWidget {
   const GameCenterPage({super.key});
@@ -204,9 +205,13 @@ class _GameCenterPageState extends State<GameCenterPage>
                 itemCount: list.length,
                 itemBuilder: (context, index) {
                   final demo = list[index];
-                  return _RevealItem(
+                  return RevealItem(
                     index: index,
                     controller: _revealController,
+                    delayStep: kGcRevealDelayStep,
+                    maxDelay: kGcRevealMaxDelay,
+                    itemDuration: kGcRevealItemDuration,
+                    translateY: kGcRevealTranslateY,
                     child: GameGridCard(demo: demo, onTap: () => _open(demo)),
                   );
                 },
@@ -510,42 +515,5 @@ class _EmptyBucket extends StatelessWidget {
   }
 }
 
-/// 逐项错峰淡入上移，切分类时重放
-class _RevealItem extends StatelessWidget {
-  const _RevealItem({
-    required this.index,
-    required this.controller,
-    required this.child,
-  });
-
-  final int index;
-  final AnimationController controller;
-  final Widget child;
-
-  double _progress(double t) {
-    final start = (index * 0.05).clamp(0.0, 0.6);
-    const dur = 0.3;
-    if (t < start) return 0.0;
-    if (t >= start + dur) return 1.0;
-    return Curves.easeOutCubic.transform((t - start) / dur);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final p = _progress(controller.value);
-        if (p >= 1.0) return child;
-        return Opacity(
-          opacity: p,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - p)),
-            child: child,
-          ),
-        );
-      },
-      child: child,
-    );
-  }
-}
+// 入场动画使用共享 RevealItem（reveal_item.dart），节奏常量见
+// const_game_center.dart 的 kGcReveal*。
