@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show VelocityTracker;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +19,7 @@ import '../../../core/color/color_utils.dart';
 part 'lab_page/const_lab_panel.dart';
 part 'lab_page/components.dart';
 part 'lab_page/panel_content.dart';
+part 'lab_page/panel_gesture.dart';
 part 'lab_page/panel_state.dart';
 
 const bool _kLabPanelPerfDebug = false;
@@ -54,11 +56,19 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   Animation<double>? _progressAnim;
   double? _pendingAnimationTarget;
-  double _estimatedVelocityDy = 0.0;
-  double _lastPointerY = 0.0;
-  DateTime? _lastPointerTime;
   double _lastViewportHeight = 0.0;
   late final TimingsCallback _timingsCallback = _onFrameTimings;
+
+  /// 三路输入（指针流 / 滚动通知 / 把手拖拽）→ 状态机的转换全在这里，
+  /// 本 State 只负责"收到 action 就播动画"。见 lab_page/panel_gesture.dart。
+  late final LabPanelGestureCoordinator _gestures = LabPanelGestureCoordinator(
+    stateMachine: _sm,
+    onProgressChanged: _publish,
+    onAction: _runAction,
+    stopAnimation: _stopCurrentAnimation,
+    viewportHeight: () => _lastViewportHeight,
+    gridScrollController: () => _gridScrollController,
+  );
 
   /// 面板展开进度的**连续**通道：拖拽/动画每帧只改它，不走 setState。
   /// 订阅方（AppBar 折叠、主内容位移、面板高度、面板内部变换、把手）各自
@@ -217,126 +227,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _animateTo(0.0);
   }
 
-  void _trackVelocity(double currentY) {
-    final now = DateTime.now();
-    final lastTime = _lastPointerTime;
-    if (lastTime != null) {
-      final dtMs = now.difference(lastTime).inMilliseconds;
-      if (dtMs > 0) {
-        final dy = currentY - _lastPointerY;
-        _estimatedVelocityDy = dy / dtMs * 1000;
-      }
-    }
-    _lastPointerY = currentY;
-    _lastPointerTime = now;
-  }
-
-  void _onPointerDown(PointerDownEvent event) {
-    _lastPointerY = event.position.dy;
-    _lastPointerTime = DateTime.now();
-    _estimatedVelocityDy = 0.0;
-  }
-
-  void _onPointerMove(PointerMoveEvent event) {
-    _trackVelocity(event.position.dy);
-
-    if (_sm.state == LabPullPanelState.draggingMain &&
-        _lastViewportHeight > 0) {
-      _sm.updateMainDrag(
-        deltaDy: event.delta.dy,
-        fullHeight: _lastViewportHeight,
-      );
-      _publish();
-    }
-  }
-
-  void _onPointerUp(PointerUpEvent event) {
-    if (_sm.state == LabPullPanelState.draggingMain) {
-      _runAction(_sm.endMainDrag(velocityDy: _estimatedVelocityDy));
-    }
-  }
-
-  bool _onMainContentNotification(
-    ScrollNotification notification,
-    double fullHeight,
-  ) {
-    if (!_gridScrollController.hasClients) return false;
-    if (!_sm.mainContentInteractive) return false;
-
-    final atTop =
-        _gridScrollController.position.extentBefore <=
-        LabPullPanelMetrics.topEpsilon;
-
-    if (!atTop) return false;
-
-    if (notification is ScrollStartNotification) {
-      _labPerfLog('main scroll start progress=${_progress.toStringAsFixed(3)}');
-      _stopCurrentAnimation(settleToTarget: true);
-      _sm.beginMainDrag();
-      return false;
-    }
-
-    if (notification is ScrollUpdateNotification &&
-        notification.dragDetails != null) {
-      final dy = notification.dragDetails!.delta.dy;
-      if (dy > 0) {
-        _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
-        _labPerfLog(
-          'main drag update dy=${dy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
-        );
-        _publish();
-        return true;
-      }
-    }
-
-    if (notification is OverscrollNotification &&
-        notification.dragDetails != null) {
-      final dy = notification.dragDetails!.delta.dy;
-      if (dy > 0) {
-        _stopCurrentAnimation(settleToTarget: true);
-        _sm.beginMainDrag();
-        _sm.updateMainDrag(deltaDy: dy, fullHeight: fullHeight);
-        _labPerfLog(
-          'main overscroll dy=${dy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
-        );
-        _publish();
-        return true;
-      }
-    }
-
-    if (notification is ScrollEndNotification &&
-        _sm.state == LabPullPanelState.draggingMain) {
-      _labPerfLog(
-        'main drag end velocity=${_estimatedVelocityDy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
-      );
-      _runAction(_sm.endMainDrag(velocityDy: _estimatedVelocityDy));
-      return true;
-    }
-
-    return false;
-  }
-
-  void _onPanelHandleDragStart() {
-    _stopCurrentAnimation(settleToTarget: true);
-    _sm.beginPanelDrag();
-    _labPerfLog('panel drag start progress=${_progress.toStringAsFixed(3)}');
-    _publish();
-  }
-
-  void _onPanelHandleDragUpdate(double deltaDy, double fullHeight) {
-    _sm.updatePanelDrag(deltaDy: deltaDy, fullHeight: fullHeight);
-    _labPerfLog(
-      'panel drag update dy=${deltaDy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
-    );
-    _publish();
-  }
-
-  void _onPanelHandleDragEnd(double velocityDy) {
-    _labPerfLog(
-      'panel drag end velocity=${velocityDy.toStringAsFixed(1)} progress=${_progress.toStringAsFixed(3)}',
-    );
-    _runAction(_sm.endPanelDrag(velocityDy: velocityDy));
-  }
+  // 手势相关的所有转换逻辑已搬到 LabPanelGestureCoordinator
+  // （lab_page/panel_gesture.dart）：指针流、滚动通知、把手拖拽三路输入
+  // 统一在那里落到状态机，本 State 只保留动画驱动与页面组装。
 
   void _openDemoPage(BuildContext context, DemoPage demo) {
     Navigator.push(
@@ -421,9 +314,10 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
           ),
         ),
         body: Listener(
-          onPointerDown: _onPointerDown,
-          onPointerMove: _onPointerMove,
-          onPointerUp: _onPointerUp,
+          onPointerDown: _gestures.handlePointerDown,
+          onPointerMove: _gestures.handlePointerMove,
+          onPointerUp: _gestures.handlePointerUp,
+          onPointerCancel: _gestures.handlePointerCancel,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final fullHeight = constraints.maxHeight;
@@ -435,7 +329,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                 ignoring: !_sm.mainContentInteractive,
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
-                    return _onMainContentNotification(notification, fullHeight);
+                    return _gestures.handleScrollNotification(notification);
                   },
                   child: mainContent,
                 ),
@@ -448,11 +342,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                 scrollable: _sm.panelScrollable,
                 progress: _progressNotifier,
                 showCloseCue: _sm.showCloseCue,
-                onHandleDragStart: _onPanelHandleDragStart,
-                onHandleDragUpdate: (deltaDy) {
-                  _onPanelHandleDragUpdate(deltaDy, fullHeight);
-                },
-                onHandleDragEnd: _onPanelHandleDragEnd,
+                onHandleDragStart: _gestures.handleHandleDragStart,
+                onHandleDragUpdate: _gestures.handleHandleDragUpdate,
+                onHandleDragEnd: _gestures.handleHandleDragEnd,
                 onDemoTap: (demo) => _openDemoPage(context, demo),
               );
 
