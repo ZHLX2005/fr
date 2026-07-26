@@ -536,8 +536,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             );
           })),
         ),
-        // 待确认时的确认/取消按钮条
-        if (_pendingPoint != null) _buildConfirmBar(theme),
+        // 待确认按钮条 —— 固定占位（即便不在待确认状态也保留高度），
+        // 避免其出现/消失撑动上方 Expanded，导致棋盘在回合切换时上下抖动
+        _buildConfirmSlot(theme),
         // 底部操作栏
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -575,58 +576,78 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     } else {
       statusText = isMine ? '轮到你（$myLabel）落子' : '等待 $turnLabel 落子…';
     }
-    return Container(
+    // 固定高度：文案字数变化（轮到谁 / 等待谁 / 待确认坐标）也保持条高一致，
+    // 避免高度抖动传导到下方 Expanded，导致棋盘垂直居中位置上下偏移。
+    return SizedBox(
+      height: kGomokuTurnBarHeight,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: theme.panelBg.withValues(alpha: 0.5),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.circle, size: 14, color: turnColor),
-        const SizedBox(width: 8),
-        Text(
-          statusText,
-          style: TextStyle(color: theme.btnText, fontSize: 14, fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(width: 8),
-        // 我方颜色标识
-        Container(
-          width: 12, height: 12,
-          decoration: BoxDecoration(color: myColor, shape: BoxShape.circle,
-            border: Border.all(color: theme.panelBorder)),
-        ),
-      ]),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        color: theme.panelBg.withValues(alpha: 0.5),
+        alignment: Alignment.center,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.circle, size: 14, color: turnColor),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              statusText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: theme.btnText, fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 我方颜色标识
+          Container(
+            width: 12, height: 12,
+            decoration: BoxDecoration(color: myColor, shape: BoxShape.circle,
+              border: Border.all(color: theme.panelBorder)),
+          ),
+        ]),
+      ),
     );
   }
 
-  /// 待确认时的确认/取消按钮条。
-  Widget _buildConfirmBar(BoardThemeData theme) {
+  /// 待确认按钮条（固定占位）。
+  ///
+  /// 无论是否处于待确认状态，都占据 [kGomokuConfirmBarHeight] 高度 —— 不待确认时
+  /// 渲染空占位，使上方棋盘区域（Expanded）高度恒定，落子/回合切换时棋盘不再抖动。
+  Widget _buildConfirmSlot(BoardThemeData theme) {
+    if (_pendingPoint == null) {
+      return const SizedBox(height: kGomokuConfirmBarHeight, width: double.infinity);
+    }
     final myColor = _imBlack ? _blackColor : _whiteColor;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        OutlinedButton.icon(
-          onPressed: _cancelPending,
-          icon: const Icon(Icons.close, size: 18),
-          label: const Text('取消'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.red.shade400,
-            side: BorderSide(color: Colors.red.shade400),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    return SizedBox(
+      height: kGomokuConfirmBarHeight,
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          OutlinedButton.icon(
+            onPressed: _cancelPending,
+            icon: const Icon(Icons.close, size: 18),
+            label: const Text('取消'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red.shade400,
+              side: BorderSide(color: Colors.red.shade400),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        ElevatedButton.icon(
-          onPressed: _confirmMove,
-          icon: const Icon(Icons.check, size: 18, color: Colors.white),
-          label: const Text('确认落子', style: TextStyle(color: Colors.white)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: myColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          const SizedBox(width: 16),
+          ElevatedButton.icon(
+            onPressed: _confirmMove,
+            icon: const Icon(Icons.check, size: 18, color: Colors.white),
+            label: const Text('确认落子', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: myColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
           ),
-        ),
-      ]),
+        ]),
+      ),
     );
   }
 
