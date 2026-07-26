@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../core/color/theme/app_theme.dart';
+import 'app_theme.dart';
 
 /// 主题Provider
 ///
@@ -57,9 +57,7 @@ class ThemeProvider extends ChangeNotifier {
 
   /// 保存主题模式到本地存储
   Future<void> _saveThemeMode() async {
-    if (_prefs == null) {
-      _prefs = await SharedPreferences.getInstance();
-    }
+    _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setString(_themeKey, _themeMode.name);
   }
 

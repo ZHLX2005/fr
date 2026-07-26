@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/agent_chat_provider.dart';
-import '../../../models/ai_chat_message.dart';
+import '../../../services/ai_chat/agent_chat_provider.dart';
+import '../../../services/ai_chat/ai_chat_models.dart';
 import '../../../widgets/markdown_renderer_widget.dart';
 import 'ai_chat_settings_page.dart';
 

@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/ai_chat_message.dart';
-import '../services/api_client.dart';
+import '../api_client.dart';
+import 'ai_chat_models.dart';
 
 /// Agent 聊天 Provider - 管理事件记录 Agent 的状态
 class AgentChatProvider with ChangeNotifier {

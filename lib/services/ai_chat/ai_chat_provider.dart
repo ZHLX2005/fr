@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/ai_chat_message.dart';
-import '../services/api_client.dart';
+import '../api_client.dart';
+import 'ai_chat_models.dart';
 
 /// AI Chat Provider - 管理 AI 聊天的状态和本地存储
 class AIChatProvider with ChangeNotifier {

@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart' hide Animation;
-import 'providers/providers.dart';
+import 'core/color/theme/theme_provider.dart';
+import 'services/ai_chat/ai_chat_provider.dart';
+import 'services/ai_chat/agent_chat_provider.dart';
 import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
 import 'screens/profile/profile_page.dart';
@@ -132,9 +134,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     return classic_provider.MultiProvider(
       providers: [
         classic_provider.ChangeNotifierProvider.value(value: _themeProvider),
-        classic_provider.ChangeNotifierProvider(
-          create: (_) => MessageProvider(),
-        ),
         // lazy:false → 冷启动即创建，立即 loadClocks + _syncToWidget。
         // 否则桌面 widget 要等用户进入 ClockDemo 页面才会被同步。
         classic_provider.ChangeNotifierProvider(

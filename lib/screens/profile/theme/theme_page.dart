@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/theme_provider.dart';
+import '../../../core/color/theme/theme_provider.dart';
 import '../../../core/color/theme/app_theme.dart';
 
 /// 主题设置页面
