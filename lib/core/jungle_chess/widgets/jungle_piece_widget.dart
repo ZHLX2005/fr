@@ -1,4 +1,6 @@
 // lib/core/jungle_chess/widgets/jungle_piece_widget.dart
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../models/piece.dart';
 import '../constants/jungle_constants.dart';
@@ -9,12 +11,16 @@ import '../constants/jungle_constants.dart';
 /// - 居中：animal SVG icon（占圆盘 kPieceIconRatio）
 /// - 选中：金色高亮环 + 发光阴影
 /// - elevated（拖动中）：阴影更浮起
+/// - flipped：动物图标旋转 180°（给坐在棋盘另一头的玩家看正的）
 class JunglePieceWidget extends StatelessWidget {
   final Piece piece;
   final bool isSelected;
   final VoidCallback? onTap;
   final double size;
   final bool elevated;
+
+  /// 是否把动物图标倒过来画。圆盘与描边始终不旋转（旋转它们没有视觉意义）。
+  final bool flipped;
 
   const JunglePieceWidget({
     super.key,
@@ -23,6 +29,7 @@ class JunglePieceWidget extends StatelessWidget {
     this.onTap,
     this.size = kCellSize,
     this.elevated = false,
+    this.flipped = false,
   });
 
   @override
@@ -67,9 +74,12 @@ class JunglePieceWidget extends StatelessWidget {
             ),
             Padding(
               padding: EdgeInsets.all(diskSize * (1 - kPieceIconRatio) / 2),
-              child: Image.asset(
-                piece.assetPath,
-                fit: BoxFit.contain,
+              child: Transform.rotate(
+                angle: flipped ? math.pi : 0,
+                child: Image.asset(
+                  piece.assetPath,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
             if (isSelected)

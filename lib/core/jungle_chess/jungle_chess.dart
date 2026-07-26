@@ -1,5 +1,5 @@
 /// 斗兽棋 (Jungle Chess) 模块
-library jungle_chess;
+library;
 
 export 'constants/jungle_constants.dart';
 export 'models/piece.dart';
@@ -13,3 +13,6 @@ export 'widgets/jungle_board.dart';
 export 'widgets/jungle_piece_widget.dart';
 export 'widgets/jungle_touch_controller.dart';
 export 'widgets/jungle_dialog.dart';
+export 'widgets/jungle_player_panel.dart';
+export 'tutorial/tutorial_steps.dart';
+export 'tutorial/tutorial_page.dart';

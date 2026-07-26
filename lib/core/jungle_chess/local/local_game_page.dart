@@ -1,14 +1,37 @@
 // lib/core/jungle_chess/local/local_game_page.dart
+//
+// 本地热座对局页 —— 全屏、双方对称。
+//
+// 两位玩家面对面共用一台设备，所以页面**没有 AppBar、没有顶部回合卡**：
+//   ┌───────────────────────┐
+//   │ 红方面板（旋转 180°） │  ← 上方玩家正向阅读，悔棋按钮也转过去
+//   ├───────────────────────┤
+//   │        棋盘           │  ← 红方棋子图标恒定倒置
+//   ├───────────────────────┤
+//   │ 蓝方面板              │
+//   ├───────────────────────┤
+//   │ 返回 · 重开 · 教程    │
+//   └───────────────────────┘
+// "轮到谁走"由面板自身高亮表达（见 JunglePlayerPanel），不再单独占一条。
+//
+// 布局参考 lib/core/surround_game/local/local_game_page.dart。
+
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import '../widgets/jungle_board.dart';
-import '../widgets/jungle_board_frame.dart';
-import '../widgets/jungle_touch_controller.dart';
-import '../widgets/jungle_dialog.dart';
+
+import '../constants/jungle_constants.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
-import 'local_view_model.dart';
-import 'local_match_state.dart';
+import '../tutorial/tutorial_page.dart';
+import '../widgets/jungle_board.dart';
+import '../widgets/jungle_board_frame.dart';
+import '../widgets/jungle_dialog.dart';
+import '../widgets/jungle_player_panel.dart';
+import '../widgets/jungle_touch_controller.dart';
 import 'local_match_event.dart';
+import 'local_match_state.dart';
+import 'local_view_model.dart';
 
 class LocalGamePage extends StatefulWidget {
   const LocalGamePage({super.key});
@@ -38,128 +61,132 @@ class _LocalGamePageState extends State<LocalGamePage> {
 
   void _onMoveConfirmed(Coord from, Coord to) {
     _viewModel.dispatch(LocalMoveCommitted(from: from, to: to));
+  }
 
-    final state = _viewModel.value;
-    if (state is LocalFinished) {
-      final gs = state.gameState;
-      final winner = gs.winner;
-      if (mounted) {
-        showJungleGameOverDialog(
-          context,
-          winner == null ? '平局' : (winner == PlayerColor.blue ? '蓝方' : '红方'),
-          gs.gameOverReason ?? '',
-          onRestart: () => _viewModel.dispatch(const LocalResetRequested()),
-          onExit: () => Navigator.pop(context),
-        );
-      }
-    }
+  void _openTutorial() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const JungleTutorialPage()),
+    );
+  }
+
+  Future<void> _confirmExit() async {
+    final nav = Navigator.of(context);
+    final exit = await showJungleExitConfirmDialog(context);
+    if (exit && mounted) nav.pop();
+  }
+
+  void _reset() {
+    _touchController.clearSelection();
+    _viewModel.dispatch(const LocalResetRequested());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
-      appBar: AppBar(
-        title: const Text(
-          '斗兽棋',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+      backgroundColor: kPageBg,
+      body: SafeArea(
+        child: ValueListenableBuilder<LocalMatchState>(
+          valueListenable: _viewModel,
+          builder: (_, state, _) {
+            return switch (state) {
+              LocalIdle() => const _IdleScreen(),
+              LocalInGame(:final gameState) => _buildGameScreen(gameState),
+              LocalFinished(:final gameState) => _buildGameScreen(
+                  gameState,
+                  overlay: _VictoryOverlay(
+                    winner: gameState.winner,
+                    reason: gameState.gameOverReason ?? '',
+                    onRestart: _reset,
+                    onExit: () => Navigator.pop(context),
+                  ),
+                ),
+            };
+          },
         ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2937),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        actions: [
-          _AppAction(
-            icon: Icons.undo_rounded,
-            tooltip: '悔棋',
-            onPressed: () => _viewModel.dispatch(const LocalUndoRequested()),
-          ),
-          _AppAction(
-            icon: Icons.refresh_rounded,
-            tooltip: '重新开始',
-            onPressed: () => _viewModel.dispatch(const LocalResetRequested()),
-          ),
-          _AppAction(
-            icon: Icons.home_rounded,
-            tooltip: '退出',
-            onPressed: () async {
-              if (mounted) {
-                final exit = await showJungleExitConfirmDialog(context);
-                if (exit && mounted) Navigator.pop(context);
-              }
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: ValueListenableBuilder<LocalMatchState>(
-        valueListenable: _viewModel,
-        builder: (context, state, _) {
-          return switch (state) {
-            LocalIdle() => const _IdleScreen(),
-            LocalInGame(:final gameState, :final currentPlayerIndex) =>
-              _buildGameUI(gameState, currentPlayerIndex),
-            LocalFinished(:final gameState) => _buildGameUI(gameState, -1),
-          };
-        },
       ),
     );
   }
 
-  Widget _buildGameUI(GameState gameState, int currentPlayerIndex) {
-    final isBlueTurn = currentPlayerIndex == 0;
-    final isFinished = currentPlayerIndex == -1;
-    return Column(
+  Widget _buildGameScreen(GameState gs, {Widget? overlay}) {
+    final finished = gs.isOver;
+
+    // 存活子数 / 已吃子数（对方少掉的就是我吃掉的）
+    var blueAlive = 0;
+    var redAlive = 0;
+    for (final p in gs.pieces.values) {
+      if (!p.isAlive) continue;
+      if (p.color == PlayerColor.blue) {
+        blueAlive++;
+      } else {
+        redAlive++;
+      }
+    }
+
+    // 悔棋归**刚走完那一步的人**：他的面板亮起悔棋按钮，等于"我走错了，收回来"。
+    final lastMover = finished || gs.history.isEmpty
+        ? null
+        : (gs.currentTurn == PlayerColor.blue
+            ? PlayerColor.red
+            : PlayerColor.blue);
+    VoidCallback? undoFor(PlayerColor c) => lastMover == c
+        ? () {
+            _touchController.clearSelection();
+            _viewModel.dispatch(const LocalUndoRequested());
+          }
+        : null;
+
+    return Stack(
       children: [
-        const SizedBox(height: 4),
-        _TurnCard(
-          isBlueTurn: isBlueTurn,
-          isFinished: isFinished,
-          round: gameState.roundCount ~/ 2 + 1,
-          historyLen: gameState.history.length,
-        ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: 7 / 9,
-                child: JungleBoardFrame(
-                  child: JungleBoard(
-                    gameState: gameState,
-                    touchController: _touchController,
-                    onMoveConfirmed: _onMoveConfirmed,
+        Column(
+          children: [
+            const SizedBox(height: 8),
+            JunglePlayerPanel(
+              color: PlayerColor.red,
+              rotated: true,
+              isCurrent: !finished && gs.currentTurn == PlayerColor.red,
+              aliveCount: redAlive,
+              capturedCount: 8 - blueAlive,
+              onUndo: undoFor(PlayerColor.red),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: 7 / 9,
+                    child: JungleBoardFrame(
+                      child: JungleBoard(
+                        gameState: gs,
+                        touchController: finished ? null : _touchController,
+                        onMoveConfirmed: _onMoveConfirmed,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+            JunglePlayerPanel(
+              color: PlayerColor.blue,
+              rotated: false,
+              isCurrent: !finished && gs.currentTurn == PlayerColor.blue,
+              aliveCount: blueAlive,
+              capturedCount: 8 - redAlive,
+              onUndo: undoFor(PlayerColor.blue),
+            ),
+            _BottomBar(
+              onExit: _confirmExit,
+              onReset: _reset,
+              onTutorial: _openTutorial,
+            ),
+          ],
         ),
+        ?overlay,
       ],
     );
   }
 }
 
-// === 私有组件 ===
-
-class _AppAction extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-  const _AppAction({required this.icon, required this.tooltip, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: IconButton(
-        icon: Icon(icon, color: const Color(0xFF4B5563)),
-        onPressed: onPressed,
-      ),
-    );
-  }
-}
+// ═══════════════════════ 私有组件 ═══════════════════════
 
 class _IdleScreen extends StatelessWidget {
   const _IdleScreen();
@@ -167,86 +194,209 @@ class _IdleScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Text('游戏已退出', style: TextStyle(color: Color(0xFF6B7280), fontSize: 16)),
+      child: Text('游戏已退出',
+          style: TextStyle(color: kTextMuted, fontSize: 16)),
     );
   }
 }
 
-class _TurnCard extends StatelessWidget {
-  final bool isBlueTurn;
-  final bool isFinished;
-  final int round;
-  final int historyLen;
+/// 底部操作行 — 只对下方玩家正向（与 surround_game 一致）
+class _BottomBar extends StatelessWidget {
+  final VoidCallback onExit;
+  final VoidCallback onReset;
+  final VoidCallback onTutorial;
 
-  const _TurnCard({
-    required this.isBlueTurn,
-    required this.isFinished,
-    required this.round,
-    required this.historyLen,
+  const _BottomBar({
+    required this.onExit,
+    required this.onReset,
+    required this.onTutorial,
   });
 
   @override
   Widget build(BuildContext context) {
-    final accent = isFinished
-        ? const Color(0xFFFBBF24)
-        : (isBlueTurn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444));
-    final bg = isFinished
-        ? const Color(0xFFFFFBEB)
-        : (isBlueTurn ? const Color(0xFFEFF6FF) : const Color(0xFFFEF2F2));
-    final text = isFinished ? '对局结束' : (isBlueTurn ? '蓝方走棋' : '红方走棋');
-    final emoji = isFinished ? '🏆' : (isBlueTurn ? '🔵' : '🔴');
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: accent.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 22)),
-            const SizedBox(width: 10),
-            Text(
-              text,
-              style: TextStyle(
-                color: accent,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
+      padding: const EdgeInsets.fromLTRB(kPanelHMargin, 10, kPanelHMargin, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: _BarButton(
+              icon: Icons.arrow_back_rounded,
+              label: '返回',
+              tint: kTextNormal,
+              onTap: onExit,
             ),
-            const Spacer(),
-            _MetaChip(label: '第 $round 回合'),
-            const SizedBox(width: 6),
-            _MetaChip(label: '$historyLen 步', muted: true),
-          ],
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _BarButton(
+              icon: Icons.refresh_rounded,
+              label: '重新开始',
+              tint: kBluePieceTint,
+              onTap: onReset,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _BarButton(
+              icon: Icons.menu_book_rounded,
+              label: '教程',
+              tint: const Color(0xFFD97706),
+              onTap: onTutorial,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 边框强调式按钮：浅 tint 底 + 同色描边 + 同色前景
+class _BarButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color tint;
+  final VoidCallback onTap;
+
+  const _BarButton({
+    required this.icon,
+    required this.label,
+    required this.tint,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: tint.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: tint.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: tint),
+              const SizedBox(width: 6),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: tint,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _MetaChip extends StatelessWidget {
-  final String label;
-  final bool muted;
-  const _MetaChip({required this.label, this.muted = false});
+/// 终局覆盖层。
+///
+/// 标题渲染两份：上半旋转 180°、下半正向 —— 面对面坐的两位玩家都能读到结果，
+/// 操作按钮放在正中间，双方伸手都够得到。
+class _VictoryOverlay extends StatelessWidget {
+  final PlayerColor? winner;
+  final String reason;
+  final VoidCallback onRestart;
+  final VoidCallback onExit;
+
+  const _VictoryOverlay({
+    required this.winner,
+    required this.reason,
+    required this.onRestart,
+    required this.onExit,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final w = winner;
+    final tint = w == null ? const Color(0xFFFBBF24) : playerTint(w);
+    final title = w == null ? '平局' : '${playerName(w)} 获胜！';
+
+    final headline = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.emoji_events_rounded, size: 40, color: tint),
+        const SizedBox(height: 6),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: tint,
+          ),
+        ),
+        if (reason.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(reason, style: const TextStyle(fontSize: 13, color: kTextMuted)),
+        ],
+      ],
+    );
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: muted ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563),
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+      color: Colors.black.withValues(alpha: 0.45),
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 给上方玩家看的倒置副本
+              Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.rotationZ(math.pi),
+                child: headline,
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _BarButton(
+                    icon: Icons.refresh_rounded,
+                    label: '再来一局',
+                    tint: kBluePieceTint,
+                    onTap: onRestart,
+                  ),
+                  const SizedBox(width: 12),
+                  _BarButton(
+                    icon: Icons.logout_rounded,
+                    label: '退出',
+                    tint: kTextNormal,
+                    onTap: onExit,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              headline,
+            ],
+          ),
         ),
       ),
     );

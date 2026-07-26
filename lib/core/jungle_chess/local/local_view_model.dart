@@ -31,10 +31,13 @@ final class LocalViewModel extends ValueNotifier<LocalMatchState> {
         return LocalInGame(gameState: next, currentPlayerIndex: nextPlayer);
       }(),
 
-      // LocalInGame → Undo (回退两步)
+      // LocalInGame → Undo (回退一步)
+      //
+      // 热座对局回退**一步**：回合交还给刚走那一步的人，等于"我走错了，收回来"。
+      // 悔棋按钮就挂在该玩家自己的面板上（见 JunglePlayerPanel），双方各管各的。
       (LocalInGame(:final gameState), LocalUndoRequested()) => () {
-        if (gameState.history.length < 2) return state;
-        final prev = JungleEngine.undoMoves(gameState, 2);
+        if (gameState.history.isEmpty) return state;
+        final prev = JungleEngine.undoMoves(gameState, 1);
         return LocalInGame(gameState: prev, currentPlayerIndex: prev.currentTurn == PlayerColor.blue ? 0 : 1);
       }(),
 

@@ -1,21 +1,8 @@
 // lib/core/jungle_chess/widgets/jungle_dialog.dart
 import 'package:flutter/material.dart';
 
-/// 胜负弹窗
-void showJungleGameOverDialog(BuildContext context, String winnerText, String reason, {VoidCallback? onRestart, VoidCallback? onExit}) {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) => AlertDialog(
-      title: const Text('游戏结束'),
-      content: Text('$winnerText 获胜！\n原因：$reason'),
-      actions: [
-        if (onRestart != null) TextButton(onPressed: () { Navigator.pop(ctx); onRestart(); }, child: const Text('再来一局')),
-        if (onExit != null) TextButton(onPressed: () { Navigator.pop(ctx); onExit(); }, child: const Text('退出')),
-      ],
-    ),
-  );
-}
+// 终局提示不再用单向弹窗：面对面热座时上方玩家读不了。改成页面内的双向覆盖层，
+// 见 local/local_game_page.dart 的 _VictoryOverlay。
 
 /// 退出确认弹窗
 Future<bool> showJungleExitConfirmDialog(BuildContext context) async {

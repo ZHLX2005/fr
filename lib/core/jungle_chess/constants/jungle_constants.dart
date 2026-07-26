@@ -42,6 +42,50 @@ const double kPieceIconRatio = 0.82; // PNG 占圆盘的比例（PNG 平均高/�
 // 和棋回合上限
 const int kMaxRounds = 150;
 
+// ══════════════════════════════════════════════════════════════
+// 页面配色 / 尺寸 — 全屏对称热座布局
+// ══════════════════════════════════════════════════════════════
+
+/// 页面底色（棋盘外的整片背景）
+const Color kPageBg = Color(0xFFF7F8FC);
+
+/// 玩家面板
+const double kPanelHeight = 58.0;
+const double kPanelRadius = 16.0;
+const double kPanelHMargin = 16.0;
+const Color kPanelBg = Colors.white;
+const Color kPanelBorder = Color(0xFFE5E7EB);
+
+/// 非当前回合方面板的整体透明度
+const double kPanelIdleOpacity = 0.45;
+
+/// 文字色阶
+const Color kTextStrong = Color(0xFF1F2937);
+const Color kTextNormal = Color(0xFF4B5563);
+const Color kTextMuted = Color(0xFF9CA3AF);
+
+/// 棋子走子位移动画时长（正式对局与教程共用）
+const Duration kPieceMoveDuration = Duration(milliseconds: 260);
+
+/// 教程自动播放时每步间隔
+const Duration kTutorialStepDuration = Duration(milliseconds: 1100);
+
+/// 教程高亮色（半透明叠加在格子上）
+const Color kHintRiver = Color(0x553B82F6);
+const Color kHintTrap = Color(0x55F59E0B);
+const Color kHintDen = Color(0x5522C55E);
+const Color kHintFocus = Color(0x55EF4444);
+
+/// 演示走法的轨迹高亮：起点淡、终点浓
+const Color kHintTrailFrom = Color(0x33FBBF24);
+const Color kHintTrailTo = Color(0x66FBBF24);
+
+/// 玩家色 / 方名
+Color playerTint(PlayerColor c) =>
+    c == PlayerColor.blue ? kBluePieceTint : kRedPieceTint;
+
+String playerName(PlayerColor c) => c == PlayerColor.blue ? '蓝方' : '红方';
+
 // 坐标工具
 int coordIndex(int row, int col) => row * 7 + col;
 bool isRiver(int index) => kRiverSet.contains(index);

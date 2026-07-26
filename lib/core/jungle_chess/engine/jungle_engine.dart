@@ -89,12 +89,11 @@ abstract final class JungleEngine {
       if (piece.color == PlayerColor.blue && targetIdx == kBlueDen) continue;
       if (piece.color == PlayerColor.red && targetIdx == kRedDen) continue;
 
-      // === 鼠标克象判定：riverLand 边界（仅鼠需要）===
-      // 鼠不能从陆地走到河里 / 从河里走到陆地
-      if (piece.animal == Animal.rat &&
-          isRiver(piece.position.index) != isRiver(targetIdx)) {
-        continue;
-      }
+      // === 鼠可自由进出水 ===
+      // 标准规则里鼠是唯一能下水的棋子，且可以随意上岸、下水；水陆边界只限制
+      // **吃子**（见 [canCapture] 第 1 条），不限制**移动**。
+      // 旧实现在这里额外禁止了鼠跨越水陆边界，副作用是鼠根本进不了河 —— 6 个
+      // 河格成为死区，"河中有鼠时狮虎不能跳"也永远无法触发。已移除该限制。
 
       // === 狮 / 虎河跳：相邻格是河时触发跳越 ===
       if ((piece.animal == Animal.lion || piece.animal == Animal.tiger) &&
