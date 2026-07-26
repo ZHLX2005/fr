@@ -94,64 +94,90 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
           ? GomokuOpeningPlayer(
               onBack: () => setState(() => _showOpeningStudy = false),
             )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── 顶部无边框大字标题 ──
-                      const Text(
-                        '五子棋',
-                        style: TextStyle(
-                          color: Color(0xFF1F1B16),
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      // 短分割线（不画完整边）
-                      Container(
-                        width: 32,
-                        height: 2,
-                        color: const Color(0xFF1F1B16),
-                      ),
-                      const SizedBox(height: 16),
-                      // 单行 hint
-                      Text(
-                        '与朋友约定同一房间号，谁先到谁是房主',
-                        style: TextStyle(
-                          color: theme.btnSub,
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      // ── 表单区（无 Card） ──
-                      LobbyEntryPage(onJoined: _onJoined),
-                      const SizedBox(height: 24),
-                      // ── 底部次要入口（纯文字链） ──
-                      Align(
-                        alignment: Alignment.center,
-                        child: TextButton(
-                          onPressed: () =>
-                              setState(() => _showOpeningStudy = true),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            foregroundColor: theme.btnSub,
+          : SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── 主卡片 ──
+                    Container(
+                      decoration: BoxDecoration(
+                        color: theme.panelBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: theme.panelBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
                           ),
-                          child: const Text('开局学习',
-                              style: TextStyle(fontSize: 13, letterSpacing: 1)),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Hero 标题
+                          Text(
+                            '五子棋',
+                            style: TextStyle(
+                              color: theme.btnText,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(width: 24, height: 2, color: theme.btnText),
+                          const SizedBox(height: 14),
+                          // chip 副标题
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.btnText.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '自动匹配对战',
+                              style: TextStyle(
+                                color: theme.btnText,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          // 表单
+                          LobbyEntryPage(onJoined: _onJoined),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // ── 卡片外次要入口 ──
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _showOpeningStudy = true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.btnSub,
+                        ),
+                        icon: const Icon(Icons.school_outlined, size: 18),
+                        label: const Text('开局学习',
+                            style: TextStyle(letterSpacing: 1)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
+        ),
     );
   }
 }

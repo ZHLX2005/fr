@@ -108,124 +108,136 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
   @override
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
-    // 无边框输入框装饰（focused 时加粗为 2px 主题色）
-    InputDecoration inputDec(String label, String hint) => InputDecoration(
-          labelText: null, // 标签放到外面，避免双重边框
+    // 圆角浅底输入框（聚焦时边框变粗变深）
+    InputDecoration inputDec(String hint) => InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.7), fontWeight: FontWeight.w500),
+          hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.6)),
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          border: const UnderlineInputBorder(
-            borderSide: BorderSide(color: Color(0x00000000), width: 0),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          filled: true,
+          fillColor: theme.btnBg,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.panelBorder, width: 1),
           ),
-          enabledBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: Color(0x1A000000), width: 1),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.panelBorder, width: 1),
           ),
-          focusedBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: _inkColor, width: 2),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.btnText, width: 1.6),
           ),
         );
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        // ── 昵称 ──
-        _fieldLabel('昵称', theme),
-        const SizedBox(height: 4),
-        TextField(
-          controller: _aliasCtrl,
-          decoration: inputDec('昵称', '黑方'),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: _inkColor),
-        ),
-        const SizedBox(height: 20),
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // ── 昵称 ──
+      TextField(
+        controller: _aliasCtrl,
+        decoration: inputDec('昵称（如：黑方）'),
+        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: theme.btnText),
+        textAlignVertical: TextAlignVertical.center,
+      ),
+      const SizedBox(height: 12),
 
-        // ── 房间号 ──
-        _fieldLabel('房间号', theme),
-        const SizedBox(height: 4),
-        TextField(
-          controller: _codeCtrl,
-          decoration: inputDec('房间号', '4–6 位大写字母数字'),
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: _inkColor,
-            letterSpacing: 2,
-          ),
-          keyboardType: TextInputType.text,
-          textCapitalization: TextCapitalization.characters,
-          maxLength: 6,
-          onSubmitted: (_) => _busy ? null : _go(),
-        ),
-        const SizedBox(height: 8),
-
-        // ── 提示行（无背景块） ──
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            '◐  与朋友约定同一房间号，谁先到谁是房主（黑方先手）',
-            style: TextStyle(color: theme.btnSub, fontSize: 12, height: 1.5),
-          ),
-        ),
-
-        // ── 错误提示 ──
-        if (_error != null) ...[
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('◉ ', style: TextStyle(color: _warnColor, fontSize: 12, height: 1.5)),
-              Expanded(
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: _warnColor, fontSize: 12, height: 1.5),
-                ),
-              ),
-            ]),
-          ),
-        ],
-
-        const SizedBox(height: 24),
-
-        // ── 主按钮（唯一保留的实底，黑色填充） ──
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: FilledButton(
-            onPressed: _busy ? null : _go,
-            style: FilledButton.styleFrom(
-              backgroundColor: _inkColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              elevation: 0,
-            ),
-            child: _busy
-                ? const SizedBox(
-                    width: 18, height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text('进入对局 ▸',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 1)),
-          ),
-        ),
-      ]),
-    );
-  }
-
-  /// 字段标签（顶部小灰字）
-  Widget _fieldLabel(String text, BoardThemeData theme) => Text(
-        text,
+      // ── 房间号 ──
+      TextField(
+        controller: _codeCtrl,
+        decoration: inputDec('房间号（4–6 位大写字母数字）'),
         style: TextStyle(
-          color: theme.btnSub,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: theme.btnText,
+          letterSpacing: 2,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
-      );
+        keyboardType: TextInputType.text,
+        textCapitalization: TextCapitalization.characters,
+        maxLength: 6,
+        onSubmitted: (_) => _busy ? null : _go(),
+      ),
+      const SizedBox(height: 12),
+
+      // ── 提示行（浅灰块，左对齐） ──
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.btnText.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Text('◐',
+                style: TextStyle(color: theme.btnSub, fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '输入同一号码即可对战，谁先到谁是房主',
+              style: TextStyle(color: theme.btnSub, fontSize: 12, height: 1.4),
+            ),
+          ),
+        ]),
+      ),
+
+      // ── 错误提示（暖红浅块） ──
+      if (_error != null) ...[
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _warnColor.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Text('◉', style: TextStyle(color: _warnColor, fontSize: 12)),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _error!,
+                style: const TextStyle(color: _warnColor, fontSize: 12, height: 1.4),
+              ),
+            ),
+          ]),
+        ),
+      ],
+
+      const SizedBox(height: 20),
+
+      // ── 主按钮 ──
+      SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: FilledButton(
+          onPressed: _busy ? null : _go,
+          style: FilledButton.styleFrom(
+            backgroundColor: theme.btnText,
+            foregroundColor: theme.panelBg,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 0,
+          ),
+          child: _busy
+              ? SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.panelBg,
+                  ),
+                )
+              : const Text('进入对局',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 2)),
+        ),
+      ),
+    ]);
+  }
 }
 
-// 无边框设计色板（功能型页面用色）
-const Color _inkColor = Color(0xFF1F1B16);     // 主文字 / 主按钮
-const Color _warnColor = Color(0xFFB33A1F);     // 错误提示（暖红，避免纯红）
+// 暖红色（错误提示，避免纯红）
+const Color _warnColor = Color(0xFFB33A1F);
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page
