@@ -65,14 +65,9 @@ class _SurroundGameLuaPageState extends State<SurroundGameLuaPage> {
     final bg = theme.boardSurface;
     final panelText = theme.btnText;
     if (_handle != null) {
+      // 进入房间后，外层不再重复 AppBar，由 OnlineGamePage 内部 Scaffold 唯一提供返回按钮 + 标题
       return Scaffold(
         backgroundColor: bg,
-        appBar: AppBar(
-          title: const Text('围追堵截'),
-          backgroundColor: bg,
-          foregroundColor: panelText,
-          elevation: 0,
-        ),
         body: OnlineGamePage(
           handle: _handle!, isHostSide: _isHostSide, onLeave: _disconnect,
         ),
@@ -87,64 +82,39 @@ class _SurroundGameLuaPageState extends State<SurroundGameLuaPage> {
         elevation: 0,
       ),
       body: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.panelBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.panelBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Hero 标题
-                    Text(
-                      '围追堵截',
-                      style: TextStyle(
-                        color: theme.btnText,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(width: 24, height: 2, color: theme.btnText),
-                    const SizedBox(height: 14),
-                    // chip 副标题
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.btnText.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '自动匹配对战',
-                        style: TextStyle(
-                          color: theme.btnText,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── 主卡片 ──
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.panelBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: theme.panelBorder),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    // 表单
-                    LobbyEntryPage(onJoined: _onJoined),
-                  ],
-                ),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 表单（页面标题由 AppBar 唯一承载，避免卡片再渲染"围追堵截"重复）
+                        LobbyEntryPage(onJoined: _onJoined),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

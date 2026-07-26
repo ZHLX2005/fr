@@ -71,8 +71,11 @@ class _TetrisLuaPageState extends State<TetrisLuaPage> {
     final bg = theme.boardSurface;
     final panelText = theme.btnText;
     if (_handle != null) {
-      // 进入房间后交给 OnlineGamePage 全权管理（各阶段自带 Scaffold）
-      return OnlineGamePage(handle: _handle!, onLeave: _disconnect);
+      // 进入房间后，外层不再重复 AppBar，由 OnlineGamePage 内部 Scaffold 唯一提供返回按钮 + 标题
+      return Scaffold(
+        backgroundColor: bg,
+        body: OnlineGamePage(handle: _handle!, onLeave: _disconnect),
+      );
     }
     return Scaffold(
       backgroundColor: bg,
@@ -83,7 +86,8 @@ class _TetrisLuaPageState extends State<TetrisLuaPage> {
         elevation: 0,
       ),
       body: SafeArea(
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
             child: ConstrainedBox(
@@ -101,43 +105,11 @@ class _TetrisLuaPageState extends State<TetrisLuaPage> {
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Hero 标题
-                    Text(
-                      '俄罗斯方块',
-                      style: TextStyle(
-                        color: theme.btnText,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(width: 24, height: 2, color: theme.btnText),
-                    const SizedBox(height: 14),
-                    // chip 副标题
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.btnText.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '自动匹配对战',
-                        style: TextStyle(
-                          color: theme.btnText,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    // 表单
+                    // 表单（页面标题由 AppBar 唯一承载，避免卡片再渲染"俄罗斯方块"重复）
                     LobbyEntryPage(onJoined: _onJoined),
                   ],
                 ),
