@@ -17,6 +17,7 @@ description: Relay-v3 Lua 状态机接入指南。新增一个互联网房间业
 | [[server-authoritative-client-state]] | **所有 v3 互联网房间业务的"上游原则"**——客户端"我是谁/谁赢了/谁是房主"不能自查，必须用服务端权威字段（`host_id`/`top_player_id`/`winner`）。含 3 类典型自查 bug 案例（imTop/WIN/isHost）+ 乐观更新合法用法 + 围追堵截踩坑时间线。**任何业务先读这一篇。** |
 | [[action-permission-table]] | ⚠️ **成熟期优化，前期不推荐**——当 action 多（≥5）、规则稳定、出现"无效按钮"UX bug 时才引入。把"谁能做哪个 action"收敛到服务端 `c.action_permissions` 单一表 + `role_check` helper，客户端 `canPerform(action)` 单点消费，零特判代码。是 [[server-authoritative-client-state]] 的"怎么做"落地篇。含 5 种角色规则 + 服务端/客户端双保险 + 迁移步骤 + ★何时引入判断。 |
 | [[versus-game-room-template]] | **从 0 实现一个 2 人互联网对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋）时通读。端到端模板：六件套文件结构 + Lua 状态机/权限表设计 + 四阶段 UX 交互（lobby/ready/playing/ended）+ 胜负判定模式 + widget 抽象边界 + 新游戏 checklist。综合调用前 4 个 ref。 |
+| [[social-room-code-pattern]] | **实现"用户自行约定房间号 + 第一个进入自动成为房主"的双人对战时**通读（社交场景：微信群喊号/线下面对面）。含服务端 `requested_code` 撞号机制、Lua `max_players` + `rejected_join` 完整写法、客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示、`.tool/relay-room-tester` 11 个端到端验证场景。是 `[[versus-game-room-template]]` 的"双方输入同一号码谁先到谁是房主"特化版。 |
 
 ---
 
@@ -310,6 +311,7 @@ await handle.applyAction(
 | **任何 v3 互联网房间**（必读） | **先用 [[server-authoritative-client-state]]** —— 角色/状态用服务端字段，不用客户端自查 | 0 |
 | **有按钮/操作约束的房间**（成熟期） | [[action-permission-table]] —— action_permissions 表驱动（前期 action 少时用特判更快） | 0 |
 | **双人对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋——2 人轮流 + 有胜负） | 参照 [[versus-game-room-template]] —— 端到端模板（六件套 + 状态机 + 四阶段 UX + 胜负判定 + 新游戏 checklist），综合调用以上 4 个 ref | 0 |
+| **社交场景双人对战（双方输入同一房间号，谁先到谁是房主）** | 参照 [[social-room-code-pattern]] —— 服务端 `requested_code` + Lua `rejected_join` + 客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示 | 0 |
 
 **零 Go 代码改动。**
 
