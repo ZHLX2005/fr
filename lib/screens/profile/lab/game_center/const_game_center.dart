@@ -154,6 +154,13 @@ const Map<String, GameMeta> kGameMeta = {
     mode: '联机多人',
     pattern: GameArtPattern.dots,
   ),
+  'tetris-lua': GameMeta(
+    categories: {GameCategory.multiplayer, GameCategory.arcade},
+    icon: Icons.grid_view_rounded,
+    gradient: [Color(0xFF0F172A), Color(0xFF22D3EE)],
+    mode: '联机双人',
+    pattern: GameArtPattern.grid,
+  ),
 
   // ── 本地 ────────────────────────────────────────────────────
   // 围追堵截本地版：本地双人对战，归「棋游」，不进「联机」。
