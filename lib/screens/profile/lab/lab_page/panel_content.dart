@@ -56,20 +56,31 @@ class _LabPanelContentState extends State<_LabPanelContent> {
     }
   }
 
-  List<String> get _favoriteTitles {
-    final order = _provider.getFavoritesOrder();
-    return order.where((title) {
-      return widget.demos.any((e) => e.value.title == title);
-    }).toList();
+  /// title → demo 索引。收藏格子的排序、渲染、拖拽全按 title 找 demo，
+  /// 原实现在每个 itemBuilder 里线性扫 widget.demos（O(收藏数 × demo 数)）。
+  /// demos 只在 LabPage.initState 构建一次，这里跟随 demos 变化重建即可。
+  late Map<String, DemoPage> _demoByTitle = _buildDemoIndex();
+
+  Map<String, DemoPage> _buildDemoIndex() => {
+    for (final e in widget.demos) e.value.title: e.value,
+  };
+
+  @override
+  void didUpdateWidget(covariant _LabPanelContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.demos, widget.demos)) {
+      _demoByTitle = _buildDemoIndex();
+    }
   }
 
-  DemoPage? _findDemoByTitle(String title) {
-    final entry = widget.demos.cast<MapEntry<String, DemoPage>?>().firstWhere(
-      (e) => e?.value.title == title,
-      orElse: () => null,
-    );
-    return entry?.value;
+  List<String> get _favoriteTitles {
+    return _provider
+        .getFavoritesOrder()
+        .where(_demoByTitle.containsKey)
+        .toList();
   }
+
+  DemoPage? _findDemoByTitle(String title) => _demoByTitle[title];
 
   Future<void> _handleFavoriteDeleteAccepted(String title) async {
     if (!_provider.isFavorite(title)) return;
@@ -83,14 +94,15 @@ class _LabPanelContentState extends State<_LabPanelContent> {
 
   @override
   Widget build(BuildContext context) {
-    final contentOffset = (1.0 - widget.progress) * 16.0;
-    final contentScale = 0.5 + (widget.progress * 0.5);
+    final contentOffset = (1.0 - widget.progress) * kLabPanelContentOffset;
+    final contentScale =
+        kLabPanelContentMinScale +
+        (widget.progress * (1.0 - kLabPanelContentMinScale));
     final contentOpacity = widget.progress.clamp(0.0, 1.0);
     final pc = widget.panelColors;
-    final favoriteDemos = widget.demos
-        .where((entry) => _provider.isFavorite(entry.value.title))
-        .map((entry) => entry.value)
-        .toList();
+    // 收藏列表只算一次：build 内多处（空态判断 + 格子渲染 + 拖拽索引）复用同一份，
+    // 避免每处各扫一遍。
+    final favoriteTitles = _favoriteTitles;
 
     return Column(
       children: [
@@ -101,94 +113,85 @@ class _LabPanelContentState extends State<_LabPanelContent> {
               child: Opacity(
                 opacity: contentOpacity,
                 child: Transform.scale(
-                  scale: contentScale.clamp(0.5, 1.0),
+                  scale: contentScale.clamp(kLabPanelContentMinScale, 1.0),
                   alignment: Alignment.topCenter,
                   child: IgnorePointer(
                     ignoring: !widget.scrollable,
                     child: ListView(
                       controller: widget.scrollController,
                       physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
+                      padding: kLabPanelListPadding,
                       children: [
                         _PanelTitleSection(panelColors: pc),
                         const SizedBox(height: 16),
-                        if (favoriteDemos.isNotEmpty)
-                          Builder(
-                            builder: (context) {
-                              return ReorderableBuilder<String>.builder(
-                                longPressDelay: const Duration(
-                                  milliseconds: 300,
+                        if (favoriteTitles.isNotEmpty)
+                          ReorderableBuilder<String>.builder(
+                            longPressDelay: kLabFavoriteLongPressDelay,
+                            animationConfig: const ReorderableAnimationConfig(
+                              dragFeedbackDuration: Duration.zero,
+                            ),
+                            feedbackScaleFactor: 1.0,
+                            dragChildBoxDecoration: BoxDecoration(
+                              color: Colors.black.withValues(
+                                alpha: kLabFavoritePressOverlayAlpha,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                kLabFavoriteRadius,
+                              ),
+                              boxShadow: const <BoxShadow>[],
+                            ),
+                            onDragStarted: (index) {
+                              setState(() {
+                                _draggingFavoriteTitle = favoriteTitles[index];
+                                _isDeleteZoneActive = false;
+                              });
+                              HapticFeedback.lightImpact();
+                            },
+                            onUpdatedDraggedChild: (index) {},
+                            onDragEnd: (index) {
+                              setState(() {
+                                _draggingFavoriteTitle = null;
+                                _isDeleteZoneActive = false;
+                              });
+                            },
+                            onReorder: (reorderFn) {
+                              _provider.reorderFavorites(
+                                reorderFn(favoriteTitles),
+                              );
+                            },
+                            itemCount: favoriteTitles.length,
+                            childBuilder: (itemBuilder) {
+                              return GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: kLabFavoriteCrossAxisCount,
+                                  mainAxisSpacing: kLabFavoriteSpacing,
+                                  crossAxisSpacing: kLabFavoriteSpacing,
+                                  childAspectRatio: kLabFavoriteAspectRatio,
                                 ),
-                                animationConfig:
-                                    const ReorderableAnimationConfig(
-                                  dragFeedbackDuration: Duration.zero,
-                                ),
-                                feedbackScaleFactor: 1.0,
-                                dragChildBoxDecoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: const <BoxShadow>[],
-                                ),
-                                onDragStarted: (index) {
-                                  setState(() {
-                                    _draggingFavoriteTitle =
-                                        _favoriteTitles[index];
-                                    _isDeleteZoneActive = false;
-                                  });
-                                  HapticFeedback.lightImpact();
-                                },
-                                onUpdatedDraggedChild: (index) {},
-                                onDragEnd: (index) {
-                                  setState(() {
-                                    _draggingFavoriteTitle = null;
-                                    _isDeleteZoneActive = false;
-                                  });
-                                },
-                                onReorder: (reorderFn) {
-                                  final reorderedTitles = reorderFn(
-                                    _favoriteTitles,
-                                  );
-                                  _provider.reorderFavorites(
-                                    reorderedTitles,
-                                  );
-                                },
-                                itemCount: _favoriteTitles.length,
-                                childBuilder: (itemBuilder) {
-                                  return GridView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    gridDelegate:
-                                        const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 4,
-                                      mainAxisSpacing: 8,
-                                      crossAxisSpacing: 8,
-                                      childAspectRatio: 0.92,
+                                itemCount: favoriteTitles.length,
+                                itemBuilder: (context, index) {
+                                  final title = favoriteTitles[index];
+                                  final demo = _findDemoByTitle(title);
+                                  if (demo == null) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return itemBuilder(
+                                    CustomDraggable(
+                                      key: ValueKey(title),
+                                      data: title,
+                                      child: _FavoriteDemoShortcut(
+                                        key: ValueKey(title),
+                                        panelColors: pc,
+                                        demo: demo,
+                                        isDragActive:
+                                            _draggingFavoriteTitle == title,
+                                        onTap: () => widget.onDemoTap(demo),
+                                      ),
                                     ),
-                                    itemCount: _favoriteTitles.length,
-                                    itemBuilder: (context, index) {
-                                      final title = _favoriteTitles[index];
-                                      final demo = _findDemoByTitle(title);
-                                      if (demo == null) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      return itemBuilder(
-                                        CustomDraggable(
-                                          key: ValueKey(title),
-                                          data: title,
-                                          child: _FavoriteDemoShortcut(
-                                            key: ValueKey(title),
-                                            panelColors: pc,
-                                            demo: demo,
-                                            isDragActive:
-                                                _draggingFavoriteTitle ==
-                                                title,
-                                            onTap: () => widget.onDemoTap(demo),
-                                          ),
-                                        ),
-                                        index,
-                                      );
-                                    },
+                                    index,
                                   );
                                 },
                               );
@@ -286,22 +289,22 @@ class _PanelDeleteZone extends StatelessWidget {
       builder: (context, candidateData, rejectedData) {
         final active = isActive || candidateData.isNotEmpty;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
+          duration: kLabDeleteAnimDuration,
           curve: Curves.easeOut,
           width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 76),
+          constraints: const BoxConstraints(minHeight: kLabDeleteMinHeight),
           decoration: BoxDecoration(
             color: active
-                ? const Color(0xFFD63B3B)
-                : const Color(0xFFEF6B6B).withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(24),
+                ? kLabDeleteActiveColor
+                : kLabDeleteIdleColor.withValues(alpha: kLabDeleteIdleAlpha),
+            borderRadius: BorderRadius.circular(kLabDeleteRadius),
             border: Border.all(
               color: Colors.white.withValues(alpha: active ? 0.78 : 0.52),
               width: active ? 1.6 : 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFB3261E).withValues(
+                color: kLabDeleteShadowColor.withValues(
                   alpha: active ? 0.28 : 0.16,
                 ),
                 blurRadius: active ? 24 : 16,
@@ -309,7 +312,7 @@ class _PanelDeleteZone extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          padding: kLabDeletePadding,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
@@ -321,7 +324,7 @@ class _PanelDeleteZone extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                active ? 'Release to remove favorite' : 'Drag here to delete',
+                active ? '松手移除收藏' : '拖到这里删除',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -348,13 +351,13 @@ class _PanelTitleSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
         color: pc.glassFill,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kLabPanelGlassRadius),
         border: Border.all(color: pc.glassBorder),
         boxShadow: [
           BoxShadow(
-            color: pc.accentDeep.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: pc.accentDeep.withValues(alpha: kLabPanelGlassShadowAlpha),
+            blurRadius: kLabPanelGlassShadowBlur,
+            offset: kLabPanelGlassShadowOffset,
           ),
         ],
       ),
@@ -364,7 +367,7 @@ class _PanelTitleSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: pc.accentSoft.withValues(alpha: 0.16),
+              color: pc.accentSoft.withValues(alpha: kLabPanelAccentSoftAlpha),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
@@ -423,7 +426,7 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
         child: InkWell(
           onTap: widget.onTap,
           onHighlightChanged: _handleHighlightChanged,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(kLabFavoriteRadius),
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
           hoverColor: Colors.transparent,
@@ -436,8 +439,10 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
                 if (showOverlay)
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.black.withValues(
+                        alpha: kLabFavoritePressOverlayAlpha,
+                      ),
+                      borderRadius: BorderRadius.circular(kLabFavoriteRadius),
                     ),
                   ),
 
@@ -448,16 +453,20 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
                     mainAxisSize: MainAxisSize.max,
                     children: [
                       Container(
-                        width: 34,
-                        height: 34,
+                        width: kLabFavoriteIconBoxSize,
+                        height: kLabFavoriteIconBoxSize,
                         decoration: BoxDecoration(
-                          color: pc.accentSoft.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(12),
+                          color: pc.accentSoft.withValues(
+                            alpha: kLabPanelAccentSoftAlpha,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            kLabFavoriteIconBoxRadius,
+                          ),
                         ),
                         child: Icon(
                           Icons.star_rounded,
                           color: pc.accentDeep,
-                          size: 18,
+                          size: kLabFavoriteIconSize,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -499,27 +508,27 @@ class _PanelEmptyFavorites extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       decoration: BoxDecoration(
         color: pc.glassFill,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kLabPanelGlassRadius),
         border: Border.all(color: pc.glassBorder),
       ),
       child: Column(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: kLabEmptyIconBoxSize,
+            height: kLabEmptyIconBoxSize,
             decoration: BoxDecoration(
-              color: pc.accentSoft.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(16),
+              color: pc.accentSoft.withValues(alpha: kLabPanelAccentSoftAlpha),
+              borderRadius: BorderRadius.circular(kLabEmptyIconBoxRadius),
             ),
             child: Icon(
               Icons.star_border_rounded,
               color: pc.accentDeep,
-              size: 26,
+              size: kLabEmptyIconSize,
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            'No favorite demos yet',
+            '还没有收藏的 demo',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: pc.text,
               fontWeight: FontWeight.w700,
@@ -527,7 +536,7 @@ class _PanelEmptyFavorites extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Long press a demo card and tap Favorite Demo.',
+            '长按 demo 卡片，选择「收藏」即可加入',
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
@@ -557,8 +566,11 @@ class _PanelHandle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pc = panelColors;
-    final handleWidth = 40 + progress * 18 - closeProgress * 8;
-    final handleHeight = 4 + progress * 2;
+    final handleWidth =
+        kLabHandleWidthBase +
+        progress * kLabHandleWidthGain -
+        closeProgress * kLabHandleWidthShrink;
+    final handleHeight = kLabHandleHeightBase + progress * kLabHandleHeightGain;
     final strokeColor = pc.accentDeep;
     final bgColor = pc.accent.withValues(alpha: 0.12);
 
@@ -566,10 +578,13 @@ class _PanelHandle extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: kLabHandleAnimDuration,
           curve: Curves.easeOut,
-          width: handleWidth.clamp(30.0, 58.0),
-          height: handleHeight.clamp(4.0, 6.0),
+          width: handleWidth.clamp(kLabHandleWidthMin, kLabHandleWidthMax),
+          height: handleHeight.clamp(
+            kLabHandleHeightBase,
+            kLabHandleHeightMax,
+          ),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
@@ -589,8 +604,8 @@ class _PanelHandle extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         SizedBox(
-          width: 42,
-          height: 42,
+          width: kLabHandleRingSize,
+          height: kLabHandleRingSize,
           child: CustomPaint(
             painter: _HandleStatePainter(
               progress: readyToOpen ? 1.0 : progress.clamp(0.0, 1.0),

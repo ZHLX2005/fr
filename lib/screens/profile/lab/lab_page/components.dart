@@ -81,8 +81,8 @@ class _DemoCardState extends State<_DemoCard> {
         onTapUp: (_) => setState(() => _isPressed = false),
         onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedScale(
-          scale: _isPressed ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 100),
+          scale: _isPressed ? kLabCardPressScale : 1.0,
+          duration: kLabCardPressDuration,
           curve: Curves.easeInOut,
           child: Stack(
             fit: StackFit.expand,
@@ -101,15 +101,19 @@ class _DemoCardState extends State<_DemoCard> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withValues(alpha: 0.3),
-                          Colors.black.withValues(alpha: 0.6),
+                          Colors.black.withValues(
+                            alpha: kLabCardScrimTopAlpha,
+                          ),
+                          Colors.black.withValues(
+                            alpha: kLabCardScrimBottomAlpha,
+                          ),
                         ],
                       ),
                     ),
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(kLabCardPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -259,8 +263,8 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
     final size = MediaQuery.of(context).size;
 
     return Container(
-      height: size.height * 0.75,
-      padding: const EdgeInsets.all(16),
+      height: size.height * kLabSheetHeightFactor,
+      padding: const EdgeInsets.all(kLabSheetPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -268,13 +272,13 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
             children: [
               const Icon(Icons.image, size: 24),
               const SizedBox(width: 8),
-              Text('Set Background Image', style: theme.textTheme.titleLarge),
+              Text('设置卡片背景', style: theme.textTheme.titleLarge),
               const Spacer(),
               if (widget.currentUrl != null)
                 TextButton.icon(
                   onPressed: widget.onRemove,
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Remove'),
+                  label: const Text('移除'),
                 ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
@@ -300,7 +304,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                           ),
                         )
                       : const Icon(Icons.crop),
-                  label: const Text('Pick And Crop'),
+                  label: const Text('选图并裁剪'),
                   style: _outlinedBtnStyle(Colors.green, borderWidth: 2),
                 ),
               ),
@@ -310,7 +314,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                 child: OutlinedButton.icon(
                   onPressed: _isLoading ? null : _pickLocalImage,
                   icon: const Icon(Icons.photo_library),
-                  label: const Text('Pick Only'),
+                  label: const Text('仅选图'),
                   style: _outlinedBtnStyle(theme.colorScheme.primary),
                 ),
               ),
@@ -323,12 +327,12 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
             child: OutlinedButton.icon(
               onPressed: _isLoading ? null : _toggleFavorite,
               icon: Icon(_isFavorite ? Icons.star : Icons.star_border),
-              label: Text(_isFavorite ? 'Unfavorite Demo' : 'Favorite Demo'),
+              label: Text(_isFavorite ? '取消收藏' : '收藏此 demo'),
               style: _outlinedBtnStyle(theme.colorScheme.primary),
             ),
           ),
           const SizedBox(height: 16),
-          Text('Custom Image URL', style: theme.textTheme.titleSmall),
+          Text('自定义图片链接', style: theme.textTheme.titleSmall),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -358,7 +362,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Apply'),
+                    : const Text('应用'),
               ),
             ],
           ),
@@ -391,9 +395,9 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
           lockAspectRatio: false,
         ),
         initialImagePath: widget.isLocalFile ? widget.currentUrl : null,
-        title: 'Set Card Background',
-        emptyStateHint: 'Select a background image',
-        emptyStateSubHint: 'Freely adjust the crop area',
+        title: '设置卡片背景',
+        emptyStateHint: '选择一张背景图',
+        emptyStateSubHint: '可自由调整裁剪区域',
       );
       if (imagePath != null) {
         await widget.onImageSelected(imagePath);
@@ -410,8 +414,8 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
         context,
         config: const ImagePickerConfig(enableCrop: false),
         initialImagePath: widget.isLocalFile ? widget.currentUrl : null,
-        title: 'Select Background Image',
-        emptyStateHint: 'Select a background image',
+        title: '选择背景图',
+        emptyStateHint: '选择一张背景图',
         emptyStateSubHint: '',
       );
       if (imagePath != null) {
@@ -472,10 +476,7 @@ class _ScrollRevealGridState extends State<_ScrollRevealGrid>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
+    _controller = AnimationController(vsync: this, duration: kLabRevealDuration);
     _labPerfLog('grid reveal start itemCount=${widget.demos.length}');
     _controller.forward();
   }
@@ -491,12 +492,12 @@ class _ScrollRevealGridState extends State<_ScrollRevealGrid>
     return GridView.builder(
       controller: widget.controller,
       physics: widget.physics,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(kLabGridPadding),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 1.1,
+        crossAxisCount: kLabGridCrossAxisCount,
+        mainAxisSpacing: kLabGridSpacing,
+        crossAxisSpacing: kLabGridSpacing,
+        childAspectRatio: kLabGridAspectRatio,
       ),
       itemCount: widget.demos.length,
       itemBuilder: (context, index) {
@@ -531,8 +532,9 @@ class _RevealItem extends StatefulWidget {
 }
 
 class _RevealItemState extends State<_RevealItem> {
-  double get _delay => (widget.index * 0.06).clamp(0.0, 0.72);
-  double get _dur => 0.28;
+  double get _delay =>
+      (widget.index * kLabRevealDelayStep).clamp(0.0, kLabRevealMaxDelay);
+  double get _dur => kLabRevealItemDuration;
 
   double _progress(double t) {
     final start = _delay;
@@ -554,7 +556,7 @@ class _RevealItemState extends State<_RevealItem> {
         return Opacity(
           opacity: p,
           child: Transform.translate(
-            offset: Offset(0, 24 * (1 - p)),
+            offset: Offset(0, kLabRevealTranslateY * (1 - p)),
             child: widget.child,
           ),
         );

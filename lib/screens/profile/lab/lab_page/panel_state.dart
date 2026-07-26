@@ -149,7 +149,7 @@ class LabPullPanelStateMachine {
 
   void beginMainDrag() {
     if (_state == LabPullPanelState.settling) {
-      print('[PanelBug] beginMainDrag blocked by settling!');
+      _labPerfLog('beginMainDrag blocked by settling');
     }
     if (_state == LabPullPanelState.settling ||
         _state == LabPullPanelState.expanded ||
@@ -213,7 +213,7 @@ class LabPullPanelStateMachine {
 
   void beginPanelDrag() {
     if (_state == LabPullPanelState.settling) {
-      print('[PanelBug] beginPanelDrag blocked by settling!');
+      _labPerfLog('beginPanelDrag blocked by settling');
     }
     if (_state == LabPullPanelState.draggingPanel) return;
     if (_state == LabPullPanelState.settling ||

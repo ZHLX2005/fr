@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
 
-// ignore_for_file: avoid_print
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -17,6 +15,7 @@ import '../../../services/lab_image_cache_service.dart';
 import '../../../widgets/image_picker_widget.dart';
 import '../../../core/color/color_utils.dart';
 
+part 'lab_page/const_lab_panel.dart';
 part 'lab_page/components.dart';
 part 'lab_page/panel_content.dart';
 part 'lab_page/panel_state.dart';
@@ -160,8 +159,11 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   void _onAnimationStatusChanged(AnimationStatus status) {
     if (status == AnimationStatus.dismissed) {
-      print('[PanelBug] Animation dismissed! pendingTarget=$_pendingAnimationTarget state=${_sm.state}');
-      // 动画被中断（如新拖拽开始），立即完成到目标状态
+      // 动画被中断（如新拖拽开始），保持当前状态由下一次手势接管
+      _labPerfLog(
+        'animation dismissed pendingTarget=$_pendingAnimationTarget '
+        'state=${_sm.state.name}',
+      );
       return;
     }
     if (status != AnimationStatus.completed) return;
@@ -361,7 +363,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                         IconButton(
                           icon: const Icon(Icons.cleaning_services_outlined),
                           onPressed: () => _showCacheInfo(context),
-                          tooltip: 'Cache',
+                          tooltip: '缓存',
                         ),
                         IconButton(
                           icon: const Icon(Icons.info_outline),
@@ -485,14 +487,14 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           Text(
-            'No demos available',
+            '还没有可用的 demo',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.outline,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Register demos in main.dart first.',
+            '请先在 main.dart 的 bootstrapLab() 里注册',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.outline,
             ),
@@ -518,23 +520,23 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
       context: context,
       builder: (context) => AlertDialog(
         title: const Row(
-          children: [Icon(Icons.science), SizedBox(width: 8), Text('Lab Info')],
+          children: [Icon(Icons.science), SizedBox(width: 8), Text('关于 Lab')],
         ),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('This page hosts demos and experimental features.'),
+            Text('这里存放各类 demo 与实验性功能。'),
             SizedBox(height: 12),
-            Text('- Each demo runs independently'),
-            Text('- Managed by the lab registry'),
-            Text('- Safe to iterate without touching the main flow'),
+            Text('· 每个 demo 独立运行'),
+            Text('· 由 lab 注册表统一管理'),
+            Text('· 可随意迭代，不影响主流程'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text('关闭'),
           ),
         ],
       ),
@@ -555,24 +557,24 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
           children: [
             Icon(Icons.cleaning_services),
             SizedBox(width: 8),
-            Text('Image Cache'),
+            Text('图片缓存'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Cache size: ${_formatBytes(cacheSize)}'),
+            Text('缓存大小：${_formatBytes(cacheSize)}'),
             const SizedBox(height: 8),
-            const Text('Thumbnails improve large-image loading performance.'),
+            const Text('缩略图用于加速大图加载。'),
             const SizedBox(height: 12),
-            const Text('Clearing cache will regenerate preview images.'),
+            const Text('清空后预览图会重新生成。'),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('取消'),
           ),
           OutlinedButton(
             onPressed: () async {
@@ -581,14 +583,14 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(const SnackBar(content: Text('Cache cleared')));
+                ).showSnackBar(const SnackBar(content: Text('缓存已清空')));
               }
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.red,
               side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
             ),
-            child: const Text('Clear Cache'),
+            child: const Text('清空缓存'),
           ),
         ],
       ),
