@@ -1,22 +1,32 @@
-part of '../lab_page.dart';
+// demo 卡片与它的长按背景设置面板。
 
-class _DemoCard extends StatefulWidget {
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../services/lab_image_cache_service.dart';
+import '../../../../widgets/image_picker_widget.dart';
+import '../lab_panel/const_lab_panel.dart';
+import '../providers/lab_card_provider.dart';
+
+class DemoCard extends StatefulWidget {
   final String title;
   final String description;
   final VoidCallback onTap;
 
-  const _DemoCard({
+  const DemoCard({
+    super.key,
     required this.title,
     required this.description,
     required this.onTap,
   });
 
   @override
-  State<_DemoCard> createState() => _DemoCardState();
+  State<DemoCard> createState() => _DemoCardState();
 }
 
-
-class _DemoCardState extends State<_DemoCard> {
+class _DemoCardState extends State<DemoCard> {
   final _provider = LabCardProvider();
   final _cacheService = LabImageCacheService();
   bool _isPressed = false;
@@ -101,9 +111,7 @@ class _DemoCardState extends State<_DemoCard> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withValues(
-                            alpha: kLabCardScrimTopAlpha,
-                          ),
+                          Colors.black.withValues(alpha: kLabCardScrimTopAlpha),
                           Colors.black.withValues(
                             alpha: kLabCardScrimBottomAlpha,
                           ),
@@ -376,10 +384,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
   ButtonStyle _outlinedBtnStyle(Color color, {double borderWidth = 1}) {
     return OutlinedButton.styleFrom(
       foregroundColor: color,
-      side: BorderSide(
-        color: color.withValues(alpha: 0.5),
-        width: borderWidth,
-      ),
+      side: BorderSide(color: color.withValues(alpha: 0.5), width: borderWidth),
       padding: const EdgeInsets.symmetric(vertical: 12),
     );
   }
@@ -451,116 +456,3 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
 
 // _DemoDetailPage 已提升为公共 DemoDetailPage（../demo_detail_page.dart），
 // 供 Lab 与游戏中心共用。
-
-class _ScrollRevealGrid extends StatefulWidget {
-  const _ScrollRevealGrid({
-    required this.demos,
-    required this.controller,
-    required this.onDemoTap,
-    required this.physics,
-  });
-
-  final List<MapEntry<String, DemoPage>> demos;
-  final ScrollController controller;
-  final ValueChanged<DemoPage> onDemoTap;
-  final ScrollPhysics physics;
-
-  @override
-  State<_ScrollRevealGrid> createState() => _ScrollRevealGridState();
-}
-
-class _ScrollRevealGridState extends State<_ScrollRevealGrid>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: kLabRevealDuration);
-    _labPerfLog('grid reveal start itemCount=${widget.demos.length}');
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      controller: widget.controller,
-      physics: widget.physics,
-      padding: const EdgeInsets.all(kLabGridPadding),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: kLabGridCrossAxisCount,
-        mainAxisSpacing: kLabGridSpacing,
-        crossAxisSpacing: kLabGridSpacing,
-        childAspectRatio: kLabGridAspectRatio,
-      ),
-      itemCount: widget.demos.length,
-      itemBuilder: (context, index) {
-        final demo = widget.demos[index].value;
-        return _RevealItem(
-          index: index,
-          controller: _controller,
-          child: _DemoCard(
-            title: demo.title,
-            description: demo.description,
-            onTap: () => widget.onDemoTap(demo),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _RevealItem extends StatefulWidget {
-  const _RevealItem({
-    required this.index,
-    required this.controller,
-    required this.child,
-  });
-
-  final int index;
-  final AnimationController controller;
-  final Widget child;
-
-  @override
-  State<_RevealItem> createState() => _RevealItemState();
-}
-
-class _RevealItemState extends State<_RevealItem> {
-  double get _delay =>
-      (widget.index * kLabRevealDelayStep).clamp(0.0, kLabRevealMaxDelay);
-  double get _dur => kLabRevealItemDuration;
-
-  double _progress(double t) {
-    final start = _delay;
-    final end = start + _dur;
-    if (t < start) return 0.0;
-    if (t >= end) return 1.0;
-    return Curves.easeOutCubic.transform((t - start) / (end - start));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        final p = _progress(widget.controller.value);
-        if (p >= 1.0) {
-          return widget.child;
-        }
-        return Opacity(
-          opacity: p,
-          child: Transform.translate(
-            offset: Offset(0, kLabRevealTranslateY * (1 - p)),
-            child: widget.child,
-          ),
-        );
-      },
-    );
-  }
-}

@@ -1,4 +1,10 @@
-part of '../lab_page.dart';
+// 下拉面板的输入收敛层，详见类文档。
+
+import 'package:flutter/gestures.dart' show VelocityTracker;
+import 'package:flutter/material.dart';
+
+import '../lab_perf_log.dart';
+import 'lab_panel_state_machine.dart';
 
 /// 下拉面板的**输入收敛层**。
 ///
@@ -160,7 +166,7 @@ class LabPanelGestureCoordinator {
   }
 
   void _log(String message) {
-    _labPerfLog(
+    labPerfLog(
       '$message progress=${stateMachine.progress.toStringAsFixed(3)} '
       'state=${stateMachine.state.name}',
     );

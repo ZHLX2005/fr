@@ -1,34 +1,24 @@
-import 'dart:io';
-import 'dart:math' as math;
+// Lab 页面骨架：demo 网格 + 下拉收藏面板。
+//
+// 本文件只负责三件事：装配页面、驱动展开动画、把两条通道（连续进度 /
+// 离散状态）发布给各订阅方。其余职责都在同级模块里：
+//   lab_panel/   面板常量、配色、状态机、手势收敛、内容、把手、painter
+//   demo_grid/   demo 卡片、背景设置面板、网格与入场动画
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show VelocityTracker;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_reorderable_grid_view/entities/reorderable_animation_config.dart';
-import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 
 import '../../../lab/lab_container.dart';
-import 'demo_detail_page.dart';
-import 'providers/lab_card_provider.dart';
 import '../../../services/lab_image_cache_service.dart';
-import '../../../widgets/image_picker_widget.dart';
-import '../../../core/color/color_utils.dart';
-
-part 'lab_page/const_lab_panel.dart';
-part 'lab_page/components.dart';
-part 'lab_page/panel_content.dart';
-part 'lab_page/panel_gesture.dart';
-part 'lab_page/panel_state.dart';
-
-const bool _kLabPanelPerfDebug = false;
-
-void _labPerfLog(String message) {
-  if (_kLabPanelPerfDebug && kDebugMode) {
-    debugPrint('[LabPagePerf] $message');
-  }
-}
+import 'demo_detail_page.dart';
+import 'demo_grid/demo_reveal_grid.dart';
+import 'lab_panel/lab_panel_colors.dart';
+import 'lab_panel/lab_panel_content.dart';
+import 'lab_panel/lab_panel_gesture.dart';
+import 'lab_panel/lab_panel_painters.dart';
+import 'lab_panel/lab_panel_state_machine.dart';
+import 'lab_perf_log.dart';
 
 class LabPage extends StatefulWidget {
   /// 是否排除游戏类 demo。默认 true：实验室语义下游戏统一由游戏中心承载。
@@ -51,7 +41,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   late final AnimationController _anim = AnimationController(
     vsync: this,
-    duration: _kAnimationDuration,
+    duration: kLabPanelAnimationDuration,
   )..addStatusListener(_onAnimationStatusChanged);
 
   Animation<double>? _progressAnim;
@@ -101,7 +91,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                 : demoRegistry.getAll())
             .where((e) => seen.add(e.value))
             .toList();
-    if (_kLabPanelPerfDebug && kDebugMode) {
+    if (kLabPanelPerfDebug && kDebugMode) {
       SchedulerBinding.instance.addTimingsCallback(_timingsCallback);
     }
   }
@@ -124,7 +114,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    if (_kLabPanelPerfDebug && kDebugMode) {
+    if (kLabPanelPerfDebug && kDebugMode) {
       SchedulerBinding.instance.removeTimingsCallback(_timingsCallback);
     }
     _progressAnim?.removeListener(_onAnimTick);
@@ -136,13 +126,13 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   }
 
   void _onFrameTimings(List<FrameTiming> timings) {
-    if (!_kLabPanelPerfDebug || !mounted) return;
+    if (!kLabPanelPerfDebug || !mounted) return;
 
     for (final timing in timings) {
       final buildMs = timing.buildDuration.inMicroseconds / 1000.0;
       final rasterMs = timing.rasterDuration.inMicroseconds / 1000.0;
       if (buildMs <= 8.0 && rasterMs <= 8.0) continue;
-      _labPerfLog(
+      labPerfLog(
         'slow frame build=${buildMs.toStringAsFixed(1)}ms '
         'raster=${rasterMs.toStringAsFixed(1)}ms '
         'progress=${_progress.toStringAsFixed(3)} '
@@ -171,7 +161,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _stopCurrentAnimation();
     _pendingAnimationTarget = target;
     _sm.onAnimationStarted();
-    _labPerfLog(
+    labPerfLog(
       'animateTo target=${target.toStringAsFixed(3)} from=${_progress.toStringAsFixed(3)}',
     );
 
@@ -193,7 +183,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   void _onAnimationStatusChanged(AnimationStatus status) {
     if (status == AnimationStatus.dismissed) {
       // 动画被中断（如新拖拽开始），保持当前状态由下一次手势接管
-      _labPerfLog(
+      labPerfLog(
         'animation dismissed pendingTarget=$_pendingAnimationTarget '
         'state=${_sm.state.name}',
       );
@@ -207,7 +197,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     _progressAnim = null;
     _pendingAnimationTarget = null;
     _sm.onAnimationCompleted(target);
-    _labPerfLog(
+    labPerfLog(
       'animation completed target=${target.toStringAsFixed(3)} state=${_sm.state.name}',
     );
     _publish();
@@ -335,7 +325,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                 ),
               );
 
-              final panelContent = _LabPanelContent(
+              final panelContent = LabPanelContent(
                 scrollController: _panelScrollController,
                 demos: demos,
                 panelColors: panelColors,
@@ -372,7 +362,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                               Positioned.fill(child: panelBackground),
                               Positioned.fill(
                                 child: CustomPaint(
-                                  painter: _PanelSurfacePainter(
+                                  painter: PanelSurfacePainter(
                                     progress: progress,
                                     colors: panelColors,
                                   ),
@@ -424,7 +414,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   }
 
   Widget _buildDemoGrid(List<MapEntry<String, DemoPage>> demos) {
-    return _ScrollRevealGrid(
+    return DemoScrollRevealGrid(
       demos: demos,
       controller: _gridScrollController,
       onDemoTap: (demo) => _openDemoPage(context, demo),

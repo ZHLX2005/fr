@@ -182,10 +182,7 @@ class _ArtPatternPainter extends CustomPainter {
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
         canvas.drawCircle(
-          Offset(
-            size.width * (c + 0.5) / cols,
-            size.height * (r + 0.5) / rows,
-          ),
+          Offset(size.width * (c + 0.5) / cols, size.height * (r + 0.5) / rows),
           2.2,
           paint,
         );

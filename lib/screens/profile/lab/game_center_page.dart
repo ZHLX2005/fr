@@ -123,8 +123,7 @@ class _GameCenterPageState extends State<GameCenterPage>
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final list = _bucket(_selected);
-    final showFeatured =
-        _selected == GameCategory.all && _featured.isNotEmpty;
+    final showFeatured = _selected == GameCategory.all && _featured.isNotEmpty;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -196,23 +195,19 @@ class _GameCenterPageState extends State<GameCenterPage>
                 28,
               ),
               sliver: SliverGrid.builder(
-                gridDelegate:
-                    const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: kGcGridMaxExtent,
-                      childAspectRatio: kGcGridAspectRatio,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                    ),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: kGcGridMaxExtent,
+                  childAspectRatio: kGcGridAspectRatio,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                ),
                 itemCount: list.length,
                 itemBuilder: (context, index) {
                   final demo = list[index];
                   return _RevealItem(
                     index: index,
                     controller: _revealController,
-                    child: GameGridCard(
-                      demo: demo,
-                      onTap: () => _open(demo),
-                    ),
+                    child: GameGridCard(demo: demo, onTap: () => _open(demo)),
                   );
                 },
               ),
@@ -416,7 +411,12 @@ class _SectionTitle extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(kGcPagePadding, 18, kGcPagePadding, 10),
+      padding: const EdgeInsets.fromLTRB(
+        kGcPagePadding,
+        18,
+        kGcPagePadding,
+        10,
+      ),
       child: Row(
         children: [
           Container(

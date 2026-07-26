@@ -20,11 +20,7 @@ import 'game_center_artwork.dart';
 // ══════════════════════════════════════════════════════════════
 
 class GameFeaturedCard extends StatefulWidget {
-  const GameFeaturedCard({
-    super.key,
-    required this.demo,
-    required this.onTap,
-  });
+  const GameFeaturedCard({super.key, required this.demo, required this.onTap});
 
   final DemoPage demo;
   final VoidCallback onTap;
@@ -227,7 +223,9 @@ class _GameGridCardState extends State<GameGridCard> {
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(kGcCardRadius),
-            border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.5),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.06),
@@ -375,9 +373,7 @@ class _GameFavoriteStarState extends State<GameFavoriteStar> {
           key: ValueKey(isFav),
           size: size,
           color: isFav ? const Color(0xFFFFC53D) : Colors.white,
-          shadows: const [
-            Shadow(color: Color(0x66000000), blurRadius: 6),
-          ],
+          shadows: const [Shadow(color: Color(0x66000000), blurRadius: 6)],
         ),
       ),
     );
@@ -501,10 +497,11 @@ class _GlassPill extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: (dense
-                    ? Theme.of(context).textTheme.labelSmall
-                    : Theme.of(context).textTheme.labelMedium)
-                ?.copyWith(color: fg, fontWeight: FontWeight.w600),
+            style:
+                (dense
+                        ? Theme.of(context).textTheme.labelSmall
+                        : Theme.of(context).textTheme.labelMedium)
+                    ?.copyWith(color: fg, fontWeight: FontWeight.w600),
           ),
         ],
       ),

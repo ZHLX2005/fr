@@ -120,14 +120,17 @@ class LabCardProvider with ChangeNotifier {
   bool _normalizeFavoritesOrder() {
     var changed = false;
 
-    final removed = _favoritesOrder.where((title) => !_favorites.contains(title)).toList();
+    final removed = _favoritesOrder
+        .where((title) => !_favorites.contains(title))
+        .toList();
     if (removed.isNotEmpty) {
       _favoritesOrder.removeWhere((title) => !_favorites.contains(title));
       changed = true;
     }
 
-    final missing = (_favorites.toList()..sort())
-        .where((title) => !_favoritesOrder.contains(title));
+    final missing = (_favorites.toList()..sort()).where(
+      (title) => !_favoritesOrder.contains(title),
+    );
     for (final title in missing) {
       _favoritesOrder.add(title);
       changed = true;

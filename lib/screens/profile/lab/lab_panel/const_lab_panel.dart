@@ -1,4 +1,9 @@
-part of '../lab_page.dart';
+// Lab 容器（demo 网格 + 下拉收藏面板）的模块常量。
+//
+// 收口原则：**会被调参的视觉量**（色、圆角、时长、网格参数、alpha、尺寸）
+// 统一放这里；只在一处出现且无调参意义的布局微调（个别 SizedBox 间距）留在原地。
+
+import 'package:flutter/material.dart';
 
 // Lab 容器（demo 网格 + 下拉收藏面板）的模块常量。
 //
