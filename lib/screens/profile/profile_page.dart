@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'native_controller/native_controller_page.dart';
 import 'lab/lab_page.dart';
+import 'lab/game_center_page.dart';
 import '../../lab/lab_container.dart';
 import '../banner_crop_page.dart';
 import 'theme/theme_page.dart';

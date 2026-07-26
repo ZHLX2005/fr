@@ -26,6 +26,8 @@ class GomokuLuaDemo extends DemoPage {
   @override String get slug => 'gomoku-lua';
   @override String get description => 'Gomoku 互联网双人对战 · Lua 服务端权威棋谱';
   @override bool get preferFullScreen => true;
+  // 归属游戏中心（联机 · 棋游），不再出现在 Lab 列表
+  @override DemoType get type => DemoType.game;
   @override Widget buildPage(BuildContext context) => const GomokuLuaPage();
 }
 

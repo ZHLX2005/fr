@@ -22,6 +22,8 @@ class TeamCardLuaDemo extends DemoPage {
   @override String get slug => 'team-card-lua';
   @override String get description => '谁是卧底/狼人杀 · Lua 服务端权威 + 准备门';
   @override bool get preferFullScreen => true;
+  // 归属游戏中心（联机 · 派对），不再出现在 Lab 列表
+  @override DemoType get type => DemoType.game;
   @override Widget buildPage(BuildContext context) => const _TeamCardLuaDemoPage();
 }
 

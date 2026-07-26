@@ -11,12 +11,7 @@ import 'package:flutter_reorderable_grid_view/entities/reorderable_animation_con
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 
 import '../../../lab/lab_container.dart';
-import '../../../lab/demos/game_2048_demo.dart';
-import '../../../lab/demos/line_demo.dart';
-import '../../../lab/demos/reversi_demo.dart';
-import '../../../lab/demos/snake_game_demo.dart';
-import '../../../lab/demos/surround_game_demo.dart';
-import '../../../lab/demos/jungle_chess_demo.dart';
+import 'demo_detail_page.dart';
 import 'providers/lab_card_provider.dart';
 import '../../../services/lab_image_cache_service.dart';
 import '../../../widgets/image_picker_widget.dart';
@@ -25,7 +20,6 @@ import '../../../core/color/color_utils.dart';
 part 'lab_page/components.dart';
 part 'lab_page/panel_content.dart';
 part 'lab_page/panel_state.dart';
-part 'game_center_page.dart';
 
 const bool _kLabPanelPerfDebug = false;
 
@@ -326,7 +320,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
   void _openDemoPage(BuildContext context, DemoPage demo) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => _DemoDetailPage(demo: demo)),
+      MaterialPageRoute(builder: (context) => DemoDetailPage(demo: demo)),
     );
   }
 
