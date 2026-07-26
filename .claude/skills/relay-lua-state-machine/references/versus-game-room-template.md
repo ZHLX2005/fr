@@ -136,6 +136,40 @@ end
 
 > 见 [[server-authoritative-client-state]] §4 乐观更新合法用法。
 
+#### 双人对战的自动准备（推荐）
+
+当房间已经出现第 2 位玩家时，双方客户端可以自动发送一次 `ACK`，直接进入
+`ready`（服务端仍是唯一真相）。这样“加入房间”完成后即进入对战准备态，
+不要求加入者再点击一次“准备好了”。UI 只保留状态反馈：
+
+- 未满 2 人：显示“等待对手加入…”；
+- 满 2 人且 ACK 请求中：显示“正在准备…”；
+- 服务端进入 `ready`：房主显示“开始游戏”，客方显示“等待房主开始…”；
+- ACK 网络失败：恢复手动“准备好了”按钮，并允许重试。
+
+实现要点：
+
+```dart
+void maybeAutoAck(Snapshot s) {
+  if (autoAckSent || autoAckFailed) return;
+  if (s.state != 'lobby' || players(s).length < 2) return;
+  if (readyMap(s)[myDeviceId] == true) {
+    autoAckSent = true;
+    return;
+  }
+  autoAckSent = true;
+  ack().catchError((_) {
+    autoAckSent = false;
+    autoAckFailed = true;
+    // UI 恢复手动 ACK
+  });
+}
+```
+
+> 自动准备是 UX 层优化，不绕过服务端权限；RESET 回到新 lobby 时必须清除
+> `autoAckSent/autoAckFailed`，避免下一局无法自动准备。对五子棋、井字棋等
+> 双人房间适用；需要玩家选择身份/阵营的业务不要默认套用。
+
 ### 3.2 ready 阶段（双方已准备）
 
 - 房主：显示"开始游戏"按钮（`_canPerform('DEAL')`）

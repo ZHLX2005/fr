@@ -247,6 +247,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   GomokuBoard _board = const [];
   /// 本地乐观状态：lobby 阶段点了"准备好了"立即置 true。
   bool _ackedLocally = false;
+  /// 双方进入房间后自动 ACK，避免加入者再点一次"准备好了"。
+  bool _autoAckSent = false;
+  bool _autoAckFailed = false;
   /// 待确认落子点：点击空交点后进入待确认，确认才发 MOVE。
   /// null = 无待确认。回合切换/对手落子时自动清除。
   (int, int)? _pendingPoint;
@@ -263,10 +266,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _snap = widget.handle.latest;
     _rebuild(_snap);
     _sub = widget.handle.snapshots.listen(_onSnapshot);
+    final initial = _snap;
+    if (initial != null) _maybeAutoAck(initial);
   }
 
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
+    final previousState = _snap?.state;
     // 回合切换（落子数变化）→ 清掉待确认状态，防止跨回合残留
     final prevMoveCount = _moves.length;
     setState(() {
@@ -283,8 +289,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (s.state == 'lobby' && _winDeclared) {
       _winDeclared = false;
     }
+    // 房主点击“再来一局”后，下一局重新允许自动准备。
+    if (previousState != 'lobby' && s.state == 'lobby') {
+      _autoAckSent = false;
+      _autoAckFailed = false;
+    }
     // 连五判定：本地从权威 history 重建后检查最后一步是否连五 → 发 WIN
     _maybeDeclareWin();
+    _maybeAutoAck(s);
   }
 
   void _rebuild(Snapshot? s) {
@@ -328,6 +340,27 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     } catch (_) {
       if (mounted) setState(() => _ackedLocally = false);
     }
+  }
+
+  /// 加入第二位玩家后自动完成准备，消除“加入后还要再点一次”的额外操作。
+  /// 服务端仍以 ACK 权限和 ready 状态为准，自动动作只是 UX 优化。
+  void _maybeAutoAck(Snapshot s) {
+    if (_autoAckSent || _autoAckFailed) return;
+    if (s.state != 'lobby') return;
+    final players = GomokuRoom.players(s);
+    if (players.length < 2) return;
+    final ready = GomokuRoom.readyMap(s);
+    if (ready[_room.deviceId] == true) {
+      _autoAckSent = true;
+      return;
+    }
+    _autoAckSent = true;
+    _ackedLocally = true;
+    _room.ack().catchError((_) {
+      _autoAckSent = false;
+      _autoAckFailed = true;
+      if (mounted) setState(() => _ackedLocally = false);
+    });
   }
 
   Future<void> _deal() async => _room.deal();
@@ -465,17 +498,23 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               }),
               if (players.length >= 2) ...[
                 const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: (iAmReady || !_canPerform('ACK')) ? null : _ack,
-                  icon: Icon(iAmReady ? Icons.check_circle : Icons.check_circle_outlined),
-                  label: Text(iAmReady ? '已准备 ✓' : '准备好了'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: iAmReady ? Colors.green : Colors.green.shade400,
-                    side: BorderSide(color: iAmReady ? Colors.green : Colors.green.shade400),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    minimumSize: const Size(200, 48),
+                if (_autoAckFailed)
+                  OutlinedButton.icon(
+                    onPressed: (iAmReady || !_canPerform('ACK')) ? null : _ack,
+                    icon: Icon(iAmReady ? Icons.check_circle : Icons.refresh),
+                    label: Text(iAmReady ? '已准备 ✓' : '自动准备失败，点击重试'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: iAmReady ? Colors.green : Colors.orange,
+                      side: BorderSide(color: iAmReady ? Colors.green : Colors.orange),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      minimumSize: const Size(200, 48),
+                    ),
+                  )
+                else
+                  Text(
+                    iAmReady ? '已自动准备 ✓' : '正在自动准备…',
+                    style: TextStyle(color: Colors.green.shade400, fontSize: 14),
                   ),
-                ),
               ],
             ]),
           ),
