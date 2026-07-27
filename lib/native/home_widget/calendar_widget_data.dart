@@ -1,9 +1,10 @@
 import 'dart:convert';
-import '../../lab/demos/calendar/models/lab_calendar_event.dart';
+
+import '../../lab/demos/calendar/domain/event.dart';
 
 /// 桌面日历小组件传递的数据
 ///
-/// Kotlin 端无需理解 LabCalendarEvent 的完整结构，仅按日期分桶收颜色数组：
+/// Kotlin 端无需理解 Event 的完整结构，仅按日期分桶收颜色数组：
 ///   { "1": ["#FF0000"], "5": ["#FF9800", "#2196F3"], ... }
 class CalendarWidgetData {
   /// 视图年（如 2026）
@@ -29,26 +30,21 @@ class CalendarWidgetData {
     required this.colorsByDay,
   });
 
-  /// 从事件列表构建当月 widget 数据
+  /// 从事件列表构建当月 widget 数据（新签名：接受 List<Event>）
   factory CalendarWidgetData.fromEvents({
     required int year,
     required int month,
-    required List<LabCalendarEvent> events,
+    required List<Event> events,
     DateTime? now,
   }) {
     final today = now ?? DateTime.now();
-
-    // 仅保留当月事件，按 day 分桶
     final Map<String, List<String>> grouped = {};
-    final monthEvents = events.where(
-      (e) => e.year == year && e.month == month,
-    );
+    final monthEvents = events.where((e) => e.year == year && e.month == month);
     final sorted = monthEvents.toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     for (final e in sorted) {
-      grouped.putIfAbsent(e.day.toString(), () => []).add(e.color);
+      grouped.putIfAbsent(e.day.toString(), () => []).add(e.colorTag.hex);
     }
-
     return CalendarWidgetData(
       year: year,
       month: month,
@@ -68,6 +64,5 @@ class CalendarWidgetData {
     colorsByDay: {},
   );
 
-  /// 序列化 colorsByDay 给 Kotlin 解析
   String get colorsJson => json.encode(colorsByDay);
 }

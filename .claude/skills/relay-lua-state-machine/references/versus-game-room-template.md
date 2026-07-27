@@ -36,7 +36,7 @@
 
 ```
 lib/lab/demos/<game>_lua/
-├── constants.dart        — AliasPrefs + relayUrl + 棋盘常量
+├── constants.dart        — relayUrl + 棋盘常量
 ├── <game>_script.dart    — Lua 脚本（状态机 + action_permissions + max_players）
 ├── engine.dart           — Room 封装 + 状态读取 + canPerform + 胜负判定
 ├── board.dart            — 棋盘 widget（可选，复杂棋盘单独文件）
@@ -47,7 +47,89 @@ lib/lab/demos/<game>_lua_demo.dart  — DemoPage 入口 + 卡片化主页
 lib/lab/lab_bootstrap.dart          — 加 registerXxxLuaDemo()
 ```
 
+> 🟢 **共享昵称（4 个 Lua 游戏统一用 `lua_game.alias`）**：见 §1.1。
 > 五子棋当前实现符合本结构，直接参照 `lib/lab/demos/gomoku_lua/` 抄。
+
+---
+
+## 1.1 共享昵称（4 个 Lua 游戏通用 reference）
+
+**4 个 Lua 房间对战游戏共用同一个昵称**——用户在任何一处输入，所有游戏（包括正在打开的 LobbyEntryPage）立即看到最新值。
+
+**共享 module**：`lib/services/lua/lua_game_alias.dart`
+
+```dart
+class LuaGameAlias {
+  /// 全局 reference：当前昵称。widget 通过 [notifier] 监听变化。
+  static final ValueNotifier<String> notifier = ValueNotifier<String>('');
+
+  /// 首次从 SharedPreferences 加载；兼容迁移老 4 个 key。
+  static Future<String> load();
+
+  /// 同步更新 notifier（实时通知监听者）+ 异步写 SharedPreferences。
+  static Future<void> save(String alias);
+}
+
+/// 统一 key（取代 gomoku_lua.alias / surround_game_lua.alias / tetris_lua.alias / reversi_lua.alias）
+const String kLuaGameAliasKey = 'lua_game.alias';
+```
+
+**LobbyEntryPage 用法（每个游戏都这样写）**：
+
+```dart
+@override
+void initState() {
+  super.initState();
+  // 1) load 回填（遵守"用户已抢先输入就不覆盖"）
+  LuaGameAlias.load().then((v) {
+    if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
+      setState(() => _aliasCtrl.text = v);
+    }
+  });
+  // 2) 监听 notifier：别处改了昵称 → 实时回填
+  LuaGameAlias.notifier.addListener(_onAliasChanged);
+}
+
+void _onAliasChanged() {
+  if (!mounted) return;
+  final v = LuaGameAlias.value;
+  if (v != _aliasCtrl.text) {
+    setState(() => _aliasCtrl.text = v);
+  }
+}
+
+@override
+void dispose() {
+  LuaGameAlias.notifier.removeListener(_onAliasChanged);
+  // ...
+  super.dispose();
+}
+
+// 3) TextField onChanged 实时写（输入即持久化 + 实时同步）
+TextField(
+  controller: _aliasCtrl,
+  onChanged: LuaGameAlias.save,
+)
+
+// 4) 提交进入对局时 save（幂等）
+await LuaGameAlias.save(alias);
+```
+
+**特性**：
+- 共用 key `lua_game.alias`（一个 SharedPreferences 项）
+- 老 4 个 key 自动迁移：`load()` 时新 key 为空时按顺序回退 4 个历史 key 读一个非空的
+- **实时响应**：输入即写 + notifier 通知所有监听者同步显示（不依赖轮询 SharedPreferences）
+- **不需要每个游戏各自写 `<Xxx>AliasPrefs`**——4 个 demo 的 `constants.dart` 不要再定义 `AliasKey`/`AliasPrefs`
+
+**反模式**：
+
+| ❌ 错误 | 后果 | ✅ 正确 |
+|---------|------|---------|
+| 每个游戏各自 `<Xxx>AliasPrefs` + 独立 SharedPreferences key | 4 个游戏要分别输入昵称，user 心智负担重；改一处其它游戏不更新 | 共享 `LuaGameAlias` reference，4 游戏共用一个 key + ValueNotifier |
+| 用 `SharedPreferences.getInstance().then((p) => setState(...))` 轮询 | 不同步 + 性能差 | `ValueNotifier` 事件驱动 + 共享 module 统一管理 |
+| 新游戏加新的 alias key (`<newgame>_lua.alias`) | 共享断开，用户在新游戏要重新输入 | 全部游戏都用 `kLuaGameAliasKey = 'lua_game.alias'` |
+
+---
 
 ---
 
@@ -406,7 +488,7 @@ Container(
 
 | 组件 | 职责 | 参数 |
 |------|------|------|
-| `LobbyEntryPage` | 单表单智能匹配 | relayUrl, script, deviceIdPrefix, aliasPrefsKey, onJoined |
+| `LobbyEntryPage` | 单表单智能匹配 | relayUrl, script, deviceIdPrefix, onJoined（**昵称用 `LuaGameAlias` 共享，不接 aliasPrefsKey**） |
 | `RoomLobbyView` | 房间号 chip + 圆环头像列表 + **三态按钮区（准备好了 / 已准备 / 开始游戏 / 等待房主）** | code, players, readyMap, myId, phase, isHost, canDeal, onAck, onDeal |
 | `RoomFinishedOverlay` | 胜负 + 再来一局 | winner, imRole, isHost, onReset, boardChild |
 | `RoomBottomActionBar` | 认输/重开/退出 | canResign, canReset, onResign, onReset, onLeave |
@@ -435,7 +517,8 @@ VersusRoomShell(
 
 ## 8. 从 0 实现新对战游戏 checklist
 
-1. **constants.dart**：AliasPrefs + relayUrl + 棋盘常量（尺寸/获胜条件）
+1. **constants.dart**：relayUrl + 棋盘常量（尺寸/获胜条件）。
+   **不要在 constants.dart 里写 `<Xxx>AliasPrefs`**——4 个游戏共用 `LuaGameAlias`，详细见 §1.1。
 2. **<game>_script.dart**：复制五子棋 Lua，改：
    - 角色字段名（`black_player_id` → 你的）
    - MOVE 的 move 结构（落子坐标字段）
@@ -448,6 +531,7 @@ VersusRoomShell(
 4. **board.dart**：写你的棋盘 widget（网格/格子/六边形）
 5. **widgets.dart**：复制五子棋 widgets，改：
    - **保留 LobbyEntryPage 结构**（tryJoinOrCreate + 单表单）
+   - **共享昵称用 `LuaGameAlias`**（不要写 `<Xxx>AliasPrefs`，见 §1.1）
    - **保留 lobby/ready 同一张卡片 + 底部按钮三态原地切换**（★ 见 §3.2）
    - **禁止**为 `ready` 起独立 build 分支或独立 Scaffold
    - 棋盘渲染调用
@@ -513,6 +597,7 @@ GomokuAliasPrefs.load().then((v) {
 | 棋盘有方向/需镜像 | [[role-aware-board-mirror]] |
 | 要旁观者/身份/双区 | [[team-card-lobby-pattern]] |
 | 单表单 + tryJoinOrCreate + 409 撞号提示 | [[social-room-code-pattern]] |
+| **4 个 Lua 游戏共用昵称 `lua_game.alias`** | **本 ref §1.1 + `lib/services/lua/lua_game_alias.dart`** |
 | **端到端落地** | **本 ref**（综合调用以上） |
 
 ---
@@ -524,6 +609,7 @@ GomokuAliasPrefs.load().then((v) {
 - 文件：`lib/lab/demos/gomoku_lua/`
 - Demo 入口：`lib/lab/demos/gomoku_lua_demo.dart`
 - Lua 脚本：`lib/lab/demos/gomoku_lua/gomoku_script.dart`
+- **共享昵称 reference**：`lib/services/lua/lua_game_alias.dart`
 - 端到端测试：`.tool/relay-room-tester/scripts/test_rooms.py`
 
 ---
@@ -535,3 +621,4 @@ GomokuAliasPrefs.load().then((v) {
 | 初版把"lobby → ready"设计成两张独立 Scaffold（`_buildLobby` / `_buildReadyWait`） | 用户点完"准备好了"→ Scaffold 整页切换 → 卡片肉眼可见地缩放/漂移、圆环头像和房间号闪一下 | 一张 `_buildLobby` 卡片承担 lobby + ready 两个 phase，phase 只驱动**标题文案 + 底部按钮**，容器/头像列表位置完全不动 |
 | 底部按钮用 `if (canDeal) SizedBox(...) else Text(...)` 让按钮消失 | 按钮区高度变化 → 上方内容被撑动 → 卡片抖动 | 按钮区固定 48px 高度；非房主用同高度 `Text('等待房主开始…')` 占位 |
 | 前一版反模式表写"ready 阶段留一个额外的开始游戏按钮 = 错误" | 让新读者以为 ready 阶段必须删掉，但真正的问题是"另起页面"而不是"多一步" | 反模式改为"`ready` 阶段用独立 Scaffold / 独立 build 分支"；ready 保留，但同页三态 |
+| 4 个 Lua 游戏各自 `<Xxx>AliasPrefs` 分散到 `constants.dart` | 用户在五子棋输入昵称后切换到俄罗斯方块要重新输入；4 套 key 重复造轮子 | 共享 `LuaGameAlias` reference（`lib/services/lua/lua_game_alias.dart`）：`ValueNotifier` 跨页面实时同步 + 统一 key `lua_game.alias`；新游戏直接 import 不再写 Prefs |

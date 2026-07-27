@@ -83,7 +83,15 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
 
       final keyDetails = <String, List<KeyDetail>>{};
       for (final info in list) {
-        final details = await _storage.getKeyDetails(info.type).timeout(const Duration(seconds: 10));
+        // 关键：传 boxName 让 getKeyDetails 只返回该 box 的键
+        // （否则 Hive 场景会把所有 box 的键都塞进当前 info.name，造成错乱）
+        final details = info.type == StorageType.hive
+            ? await _storage
+                .getKeyDetails(info.type, boxName: info.name)
+                .timeout(const Duration(seconds: 10))
+            : await _storage
+                .getKeyDetails(info.type)
+                .timeout(const Duration(seconds: 10));
         keyDetails[info.name] = details;
       }
 
@@ -281,6 +289,10 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                   children: [
                     ..._storageList.map((info) {
                       final keys = _keyDetails[info.name] ?? [];
+                      // 0 key 的 box 卡片不显示，避免冗余
+                      if (info.keyCount == 0) {
+                        return const SizedBox.shrink();
+                      }
                       return _StorageCard(
                         info: info,
                         keys: keys,
@@ -674,8 +686,8 @@ class _StatItem extends StatelessWidget {
     );
   }
 }
-
 class _StorageCard extends StatelessWidget {
+
   final StorageInfo info;
   final List<KeyDetail> keys;
   final Set<String> expandedKeys;

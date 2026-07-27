@@ -1,0 +1,68 @@
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+
+import '../domain/person.dart';
+import 'calendar_hive.dart';
+import 'person_repository.dart';
+
+class LabPeopleProvider with ChangeNotifier {
+  final PersonRepository _repo = PersonRepository();
+  final _uuid = const Uuid();
+
+  List<Person> _people = [];
+  List<Person> get people => List.unmodifiable(_people);
+
+  LabPeopleProvider() {
+    _init();
+  }
+
+  Future<void> _init() async {
+    await CalendarHive.init();
+    _people = _repo.load();
+    notifyListeners();
+  }
+
+  Person? byId(String id) {
+    for (final p in _people) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  Future<Person> add({
+    required String name,
+    required PersonRelation relation,
+    String? avatarEmoji,
+    String? note,
+  }) async {
+    final p = Person(
+      id: _uuid.v4(),
+      name: name,
+      relation: relation,
+      avatarEmoji: avatarEmoji,
+      note: note,
+      createdAt: DateTime.now(),
+    );
+    _people.add(p);
+    await _repo.add(p);
+    notifyListeners();
+    return p;
+  }
+
+  Future<void> update(Person p) async {
+    final i = _people.indexWhere((x) => x.id == p.id);
+    if (i == -1) return;
+    _people[i] = p;
+    await _repo.update(p);
+    notifyListeners();
+  }
+
+  Future<void> remove(String id) async {
+    _people.removeWhere((p) => p.id == id);
+    await _repo.remove(id);
+    notifyListeners();
+  }
+
+  List<Person> byRelation(PersonRelation r) =>
+      _people.where((p) => p.relation == r).toList();
+}

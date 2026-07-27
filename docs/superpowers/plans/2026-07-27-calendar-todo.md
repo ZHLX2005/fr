@@ -6,19 +6,30 @@
 
 **Architecture:** 三层结构 `domain / data / ui`。`domain` 纯 Dart，含农历 engine 适配器、Person/Event 模型、生日推算，无 Flutter 依赖；`data` 用 SharedPreferences + Provider；`ui` 月/周/日/年/报表/人物六视图，顶部 Pill 切换、左右滑 PageView。视觉系统抽到 `core/theme/paper_palette.dart` + `typography.dart`。
 
-**Tech Stack:** Flutter 3.x、Provider、SharedPreferences、google_fonts（Cormorant Garamond + Inter）、`chinese_calendar: ^0.4.0`、uuid。
+**Tech Stack:** Flutter 3.x、Provider、SharedPreferences、google_fonts（Cormorant Garamond + Inter）、`lunar: ^1.7.8`（by 6tail.cn，pub.dev，MIT，6.56k 下载）、uuid。
 
 ## Global Constraints
 
 - **目录结构**：所有新文件遵循 spec §2 的目录布局；修改 `lib/lab/demos/calendar/` 时保留 slug=`calendar` 的 DemoPage 入口。
-- **依赖**：仅引入 `chinese_calendar`，不引入其他第三方日历/UI 库。`pubspec.yaml` 中新依赖加到 `dependencies:` 区段。
+- **依赖**：仅引入 `lunar: ^1.7.8`（pubspec）；不引入其他第三方日历/UI 库。**不要写 `chinese_calendar`**——这个包名是我之前误用的，pub.dev 上不存在。
+- **农历范围**：1900–**2099**（lunar 包上限）；范围外优雅降级，UI 提示"超出支持范围，按当前历法保留"。
 - **视觉**：所有颜色必须从 `PaperPalette` 取，禁用 Material 默认蓝（`Colors.blue` / `0xFF1976D2` / `Theme.of(context).colorScheme.primary`）；所有分隔线 1px `PaperPalette.line`；禁用 Elevation 阴影（`BoxShadow` 仅允许 ≤2px、alpha ≤0.04 的"纸张浮起"微弱效果）。
 - **字体**：标题必须 Cormorant Garamond（`GoogleFonts.cormorantGaramond`）；正文必须 Inter（`GoogleFonts.inter`）。
 - **交互原则**：每个 UI 任务 commit 前必须自检「快/少点击/准/丰富」4 条，至少 3 条满足才合格；不满足就在任务备注里写明为什么妥协。
 - **不做**：系统通知/提醒、桌面 widget 重构、干支/宜忌、云同步、图片头像（用 emoji 替代）、节气横条。
+- **保留**：旧 demo 的「同步到系统日历」按钮（用户裁决保留）。
 - **commit**：每个任务结束 commit；commit 信息遵循 Conventional Commits；中文 commit 描述与项目历史一致。
 - **数据迁移**：旧的 `LabCalendarEvent` JSON 需在首个数据任务里写迁移代码，无损升级（读取旧 key `lab_calendar_events`，如发现 `system`/`personId` 字段缺失按 solar/task 默认值补齐）。
-- **农历范围**：1900–2100；范围外优雅降级，UI 提示"超出支持范围，按当前历法保留"。
+- **Event 与 widget 解耦**：Task 30 重写 `CalendarWidgetData` 接受新 Event 类型（包含 year 用于桌面 widget 显示当前年）。
+- **Provider 范围**：新版 LabCalendarProvider 是 `MultiProvider` 局部，仅 CalendarDemo 内部使用；**必须从 main.dart 顶部删除旧 `import 'lab/demos/calendar/providers/lab_calendar_provider.dart';`**（Task 31）。
+- **lunar API（实测）**：
+  - `Lunar.fromYmd(int year, int month, int day)` / `Lunar.fromDate(DateTime date)`
+  - `Solar.fromYmd(int year, int month, int day)` / `Solar.fromDate(DateTime date)`
+  - `Lunar.getSolar()` 返回 `Solar`（Lunar → Solar 转换）
+  - `Solar.getLunar()` 返回 `Lunar`（Solar → Lunar 转换）
+  - `Lunar.getYearShengXiao()` 返回生肖字符串（"虎"、"马"等）
+  - `Lunar.getYearInChinese()` / `getMonthInChinese()` / `getDayInChinese()`
+  - `Lunar.nextYears(int n)` / `Lunar.next(int days)`
 
 ---
 
@@ -65,14 +76,14 @@
 
 ---
 
-## Task 1: 引入 chinese_calendar 依赖
+## Task 1: 引入 lunar 依赖
 
 **Files:**
 - Modify: `pubspec.yaml:30-32`（dependencies 段）
 
 **Interfaces:**
 - Consumes: 无
-- Produces: `chinese_calendar` 包可在 `lib/` 下 `import 'package:chinese_calendar/chinese_calendar.dart';`
+- Produces: `lunar` 包可在 `lib/` 下 `import 'package:lunar/lunar.dart';`
 
 - [ ] **Step 1: 在 pubspec.yaml 添加依赖**
 
@@ -81,18 +92,18 @@ dependencies:
   flutter:
     sdk: flutter
   # ... 既有依赖
-  chinese_calendar: ^0.4.0
+  lunar: ^1.7.8
 ```
 
 - [ ] **Step 2: 拉取依赖**
 
 Run: `flutter pub get`
-Expected: success，新依赖装好，`.dart_tool/package_config.json` 含 `chinese_calendar`
+Expected: success，新依赖装好，`.dart_tool/package_config.json` 含 `lunar`
 
 - [ ] **Step 3: 验证 import 可用**
 
 ```bash
-grep -r "chinese_calendar" .dart_tool/package_config.json | head -1
+grep -r "lunar" .dart_tool/package_config.json | head -1
 ```
 Expected: 出现一行
 
@@ -100,7 +111,7 @@ Expected: 出现一行
 
 ```bash
 git add pubspec.yaml pubspec.lock
-git commit -m "build(calendar): 引入 chinese_calendar ^0.4.0 农历依赖"
+git commit -m "build(calendar): 引入 lunar ^1.7.8 农历依赖"
 ```
 
 ---
@@ -272,35 +283,40 @@ git commit -m "feat(calendar): 新增 LunarCalendar 抽象与日期值对象"
 
 ---
 
-## Task 5: chinese_calendar 适配器
+## Task 5: lunar 适配器
 
 **Files:**
-- Create: `lib/lab/demos/calendar/chinese_calendar_adapter.dart`
+- Create: `lib/lab/demos/calendar/lunar_adapter.dart`
 
 **Interfaces:**
 - Consumes: `LunarCalendar`（Task 4）
-- Produces: `ChineseCalendarAdapter implements LunarCalendar`
+- Produces: `LunarAdapter implements LunarCalendar`
 
 - [ ] **Step 1: 写失败测试**
 
 ```dart
-// test/lab/demos/calendar/chinese_calendar_adapter_test.dart
+// test/lab/demos/calendar/lunar_adapter_test.dart
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/lab/demos/calendar/chinese_calendar_adapter.dart';
+import 'package:xiaodouzi_fr/lab/demos/calendar/lunar_adapter.dart';
 import 'package:xiaodouzi_fr/lab/demos/calendar/domain/lunar_calendar.dart';
 
 void main() {
-  group('ChineseCalendarAdapter', () {
-    test('2026-01-01 对应农历 2025 冬月十二', () {
-      final a = ChineseCalendarAdapter();
+  group('LunarAdapter', () {
+    test('2026-01-01 太阳对应农历 2025年冬月十二', () {
+      final a = LunarAdapter();
       final l = a.fromSolar(DateTime(2026, 1, 1));
       expect(l.year, 2025);
-      expect(l.month, 11); // 冬月
+      expect(l.month, 11); // 冬月（农历十一月）
       expect(l.day, 12);
     });
-    test('生肖 2026-02-17 春节后为马', () {
-      final a = ChineseCalendarAdapter();
+    test('2026-02-17 春节后生肖为马', () {
+      final a = LunarAdapter();
       expect(a.zodiacOf(DateTime(2026, 2, 17)), '马');
+    });
+    test('农历 2025-11-12 转回公历 2026-01-01', () {
+      final a = LunarAdapter();
+      final s = a.toSolar(2025, 11, 12);
+      expect(s, const SolarDate(2026, 1, 1));
     });
   });
 }
@@ -308,63 +324,66 @@ void main() {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `flutter test test/lab/demos/calendar/chinese_calendar_adapter_test.dart`
-Expected: FAIL (ChineseCalendarAdapter not defined)
+Run: `flutter test test/lab/demos/calendar/lunar_adapter_test.dart`
+Expected: FAIL (LunarAdapter not defined)
 
 - [ ] **Step 3: 实现适配器**
 
 ```dart
-// lib/lab/demos/calendar/chinese_calendar_adapter.dart
-import 'package:chinese_calendar/chinese_calendar.dart' as cc;
+// lib/lab/demos/calendar/lunar_adapter.dart
+import 'package:lunar/lunar.dart' as l;
 import 'domain/lunar_calendar.dart';
 
-class ChineseCalendarAdapter implements LunarCalendar {
+class LunarAdapter implements LunarCalendar {
   @override
   SolarDate toSolar(int lunarYear, int lunarMonth, int lunarDay, {bool isLeap = false}) {
-    final d = cc.LunarDate(lunarYear, lunarMonth, lunarDay, isLeapMonth: isLeap);
-    final s = d.getSolarDate();
+    final ld = l.Lunar.fromYmd(lunarYear, lunarMonth, lunarDay);
+    final s = ld.getSolar();
     return SolarDate(s.year, s.month, s.day);
   }
 
   @override
   LunarDate fromSolar(DateTime solar) {
-    final d = cc.LunarDate.fromSolar(solar);
-    return LunarDate(d.year, d.month, d.day, isLeap: d.isLeapMonth);
+    final ld = l.Lunar.fromDate(solar);
+    return LunarDate(ld.year, ld.month, ld.day, isLeap: false);
   }
 
   @override
-  String zodiacOf(DateTime solar) => cc.LunarDate.fromSolar(solar).yearShengXiao;
+  String zodiacOf(DateTime solar) =>
+      l.Lunar.fromDate(solar).getYearShengXiao();
 
   @override
   String? solarTermOf(DateTime solar) {
-    // chinese_calendar 0.4 节气 API：cc.LunarDate.fromSolar(solar).getJieQi();
-    return null; // 暂不暴露，留接口
+    // lunar 包未直接暴露节气 getter；这里返回 null 保持接口
+    return null;
   }
 
   @override
   int daysInLunarMonth(int year, int month, {bool isLeap = false}) {
-    return cc.LunarDate(year, month, 1, isLeapMonth: isLeap)
-        .getSolarDate()
-        .difference(cc.LunarDate(year, month - 1, 1, isLeapMonth: isLeap)
-            .getSolarDate())
-        .inDays
-        .abs();
+    // lunar 包：根据月份第一天是 Solar，下月第一天相减
+    final first = l.Lunar.fromYmd(year, month, 1).getSolar();
+    final next = l.Lunar.fromYmd(year, month + 1, 1).getSolar();
+    return next.toDate().difference(first.toDate()).inDays;
   }
+}
+
+extension on l.Solar {
+  DateTime toDate() => DateTime(year, month, day);
 }
 ```
 
-> 注：第 3 步若 `chinese_calendar` 0.4 实际 API 名称不同，先 `flutter pub run chinese_calendar --version` 查文档，调整方法名后再跑测试。
+> 注：lunar 1.7.8 的 Solar 类本身有 `year`/`month`/`day` getter；如不能直接 toDate，扩展保证调用点统一。
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `flutter test test/lab/demos/calendar/chinese_calendar_adapter_test.dart`
-Expected: PASS（2 个 case）
+Run: `flutter test test/lab/demos/calendar/lunar_adapter_test.dart`
+Expected: PASS（3 个 case）
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/lab/demos/calendar/chinese_calendar_adapter.dart test/lab/demos/calendar/chinese_calendar_adapter_test.dart
-git commit -m "feat(calendar): 实现 ChineseCalendarAdapter 与单测"
+git add lib/lab/demos/calendar/lunar_adapter.dart test/lab/demos/calendar/lunar_adapter_test.dart
+git commit -m "feat(calendar): 实现 LunarAdapter 与单测"
 ```
 
 ---
@@ -599,43 +618,48 @@ class Event {
   final EventType type;
   final String title;
   final CalendarSystem system;
-  final int month; // 1-12
-  final int day;   // 1-30 / 1-31
+  final int year;       // 用于桌面 widget 显示当前年（首次发生的年份）
+  final int month;      // 1-12
+  final int day;        // 1-30 (lunar) / 1-31 (solar)
   final int? solarYearOffset; // 仅 manual
   final Recurrence recurrence;
   final String? personId;
   final ColorTag colorTag;
   final String? note;
   final DateTime createdAt;
+  final int? systemCalendarEventId; // 系统日历同步 id（保留旧能力）
 
   const Event({
     required this.id, required this.type, required this.title,
-    required this.system, required this.month, required this.day,
+    required this.system, required this.year, required this.month, required this.day,
     required this.recurrence, required this.colorTag, required this.createdAt,
-    this.solarYearOffset, this.personId, this.note,
+    this.solarYearOffset, this.personId, this.note, this.systemCalendarEventId,
   });
 
   Event copyWith({
     EventType? type, String? title, CalendarSystem? system,
-    int? month, int? day, int? solarYearOffset, Recurrence? recurrence,
-    String? personId, ColorTag? colorTag, String? note,
+    int? year, int? month, int? day, int? solarYearOffset, Recurrence? recurrence,
+    String? personId, ColorTag? colorTag, String? note, int? systemCalendarEventId,
   }) => Event(
         id: id, type: type ?? this.type, title: title ?? this.title,
-        system: system ?? this.system, month: month ?? this.month,
-        day: day ?? this.day, solarYearOffset: solarYearOffset ?? this.solarYearOffset,
+        system: system ?? this.system, year: year ?? this.year,
+        month: month ?? this.month, day: day ?? this.day,
+        solarYearOffset: solarYearOffset ?? this.solarYearOffset,
         recurrence: recurrence ?? this.recurrence,
         personId: personId ?? this.personId,
         colorTag: colorTag ?? this.colorTag, note: note ?? this.note,
+        systemCalendarEventId: systemCalendarEventId ?? this.systemCalendarEventId,
         createdAt: createdAt,
       );
 
   Map<String, dynamic> toJson() => {
         'id': id, 'type': type.name, 'title': title, 'system': system.name,
-        'month': month, 'day': day,
+        'year': year, 'month': month, 'day': day,
         if (solarYearOffset != null) 'solarYearOffset': solarYearOffset,
         'recurrence': recurrence.name,
         if (personId != null) 'personId': personId,
         'colorTag': colorTag.name, if (note != null) 'note': note,
+        if (systemCalendarEventId != null) 'systemCalendarEventId': systemCalendarEventId,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -644,12 +668,14 @@ class Event {
         type: EventType.values.byName(j['type'] as String),
         title: j['title'] as String,
         system: CalendarSystem.values.byName(j['system'] as String),
+        year: (j['year'] as int?) ?? DateTime.now().year,
         month: j['month'] as int, day: j['day'] as int,
         solarYearOffset: j['solarYearOffset'] as int?,
         recurrence: Recurrence.values.byName(j['recurrence'] as String),
         personId: j['personId'] as String?,
         colorTag: ColorTag.values.byName(j['colorTag'] as String),
         note: j['note'] as String?,
+        systemCalendarEventId: j['systemCalendarEventId'] as int?,
         createdAt: DateTime.parse(j['createdAt'] as String),
       );
 }
@@ -1144,7 +1170,7 @@ git commit -m "feat(calendar): 新增 LabPeopleProvider + Group by relation"
 
 ---
 
-## Task 15: LabCalendarProvider（合并数据源）
+## Task 15: LabCalendarProvider（合并数据源，MultiProvider 局部）
 
 **Files:**
 - Create: `lib/lab/demos/calendar/data/lab_calendar_provider.dart`
@@ -1152,8 +1178,10 @@ git commit -m "feat(calendar): 新增 LabPeopleProvider + Group by relation"
 - Delete: `lib/lab/demos/calendar/models/lab_calendar_event.dart`（旧）
 
 **Interfaces:**
-- Consumes: EventRepository（Task 12）+ Event（Task 8）+ ChineseCalendarAdapter（Task 5）
-- Produces: `LabCalendarProvider extends ChangeNotifier`（list/eventsOf/add/update/remove + viewYear/viewMonth + 桌面 widget 同步保留）
+- Consumes: EventRepository（Task 12）+ Event（Task 8）+ LunarAdapter（Task 5）+ NextBirthdayResolver（Task 11）
+- Produces: `LabCalendarProvider extends ChangeNotifier`（events / viewYear / viewMonth / add / update / remove / syncToSystemCalendar / prevMonth / nextMonth / jumpToday / eventsOf / ageOfBirthdayPerson + 桌面 widget 同步保留）
+
+> **本 Task 不删 main.dart 旧 import**——由 Task 31 处理。本 Task 只重写 provider 文件并删除旧位置。
 
 - [ ] **Step 1: 实现新版 LabCalendarProvider**
 
@@ -1164,12 +1192,11 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../native/calendar/calendar_service.dart';
-import '../../../../native/home_widget/calendar_widget_data.dart';
 import '../../../../native/home_widget/calendar_widget_service.dart';
-import '../chinese_calendar_adapter.dart';
 import '../domain/age_calculator.dart';
 import '../domain/event.dart';
-import '../domain/next_birthday.dart';
+import '../domain/recurrence.dart';
+import '../lunar_adapter.dart';
 import 'event_repository.dart';
 
 class LabCalendarProvider with ChangeNotifier {
@@ -1178,7 +1205,7 @@ class LabCalendarProvider with ChangeNotifier {
 
   final EventRepository _repo = EventRepository();
   final _uuid = const Uuid();
-  final _resolver = NextBirthdayResolver(ChineseCalendarAdapter());
+  final _resolver = NextBirthdayResolver(LunarAdapter());
   Timer? _midnightTimer;
 
   List<Event> _events = [];
@@ -1214,26 +1241,19 @@ class LabCalendarProvider with ChangeNotifier {
     return setView(n.year, n.month);
   }
 
-  List<Event> eventsOf(int year, int month, int day) {
-    final list = _events.where((e) => e.month == month && e.day == day).toList();
-    return _resolver.nextN(list.isNotEmpty ? list.first : _makeSynthetic(year, month, day), 1, from: DateTime(year, month, day)).isEmpty
-        ? list : list;
-    // 简化：直接返回 list
-  }
-
-  Event _makeSynthetic(int y, int m, int d) => Event(
-        id: '_', type: EventType.custom, title: '', system: CalendarSystem.solar,
-        month: m, day: d, recurrence: Recurrence2.none, colorTag: ColorTag.gray, createdAt: DateTime(y),
-      );
+  /// 取某天的所有事件（仅按 month/day 匹配，不做农历推算）
+  List<Event> eventsOf(int year, int month, int day) =>
+      _events.where((e) => e.month == month && e.day == day).toList();
 
   Future<Event> add({
     required EventType type, required String title, required CalendarSystem system,
-    required int month, required int day, required Recurrence2 recurrence,
+    required int month, required int day, required Recurrence recurrence,
     required ColorTag colorTag, int? solarYearOffset, String? personId, String? note,
   }) async {
     final e = Event(
       id: _uuid.v4(), type: type, title: title, system: system,
-      month: month, day: day, recurrence: recurrence, colorTag: colorTag,
+      year: DateTime.now().year, month: month, day: day,
+      recurrence: recurrence, colorTag: colorTag,
       solarYearOffset: solarYearOffset, personId: personId, note: note,
       createdAt: DateTime.now(),
     );
@@ -1254,15 +1274,44 @@ class LabCalendarProvider with ChangeNotifier {
   }
 
   Future<void> remove(String id) async {
+    final event = _events.firstWhere((e) => e.id == id);
+    if (event.systemCalendarEventId != null) {
+      await CalendarService.deleteEvent(event.systemCalendarEventId!);
+    }
     _events.removeWhere((e) => e.id == id);
     await _repo.save(_events);
     _syncToWidget();
     notifyListeners();
   }
 
+  /// 同步到系统日历（保留旧能力）
+  Future<bool> syncToSystemCalendar(String id) async {
+    final i = _events.indexWhere((e) => e.id == id);
+    if (i == -1) return false;
+    final event = _events[i];
+    final hasPermission = await CalendarService.checkPermission();
+    if (!hasPermission) {
+      await CalendarService.requestPermission();
+      if (!await CalendarService.checkPermission()) return false;
+    }
+    if (event.systemCalendarEventId != null) {
+      await CalendarService.deleteEvent(event.systemCalendarEventId!);
+    }
+    final systemId = await CalendarService.insertEvent(
+      title: event.title, description: event.note ?? '',
+      year: event.year, month: event.month, day: event.day,
+    );
+    if (systemId == null) return false;
+    _events[i] = event.copyWith(systemCalendarEventId: systemId);
+    await _repo.save(_events);
+    notifyListeners();
+    return true;
+  }
+
+  /// 年龄计算（仅 birthday 类型）
   int? ageOfBirthdayPerson(Event birthdayEvent, DateTime today) {
     if (birthdayEvent.type != EventType.birthday) return null;
-    final dob = DateTime(_viewYear, birthdayEvent.month, birthdayEvent.day);
+    final dob = DateTime(birthdayEvent.year, birthdayEvent.month, birthdayEvent.day);
     return AgeCalculator.calculate(dob, today);
   }
 
@@ -1276,9 +1325,10 @@ class LabCalendarProvider with ChangeNotifier {
   }
 
   void _syncToWidget() {
-    final data = CalendarWidgetData.fromEvents(
-      year: _viewYear, month: _viewMonth, events: _events,
-    );
+    // 注意：CalendarWidgetData 仍在 Task 30 重写；本 Task 用一个临时 adapter
+    // 把 Event 投影成旧 LabCalendarEvent 兼容接口，Task 30 完成后移除
+    final legacy = _events.map((e) => LegacyEventAdapter.toLegacy(e, _viewYear)).toList();
+    final data = LegacyWidgetDataBuilder.build(_viewYear, _viewMonth, legacy);
     CalendarWidgetService.updateCalendarWidget(data);
   }
 
@@ -1301,42 +1351,58 @@ class LabCalendarProvider with ChangeNotifier {
     super.dispose();
   }
 }
-
-// alias
-class Recurrence2 { static const none = Recurrence.none; }
 ```
 
-> 上面 Recurrence2 是占位别名，让 `recurrence: Recurrence2.none` 通过编译——实际上 Task 8 已经 import recurrence.dart，应直接用 `Recurrence.none`。请实现时统一改为 `import '../domain/recurrence.dart'; Recurrence r = Recurrence.none;`。
+> _syncToWidget 内部仍调用旧 CalendarWidgetData（在 Task 30 之前）。
+> LegacyEventAdapter / LegacyWidgetDataBuilder 是 Task 15 临时写的两个辅助函数，Task 30 完成后删除。
 
-- [ ] **Step 2: 删除旧文件**
+- [ ] **Step 2: 创建 Legacy 辅助（在 Task 30 之前临时用）**
+
+```dart
+// lib/lab/demos/calendar/data/_legacy_widget_compat.dart
+import '../../../../native/home_widget/calendar_widget_data.dart';
+import '../../../../lab/demos/calendar/models/lab_calendar_event.dart';
+import '../domain/event.dart';
+
+class LegacyEventAdapter {
+  static LabCalendarEvent toLegacy(Event e, int viewYear) => LabCalendarEvent(
+        id: e.id, year: viewYear, month: e.month, day: e.day,
+        title: e.title, color: e.colorTag.hex, createdAt: e.createdAt,
+        systemCalendarEventId: e.systemCalendarEventId,
+        description: e.note,
+      );
+}
+
+class LegacyWidgetDataBuilder {
+  static CalendarWidgetData build(int year, int month, List<LabCalendarEvent> legacy) =>
+      CalendarWidgetData.fromEvents(year: year, month: month, events: legacy);
+}
+```
+
+- [ ] **Step 3: 删除旧文件**
 
 ```bash
 git rm lib/lab/demos/calendar/providers/lab_calendar_provider.dart
 git rm lib/lab/demos/calendar/models/lab_calendar_event.dart
 ```
 
-- [ ] **Step 3: 更新 main.dart import 路径**
+> 不要改 main.dart！——Task 31 处理 main.dart 旧 import 的删除与兼容。本 Step 必须确保 `git rm` 不会让 main.dart 的 import 断掉：保持旧 `LabCalendarEvent` 类不动（它在 CalendarWidgetData.fromEvents 仍要使用），只删 provider 文件。
 
-```bash
-# 在 lib/main.dart 中查找旧 import 路径
-grep -n "lab/demos/calendar/providers/lab_calendar_provider" lib/main.dart
-# 把路径改为 lib/lab/demos/calendar/data/lab_calendar_provider.dart
-```
-然后跑 `flutter analyze` 确保无错。
+- [ ] **Step 4: 验证编译（预期会断——main.dart 还在引用旧 provider）**
 
-- [ ] **Step 4: 验证编译**
+Run: `flutter analyze 2>&1 | head -40`
+Expected: main.dart 报 import 错误 `Target of URI doesn't exist: 'lab/demos/calendar/providers/lab_calendar_provider.dart'`
 
-Run: `flutter analyze`
-Expected: No issues found!
+> 此错误由 Task 31 修复；本 Task 不修复。
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add lib/lab/demos/calendar/data/lab_calendar_provider.dart \
+        lib/lab/demos/calendar/data/_legacy_widget_compat.dart \
         lib/lab/demos/calendar/providers/lab_calendar_provider.dart \
-        lib/lab/demos/calendar/models/lab_calendar_event.dart \
-        lib/main.dart
-git commit -m "refactor(calendar): 迁移到新 data 层 + 旧 provider 删除 + 路径统一"
+        lib/lab/demos/calendar/models/lab_calendar_event.dart
+git commit -m "refactor(calendar): 迁移到新 data 层 + 旧 provider 删除"
 ```
 
 ---
@@ -2864,3 +2930,204 @@ git commit -m "style(calendar): smoke 发现微调（如有）"
 - Task 15 中 `Recurrence2` 别名是临时写法——已建议直接 `import recurrence.dart`
 
 **spec 覆盖完整 ✅**
+
+---
+
+## 追加任务（plan v2 修订）
+
+> 以下任务在 plan v1 之后追加，对应 pre-flight 阶段发现的 4 个矛盾：
+> 1. Event 模型需加 `year` / `systemCalendarEventId` 字段（兼容桌面 widget + 系统日历同步）
+> 2. `chinese_calendar` 包名纠正为 `lunar`（任务 1/5 已修）
+> 3. LabCalendarProvider 改为 MultiProvider 局部
+> 4. main.dart 旧 import 必须删、旧 provider 文件必须清
+
+---
+
+## Task 30: 重写 CalendarWidgetData 适配 Event
+
+**Files:**
+- Modify: `lib/native/home_widget/calendar_widget_data.dart`
+- Modify: `lib/lab/demos/calendar/data/_legacy_widget_compat.dart`（删除，Task 15 的兼容层不再需要）
+- Modify: `lib/lab/demos/calendar/data/lab_calendar_provider.dart`（`_syncToWidget` 改为直接传 List<Event>）
+
+**Interfaces:**
+- Consumes: Event（Task 8）
+- Produces: `CalendarWidgetData.fromEvents({year, month, events: List<Event>})`
+
+- [ ] **Step 1: 写失败测试**
+
+```dart
+// test/native/home_widget/calendar_widget_data_test.dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaodouzi_fr/lab/demos/calendar/domain/event.dart';
+import 'package:xiaodouzi_fr/native/home_widget/calendar_widget_data.dart';
+
+void main() {
+  test('CalendarWidgetData.fromEvents 用 Event 列表', () {
+    final events = [
+      Event(
+        id: 'a', type: EventType.birthday, title: '妈妈生日',
+        system: CalendarSystem.solar, year: 2026, month: 7, day: 27,
+        recurrence: Recurrence.yearly, colorTag: ColorTag.amber,
+        createdAt: DateTime(2024),
+      ),
+    ];
+    final data = CalendarWidgetData.fromEvents(
+      year: 2026, month: 7, events: events,
+    );
+    expect(data.colorsByDay['27'], contains('#E9B44C'));
+  });
+}
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `flutter test test/native/home_widget/calendar_widget_data_test.dart`
+Expected: FAIL（构造函数签名不匹配）
+
+- [ ] **Step 3: 重写 CalendarWidgetData.fromEvents**
+
+```dart
+// lib/native/home_widget/calendar_widget_data.dart
+// （仅展示 fromEvents 改动）
+factory CalendarWidgetData.fromEvents({
+  required int year,
+  required int month,
+  required List<Event> events,  // 新签名
+  DateTime? now,
+}) {
+  final today = now ?? DateTime.now();
+  final Map<String, List<String>> grouped = {};
+  final monthEvents = events.where((e) => e.year == year && e.month == month);
+  final sorted = monthEvents.toList()
+    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  for (final e in sorted) {
+    grouped.putIfAbsent(e.day.toString(), () => []).add(e.colorTag.hex);
+  }
+  return CalendarWidgetData(
+    year: year, month: month,
+    todayYear: today.year, todayMonth: today.month, todayDay: today.day,
+    colorsByDay: grouped,
+  );
+}
+```
+
+- [ ] **Step 4: 改 LabCalendarProvider._syncToWidget 直接传 Event**
+
+```dart
+// 在 _syncToWidget 内：
+void _syncToWidget() {
+  final data = CalendarWidgetData.fromEvents(
+    year: _viewYear, month: _viewMonth, events: _events,
+  );
+  CalendarWidgetService.updateCalendarWidget(data);
+}
+```
+
+- [ ] **Step 5: 删除 _legacy_widget_compat.dart**
+
+```bash
+git rm lib/lab/demos/calendar/data/_legacy_widget_compat.dart
+```
+
+- [ ] **Step 6: 跑测试**
+
+Run: `flutter test test/native/home_widget/calendar_widget_data_test.dart`
+Expected: PASS
+
+- [ ] **Step 7: 跑全测试套件**
+
+Run: `flutter test`
+Expected: PASS（除旧 LabCalendarEvent 相关——已通过 Task 31 删除）
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add lib/native/home_widget/calendar_widget_data.dart \
+        lib/lab/demos/calendar/data/lab_calendar_provider.dart \
+        lib/lab/demos/calendar/data/_legacy_widget_compat.dart \
+        test/native/home_widget/calendar_widget_data_test.dart
+git commit -m "refactor(widget): CalendarWidgetData 适配 Event 类型 + 删除 legacy 兼容层"
+```
+
+---
+
+## Task 31: main.dart 旧 import 删除与旧文件清理
+
+**Files:**
+- Modify: `lib/main.dart`（删除旧 provider import）
+- Delete: `lib/lab/demos/calendar/providers/lab_calendar_provider.dart`
+- Delete: `lib/lab/demos/calendar/models/lab_calendar_event.dart`
+- Modify: `android/app/src/main/kotlin/io/github/xiaodouzi/fr/native/calendar/CalendarChannel.kt`（如有引用旧 LabCalendarEvent 类型，调整）
+
+- [ ] **Step 1: 检查 main.dart 所有旧引用**
+
+```bash
+grep -n "lab_calendar_event\|providers/lab_calendar_provider\|demos/calendar/models" lib/main.dart
+```
+Expected: 至少一行 import 旧文件
+
+- [ ] **Step 2: 删除 main.dart 旧 import**
+
+```diff
+- import 'lab/demos/calendar/providers/lab_calendar_provider.dart';
+```
+
+- [ ] **Step 3: 检查 CalendarChannel.kt 是否引用旧类型**
+
+```bash
+grep -n "LabCalendarEvent\|lab_calendar_event" android/app/src/main/kotlin/io/github/xiaodouzi/fr/native/calendar/CalendarChannel.kt
+```
+
+如有引用：
+- 改为 `Event`（新模型），对应字段 `year`/`month`/`day`/`title`/`note`/`systemCalendarEventId`
+- 编译 native code 验证（Android 工程）；如不能本地编译，先在 commit 信息中标记 `@requires_native_verify`
+
+- [ ] **Step 4: 删除旧文件**
+
+```bash
+git rm lib/lab/demos/calendar/providers/lab_calendar_provider.dart
+git rm lib/lab/demos/calendar/models/lab_calendar_event.dart
+```
+
+- [ ] **Step 5: 验证编译**
+
+Run: `flutter analyze`
+Expected: No issues found!（main.dart 不再 import 旧文件）
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add lib/main.dart \
+        lib/lab/demos/calendar/providers/lab_calendar_provider.dart \
+        lib/lab/demos/calendar/models/lab_calendar_event.dart \
+        android/app/src/main/kotlin/io/github/xiaodouzi/fr/native/calendar/CalendarChannel.kt 2>/dev/null || true
+git commit -m "refactor(calendar): 清理 main.dart 旧 import + 旧 provider/model 文件"
+```
+
+---
+
+## Self-Review v2（修订后）
+
+| Spec 节 | 实现任务 |
+|---------|---------|
+| §0 设计原则 | 全局约束（每 UI 任务自检） |
+| §1 背景与目标 | Task 28 + 30 + 31（容器 + widget + main.dart） |
+| §2 架构总览 | Task 2-15 |
+| §3 数据模型 | Task 7-9（Event 加 year/systemCalendarEventId 已写） |
+| §4 农历引擎 | Task 4-6（依赖名 lunar 已修） |
+| §5 视觉令牌 | Task 2-3 |
+| §6 视图与交互 | Task 16-28 |
+| §7 风险与不做 | 全局约束 |
+| §8 实施顺序 | Task 1-31 |
+
+**矛盾修复表**：
+| 矛盾 | 修复 |
+|------|------|
+| Event 无 year / systemCalendarEventId | Task 8 已加 |
+| chinese_calendar 不存在 | Task 1/5 改为 lunar |
+| LabCalendarProvider 是 app 单例 | Task 15 用 MultiProvider 局部 |
+| main.dart 引用旧 import | Task 31 删除 |
+| CalendarWidgetData 不适配 Event | Task 30 重写 |
+
+**plan 修订 ✅**

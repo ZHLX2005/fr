@@ -19,7 +19,7 @@ import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart'
     show BoardTheme, BoardThemeData;
 
 import 'board.dart' show ReversiBoardWidget;
-import 'constants.dart' show kReversiSize, ReversiAliasPrefs;
+import 'constants.dart' show kReversiSize;
 import 'engine.dart'
     show
         ReversiRoom,
@@ -31,6 +31,7 @@ import 'engine.dart'
 
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show RelayV3Exception;
+import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Lobby Entry Page（单表单：输入昵称 + 房间码，按按钮即尝试加入/创建）
@@ -52,16 +53,27 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
   @override
   void initState() {
     super.initState();
-    // 竞态修复：load 只在用户没输入时回填
-    ReversiAliasPrefs.load().then((v) {
+    // 共享昵称（4 个 Lua 游戏通用）：load 回填 + 监听实时同步
+    LuaGameAlias.load().then((v) {
       if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
         setState(() => _aliasCtrl.text = v);
       }
     });
+    LuaGameAlias.notifier.addListener(_onAliasChanged);
+  }
+
+  /// 跨游戏昵称同步：别处改了昵称 → 实时回填到本页输入框。
+  void _onAliasChanged() {
+    if (!mounted) return;
+    final v = LuaGameAlias.value;
+    if (v != _aliasCtrl.text) {
+      setState(() => _aliasCtrl.text = v);
+    }
   }
 
   @override
   void dispose() {
+    LuaGameAlias.notifier.removeListener(_onAliasChanged);
     _aliasCtrl.dispose();
     _codeCtrl.dispose();
     super.dispose();
@@ -89,7 +101,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         alias: alias,
         deviceId: 'rv-${DateTime.now().microsecondsSinceEpoch}',
       );
-      await ReversiAliasPrefs.save(alias);
+      await LuaGameAlias.save(alias);
       final h = await t.tryJoinOrCreate(
         code: code,
         script: kReversiScript,
@@ -159,6 +171,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         style: TextStyle(
             fontSize: 15, fontWeight: FontWeight.w500, color: theme.btnText),
         textAlignVertical: TextAlignVertical.center,
+        onChanged: LuaGameAlias.save,
       ),
       const SizedBox(height: 12),
 

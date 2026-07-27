@@ -159,6 +159,9 @@ dependencies:
   toml: ^0.18.0
   flutter_svg: ^2.0.10+1
 
+  # 农历（Lunar）—— 日历/待办功能需要农历转换
+  lunar: ^1.7.8
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

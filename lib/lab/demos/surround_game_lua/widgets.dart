@@ -29,6 +29,7 @@ import 'package:xiaodouzi_fr/core/surround_game/widgets/touch_view.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/touch_controller.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/player_panel.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/confirm_actions.dart';
+import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Lobby Entry Page（单表单：输入昵称 + 房间码，按按钮即尝试加入/创建）
@@ -50,16 +51,27 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
   @override
   void initState() {
     super.initState();
-    // AliasPrefs 竞态修复：先空控件，加载完再回填（若用户没抢先输入）
-    SgAliasPrefs.load().then((v) {
+    // 共享昵称（4 个 Lua 游戏通用）：load 回填 + 监听实时同步
+    LuaGameAlias.load().then((v) {
       if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
         setState(() => _aliasCtrl.text = v);
       }
     });
+    LuaGameAlias.notifier.addListener(_onAliasChanged);
+  }
+
+  /// 跨游戏昵称同步：别处改了昵称 → 实时回填到本页输入框。
+  void _onAliasChanged() {
+    if (!mounted) return;
+    final v = LuaGameAlias.value;
+    if (v != _aliasCtrl.text) {
+      setState(() => _aliasCtrl.text = v);
+    }
   }
 
   @override
   void dispose() {
+    LuaGameAlias.notifier.removeListener(_onAliasChanged);
     _aliasCtrl.dispose();
     _codeCtrl.dispose();
     super.dispose();
@@ -85,7 +97,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         alias: alias,
         deviceId: 'sg-p-${DateTime.now().microsecondsSinceEpoch}',
       );
-      await SgAliasPrefs.save(alias);
+      await LuaGameAlias.save(alias);
       // tryJoinOrCreate 内部：先 join，404 则用此 code 作 requested_code 创建。
       // 我们分不清最终走的是哪个分支——但可以用 snapshot.host_id == deviceId 判定。
       final h = await t.tryJoinOrCreate(
@@ -153,6 +165,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         decoration: inputDec('昵称（如：红方）'),
         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: theme.btnText),
         textAlignVertical: TextAlignVertical.center,
+        onChanged: LuaGameAlias.save,
       ),
       const SizedBox(height: 12),
       TextField(

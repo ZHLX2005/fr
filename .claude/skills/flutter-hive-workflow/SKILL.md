@@ -8,7 +8,6 @@ description: |
   - StorageManager 查看数据显示 "Instance of xxx"
   - 任何 Hive box 打开/访问问题
 ---
-
 # Flutter Hive Storage Workflow
 
 ## 核心原则
@@ -87,12 +86,12 @@ String _formatValue(dynamic value) {
 
 ## 常见错误
 
-| 错误 | 原因 | 解决 |
-|------|------|------|
-| `HiveError: You must provide your type` | 用 `Hive.box(name)` 访问 typed box | 用 `Hive.box<YourModel>(name)` |
-| `HiveError: Cannot read from closed box` | box 未打开就访问 | 先检查 `Hive.isBoxOpen()` 或先 `await Hive.openBox()` |
-| 删除后数据还在 | key 类型不匹配 | 删除时尝试 string 和 int 两种 key |
-| 显示 "Instance of xxx" | `_formatValue()` 未处理自定义类型 | 添加 `if (value is YourModel)` 分支 |
+| 错误                                       | 原因                                | 解决                                                     |
+| ------------------------------------------ | ----------------------------------- | -------------------------------------------------------- |
+| `HiveError: You must provide your type`  | 用`Hive.box(name)` 访问 typed box | 用`Hive.box<YourModel>(name)`                          |
+| `HiveError: Cannot read from closed box` | box 未打开就访问                    | 先检查`Hive.isBoxOpen()` 或先 `await Hive.openBox()` |
+| 删除后数据还在                             | key 类型不匹配                      | 删除时尝试 string 和 int 两种 key                        |
+| 显示 "Instance of xxx"                     | `_formatValue()` 未处理自定义类型 | 添加`if (value is YourModel)` 分支                     |
 
 ## StorageManager 模式
 

@@ -2,11 +2,60 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../body/models/body_record.dart';
+import '../../lab/demos/calendar/data/calendar_hive.dart';
+import '../../lab/demos/calendar/domain/event.dart';
+import '../../lab/demos/calendar/domain/person.dart';
 
 /// 统一存储管理器
 ///
 /// 管理所有持久化存储：Hive Box、SharedPreferences、文件等
 class StorageManager {
+  /// 需要用泛型访问的 typed box
+  static const _typedBoxNames = {
+    'body_records',
+    'calendarEvents',
+    'calendarPeople',
+  };
+
+  /// typed box 读取 helper
+  List<KeyDetail> _readTypedBox(String name) {
+    final result = <KeyDetail>[];
+    if (name == 'body_records') {
+      final box = Hive.box<BodyRecord>(name);
+      for (final key in box.keys) {
+        final value = box.get(key);
+        result.add(KeyDetail(
+          key: '$name/$key',
+          value: _formatValue(value),
+          rawValue: value,
+          size: _estimateSize(value),
+        ));
+      }
+    } else if (name == 'calendarEvents') {
+      final box = Hive.box<Event>(name);
+      for (final key in box.keys) {
+        final value = box.get(key);
+        result.add(KeyDetail(
+          key: '$name/$key',
+          value: _formatValue(value),
+          rawValue: value,
+          size: _estimateSize(value),
+        ));
+      }
+    } else if (name == 'calendarPeople') {
+      final box = Hive.box<Person>(name);
+      for (final key in box.keys) {
+        final value = box.get(key);
+        result.add(KeyDetail(
+          key: '$name/$key',
+          value: _formatValue(value),
+          rawValue: value,
+          size: _estimateSize(value),
+        ));
+      }
+    }
+    return result;
+  }
   StorageManager._();
   static final StorageManager instance = StorageManager._();
 
@@ -27,7 +76,7 @@ class StorageManager {
     final List<StorageInfo> result = [];
 
     // Hive 作为一个整体
-    result.add(await _getHiveInfo());
+    result.addAll(await _getHiveInfo());
 
     // SharedPreferences 作为一个整体
     result.add(await _getPrefsInfo());
@@ -66,12 +115,46 @@ class StorageManager {
         if (boxName != null) {
           // 获取指定 Box 的键
           try {
+            // 确保 typed box 已打开（用正确泛型注册 adapter）
             if (!Hive.isBoxOpen(boxName)) {
-              return result;
+              if (boxName == 'calendarEvents' ||
+                  boxName == 'calendarPeople' ||
+                  boxName == 'calendarViewState') {
+                await CalendarHive.init();
+              } else if (boxName == 'body_records') {
+                if (!Hive.isAdapterRegistered(0)) {
+                  Hive.registerAdapter(BodyRecordAdapter());
+                }
+                await Hive.openBox<BodyRecord>(boxName);
+              } else {
+                await Hive.openBox(boxName);
+              }
             }
-            final box = Hive.box(boxName);
-            for (final key in box.keys) {
-              final value = box.get(key);
+            if (!Hive.isBoxOpen(boxName)) return result;
+
+            // typed box 必须用泛型访问；否则 HiveError
+            Iterable<dynamic> boxKeys;
+            dynamic Function(dynamic k) getValue;
+            if (boxName == 'body_records') {
+              final box = Hive.box<BodyRecord>(boxName);
+              boxKeys = box.keys;
+              getValue = box.get;
+            } else if (boxName == 'calendarEvents') {
+              final box = Hive.box<Event>(boxName);
+              boxKeys = box.keys;
+              getValue = box.get;
+            } else if (boxName == 'calendarPeople') {
+              final box = Hive.box<Person>(boxName);
+              boxKeys = box.keys;
+              getValue = box.get;
+            } else {
+              final box = Hive.box(boxName);
+              boxKeys = box.keys;
+              getValue = box.get;
+            }
+
+            for (final key in boxKeys) {
+              final value = getValue(key);
               result.add(
                 KeyDetail(
                   key: '$boxName/$key',
@@ -82,7 +165,7 @@ class StorageManager {
               );
             }
           } catch (e) {
-            // Box 不存在或已删除
+            debugPrint('StorageManager: getKeyDetails($boxName) 出错: $e');
           }
         } else {
           // 获取所有 Hive Box 的所有键
@@ -94,50 +177,57 @@ class StorageManager {
             'clock_records',
             'notes',
             'body_records',
+            'calendarEvents',
+            'calendarPeople',
+            'calendarViewState',
           ];
 
           for (final name in boxNames) {
             try {
-              debugPrint('StorageManager: 尝试处理 box: $name');
-              if (Hive.isBoxOpen(name)) {
-                debugPrint('StorageManager: $name 已打开');
-                // body_records需要用正确的类型访问
-                if (name == 'body_records') {
-                  final box = Hive.box<BodyRecord>(name);
-                  debugPrint('StorageManager: $name 以BodyRecord类型获取,长度=${box.length}');
-                  for (final key in box.keys) {
-                    final value = box.get(key);
-                    debugPrint('StorageManager: 获取键 $key, value类型=${value.runtimeType}');
-                    result.add(KeyDetail(
-                      key: '$name/$key',
-                      value: _formatValue(value),
-                      rawValue: value,
-                      size: _estimateSize(value),
-                    ));
-                  }
-                } else {
-                  final box = Hive.box(name);
-                  debugPrint('StorageManager: $name 包含 ${box.length} 个键');
-                  for (final key in box.keys) {
-                    final value = box.get(key);
-                    debugPrint('StorageManager: 获取键 $key, value类型=${value.runtimeType}');
-                    result.add(KeyDetail(
-                      key: '$name/$key',
-                      value: _formatValue(value),
-                      rawValue: value,
-                      size: _estimateSize(value),
-                    ));
-                  }
-                }
-              } else {
-                debugPrint('StorageManager: $name 未打开,尝试打开');
-                // body_records需要先注册适配器
+              debugPrint('StorageManager: 尝试处理 box: $name (isTyped=${_typedBoxNames.contains(name)})');
+              final isTyped = _typedBoxNames.contains(name);
+
+              // 打开 box 前先注册对应 adapter（如果需要）
+              if (!Hive.isBoxOpen(name)) {
+                debugPrint('StorageManager: $name 未打开，尝试打开');
                 if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
                   debugPrint('StorageManager: 注册 BodyRecordAdapter');
                   Hive.registerAdapter(BodyRecordAdapter());
                 }
-                final box = await Hive.openBox(name);
-                debugPrint('StorageManager: $name 打开成功,长度=${box.length}');
+                if (name == 'calendarEvents' ||
+                    name == 'calendarPeople' ||
+                    name == 'calendarViewState') {
+                  debugPrint('StorageManager: 调 CalendarHive.init()');
+                  await CalendarHive.init();
+                  debugPrint('StorageManager: CalendarHive.init() 完成');
+                }
+                if (!Hive.isBoxOpen(name)) {
+                  // typed box 必须用泛型 openBox，否则 HiveError
+                  if (isTyped) {
+                    if (name == 'body_records') {
+                      await Hive.openBox<BodyRecord>(name);
+                    } else if (name == 'calendarEvents') {
+                      await Hive.openBox<Event>(name);
+                    } else if (name == 'calendarPeople') {
+                      await Hive.openBox<Person>(name);
+                    }
+                  } else {
+                    await Hive.openBox(name);
+                  }
+                }
+              }
+
+              if (!Hive.isBoxOpen(name)) {
+                debugPrint('StorageManager: $name 仍未打开，跳过');
+                continue;
+              }
+
+              if (isTyped) {
+                debugPrint('StorageManager: $name 走 typed 分支');
+                result.addAll(_readTypedBox(name));
+              } else {
+                final box = Hive.box(name);
+                debugPrint('StorageManager: $name 包含 ${box.length} 个键');
                 for (final key in box.keys) {
                   final value = box.get(key);
                   debugPrint('StorageManager: 获取键 $key, value类型=${value.runtimeType}');
@@ -235,6 +325,33 @@ class StorageManager {
       }
       parts.add('时间: ${value.createdAt.toString().substring(0, 19)}');
       return parts.join('\n');
+    }
+
+    // 日历 demo Event / Person：通过 dynamic 反射（避免 import calendar domain 跨模块耦合）
+    try {
+      final runtime = value.runtimeType.toString();
+      if (runtime == 'Event') {
+        final dyn = value as dynamic;
+        final parts = <String>[];
+        parts.add('标题: ${dyn.title}');
+        parts.add('类型: ${dyn.type}');
+        parts.add('历法: ${dyn.system}');
+        parts.add('日期: ${dyn.month}月${dyn.day}日');
+        parts.add('重复: ${dyn.recurrence}');
+        if (dyn.personId != null) parts.add('关联人: ${dyn.personId}');
+        if (dyn.note != null) parts.add('备注: ${dyn.note}');
+        return parts.join('\n');
+      }
+      if (runtime == 'Person') {
+        final dyn = value as dynamic;
+        final parts = <String>[];
+        parts.add('姓名: ${dyn.name}');
+        parts.add('关系: ${dyn.relation}');
+        if (dyn.note != null) parts.add('备注: ${dyn.note}');
+        return parts.join('\n');
+      }
+    } catch (_) {
+      // ignore
     }
 
     // 如果是 Map 或 List，尝试格式化
@@ -440,10 +557,9 @@ class StorageManager {
     }
   }
 
-  /// 获取 Hive 整体信息
-  Future<StorageInfo> _getHiveInfo() async {
-    int totalSize = 0;
-    int totalKeys = 0;
+  /// 获取 Hive 整体信息（每个 box 一个 entry，不再聚合）
+  Future<List<StorageInfo>> _getHiveInfo() async {
+    final result = <StorageInfo>[];
     final boxNames = [
       'timetable_config',
       'timetable_items',
@@ -452,6 +568,9 @@ class StorageManager {
       'clock_records',
       'notes',
       'body_records',
+      'calendarEvents',
+      'calendarPeople',
+      'calendarViewState',
     ];
 
     for (final name in boxNames) {
@@ -460,29 +579,45 @@ class StorageManager {
         if (Hive.isBoxOpen(name)) {
           if (name == 'body_records') {
             box = Hive.box<BodyRecord>(name);
+          } else if (name == 'calendarEvents') {
+            box = Hive.box<Event>(name);
+          } else if (name == 'calendarPeople') {
+            box = Hive.box<Person>(name);
           } else {
             box = Hive.box(name);
           }
         } else {
-          // body_records需要先注册适配器
+          // typed box 需要先注册 adapter
           if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
             Hive.registerAdapter(BodyRecordAdapter());
           }
-          box = await Hive.openBox(name);
+          if (name == 'calendarEvents' ||
+              name == 'calendarPeople' ||
+              name == 'calendarViewState') {
+            await CalendarHive.init();
+          }
+          if (name == 'body_records') {
+            box = await Hive.openBox<BodyRecord>(name);
+          } else if (name == 'calendarEvents') {
+            box = await Hive.openBox<Event>(name);
+          } else if (name == 'calendarPeople') {
+            box = await Hive.openBox<Person>(name);
+          } else {
+            box = await Hive.openBox(name);
+          }
         }
-        totalKeys += box.length;
-        totalSize += _estimateBoxSize(box);
+        result.add(StorageInfo(
+          type: StorageType.hive,
+          name: name,
+          keyCount: box.length,
+          size: _estimateBoxSize(box),
+        ));
       } catch (e) {
-        // Box 可能不存在
+        debugPrint('StorageManager: _getHiveInfo $name 出错: $e');
       }
     }
 
-    return StorageInfo(
-      type: StorageType.hive,
-      name: 'Hive',
-      keyCount: totalKeys,
-      size: totalSize,
-    );
+    return result;
   }
 
   /// 获取 SharedPreferences 信息
@@ -562,6 +697,9 @@ class StorageInfo {
       'clock_records': '时钟记录',
       'notes': '笔记',
       'body_records': '身体记录',
+      'calendarEvents': '日历事件',
+      'calendarPeople': '人物档案',
+      'calendarViewState': '日历视图状态',
       'SharedPreferences': '应用配置',
     };
     return nameMap[name] ?? name;

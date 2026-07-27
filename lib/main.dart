@@ -17,7 +17,6 @@ import 'core/schema/schema.dart';
 import 'core/schema/fr_navigator.dart';
 import 'core/schema/bootstrap_routes.dart';
 import 'lab/demos/clock/providers/lab_clock_provider.dart';
-import 'lab/demos/calendar/providers/lab_calendar_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
@@ -141,10 +140,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           create: (_) => LabClockProvider(),
         ),
         // 同理：日历 widget 也要冷启动同步
-        classic_provider.ChangeNotifierProvider(
-          lazy: false,
-          create: (_) => LabCalendarProvider(),
-        ),
+        // 注：v2 LabCalendarProvider 在 CalendarDemo 内部 MultiProvider 局部创建，
+        // 不再作为 app 级单例。
         classic_provider.ChangeNotifierProvider(
           create: (_) => AIChatProvider(),
         ),
