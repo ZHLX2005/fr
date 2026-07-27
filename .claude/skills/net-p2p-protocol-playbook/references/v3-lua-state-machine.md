@@ -2,7 +2,6 @@
 name: v3-lua-state-machine
 description: v3 协议详细参考 — Lua 状态机后端，服务端内置 gopher-lua 解释器，客户端上传 Lua 脚本定义数据模型+事件函数，后端权威计算 snapshot。新业务/可编程后端/多租户状态机场景走这个。排查"业务逻辑前后端重复""客户端下线房间失效""多端竞态写"时优先读
 ---
-
 # V3 Lua State Machine Protocol
 
 Relay 协议 v3 = **可编程后端状态机**。客户端上传 Lua 脚本（数据模型 + 事件处理函数），后端编译并成为房间状态的**唯一计算来源**。
@@ -16,38 +15,38 @@ Relay 协议 v3 = **可编程后端状态机**。客户端上传 Lua 脚本（�
 
 ## 1. 后端技术栈
 
-| 技术 | 版本 | 角色 |
-|---|---|---|
-| Go | 1.25 | 后端语言 |
-| GoFrame | v2.10 | HTTP 框架（DTO + 控制器 + 中间件 + OpenAPI 自动生成） |
-| `github.com/yuin/gopher-lua` | v1.1.0 | **纯 Go 实现的 Lua 5.1 解释器**（无 cgo，跨平台编译） |
-| `github.com/gorilla/websocket` | v1.5.3 | WS 升级 + 帧读写（与 v2 同一依赖） |
-| `sync.Pool` | stdlib | Lua VM 池化（避免每次 action 重建 VM） |
-| `sync.Mutex` | stdlib | per-room 串行化（零竞态保证） |
-| `crypto/sha256` | stdlib | 脚本内容哈希（去重 + 快照身份） |
-| `encoding/json` | stdlib | snapshot 序列化（Go ↔ Lua table 桥梁） |
+| 技术                             | 版本   | 角色                                                        |
+| -------------------------------- | ------ | ----------------------------------------------------------- |
+| Go                               | 1.25   | 后端语言                                                    |
+| GoFrame                          | v2.10  | HTTP 框架（DTO + 控制器 + 中间件 + OpenAPI 自动生成）       |
+| `github.com/yuin/gopher-lua`   | v1.1.0 | **纯 Go 实现的 Lua 5.1 解释器**（无 cgo，跨平台编译） |
+| `github.com/gorilla/websocket` | v1.5.3 | WS 升级 + 帧读写（与 v2 同一依赖）                          |
+| `sync.Pool`                    | stdlib | Lua VM 池化（避免每次 action 重建 VM）                      |
+| `sync.Mutex`                   | stdlib | per-room 串行化（零竞态保证）                               |
+| `crypto/sha256`                | stdlib | 脚本内容哈希（去重 + 快照身份）                             |
+| `encoding/json`                | stdlib | snapshot 序列化（Go ↔ Lua table 桥梁）                     |
 
 **没有的**：Redis / PostgreSQL / SQLite（v3 纯内存，进程生命周期）、JWT/Token（v3 无鉴权，与 v2 一致）、任何外部状态存储。
 
 ### 1.1 为什么选 gopher-lua
 
-| 候选 | 为什么不选 |
-|---|---|
-| C LuaJIT | cgo 依赖，跨平台编译复杂；2C2G 部署不友好 |
-| 前端传 JS 函数 + vm 沙箱 | API 表面大，安全风险高，多客户端版本兼容地狱 |
-| WASM (wasmtime) | 编译链复杂，单个函数体积大，调试困难 |
-| **gopher-lua** ✅ | 纯 Go、热更新友好、沙箱成熟、游戏/规则引擎经典方案 |
+| 候选                     | 为什么不选                                         |
+| ------------------------ | -------------------------------------------------- |
+| C LuaJIT                 | cgo 依赖，跨平台编译复杂；2C2G 部署不友好          |
+| 前端传 JS 函数 + vm 沙箱 | API 表面大，安全风险高，多客户端版本兼容地狱       |
+| WASM (wasmtime)          | 编译链复杂，单个函数体积大，调试困难               |
+| **gopher-lua** ✅  | 纯 Go、热更新友好、沙箱成熟、游戏/规则引擎经典方案 |
 
 ### 1.2 性能特征（2 核 2G 实测预估）
 
-| 指标 | 数值 |
-|---|---|
-| 单次 Lua VM 创建 | ~5-20μs、~170KB 内存 |
-| `CompileString`（CreateRoom 时一次） | ~19μs |
-| `RunEvent`（每次 action） | ~1.1μs（预编译 proto + 池化 VM） |
-| 简单脚本 + HTTP + 内存存储 QPS | 3000-8000 |
-| 常驻 WS 房间上限 | 300-800 |
-| 总房间数（含冷快照，若有持久化） | 几万 |
+| 指标                                   | 数值                              |
+| -------------------------------------- | --------------------------------- |
+| 单次 Lua VM 创建                       | ~5-20μs、~170KB 内存             |
+| `CompileString`（CreateRoom 时一次） | ~19μs                            |
+| `RunEvent`（每次 action）            | ~1.1μs（预编译 proto + 池化 VM） |
+| 简单脚本 + HTTP + 内存存储 QPS         | 3000-8000                         |
+| 常驻 WS 房间上限                       | 300-800                           |
+| 总房间数（含冷快照，若有持久化）       | 几万                              |
 
 **关键优化**：脚本在 CreateRoom 时 `CompileString` 一次 → proto 按 `sha256(src)` 缓存 → 后续 action 只 `Push(proto)` 执行，不重新编译。
 
@@ -84,6 +83,7 @@ Relay 协议 v3 = **可编程后端状态机**。客户端上传 Lua 脚本（�
 ```
 
 **核心不变量**：
+
 - **服务端权威**：snapshot 是唯一真相，客户端零合并（与 v2 一致）
 - **零竞态**：每个房间的 action 由 per-room `sync.Mutex` 串行化
 - **晚加入者不丢**：WS 升级后服务端立即推当前 snapshot 作为第一帧
@@ -97,11 +97,11 @@ Relay 协议 v3 = **可编程后端状态机**。客户端上传 Lua 脚本（�
 
 客户端上传的不是"一个房间的实现"，而是"一份 self-contained 业务 bundle"：
 
-| 角色 | 在脚本里的位置 | 谁负责 | 进 snapshot 吗 |
-|---|---|---|---|
-| **静态业务数据** | 顶层 `local DATA = {...}` | 客户端写死，运行时只读 | ❌ 已在 `ScriptSrc` 里 |
-| **房间运行时数据** | 全局 `state` + `context` | 服务端注入；脚本读写；return | ✅ 序列化进 JSON |
-| **事件处理函数** | 顶层 `on_<EVENT>` | 客户端上传，CreateRoom 时编译 | ❌ 是代码不是数据 |
+| 角色                     | 在脚本里的位置              | 谁负责                        | 进 snapshot 吗          |
+| ------------------------ | --------------------------- | ----------------------------- | ----------------------- |
+| **静态业务数据**   | 顶层`local DATA = {...}`  | 客户端写死，运行时只读        | ❌ 已在`ScriptSrc` 里 |
+| **房间运行时数据** | 全局`state` + `context` | 服务端注入；脚本读写；return  | ✅ 序列化进 JSON        |
+| **事件处理函数**   | 顶层`on_<EVENT>`          | 客户端上传，CreateRoom 时编译 | ❌ 是代码不是数据       |
 
 > **"给 code 即可获得一切"**：snapshot 携带 `ScriptSrc`，任何持有 snapshot 的进程能重建整个 bundle（静态数据 + handlers + 运行时 state）。
 
@@ -171,21 +171,21 @@ return {
 
 ### 3.3 生命周期回调（服务端硬编码的事件名）
 
-| 函数 | 触发时机 | params | 必须？ |
-|---|---|---|---|
-| `on_init(context, params)` | CreateRoom | 请求的 `initial_params` | ✅ 设置初始 state/context |
-| `on_join(context, params)` | HTTP `/join` 成功 | `{device_id, alias}` | ✅ 维护 `context.participants` |
-| `on_leave(context, params)` | `/leave` / WS 断开 / 脚本踢人 / TTL | `{device_id, reason}` | ✅ 清理 participants |
-| `on_action_<TYPE>(context, params)` | HTTP `/actions` | 请求的 `params` | 按业务需要 |
+| 函数                                  | 触发时机                              | params                   | 必须？                          |
+| ------------------------------------- | ------------------------------------- | ------------------------ | ------------------------------- |
+| `on_init(context, params)`          | CreateRoom                            | 请求的`initial_params` | ✅ 设置初始 state/context       |
+| `on_join(context, params)`          | HTTP`/join` 成功                    | `{device_id, alias}`   | ✅ 维护`context.participants` |
+| `on_leave(context, params)`         | `/leave` / WS 断开 / 脚本踢人 / TTL | `{device_id, reason}`  | ✅ 清理 participants            |
+| `on_action_<TYPE>(context, params)` | HTTP`/actions`                      | 请求的`params`         | 按业务需要                      |
 
 `reason` 取值：`"graceful"` / `"disconnect"` / `"kicked"` / `"room_evicted"`。
 
 ### 3.4 脚本能控制服务端的两个特殊返回值
 
-| 字段 | 形状 | 服务端反应 |
-|---|---|---|
-| `context.force_leave` | `[]string` 数组（device_id 列表） | 把对应 WS 用 4403 关闭，逐个再跑一次 `on_leave(reason="kicked")`，写一条 `__force_leave` history |
-| `context.rejected_join` | `map[string]bool` | 若含当前 join 的 device_id → HTTP 409，不写 Subs，关 WS 4403 |
+| 字段                      | 形状                                | 服务端反应                                                                                          |
+| ------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `context.force_leave`   | `[]string` 数组（device_id 列表） | 把对应 WS 用 4403 关闭，逐个再跑一次`on_leave(reason="kicked")`，写一条 `__force_leave` history |
+| `context.rejected_join` | `map[string]bool`                 | 若含当前 join 的 device_id → HTTP 409，不写 Subs，关 WS 4403                                       |
 
 ```lua
 on_join = function(c, p)
@@ -209,12 +209,12 @@ end
 
 ### 3.5 沙箱（NewSandbox）
 
-| 库 | 状态 | 说明 |
-|---|---|---|
-| `base` / `table` / `string` / `math` | ✅ 开放 | 纯计算 |
-| `os.time` / `os.date` / `os.difftime` | ✅ 开放（wrapped） | 时间戳逻辑 |
-| `os.execute` / `os.remove` / `os.exit` / `os.getenv` | ❌ nil | 安全 |
-| `io` / `debug` / `package` / `require` | ❌ nil | 不能读文件、不能 require、不能反射 |
+| 库                                                           | 状态               | 说明                               |
+| ------------------------------------------------------------ | ------------------ | ---------------------------------- |
+| `base` / `table` / `string` / `math`                 | ✅ 开放            | 纯计算                             |
+| `os.time` / `os.date` / `os.difftime`                  | ✅ 开放（wrapped） | 时间戳逻辑                         |
+| `os.execute` / `os.remove` / `os.exit` / `os.getenv` | ❌ nil             | 安全                               |
+| `io` / `debug` / `package` / `require`               | ❌ nil             | 不能读文件、不能 require、不能反射 |
 
 脚本只能做纯计算 + 时间戳，不能读文件系统、不能执行命令、不能 require 外部模块。
 
@@ -561,65 +561,65 @@ return {
 
 ## 7. v3 核心保证
 
-| 保证 | 实现机制 |
-|---|---|
-| **离线不掉** | 客户端下线不影响房间运转；只要后端在跑，snapshot 持续演进 |
-| **零竞态** | per-room `sync.Mutex` 串行化所有 action；跨房间互不阻塞 |
-| **晚加入者不丢** | WS 升级后立即推当前 snapshot（不是 Subs 残留旧帧） |
-| **业务逻辑可编程** | state 如何变化由 Lua 决定，Go 不硬编码（区别于 v2 只有 `chat`） |
-| **沙箱安全** | io/debug/package/require 全 nil；os 只剩 time/date/difftime |
-| **进程内生命周期** | 纯内存，重启即清空（v3 不做持久化，留待 v4） |
-| **单连接每设备** | 同 device_id 重连关闭旧 conn（4409 replaced），避免帧分裂 |
-| **慢消费者保护** | Send 满 64 丢最老 + dropSignal；累计 5 次关 WS 4408 |
+| 保证                     | 实现机制                                                         |
+| ------------------------ | ---------------------------------------------------------------- |
+| **离线不掉**       | 客户端下线不影响房间运转；只要后端在跑，snapshot 持续演进        |
+| **零竞态**         | per-room`sync.Mutex` 串行化所有 action；跨房间互不阻塞         |
+| **晚加入者不丢**   | WS 升级后立即推当前 snapshot（不是 Subs 残留旧帧）               |
+| **业务逻辑可编程** | state 如何变化由 Lua 决定，Go 不硬编码（区别于 v2 只有`chat`） |
+| **沙箱安全**       | io/debug/package/require 全 nil；os 只剩 time/date/difftime      |
+| **进程内生命周期** | 纯内存，重启即清空（v3 不做持久化，留待 v4）                     |
+| **单连接每设备**   | 同 device_id 重连关闭旧 conn（4409 replaced），避免帧分裂        |
+| **慢消费者保护**   | Send 满 64 丢最老 + dropSignal；累计 5 次关 WS 4408              |
 
 ---
 
 ## 8. 常见错误案例
 
-| # | 错误 | 后果 | 正确做法 |
-|---|---|---|---|
-| 1 | handlers 写在 return table 里（不是顶层全局） | CreateRoom 400：`declares "on_init" but no global function` | 先定义顶层全局 `on_X = function...end`，再在 return 里 `on_X = on_X` 引用 |
-| 2 | `force_leave` 用 map 形式 `{d2 = true}` | 静默不生效（类型断言失败），没人被踢 | 用数组 `{ "d2" }`，`table.insert(c.force_leave, "d2")` |
-| 3 | 客户端 `type:"action_CHAT"`（自带前缀） | 服务端找 `on_action_action_CHAT` → 422 | 客户端发裸类型 `type:"CHAT"`，让 controller 加 `action_` |
-| 4 | WS 没先调 `/join` 就直接连 | 4400（device 未注册） | 先 `POST /join` 拿 ws_url，再 WS connect |
-| 5 | 脚本用 `require("socket")` 或 `io.open` | 运行时 nil 调用错误 → 422 | 沙箱禁了；改用纯 Lua + table/string/math |
-| 6 | 期待空 table 序列化成 `[]` | 实际是 `{}`（Lua 空 table 走 map 分支） | 业务层容错：读 `(snap.context['messages'] as List?) ?? []` |
-| 7 | Lua 里 `c.foo.bar` 没 nil 检查 | 运行时 nil index → 422，snapshot 不变 | `c.foo = c.foo or {}; c.foo.bar = ...` |
-| 8 | 期待 `RoomHandle.connect()` 多次调用安全 | 早期版本会开多个 WS（已修） | v3 的 RoomHandle 已加 `_connected` 守卫；但调用方仍应只调一次 |
-| 9 | 持有旧 snapshot 指针期待它不变 | v3 每次 ApplyAction 分配全新 `*Snapshot`（不可变值语义） | 这是对的——旧指针确实不变；新 snapshot 是新指针 |
-| 10 | 在脚本里用 `os.exit()` 退出 | nil 调用 → 422 | 沙箱禁了；脚本无法退出进程 |
+| #  | 错误                                          | 后果                                                          | 正确做法                                                                     |
+| -- | --------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 1  | handlers 写在 return table 里（不是顶层全局） | CreateRoom 400：`declares "on_init" but no global function` | 先定义顶层全局`on_X = function...end`，再在 return 里 `on_X = on_X` 引用 |
+| 2  | `force_leave` 用 map 形式 `{d2 = true}`   | 静默不生效（类型断言失败），没人被踢                          | 用数组`{ "d2" }`，`table.insert(c.force_leave, "d2")`                    |
+| 3  | 客户端`type:"action_CHAT"`（自带前缀）      | 服务端找`on_action_action_CHAT` → 422                      | 客户端发裸类型`type:"CHAT"`，让 controller 加 `action_`                  |
+| 4  | WS 没先调`/join` 就直接连                   | 4400（device 未注册）                                         | 先`POST /join` 拿 ws_url，再 WS connect                                    |
+| 5  | 脚本用`require("socket")` 或 `io.open`    | 运行时 nil 调用错误 → 422                                    | 沙箱禁了；改用纯 Lua + table/string/math                                     |
+| 6  | 期待空 table 序列化成`[]`                   | 实际是`{}`（Lua 空 table 走 map 分支）                      | 业务层容错：读`(snap.context['messages'] as List?) ?? []`                  |
+| 7  | Lua 里`c.foo.bar` 没 nil 检查               | 运行时 nil index → 422，snapshot 不变                        | `c.foo = c.foo or {}; c.foo.bar = ...`                                     |
+| 8  | 期待`RoomHandle.connect()` 多次调用安全     | 早期版本会开多个 WS（已修）                                   | v3 的 RoomHandle 已加`_connected` 守卫；但调用方仍应只调一次               |
+| 9  | 持有旧 snapshot 指针期待它不变                | v3 每次 ApplyAction 分配全新`*Snapshot`（不可变值语义）     | 这是对的——旧指针确实不变；新 snapshot 是新指针                             |
+| 10 | 在脚本里用`os.exit()` 退出                  | nil 调用 → 422                                               | 沙箱禁了；脚本无法退出进程                                                   |
 
 ---
 
 ## 9. 关键文件索引
 
-| 文件 | 内容 |
-|---|---|
-| 后端 `internal/relay/v3/state.go` | Snapshot/Room/Subscriber/Action 类型 + sentinel errors |
-| 后端 `internal/relay/v3/lua.go` | NewSandbox + CompileScript + RunEvent + goToLua/luaToGo |
-| 后端 `internal/relay/v3/service.go` | Service 单例 + CreateRoom/ApplyAction/Join/Leave + broadcastSubs + ProcessForceLeave + evictIdle |
-| 后端 `internal/relay/v3/transport.go` | HandleWS + writer/reader loop + 5s grace + 单连接 + 慢消费者 4408 |
-| 后端 `internal/controller/relay/v3/relay.go` | 4 个 HTTP handler + httpStatusFor 错误码映射 |
-| 后端 `api/relay/v3/relay.go` | DTO（CreateRoomReq/Res, ActionReq/Res 等）+ api 包镜像 Snapshot 类型 |
-| 后端 `internal/cmd/cmd.go` | `/api/v3` group + `/ws3/{code}` 路由注册 |
-| 后端 `docs/relay-v3-script-format.md` | Lua 脚本完整格式规范（多个示例） |
-| 后端 `docs/relay-v3-api.md` | HTTP/WS 接口参考 |
-| 后端 `docs/superpowers/specs/2026-07-25-relay-v3-lua-state-machine-design.md` | 设计 spec（决策锚点 + 架构总览） |
-| 前端 `lib/core/net_engine/relay_v3/relay_v3_transport.dart` | RelayV3Transport + RoomHandle + Snapshot/HistoryEntry |
-| 前端 `lib/core/net_engine/relay_v3/relay_v3_widget.dart` | RelayV3Widget lobby（建房表单） |
-| 前端 `lib/core/net_p2p/pages/net_p2p_snapshot_chat.dart` | v3 快照聊天页（RoomHandle 驱动） |
-| 前端 `lib/core/net_p2p/net_p2p_discovery_host.dart` | LAN/Relay 入口 + `_defaultChatScript` 内联 |
+| 文件                                                                           | 内容                                                                                             |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| 后端`internal/relay/v3/state.go`                                             | Snapshot/Room/Subscriber/Action 类型 + sentinel errors                                           |
+| 后端`internal/relay/v3/lua.go`                                               | NewSandbox + CompileScript + RunEvent + goToLua/luaToGo                                          |
+| 后端`internal/relay/v3/service.go`                                           | Service 单例 + CreateRoom/ApplyAction/Join/Leave + broadcastSubs + ProcessForceLeave + evictIdle |
+| 后端`internal/relay/v3/transport.go`                                         | HandleWS + writer/reader loop + 5s grace + 单连接 + 慢消费者 4408                                |
+| 后端`internal/controller/relay/v3/relay.go`                                  | 4 个 HTTP handler + httpStatusFor 错误码映射                                                     |
+| 后端`api/relay/v3/relay.go`                                                  | DTO（CreateRoomReq/Res, ActionReq/Res 等）+ api 包镜像 Snapshot 类型                             |
+| 后端`internal/cmd/cmd.go`                                                    | `/api/v3` group + `/ws3/{code}` 路由注册                                                     |
+| 后端`docs/relay-v3-script-format.md`                                         | Lua 脚本完整格式规范（多个示例）                                                                 |
+| 后端`docs/relay-v3-api.md`                                                   | HTTP/WS 接口参考                                                                                 |
+| 后端`docs/superpowers/specs/2026-07-25-relay-v3-lua-state-machine-design.md` | 设计 spec（决策锚点 + 架构总览）                                                                 |
+| 前端`lib/core/net_engine/relay_v3/relay_v3_transport.dart`                   | RelayV3Transport + RoomHandle + Snapshot/HistoryEntry                                            |
+| 前端`lib/core/net_engine/relay_v3/relay_v3_widget.dart`                      | RelayV3Widget lobby（建房表单）                                                                  |
+| 前端`lib/core/net_p2p/pages/net_p2p_snapshot_chat.dart`                      | v3 快照聊天页（RoomHandle 驱动）                                                                 |
+| 前端`lib/core/net_p2p/net_p2p_discovery_host.dart`                           | LAN/Relay 入口 +`_defaultChatScript` 内联                                                      |
 
 ---
 
 ## 10. v3 vs v2 vs v1 对照
 
-| 维度 | v1 (action 流) | v2 (snapshot) | v3 (Lua 状态机) |
-|---|---|---|---|
-| 服务端业务逻辑 | 无（透传） | 硬编码 `chat` + `lastAction` | **客户端上传 Lua 定义** |
-| 状态所有权 | 客户端各自维护 | 服务端 snapshot | 服务端 snapshot（Lua 计算） |
-| 晚加入者 | 丢事件 | 第一帧 snapshot | 第一帧 snapshot |
-| 扩展新业务 | 改前端 | **改后端 Go 代码** | **只改 Lua 脚本** |
-| 多租户 | ❌ | ❌ | ✅（每房间独立脚本） |
-| 适用 | LAN 局域网 | 单一固定业务（聊天） | 多场景、可编程、需服务端权威 |
-| 当前状态 | LAN 保留 | **已删除**（被 v3 取代） | 推荐 |
+| 维度           | v1 (action 流) | v2 (snapshot)                   | v3 (Lua 状态机)               |
+| -------------- | -------------- | ------------------------------- | ----------------------------- |
+| 服务端业务逻辑 | 无（透传）     | 硬编码`chat` + `lastAction` | **客户端上传 Lua 定义** |
+| 状态所有权     | 客户端各自维护 | 服务端 snapshot                 | 服务端 snapshot（Lua 计算）   |
+| 晚加入者       | 丢事件         | 第一帧 snapshot                 | 第一帧 snapshot               |
+| 扩展新业务     | 改前端         | **改后端 Go 代码**        | **只改 Lua 脚本**       |
+| 多租户         | ❌             | ❌                              | ✅（每房间独立脚本）          |
+| 适用           | LAN 局域网     | 单一固定业务（聊天）            | 多场景、可编程、需服务端权威  |
+| 当前状态       | LAN 保留       | **已删除**（被 v3 取代）  | 推荐                          |
