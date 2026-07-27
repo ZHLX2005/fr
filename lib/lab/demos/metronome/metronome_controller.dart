@@ -26,6 +26,8 @@ class MetronomeController extends ChangeNotifier {
     MetronomeAudio? audio,
   })  : _scheduler = scheduler ?? PeriodicTickScheduler(),
         _audio = audio ?? MetronomeAudio() {
+    // 关键：audio 必须在 scheduler 之后构造才能拿到 tickStream
+    _audio.bindTickStream(_scheduler.tickStream);
     // 订阅 scheduler 的 tick 流，驱动 currentBeatNotifier
     _tickSub = _scheduler.tickStream.listen((beatIndex) {
       if (_disposed) return;

@@ -15,14 +15,14 @@ import 'package:just_audio/just_audio.dart';
 /// - just_audio 0.9.x 的 API：`setAsset(String)` + `play()`（无参），没有
 ///   `AudioContext` / `ReleaseMode` / `AssetSource` —— 那是 audioplayers 包。
 class MetronomeAudio {
-  MetronomeAudio({Stream<int>? tickStream, ValueNotifier<String?>? errorSink})
-      : _externalTickStream = tickStream,
-        _errorSink = errorSink;
+  MetronomeAudio({ValueNotifier<String?>? errorSink}) : _errorSink = errorSink;
 
-  final Stream<int>? _externalTickStream;
   final ValueNotifier<String?>? _errorSink;
   final AudioPlayer _player = AudioPlayer();
   StreamSubscription<int>? _tickSub;
+
+  // 由 controller 通过 bindTickStream 注入
+  Stream<int>? _externalTickStream;
 
   bool _started = false;
   bool _disposed = false;
@@ -62,13 +62,30 @@ class MetronomeAudio {
 
   Future<void> _doStart() async {
     try {
-      final stream = _externalTickStream;
-      if (stream != null && _tickSub == null) {
-        _tickSub = stream.listen(_onTick);
-      }
+      // start 时再次确保订阅（stop 之后 _tickSub 已被清掉）
+      _ensureTickSub();
     } catch (e, st) {
       _emitError(e);
       debugPrintStack(stackTrace: st);
+    }
+  }
+
+  /// 绑定 tick 流。controller 构造完 scheduler + audio 后调一次，
+  /// 也可以运行时换其他 stream。
+  void bindTickStream(Stream<int> stream) {
+    _externalTickStream = stream;
+    // 如果正在跑，立即重订
+    _tickSub?.cancel();
+    _tickSub = null;
+    if (_started) {
+      _ensureTickSub();
+    }
+  }
+
+  void _ensureTickSub() {
+    final stream = _externalTickStream;
+    if (stream != null && _tickSub == null) {
+      _tickSub = stream.listen(_onTick);
     }
   }
 
