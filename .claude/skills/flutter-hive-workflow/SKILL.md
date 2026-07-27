@@ -93,31 +93,25 @@ String _formatValue(dynamic value) {
 | 删除后数据还在                             | key 类型不匹配                      | 删除时尝试 string 和 int 两种 key                        |
 | 显示 "Instance of xxx"                     | `_formatValue()` 未处理自定义类型 | 添加`if (value is YourModel)` 分支                     |
 
-## StorageManager 模式
+## StorageManager 集中面板
 
-如果需要管理多种 Hive box，参考 StorageManager 的模式：
+如果需要在 Lab → 存储分析 中统一观察所有 Hive Box（像 Redis 面板），见 `[[hive-storage-panel]]`：
 
-```dart
-// 硬编码 box 名称列表
-final boxNames = [
-  'timetable_config',
-  'timetable_items',
-  'body_records', // typed box 需要特殊处理
-  'notes',
-];
+- **设计原则**：每个 feature 自包含 typed box → 集中初始化 → Provider 单条写（不手写全量 save）
+- **注册新 box**：`StorageManager` 四处理加 box 名：`boxNames` / `_typedBoxNames` / `_readTypedBox` / `_getHiveInfo`
+- **格式化显示**：`_formatValue()` 加 `runtime == 'YourModel'` 分支；否则显示 "Instance of xxx"
+- **注意事项**：typed box 必须用 `Hive.box<T>(name)` 泛型访问；`Hive.box(name)` 会抛 `HiveError`
 
-for (final name in boxNames) {
-  if (Hive.isBoxOpen(name)) {
-    if (name == 'body_records') {
-      final box = Hive.box<BodyRecord>(name); // typed access
-      // process...
-    } else {
-      final box = Hive.box(name);
-      // process...
-    }
-  }
-}
-```
+## 添加一个自定义 Type 的 Hive 存储
+
+大致步骤（完整流程＋代码见 `[[hive-storage-panel]]` §3）：
+
+1. 定义数据模型
+2. 手写 TypeAdapter（typeId 避开已有）
+3. 在 FeatureHive.init() 注册 adapter + 打开 box
+4. Provider 用 `Hive.box<T>(name).put/delete` 单条读写
+5. 注册到 StorageManager（boxNames + typedBoxNames + _readTypedBox 分支 + _formatValue 分支）
+6. Lab → 存储分析 验证
 
 ## 调试技巧
 
@@ -134,3 +128,9 @@ if (Hive.isBoxOpen(name)) {
   }
 }
 ```
+
+## 引用索引
+
+| ref | 何时读取 | 路径 |
+|-----|---------|------|
+| [[hive-storage-panel]] | 需要设计新 feature 的 Hive 存储结构、手写 TypeAdapter、或新增 box 到 StorageManager 面板时 | references/hive-storage-panel.md |
