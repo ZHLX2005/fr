@@ -410,9 +410,11 @@ class _RecordTileState extends State<_RecordTile> {
             });
           }
         },
-        child: ClipRect(
-          // ClipRect hides the action buttons when the card is collapsed so
-          // the colored blocks don't bleed out past the card's right edge.
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          // Clips both the card and the action buttons to the same 6px
+          // rounding as zenCard(), so sharp-cornered action buttons don't
+          // bleed past the card's rounded corners when swiped left.
           child: Stack(
             children: [
               // Action buttons (overflow to the right).
