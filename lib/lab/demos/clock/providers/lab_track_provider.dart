@@ -26,6 +26,39 @@ class LabTrackProvider with ChangeNotifier {
   String? get activeTrackId => _activeTrackId;
   int get currentSegmentIndex => _currentSegmentIndex;
 
+  /// Remaining seconds for the current segment, computed from startTime.
+  /// Returns 0 if no track is active.
+  int get currentSegmentRemaining {
+    if (_activeTrackId == null || _segmentStartTime == null) return 0;
+    final i = _tracks.indexWhere((t) => t.id == _activeTrackId);
+    if (i == -1) return 0;
+    final t = _tracks[i];
+    if (_currentSegmentIndex >= t.segments.length) return 0;
+    final elapsed = DateTime.now().difference(_segmentStartTime!).inSeconds;
+    return _segmentStartRemaining - elapsed;
+  }
+
+  /// Returns the active track, or null.
+  LabTrack? get activeTrack {
+    if (_activeTrackId == null) return null;
+    final i = _tracks.indexWhere((t) => t.id == _activeTrackId);
+    return i == -1 ? null : _tracks[i];
+  }
+
+  /// Total remaining seconds across all segments from the current segment onwards.
+  int get totalRemaining {
+    final t = activeTrack;
+    if (t == null) return 0;
+    int sum = 0;
+    for (var i = _currentSegmentIndex; i < t.segments.length; i++) {
+      sum += t.segments[i].snapshotDurationSeconds;
+    }
+    // subtract the elapsed time of the current segment
+    sum -= (t.segments[_currentSegmentIndex].snapshotDurationSeconds -
+        currentSegmentRemaining);
+    return sum < 0 ? 0 : sum;
+  }
+
   LabTrackProvider() {
     BeatCoordinator.registerBeatenOutCallback((id) {
       if (id.startsWith('track:')) {
