@@ -36,7 +36,7 @@ class ClocksTab extends StatelessWidget {
                     crossAxisCount: 2,
                     mainAxisSpacing: 16,
                     crossAxisSpacing: 16,
-                    childAspectRatio: 1.0,
+                    childAspectRatio: 0.85,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) => _ClockCard(clock: provider.clocks[i]),
@@ -199,10 +199,14 @@ class _ClockCard extends StatelessWidget {
             ),
             const Spacer(),
             Center(
-              child: Text(
-                _formatTime(remaining),
-                style: ZenText.monoDigit.copyWith(
-                  color: remaining < 0 ? ZenColors.mutedRed : ZenColors.ink,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _formatTime(remaining),
+                  style: ZenText.monoDigit.copyWith(
+                    fontSize: 32,
+                    color: remaining < 0 ? ZenColors.mutedRed : ZenColors.ink,
+                  ),
                 ),
               ),
             ),
