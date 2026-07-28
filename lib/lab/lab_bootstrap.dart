@@ -14,7 +14,6 @@ import 'demos/free_canvas_demo.dart';
 import 'demos/gallery_demo.dart';
 import 'demos/game_2048_demo.dart';
 import 'demos/github_demo.dart';
-import 'demos/grid_dashboard_demo.dart';
 import 'demos/line_demo.dart';
 import 'demos/message_net_demo.dart';
 import 'demos/network_demo.dart';
@@ -48,7 +47,6 @@ import 'demos/tetris_lua_demo.dart' show registerTetrisLuaDemo;
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
-  registerGridDashboardDemo();
   registerClockDemo();
   registerCalendarDemo();
   registerCrashLogDemo();
