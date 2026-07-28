@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'const_metronome.dart';
+import '../clock/widgets/zen_theme.dart' show ZenColors;
 
 /// 节拍可视化指示器组件
 ///
@@ -189,7 +190,7 @@ class _BpmWheelPickerState extends State<BpmWheelPicker> {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: ZenColors.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
@@ -199,15 +200,9 @@ class _BpmWheelPickerState extends State<BpmWheelPicker> {
             child: Container(
               height: 50,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: ZenColors.surface,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                border: Border.all(color: ZenColors.hair, width: 1),
               ),
             ),
           ),
@@ -233,8 +228,8 @@ class _BpmWheelPickerState extends State<BpmWheelPicker> {
                       fontSize: isSelected ? 32 : 22,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       color: isSelected
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey[400],
+                          ? ZenColors.sage
+                          : ZenColors.secondary,
                     ),
                     child: Text(value.toString()),
                   ),
@@ -266,7 +261,7 @@ class TimeSignaturePicker extends StatelessWidget {
     return Container(
       height: 50,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: ZenColors.surface,
         borderRadius: BorderRadius.circular(25),
       ),
       child: ListView.separated(
@@ -283,12 +278,12 @@ class TimeSignaturePicker extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).primaryColor : Colors.white,
+                color: isSelected ? ZenColors.sage : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                          color: ZenColors.sage.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -298,7 +293,7 @@ class TimeSignaturePicker extends StatelessWidget {
               child: Text(
                 pattern.name,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.grey[700],
+                  color: isSelected ? Colors.white : ZenColors.ink,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   fontSize: 14,
                 ),
@@ -370,10 +365,10 @@ class _PlayControlButtonState extends State<PlayControlButton>
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Theme.of(context).primaryColor,
+              color: ZenColors.sage,
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.4),
+                  color: ZenColors.sage.withValues(alpha: 0.4),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
@@ -413,11 +408,12 @@ class BpmAdjustButton extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.grey[200],
+          color: ZenColors.surface,
+          border: Border.all(color: ZenColors.hair, width: 1),
         ),
         child: Icon(
           icon,
-          color: Colors.grey[700],
+          color: ZenColors.ink,
           size: size * 0.5,
         ),
       ),
@@ -441,18 +437,19 @@ class TapTempoButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          color: ZenColors.surface,
           borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: ZenColors.hair, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.touch_app, color: Colors.grey[700], size: 20),
+            Icon(Icons.touch_app, color: ZenColors.ink, size: 20),
             const SizedBox(width: 8),
             Text(
               'TAP',
               style: TextStyle(
-                color: Colors.grey[700],
+                color: ZenColors.ink,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
@@ -617,9 +614,8 @@ class TempoMarking extends StatelessWidget {
     return Text(
       '$_marking ($_italian)',
       style: TextStyle(
-        color: Colors.grey[600],
+        color: ZenColors.secondary,
         fontSize: 14,
-        fontStyle: FontStyle.italic,
       ),
     );
   }
