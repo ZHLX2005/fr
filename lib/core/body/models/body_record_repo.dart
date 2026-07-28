@@ -1,5 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'body_record.dart';
+import '../../storage/box_descriptor.dart';
+import '../../storage/storage_registry.dart';
 
 class BodyRecordRepo {
   static const String _boxName = 'body_records';
@@ -13,6 +15,21 @@ class BodyRecordRepo {
       Hive.registerAdapter(BodyRecordAdapter());
     }
     _box = await Hive.openBox<BodyRecord>(_boxName);
+    StorageRegistry.register(BoxDescriptor<BodyRecord>(
+      name: _boxName,
+      displayName: '身体记录',
+      typeId: 0,
+      openTyped: () => Hive.openBox<BodyRecord>(_boxName),
+      formatValue: (v) {
+        final r = v as BodyRecord;
+        final parts = <String>[];
+        parts.add('身体部位: ${r.bodyPartId}');
+        parts.add('内容: ${r.content}');
+        if (r.painLevel != null) parts.add('疼痛等级: ${r.painLevel}');
+        parts.add('时间: ${r.createdAt.toString().substring(0, 10)}');
+        return parts.join('\n');
+      },
+    ));
     _initialized = true;
   }
 

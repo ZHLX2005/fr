@@ -21,11 +21,15 @@ class ClockDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => LabClockProvider()..loadClocks()),
-        ChangeNotifierProvider(create: (_) => LabTrackProvider()..loadTracks()),
-      ],
+    // Reuse the global LabClockProvider that main.dart already registered
+    // (it's needed at cold-start so the home-screen widget can sync before
+    // the user opens this page). If we `create` a fresh one here we end up
+    // with TWO providers writing to the same SharedPreferences from two
+    // independent Timers — one overwrites the other, and any wipe done on
+    // one is silently undone by the other on the next tick. LabTrackProvider
+    // isn't wired at app root, so it's still created here.
+    return ChangeNotifierProvider(
+      create: (_) => LabTrackProvider()..loadTracks(),
       child: const _ClockShell(),
     );
   }

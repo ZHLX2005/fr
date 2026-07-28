@@ -308,6 +308,22 @@ class StorageManager {
     }
   }
 
+  /// 删除所有 Hive 数据（保留 box 结构）
+  Future<void> deleteAllHive() async {
+    for (final name in _allBoxNames()) {
+      try {
+        if (Hive.isBoxOpen(name)) {
+          final d = StorageRegistry.get(name);
+          if (d != null) {
+            await d.clear();
+          } else {
+            await Hive.box(name).clear();
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
   // ── 内部 ────────────────────────────────────────────
 
   /// 遍历所有注册 + 遗留 box，返回每个的 StorageInfo

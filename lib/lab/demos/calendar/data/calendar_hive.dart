@@ -1,5 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
+import '../../../../core/storage/box_descriptor.dart';
+import '../../../../core/storage/storage_registry.dart';
 import '../domain/event.dart';
 import '../domain/person.dart';
 import 'event_adapter.dart';
@@ -52,6 +54,47 @@ class CalendarHive {
     if (!Hive.isBoxOpen(viewStateBoxName)) {
       await Hive.openBox(viewStateBoxName);
     }
+    // 注册到 StorageRegistry（面板自动接管展示 / 格式化 / 删除）
+    StorageRegistry.register(BoxDescriptor<Event>(
+      name: eventsBoxName,
+      displayName: '日历事件',
+      typeId: _eventTypeId,
+      openTyped: () => Hive.openBox<Event>(eventsBoxName),
+      formatValue: (v) {
+        final e = v as Event;
+        final parts = <String>[
+          '标题: ${e.title}',
+          '类型: ${e.type.name}',
+          '历法: ${e.system.name}',
+          '日期: ${e.month}月${e.day}日',
+          '重复: ${e.recurrence.name}',
+          if (e.personId != null) '关联人: ${e.personId}',
+          if (e.note != null) '备注: ${e.note}',
+        ];
+        return parts.join('\n');
+      },
+    ));
+    StorageRegistry.register(BoxDescriptor<Person>(
+      name: peopleBoxName,
+      displayName: '人物档案',
+      typeId: _personTypeId,
+      openTyped: () => Hive.openBox<Person>(peopleBoxName),
+      formatValue: (v) {
+        final p = v as Person;
+        final parts = <String>[
+          '姓名: ${p.name}',
+          '关系: ${p.relation.name}',
+          if (p.avatarEmoji != null) '头像: ${p.avatarEmoji}',
+          if (p.note != null) '备注: ${p.note}',
+        ];
+        return parts.join('\n');
+      },
+    ));
+    StorageRegistry.register(BoxDescriptor(
+      name: viewStateBoxName,
+      displayName: '日历视图状态',
+      openUntyped: () => Hive.openBox(viewStateBoxName),
+    ));
     _initialized = true;
   }
 
