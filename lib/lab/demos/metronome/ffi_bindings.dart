@@ -1,170 +1,39 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:ffi';
-import 'dart:io';
 
-import 'package:ffi/ffi.dart';
+import 'package:xiaodouzi_fr/services/metronome/metronome_service.dart';
 
-/// C 端 Tick 回调签名：void(int beatIndex)
-typedef _NativeTick = Void Function(Int32);
-typedef _DartTick = void Function(int);
-
-/// C 函数指针签名
-typedef _InitAudioNative = Void Function(Double);
-typedef _InitAudioDart = void Function(double);
-
-typedef _ShutdownAudioNative = Void Function();
-typedef _ShutdownAudioDart = void Function();
-
-typedef _PlayNative = Void Function();
-typedef _PlayDart = void Function();
-
-typedef _PauseNative = Void Function();
-typedef _PauseDart = void Function();
-
-typedef _SetBpmNative = Void Function(Double);
-typedef _SetBpmDart = void Function(double);
-
-typedef _SetBeatsPerBarNative = Void Function(Int32);
-typedef _SetBeatsPerBarDart = void Function(int);
-
-typedef _SetUseAccentTickNative = Void Function(Bool);
-typedef _SetUseAccentTickDart = void Function(bool);
-
-typedef _SetBeatAccentLevelNative = Void Function(Int32, Int32);
-typedef _SetBeatAccentLevelDart = void Function(int, int);
-
-typedef _SetTickCallbackNative = Void Function(
-    Pointer<NativeFunction<_NativeTick>>);
-typedef _SetTickCallbackDart = void Function(
-    Pointer<NativeFunction<_NativeTick>>);
-
-// load_sample(int level, const char* path) -> int (1=ok, 0=fail)
-typedef _LoadSampleNative = Int32 Function(Int32, Pointer<Uint8>);
-typedef _LoadSampleDart = int Function(int, Pointer<Uint8>);
-
-// clear_sample(int level)
-typedef _ClearSampleNative = Void Function(Int32);
-typedef _ClearSampleDart = void Function(int);
-
-/// Metronome FFI Bridge
+/// MetronomeFFI 已被 [MetronomeService] 取代。这个文件保留作为**瘦壳**，
+/// 把所有静态方法转发到单例 `MetronomeService.instance`，避免大规模改 consumer
+/// 代码（BeatCoordinator、MetronomeController 等）。
 ///
-/// 在 C++ 音频线程的 onAudioReady 回调里，会调用 [TickCallback] 通知当前拍号。
-/// Dart 端订阅这条流，UI 闪指示器、tap tempo 都可以基于这条流。
+/// 整个 app 生命周期内**只有一个 Oboe stream 实例**，由 [MetronomeService]
+/// 持有。stream / sample 槽都跟随 app 进程，不随 UI 控制器销毁。
+///
+/// 新代码直接用 `MetronomeService.instance`；旧代码继续通过 `MetronomeFFI.xxx`
+/// 也能跑（背后是同一个 service）。
 class MetronomeFFI {
-  static final DynamicLibrary _lib = Platform.isAndroid
-      ? DynamicLibrary.open("libmetronome.so")
-      : throw UnsupportedError("Only Android is supported");
+  MetronomeFFI._();
 
-  static final _initAudio =
-      _lib.lookupFunction<_InitAudioNative, _InitAudioDart>('init_audio');
-  static final _shutdownAudio = _lib
-      .lookupFunction<_ShutdownAudioNative, _ShutdownAudioDart>('shutdown_audio');
-  static final _play = _lib.lookupFunction<_PlayNative, _PlayDart>('play_metronome');
-  static final _pause = _lib.lookupFunction<_PauseNative, _PauseDart>('pause_metronome');
-  static final _setBpm =
-      _lib.lookupFunction<_SetBpmNative, _SetBpmDart>('set_bpm');
-  static final _setBeatsPerBar =
-      _lib.lookupFunction<_SetBeatsPerBarNative, _SetBeatsPerBarDart>(
-          'set_beats_per_bar');
-  static final _setUseAccentTick =
-      _lib.lookupFunction<_SetUseAccentTickNative, _SetUseAccentTickDart>(
-          'set_use_accent_tick');
-  static final _setBeatAccentLevel =
-      _lib.lookupFunction<_SetBeatAccentLevelNative, _SetBeatAccentLevelDart>(
-          'set_beat_accent_level');
-  static final _loadSample =
-      _lib.lookupFunction<_LoadSampleNative, _LoadSampleDart>('load_sample');
-  static final _clearSample =
-      _lib.lookupFunction<_ClearSampleNative, _ClearSampleDart>('clear_sample');
+  static MetronomeService get _svc => MetronomeService.instance;
 
-  /// Native 端的回调 controller。被 C++ 端持有，触发时调用 dart 闭包。
-  static NativeCallable<_NativeTick>? _tickCallable;
+  /// Native 端拍点流 — 由 [MetronomeService] 持有，跨 controller 共享。
+  static Stream<int> get tickStream => _svc.tickStream;
 
-  /// 唯一订阅者。Controller 在 start() 时订阅，stop()/dispose() 时取消。
-  static final StreamController<int> _tickStreamController =
-      StreamController<int>.broadcast();
+  /// 初始化 Oboe 音频流。多次调用只生效一次（_initialized flag）。
+  static void init(double bpm) => _svc.ensureReady(bpm: bpm);
 
-  /// 暴露给业务层的拍点流。每次 C++ 推一帧过来就 +1。
-  /// 注意：native 传来的 `beatIndex` 是 `beat % beatsPerBar` 已经是 0..beatsPerBar-1。
-  /// 但是底层 C++ 在 beat 0..N 累加，每到 beatsPerBar 重新从 0 开始——刚好等价。
-  static Stream<int> get tickStream => _tickStreamController.stream;
-
-  /// 初始化 Oboe 音频流。多次调用只生效一次。
-  /// [bpm] 初始 bpm。
-  static void init(double bpm) {
-    if (_tickCallable != null) return;
-    _initAudio(bpm);
-    // 把 Dart 函数包成 native 可调用的 callable
-    _tickCallable = NativeCallable<_NativeTick>.listener(_onNativeTick);
-    _lib.lookupFunction<_SetTickCallbackNative, _SetTickCallbackDart>(
-            'set_tick_callback')(
-        _tickCallable!.nativeFunction);
-  }
-
-  /// C++ 回调入口。运行在 C++ 音频线程。
-  /// 通过 StreamController.add 推给 Dart 订阅者，Flutter 会在 UI isolate
-  /// 把消息派发出去。
-  static void _onNativeTick(int beatIndex) {
-    if (_tickStreamController.isClosed) return;
-    _tickStreamController.add(beatIndex);
-  }
-
-  static void play() => _play();
-  static void pause() => _pause();
-  static void shutdown() {
-    if (_tickCallable == null) return;
-    _shutdownAudio();
-    _tickCallable!.close();
-    _tickCallable = null;
-  }
-
-  static void setBpm(double bpm) => _setBpm(bpm);
-  static void setBeatsPerBar(int beats) => _setBeatsPerBar(beats);
-  static void setUseAccentTick(bool value) => _setUseAccentTick(value);
-
-  /// 设置某拍的重音级别（0=弱, 1=次强, 2=强）。让强弱次强的音色差别真的听得出来。
-  /// [beatIndex] 取值 0..beatsPerBar-1。
+  static void setBpm(double bpm) => _svc.setBpm(bpm);
+  static void setBeatsPerBar(int beats) => _svc.setBeatsPerBar(beats);
   static void setBeatAccentLevel(int beatIndex, int level) =>
-      _setBeatAccentLevel(beatIndex, level);
+      _svc.setBeatAccentLevel(beatIndex, level);
 
-  /// Load a WAV file and mount it onto an accent-level slot (0=weak, 1=medium,
-  /// 2=accent). Once mounted, that beat plays the sample instead of the built-in
-  /// synth click; the synth is still the ultimate fallback.
-  ///
-  /// [path] must be an absolute filesystem path (not an asset key). Copy the
-  /// asset to the app's private dir first, then pass that path here.
-  ///
-  /// Returns true on success (audio initialized + WAV decoded + resampled).
-  static bool loadSample(int level, String path) {
-    if (level < 0 || level > 2) return false;
-    // Encode the path as null-terminated UTF-8. dart:ffi doesn't ship a
-    // built-in strings helper we can rely on here without adding the
-    // `package:ffi` dep, so this hand-rolls it.
-    final bytes = utf8.encode(path);
-    final ptr = calloc<Uint8>(bytes.length + 1);
-    try {
-      for (var i = 0; i < bytes.length; i++) {
-        ptr[i] = bytes[i];
-      }
-      ptr[bytes.length] = 0;
-      return _loadSample(level, ptr) == 1;
-    } finally {
-      calloc.free(ptr);
-    }
-  }
+  static void play() => _svc.play();
+  static void pause() => _svc.pause();
 
-  /// Unmount any WAV sample from the given accent-level slot. The beat then
-  /// falls back to the built-in synth click.
-  static void clearSample(int level) {
-    if (level < 0 || level > 2) return;
-    _clearSample(level);
-  }
+  /// 一般不调用 — stream 是单例、跟随 app 进程。
+  static Future<void> shutdown() => _svc.shutdown();
 
-  /// 关闭 tick stream（dispose 时调）。
-  static Future<void> dispose() async {
-    if (!_tickStreamController.isClosed) {
-      await _tickStreamController.close();
-    }
-  }
+  static bool loadSample(int level, String path) =>
+      _svc.loadSample(level, path);
+  static void clearSample(int level) => _svc.clearSample(level);
 }
