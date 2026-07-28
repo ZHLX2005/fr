@@ -275,6 +275,29 @@ class LabTrackProvider with ChangeNotifier {
     return r.accumulatedSeconds ?? 0;
   }
 
+  /// Update a record's custom title.
+  Future<void> updateRecordTitle(String id, String customTitle) async {
+    final i = _records.indexWhere((r) => r.id == id);
+    if (i == -1) return;
+    _records[i] = _records[i].copyWith(customTitle: customTitle);
+    await _saveRecords();
+    notifyListeners();
+  }
+
+  /// Delete a single record.
+  Future<void> deleteRecord(String id) async {
+    _records.removeWhere((r) => r.id == id);
+    await _saveRecords();
+    notifyListeners();
+  }
+
+  /// Clear all records.
+  Future<void> clearRecords() async {
+    _records.clear();
+    await _saveRecords();
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
