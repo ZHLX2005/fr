@@ -93,25 +93,25 @@ String _formatValue(dynamic value) {
 | 删除后数据还在                             | key 类型不匹配                      | 删除时尝试 string 和 int 两种 key                        |
 | 显示 "Instance of xxx"                     | `_formatValue()` 未处理自定义类型 | 添加`if (value is YourModel)` 分支                     |
 
-## StorageManager 集中面板
+## StorageManager 集中面板（BoxDescriptor 注册制）
 
-如果需要在 Lab → 存储分析 中统一观察所有 Hive Box（像 Redis 面板），见 `[[hive-storage-panel]]`：
+Lab → 存储分析 中统一观察所有 Hive Box（像 Redis 面板）。**当前架构：** `StorageManager` 不再有 if-else 分支；每个 feature 自己注册 `BoxDescriptor`，面板自动接管展示、格式化、删除、清空。完整原理见 `[[hive-storage-panel]]`。
 
-- **设计原则**：每个 feature 自包含 typed box → 集中初始化 → Provider 单条写（不手写全量 save）
-- **注册新 box**：`StorageManager` 四处理加 box 名：`boxNames` / `_typedBoxNames` / `_readTypedBox` / `_getHiveInfo`
-- **格式化显示**：`_formatValue()` 加 `runtime == 'YourModel'` 分支；否则显示 "Instance of xxx"
-- **注意事项**：typed box 必须用 `Hive.box<T>(name)` 泛型访问；`Hive.box(name)` 会抛 `HiveError`
+- **核心组件**：`lib/core/storage/box_descriptor.dart`（自描述结构）+ `storage_registry.dart`（全局注册表）+ `storage_manager.dart`（纯查询代理）
+- **feature 只做一件事**：在自己的 `FeatureHive.init()` 或 `Repo.init()` 里调 `StorageRegistry.register(BoxDescriptor<T>(...))`
+- **不再动 StorageManager**：所有 typed box 分支已消除；`_readTypedBox` / `_typedBoxNames` / 硬编码 box 列表全部删除
+- **注意事项**：typed box 必须用 `Hive.box<T>(name)` 泛型访问；`Hive.box(name)` 会抛 `HiveError`（BoxDescriptor 内部已保证泛型访问）
 
 ## 添加一个自定义 Type 的 Hive 存储
 
-大致步骤（完整流程＋代码见 `[[hive-storage-panel]]` §3）：
+**只需 4 步**（完整代码见 `[[hive-storage-panel]]` §3）：
 
 1. 定义数据模型
-2. 手写 TypeAdapter（typeId 避开已有）
-3. 在 FeatureHive.init() 注册 adapter + 打开 box
-4. Provider 用 `Hive.box<T>(name).put/delete` 单条读写
-5. 注册到 StorageManager（boxNames + typedBoxNames + _readTypedBox 分支 + _formatValue 分支）
-6. Lab → 存储分析 验证
+2. 手写 TypeAdapter（typeId 避开已有：0=BodyRecord, 90=Event, 91=Person）
+3. 在 `FeatureHive.init()` 里注册 adapter + 打开 box + **`StorageRegistry.register(BoxDescriptor<T>(...))`**（含 name / displayName / typeId / openTyped / formatValue）
+4. Lab → 存储分析 验证
+
+**关键：** 面板不再需要修改。注册即接管。
 
 ## 调试技巧
 
