@@ -11,18 +11,18 @@ void main() {
     test('demoRegistry.get(slug) 命中（clock）', () {
       final demo = demoRegistry.get('clock');
       expect(demo, isNotNull);
-      expect(demo!.title, '时钟');
+      expect(demo!.title, 'Clock');
     });
 
     test('getBySlug / getByTitle 分离', () {
-      expect(demoRegistry.getBySlug('clock')?.title, '时钟');
-      expect(demoRegistry.getByTitle('时钟')?.slug, 'clock');
+      expect(demoRegistry.getBySlug('clock')?.title, 'Clock');
+      expect(demoRegistry.getByTitle('Clock')?.slug, 'clock');
     });
 
     test('DemoPage.slug 与 kDemoSlugs 表解耦，子类自带', () {
       // slug 在子类文件内声明（不再依赖 lab_container.dart 全局表）。
       // 验证：直接读 DemoPage.slug 字段值（不通过 map 查询）。
-      final clock = demoRegistry.getByTitle('时钟')!;
+      final clock = demoRegistry.getByTitle('Clock')!;
       expect(clock.slug, 'clock');
       final calendar = demoRegistry.getByTitle('日历待办')!;
       expect(calendar.slug, 'calendar');
