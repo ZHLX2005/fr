@@ -162,6 +162,10 @@ dependencies:
   # 农历（Lunar）—— 日历/待办功能需要农历转换
   lunar: ^1.7.8
 
+  # FFI helper (calloc / malloc for passing strings to native code — used by
+  # the metronome Oboe bridge in lib/lab/demos/metronome/ffi_bindings.dart).
+  ffi: ^2.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -200,6 +204,7 @@ flutter:
     - assets/data/character_profiles/douzi_profile.json
     - assets/animal/
     - assets/animals/
+    - assets/audio/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

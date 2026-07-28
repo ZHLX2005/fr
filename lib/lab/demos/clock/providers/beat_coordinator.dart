@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:xiaodouzi_fr/lab/demos/metronome/const_metronome.dart';
 import 'package:xiaodouzi_fr/lab/demos/metronome/ffi_bindings.dart';
+import 'package:xiaodouzi_fr/lab/demos/metronome/sample_loader.dart';
 
 /// Internal sink so tests can replace the FFI surface.
 abstract class BeatSink {
@@ -27,11 +30,19 @@ class _OboeBeatSink implements BeatSink {
 
   /// The Oboe stream must be initialized before any other FFI call, otherwise
   /// setBpm / play silently do nothing. We init lazily once per process.
+  /// Also fires the default-sample mount (fire-and-forget async so the first
+  /// beat isn't blocked on file IO).
   static bool _ready = false;
   static void _ensureReady(void Function() op) {
     if (!_ready) {
       MetronomeFFI.init(120); // default BPM; overwritten by setBpm below.
       _ready = true;
+      // Preload the built-in woodfish sample onto the accent slot. We
+      // deliberately don't await this — the FFI call to mount happens
+      // asynchronously via a materialize + loadSample step, and the first
+      // beat is allowed to hit the synth fallback while we're still
+      // materializing.
+      unawaited(SampleLoader.mountDefaults());
     }
     op();
   }

@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+
+import 'package:ffi/ffi.dart';
 
 /// C 端 Tick 回调签名：void(int beatIndex)
 typedef _NativeTick = Void Function(Int32);
@@ -36,6 +39,14 @@ typedef _SetTickCallbackNative = Void Function(
 typedef _SetTickCallbackDart = void Function(
     Pointer<NativeFunction<_NativeTick>>);
 
+// load_sample(int level, const char* path) -> int (1=ok, 0=fail)
+typedef _LoadSampleNative = Int32 Function(Int32, Pointer<Uint8>);
+typedef _LoadSampleDart = int Function(int, Pointer<Uint8>);
+
+// clear_sample(int level)
+typedef _ClearSampleNative = Void Function(Int32);
+typedef _ClearSampleDart = void Function(int);
+
 /// Metronome FFI Bridge
 ///
 /// 在 C++ 音频线程的 onAudioReady 回调里，会调用 [TickCallback] 通知当前拍号。
@@ -62,6 +73,10 @@ class MetronomeFFI {
   static final _setBeatAccentLevel =
       _lib.lookupFunction<_SetBeatAccentLevelNative, _SetBeatAccentLevelDart>(
           'set_beat_accent_level');
+  static final _loadSample =
+      _lib.lookupFunction<_LoadSampleNative, _LoadSampleDart>('load_sample');
+  static final _clearSample =
+      _lib.lookupFunction<_ClearSampleNative, _ClearSampleDart>('clear_sample');
 
   /// Native 端的回调 controller。被 C++ 端持有，触发时调用 dart 闭包。
   static NativeCallable<_NativeTick>? _tickCallable;
@@ -112,6 +127,39 @@ class MetronomeFFI {
   /// [beatIndex] 取值 0..beatsPerBar-1。
   static void setBeatAccentLevel(int beatIndex, int level) =>
       _setBeatAccentLevel(beatIndex, level);
+
+  /// Load a WAV file and mount it onto an accent-level slot (0=weak, 1=medium,
+  /// 2=accent). Once mounted, that beat plays the sample instead of the built-in
+  /// synth click; the synth is still the ultimate fallback.
+  ///
+  /// [path] must be an absolute filesystem path (not an asset key). Copy the
+  /// asset to the app's private dir first, then pass that path here.
+  ///
+  /// Returns true on success (audio initialized + WAV decoded + resampled).
+  static bool loadSample(int level, String path) {
+    if (level < 0 || level > 2) return false;
+    // Encode the path as null-terminated UTF-8. dart:ffi doesn't ship a
+    // built-in strings helper we can rely on here without adding the
+    // `package:ffi` dep, so this hand-rolls it.
+    final bytes = utf8.encode(path);
+    final ptr = calloc<Uint8>(bytes.length + 1);
+    try {
+      for (var i = 0; i < bytes.length; i++) {
+        ptr[i] = bytes[i];
+      }
+      ptr[bytes.length] = 0;
+      return _loadSample(level, ptr) == 1;
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  /// Unmount any WAV sample from the given accent-level slot. The beat then
+  /// falls back to the built-in synth click.
+  static void clearSample(int level) {
+    if (level < 0 || level > 2) return;
+    _clearSample(level);
+  }
 
   /// 关闭 tick stream（dispose 时调）。
   static Future<void> dispose() async {

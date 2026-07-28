@@ -1,85 +1,92 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../body/models/body_record.dart';
-import '../../lab/demos/calendar/data/calendar_hive.dart';
-import '../../lab/demos/calendar/domain/event.dart';
-import '../../lab/demos/calendar/domain/person.dart';
+
+import 'box_descriptor.dart';
+import 'storage_registry.dart';
 
 /// 统一存储管理器
 ///
-/// 管理所有持久化存储：Hive Box、SharedPreferences、文件等
+/// 所有 typed box 的信息（box 名、打开、格式化）通过 [StorageRegistry] 注册，
+/// StorageManager 只作为纯查询代理——新增 typed box 时只需注册，不用改本文件。
+///
+/// ## 注册表模式一统
+///
+/// 每个 feature 在自己的 Hive init 处：
+/// ```dart
+/// StorageRegistry.register(BoxDescriptor<YourModel>(
+///   name: 'your_box',
+///   displayName: '你的中文名',
+///   typeId: 92,
+///   openTyped: () => Hive.openBox<YourModel>('your_box'),
+///   formatValue: (v) { final m = v as YourModel; return '字段: ${m.x}'; },
+/// ));
+/// ```
 class StorageManager {
-  /// 需要用泛型访问的 typed box
-  static const _typedBoxNames = {
-    'body_records',
-    'calendarEvents',
-    'calendarPeople',
-  };
-
-  /// typed box 读取 helper
-  List<KeyDetail> _readTypedBox(String name) {
-    final result = <KeyDetail>[];
-    if (name == 'body_records') {
-      final box = Hive.box<BodyRecord>(name);
-      for (final key in box.keys) {
-        final value = box.get(key);
-        result.add(KeyDetail(
-          key: '$name/$key',
-          value: _formatValue(value),
-          rawValue: value,
-          size: _estimateSize(value),
-        ));
-      }
-    } else if (name == 'calendarEvents') {
-      final box = Hive.box<Event>(name);
-      for (final key in box.keys) {
-        final value = box.get(key);
-        result.add(KeyDetail(
-          key: '$name/$key',
-          value: _formatValue(value),
-          rawValue: value,
-          size: _estimateSize(value),
-        ));
-      }
-    } else if (name == 'calendarPeople') {
-      final box = Hive.box<Person>(name);
-      for (final key in box.keys) {
-        final value = box.get(key);
-        result.add(KeyDetail(
-          key: '$name/$key',
-          value: _formatValue(value),
-          rawValue: value,
-          size: _estimateSize(value),
-        ));
-      }
-    }
-    return result;
-  }
   StorageManager._();
   static final StorageManager instance = StorageManager._();
 
   bool _isInitialized = false;
 
+  /// 非注册方式的老 box 中文名映射（过渡；建议逐步迁移到注册表）
+  static const _legacyNameMap = {
+    'timetable_config': '课表配置',
+    'timetable_items': '课表课程',
+    'focus_sessions': '专注记录',
+    'focus_subjects': '专注科目',
+    'clock_records': '时钟记录',
+    'notes': '笔记',
+    'SharedPreferences': '应用配置',
+  };
+
+  /// 所有已知 box 名（注册表 + 遗留硬编码）
+  List<String> _allBoxNames() {
+    final fromRegistry = StorageRegistry.all.map((d) => d.name).toList();
+    final legacy = _legacyNameMap.keys
+        .where((n) => n != 'SharedPreferences')
+        .where((n) => !fromRegistry.contains(n))
+        .toList();
+    return [...legacy, ...fromRegistry];
+  }
+
+  /// 获取 box 的中文显示名
+  String _displayName(String name) {
+    if (name == 'SharedPreferences') return '应用配置';
+    final d = StorageRegistry.get(name);
+    if (d != null) return d.displayName;
+    return _legacyNameMap[name] ?? name;
+  }
+
+  // ── Public API ────────────────────────────────────────────
+
   /// 初始化所有存储
   Future<void> init() async {
     if (_isInitialized) return;
-
-    // 初始化 Hive
     await Hive.initFlutter();
-
     _isInitialized = true;
   }
 
   /// 获取所有存储信息
   Future<List<StorageInfo>> getAllStorageInfo() async {
-    final List<StorageInfo> result = [];
+    final result = <StorageInfo>[];
 
-    // Hive 作为一个整体
+    // Hive boxes（每个 box 一个 entry）
     result.addAll(await _getHiveInfo());
 
-    // SharedPreferences 作为一个整体
-    result.add(await _getPrefsInfo());
+    // SharedPreferences（作为一个整体）
+    final prefs = await SharedPreferences.getInstance();
+    final pKeys = prefs.getKeys();
+    int pSize = 0;
+    for (final k in pKeys) {
+      final v = prefs.get(k);
+      if (v != null) pSize += v.toString().length;
+    }
+    result.add(StorageInfo(
+      type: StorageType.prefs,
+      name: 'SharedPreferences',
+      keyCount: pKeys.length,
+      size: pSize,
+    ));
 
     return result;
   }
@@ -89,159 +96,68 @@ class StorageManager {
     switch (type) {
       case StorageType.hive:
         if (boxName == null) return [];
-        try {
-          if (!Hive.isBoxOpen(boxName)) return [];
-          final box = Hive.box(boxName);
-          return box.keys.map((k) => k.toString()).toList();
-        } catch (e) {
-          return [];
+        if (!Hive.isBoxOpen(boxName)) return [];
+        final d = StorageRegistry.get(boxName);
+        if (d != null) {
+          return d.keys.map((k) => k.toString()).toList();
         }
+        return Hive.box(boxName).keys.map((k) => k.toString()).toList();
 
       case StorageType.prefs:
-        final prefs = await SharedPreferences.getInstance();
-        return prefs.getKeys().toList();
+        return (await SharedPreferences.getInstance()).getKeys().toList();
     }
   }
 
-  /// 获取键值对详情列表
-  Future<List<KeyDetail>> getKeyDetails(
-    StorageType type, {
-    String? boxName,
-  }) async {
-    final List<KeyDetail> result = [];
+  /// 获取某 box 的键值详情列表
+  Future<List<KeyDetail>> getKeyDetails(StorageType type, {String? boxName}) async {
+    final result = <KeyDetail>[];
 
     switch (type) {
       case StorageType.hive:
-        if (boxName != null) {
-          // 获取指定 Box 的键
+        final names = boxName != null ? [boxName] : _allBoxNames();
+        for (final name in names) {
           try {
-            // 确保 typed box 已打开（用正确泛型注册 adapter）
-            if (!Hive.isBoxOpen(boxName)) {
-              if (boxName == 'calendarEvents' ||
-                  boxName == 'calendarPeople' ||
-                  boxName == 'calendarViewState') {
-                await CalendarHive.init();
-              } else if (boxName == 'body_records') {
-                if (!Hive.isAdapterRegistered(0)) {
-                  Hive.registerAdapter(BodyRecordAdapter());
-                }
-                await Hive.openBox<BodyRecord>(boxName);
+            if (!Hive.isBoxOpen(name)) {
+              final d = StorageRegistry.get(name);
+              if (d != null) {
+                await d.ensureOpen();
               } else {
-                await Hive.openBox(boxName);
+                await Hive.openBox(name);
               }
             }
-            if (!Hive.isBoxOpen(boxName)) return result;
+            if (!Hive.isBoxOpen(name)) continue;
 
-            // typed box 必须用泛型访问；否则 HiveError
-            Iterable<dynamic> boxKeys;
-            dynamic Function(dynamic k) getValue;
-            if (boxName == 'body_records') {
-              final box = Hive.box<BodyRecord>(boxName);
-              boxKeys = box.keys;
-              getValue = box.get;
-            } else if (boxName == 'calendarEvents') {
-              final box = Hive.box<Event>(boxName);
-              boxKeys = box.keys;
-              getValue = box.get;
-            } else if (boxName == 'calendarPeople') {
-              final box = Hive.box<Person>(boxName);
-              boxKeys = box.keys;
-              getValue = box.get;
+            // 通过 BoxDescriptor 读（支持 typed box 泛型 + 自定义格式化）
+            final d = StorageRegistry.get(name);
+            if (d != null) {
+              for (final key in d.keys) {
+                final value = d.get(key);
+                result.add(KeyDetail(
+                  key: '$name/$key',
+                  value: d.formatValue != null && value != null
+                      ? d.formatValue!(value)
+                      : _formatValue(value),
+                  rawValue: value,
+                  size: d.estimateSize != null && value != null
+                      ? d.estimateSize!(value)
+                      : _estimateSize(value),
+                ));
+              }
             } else {
-              final box = Hive.box(boxName);
-              boxKeys = box.keys;
-              getValue = box.get;
-            }
-
-            for (final key in boxKeys) {
-              final value = getValue(key);
-              result.add(
-                KeyDetail(
-                  key: '$boxName/$key',
+              // 遗留非 typed box
+              final box = Hive.box(name);
+              for (final key in box.keys) {
+                final value = box.get(key);
+                result.add(KeyDetail(
+                  key: '$name/$key',
                   value: _formatValue(value),
                   rawValue: value,
                   size: _estimateSize(value),
-                ),
-              );
+                ));
+              }
             }
           } catch (e) {
-            debugPrint('StorageManager: getKeyDetails($boxName) 出错: $e');
-          }
-        } else {
-          // 获取所有 Hive Box 的所有键
-          final boxNames = [
-            'timetable_config',
-            'timetable_items',
-            'focus_sessions',
-            'focus_subjects',
-            'clock_records',
-            'notes',
-            'body_records',
-            'calendarEvents',
-            'calendarPeople',
-            'calendarViewState',
-          ];
-
-          for (final name in boxNames) {
-            try {
-              debugPrint('StorageManager: 尝试处理 box: $name (isTyped=${_typedBoxNames.contains(name)})');
-              final isTyped = _typedBoxNames.contains(name);
-
-              // 打开 box 前先注册对应 adapter（如果需要）
-              if (!Hive.isBoxOpen(name)) {
-                debugPrint('StorageManager: $name 未打开，尝试打开');
-                if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
-                  debugPrint('StorageManager: 注册 BodyRecordAdapter');
-                  Hive.registerAdapter(BodyRecordAdapter());
-                }
-                if (name == 'calendarEvents' ||
-                    name == 'calendarPeople' ||
-                    name == 'calendarViewState') {
-                  debugPrint('StorageManager: 调 CalendarHive.init()');
-                  await CalendarHive.init();
-                  debugPrint('StorageManager: CalendarHive.init() 完成');
-                }
-                if (!Hive.isBoxOpen(name)) {
-                  // typed box 必须用泛型 openBox，否则 HiveError
-                  if (isTyped) {
-                    if (name == 'body_records') {
-                      await Hive.openBox<BodyRecord>(name);
-                    } else if (name == 'calendarEvents') {
-                      await Hive.openBox<Event>(name);
-                    } else if (name == 'calendarPeople') {
-                      await Hive.openBox<Person>(name);
-                    }
-                  } else {
-                    await Hive.openBox(name);
-                  }
-                }
-              }
-
-              if (!Hive.isBoxOpen(name)) {
-                debugPrint('StorageManager: $name 仍未打开，跳过');
-                continue;
-              }
-
-              if (isTyped) {
-                debugPrint('StorageManager: $name 走 typed 分支');
-                result.addAll(_readTypedBox(name));
-              } else {
-                final box = Hive.box(name);
-                debugPrint('StorageManager: $name 包含 ${box.length} 个键');
-                for (final key in box.keys) {
-                  final value = box.get(key);
-                  debugPrint('StorageManager: 获取键 $key, value类型=${value.runtimeType}');
-                  result.add(KeyDetail(
-                    key: '$name/$key',
-                    value: _formatValue(value),
-                    rawValue: value,
-                    size: _estimateSize(value),
-                  ));
-                }
-              }
-            } catch (e, st) {
-              debugPrint('StorageManager: 处理 $name 出错: $e\n$st');
-            }
+            debugPrint('StorageManager: getKeyDetails($name) 出错: $e');
           }
         }
         break;
@@ -250,52 +166,46 @@ class StorageManager {
         final prefs = await SharedPreferences.getInstance();
         for (final key in prefs.getKeys()) {
           final value = prefs.get(key);
-          result.add(
-            KeyDetail(
-              key: key,
-              value: _formatValue(value),
-              rawValue: value,
-              size: _estimateSize(value),
-            ),
-          );
+          result.add(KeyDetail(
+            key: key,
+            value: _formatValue(value),
+            rawValue: value,
+            size: _estimateSize(value),
+          ));
         }
         break;
     }
 
-    // 按大小排序
     result.sort((a, b) => b.size.compareTo(a.size));
     return result;
   }
 
   /// 获取单个值的详细信息
-  Future<KeyDetail?> getKeyDetail(
-    StorageType type,
-    String key, {
-    String? boxName,
-  }) async {
+  Future<KeyDetail?> getKeyDetail(StorageType type, String key, {String? boxName}) async {
     dynamic value;
     try {
       switch (type) {
         case StorageType.hive:
           String actualBoxName = boxName ?? '';
           String actualKey = key;
-
           if (boxName == null && key.contains('/')) {
             final parts = key.split('/');
             actualBoxName = parts[0];
             actualKey = parts.sublist(1).join('/');
           }
-
           if (actualBoxName.isEmpty) return null;
           if (!Hive.isBoxOpen(actualBoxName)) return null;
 
-          final box = Hive.box(actualBoxName);
-          value = box.get(actualKey);
+          final d = StorageRegistry.get(actualBoxName);
+          if (d != null) {
+            value = d.get(actualKey);
+          } else {
+            value = Hive.box(actualBoxName).get(actualKey);
+          }
           break;
 
         case StorageType.prefs:
-          final prefs = await SharedPreferences.getInstance();
-          value = prefs.get(key);
+          value = (await SharedPreferences.getInstance()).get(key);
           break;
       }
     } catch (e) {
@@ -303,7 +213,6 @@ class StorageManager {
     }
 
     if (value == null) return null;
-
     return KeyDetail(
       key: key,
       value: _formatValue(value),
@@ -312,49 +221,175 @@ class StorageManager {
     );
   }
 
+  /// 删除单条
+  Future<bool> delete(StorageType type, String key, {String? boxName}) async {
+    try {
+      switch (type) {
+        case StorageType.hive:
+          String actualBoxName = boxName ?? '';
+          String actualKey = key;
+          if (boxName == null && key.contains('/')) {
+            final parts = key.split('/');
+            actualBoxName = parts[0];
+            actualKey = parts.sublist(1).join('/');
+          }
+          if (actualBoxName.isEmpty) return false;
+
+          final d = StorageRegistry.get(actualBoxName);
+          if (d != null) {
+            await d.delete(actualKey);
+          } else {
+            await Hive.box(actualBoxName).delete(actualKey);
+          }
+          return true;
+
+        case StorageType.prefs:
+          return (await SharedPreferences.getInstance()).remove(key);
+      }
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 批量删除
+  Future<int> deleteMany(StorageType type, List<String> keys, {String? boxName}) async {
+    int deleted = 0;
+    for (final key in keys) {
+      if (await delete(type, key, boxName: boxName)) deleted++;
+    }
+    return deleted;
+  }
+
+  /// 清空指定存储
+  Future<bool> clear(StorageType type, {String? boxName}) async {
+    try {
+      switch (type) {
+        case StorageType.hive:
+          if (boxName != null) {
+            final d = StorageRegistry.get(boxName);
+            if (d != null) {
+              await d.clear();
+            } else {
+              await Hive.box(boxName).clear();
+            }
+            return true;
+          }
+          // 清空所有已知 box
+          for (final name in _allBoxNames()) {
+            try {
+              if (Hive.isBoxOpen(name)) {
+                final d = StorageRegistry.get(name);
+                if (d != null) {
+                  await d.clear();
+                } else {
+                  await Hive.box(name).clear();
+                }
+              }
+            } catch (_) {}
+          }
+          return true;
+
+        case StorageType.prefs:
+          await (await SharedPreferences.getInstance()).clear();
+          return true;
+      }
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 删除整个 Hive Box
+  Future<bool> deleteBox(String boxName) async {
+    try {
+      await Hive.deleteBoxFromDisk(boxName);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── 内部 ────────────────────────────────────────────
+
+  /// 遍历所有注册 + 遗留 box，返回每个的 StorageInfo
+  Future<List<StorageInfo>> _getHiveInfo() async {
+    final result = <StorageInfo>[];
+
+    for (final name in _allBoxNames()) {
+      try {
+        int length = 0;
+        int size = 0;
+
+        if (Hive.isBoxOpen(name)) {
+          final d = StorageRegistry.get(name);
+          if (d != null) {
+            length = d.length;
+            size = _estimateBoxSize(name);
+          } else {
+            final box = Hive.box(name);
+            length = box.length;
+            size = _estimateBoxSize(name);
+          }
+        } else {
+          // 尝试打开
+          final d = StorageRegistry.get(name);
+          if (d != null) {
+            await d.ensureOpen();
+            length = d.length;
+          } else {
+            await Hive.openBox(name);
+            length = Hive.box(name).length;
+          }
+          size = _estimateBoxSize(name);
+        }
+
+        result.add(StorageInfo(
+          type: StorageType.hive,
+          name: name,
+          keyCount: length,
+          size: size,
+        ));
+      } catch (e) {
+        debugPrint('StorageManager: _getHiveInfo($name) 出错: $e');
+      }
+    }
+    return result;
+  }
+
+  /// 估算某 box 的字节大小
+  int _estimateBoxSize(String name) {
+    try {
+      if (!Hive.isBoxOpen(name)) return 0;
+      final d = StorageRegistry.get(name);
+      if (d != null) {
+        int total = 0;
+        for (final key in d.keys) {
+          final value = d.get(key);
+          if (value != null) {
+            total += key.toString().length;
+            total += d.estimateSize != null
+                ? d.estimateSize!(value)
+                : value.toString().length;
+          }
+        }
+        return total;
+      }
+      final box = Hive.box(name);
+      int total = 0;
+      for (final key in box.keys) {
+        final value = box.get(key);
+        if (value != null) {
+          total += key.toString().length + value.toString().length;
+        }
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   String _formatValue(dynamic value) {
     if (value == null) return 'null';
-
-    // BodyRecord 格式化
-    if (value is BodyRecord) {
-      final parts = <String>[];
-      parts.add('身体部位: ${value.bodyPartId}');
-      parts.add('内容: ${value.content}');
-      if (value.painLevel != null) {
-        parts.add('疼痛等级: ${value.painLevel}');
-      }
-      parts.add('时间: ${value.createdAt.toString().substring(0, 19)}');
-      return parts.join('\n');
-    }
-
-    // 日历 demo Event / Person：通过 dynamic 反射（避免 import calendar domain 跨模块耦合）
-    try {
-      final runtime = value.runtimeType.toString();
-      if (runtime == 'Event') {
-        final dyn = value as dynamic;
-        final parts = <String>[];
-        parts.add('标题: ${dyn.title}');
-        parts.add('类型: ${dyn.type}');
-        parts.add('历法: ${dyn.system}');
-        parts.add('日期: ${dyn.month}月${dyn.day}日');
-        parts.add('重复: ${dyn.recurrence}');
-        if (dyn.personId != null) parts.add('关联人: ${dyn.personId}');
-        if (dyn.note != null) parts.add('备注: ${dyn.note}');
-        return parts.join('\n');
-      }
-      if (runtime == 'Person') {
-        final dyn = value as dynamic;
-        final parts = <String>[];
-        parts.add('姓名: ${dyn.name}');
-        parts.add('关系: ${dyn.relation}');
-        if (dyn.note != null) parts.add('备注: ${dyn.note}');
-        return parts.join('\n');
-      }
-    } catch (_) {
-      // ignore
-    }
-
-    // 如果是 Map 或 List，尝试格式化
+    // 如果是 Map 或 List，格式化
     if (value is Map || value is List) {
       try {
         return _prettyJson(value);
@@ -362,20 +397,20 @@ class StorageManager {
         return value.toString();
       }
     }
-
     return value.toString();
   }
 
+  int _estimateSize(dynamic value) {
+    if (value == null) return 0;
+    return value.toString().length;
+  }
+
   String _prettyJson(dynamic data) {
-    // 简单的 JSON 格式化
     final str = data.toString();
-    // 尝试解析并重新格式化
     try {
-      // 简单缩进处理
       final buffer = StringBuffer();
       int indent = 0;
       bool inString = false;
-
       for (int i = 0; i < str.length; i++) {
         final char = str[i];
         if (char == '"' && (i == 0 || str[i - 1] != '\\')) {
@@ -399,7 +434,7 @@ class StorageManager {
           } else if (char == ':') {
             buffer.write(': ');
           } else if (char == ' ' && str[i - 1] == ':') {
-            // 跳过
+            // skip
           } else {
             buffer.write(char);
           }
@@ -412,245 +447,6 @@ class StorageManager {
       return str;
     }
   }
-
-  int _estimateSize(dynamic value) {
-    if (value is BodyRecord) {
-      // 估算 BodyRecord 各字段大小
-      int size = 0;
-      size += value.bodyPartId.length;
-      size += value.content.length;
-      if (value.painLevel != null) size += value.painLevel.toString().length;
-      size += value.createdAt.toString().length;
-      return size;
-    }
-    return value.toString().length;
-  }
-
-  /// 删除单个值
-  Future<bool> delete(StorageType type, String key, {String? boxName}) async {
-    try {
-      switch (type) {
-        case StorageType.hive:
-          // Hive 的 key 格式是 "boxName/key"
-          String actualBoxName = boxName ?? '';
-          String actualKey = key;
-
-          if (boxName == null && key.contains('/')) {
-            final parts = key.split('/');
-            actualBoxName = parts[0];
-            actualKey = parts.sublist(1).join('/');
-          }
-
-          if (actualBoxName.isEmpty) return false;
-          // body_records 需要用类型化 Box，key可能是int或string类型
-          if (actualBoxName == 'body_records') {
-            final box = Hive.box<BodyRecord>(actualBoxName);
-            // 尝试直接删除（string key）
-            if (box.containsKey(actualKey)) {
-              await box.delete(actualKey);
-            } else {
-              // 尝试转换为int key
-              final intKey = int.tryParse(actualKey);
-              if (intKey != null && box.containsKey(intKey)) {
-                await box.delete(intKey);
-              } else {
-                return false;
-              }
-            }
-          } else {
-            final box = Hive.box(actualBoxName);
-            await box.delete(actualKey);
-          }
-          return true;
-
-        case StorageType.prefs:
-          final prefs = await SharedPreferences.getInstance();
-          return await prefs.remove(key);
-      }
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// 批量删除
-  Future<int> deleteMany(
-    StorageType type,
-    List<String> keys, {
-    String? boxName,
-  }) async {
-    int deleted = 0;
-    for (final key in keys) {
-      if (await delete(type, key, boxName: boxName)) {
-        deleted++;
-      }
-    }
-    return deleted;
-  }
-
-  /// 清空指定存储
-  Future<bool> clear(StorageType type, {String? boxName}) async {
-    try {
-      switch (type) {
-        case StorageType.hive:
-          if (boxName != null) {
-            final box = Hive.box(boxName);
-            await box.clear();
-            return true;
-          }
-          // 清空所有 Hive Box
-          final boxNames = [
-            'timetable_config',
-            'timetable_items',
-            'focus_sessions',
-            'focus_subjects',
-            'clock_records',
-            'notes',
-            'body_records',
-          ];
-          for (final name in boxNames) {
-            try {
-              if (Hive.isBoxOpen(name)) {
-                await Hive.box(name).clear();
-              }
-            } catch (e) {
-              // 忽略
-            }
-          }
-          return true;
-
-        case StorageType.prefs:
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.clear();
-          return true;
-      }
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// 删除整个 Hive Box
-  Future<bool> deleteBox(String boxName) async {
-    try {
-      await Hive.deleteBoxFromDisk(boxName);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// 删除所有 Hive 数据
-  Future<void> deleteAllHive() async {
-    final boxNames = [
-      'timetable_config',
-      'timetable_items',
-      'focus_sessions',
-      'focus_subjects',
-      'clock_records',
-      'notes',
-    ];
-    for (final name in boxNames) {
-      try {
-        await Hive.deleteBoxFromDisk(name);
-      } catch (e) {
-        // 忽略
-      }
-    }
-  }
-
-  /// 获取 Hive 整体信息（每个 box 一个 entry，不再聚合）
-  Future<List<StorageInfo>> _getHiveInfo() async {
-    final result = <StorageInfo>[];
-    final boxNames = [
-      'timetable_config',
-      'timetable_items',
-      'focus_sessions',
-      'focus_subjects',
-      'clock_records',
-      'notes',
-      'body_records',
-      'calendarEvents',
-      'calendarPeople',
-      'calendarViewState',
-    ];
-
-    for (final name in boxNames) {
-      try {
-        Box box;
-        if (Hive.isBoxOpen(name)) {
-          if (name == 'body_records') {
-            box = Hive.box<BodyRecord>(name);
-          } else if (name == 'calendarEvents') {
-            box = Hive.box<Event>(name);
-          } else if (name == 'calendarPeople') {
-            box = Hive.box<Person>(name);
-          } else {
-            box = Hive.box(name);
-          }
-        } else {
-          // typed box 需要先注册 adapter
-          if (name == 'body_records' && !Hive.isAdapterRegistered(0)) {
-            Hive.registerAdapter(BodyRecordAdapter());
-          }
-          if (name == 'calendarEvents' ||
-              name == 'calendarPeople' ||
-              name == 'calendarViewState') {
-            await CalendarHive.init();
-          }
-          if (name == 'body_records') {
-            box = await Hive.openBox<BodyRecord>(name);
-          } else if (name == 'calendarEvents') {
-            box = await Hive.openBox<Event>(name);
-          } else if (name == 'calendarPeople') {
-            box = await Hive.openBox<Person>(name);
-          } else {
-            box = await Hive.openBox(name);
-          }
-        }
-        result.add(StorageInfo(
-          type: StorageType.hive,
-          name: name,
-          keyCount: box.length,
-          size: _estimateBoxSize(box),
-        ));
-      } catch (e) {
-        debugPrint('StorageManager: _getHiveInfo $name 出错: $e');
-      }
-    }
-
-    return result;
-  }
-
-  /// 获取 SharedPreferences 信息
-  Future<StorageInfo> _getPrefsInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys();
-    int totalSize = 0;
-    for (final key in keys) {
-      final value = prefs.get(key);
-      if (value != null) {
-        totalSize += value.toString().length;
-      }
-    }
-
-    return StorageInfo(
-      type: StorageType.prefs,
-      name: 'SharedPreferences',
-      keyCount: keys.length,
-      size: totalSize,
-    );
-  }
-
-  /// 估算 Box 大小
-  int _estimateBoxSize(Box box) {
-    int size = 0;
-    for (final key in box.keys) {
-      final value = box.get(key);
-      if (value != null) {
-        size += key.toString().length + value.toString().length;
-      }
-    }
-    return size;
-  }
 }
 
 /// 存储类型
@@ -658,6 +454,11 @@ enum StorageType { hive, prefs }
 
 /// 存储信息
 class StorageInfo {
+  final StorageType type;
+  final String name;
+  final int keyCount;
+  final int size;
+
   const StorageInfo({
     required this.type,
     required this.name,
@@ -665,16 +466,9 @@ class StorageInfo {
     required this.size,
   });
 
-  final StorageType type;
-  final String name;
-  final int keyCount;
-  final int size;
-
   String get formattedSize {
     if (size < 1024) return '$size B';
-    if (size < 1024 * 1024) {
-      return '${(size / 1024).toStringAsFixed(1)} KB';
-    }
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
     return '${(size / (1024 * 1024)).toStringAsFixed(2)} MB';
   }
 
@@ -688,26 +482,28 @@ class StorageInfo {
   }
 
   String get displayName {
-    // 中文显示名称
-    const nameMap = {
+    if (name == 'SharedPreferences') return '应用配置';
+    final d = StorageRegistry.get(name);
+    if (d != null) return d.displayName;
+    const legacy = {
       'timetable_config': '课表配置',
       'timetable_items': '课表课程',
       'focus_sessions': '专注记录',
       'focus_subjects': '专注科目',
       'clock_records': '时钟记录',
       'notes': '笔记',
-      'body_records': '身体记录',
-      'calendarEvents': '日历事件',
-      'calendarPeople': '人物档案',
-      'calendarViewState': '日历视图状态',
-      'SharedPreferences': '应用配置',
     };
-    return nameMap[name] ?? name;
+    return legacy[name] ?? name;
   }
 }
 
 /// 键值详情
 class KeyDetail {
+  final String key;
+  final String value;
+  final dynamic rawValue;
+  final int size;
+
   const KeyDetail({
     required this.key,
     required this.value,
@@ -715,16 +511,9 @@ class KeyDetail {
     required this.size,
   });
 
-  final String key;
-  final String value; // 格式化后的值
-  final dynamic rawValue; // 原始值
-  final int size;
-
   String get formattedSize {
     if (size < 1024) return '$size B';
-    if (size < 1024 * 1024) {
-      return '${(size / 1024).toStringAsFixed(1)} KB';
-    }
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
     return '${(size / (1024 * 1024)).toStringAsFixed(2)} MB';
   }
 

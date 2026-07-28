@@ -1,8 +1,101 @@
 #include "metronome.h"
 #include <oboe/Oboe.h>
 #include <math.h>
+#include <string.h>
+
+#define DR_WAV_IMPLEMENTATION
+#include "dr_wav.h"
 
 using namespace oboe;
+
+// One WAV slot per accent level (0=weak, 1=medium, 2=accent).
+// pcm points to float32 mono samples resampled to the audio stream's sampleRate.
+// playPos < 0 means the slot is idle; when a beat fires we set playPos = 0
+// and the mixer pulls from pcm[playPos++] until pcm exhausted.
+struct SampleSlot {
+    float* pcm = nullptr;         // interleaved is not used; we downmix to mono at load
+    int lengthSamples = 0;        // total samples in pcm
+    int playPos = -1;             // -1 = idle, else next-sample index
+};
+
+// The slot's pcm buffer is owned here. Freed by clear_sample or process exit.
+static SampleSlot gSlots[3];
+
+// Free the pcm buffer of a slot if any. Safe to call repeatedly.
+static void freeSlot(int level) {
+    if (level < 0 || level > 2) return;
+    if (gSlots[level].pcm) {
+        free(gSlots[level].pcm);
+        gSlots[level].pcm = nullptr;
+    }
+    gSlots[level].lengthSamples = 0;
+    gSlots[level].playPos = -1;
+}
+
+// Load a WAV via dr_wav, downmix to mono, resample (linear) to the target sample
+// rate, and store into gSlots[level].pcm. Returns true on success.
+// This is called on the Dart-invoking thread (usually main isolate), NOT the
+// audio thread. The audio thread only reads gSlots via the atomic-ish assignment
+// pattern below. We accept a tiny race window on hot-swap because a click sample
+// abort at worst produces a dropped tick.
+static bool loadSampleInto(int level, const char* path, double targetSampleRate) {
+    if (level < 0 || level > 2 || !path) return false;
+
+    unsigned int channels = 0;
+    unsigned int sampleRate = 0;
+    drwav_uint64 totalPCMFrames = 0;
+    // Decode to float32.
+    float* raw = drwav_open_file_and_read_pcm_frames_f32(
+        path, &channels, &sampleRate, &totalPCMFrames, nullptr);
+    if (!raw || totalPCMFrames == 0 || channels == 0 || sampleRate == 0) {
+        if (raw) drwav_free(raw, nullptr);
+        return false;
+    }
+
+    // Downmix to mono. `raw` is interleaved: frame0[ch0..chN] frame1[...] ...
+    // We average across channels per frame.
+    const int inFrames = (int) totalPCMFrames;
+    float* mono = (float*) malloc(sizeof(float) * inFrames);
+    if (!mono) { drwav_free(raw, nullptr); return false; }
+    for (int i = 0; i < inFrames; i++) {
+        float sum = 0.0f;
+        for (unsigned int c = 0; c < channels; c++) {
+            sum += raw[i * channels + c];
+        }
+        mono[i] = sum / (float) channels;
+    }
+    drwav_free(raw, nullptr);
+
+    // Resample (linear interpolation) to targetSampleRate.
+    float* out;
+    int outFrames;
+    if ((double) sampleRate == targetSampleRate) {
+        out = mono;
+        outFrames = inFrames;
+    } else {
+        const double ratio = targetSampleRate / (double) sampleRate;
+        outFrames = (int) ((double) inFrames * ratio);
+        if (outFrames < 1) outFrames = 1;
+        out = (float*) malloc(sizeof(float) * outFrames);
+        if (!out) { free(mono); return false; }
+        for (int i = 0; i < outFrames; i++) {
+            const double srcIdx = (double) i / ratio;
+            const int i0 = (int) srcIdx;
+            const int i1 = (i0 + 1 < inFrames) ? i0 + 1 : i0;
+            const float frac = (float) (srcIdx - (double) i0);
+            out[i] = mono[i0] * (1.0f - frac) + mono[i1] * frac;
+        }
+        free(mono);
+    }
+
+    // Swap in. Free old first — a stale pointer would be a bigger risk than
+    // a dropped tick on the audio thread during the swap.
+    freeSlot(level);
+    gSlots[level].pcm = out;
+    gSlots[level].lengthSamples = outFrames;
+    gSlots[level].playPos = -1;
+    return true;
+}
 
 class Metronome : public AudioStreamCallback {
 public:
@@ -137,6 +230,16 @@ public:
                 int level = beatAccentLevels ? beatAccentLevels[idxInBar] : kWeakTone;
                 applyTone(level);
 
+                // If this level has a WAV sample loaded, arm it. This is atomic
+                // enough for our purposes — a torn write between load_sample and
+                // this line would at worst play the wrong tone once.
+                if (level >= 0 && level <= 2 && gSlots[level].pcm) {
+                    gSlots[level].playPos = 0;
+                    // When sample is armed, we skip the synth click so we don't
+                    // stack the two on top of each other.
+                    clickRemaining = 0;
+                }
+
                 if (tickCallback) {
                     tickCallback(idxInBar);
                 }
@@ -146,6 +249,21 @@ public:
 
             float sample = 0.0f;
 
+            // 1) Mix any active WAV slots (may have multiple in-flight if BPM
+            //    is fast and sample is long — that's fine, they overlap.)
+            for (int s = 0; s < 3; s++) {
+                SampleSlot& slot = gSlots[s];
+                if (slot.playPos >= 0 && slot.pcm && slot.playPos < slot.lengthSamples) {
+                    sample += slot.pcm[slot.playPos];
+                    slot.playPos++;
+                    if (slot.playPos >= slot.lengthSamples) {
+                        slot.playPos = -1;  // done
+                    }
+                }
+            }
+
+            // 2) Synth click (only if no sample armed this cycle — clickRemaining
+            //    was zeroed above when a sample was loaded).
             if (clickRemaining > 0) {
                 double t = (double) clickRemaining / sampleRate;
                 // 指数衰减包络
@@ -157,7 +275,7 @@ public:
                 float harmonic3 = currentTone.with3xHarmonic
                     ? (float)(0.2 * sin(2.0 * M_PI * currentTone.frequency * 3.0 * t)) : 0.0f;
 
-                sample = currentTone.amplitude * env * (base + harmonic2 + harmonic3);
+                sample += currentTone.amplitude * env * (base + harmonic2 + harmonic3);
 
                 clickRemaining--;
             }
@@ -231,6 +349,9 @@ void shutdown_audio() {
 
     gStream = nullptr;
     gMetronome = nullptr;
+
+    // Also release any loaded samples so a fresh init starts clean.
+    for (int i = 0; i < 3; i++) freeSlot(i);
 }
 
 
@@ -263,6 +384,18 @@ void set_tick_callback(TickCallback callback) {
     if (gMetronome) {
         gMetronome->tickCallback = callback;
     }
+}
+
+// Load a WAV file and mount it to the given accent level slot.
+// Uses the current audio stream's sampleRate for resampling.
+// Returns 1 on success, 0 on failure.
+int load_sample(int level, const char* path) {
+    if (!gMetronome) return 0;
+    return loadSampleInto(level, path, gMetronome->sampleRate) ? 1 : 0;
+}
+
+void clear_sample(int level) {
+    freeSlot(level);
 }
 
 }
