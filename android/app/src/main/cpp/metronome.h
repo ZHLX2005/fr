@@ -14,6 +14,7 @@ void set_bpm(double bpm);
 void set_beats_per_bar(int beatsPerBar);
 void set_tick_callback(TickCallback callback);
 void set_use_accent_tick(bool useAccentTick);
+void set_beat_accent_level(int beatIndex, int level);
 
 #ifdef __cplusplus
 }

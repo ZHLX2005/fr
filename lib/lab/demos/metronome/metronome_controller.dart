@@ -28,6 +28,19 @@ class MetronomeController extends ChangeNotifier {
       currentBeatNotifier.value = beatIndex;
     });
     MetronomeFFI.init(MetronomeDefaults.defaultBpm.toDouble());
+    // 推送默认拍号的重音级别到 cpp（cpp 默认只把 index 0 设为 accent，碰上
+    // 6/8、5/4、7/8 这种多强拍/次强拍的模式需重新设）
+    final defaultPattern = MetronomePresets.defaultPattern;
+    MetronomeFFI.setBeatsPerBar(defaultPattern.beatsPerMeasure);
+    for (int i = 0; i < defaultPattern.beatsPerMeasure; i++) {
+      final dartLevel = defaultPattern.getAccentLevel(i);
+      final cppLevel = switch (dartLevel) {
+        AccentLevel.weak => 0,
+        AccentLevel.medium => 1,
+        AccentLevel.accent => 2,
+      };
+      MetronomeFFI.setBeatAccentLevel(i, cppLevel);
+    }
     _initialized = true;
   }
 
@@ -89,6 +102,18 @@ class MetronomeController extends ChangeNotifier {
     if (_beatPattern == pattern) return;
     _beatPattern = pattern;
     MetronomeFFI.setBeatsPerBar(pattern.beatsPerMeasure);
+    // 把每拍的重音级别推给 cpp —— 让强弱次强音色差别真正听得出来。
+    // 映射：Dart AccentLevel (accent=0, medium=1, weak=2) → cpp 音色索引
+    // (0=weak, 1=medium, 2=accent)
+    for (int i = 0; i < pattern.beatsPerMeasure; i++) {
+      final dartLevel = pattern.getAccentLevel(i);
+      final cppLevel = switch (dartLevel) {
+        AccentLevel.weak => 0,
+        AccentLevel.medium => 1,
+        AccentLevel.accent => 2,
+      };
+      MetronomeFFI.setBeatAccentLevel(i, cppLevel);
+    }
     // 拍号变了，立即归零（视觉马上反映新拍号的第一拍即将开始）
     currentBeatNotifier.value = 0;
     notifyListeners();

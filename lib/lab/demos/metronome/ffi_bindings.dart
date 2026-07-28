@@ -28,6 +28,9 @@ typedef _SetBeatsPerBarDart = void Function(int);
 typedef _SetUseAccentTickNative = Void Function(Bool);
 typedef _SetUseAccentTickDart = void Function(bool);
 
+typedef _SetBeatAccentLevelNative = Void Function(Int32, Int32);
+typedef _SetBeatAccentLevelDart = void Function(int, int);
+
 typedef _SetTickCallbackNative = Void Function(
     Pointer<NativeFunction<_NativeTick>>);
 typedef _SetTickCallbackDart = void Function(
@@ -56,6 +59,9 @@ class MetronomeFFI {
   static final _setUseAccentTick =
       _lib.lookupFunction<_SetUseAccentTickNative, _SetUseAccentTickDart>(
           'set_use_accent_tick');
+  static final _setBeatAccentLevel =
+      _lib.lookupFunction<_SetBeatAccentLevelNative, _SetBeatAccentLevelDart>(
+          'set_beat_accent_level');
 
   /// Native 端的回调 controller。被 C++ 端持有，触发时调用 dart 闭包。
   static NativeCallable<_NativeTick>? _tickCallable;
@@ -101,6 +107,11 @@ class MetronomeFFI {
   static void setBpm(double bpm) => _setBpm(bpm);
   static void setBeatsPerBar(int beats) => _setBeatsPerBar(beats);
   static void setUseAccentTick(bool value) => _setUseAccentTick(value);
+
+  /// 设置某拍的重音级别（0=弱, 1=次强, 2=强）。让强弱次强的音色差别真的听得出来。
+  /// [beatIndex] 取值 0..beatsPerBar-1。
+  static void setBeatAccentLevel(int beatIndex, int level) =>
+      _setBeatAccentLevel(beatIndex, level);
 
   /// 关闭 tick stream（dispose 时调）。
   static Future<void> dispose() async {
