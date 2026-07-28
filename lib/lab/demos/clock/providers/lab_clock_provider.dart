@@ -1,23 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import 'package:audioplayers/audioplayers.dart';
 import '../../../../native/home_widget/clock_widget_data.dart';
 import '../../../../native/home_widget/clock_widget_service.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
+import 'beat_coordinator.dart';
 
 /// 极简时钟Provider
 class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   List<LabClock> _clocks = [];
   List<LabClockRecord> _records = [];
-  static const String _storageKey = 'lab_clocks';
-  static const String _recordsKey = 'lab_clock_records';
+  static const String _storageKey = 'lab_clocks_v2';
+  static const String _recordsKey = 'lab_clock_records_v2';
   Timer? _timer;
-  final AudioPlayer _audioPlayer = AudioPlayer(); // 音频播放器
+  final Set<String> _silencedClocks = {};
+
+  /// Clocks whose beat was stolen by another provider. UI greys out the beat dot.
+  bool isClockSilenced(String clockId) => _silencedClocks.contains(clockId);
 
   List<LabClock> get clocks => _clocks;
   List<LabClockRecord> get records => _records;
@@ -28,6 +30,13 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     // 启动即加载数据并同步到桌面小组件
     // 之前要等 ClockDemo 页打开才 loadClocks，导致冷启动时 widget 看到的是空状态
     loadClocks();
+    // 当被 track 抢占时，把对应 clock 标记为 silenced
+    BeatCoordinator.registerBeatenOutCallback((id) {
+      if (id.startsWith('clock:')) {
+        _silencedClocks.add(id.substring('clock:'.length));
+        notifyListeners();
+      }
+    });
   }
 
   @override
@@ -80,12 +89,6 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
           final elapsed = DateTime.now().difference(clock.startTime!).inSeconds;
           final newRemaining = baseSeconds - elapsed;
 
-          // 检测倒计时是否刚到达0（从正数变为0或负数）
-          if (clock.remainingSeconds > 0 && newRemaining <= 0) {
-            // 倒计时结束，震动3秒
-            _vibrate3Seconds();
-          }
-
           if (newRemaining != clock.remainingSeconds) {
             _clocks[i] = clock.copyWith(remainingSeconds: newRemaining);
             changed = true;
@@ -100,49 +103,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     });
   }
 
-  // 震动3秒并播放铃声
-  void _vibrate3Seconds() async {
-    // 播放系统通知铃声（通过原生方法）
-    _playNotificationSound();
-
-    // 调用原生震动方法（3秒）
-    _vibrate(3000);
-  }
-
-  // 播放系统通知铃声
-  static const _soundChannel = MethodChannel(
-    'io.github.xiaodouzi.fr/clock',
-  );
-
-  Future<void> _playNotificationSound() async {
-    try {
-      await _soundChannel.invokeMethod('playNotificationSound');
-    } catch (e) {
-      // 如果原生方法调用失败，使用 audioplayers 播放默认提示音
-      try {
-        const beepUrl =
-            'https://www.soundjay.com/buttons/beep-01a.mp3';
-        await _audioPlayer.setReleaseMode(ReleaseMode.release);
-        await _audioPlayer.setSourceUrl(beepUrl);
-        await _audioPlayer.play(UrlSource(beepUrl));
-      } catch (_) {
-        // 忽略音频播放错误
-      }
-    }
-  }
-
-  // 调用原生震动方法
-  Future<void> _vibrate(int milliseconds) async {
-    try {
-      await _soundChannel.invokeMethod('vibrate', {'duration': milliseconds});
-    } catch (e) {
-      // 如果原生方法调用失败，使用 Flutter 的 HapticFeedback 作为降级
-      for (int i = 0; i < 3; i++) {
-        await HapticFeedback.heavyImpact();
-        await Future.delayed(const Duration(milliseconds: 300));
-      }
-    }
-  }
+  // 震动与系统提示音已移除 — 倒计时结束由 metronome tick 提示（Oboe 单例）
 
   /// 同步第一个时钟数据到桌面小组件
   void _syncToWidget() {
@@ -291,10 +252,18 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       startTime: now,
       startRemainingSeconds: c.remainingSeconds,
     );
+    final c2 = _clocks[i];
 
     await _saveRecords();
     await _saveClocks();
     _syncToWidget(); // 同步到桌面小组件
+    if (c2.bpm != null) {
+      BeatCoordinator.requestOwnership(
+        providerId: 'clock:$id',
+        bpm: c2.bpm,
+        beatPattern: c2.beatPattern,
+      );
+    }
     notifyListeners();
   }
 
@@ -306,6 +275,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     _clocks[i] = _clocks[i].copyWith(isRunning: false);
     await _saveClocks();
     _syncToWidget(); // 同步到桌面小组件
+    BeatCoordinator.releaseOwnership('clock:$id');
     notifyListeners();
   }
 
@@ -342,6 +312,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     await _saveRecords();
     await _saveClocks();
     _syncToWidget(); // 同步到桌面小组件
+    BeatCoordinator.releaseOwnership('clock:$id');
     notifyListeners();
   }
 
@@ -392,6 +363,35 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Configure the BPM and pattern for a clock. Pass nulls to clear.
+  Future<void> setBeat(String clockId, {int? bpm, String? beatPattern}) async {
+    final i = _clocks.indexWhere((c) => c.id == clockId);
+    if (i == -1) return;
+    _clocks[i] = _clocks[i].copyWith(bpm: bpm, beatPattern: beatPattern);
+    await _saveClocks();
+    _syncToWidget();
+    notifyListeners();
+  }
+
+  /// Remove beat config from a clock and stop its metronome if running.
+  Future<void> clearBeat(String clockId) async {
+    final i = _clocks.indexWhere((c) => c.id == clockId);
+    if (i == -1) return;
+    final wasRunning = _clocks[i].isRunning;
+    await setBeat(clockId, bpm: null, beatPattern: null);
+    if (wasRunning) {
+      BeatCoordinator.releaseOwnership('clock:$clockId');
+    }
+  }
+
+  /// The id of the clock currently driving the metronome, or null.
+  String? get activeBeatClockId {
+    final owner = BeatCoordinator.ownerId;
+    if (owner == null) return null;
+    if (!owner.startsWith('clock:')) return null;
+    return owner.substring('clock:'.length);
+  }
+
   /// 获取时钟
   LabClock? getClockById(String id) {
     try {
@@ -420,7 +420,6 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   @override
   void dispose() {
     _timer?.cancel();
-    _audioPlayer.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
