@@ -155,7 +155,10 @@ class _ClockCard extends StatelessWidget {
     final isActive = clock.isRunning && hasBeat && !silenced;
 
     return InkWell(
-      onTap: () async {
+      // Long-press to edit; tap is reserved for the play/pause/reset buttons
+      // inside the card (nested InkWells compete in the gesture arena and the
+      // outer tap was stealing button taps, so the clock couldn't be stopped).
+      onLongPress: () async {
         final result = await showClockEditor(context, existing: clock);
         if (result == null) return;
         await p.updateClock(
@@ -318,9 +321,11 @@ class _RecordTileState extends State<_RecordTile> {
     final color = isCompleted ? ZenColors.sage : ZenColors.mutedRed;
     final dateStr = MaterialLocalizations.of(context).formatShortDate(record.startTime);
 
+    // The card content (slides left on swipe). No margin here — the outer
+    // Padding provides horizontal insets so the action buttons behind it align
+    // to the same right edge as the card.
     final card = Container(
       decoration: zenCard(),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
@@ -370,99 +375,95 @@ class _RecordTileState extends State<_RecordTile> {
 
     // Ported from original `_RecordSwipeAction` (clock_demo.dart:1396-1570).
     // Swipe left reveals two action buttons (Delete / Create) — no tap-to-sheet.
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onHorizontalDragUpdate: (details) {
-        setState(() {
-          _offsetX = (_offsetX + details.delta.dx).clamp(-_actionWidth * 2, 0);
-        });
-      },
-      onHorizontalDragEnd: (_) {
-        if (_offsetX < -_actionWidth * 0.4) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragUpdate: (details) {
           setState(() {
-            _offsetX = -_actionWidth * 2;
-            _isExpanded = true;
+            _offsetX = (_offsetX + details.delta.dx).clamp(-_actionWidth * 2, 0);
           });
-        } else {
-          setState(() {
-            _offsetX = 0;
-            _isExpanded = false;
-          });
-        }
-      },
-      onTap: () {
-        if (_isExpanded) {
-          setState(() {
-            _offsetX = 0;
-            _isExpanded = false;
-          });
-        }
-      },
-      child: SizedBox(
-        height: 76,
-        child: Stack(
-          children: [
-            // Tap-to-collapse backdrop when expanded.
-            if (_isExpanded)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () => setState(() {
-                    _offsetX = 0;
-                    _isExpanded = false;
-                  }),
-                  child: const SizedBox.expand(),
+        },
+        onHorizontalDragEnd: (_) {
+          if (_offsetX < -_actionWidth * 0.4) {
+            setState(() {
+              _offsetX = -_actionWidth * 2;
+              _isExpanded = true;
+            });
+          } else {
+            setState(() {
+              _offsetX = 0;
+              _isExpanded = false;
+            });
+          }
+        },
+        onTap: () {
+          if (_isExpanded) {
+            setState(() {
+              _offsetX = 0;
+              _isExpanded = false;
+            });
+          }
+        },
+        child: ClipRect(
+          // ClipRect hides the action buttons when the card is collapsed so
+          // the colored blocks don't bleed out past the card's right edge.
+          child: Stack(
+            children: [
+              // Action buttons (overflow to the right).
+              Positioned(
+                right: 0, top: 0, bottom: 0,
+                width: _actionWidth * 2,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _SwipeAction(
+                      label: 'Delete',
+                      icon: Icons.delete_outline,
+                      color: ZenColors.mutedRed,
+                      // Round both left corners so it tucks under the card's
+                      // right edge cleanly.
+                      leftRounded: true,
+                      onTap: () {
+                        setState(() {
+                          _offsetX = 0;
+                          _isExpanded = false;
+                        });
+                        p.deleteRecord(record.id);
+                      },
+                    ),
+                    _SwipeAction(
+                      label: 'Create',
+                      icon: Icons.add,
+                      color: ZenColors.sage,
+                      leftRounded: false,
+                      onTap: () async {
+                        setState(() {
+                          _offsetX = 0;
+                          _isExpanded = false;
+                        });
+                        final dur = p.getRecordLiveDuration(record);
+                        if (dur > 0) {
+                          await p.createClock(
+                            title: record.customTitle ?? record.clockTitle,
+                            durationSeconds: dur,
+                          );
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ),
-            // Action buttons (overflow to the right).
-            Positioned(
-              right: 0, top: 0, bottom: 0,
-              width: _actionWidth * 2,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _SwipeAction(
-                    label: 'Delete',
-                    icon: Icons.delete_outline,
-                    color: ZenColors.mutedRed,
-                    onTap: () {
-                      setState(() {
-                        _offsetX = 0;
-                        _isExpanded = false;
-                      });
-                      p.deleteRecord(record.id);
-                    },
-                  ),
-                  _SwipeAction(
-                    label: 'Create',
-                    icon: Icons.add,
-                    color: ZenColors.sage,
-                    onTap: () async {
-                      setState(() {
-                        _offsetX = 0;
-                        _isExpanded = false;
-                      });
-                      final dur = p.getRecordLiveDuration(record);
-                      if (dur > 0) {
-                        await p.createClock(
-                          title: record.customTitle ?? record.clockTitle,
-                          durationSeconds: dur,
-                        );
-                      }
-                    },
-                  ),
-                ],
+              // Content layer slides left with the gesture.
+              Transform.translate(
+                offset: Offset(_offsetX, 0),
+                child: card,
               ),
-            ),
-            // Content layer slides left with the gesture.
-            Transform.translate(
-              offset: Offset(_offsetX, 0),
-              child: card,
-            ),
-          ],
-        ),
-      ),
-    );
+            ],
+          ), // Stack
+        ), // ClipRect
+      ), // GestureDetector
+    ); // Padding
   }
 
   void _rename(BuildContext context, LabClockProvider p) {
@@ -494,11 +495,15 @@ class _SwipeAction extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  /// Round the left corners (used on the leftmost action so it tucks under
+  /// the card's right edge cleanly).
+  final bool leftRounded;
   const _SwipeAction({
     required this.label,
     required this.icon,
     required this.color,
     required this.onTap,
+    this.leftRounded = false,
   });
   @override
   Widget build(BuildContext context) {
@@ -509,10 +514,12 @@ class _SwipeAction extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: color,
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(6),
-            bottomRight: Radius.circular(6),
-          ),
+          borderRadius: leftRounded
+              ? const BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  bottomLeft: Radius.circular(6),
+                )
+              : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
