@@ -228,8 +228,13 @@ class _ClockCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text('${clock.bpm}bpm ${clock.beatPattern ?? ""}'.trim(),
-                      style: ZenText.monoDigitSmall),
+                  Text(
+                    (() {
+                      final modeLabel = clock.beatPattern == '1/4' ? '1beat' : '2beat';
+                      return '${clock.bpm}bpm · $modeLabel';
+                    })(),
+                    style: ZenText.monoDigitSmall,
+                  ),
                 ],
               ),
             const SizedBox(height: 8),

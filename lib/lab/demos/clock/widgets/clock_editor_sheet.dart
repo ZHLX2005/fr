@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
-import 'package:xiaodouzi_fr/lab/demos/metronome/const_metronome.dart';
 import 'zen_theme.dart';
 
 class ClockEditorResult {
@@ -48,11 +47,12 @@ class _ClockEditorSheet extends StatefulWidget {
 class _ClockEditorSheetState extends State<_ClockEditorSheet> {
   late TextEditingController _titleCtl;
   late TextEditingController _descCtl;
+  late TextEditingController _roundsCtl;
   late int _hours, _minutes, _seconds;
   late String _color;
   late bool _beatEnabled;
-  late int _bpm;
-  late String? _beatPattern;
+  /// '1beat' = one beat per round (all strong); '2beat' = two beats per round (strong-weak).
+  late String _mode;
 
   @override
   void initState() {
@@ -66,15 +66,60 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
     _seconds = total % 60;
     _color = c?.color ?? _palette.first;
     _beatEnabled = c?.bpm != null;
-    _bpm = c?.bpm ?? 60;
-    _beatPattern = c?.beatPattern ?? '4/4';
+    // Reverse-derive rounds/mode from stored bpm+pattern when editing.
+    // 1beat mode stores pattern '1/4' (1 beat/round); 2beat stores '2/4' (2 beats/round).
+    final pattern = c?.beatPattern;
+    if (pattern == '1/4') {
+      _mode = '1beat';
+    } else {
+      _mode = '2beat'; // default and for '2/4'
+    }
+    final beatsPerRound = _mode == '1beat' ? 1 : 2;
+    final duration = c?.durationSeconds ?? 300;
+    final bpm = c?.bpm ?? 40;
+    // rounds = bpm * duration / 60 / beatsPerRound
+    final derivedRounds = (bpm * duration / 60 / beatsPerRound).round();
+    _roundsCtl = TextEditingController(text: derivedRounds > 0 ? '$derivedRounds' : '40');
   }
 
   @override
   void dispose() {
     _titleCtl.dispose();
     _descCtl.dispose();
+    _roundsCtl.dispose();
     super.dispose();
+  }
+
+  /// Total duration in seconds from the wheel pickers.
+  int get _durationSeconds => _hours * 3600 + _minutes * 60 + _seconds;
+
+  /// Parsed round count (defensive: empty/garbage → 0).
+  int get _rounds => int.tryParse(_roundsCtl.text.trim()) ?? 0;
+
+  /// beatsPerRound for the current mode.
+  int get _beatsPerRound => _mode == '1beat' ? 1 : 2;
+
+  /// Auto-computed BPM from rounds + mode + duration.
+  /// bpm = rounds * beatsPerRound * 60 / durationSeconds
+  int? get _computedBpm {
+    final rounds = _rounds;
+    final dur = _durationSeconds;
+    if (rounds <= 0 || dur <= 0) return null;
+    final bpm = (rounds * _beatsPerRound * 60 / dur).round();
+    if (bpm < 20 || bpm > 300) return null;
+    return bpm;
+  }
+
+  /// Auto-computed beat pattern name for the current mode.
+  String get _computedPattern => _mode == '1beat' ? '1/4' : '2/4';
+
+  /// Human-readable preview line.
+  String get _preview {
+    final bpm = _computedBpm;
+    if (bpm == null) return 'Enter rounds and duration';
+    final secondsPerBeat = (_durationSeconds / (_rounds * _beatsPerRound)).toStringAsFixed(1);
+    final rhythm = _mode == '1beat' ? 'all strong' : 'strong-weak';
+    return '$_rounds rounds · $bpm BPM · ${secondsPerBeat}s/beat · $rhythm';
   }
 
   @override
@@ -156,7 +201,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
               }).toList(),
             ),
             const SizedBox(height: 20),
-            // Beat section
+            // Beat section: rounds + mode → auto-computed bpm/pattern.
             Row(children: [
               const Expanded(child: Text('Beat', style: ZenText.label)),
               Switch(
@@ -167,47 +212,50 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
             ]),
             if (_beatEnabled) ...[
               const SizedBox(height: 8),
+              // Total rounds input.
+              TextField(
+                controller: _roundsCtl,
+                keyboardType: TextInputType.number,
+                style: ZenText.body,
+                decoration: const InputDecoration(
+                  labelText: 'Total rounds',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+              // Mode toggle: 1beat (all strong) vs 2beat (strong-weak).
+              const Text('Mode', style: ZenText.label),
+              const SizedBox(height: 8),
               Row(children: [
-                const Text('BPM', style: ZenText.label),
-                const Spacer(),
-                IconButton(
-                  onPressed: _bpm > 20 ? () => setState(() => _bpm -= 5) : null,
-                  icon: const Icon(Icons.remove),
+                Expanded(
+                  child: _ModeChip(
+                    label: '1 beat / round',
+                    sub: 'all strong (inhale)',
+                    selected: _mode == '1beat',
+                    onTap: () => setState(() => _mode = '1beat'),
+                  ),
                 ),
-                SizedBox(
-                  width: 64,
-                  child: Text('$_bpm', textAlign: TextAlign.center, style: ZenText.monoDigitSmall.copyWith(color: ZenColors.ink, fontSize: 20)),
-                ),
-                IconButton(
-                  onPressed: _bpm < 300 ? () => setState(() => _bpm += 5) : null,
-                  icon: const Icon(Icons.add),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ModeChip(
+                    label: '2 beats / round',
+                    sub: 'strong-weak (inhale-exhale)',
+                    selected: _mode == '2beat',
+                    onTap: () => setState(() => _mode = '2beat'),
+                  ),
                 ),
               ]),
-              const SizedBox(height: 8),
-              // MetronomePresets.patterns is List<BeatPattern> (not a Map), so iterate by .name.
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: MetronomePresets.patterns.map((p) {
-                  final key = p.name;
-                  final selected = key == _beatPattern;
-                  return GestureDetector(
-                    onTap: () => setState(() => _beatPattern = key),
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 44, minWidth: 56),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: selected ? ZenColors.sage : ZenColors.surface,
-                        border: Border.all(color: selected ? ZenColors.sage : ZenColors.hair),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(key, style: ZenText.button.copyWith(
-                        color: selected ? Colors.white : ZenColors.ink,
-                      )),
-                    ),
-                  );
-                }).toList(),
+              const SizedBox(height: 12),
+              // Live preview.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: zenCard(),
+                child: Text(_preview, style: ZenText.monoDigitSmall.copyWith(
+                  color: _computedBpm == null ? ZenColors.mutedRed : ZenColors.ink,
+                  fontSize: 13,
+                )),
               ),
             ],
             const SizedBox(height: 24),
@@ -218,10 +266,10 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                   Navigator.pop(context, ClockEditorResult(
                     title: _titleCtl.text.isEmpty ? 'New clock' : _titleCtl.text,
                     description: _descCtl.text,
-                    durationSeconds: _hours * 3600 + _minutes * 60 + _seconds,
+                    durationSeconds: _durationSeconds,
                     color: _color,
-                    bpm: _beatEnabled ? _bpm : null,
-                    beatPattern: _beatEnabled ? _beatPattern : null,
+                    bpm: _beatEnabled ? _computedBpm : null,
+                    beatPattern: _beatEnabled ? _computedPattern : null,
                   ));
                 },
                 style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
@@ -264,6 +312,51 @@ class _WheelPicker extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Mode selector chip for the Beat section (1beat / 2beat).
+class _ModeChip extends StatelessWidget {
+  final String label;
+  final String sub;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ModeChip({
+    required this.label,
+    required this.sub,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 56),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? ZenColors.sage : ZenColors.surface,
+          border: Border.all(color: selected ? ZenColors.sage : ZenColors.hair),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: ZenText.button.copyWith(
+              color: selected ? Colors.white : ZenColors.ink,
+              fontSize: 14,
+            )),
+            const SizedBox(height: 2),
+            Text(sub, style: ZenText.monoDigitSmall.copyWith(
+              color: selected ? Colors.white.withValues(alpha: 0.85) : ZenColors.secondary,
+              fontSize: 11,
+            )),
+          ],
         ),
       ),
     );

@@ -9,6 +9,7 @@ class MetronomePresets {
 
   /// 常见节拍模式：[名称, 每小节拍数, 重音拍索引列表]
   static const List<BeatPattern> patterns = [
+    BeatPattern(name: '1/4', beatsPerMeasure: 1, accentIndices: {0}),
     BeatPattern(name: '4/4', beatsPerMeasure: 4, accentIndices: {0}),
     BeatPattern(name: '3/4', beatsPerMeasure: 3, accentIndices: {0}),
     BeatPattern(name: '2/4', beatsPerMeasure: 2, accentIndices: {0}),
