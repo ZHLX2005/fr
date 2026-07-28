@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:xiaodouzi_fr/lab/demos/metronome/const_metronome.dart';
-import 'package:xiaodouzi_fr/lab/demos/metronome/ffi_bindings.dart';
+import 'package:xiaodouzi_fr/services/metronome/metronome_service.dart';
 
 /// Internal sink so tests can replace the FFI surface.
+/// All methods delegate to the shared [MetronomeService] singleton —
+/// no static `MetronomeFFI` calls in here, so the BeatCoordinator can't
+/// accidentally talk to a stale stream after a controller disposal.
 abstract class BeatSink {
   void setBpm(double bpm);
   void setBeatsPerBar(int n);
@@ -12,35 +15,28 @@ abstract class BeatSink {
 }
 
 class _OboeBeatSink implements BeatSink {
-  @override
-  void setBpm(double bpm) => _ensureReady(() => MetronomeFFI.setBpm(bpm));
-  @override
-  void setBeatsPerBar(int n) =>
-      _ensureReady(() => MetronomeFFI.setBeatsPerBar(n));
-  @override
-  void setBeatAccentLevel(int idx, int level) =>
-      _ensureReady(() => MetronomeFFI.setBeatAccentLevel(idx, level));
-  @override
-  void play() => _ensureReady(() => MetronomeFFI.play());
-  @override
-  void pause() => _ensureReady(() => MetronomeFFI.pause());
+  MetronomeService get _svc => MetronomeService.instance;
 
-  /// The Oboe stream must be initialized before any other FFI call, otherwise
-  /// setBpm / play silently do nothing. We init lazily once per process.
-  static bool _ready = false;
-  static void _ensureReady(void Function() op) {
-    if (!_ready) {
-      MetronomeFFI.init(120); // default BPM; overwritten by setBpm below.
-      _ready = true;
-    }
-    op();
-  }
+  @override
+  void setBpm(double bpm) => _svc.setBpm(bpm);
+  @override
+  void setBeatsPerBar(int n) => _svc.setBeatsPerBar(n);
+  @override
+  void setBeatAccentLevel(int idx, int level) => _svc.setBeatAccentLevel(idx, level);
+  @override
+  void play() => _svc.play();
+  @override
+  void pause() => _svc.pause();
 }
 
 /// Single owner of the Oboe audio stream. Both `LabClockProvider` and
 /// `LabTrackProvider` must call [requestOwnership] before issuing FFI commands
 /// and [releaseOwnership] when their entity stops. If another provider steals
 /// ownership, the previous owner's `beatenOutCallback` fires.
+///
+/// The service is shared across the app (single Oboe stream + sample slots).
+/// Releasing ownership only pauses playback — it never closes the stream —
+/// so the next caller (clock demo, metronome demo) gets a ready service.
 class BeatCoordinator {
   static String? _ownerId;
   static ValueChanged<String>? _onBeatenOut;
@@ -56,7 +52,6 @@ class BeatCoordinator {
     _ownerId = null;
     _onBeatenOut = null;
     _sink = _OboeBeatSink();
-    _OboeBeatSink._ready = false;
   }
 
   /// Request exclusive control of the metronome. Returns true if granted.

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:xiaodouzi_fr/services/metronome/metronome_service.dart';
 import '../../../../native/home_widget/clock_widget_data.dart';
 import '../../../../native/home_widget/clock_widget_service.dart';
 import '../models/lab_clock.dart';
@@ -27,6 +28,10 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   LabClockProvider() {
     _startTimer();
     WidgetsBinding.instance.addObserver(this);
+    // 冷启动就 ready Oboe stream。这样 LabClockProvider 第一个时钟 startCountdown
+    // 走 BeatCoordinator.requestOwnership 之前，stream 已经 init 过，不会出现
+    // "service 还没 ready 但有人 play/pause 了"的 race。
+    MetronomeService.instance.ensureReady();
     // 启动即加载数据并同步到桌面小组件
     // 之前要等 ClockDemo 页打开才 loadClocks，导致冷启动时 widget 看到的是空状态
     loadClocks();
