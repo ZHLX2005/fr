@@ -10,107 +10,109 @@ import 'package:xiaodouzi_fr/lab/demos/clock/widgets/zen_theme.dart';
 /// Preserves the core clock functionality (start/pause/reset, swipe-rename,
 /// create-clock-from-record). The wave divider from the old design is gone;
 /// the records list is shown below the grid.
-class ClocksTab extends StatelessWidget {
-  const ClocksTab({super.key});
+///
+/// Note: this widget returns its content as plain widgets (no inner Scaffold
+/// or FAB). The shell at `clock_demo.dart` owns the single Scaffold/FAB and
+/// calls [openEditor] when the FAB is tapped. This avoids the IndexedStack +
+/// nested-Scaffold hit-testing trap that previously broke CRUD after a track
+/// was defined.
+class ClocksTab extends StatefulWidget {
+  /// Optional callback invoked when the State mounts so the parent shell can
+  /// call our [openEditor] from its FAB. This avoids the IndexedStack +
+  /// nested-Scaffold hit-testing trap that previously broke CRUD after a track
+  /// was defined.
+  final void Function(Future<void> Function(BuildContext) openEditor)? onReady;
+  const ClocksTab({super.key, this.onReady});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ZenColors.bg,
-      appBar: AppBar(
-        backgroundColor: ZenColors.bg,
-        elevation: 0,
-        title: const Text('Clocks', style: ZenText.title),
-      ),
-      body: Consumer<LabClockProvider>(
-        builder: (context, provider, _) {
-          if (provider.clocks.isEmpty) {
-            return _EmptyState(onAdd: () => _openEditor(context, provider));
-          }
-          return CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.85,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, i) => _ClockCard(clock: provider.clocks[i]),
-                    childCount: provider.clocks.length,
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
-                  child: Text('Records', style: ZenText.label),
-                ),
-              ),
-              if (provider.records.isEmpty)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
-                    child: Text('No records yet.', style: ZenText.label),
-                  ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, i) => _RecordTile(record: provider.records[i]),
-                    childCount: provider.records.length,
-                  ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 80)),
-            ],
-          );
-        },
-      ),
-      floatingActionButton: Consumer<LabClockProvider>(
-        builder: (context, provider, _) => FloatingActionButton(
-          onPressed: () => _openEditor(context, provider),
-          backgroundColor: ZenColors.sage,
-          child: const Icon(Icons.add, color: Colors.white),
-        ),
-      ),
+  State<ClocksTab> createState() => _ClocksTabState();
+}
+
+class _ClocksTabState extends State<ClocksTab> {
+  @override
+  void initState() {
+    super.initState();
+    // Publish our openEditor to the shell after the first frame so the
+    // shell's `context` is available for the FAB callback.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onReady?.call(_openEditor);
+    });
+  }
+
+  /// Called by the shell's FAB when the user is on the Clocks tab.
+  Future<void> _openEditor(BuildContext context) async {
+    final provider = context.read<LabClockProvider>();
+    final result = await showClockEditor(context);
+    if (result == null) return;
+    await provider.createClock(
+      title: result.title,
+      description: result.description,
+      durationSeconds: result.durationSeconds,
+      color: result.color,
+    );
+    // setBeat is on the *newest* clock (inserted at index 0)
+    final newest = provider.clocks.first;
+    await provider.setBeat(
+      newest.id,
+      bpm: result.bpm,
+      beatPattern: result.beatPattern,
     );
   }
 
-  Future<void> _openEditor(BuildContext context, LabClockProvider provider,
-      {LabClock? existing}) async {
-    final result = await showClockEditor(context, existing: existing);
-    if (result == null) return;
-    if (existing == null) {
-      await provider.createClock(
-        title: result.title,
-        description: result.description,
-        durationSeconds: result.durationSeconds,
-        color: result.color,
-      );
-      // setBeat is on the *newest* clock (inserted at index 0)
-      final newest = provider.clocks.first;
-      await provider.setBeat(
-        newest.id,
-        bpm: result.bpm,
-        beatPattern: result.beatPattern,
-      );
-    } else {
-      await provider.updateClock(
-        id: existing.id,
-        title: result.title,
-        description: result.description,
-        durationSeconds: result.durationSeconds,
-        color: result.color,
-      );
-      await provider.setBeat(
-        existing.id,
-        bpm: result.bpm,
-        beatPattern: result.beatPattern,
-      );
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<LabClockProvider>(
+      builder: (context, provider, _) {
+        if (provider.clocks.isEmpty) {
+          return _EmptyState(
+            onAdd: () => _openEditor(context),
+          );
+        }
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              sliver: SliverGrid(
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 0.85,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _ClockCard(clock: provider.clocks[i]),
+                  childCount: provider.clocks.length,
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
+                child: Text('Records', style: ZenText.label),
+              ),
+            ),
+            if (provider.records.isEmpty)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: Text('No records yet.', style: ZenText.label),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _RecordTile(record: provider.records[i]),
+                  childCount: provider.records.length,
+                ),
+              ),
+            // Padding so the last record isn't hidden under the shell's FAB.
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -294,106 +296,169 @@ class _ControlButton extends StatelessWidget {
   }
 }
 
-class _RecordTile extends StatelessWidget {
+class _RecordTile extends StatefulWidget {
   final LabClockRecord record;
   const _RecordTile({required this.record});
 
   @override
+  State<_RecordTile> createState() => _RecordTileState();
+}
+
+class _RecordTileState extends State<_RecordTile> {
+  // Each tile owns its own swipe offset so multiple tiles don't fight.
+  double _offsetX = 0;
+  static const double _actionWidth = 80;
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final p = context.read<LabClockProvider>();
+    final record = widget.record;
     final isCompleted = record.completed;
     final color = isCompleted ? ZenColors.sage : ZenColors.mutedRed;
     final dateStr = MaterialLocalizations.of(context).formatShortDate(record.startTime);
 
-    return InkWell(
-      onTap: () => _showActions(context, p),
-      child: Container(
-        decoration: zenCard(),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40, height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                isCompleted ? Icons.check_rounded : Icons.schedule_rounded,
-                color: color,
-                size: 22,
-              ),
+    final card = Container(
+      decoration: zenCard(),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 40, height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: Icon(
+              isCompleted ? Icons.check_rounded : Icons.schedule_rounded,
+              color: color,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onLongPress: () => _rename(context, p),
+                  child: Text(
+                    record.customTitle ?? record.clockTitle,
+                    style: ZenText.body,
+                  ),
+                ),
+                Text(dateStr, style: ZenText.monoDigitSmall),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _formatDuration(p.getRecordLiveDuration(record)),
+              style: ZenText.monoDigitSmall.copyWith(color: color, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // Ported from original `_RecordSwipeAction` (clock_demo.dart:1396-1570).
+    // Swipe left reveals two action buttons (Delete / Create) — no tap-to-sheet.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragUpdate: (details) {
+        setState(() {
+          _offsetX = (_offsetX + details.delta.dx).clamp(-_actionWidth * 2, 0);
+        });
+      },
+      onHorizontalDragEnd: (_) {
+        if (_offsetX < -_actionWidth * 0.4) {
+          setState(() {
+            _offsetX = -_actionWidth * 2;
+            _isExpanded = true;
+          });
+        } else {
+          setState(() {
+            _offsetX = 0;
+            _isExpanded = false;
+          });
+        }
+      },
+      onTap: () {
+        if (_isExpanded) {
+          setState(() {
+            _offsetX = 0;
+            _isExpanded = false;
+          });
+        }
+      },
+      child: SizedBox(
+        height: 76,
+        child: Stack(
+          children: [
+            // Tap-to-collapse backdrop when expanded.
+            if (_isExpanded)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => setState(() {
+                    _offsetX = 0;
+                    _isExpanded = false;
+                  }),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            // Action buttons (overflow to the right).
+            Positioned(
+              right: 0, top: 0, bottom: 0,
+              width: _actionWidth * 2,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text(record.customTitle ?? record.clockTitle, style: ZenText.body),
-                  Text(dateStr, style: ZenText.monoDigitSmall),
+                  _SwipeAction(
+                    label: 'Delete',
+                    icon: Icons.delete_outline,
+                    color: ZenColors.mutedRed,
+                    onTap: () {
+                      setState(() {
+                        _offsetX = 0;
+                        _isExpanded = false;
+                      });
+                      p.deleteRecord(record.id);
+                    },
+                  ),
+                  _SwipeAction(
+                    label: 'Create',
+                    icon: Icons.add,
+                    color: ZenColors.sage,
+                    onTap: () async {
+                      setState(() {
+                        _offsetX = 0;
+                        _isExpanded = false;
+                      });
+                      final dur = p.getRecordLiveDuration(record);
+                      if (dur > 0) {
+                        await p.createClock(
+                          title: record.customTitle ?? record.clockTitle,
+                          durationSeconds: dur,
+                        );
+                      }
+                    },
+                  ),
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _formatDuration(p.getRecordLiveDuration(record)),
-                style: ZenText.monoDigitSmall.copyWith(color: color, fontWeight: FontWeight.w600),
-              ),
+            // Content layer slides left with the gesture.
+            Transform.translate(
+              offset: Offset(_offsetX, 0),
+              child: card,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showActions(BuildContext context, LabClockProvider p) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: ZenColors.bg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(width: 36, height: 4, decoration: BoxDecoration(
-              color: ZenColors.hair, borderRadius: BorderRadius.circular(2),
-            )),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.edit, color: ZenColors.ink),
-              title: const Text('Rename', style: ZenText.body),
-              onTap: () { Navigator.pop(ctx); _rename(context, p); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.add, color: ZenColors.sage),
-              title: const Text('Create clock from this', style: ZenText.body),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final dur = p.getRecordLiveDuration(record);
-                if (dur > 0) {
-                  await p.createClock(
-                    title: record.customTitle ?? record.clockTitle,
-                    durationSeconds: dur,
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: ZenColors.mutedRed),
-              title: const Text('Delete', style: TextStyle(color: ZenColors.mutedRed, fontSize: 16)),
-              onTap: () { p.deleteRecord(record.id); Navigator.pop(ctx); },
-            ),
-            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -401,6 +466,7 @@ class _RecordTile extends StatelessWidget {
   }
 
   void _rename(BuildContext context, LabClockProvider p) {
+    final record = widget.record;
     final ctl = TextEditingController(text: record.customTitle ?? record.clockTitle);
     showDialog(
       context: context,
@@ -418,6 +484,44 @@ class _RecordTile extends StatelessWidget {
             child: const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SwipeAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _SwipeAction({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 80,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(6),
+            bottomRight: Radius.circular(6),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 22),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }

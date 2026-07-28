@@ -4,19 +4,13 @@ import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/zen_theme.dart';
 
+/// Dashboard tab content. Plain widgets — the shell owns the Scaffold/AppBar.
 class DashboardTab extends StatelessWidget {
   const DashboardTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ZenColors.bg,
-      appBar: AppBar(
-        backgroundColor: ZenColors.bg,
-        elevation: 0,
-        title: const Text('Dashboard', style: ZenText.title),
-      ),
-      body: Consumer2<LabClockProvider, LabTrackProvider>(
+    return Consumer2<LabClockProvider, LabTrackProvider>(
         builder: (context, cp, tp, _) {
           final now = DateTime.now();
           final todayStart = DateTime(now.year, now.month, now.day);
@@ -102,7 +96,6 @@ class DashboardTab extends StatelessWidget {
             ],
           );
         },
-      ),
     );
   }
 }

@@ -4,70 +4,64 @@ import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_editor_page.dart';
-import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_records_page.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_runner_page.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/zen_theme.dart';
 
-class TracksTab extends StatelessWidget {
-  const TracksTab({super.key});
+/// Tracks tab content. Plain widgets — the shell owns the Scaffold/FAB.
+class TracksTab extends StatefulWidget {
+  /// Optional callback invoked when the State mounts so the parent shell can
+  /// call our [openEditor] from its FAB.
+  final void Function(Future<void> Function(BuildContext) openEditor)? onReady;
+  const TracksTab({super.key, this.onReady});
+
+  @override
+  State<TracksTab> createState() => _TracksTabState();
+}
+
+class _TracksTabState extends State<TracksTab> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onReady?.call(_openEditor);
+    });
+  }
+
+  /// Called by the shell's FAB when the user is on the Tracks tab.
+  Future<void> _openEditor(BuildContext context) async {
+    final tp = context.read<LabTrackProvider>();
+    final result = await showTrackEditor(context);
+    if (result == null) return;
+    await tp.createTrack(result);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ZenColors.bg,
-      appBar: AppBar(
-        backgroundColor: ZenColors.bg,
-        elevation: 0,
-        title: const Text('Tracks', style: ZenText.title),
-        actions: [
-          IconButton(
-            tooltip: 'Track records',
-            icon: const Icon(Icons.history),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TrackRecordsPage()),
+    return Consumer2<LabTrackProvider, LabClockProvider>(
+      builder: (context, tp, cp, _) {
+        if (tp.tracks.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.queue_music_outlined, size: 64, color: ZenColors.hair),
+                const SizedBox(height: 16),
+                const Text('No tracks yet', style: ZenText.label),
+              ],
             ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          itemCount: tp.tracks.length,
+          itemBuilder: (_, i) => _TrackCard(
+            track: tp.tracks[i],
+            beatLocked: cp.activeBeatClockId != null,
+            otherTrackRunning: tp.activeTrackId != null,
           ),
-        ],
-      ),
-      body: Consumer2<LabTrackProvider, LabClockProvider>(
-        builder: (context, tp, cp, _) {
-          if (tp.tracks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.queue_music_outlined, size: 64, color: ZenColors.hair),
-                  const SizedBox(height: 16),
-                  const Text('No tracks yet', style: ZenText.label),
-                ],
-              ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-            itemCount: tp.tracks.length,
-            itemBuilder: (_, i) => _TrackCard(
-              track: tp.tracks[i],
-              beatLocked: cp.activeBeatClockId != null,
-              otherTrackRunning: tp.activeTrackId != null,
-            ),
-          );
-        },
-      ),
-      floatingActionButton: Consumer<LabTrackProvider>(
-        builder: (context, tp, _) {
-          return FloatingActionButton(
-            onPressed: () async {
-              final result = await showTrackEditor(context);
-              if (result == null) return;
-              await tp.createTrack(result);
-            },
-            backgroundColor: ZenColors.sage,
-            child: const Icon(Icons.add, color: Colors.white),
-          );
-        },
-      ),
+        );
+      },
     );
   }
 }
