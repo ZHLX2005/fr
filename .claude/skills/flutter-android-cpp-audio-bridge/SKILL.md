@@ -67,7 +67,7 @@ mkdir -p android/app/src/main/cpp
 | `metronome.cpp` | `class Metronome : public AudioStreamCallback`，全局 `gMetronome` + `gStream`，`extern "C"` 暴露给 FFI |
 | `CMakeLists.txt` | `find_package(oboe REQUIRED CONFIG)` + `target_link_libraries(metronome oboe::oboe log)` |
 
-**参考样板**：直接照抄 MateusNavarro77/metronome 仓库的 `android/app/src/main/cpp/`，三个文件原样可用。git clone 到本地 `.claude/repo/` 当参考。
+**参考样板**：照抄本项目已落地的 `android/app/src/main/cpp/metronome.{h,cpp}` + `dr_wav.h`（`lib/services/metronome/` 是 Dart 端 FFI facade）。已实现 wav sample slot、合成 fallback、跨页面共享 service、单例 stream。
 
 **完整 CMakeLists / Gradle 配置语法**：见 [[android-native-c-setup]] 第 2、3 节。
 
@@ -200,8 +200,10 @@ cpp 端用 `beatAccentLevels[beatsPerBar]` 数组，Dart 在 `setBeatPattern` �
 
 | 场景 | 做法 | 结果 |
 |------|------|------|
-| 本项目节拍器重构 2026-07-27 | 直接 git clone MateusNavarro77/metronome，照抄 cpp 三件套 + Dart FFI | CI 一次通过，bpm 250+ 仍稳 |
+| 本项目节拍器重构 2026-07-27 | 在本项目 cpp 目录直接落 metronome.h/cpp + Dart FFI，初始化即跑通 | CI 一次通过，bpm 250+ 仍稳 |
 | 强弱次强音色差异化 | 4 维（频率+振幅+时长+谐波）同步拉开 | 听感三档清晰可辨 |
+| 节拍器 demo 退出后 clock demo 没声 | 双实例 Oboe stream + sample slot 各自释放 | 抽 MetronomeService 单例，stream 跟 app 进程 |
+| 用户在独立节拍器设的木鱼 → 进 clock demo 不见了 | controller dispose 关 stream + free slots | sample 跨页面持久，stream 不主动关 |
 | 架构选型先列 3 方案 + 让用户决策 | Timer / Oboe / Service 三选一 | 避免猜错返工 |
 
 ## bad_eg (失败案例)
@@ -231,10 +233,9 @@ cpp 端用 `beatAccentLevels[beatsPerBar]` 数组，Dart 在 `setBeatPattern` �
 
 ## 相关参考资料
 
-- `~/.claude/repo/metronome-MateusNavarro77/android/app/src/main/cpp/` — C++ 样板
-- `~/.claude/repo/metronome-MateusNavarro77/lib/ffi.dart` — Dart FFI 样板
+- 本项目已实现的 C++ Oboe + Dart FFI 范例：`android/app/src/main/cpp/metronome.{h,cpp}` + `dr_wav.h` + `lib/services/metronome/metronome_service.dart`
 - Oboe 官方文档: https://github.com/google/oboe
-- 项目 memory: `C:\Users\zhlx\.claude\projects\D--a-other-dart-prj-demo1-flutter-application-1\memory\metronome-architecture.md`
+- dr_wav 单头解码库（public domain）：https://github.com/mackron/dr_libs/blob/master/dr_wav.h
 
 ---
 

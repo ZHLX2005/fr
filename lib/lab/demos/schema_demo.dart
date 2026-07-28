@@ -340,7 +340,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                     _buildFormatRow(
                       context,
                       '[文字](fr://lab/demo/{slug})',
-                      '跳转到指定 Demo（slug 见 kDemoSlugs）',
+                      '跳转到指定 Demo（slug 见各 demo 子类的 slug getter）',
                     ),
                     _buildFormatRow(
                       context,
