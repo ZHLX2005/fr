@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'const_metronome.dart';
 import 'ffi_bindings.dart';
+import 'sample_loader.dart';
 
 /// 节拍器控制器（Oboe FFI 版）
 ///
@@ -64,7 +65,67 @@ class MetronomeController extends ChangeNotifier {
   bool _disposed = false;
   bool _initialized = false;
 
-  // ==================== Tap Tempo ====================
+  // ==================== Sound Customisation ====================
+
+  /// Sound profile identifiers for each accent level.
+  /// 0 = synth (default, always available)
+  /// 1 = woodfish (from asset WAV)
+  static const int soundSynth = 0;
+  static const int soundWoodfish = 1;
+
+  final List<int> _soundIds = [0, 0, 0]; // per level [weak, medium, accent]
+
+  /// The sound profile id (e.g. 0=synth, 1=woodfish) for [level].
+  int soundForLevel(int level) =>
+      level >= 0 && level < _soundIds.length ? _soundIds[level] : 0;
+
+  /// Mount/unmount a custom sound for the given accent [level].
+  ///
+  /// - [soundId] 0 → synth (default, clears any loaded sample)
+  /// - [soundId] 1 → woodfish (extracts the built-in WAV and loads it)
+  ///
+  /// Returns true if the mount succeeded. A failure (e.g. file IO) keeps the
+  /// previous setting.
+  Future<bool> setSoundForLevel(int level, int soundId) async {
+    if (level < 0 || level > 2) return false;
+    if (soundId < 0 || soundId > 1) return false;
+    if (_soundIds[level] == soundId) return true;
+
+    final ok = soundId == soundSynth
+        ? _mountSynth(level)
+        : await _mountWoodfish(level);
+
+    if (ok) {
+      _soundIds[level] = soundId;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  bool _mountSynth(int level) {
+    MetronomeFFI.clearSample(level);
+    return true;
+  }
+
+  Future<bool> _mountWoodfish(int level) async {
+    try {
+      final path = await SampleLoader.materializeAsset(
+        'assets/audio/woodfish.wav',
+      );
+      return MetronomeFFI.loadSample(level, path);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Reset all levels back to synth (default).
+  Future<void> resetAllSounds() async {
+    for (var level = 0; level < 3; level++) {
+      _mountSynth(level);
+      _soundIds[level] = 0;
+    }
+    notifyListeners();
+  }
 
   final List<DateTime> _tapTimes = [];
 

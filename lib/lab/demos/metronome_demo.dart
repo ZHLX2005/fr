@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
 import 'metronome/const_metronome.dart';
 import 'metronome/metronome_controller.dart';
@@ -36,6 +39,17 @@ class _MetronomePage extends StatefulWidget {
 }
 
 class _MetronomePageState extends State<_MetronomePage> {
+  /// Used to avoid redundant saves after a user-initiated change.
+  bool _restoringSlots = false;
+
+  // Sound profile labels for the dropdown picker.
+  static const _soundLabels = ['合成 (默认)', '木鱼'];
+  // Maps back: index → sound id passed to the controller.
+  static const _soundIds = [
+    MetronomeController.soundSynth,
+    MetronomeController.soundWoodfish,
+  ];
+
   MetronomeController? _boundController;
 
   void _onError() {
@@ -47,6 +61,33 @@ class _MetronomePageState extends State<_MetronomePage> {
     _boundController!.errorNotifier.value = null;
   }
 
+  Future<void> _restoreSoundSlots(MetronomeController c) async {
+    if (_restoringSlots) return;
+    _restoringSlots = true;
+    final prefs = await SharedPreferences.getInstance();
+    for (var level = 0; level < 3; level++) {
+      final saved = prefs.getInt(_spKey(level)) ?? 0;
+      if (saved != 0) {
+        unawaited(c.setSoundForLevel(level, saved));
+      }
+    }
+  }
+
+  static String _spKey(int level) => 'metronome_slot_$level';
+
+  Future<void> _onSoundChanged(
+    MetronomeController c,
+    int level,
+    int selectedIndex,
+  ) async {
+    final soundId = _soundIds[selectedIndex];
+    final ok = await c.setSoundForLevel(level, soundId);
+    if (ok && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_spKey(level), soundId);
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -55,6 +96,8 @@ class _MetronomePageState extends State<_MetronomePage> {
     _boundController?.errorNotifier.removeListener(_onError);
     _boundController = c;
     _boundController!.errorNotifier.addListener(_onError);
+    // Restore saved sound selections once.
+    _restoreSoundSlots(c);
   }
 
   @override
@@ -133,6 +176,11 @@ class _MetronomePageState extends State<_MetronomePage> {
 
         // 重音模式说明
         _buildAccentLegend(),
+        const SizedBox(height: 16),
+
+        // 音色配置
+        _buildSoundSection(context, controller),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -180,6 +228,8 @@ class _MetronomePageState extends State<_MetronomePage> {
               _buildControlSection(context, controller),
               const SizedBox(height: 16),
               TapTempoButton(onTap: controller.tap),
+              const SizedBox(height: 16),
+              _buildSoundSection(context, controller),
             ],
           ),
         ),
@@ -352,7 +402,94 @@ class _MetronomePageState extends State<_MetronomePage> {
     );
   }
 
-  /// 重音图例
+  /// 音色配置区域
+  Widget _buildSoundSection(BuildContext context, MetronomeController controller) {
+    final accentColors = [
+      AccentColor.getColor(AccentLevel.accent),
+      AccentColor.getColor(AccentLevel.medium),
+      AccentColor.getColor(AccentLevel.weak),
+    ];
+    final labels = const ['强拍（重音）', '次强拍', '弱拍'];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '音色',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (int level = 0; level < 3; level++) ...[
+            if (level > 0) const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: accentColors[level],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  labels[level],
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const Spacer(),
+                DropdownButton<int>(
+                  value: controller.soundForLevel(level),
+                  underline: const SizedBox(),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  items: _soundIds.asMap().entries.map((e) {
+                    return DropdownMenuItem(
+                      value: e.value,
+                      child: Text(_soundLabels[e.key]),
+                    );
+                  }).toList(),
+                  onChanged: (v) {
+                    if (v != null) _onSoundChanged(controller, level, v);
+                  },
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            '选择「木鱼」后该档位使用真实采样，否则使用合成音色。',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[400],
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildAccentLegend() {
     return Container(
       padding: const EdgeInsets.all(12),
