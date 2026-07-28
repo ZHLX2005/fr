@@ -13,15 +13,28 @@ abstract class BeatSink {
 
 class _OboeBeatSink implements BeatSink {
   @override
-  void setBpm(double bpm) => MetronomeFFI.setBpm(bpm);
+  void setBpm(double bpm) => _ensureReady(() => MetronomeFFI.setBpm(bpm));
   @override
-  void setBeatsPerBar(int n) => MetronomeFFI.setBeatsPerBar(n);
+  void setBeatsPerBar(int n) =>
+      _ensureReady(() => MetronomeFFI.setBeatsPerBar(n));
   @override
-  void setBeatAccentLevel(int idx, int level) => MetronomeFFI.setBeatAccentLevel(idx, level);
+  void setBeatAccentLevel(int idx, int level) =>
+      _ensureReady(() => MetronomeFFI.setBeatAccentLevel(idx, level));
   @override
-  void play() => MetronomeFFI.play();
+  void play() => _ensureReady(() => MetronomeFFI.play());
   @override
-  void pause() => MetronomeFFI.pause();
+  void pause() => _ensureReady(() => MetronomeFFI.pause());
+
+  /// The Oboe stream must be initialized before any other FFI call, otherwise
+  /// setBpm / play silently do nothing. We init lazily once per process.
+  static bool _ready = false;
+  static void _ensureReady(void Function() op) {
+    if (!_ready) {
+      MetronomeFFI.init(120); // default BPM; overwritten by setBpm below.
+      _ready = true;
+    }
+    op();
+  }
 }
 
 /// Single owner of the Oboe audio stream. Both `LabClockProvider` and
@@ -43,6 +56,7 @@ class BeatCoordinator {
     _ownerId = null;
     _onBeatenOut = null;
     _sink = _OboeBeatSink();
+    _OboeBeatSink._ready = false;
   }
 
   /// Request exclusive control of the metronome. Returns true if granted.
