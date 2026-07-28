@@ -58,7 +58,7 @@ class LabTrackSegment {
   final int? snapshotBpm;
   final String? snapshotBeatPattern;
 
-  LabTrackSegment({
+  const LabTrackSegment({
     required this.clockId,
     required this.snapshotTitle,
     this.snapshotColor,
