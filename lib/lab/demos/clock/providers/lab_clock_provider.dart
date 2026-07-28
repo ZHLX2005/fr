@@ -132,10 +132,39 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> loadClocks() async {
     final prefs = await SharedPreferences.getInstance();
     final clocksJson = prefs.getString(_storageKey);
-    if (clocksJson != null) {
-      final List<dynamic> list = json.decode(clocksJson);
-      _clocks = list.map((e) => LabClock.fromJson(e)).toList();
+
+    // v1 -> v2 one-time migration. v1 used keys 'lab_clocks' / 'lab_clock_records';
+    // their LabClock JSON lacked bpm / beatPattern. If v1 data exists, parse it
+    // defensively, drop it if parsing fails, and let v2 start fresh.
+    if (clocksJson == null) {
+      final v1Json = prefs.getString('lab_clocks');
+      if (v1Json != null) {
+        // Old data: drop it. User explicitly chose 'no migration'.
+        await prefs.remove('lab_clocks');
+        await prefs.remove('lab_clock_records');
+      }
     }
+
+    if (clocksJson != null) {
+      try {
+        final List<dynamic> list = json.decode(clocksJson);
+        _clocks = list.map((e) => LabClock.fromJson(e)).toList();
+      } catch (_) {
+        // Corrupt v2 data — wipe it so the user can add clocks again.
+        await prefs.remove(_storageKey);
+        _clocks = [];
+      }
+    }
+
+    // Defensive: any clock with isRunning=true but startTime=null (legacy data)
+    // is treated as paused so the Timer won't try to recalculate against null.
+    _clocks = _clocks.map((c) {
+      if (c.isRunning && c.startTime == null) {
+        return c.copyWith(isRunning: false);
+      }
+      return c;
+    }).toList();
+
     await loadRecords();
     // 加载完做一次"基于 startTime 重算"——
     // 如果用户在 app 死掉的时候有 running 的钟，重新打开后 remaining 已经过期了
@@ -148,9 +177,14 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     final String? recordsJson = prefs.getString(_recordsKey);
     if (recordsJson != null) {
-      final List<dynamic> list = json.decode(recordsJson);
-      _records = list.map((e) => LabClockRecord.fromJson(e)).toList();
-      _records.sort((a, b) => b.startTime.compareTo(a.startTime));
+      try {
+        final List<dynamic> list = json.decode(recordsJson);
+        _records = list.map((e) => LabClockRecord.fromJson(e)).toList();
+        _records.sort((a, b) => b.startTime.compareTo(a.startTime));
+      } catch (_) {
+        await prefs.remove(_recordsKey);
+        _records = [];
+      }
     }
   }
 
@@ -272,7 +306,13 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     final i = _clocks.indexWhere((c) => c.id == id);
     if (i == -1) return;
 
-    _clocks[i] = _clocks[i].copyWith(isRunning: false);
+    // Clear startTime/startRemainingSeconds so a future app resume doesn't
+    // recalculate against a stale wall-clock and produce a negative remaining.
+    _clocks[i] = _clocks[i].copyWith(
+      isRunning: false,
+      startTime: null,
+      startRemainingSeconds: null,
+    );
     await _saveClocks();
     _syncToWidget(); // 同步到桌面小组件
     BeatCoordinator.releaseOwnership('clock:$id');
@@ -303,10 +343,13 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       );
     }
 
-    // 重置时钟
+    // 重置时钟 — clear startTime/startRemainingSeconds so resume doesn't
+    // recalculate against a stale wall-clock.
     _clocks[i] = c.copyWith(
       isRunning: false,
       remainingSeconds: c.durationSeconds ?? 0,
+      startTime: null,
+      startRemainingSeconds: null,
     );
 
     await _saveRecords();
