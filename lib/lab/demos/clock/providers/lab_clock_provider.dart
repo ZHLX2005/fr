@@ -406,6 +406,40 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// 核弹：清空所有 clock 相关数据（老用户自救按钮）。
+  /// 停 timer、释放 beat、清 v1+v2 SharedPreferences、清内存、清桌面 widget。
+  Future<void> wipeAllData() async {
+    // 停掉 per-second timer，防止清空后又被写回来。
+    _timer?.cancel();
+    _timer = null;
+
+    // 释放当前 clock 对 metronome 的占用（不管是哪个 id）。
+    final owner = BeatCoordinator.ownerId;
+    if (owner != null && owner.startsWith('clock:')) {
+      BeatCoordinator.releaseOwnership(owner);
+    }
+
+    // 清 SharedPreferences：v1 旧 key + v2 新 key 都清，防止老用户重新加载被卡死数据。
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('lab_clocks');
+    await prefs.remove('lab_clock_records');
+    await prefs.remove(_storageKey);   // 'lab_clocks_v2'
+    await prefs.remove(_recordsKey);   // 'lab_clock_records_v2'
+    await prefs.remove('shake_to_start_enabled');
+
+    // 清内存 state。
+    _clocks = [];
+    _records = [];
+    _silencedClocks.clear();
+
+    // 清桌面小组件。
+    ClockWidgetService.clearClockWidget();
+
+    // 重启 timer，保持 provider 可用（用户接下来还能新建 clock）。
+    _startTimer();
+    notifyListeners();
+  }
+
   /// Configure the BPM and pattern for a clock. Pass nulls to clear.
   Future<void> setBeat(String clockId, {int? bpm, String? beatPattern}) async {
     final i = _clocks.indexWhere((c) => c.id == clockId);

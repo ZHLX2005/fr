@@ -298,6 +298,32 @@ class LabTrackProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// 核弹：清空所有 track 相关数据（老用户自救按钮）。
+  /// 停 timer、释放 beat、清 SharedPreferences、清内存。
+  Future<void> wipeAllData() async {
+    _timer?.cancel();
+    _timer = null;
+
+    // 释放当前 track 对 metronome 的占用。
+    final owner = BeatCoordinator.ownerId;
+    if (owner != null && owner.startsWith('track:')) {
+      BeatCoordinator.releaseOwnership(owner);
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tracksKey);
+    await prefs.remove(_recordsKey);
+
+    _tracks = [];
+    _records = [];
+    _activeTrackId = null;
+    _currentSegmentIndex = 0;
+    _segmentStartTime = null;
+    _segmentStartRemaining = 0;
+
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _timer?.cancel();

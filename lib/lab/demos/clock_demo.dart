@@ -51,18 +51,62 @@ class _ClockShellState extends State<_ClockShell> {
 
   String get _title => const ['Clocks', 'Tracks', 'Dashboard'][_index];
 
-  List<Widget>? get _appBarActions {
-    if (_index != 1) return null; // Only Tracks shows the records icon.
+  List<Widget> get _appBarActions {
     return [
+      // 全局逃生舱：老用户如果 clock 数据卡死（无法添加/停止/删除），
+      // 点这个按钮直接把 clock+track 的 SharedPreferences 全清了。
+      // 所有 tab 都保留，因为卡死时 Clocks tab 本身可能都进不去。
       IconButton(
-        tooltip: 'Track records',
-        icon: const Icon(Icons.history),
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TrackRecordsPage()),
-        ),
+        tooltip: 'Wipe all clock data',
+        icon: const Icon(Icons.delete_forever_outlined),
+        onPressed: _confirmWipeAll,
       ),
+      if (_index == 1)
+        IconButton(
+          tooltip: 'Track records',
+          icon: const Icon(Icons.history),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const TrackRecordsPage()),
+          ),
+        ),
     ];
+  }
+
+  Future<void> _confirmWipeAll() async {
+    final clockP = context.read<LabClockProvider>();
+    final trackP = context.read<LabTrackProvider>();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wipe all clock data?'),
+        content: const Text(
+          '这会清空所有 clock、track、记录及节拍配置（包括旧版残留数据）。\n'
+          '用于修复旧版本导致的卡死问题。\n\n'
+          '此操作不可撤销。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Wipe',
+              style: TextStyle(color: ZenColors.mutedRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await clockP.wipeAllData();
+    await trackP.wipeAllData();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('All clock data wiped.')),
+    );
   }
 
   void _onFabPressed() {
