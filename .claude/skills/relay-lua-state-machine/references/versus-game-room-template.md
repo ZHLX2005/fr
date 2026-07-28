@@ -129,6 +129,140 @@ await LuaGameAlias.save(alias);
 | 用 `SharedPreferences.getInstance().then((p) => setState(...))` 轮询 | 不同步 + 性能差 | `ValueNotifier` 事件驱动 + 共享 module 统一管理 |
 | 新游戏加新的 alias key (`<newgame>_lua.alias`) | 共享断开，用户在新游戏要重新输入 | 全部游戏都用 `kLuaGameAliasKey = 'lua_game.alias'` |
 
+### 1.1.1 服务模块完整源码轮廓
+
+`lib/services/lua/lua_game_alias.dart`（≈70 行）：
+
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// 统一的 Lua 房间游戏昵称 key。
+const String kLuaGameAliasKey = 'lua_game.alias';
+
+/// 历史 key（迁移用）：load 时若新 key 为空，按顺序尝试这些旧 key。
+const List<String> _legacyAliasKeys = [
+  'gomoku_lua.alias',
+  'surround_game_lua.alias',
+  'tetris_lua.alias',
+  'reversi_lua.alias',
+];
+
+class LuaGameAlias {
+  LuaGameAlias._();
+
+  static final ValueNotifier<String> notifier = ValueNotifier<String>('');
+  static bool _loaded = false;
+  static String get value => notifier.value;
+
+  static Future<String> load() async {
+    if (_loaded) return notifier.value;
+    _loaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      var v = prefs.getString(kLuaGameAliasKey) ?? '';
+      if (v.isEmpty) {
+        // 迁移：新 key 为空时，从历史 key 读一个非空的写入新 key
+        for (final legacy in _legacyAliasKeys) {
+          final old = prefs.getString(legacy);
+          if (old != null && old.isNotEmpty) {
+            v = old;
+            await prefs.setString(kLuaGameAliasKey, v);
+            break;
+          }
+        }
+      }
+      notifier.value = v;
+    } catch (_) {}
+    return notifier.value;
+  }
+
+  static Future<void> save(String alias) async {
+    final v = alias.trim();
+    notifier.value = v;              // 先内存 reference（实时通知）
+    if (v.isEmpty) return;            // 空串不持久化（避免清空覆盖）
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(kLuaGameAliasKey, v);
+    } catch (_) {}
+  }
+}
+```
+
+**关键决策记录**：
+
+| 决策 | 为什么 |
+|------|--------|
+| `_loaded` 单次初始化 | 反复 `LuaGameAlias.load()` 只查一次盘；多个 LobbyEntryPage 同时初始化不并发读盘 |
+| `notifier` 用静态 `final ValueNotifier` 而非 lazy getter | 全应用生命周期唯一；不能 dispose（会破坏共享） |
+| `save('')` 更新 notifier 但不写盘 | 允许 UI 显示空（用户在删；等 onChanged 再补一个字符会立刻 save 回去）而不清除历史值 |
+| trim() 在 save 内做 | 4 个游戏都不需要自己去 trim，前后空格一次性处理 |
+| 迁移只 fallback、不删除 | 老 4 个 key 保留不删——防回滚失败 + 允许老版本 app 同机切回时仍能读到（社交游戏用户可能装了 2 个版本） |
+
+### 1.1.2 迁移路径（老 demo → 共享 module）
+
+按顺序改 4 个 demo：
+
+```
+step 1 — 建 lib/services/lua/lua_game_alias.dart（用上面完整源码）
+step 2 — 每个 <game>_lua/widgets.dart 里：
+   ① import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
+   ② _LobbyEntryPageState:
+      - initState 里的 <Xxx>AliasPrefs.load() → LuaGameAlias.load()
+      - initState 末尾加 LuaGameAlias.notifier.addListener(_onAliasChanged);
+      - 新增 _onAliasChanged 方法（v != _aliasCtrl.text 才 setState）
+      - dispose 里首行加 LuaGameAlias.notifier.removeListener(_onAliasChanged);
+   ③ _go() 里的 <Xxx>AliasPrefs.save(alias) → LuaGameAlias.save(alias)
+   ④ 昵称 TextField 加 onChanged: LuaGameAlias.save
+step 3 — 4 个 <game>_lua/constants.dart 里的 <Xxx>AliasPrefs / kXxxAliasKey
+   可以先保留（老 key 迁移用），也可以直接删（迁移是幂等的，删了下次初始化就以新 key 为准）
+step 4 — flutter analyze lib/lab/demos/{gomoku,surround_game,tetris,reversi}_lua_demo.dart 全绿
+```
+
+### 1.1.3 用法反例：cross-widget 同步的错误做法
+
+```dart
+// ❌ 每帧读 SharedPreferences
+FutureBuilder<SharedPreferences>(
+  future: SharedPreferences.getInstance(),
+  builder: (_, snap) => Text(snap.data?.getString('...') ?? ''),
+);
+
+// ❌ 各页面自己维护副本、依赖 EventBus 广播
+class _State extends State {
+  String _alias = '';
+  StreamSubscription? _sub;
+  void initState() {
+    AliasEventBus.stream.listen((v) => setState(() => _alias = v));
+  }
+}
+
+// ✅ 共享 ValueNotifier（本 ref 方案）
+class _State extends State {
+  void initState() {
+    LuaGameAlias.notifier.addListener(() { /* setState 同步 */ });
+  }
+}
+```
+
+**选 ValueNotifier 而非 Provider/Riverpod/EventBus 的理由**：
+- 4 个 demo 都是独立 Widget subtree，没有共同 ancestor 能挂 Provider
+- 昵称是唯一共享状态，一个 API 表面足够（不需要 InheritedWidget 层次）
+- `ValueNotifier` 是 Flutter 内置 + 单点订阅（`addListener`），不引入新依赖
+
+### 1.1.4 什么不共享（划边界）
+
+**共享**：
+- ✅ 昵称（`lua_game.alias`）——用户身份认同，跨游戏一致更自然
+
+**不共享**：
+- ❌ 房间号（`_codeCtrl`）——每个游戏独立房间码是常识
+- ❌ `device_id`——每个 demo 自己生成前缀（`gm-` / `sg-p-` / `rv-` / …），防止跨游戏窜台
+- ❌ 对战记录 / 分数——不同游戏规则不同，不能混
+- ❌ `ready` / `winner` / `history`——服务端权威，per-room 状态
+
+**判据**：只有"用户身份、无游戏语义"的字段才能进共享 module。任何和 game rule 相关的都禁止。
+
 ---
 
 ---

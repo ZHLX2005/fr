@@ -25,6 +25,7 @@ Flutter 项目里出现以下任一情况时，必须走本 skill 路线：
 |-----|----------|
 | [[oboe-cpp-synthesis]] | 想知道 C++ Oboe audio callback 怎么工作 / 实时 sin 合成的数学 / sampleCounter 为什么要 `=` 而不是 `-=` / 衰减包络怎么算 / 钳位为什么必要 |
 | [[android-native-c-setup]] | 对 Android 原生层不熟：CMake/Gradle 怎么搭、ABI 多架构、FFI vs JNI 选型、库加载机制、extern "C" 作用、常见构建错误排查 |
+| [[wav-sample-playback]] | 需要自定义拍声音色：不想用纯合成 tone、想用 WAV 采样替代 click/木鱼/鼓、或让用户上传自己的 wav 作为拍声 |
 
 ## 核心架构
 
@@ -184,6 +185,8 @@ class MetronomeController extends ChangeNotifier {
 
 cpp 端用 `beatAccentLevels[beatsPerBar]` 数组，Dart 在 `setBeatPattern` 时循环 `setBeatAccentLevel(i, level)` 注入。
 
+**用真实采样替代合成音色**：走 [[wav-sample-playback]]。加载 WAV 后，对应 slot 的拍子播采样，其余保持合成。」
+
 ## 验证流程
 
 1. `flutter analyze lib/` → 必须 0 error
@@ -241,3 +244,4 @@ cpp 端用 `beatAccentLevels[beatsPerBar]` 数组，Dart 在 `setBeatPattern` �
 |-----|------|------|
 | [[oboe-cpp-synthesis]] | C++ Oboe 实时 sin 合成原理（sample 模型 / 回调机制 / 相位累加器 / 包络数学 / 钳位 / PerformanceMode） | ~200 |
 | [[android-native-c-setup]] | Android 原生 C 编码原理（CMake/Gradle/ABI/FFI vs JNI/库加载/extern "C"/调试技巧/错误排查） | ~250 |
+| [[wav-sample-playback]] | 自定义 WAV 采样拍声音色（3-slot 架构/dr_wav 加载/resample/asset materializer/FFI 传路径/slot 映射陷阱） | ~150 |

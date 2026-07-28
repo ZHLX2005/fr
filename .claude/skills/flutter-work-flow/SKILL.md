@@ -26,6 +26,7 @@ references/
 | Flutter-DemoPage-slug抽象化与别名机制 | **删 kDemoSlugs 迁 abstract slug / 给 demo 加别名 slug / 合并多个 demo 为统一 Tab 容器时** |
 | Flutter-Lab容器-模块结构与重构模式 | **改 lib/screens/profile/lab/ 任何文件（Lab页/下拉面板/游戏中心/demo卡片）/ 给重手势+重动画页面做性能或模块化重构时** |
 | Flutter-游戏中心-扩展游戏路线 | **往游戏中心加新游戏 / 加新分类 / 加新封面图案时**（扩展点地图 + 加游戏SOP + 封面三级来源 + slug拼错等真坑） |
+| Flutter-Provider双重实例冲突-时钟wipe后数据恢复 | **Provider 擦数据后快照恢复 / 根级和页面级都有同一 Provider / wipe 失效 / 定时写 SP 的 Provider 行为异常时** |
 
 
 
