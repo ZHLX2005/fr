@@ -200,7 +200,6 @@ flutter:
     - assets/data/character_profiles/douzi_profile.json
     - assets/animal/
     - assets/animals/
-    - assets/audio/metronome/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

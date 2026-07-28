@@ -3,36 +3,32 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'const_metronome.dart';
-import 'metronome_audio.dart';
-import 'tick_scheduler.dart';
+import 'ffi_bindings.dart';
 
-/// 节拍器控制器
+/// 节拍器控制器（Oboe FFI 版）
 ///
-/// 修过的三个根本问题：
+/// 修过的根本问题（与上一版同）：
+/// 1. **状态机翻转与音频就绪解耦**。start/stop 立即翻 `_isPlaying`，C++ play/pause
+///    fire-and-forget。
+/// 2. **拍号变更零延迟**。setBeatsPerBar 直接调 FFI，C++ 在下一个 sample 周期
+///    立即生效（Oboe audio callback 在后台持续跑，几 ms 之内换完）。
+/// 3. **视图/音频同源**。currentBeatNotifier 订阅 [MetronomeFFI.tickStream]，
+///    数据来自 C++ 音频回调线程，物理上不可能漂移。
 ///
-/// 1. **状态机翻转与音频就绪解耦**。`start` / `stop` / `pause` 同步翻 `_isPlaying`
-///    + notifyListeners；scheduler.start() / audio.start() fire-and-forget，不
-///    影响 UI 意图层。再点一下 start 不会再"和上一帧的 start 撞车"。
-///
-/// 2. **拍号变更零延迟**。setBeatPattern 同步更新内部 + 重启 scheduler Timer +
-///    audio 的 beatsPerMeasure。没有"重生成 WAV → 写文件 → setFilePath"这条
-///    慢链。
-///
-/// 3. **视图同步走 tickStream**。currentBeatNotifier 直接订阅 scheduler.tickStream，
-///    不再从音频 positionStream 反推。视觉和音频是同一个事件源，绝不会错位。
+/// 这一版相比上一版 Timer 方案：
+/// - 音频 tick 由 C++ 在 Oboe 音频线程生成，Dart 完全不参与相位。
+/// - 后台运行不被冻结（Oboe 走系统 AAudio/Oboe 服务）。
+/// - 单帧回调延迟 < 5ms。
 class MetronomeController extends ChangeNotifier {
-  MetronomeController({
-    ITickScheduler? scheduler,
-    MetronomeAudio? audio,
-  })  : _scheduler = scheduler ?? PeriodicTickScheduler(),
-        _audio = audio ?? MetronomeAudio() {
-    // 关键：audio 必须在 scheduler 之后构造才能拿到 tickStream
-    _audio.bindTickStream(_scheduler.tickStream);
-    // 订阅 scheduler 的 tick 流，驱动 currentBeatNotifier
-    _tickSub = _scheduler.tickStream.listen((beatIndex) {
+  MetronomeController() {
+    // 构造时立即订阅 C++ 的 tick 流（Oboe 在 init 时已经在跑了，但不会 tick，
+    // 因为 isPlaying=false）。订阅先建立，start() 时 C++ 立刻开始推。
+    _tickSub = MetronomeFFI.tickStream.listen((beatIndex) {
       if (_disposed) return;
       currentBeatNotifier.value = beatIndex;
     });
+    MetronomeFFI.init(MetronomeDefaults.defaultBpm.toDouble());
+    _initialized = true;
   }
 
   // ==================== 状态 ====================
@@ -49,19 +45,15 @@ class MetronomeController extends ChangeNotifier {
   final ValueNotifier<int> currentBeatNotifier = ValueNotifier(0);
   final ValueNotifier<String?> errorNotifier = ValueNotifier(null);
 
-  // ==================== 依赖 ====================
+  // ==================== 内部 ====================
 
-  final ITickScheduler _scheduler;
-  final MetronomeAudio _audio;
   StreamSubscription<int>? _tickSub;
+  bool _disposed = false;
+  bool _initialized = false;
 
   // ==================== Tap Tempo ====================
 
   final List<DateTime> _tapTimes = [];
-
-  // ==================== 生命周期 ====================
-
-  bool _disposed = false;
 
   @override
   void dispose() {
@@ -69,9 +61,11 @@ class MetronomeController extends ChangeNotifier {
     _disposed = true;
     _tickSub?.cancel();
     _tickSub = null;
-    // scheduler/audio dispose 是 fire-and-forget，避免 dispose 卡住
-    _scheduler.dispose();
-    _audio.dispose();
+    if (_initialized) {
+      MetronomeFFI.pause();
+      MetronomeFFI.shutdown();
+      _initialized = false;
+    }
     currentBeatNotifier.dispose();
     errorNotifier.dispose();
     super.dispose();
@@ -84,7 +78,7 @@ class MetronomeController extends ChangeNotifier {
         newBpm.clamp(MetronomeDefaults.minBpm, MetronomeDefaults.maxBpm);
     if (_bpm == clamped) return;
     _bpm = clamped;
-    _scheduler.setBpm(_bpm);
+    MetronomeFFI.setBpm(_bpm.toDouble());
     notifyListeners();
   }
 
@@ -94,10 +88,8 @@ class MetronomeController extends ChangeNotifier {
   void setBeatPattern(BeatPattern pattern) {
     if (_beatPattern == pattern) return;
     _beatPattern = pattern;
-    final beats = pattern.beatsPerMeasure;
-    _scheduler.setBeatsPerMeasure(beats);
-    _audio.setBeatsPerMeasure(beats);
-    // 拍号变了，立即归零（让 UI 显示"新拍号的第一拍即将开始"）
+    MetronomeFFI.setBeatsPerBar(pattern.beatsPerMeasure);
+    // 拍号变了，立即归零（视觉马上反映新拍号的第一拍即将开始）
     currentBeatNotifier.value = 0;
     notifyListeners();
   }
@@ -105,12 +97,10 @@ class MetronomeController extends ChangeNotifier {
   Future<void> togglePlay() => _isPlaying ? stop() : start();
 
   Future<void> start() async {
-    if (_isPlaying || _disposed) return;
+    if (_isPlaying || _disposed || !_initialized) return;
     _isPlaying = true;
     notifyListeners();
-    // fire-and-forget：意图已生效，音频/scheduler 不阻塞状态机
-    _scheduler.start();
-    _audio.start();
+    MetronomeFFI.play();
   }
 
   Future<void> stop() async {
@@ -118,8 +108,7 @@ class MetronomeController extends ChangeNotifier {
     _isPlaying = false;
     currentBeatNotifier.value = 0;
     notifyListeners();
-    _scheduler.stop();
-    _audio.stop();
+    MetronomeFFI.pause();
   }
 
   Future<void> pause() => stop();

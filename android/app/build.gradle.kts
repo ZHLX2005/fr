@@ -36,6 +36,24 @@ android {
 
         // 多dex支持
         multiDexEnabled = true
+
+        // NDK: 节拍器用 Oboe C++ 实时合成音频
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_STL=c++_shared")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
+    buildFeatures {
+        prefab = true
     }
 
     // 签名配置
@@ -112,4 +130,7 @@ dependencies {
     // 其他必要的AndroidX库
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.activity:activity:1.8.0")
+
+    // Oboe: 节拍器 C++ 实时音频
+    implementation("com.google.oboe:oboe:1.10.0")
 }
