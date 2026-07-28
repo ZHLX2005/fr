@@ -136,8 +136,12 @@ class MetronomeController extends ChangeNotifier {
     _tickSub?.cancel();
     _tickSub = null;
     if (_initialized) {
+      // Pause playback but DO NOT shutdown the Oboe stream — it's a shared
+      // singleton also used by the Clock demo's LabClockProvider. Shutting
+      // it down here would (a) lose any loaded custom samples (woodfish etc.)
+      // and (b) leave BeatCoordinator._ready=true while gStream=null, so
+      // the next user calling requestOwnership hits no-op FFI stubs.
       MetronomeFFI.pause();
-      MetronomeFFI.shutdown();
       _initialized = false;
     }
     currentBeatNotifier.dispose();

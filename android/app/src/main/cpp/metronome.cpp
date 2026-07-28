@@ -350,8 +350,12 @@ void shutdown_audio() {
     gStream = nullptr;
     gMetronome = nullptr;
 
-    // Also release any loaded samples so a fresh init starts clean.
-    for (int i = 0; i < 3; i++) freeSlot(i);
+    // NOTE: We deliberately do NOT free gSamples here.  Samples are user
+    // configuration (woodfish etc.) and may outlive a stream open/close
+    // cycle — e.g. the user loads woodfish in the metronome demo, leaves,
+    // and the Clock demo continues to use it.  Explicit cleanup happens via
+    // clear_sample() or the next load_sample() (which frees its own slot
+    // before reassigning).
 }
 
 
