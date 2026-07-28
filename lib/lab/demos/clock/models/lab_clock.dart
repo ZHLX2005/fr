@@ -15,6 +15,8 @@ class LabClock {
   final String? color;
   final DateTime? startTime; // 开始倒计时的时间
   final int? startRemainingSeconds; // 启动时刻的剩余秒数（用于后台恢复计算）
+  final int? bpm;          // 20..300, null = no beat
+  final String? beatPattern; // key into MetronomePresets.patterns, null = no beat
 
   LabClock({
     required this.id,
@@ -28,6 +30,8 @@ class LabClock {
     this.color,
     this.startTime,
     this.startRemainingSeconds,
+    this.bpm,
+    this.beatPattern,
   });
 
   factory LabClock.fromJson(Map<String, dynamic> json) =>
@@ -47,6 +51,8 @@ class LabClock {
     String? color,
     DateTime? startTime,
     int? startRemainingSeconds,
+    int? bpm,
+    String? beatPattern,
   }) {
     return LabClock(
       id: id ?? this.id,
@@ -61,6 +67,8 @@ class LabClock {
       startTime: startTime ?? this.startTime,
       startRemainingSeconds:
           startRemainingSeconds ?? this.startRemainingSeconds,
+      bpm: bpm ?? this.bpm,
+      beatPattern: beatPattern ?? this.beatPattern,
     );
   }
 }
