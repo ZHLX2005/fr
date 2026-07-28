@@ -73,8 +73,8 @@ description: Flutter 项目中"样式"相关工程的渐进式披露指南。当
 - ❌ `withOpacity(x)`（analyze 报 deprecated_member_use，应 `withValues(alpha: x)`）
 - ❌ 删除/取消按钮去掉红色（破坏性操作永远保留 red）
 - ❌ 嵌套 sheet 里 `fire-and-forget` 异步加载（race condition 必现）
-- ❌ lottery 后续轮重新询问"你要什么风格"（应直接看保留文件推断偏好）
-- ❌ 让 lottery subagent 把代码/内容贴回聊天（上下文爆炸，应只写文件）
+- ❌ lottery 后续轮重新询问"你要什么风格"（应直接看保留文件推断偏好）—— lottery 流程已迁到 tool-isolation，详见 [[tool-isolation#lottery-workflow]]
+- ❌ lottery subagent 把代码/内容贴回聊天（上下文爆炸，应只写文件）
 
 ---
 
@@ -87,7 +87,6 @@ description: Flutter 项目中"样式"相关工程的渐进式披露指南。当
 | **Bottom Bars** | Floating Pill Bottom Nav | 做"固定宽胶囊容器 + 滑动胶囊指示器"的悬浮式底部导航时 | [[floating-pill-bottom-nav]] |
 | **按钮 / Icon 容器 — 视觉减负** | Border-Emphasis 边框强调式 | 改造纯色填充按钮/icon 容器 / 减负密集按钮区 / "左重右轻" / 装饰性 vs 功能性颜色决策 | [[border-emphasis-style]] |
 | **嵌套 sheet 异步加载** | Async Load Flag Pattern | 嵌套 ModalBottomSheet 异步加载 race condition（"空空如也"/缓存竞态）；必须 `_loadingXxx` flag + try/finally + mounted 检查 + picker 守卫 | [[async-load-flag-pattern]] |
-| **多风格挑选流程** | Style Lottery | 用户说"生成 N 套不同风格让我挑"/"再生成几个备选"/多轮迭代挑选 | [[lottery-workflow]] |
 | **大规模治理** | Subagent 批量检查 | 需要对整个 lab/demos 目录（或某批 demo）统一做样式改造/检查（如 border-emphasis 转换、去 withOpacity、统一按钮风格）时；适用"批量发现 → 并行修复 → 统一验证"场景 | [[batch-checking-subagent]] |
 
 > 当你要加入**新的样式方案**（例如 Card 自定义、Button 自定义、NavigationBar 自定义等），按相同规范在表里追加一行，并在 `references/` 目录下新增一个方案文件。两文件结构一致：**1. 实现思路** + **2. 踩坑总结**。
