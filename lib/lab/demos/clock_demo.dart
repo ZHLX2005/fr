@@ -53,6 +53,29 @@ class _ClockShellState extends State<_ClockShell> {
   Future<void> Function(BuildContext)? _clocksOpenEditor;
   Future<void> Function(BuildContext)? _tracksOpenEditor;
 
+  @override
+  void initState() {
+    super.initState();
+    // 页面进入：恢复应该响的 clock 节拍（如果用户之前退出时停了）。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<LabClockProvider>().resumeActiveBeat();
+    });
+  }
+
+  @override
+  void dispose() {
+    // 页面退出：释放 beat。LabClockProvider 是 main 全局单例不会销毁，时间倒数
+    // 继续正确（数据驱动），只是用户离开 Clock 页就不该再听到节拍声。
+    // 用 Provider.of 而非 context.read，因为 dispose 时 element 还能用。
+    try {
+      Provider.of<LabClockProvider>(context, listen: false).releaseAllBeats();
+    } catch (_) {
+      // Provider 已经不在树里了，忽略。
+    }
+    super.dispose();
+  }
+
   String get _title => const ['Clocks', 'Tracks', 'Dashboard'][_index];
 
   List<Widget> get _appBarActions {

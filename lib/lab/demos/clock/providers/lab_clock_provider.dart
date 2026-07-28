@@ -474,6 +474,36 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     return owner.substring('clock:'.length);
   }
 
+  /// 释放当前 clock 对节拍器的占用。Clock 页面退出时调。
+  ///
+  /// LabClockProvider 是 main 全局单例（冷启动要同步桌面 widget），所以页面
+  /// 销毁它本身不销毁；但 beat ownership 是「页面级」的 —— 用户离开 Clock 页
+  /// 就不该再听到节拍声。时间倒数仍然正确（数据驱动 startTime），只是没声音。
+  void releaseAllBeats() {
+    final owner = BeatCoordinator.ownerId;
+    if (owner != null && owner.startsWith('clock:')) {
+      BeatCoordinator.releaseOwnership(owner);
+    }
+  }
+
+  /// 恢复应该响的 clock 的节拍。Clock 页面进入时调。
+  ///
+  /// 找到第一个 isRunning && bpm != null 的 clock，重新请求 beat ownership。
+  /// 如果当前 owner 不是 clock（比如被别的 demo 占了），就不抢。
+  void resumeActiveBeat() {
+    if (BeatCoordinator.ownerId != null) return;
+    for (final c in _clocks) {
+      if (c.isRunning && c.bpm != null) {
+        BeatCoordinator.requestOwnership(
+          providerId: 'clock:${c.id}',
+          bpm: c.bpm,
+          beatPattern: c.beatPattern,
+        );
+        break;
+      }
+    }
+  }
+
   /// 获取时钟
   LabClock? getClockById(String id) {
     try {
