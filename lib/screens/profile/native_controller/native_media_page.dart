@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../../services/media_service.dart';
 import '../../../services/audio_recording_service.dart';
 
@@ -35,11 +35,11 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
     super.initState();
     _checkCapabilities();
 
-    // 监听音频播放状态
-    _audioPlayer.onPlayerStateChanged.listen((state) {
+    // 监听音频播放状态（just_audio：playerStateStream → PlayerState.playing）
+    _audioPlayer.playerStateStream.listen((state) {
       if (mounted) {
         setState(() {
-          _isPlaying = state == PlayerState.playing;
+          _isPlaying = state.playing;
         });
       }
     });
@@ -260,11 +260,13 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
       if (_isPlaying) {
         await _audioPlayer.pause();
       } else {
+        // just_audio：先设源再 play。Web 用 setUrl，原生用 setFilePath。
         if (kIsWeb) {
-          await _audioPlayer.play(UrlSource(path));
+          await _audioPlayer.setUrl(path);
         } else {
-          await _audioPlayer.play(DeviceFileSource(path));
+          await _audioPlayer.setFilePath(path);
         }
+        await _audioPlayer.play();
       }
     } catch (e) {
       debugPrint('播放音频失败: $e');

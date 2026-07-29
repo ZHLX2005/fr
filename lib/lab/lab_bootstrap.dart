@@ -22,7 +22,6 @@ import 'demos/notion_image_host_demo.dart';
 import 'demos/overlay_demo.dart';
 import 'demos/pigment_palette_demo.dart';
 import 'demos/price_compare_demo.dart';
-import 'demos/qr_demo.dart';
 import 'demos/schema_demo.dart';
 import 'demos/sensor_demo.dart';
 import 'demos/snake_game_demo.dart';
@@ -67,7 +66,6 @@ void registerAllDemos() {
   registerSchemaDemo();
   registerColorPaletteDemo();
   registerGithubDemo();
-  registerQrDemo();
   registerWebBookmarkDemo();
   registerDoubleTimeDemo();
   registerNovelReaderDemo();
