@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/focus_provider.dart';
 import 'models/focus_session.dart';
+import '../../widgets/theme/zen_theme.dart';
 
 /// 数据统计页面 - 增强版
 class FocusStatsPage extends StatefulWidget {
@@ -37,8 +38,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('数据统计')),
+    return zenPageScaffold(
+      title: '数据统计',
       body: Consumer<FocusProvider>(
         builder: (context, focusProvider, child) {
           return SingleChildScrollView(
@@ -143,11 +144,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
+      decoration: zenCard(),
       child: Column(
         children: [
           // 月份导航
@@ -155,18 +152,15 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left),
+                icon: const Icon(Icons.chevron_left, color: ZenColors.ink),
                 onPressed: _previousMonth,
               ),
               Text(
                 '${_currentMonth.year}年${_currentMonth.month}月',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: ZenText.body.copyWith(fontWeight: FontWeight.w500),
               ),
               IconButton(
-                icon: const Icon(Icons.chevron_right),
+                icon: const Icon(Icons.chevron_right, color: ZenColors.ink),
                 onPressed: _nextMonth,
               ),
             ],
@@ -184,7 +178,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
-                    color: isWeekend ? Colors.red[300] : Colors.grey[600],
+                    color: isWeekend ? ZenColors.mutedRed : ZenColors.secondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -284,11 +278,11 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final day = dayData['day'] as int;
 
     final colors = [
-      Colors.grey[100]!,
+      ZenColors.hair,
       const Color(0xFFD4E4C4),
       const Color(0xFFB5C9A3),
       const Color(0xFF9CAF88),
-      const Color(0xFF7A9A6E),
+      ZenColors.sage,
     ];
 
     return GestureDetector(
@@ -314,9 +308,9 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           color: colors[level],
           borderRadius: BorderRadius.circular(8),
           border: isSelected
-              ? Border.all(color: const Color(0xFF7A9A6E), width: 2)
+              ? Border.all(color: ZenColors.sage, width: 2)
               : isToday
-              ? Border.all(color: Colors.blue[300]!, width: 1)
+              ? Border.all(color: ZenColors.ink, width: 1)
               : null,
         ),
         child: Center(
@@ -326,7 +320,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
               fontSize: 12,
               color: level > 0
                   ? Colors.white
-                  : (isWeekend ? Colors.red[300] : Colors.grey[700]),
+                  : (isWeekend ? ZenColors.mutedRed : ZenColors.ink),
               fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
             ),
           ),

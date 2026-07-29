@@ -7,6 +7,7 @@ import '../timetable/timetable.dart';
 import 'time_tools/const_time_pages.dart';
 import '../../lab/lab_container.dart';
 import '../../screens/profile/lab/demo_detail_page.dart';
+import '../../widgets/theme/zen_theme.dart';
 
 /// 工具列表项：registry demo（按 slug 走 DemoDetailPage）；内部页（带 onTap）。
 /// onTap 只在内部页使用；registry 项 onTap 由父级 build 中按 slug 派生。
@@ -48,6 +49,7 @@ class FocusHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: ZenColors.bg,
       body: SafeArea(
         child: Consumer<FocusProvider>(
           builder: (context, fp, _) {
@@ -67,12 +69,8 @@ class FocusHomePage extends StatelessWidget {
             final registryMetas = registrySlugs
                 .map((s) => (slug: s, meta: kTimePageMeta[s]!))
                 .toList();
-            final featured = registryMetas
-                .where((m) => m.meta.featured)
-                .toList();
             final grid = <_ToolItem>[
-              for (final m
-                  in registryMetas.where((m) => !m.meta.featured))
+              for (final m in registryMetas)
                 _ToolItem.registry(m.slug),
               _ToolItem.internal(
                 label: '数据统计',
@@ -111,14 +109,7 @@ class FocusHomePage extends StatelessWidget {
                     onTap: () => _navigateToTimer(context),
                   ),
                   const SizedBox(height: 24),
-                  if (featured.isNotEmpty) ...[
-                    _FeaturedToolCard(
-                      slug: featured.first.slug,
-                      onTap: () =>
-                          _openDemo(context, featured.first.slug),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                  // clock 与其他工具同级：不再单独 hero，融入统一网格。
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -171,18 +162,20 @@ class FocusHomePage extends StatelessWidget {
       children: [
         Text(
           '$greeting，',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w300,
-                color: Colors.grey[600],
-              ),
+          style: ZenText.title.copyWith(
+            fontWeight: FontWeight.w300,
+            color: ZenColors.secondary,
+            fontSize: 26,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           '欢迎使用小豆子 ^.^ ？',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w400),
+          style: ZenText.body.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.w400,
+            color: ZenColors.ink,
+          ),
         ),
       ],
     );
@@ -202,15 +195,18 @@ class FocusHomePage extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFB5C9A3), Color(0xFFD4E4C4)],
+            colors: [
+              ZenColors.sage,
+              ZenColors.sage.withValues(alpha: 0.72),
+            ],
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFB5C9A3).withValues(alpha: 0.25),
+              color: ZenColors.sage.withValues(alpha: 0.25),
               offset: const Offset(0, 8),
               blurRadius: 24,
             ),
@@ -281,86 +277,7 @@ class FocusHomePage extends StatelessWidget {
   }
 }
 
-/// 精选宽卡（横跨整行）— 与现有 subject 卡风格一致。
-/// 永远只渲染 featured meta（当前=clock）。
-class _FeaturedToolCard extends StatelessWidget {
-  const _FeaturedToolCard({required this.slug, required this.onTap});
-  final String slug;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    final meta = timePageMetaOf(slug);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              meta.color,
-              meta.color.withValues(alpha: 0.7),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: meta.color.withValues(alpha: 0.25),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(meta.icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    meta.label,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '点击进入',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 16,
-              color: Colors.white.withValues(alpha: 0.7),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 工具网格卡 — 与旧的 _buildActionButton 视觉风格一致（白底、轻强调色）。
+/// 工具网格卡 — zen 卡片风格，icon 和 label 用 item.color 强调。
 class _ToolCard extends StatelessWidget {
   const _ToolCard({required this.item, required this.onTap});
   final _ToolItem item;
@@ -370,11 +287,8 @@ class _ToolCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        decoration: zenCard(),
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: item.color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
-        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
