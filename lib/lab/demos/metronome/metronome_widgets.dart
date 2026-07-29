@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'const_metronome.dart';
-import '../clock/widgets/zen_theme.dart' show ZenColors;
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart' show ZenColors;
 
 /// 节拍可视化指示器组件
 ///

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
-import 'clock/widgets/zen_theme.dart' show ZenColors, ZenText, zenCard;
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart' show ZenColors, ZenText, zenCard;
 import 'metronome/const_metronome.dart';
 import 'metronome/metronome_controller.dart';
 import 'metronome/metronome_widgets.dart';

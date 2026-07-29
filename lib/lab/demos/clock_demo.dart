@@ -7,7 +7,7 @@ import 'clock/widgets/clocks_tab.dart';
 import 'clock/widgets/tracks_tab.dart';
 import 'clock/widgets/dashboard_tab.dart';
 import 'clock/widgets/track_records_page.dart';
-import 'clock/widgets/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 class ClockDemo extends DemoPage {
   @override

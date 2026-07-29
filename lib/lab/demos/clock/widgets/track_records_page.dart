@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
-import 'package:xiaodouzi_fr/lab/demos/clock/widgets/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 class TrackRecordsPage extends StatelessWidget {
   const TrackRecordsPage({super.key});
