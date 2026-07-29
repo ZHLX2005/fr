@@ -16,9 +16,7 @@ class DayView extends StatelessWidget {
       animation: cal,
       builder: (context, _) {
         final today = DateTime.now();
-        final events = cal.events
-            .where((e) => e.month == today.month && e.day == today.day)
-            .toList();
+        final events = cal.eventsOnDate(today);
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [

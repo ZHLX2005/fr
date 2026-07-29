@@ -26,9 +26,13 @@ class Event {
   final EventType type;
   final String title;
   final CalendarSystem system;
-  final int year;     // 首次发生的年份（桌面 widget 用）
+  // ⚠️ 存储约定（source of truth）：year/month/day 永远是 [system] 所指
+  // 历法下的值——system=solar 时是公历年月日；system=lunar 时是农历年月日。
+  // 读取方解释这三个字段前必须先看 system，绝不能假定是公历。
+  final int year;     // 该历法下的年（首次发生年）
   final int month;    // 1-12
   final int day;      // 1-30 (lunar) / 1-31 (solar)
+  final bool isLeap;  // 仅 lunar：是否闰月（如闰四月）
   final int? solarYearOffset; // 仅 manual
   final Recurrence recurrence;
   final String? personId;
@@ -51,6 +55,7 @@ class Event {
     required this.recurrence,
     required this.colorTag,
     required this.createdAt,
+    this.isLeap = false,
     this.solarYearOffset,
     this.personId,
     this.note,
@@ -65,6 +70,7 @@ class Event {
     int? year,
     int? month,
     int? day,
+    bool? isLeap,
     int? solarYearOffset,
     Recurrence? recurrence,
     String? personId,
@@ -81,6 +87,7 @@ class Event {
       year: year ?? this.year,
       month: month ?? this.month,
       day: day ?? this.day,
+      isLeap: isLeap ?? this.isLeap,
       solarYearOffset: solarYearOffset ?? this.solarYearOffset,
       recurrence: recurrence ?? this.recurrence,
       personId: personId ?? this.personId,
@@ -100,6 +107,7 @@ class Event {
         'year': year,
         'month': month,
         'day': day,
+        'isLeap': isLeap,
         if (solarYearOffset != null) 'solarYearOffset': solarYearOffset,
         'recurrence': recurrence.name,
         if (personId != null) 'personId': personId,
@@ -118,6 +126,7 @@ class Event {
         year: (j['year'] as int?) ?? DateTime.now().year,
         month: j['month'] as int,
         day: j['day'] as int,
+        isLeap: (j['isLeap'] as bool?) ?? false,
         solarYearOffset: j['solarYearOffset'] as int?,
         recurrence: Recurrence.values.byName(j['recurrence'] as String),
         personId: j['personId'] as String?,

@@ -27,7 +27,11 @@ class AnnualReportPage extends StatelessWidget {
             Text('共 ${birthdays.length} 个生日', style: AppText.body()),
             const SizedBox(height: 24),
             ...List.generate(12, (i) => i + 1).map((m) {
-              final mEvents = cal.events.where((e) => e.month == m).toList();
+              // 按事件在 viewYear 的公历发生日分组（lunar 事件先 resolve 到公历）
+              final mEvents = cal.events
+                  .map((e) => (e: e, d: cal.solarOccurrenceInYear(e, cal.viewYear)))
+                  .where((p) => p.d != null && p.d!.month == m)
+                  .toList();
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
@@ -45,14 +49,14 @@ class AnnualReportPage extends StatelessWidget {
                         child: Text('—', style: AppText.caption()),
                       )
                     else
-                      ...mEvents.map((e) {
-                        final person = e.personId == null
+                      ...mEvents.map((p) {
+                        final person = p.e.personId == null
                             ? null
-                            : people.byId(e.personId!);
+                            : people.byId(p.e.personId!);
                         return Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
-                            '${e.day}日 · ${e.title}${person == null ? "" : "（${person.name}）"}',
+                            '${p.d!.day}日 · ${p.e.title}${person == null ? "" : "（${person.name}）"}',
                             style: AppText.caption(),
                           ),
                         );

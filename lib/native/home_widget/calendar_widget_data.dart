@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../lab/demos/calendar/domain/event.dart';
+import '../../lab/demos/calendar/domain/lunar_calendar.dart';
 
 /// 桌面日历小组件传递的数据
 ///
@@ -31,19 +32,47 @@ class CalendarWidgetData {
   });
 
   /// 从事件列表构建当月 widget 数据（新签名：接受 List<Event>）
+  ///
+  /// 传 [lunar] 后，农历事件会先 resolve 到 [year] 公历年的发生日再分桶，
+  /// 否则按公历月日直接匹配（仅 solar 事件正确）。
   factory CalendarWidgetData.fromEvents({
     required int year,
     required int month,
     required List<Event> events,
+    LunarCalendar? lunar,
     DateTime? now,
   }) {
     final today = now ?? DateTime.now();
     final Map<String, List<String>> grouped = {};
-    final monthEvents = events.where((e) => e.year == year && e.month == month);
-    final sorted = monthEvents.toList()
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    for (final e in sorted) {
-      grouped.putIfAbsent(e.day.toString(), () => []).add(e.colorTag.hex);
+    // 把每个事件 resolve 到 [year] 的公历发生日，保留落在 [month] 的。
+    final projected = <(DateTime, Event)>[];
+    for (final e in events) {
+      DateTime d;
+      if (e.system == CalendarSystem.solar) {
+        d = DateTime(year, e.month, e.day);
+      } else if (lunar != null) {
+        DateTime? found;
+        for (final ly in [year - 1, year]) {
+          try {
+            final s = lunar.toSolar(ly, e.month, e.day, isLeap: e.isLeap);
+            if (s.year == year) {
+              found = DateTime(s.year, s.month, s.day);
+              break;
+            }
+          } catch (_) {
+            // 该农历年无此月日，跳过
+          }
+        }
+        if (found == null) continue;
+        d = found;
+      } else {
+        d = DateTime(year, e.month, e.day);
+      }
+      if (d.month == month) projected.add((d, e));
+    }
+    projected.sort((a, b) => a.$2.createdAt.compareTo(b.$2.createdAt));
+    for (final (d, e) in projected) {
+      grouped.putIfAbsent(d.day.toString(), () => []).add(e.colorTag.hex);
     }
     return CalendarWidgetData(
       year: year,

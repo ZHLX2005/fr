@@ -30,12 +30,22 @@ class NextBirthdayResolver {
       final lNow = _cal.fromSolar(from);
       anchorLunarYear = lNow.year;
     }
-    // 用 anchorLunarYear 反推那年的农历月日对应的公历
-    final sAnchor = _cal.toSolar(anchorLunarYear, e.month, e.day);
+    // 用 anchorLunarYear 反推那年的农历月日对应的公历（闰月用 isLeap 标识）
+    final sAnchor = _cal.toSolar(
+      anchorLunarYear,
+      e.month,
+      e.day,
+      isLeap: e.isLeap,
+    );
     var candidate = DateTime(sAnchor.year, sAnchor.month, sAnchor.day);
     if (!candidate.isAfter(from)) {
       // 推到下一年（农历）的农历月日对应公历
-      final sNext = _cal.toSolar(anchorLunarYear + 1, e.month, e.day);
+      final sNext = _cal.toSolar(
+        anchorLunarYear + 1,
+        e.month,
+        e.day,
+        isLeap: e.isLeap,
+      );
       candidate = DateTime(sNext.year, sNext.month, sNext.day);
     }
     return candidate;

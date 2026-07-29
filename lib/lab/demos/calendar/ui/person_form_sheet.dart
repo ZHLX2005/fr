@@ -34,7 +34,8 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
   late final TextEditingController _note;
   late PersonRelation _relation;
   late CalendarSystem _system;
-  String? _lunarPreview; // 8 位数字 → 实时反推的农历预览
+  bool _isLeap = false; // 仅农历：该月是否闰月
+  String? _lunarPreview; // 当前历法的对方历法等值预览
   final _codec = LunarDateCodec(LunarAdapter());
 
   @override
@@ -47,7 +48,8 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
     _relation = p?.relation ?? PersonRelation.family;
     _system = CalendarSystem.solar;
 
-    // 回显已有生日事件：找到该人第一个 birthday 事件，反推 8 位数字与历法
+    // 回显已有生日事件：直接读存值（year/month/day 已是该 system 历法下的值），
+    // 不做任何换算 —— 之前的 lunarFromSolar 二次换算就是漂移 bug 的源头。
     if (p != null) {
       final existing = widget.cal.events.firstWhere(
         (e) => e.personId == p.id && e.type == EventType.birthday,
@@ -55,23 +57,17 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
       );
       if (existing.id != '_empty_') {
         _system = existing.system;
-        if (existing.system == CalendarSystem.solar) {
-          _date.text = _codec
-              .toYmd8(
-                DateTime(existing.year, existing.month, existing.day),
-                CalendarSystem.solar,
-              )
-              .toString();
-        } else {
-          // 农历：从公历月日反推农历月日，拼接当年
-          final l = _codec.lunarFromSolar(
-            DateTime(existing.year, existing.month, existing.day),
-          );
-          _date.text =
-              '${l.year.toString().padLeft(4, '0')}${l.month.toString().padLeft(2, '0')}${l.day.toString().padLeft(2, '0')}';
-        }
+        _isLeap = existing.isLeap;
+        _date.text =
+            '${existing.year.toString().padLeft(4, '0')}'
+            '${existing.month.toString().padLeft(2, '0')}'
+            '${existing.day.toString().padLeft(2, '0')}';
       }
     }
+    // 首帧后刷新预览
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateLunarPreview(_date.text);
+    });
   }
 
   @override
@@ -82,23 +78,24 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
     super.dispose();
   }
 
-  /// 8 位数字 + 当前历法 → 对方历法预览
+  /// 8 位数字 + 当前历法 → 对方历法等值预览（年取自输入本身）
   void _updateLunarPreview(String text) {
     if (text.length != 8 || int.tryParse(text) == null) {
       setState(() => _lunarPreview = null);
       return;
     }
     try {
+      final ymd = int.parse(text);
       if (_system == CalendarSystem.solar) {
-        // 输入公历 → 预览农历
-        final solar = _codec.parseSolarFromYmd8(int.parse(text));
+        // 公历输入 → 预览农历
+        final solar = _codec.parseSolarFromYmd8(ymd);
         final l = _codec.lunarFromSolar(solar);
         setState(() {
           _lunarPreview = '${l.year} 年 ${l.isLeap ? "闰" : ""}${l.month} 月 ${l.day} 日';
         });
       } else {
-        // 输入农历 → 预览公历
-        final solar = _codec.parseLunarFromYmd8(int.parse(text), year: DateTime.now().year);
+        // 农历输入 → 预览公历（年来自输入）
+        final solar = _codec.parseLunarFromYmd8(ymd, isLeap: _isLeap);
         setState(() {
           _lunarPreview = '${solar.year} 年 ${solar.month} 月 ${solar.day} 日';
         });
@@ -128,9 +125,9 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
     if (!mounted) return;
 
     try {
-      final solar = _system == CalendarSystem.solar
-          ? _codec.parseSolarFromYmd8(ymd)
-          : _codec.parseLunarFromYmd8(ymd, year: DateTime.now().year);
+      final y = ymd ~/ 10000;
+      final m = (ymd ~/ 100) % 100;
+      final d = ymd % 100;
       // 删除旧 birthday 事件（如果有）
       final oldBirthday = cal.events.firstWhere(
         (e) => e.personId == saved.id && e.type == EventType.birthday,
@@ -139,32 +136,33 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
       if (oldBirthday.id != '_empty_') {
         await cal.remove(oldBirthday.id);
       }
-      // 建新 birthday 事件
+      // SoT：存的就是用户输入的原值（year/month/day 已是该 system 历法下的值）。
+      // solar → yearly（公历月日固定）；lunar → yearlyLunarAuto + 锚年。
       if (_system == CalendarSystem.solar) {
-        // 按公历过：直接用公历月日 + yearly
         await cal.add(
           type: EventType.birthday,
           title: '${saved.name}生日',
           system: CalendarSystem.solar,
-          month: solar.month,
-          day: solar.day,
+          year: y,
+          month: m,
+          day: d,
           recurrence: Recurrence.yearly,
           colorTag: ColorTag.amber,
           personId: saved.id,
         );
       } else {
-        // 按农历过：把公历 birth 反推为农历月日，存农历月日 + yearlyLunarAuto + 锚定年
-        final l = _codec.lunarFromSolar(solar);
         await cal.add(
           type: EventType.birthday,
           title: '${saved.name}生日',
           system: CalendarSystem.lunar,
-          month: l.month,
-          day: l.day,
+          year: y,
+          month: m,
+          day: d,
+          isLeap: _isLeap,
           recurrence: Recurrence.yearlyLunarAuto,
           colorTag: ColorTag.amber,
           personId: saved.id,
-          lunarAnchorYear: l.year,
+          lunarAnchorYear: y,
         );
       }
     } catch (e) {
@@ -258,12 +256,61 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
             selected: _system,
             onChanged: (v) {
               setState(() {
+                final text = _date.text;
+                // 切换历法：若当前已是合法 8 位日期，把字段值换算成对方历法的等值，
+                // 而不是"用同一串数字在新历法下重新解释"。
+                if (text.length == 8 &&
+                    int.tryParse(text) != null &&
+                    v != _system) {
+                  try {
+                    final r = _codec.convertSystem(
+                      int.parse(text),
+                      from: _system,
+                      to: v,
+                      sourceIsLeap: _isLeap,
+                    );
+                    _date.text = r.ymd8.toString().padLeft(8, '0');
+                    _isLeap = r.isLeap;
+                  } catch (_) {
+                    // 换算失败（如非法农历日）：仅切 system，保留原值由用户改
+                  }
+                }
                 _system = v;
                 _updateLunarPreview(_date.text);
               });
             },
             displayName: (s) => s == CalendarSystem.solar ? '公历' : '农历',
           ),
+          // 仅农历可见：是否闰月
+          if (_system == CalendarSystem.lunar)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: _isLeap,
+                    onChanged: (v) {
+                      setState(() {
+                        _isLeap = v ?? false;
+                        _updateLunarPreview(_date.text);
+                      });
+                    },
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isLeap = !_isLeap;
+                        _updateLunarPreview(_date.text);
+                      });
+                    },
+                    child: Text(
+                      '闰月',
+                      style: AppText.body(color: PaperPalette.ink),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ChipChoice<PersonRelation>(
             label: '关系',
             values: PersonRelation.values.toList(),

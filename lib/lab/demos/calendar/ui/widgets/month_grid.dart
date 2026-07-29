@@ -56,9 +56,7 @@ class MonthGrid extends StatelessWidget {
         final isToday = date.year == today.year &&
             date.month == today.month &&
             date.day == today.day;
-        final events = cal.events
-            .where((e) => e.month == date.month && e.day == date.day)
-            .toList();
+        final events = cal.eventsOnDate(date);
         final evPeople = <Person>[
           for (final e in events)
             if (e.personId != null)

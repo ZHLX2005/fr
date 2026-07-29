@@ -34,13 +34,14 @@ class EventAdapter extends TypeAdapter<Event> {
       systemCalendarEventId: fields[12] as int?,
       lunarAnchorYear: fields[13] as int?,
       createdAt: fields[14] as DateTime,
+      isLeap: (fields[15] as bool?) ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, Event obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -70,6 +71,8 @@ class EventAdapter extends TypeAdapter<Event> {
       ..writeByte(13)
       ..write(obj.lunarAnchorYear)
       ..writeByte(14)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(15)
+      ..write(obj.isLeap);
   }
 }

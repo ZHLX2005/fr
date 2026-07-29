@@ -24,7 +24,12 @@ class YearView extends StatelessWidget {
       itemCount: 12,
       itemBuilder: (_, i) {
         final m = i + 1;
-        final events = p.events.where((e) => e.month == m).length;
+        final events = p.events
+            .where((e) {
+              final d = p.solarOccurrenceInYear(e, p.viewYear);
+              return d != null && d.month == m;
+            })
+            .length;
         return GestureDetector(
           onTap: () => onMonthTap(m),
           child: Container(
