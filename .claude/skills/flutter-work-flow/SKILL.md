@@ -11,6 +11,7 @@ references/
 ├── Flutter-fr路由-注册规范与防腐蚀.md   # fr:// 日常使用：新页面注册SOP + 防腐蚀grep检测 + 反模式（加新页面/写跳转时读）
 ├── Flutter-DemoPage-slug抽象化与别名机制.md   # kDemoSlugs 全局表迁移到 abstract slug 字段、Demo 别名机制、多 demo 合并为 Tab 容器
 ├── Flutter-Lab容器-模块结构与重构模式.md   # lab/ 目录地图（lab_panel/demo_grid/game_center）+ ValueNotifier 双通道 + 手势收敛 + part→import 拆法
+├── Flutter-TimePage-Focus时间模块设计与扩展路线.md   # timePage 标记 + kTimePageMeta + Focus 主页布局（Hero+精选+网格）；加新 timePage demo / 改 Focus 面板 / 扩展统计 time 维度 / Lab 过滤+深链避坑的 4 条扩展剧本
 └── Flutter-游戏中心-扩展游戏路线.md   # 加新游戏/新分类/新封面图案的扩展点地图 + SOP（数据流/封面三级来源/真坑）
 `</doc-reference>`
 
@@ -25,6 +26,7 @@ references/
 | Flutter-fr路由-注册规范与防腐蚀                      | **加新页面 / 写 fr:// 跳转 / 加 MethodChannel / 提交前自查腐蚀时**                                                    |
 | Flutter-DemoPage-slug抽象化与别名机制                | **删 kDemoSlugs 迁 abstract slug / 给 demo 加别名 slug / 合并多个 demo 为统一 Tab 容器时**                            |
 | Flutter-Lab容器-模块结构与重构模式                   | **改 lib/screens/profile/lab/ 任何文件（Lab页/下拉面板/游戏中心/demo卡片）/ 给重手势+重动画页面做性能或模块化重构时** |
+| Flutter-TimePage-Focus时间模块设计与扩展路线         | **改中间 Time tab（Focus 主页 / 心流空间 / FocusStatsPage）/ 改 timePage 标记 / 加新 timePage demo / 改 kTimePageMeta / 给 time 模块加新统计维度 / 修 Lab 过滤漏 timePage demo 时**（架构 + 4 条扩展剧本 + 与 gamecenter 模式的双向对照）|
 | Flutter-游戏中心-扩展游戏路线                        | **往游戏中心加新游戏 / 加新分类 / 加新封面图案时**（扩展点地图 + 加游戏SOP + 封面三级来源 + slug拼错等真坑）          |
 | Flutter-Provider双重实例冲突-时钟wipe后数据恢复      | **Provider 擦数据后快照恢复 / 根级和页面级都有同一 Provider / wipe 失效 / 定时写 SP 的 Provider 行为异常时**          |
 
