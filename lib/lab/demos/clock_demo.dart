@@ -91,10 +91,22 @@ class _ClockShellState extends State<_ClockShell> {
         IconButton(
           tooltip: 'Track records',
           icon: const Icon(Icons.history),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const TrackRecordsPage()),
-          ),
+          onPressed: () {
+            // push 出来的新 route 不在 ClockDemo 的 ChangeNotifierProvider 树里，
+            // 必须把当前的 LabTrackProvider 实例手动带进去，否则
+            // TrackRecordsPage 里的 Consumer<LabTrackProvider> 会抛
+            // ProviderNotFoundException → 白屏。
+            final trackP = context.read<LabTrackProvider>();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChangeNotifierProvider<LabTrackProvider>.value(
+                  value: trackP,
+                  child: const TrackRecordsPage(),
+                ),
+              ),
+            );
+          },
         ),
     ];
   }
