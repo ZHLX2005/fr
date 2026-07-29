@@ -50,7 +50,7 @@ class DashboardTab extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: _StatTile(label: 'Today', value: _formatDuration(todaySeconds))),
+                  Expanded(child: _StatTile(label: 'Today', value: formatDuration(todaySeconds))),
                   const SizedBox(width: 12),
                   Expanded(child: _StatTile(label: 'Clocks done', value: '$clocksDone')),
                   const SizedBox(width: 12),
@@ -84,7 +84,7 @@ class DashboardTab extends StatelessWidget {
                               children: [
                                 Text(r.title, style: ZenText.body),
                                 Text(
-                                  '${MaterialLocalizations.of(context).formatShortDate(r.startTime)} · actual ${_formatDuration(r.durationSeconds)}',
+                                  '${MaterialLocalizations.of(context).formatShortDate(r.startTime)} · actual ${formatDuration(r.durationSeconds)}',
                                   style: ZenText.monoDigitSmall,
                                 ),
                               ],
@@ -107,17 +107,9 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: zenCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: ZenText.label),
-          const SizedBox(height: 8),
-          Text(value, style: ZenText.monoDigit.copyWith(fontSize: 24)),
-        ],
-      ),
+    return ZenSection(
+      title: label,
+      child: Text(value, style: ZenText.monoDigit.copyWith(fontSize: 24)),
     );
   }
 }
@@ -133,13 +125,4 @@ class _RecentItem {
     required this.durationSeconds,
     required this.isClock,
   });
-}
-
-String _formatDuration(int seconds) {
-  final h = seconds ~/ 3600;
-  final m = (seconds % 3600) ~/ 60;
-  final s = seconds % 60;
-  if (h > 0) return '${h}h ${m}m';
-  if (m > 0) return '${m}m';
-  return '${s}s';
 }

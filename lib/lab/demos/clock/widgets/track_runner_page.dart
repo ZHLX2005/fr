@@ -89,7 +89,7 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
                 const SizedBox(height: 8),
                 Center(
                   child: Text(
-                    _formatTime(segRem),
+                    formatTime(segRem),
                     style: ZenText.monoDigitLarge.copyWith(
                       color: segRem < 0 ? ZenColors.mutedRed : ZenColors.ink,
                     ),
@@ -102,7 +102,7 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
                 const SizedBox(height: 24),
                 if (hasBeat) _BeatDotRow(active: !isPaused, count: 4),
                 const Spacer(),
-                Text('Total remaining: ${_formatTime(totalRem)}', style: ZenText.monoDigitSmall, textAlign: TextAlign.center),
+                Text('Total remaining: ${formatTime(totalRem)}', style: ZenText.monoDigitSmall, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -174,14 +174,7 @@ class _BeatDotRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(count, (i) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Container(
-          width: 12, height: 12,
-          decoration: BoxDecoration(
-            color: active ? ZenColors.sage : Colors.transparent,
-            border: Border.all(color: active ? ZenColors.sage : ZenColors.secondary),
-            shape: BoxShape.circle,
-          ),
-        ),
+        child: ZenDot(active: active),
       )),
     );
   }
@@ -197,33 +190,10 @@ class _RunnerButton extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: Container(
-            width: 44, height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: ZenColors.sage.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: ZenColors.sage, size: 24),
-          ),
-        ),
+        ZenIconButton(icon: icon, onTap: onTap),
         const SizedBox(height: 4),
         Text(label, style: ZenText.label),
       ],
     );
   }
-}
-
-String _formatTime(int seconds) {
-  final isNegative = seconds < 0;
-  final absSeconds = seconds.abs();
-  final h = absSeconds ~/ 3600;
-  final m = (absSeconds % 3600) ~/ 60;
-  final s = absSeconds % 60;
-  final sign = isNegative ? '-' : '';
-  if (h > 0) return '$sign${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  return '$sign${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
 }

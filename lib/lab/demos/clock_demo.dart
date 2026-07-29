@@ -116,37 +116,25 @@ class _ClockShellState extends State<_ClockShell> {
   Future<void> _confirmWipeAll() async {
     final clockP = context.read<LabClockProvider>();
     final trackP = context.read<LabTrackProvider>();
-    final ok = await showDialog<bool>(
+    final ok = await ZenConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Wipe all clock data?'),
-        content: const Text(
+      title: 'Wipe all clock data?',
+      message:
           '这会清空所有 clock、track、记录及节拍配置（包括旧版残留数据）。\n'
           '用于修复旧版本导致的卡死问题。\n\n'
           '此操作不可撤销。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Wipe',
-              style: TextStyle(color: ZenColors.mutedRed),
-            ),
-          ),
-        ],
-      ),
+      confirmLabel: 'Wipe',
+      onConfirm: () async {
+        await clockP.wipeAllData();
+        await trackP.wipeAllData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('All clock data wiped.')),
+          );
+        }
+      },
     );
-    if (ok != true) return;
-    await clockP.wipeAllData();
-    await trackP.wipeAllData();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('All clock data wiped.')),
-    );
+    if (!ok || !mounted) return;
   }
 
   void _onFabPressed() {

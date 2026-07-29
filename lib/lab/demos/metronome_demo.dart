@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../lab_container.dart';
-import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart' show ZenColors, ZenText, zenCard;
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart'
+    show ZenColors, ZenText, ZenSection, zenPageScaffold;
 import 'metronome/const_metronome.dart';
 import 'metronome/metronome_controller.dart';
 import 'metronome/metronome_widgets.dart';
@@ -112,13 +113,8 @@ class _MetronomePageState extends State<_MetronomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ZenColors.bg,
-      appBar: AppBar(
-        title: const Text('节拍器', style: ZenText.title),
-        backgroundColor: ZenColors.bg,
-        elevation: 0,
-      ),
+    return zenPageScaffold(
+      title: '节拍器',
       body: SafeArea(
         child: Consumer<MetronomeController>(
           builder: (context, controller, _) {
@@ -410,17 +406,11 @@ class _MetronomePageState extends State<_MetronomePage> {
     ];
     final labels = const ['强拍（重音）', '次强拍', '弱拍'];
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: zenCard(),
+    return ZenSection(
+      title: '音色',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '音色',
-            style: ZenText.label,
-          ),
-          const SizedBox(height: 8),
           for (int displayIdx = 0; displayIdx < 3; displayIdx++) ...[
             if (displayIdx > 0) const SizedBox(height: 8),
             Row(
@@ -478,33 +468,22 @@ class _MetronomePageState extends State<_MetronomePage> {
     );
   }
   Widget _buildAccentLegend() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: zenCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return ZenSection(
+      title: '节拍强度',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Text(
-            '节拍强度',
-            style: ZenText.label,
+          _buildLegendItem(
+            color: AccentColor.getColor(AccentLevel.accent),
+            label: '强拍',
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildLegendItem(
-                color: AccentColor.getColor(AccentLevel.accent),
-                label: '强拍',
-              ),
-              _buildLegendItem(
-                color: AccentColor.getColor(AccentLevel.medium),
-                label: '次强',
-              ),
-              _buildLegendItem(
-                color: AccentColor.getColor(AccentLevel.weak),
-                label: '弱拍',
-              ),
-            ],
+          _buildLegendItem(
+            color: AccentColor.getColor(AccentLevel.medium),
+            label: '次强',
+          ),
+          _buildLegendItem(
+            color: AccentColor.getColor(AccentLevel.weak),
+            label: '弱拍',
           ),
         ],
       ),
