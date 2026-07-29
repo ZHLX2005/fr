@@ -53,26 +53,25 @@ class _ClockShellState extends State<_ClockShell> {
   Future<void> Function(BuildContext)? _clocksOpenEditor;
   Future<void> Function(BuildContext)? _tracksOpenEditor;
 
+  /// Cached during didChangeDependencies; used in dispose where `context`
+  /// lookups are unsafe. LabClockProvider is the app-root singleton, so it
+  /// outlives this page.
+  LabClockProvider? _clockProvider;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _clockProvider ??= Provider.of<LabClockProvider>(context, listen: false);
     // 页面进入：恢复应该响的 clock 节拍（如果用户之前退出时停了）。
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<LabClockProvider>().resumeActiveBeat();
-    });
+    _clockProvider?.resumeActiveBeat();
   }
 
   @override
   void dispose() {
     // 页面退出：释放 beat。LabClockProvider 是 main 全局单例不会销毁，时间倒数
     // 继续正确（数据驱动），只是用户离开 Clock 页就不该再听到节拍声。
-    // 用 Provider.of 而非 context.read，因为 dispose 时 element 还能用。
-    try {
-      Provider.of<LabClockProvider>(context, listen: false).releaseAllBeats();
-    } catch (_) {
-      // Provider 已经不在树里了，忽略。
-    }
+    // 用缓存的引用，不依赖 dispose 阶段的 context lookup（不安全且会被吞）。
+    _clockProvider?.releaseAllBeats();
     super.dispose();
   }
 
