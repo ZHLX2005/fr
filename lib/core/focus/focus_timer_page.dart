@@ -2,15 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'models/focus_session.dart';
-import 'models/focus_subject.dart';
 import 'providers/focus_timer_provider.dart';
-import 'providers/focus_provider.dart' as data;
+import 'providers/focus_provider.dart';
 
 /// 专注计时器页面 - 心流空间（全屏极简模式）
 class FocusTimerPage extends StatefulWidget {
-  final FocusSubject? initialSubject;
-
-  const FocusTimerPage({super.key, this.initialSubject});
+  const FocusTimerPage({super.key});
 
   @override
   State<FocusTimerPage> createState() => _FocusTimerPageState();
@@ -37,20 +34,6 @@ class _FocusTimerPageState extends State<FocusTimerPage>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-
-    if (widget.initialSubject != null) {
-      _timerProvider.selectSubject(widget.initialSubject);
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final focusProvider = Provider.of<data.FocusProvider>(
-          context,
-          listen: false,
-        );
-        focusProvider.restoreTimerState(_timerProvider);
-      }
-    });
   }
 
   @override
@@ -298,10 +281,6 @@ class _FocusTimerPageState extends State<FocusTimerPage>
             ),
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.category_outlined, color: Colors.grey),
-            onPressed: () => _showSubjectSelector(context),
-          ),
         ],
       ),
     );
@@ -415,85 +394,6 @@ class _FocusTimerPageState extends State<FocusTimerPage>
     );
   }
 
-  void _showSubjectSelector(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                '选择学习领域',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-              ),
-            ),
-            Expanded(
-              child: Consumer<data.FocusProvider>(
-                builder: (context, focusProvider, child) {
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: focusProvider.subjects.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == focusProvider.subjects.length) {
-                        return ListTile(
-                          leading: Icon(
-                            Icons.add_circle_outline,
-                            color: Colors.grey[600],
-                          ),
-                          title: const Text('添加新领域'),
-                          onTap: () => Navigator.pop(context),
-                        );
-                      }
-                      final subject = focusProvider.subjects[index];
-                      final isSelected =
-                          _timerProvider.selectedSubject?.id == subject.id;
-                      return ListTile(
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: subject.color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(subject.icon, color: subject.color),
-                        ),
-                        title: Text(subject.name),
-                        trailing: isSelected
-                            ? Icon(Icons.check_circle, color: subject.color)
-                            : null,
-                        onTap: () {
-                          _timerProvider.selectSubject(subject);
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showEndConfirmDialog(BuildContext context, FocusTimerProvider timer) {
     showModalBottomSheet(
       context: context,
@@ -564,16 +464,20 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                 Expanded(
                   child: GestureDetector(
                     onTap: () async {
+                      // await 之前先抓 focusProvider 与 session；await 之后
+                      // 不再触碰 onTap 的 builder context（那是参数 context，
+                      // 不是 State.context，lint 不接受它跨 await 用）。
                       Navigator.pop(context);
+                      final focusProvider = Provider.of<FocusProvider>(
+                        context,
+                        listen: false,
+                      );
                       final session = timer.completeSession();
-                      if (session != null && context.mounted) {
-                        final focusProvider = context
-                            .read<data.FocusProvider>();
-                        await focusProvider.addSession(session);
-                        if (mounted) {
-                          _showCompletionDialog(context, session);
-                        }
-                      }
+                      if (session == null) return;
+                      await focusProvider.addSession(session);
+                      if (!mounted) return;
+                      // 委托给 State 方法：使用 State.context（在 mounted 守卫下安全）。
+                      _showCompletionDialog(session);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -602,11 +506,12 @@ class _FocusTimerPageState extends State<FocusTimerPage>
     );
   }
 
-  void _showCompletionDialog(BuildContext context, FocusSession session) {
+  void _showCompletionDialog(FocusSession session) {
+    // 使用 State.context（受 mounted 守卫保护，避免跨 async gap 使用参数 context）。
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

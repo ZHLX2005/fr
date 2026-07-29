@@ -1,16 +1,14 @@
 /// 专注会话模型
 class FocusSession {
   final String id;
-  final String subjectId;
-  final int durationMinutes; // 专注时长（分钟）
+  final int durationMinutes;
   final DateTime startTime;
   final DateTime endTime;
-  final FocusMode mode; // 专注模式
-  final String? note; // 心流感悟
+  final FocusMode mode;
+  final String? note;
 
   FocusSession({
     required this.id,
-    required this.subjectId,
     required this.durationMinutes,
     required this.startTime,
     required this.endTime,
@@ -18,15 +16,11 @@ class FocusSession {
     this.note,
   });
 
-  /// 是否为番茄钟模式
   bool get isPomodoro => mode == FocusMode.pomodoro;
-
-  /// 是否为自由计时模式
   bool get isFreeTime => mode == FocusMode.freeTime;
 
   FocusSession copyWith({
     String? id,
-    String? subjectId,
     int? durationMinutes,
     DateTime? startTime,
     DateTime? endTime,
@@ -35,7 +29,6 @@ class FocusSession {
   }) {
     return FocusSession(
       id: id ?? this.id,
-      subjectId: subjectId ?? this.subjectId,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
@@ -44,24 +37,18 @@ class FocusSession {
     );
   }
 
-  /// 转换为JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'subjectId': subjectId,
-      'durationMinutes': durationMinutes,
-      'startTime': startTime.toIso8601String(),
-      'endTime': endTime.toIso8601String(),
-      'mode': mode.index,
-      'note': note,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'durationMinutes': durationMinutes,
+        'startTime': startTime.toIso8601String(),
+        'endTime': endTime.toIso8601String(),
+        'mode': mode.index,
+        'note': note,
+      };
 
-  /// 从JSON转换
   factory FocusSession.fromJson(Map<String, dynamic> json) {
     return FocusSession(
       id: json['id'] as String,
-      subjectId: json['subjectId'] as String,
       durationMinutes: json['durationMinutes'] as int,
       startTime: DateTime.parse(json['startTime'] as String),
       endTime: DateTime.parse(json['endTime'] as String),

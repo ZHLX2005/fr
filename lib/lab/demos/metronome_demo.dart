@@ -24,6 +24,9 @@ class MetronomeDemo extends DemoPage {
   bool get preferFullScreen => true;
 
   @override
+  bool get timePage => true;
+
+  @override
   Widget buildPage(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => MetronomeController(),

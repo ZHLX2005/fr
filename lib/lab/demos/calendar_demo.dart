@@ -34,6 +34,9 @@ class CalendarDemo extends DemoPage {
   bool get preferFullScreen => true;
 
   @override
+  bool get timePage => true;
+
+  @override
   Widget buildPage(BuildContext context) {
     // MultiProvider 提到 CalendarDemo.buildPage() 顶层，让 push 出去的 route
     // （PersonFormSheet / EventFormSheet / PersonDetailPage）也能访问 provider。
