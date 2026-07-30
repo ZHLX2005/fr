@@ -20,13 +20,14 @@ import 'reversi_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
 class ReversiLuaDemo extends DemoPage {
   ReversiLuaDemo();
   @override
-  String get title => '黑白翻转棋（Lua）';
+  String get title => '黑白翻转棋（双人）';
   @override
   String get slug => 'reversi-lua';
   @override
-  String get description => 'Othello 互联网双人对战 · Lua 服务端权威棋谱';
+  String get description => '棋游+联机 · Othello 互联网双人对战 · Lua 服务端权威棋谱';
   @override
   bool get preferFullScreen => true;
+  // 归属游戏中心（联机 · 棋游）
   @override
   DemoType get type => DemoType.game;
   @override
