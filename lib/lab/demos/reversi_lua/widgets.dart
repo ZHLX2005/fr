@@ -885,29 +885,30 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             ? ConstrainedBox(
                 constraints: const BoxConstraints(
                   minWidth: 140,
-                  maxWidth: 260,
+                  maxWidth: 220,
                 ),
-                child: SizedBox(
-                  width: 220,
-                  height: 40,
-                  child: FilledButton.icon(
-                    onPressed: _confirmMove,
-                    icon: const Icon(Icons.check, size: 18),
-                    label: const Text(
-                      '确认落子',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600),
+                child: FilledButton.icon(
+                  onPressed: _confirmMove,
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text(
+                    '确认落子',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.btnText,
+                    foregroundColor: theme.panelBg,
+                    minimumSize: const Size(140, 40),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 6),
+                    textStyle: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: theme.btnText,
-                      foregroundColor: theme.panelBg,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 0,
-                    ),
+                    elevation: 0,
                   ),
                 ),
               )
