@@ -882,22 +882,32 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       height: 56,
       child: Center(
         child: hasPending
-            ? SizedBox(
-                width: 220,
-                height: 40,
-                child: FilledButton.icon(
-                  onPressed: _confirmMove,
-                  icon: const Icon(Icons.check, size: 18),
-                  label: const Text('确认落子',
+            ? ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minWidth: 140,
+                  maxWidth: 260,
+                ),
+                child: SizedBox(
+                  width: 220,
+                  height: 40,
+                  child: FilledButton.icon(
+                    onPressed: _confirmMove,
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text(
+                      '确认落子',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: theme.btnText,
-                    foregroundColor: theme.panelBg,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                          fontSize: 14, fontWeight: FontWeight.w600),
                     ),
-                    elevation: 0,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.btnText,
+                      foregroundColor: theme.panelBg,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
                   ),
                 ),
               )
