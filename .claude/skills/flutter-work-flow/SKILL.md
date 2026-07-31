@@ -17,18 +17,18 @@ references/
 
 ## 何时读哪个 ref
 
-| ref                                                  | 何时读取                                                                                                                    |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Flutter-Hive-TypeAdapter-part文件CI构建失败问题      | Hive TypeAdapter / part 文件 CI 编译失败时                                                                                  |
-| Flutter-CollapsingHeader圆角渐变头部与白色内容区布局 | 做 collapsing header / 圆角渐变头部布局时                                                                                   |
-| Android-FloatingWindow-常驻截屏模式适配Android14+    | Android 14+ MediaProjection / 悬浮窗截屏 / token 失效时                                                                     |
-| Flutter-自定义Scheme路由中心化-fr-Router             | **改 fr:// 路由 / 重构路由系统 / 理解路由设计原理时**                                                                 |
-| Flutter-fr路由-注册规范与防腐蚀                      | **加新页面 / 写 fr:// 跳转 / 加 MethodChannel / 提交前自查腐蚀时**                                                    |
-| Flutter-DemoPage-slug抽象化与别名机制                | **删 kDemoSlugs 迁 abstract slug / 给 demo 加别名 slug / 合并多个 demo 为统一 Tab 容器时**                            |
-| Flutter-Lab容器-模块结构与重构模式                   | **改 lib/screens/profile/lab/ 任何文件（Lab页/下拉面板/游戏中心/demo卡片）/ 给重手势+重动画页面做性能或模块化重构时** |
-| Flutter-TimePage-Focus时间模块完整指南                | **改中间 Time tab 任何文件 / 改 timePage 标记 / kTimePageMeta / 心流空间 / FocusStatsPage / Lab timePage 过滤 / 桌面 widget 深链时**（整 time 模块单一长 ref：架构 + 4 章 + 4 错误案例）|
-| Flutter-游戏中心-扩展游戏路线                        | **往游戏中心加新游戏 / 加新分类 / 加新封面图案时**（扩展点地图 + 加游戏SOP + 封面三级来源 + slug拼错等真坑）          |
-| Flutter-Provider双重实例冲突-时钟wipe后数据恢复      | **Provider 擦数据后快照恢复 / 根级和页面级都有同一 Provider / wipe 失效 / 定时写 SP 的 Provider 行为异常时**          |
+| ref                                                  | 何时读取                                                                                                                                                                                       |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Flutter-Hive-TypeAdapter-part文件CI构建失败问题      | Hive TypeAdapter / part 文件 CI 编译失败时                                                                                                                                                     |
+| Flutter-CollapsingHeader圆角渐变头部与白色内容区布局 | 做 collapsing header / 圆角渐变头部布局时                                                                                                                                                      |
+| Android-FloatingWindow-常驻截屏模式适配Android14+    | Android 14+ MediaProjection / 悬浮窗截屏 / token 失效时                                                                                                                                        |
+| Flutter-自定义Scheme路由中心化-fr-Router             | **改 fr:// 路由 / 重构路由系统 / 理解路由设计原理时**                                                                                                                                    |
+| Flutter-fr路由-注册规范与防腐蚀                      | **加新页面 / 写 fr:// 跳转 / 加 MethodChannel / 提交前自查腐蚀时**                                                                                                                       |
+| Flutter-DemoPage-slug抽象化与别名机制                | **删 kDemoSlugs 迁 abstract slug / 给 demo 加别名 slug / 合并多个 demo 为统一 Tab 容器时**                                                                                               |
+| Flutter-Lab容器-模块结构与重构模式                   | **改 lib/screens/profile/lab/ 任何文件（Lab页/下拉面板/游戏中心/demo卡片）/ 给重手势+重动画页面做性能或模块化重构时**                                                                    |
+| Flutter-TimePage-Focus时间模块完整指南               | **改中间 Time tab 任何文件 / 改 timePage 标记 / kTimePageMeta / 心流空间 / FocusStatsPage / Lab timePage 过滤 / 桌面 widget 深链时**（整 time 模块单一长 ref：架构 + 4 章 + 4 错误案例） |
+| Flutter-游戏中心-扩展游戏路线                        | **往游戏中心加新游戏 / 加新分类 / 加新封面图案时**（扩展点地图 + 加游戏SOP + 封面三级来源 + slug拼错等真坑）                                                                             |
+| Flutter-Provider双重实例冲突-时钟wipe后数据恢复      | **Provider 擦数据后快照恢复 / 根级和页面级都有同一 Provider / wipe 失效 / 定时写 SP 的 Provider 行为异常时**                                                                             |
 
 import: 任何不能立即完成的任务,请使用todolist相关的工具 先规划任务 然后再每个条目进行完成 禁止没有任何流程的进行代码控制
 
@@ -63,7 +63,7 @@ LAB_DEMO:
 
 native目录:
 
-1. 连接安卓原生的相关功能做桥接,桥接工具统一管理,统一放到 lab/native 下面
+1. 连接安卓原生的相关功能做桥接,桥接工具统一管理,统一放到 lib/native 下面
 
 提示:
 
