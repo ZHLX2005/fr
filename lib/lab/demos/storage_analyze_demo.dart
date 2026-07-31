@@ -1,9 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart' hide RichText;
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/storage/storage_manager.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
+import 'storage/const_storage_export.dart';
+import 'storage/storage_exporter.dart';
+import 'storage/storage_importer.dart';
 
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {
@@ -40,6 +44,18 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   final Set<String> _expandedKeys = {};
   List<NoteInfo> _noteList = [];
   NoteSummary _noteSummary = const NoteSummary(noteCount: 0, totalBlocks: 0, totalSize: 0);
+
+  // 导出/导入状态
+  bool _isExporting = false;
+  bool _isImporting = false;
+  ExportStage _exportStage = ExportStage.meta;
+  ImportStage _importStage = ImportStage.parse;
+  String _exportMessage = '';
+  String _importMessage = '';
+  int _exportCurrent = 0;
+  int _exportTotal = 0;
+  int _importCurrent = 0;
+  int _importTotal = 0;
 
   static const _mediaExtensions = {
     'jpg',
@@ -115,6 +131,138 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
           context,
         ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
+    }
+  }
+
+  Future<void> _onExport() async {
+    setState(() {
+      _isExporting = true;
+      _exportStage = ExportStage.meta;
+      _exportMessage = '准备导出';
+      _exportCurrent = 0;
+      _exportTotal = 0;
+    });
+
+    try {
+      final exporter = StorageExporter(
+        onProgress: (p) {
+          if (mounted) {
+            setState(() {
+              _exportStage = p.stage;
+              _exportMessage = p.message;
+              _exportCurrent = p.current;
+              _exportTotal = p.total;
+            });
+          }
+        },
+      );
+
+      final result = await exporter.exportAll();
+
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+      });
+
+      // 展示导出结果对话框
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => _ExportResultDialog(
+          text: result.text,
+          totalKeys: result.totalKeys,
+          totalSize: result.totalSize,
+          timestamp: result.timestamp,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isExporting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导出失败: $e')),
+      );
+    }
+  }
+
+  Future<void> _onImport() async {
+    // 弹出导入对话框 - 粘贴文本
+    final text = await showDialog<String>(
+      context: context,
+      builder: (ctx) => const _ImportTextDialog(),
+    );
+    if (text == null || text.trim().isEmpty) return;
+
+    if (!mounted) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认导入'),
+        content: const Text(
+          '导入会写入所有解析出的键值。\n'
+          '建议先导出当前数据作为备份。\n'
+          '是否同时清空已有数据？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('保留'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清空后导入', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == null || !mounted) return;
+
+    setState(() {
+      _isImporting = true;
+      _importStage = ImportStage.parse;
+      _importMessage = '准备导入';
+      _importCurrent = 0;
+      _importTotal = 0;
+    });
+
+    try {
+      final importer = StorageImporter(
+        clearBeforeImport: confirm,
+        onProgress: (p) {
+          if (mounted) {
+            setState(() {
+              _importStage = p.stage;
+              _importMessage = p.message;
+              _importCurrent = p.current;
+              _importTotal = p.total;
+            });
+          }
+        },
+      );
+
+      final result = await importer.importFromText(text);
+
+      if (!mounted) return;
+      setState(() {
+        _isImporting = false;
+      });
+
+      await _loadStorageData();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '导入完成: 配置 ${result.prefsCount} 条 / Hive ${result.hiveCount} 条 / '
+            '笔记 ${result.notesCount} 个 / 媒体 ${result.mediaCount} 个'
+            '${result.errorCount > 0 ? ' / 错误 ${result.errorCount} 个' : ''}',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isImporting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导入失败: $e')),
+      );
     }
   }
 
@@ -260,18 +408,57 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _loadStorageData,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('刷新'),
-                ),
+              OutlinedButton.icon(
+                onPressed: _isExporting ? null : _loadStorageData,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('刷新'),
+              ),
+              FilledButton.icon(
+                onPressed: _isExporting ? null : _onExport,
+                icon: const Icon(Icons.upload, size: 18),
+                label: const Text('导出全部'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _isImporting ? null : _onImport,
+                icon: const Icon(Icons.download, size: 18),
+                label: const Text('导入文本'),
               ),
             ],
           ),
         ),
+        if (_isExporting || _isImporting)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isExporting
+                      ? '导出中: ${exportStageLabel(_exportStage)} - ${_exportMessage}'
+                      : '导入中: ${importStageLabel(_importStage)} - ${_importMessage}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if ((_isExporting && _exportTotal > 0) ||
+                    (_isImporting && _importTotal > 0))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: LinearProgressIndicator(
+                      value: (_isExporting
+                              ? _exportCurrent / _exportTotal
+                              : _importCurrent / _importTotal)
+                          .clamp(0.0, 1.0),
+                      minHeight: 4,
+                    ),
+                  ),
+              ],
+            ),
+          ),
         Expanded(
           child: _storageList.isEmpty && _noteList.isEmpty
               ? Center(
@@ -1562,6 +1749,217 @@ class FileItem {
     required this.size,
     required this.type,
   });
+}
+
+/// 导出结果对话框
+class _ExportResultDialog extends StatefulWidget {
+  final String text;
+  final int totalKeys;
+  final int totalSize;
+  final String timestamp;
+
+  const _ExportResultDialog({
+    required this.text,
+    required this.totalKeys,
+    required this.totalSize,
+    required this.timestamp,
+  });
+
+  @override
+  State<_ExportResultDialog> createState() => _ExportResultDialogState();
+}
+
+class _ExportResultDialogState extends State<_ExportResultDialog> {
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 700),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green),
+                const SizedBox(width: 8),
+                const Text('导出成功', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('共 ${widget.totalKeys} 条 · ${_formatSize(widget.totalSize)} · ${widget.timestamp}'),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('文本内容', style: TextStyle(color: Colors.grey[700])),
+                        const Spacer(),
+                        Text('${widget.text.length} 字符', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          widget.text,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: widget.text));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('已复制到剪贴板')),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('复制全部'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('完成'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 导入文本对话框
+class _ImportTextDialog extends StatefulWidget {
+  const _ImportTextDialog();
+
+  @override
+  State<_ImportTextDialog> createState() => _ImportTextDialogState();
+}
+
+class _ImportTextDialogState extends State<_ImportTextDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _paste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null) {
+      _controller.text = data!.text!;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 700),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('粘贴导出文本', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '复制之前 "导出全部" 生成的文本内容，粘贴到下方输入框。',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: '# STORAGE_DUMP_V1\n...\n# END_STORAGE_DUMP_V1',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _paste,
+                    icon: const Icon(Icons.content_paste, size: 18),
+                    label: const Text('从剪贴板粘贴'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, _controller.text),
+                    icon: const Icon(Icons.upload, size: 18),
+                    label: const Text('下一步'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 void registerStorageAnalyzeDemo() {
