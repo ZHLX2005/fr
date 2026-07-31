@@ -1,18 +1,16 @@
 // 存储导入器
 //
-// 解析由 StorageExporter 生成的文本，把全部数据写入应用本地存储：
-// - 解析 [meta] 元数据
+// 解析由 StorageExporter 生成的文本文件，把全部数据写入应用本地存储：
 // - 写入 [hive:xxx] 每个 box 的键值
 // - 写入 [prefs] SharedPreferences
 // - 写入 [notes] 笔记文件
-// - 写入 [media] 媒体文件
 //
 // 关键设计：
 // - typed box（如 calendarEvents/calendarPeople/body_records）需要把 JSON
-//   字符串反序列化为对应类的实例，写入时使用 StorageRegistry 提供的 typed
-//   写入接口（box.put(key, obj)）。
+//   字符串反序列化为对应类的实例，通过 BoxDescriptor.getBox().put 写入。
 // - 非 typed box 直接写入 dynamic 值。
 // - 失败的单条记录不会中断整个导入，只统计错误数。
+// - 媒体文件不参与导入（导出端已跳过）。
 //
 // 用法见 storage_analyze_demo.dart 的 _onImport 按钮。
 
@@ -24,11 +22,11 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/storage/storage_manager.dart';
-import '../../../core/storage/storage_registry.dart';
-import '../../../core/body/models/body_record.dart';
-import '../calendar/domain/event.dart';
-import '../calendar/domain/person.dart';
+import '../storage_manager.dart';
+import '../storage_registry.dart';
+import '../../body/models/body_record.dart';
+import '../../../../lab/demos/calendar/domain/event.dart';
+import '../../../../lab/demos/calendar/domain/person.dart';
 import 'const_storage_export.dart';
 
 /// 导入进度
@@ -51,7 +49,6 @@ class ImportResult {
   final int prefsCount;
   final int hiveCount;
   final int notesCount;
-  final int mediaCount;
   final int errorCount;
   final List<String> errors;
 
@@ -59,12 +56,11 @@ class ImportResult {
     required this.prefsCount,
     required this.hiveCount,
     required this.notesCount,
-    required this.mediaCount,
     required this.errorCount,
     required this.errors,
   });
 
-  int get totalCount => prefsCount + hiveCount + notesCount + mediaCount;
+  int get totalCount => prefsCount + hiveCount + notesCount;
 }
 
 class StorageImporter {
@@ -79,6 +75,25 @@ class StorageImporter {
   })  : _storage = storage ?? StorageManager.instance,
         _clearBeforeImport = clearBeforeImport;
 
+  /// 从文件读取并解析文本 + 写入。
+  /// - [filePath] 选中的导出文件路径
+  Future<ImportResult> importFromFile(String filePath) async {
+    _emitProgress(ImportStage.read, '读取文件: $filePath', 0, 1);
+    final file = File(filePath);
+    if (!await file.exists()) {
+      return ImportResult(
+        prefsCount: 0,
+        hiveCount: 0,
+        notesCount: 0,
+        errorCount: 1,
+        errors: ['文件不存在: $filePath'],
+      );
+    }
+    final text = await file.readAsString();
+    _emitProgress(ImportStage.read, '读取文件完成', 1, 1);
+    return importFromText(text);
+  }
+
   /// 解析并导入文本
   Future<ImportResult> importFromText(String text) async {
     await _storage.init();
@@ -92,7 +107,6 @@ class StorageImporter {
         prefsCount: 0,
         hiveCount: 0,
         notesCount: 0,
-        mediaCount: 0,
         errorCount: 1,
         errors: ['文本格式错误：未找到任何 section'],
       );
@@ -164,38 +178,12 @@ class StorageImporter {
       }
     }
 
-    // ── media ──
-    int mediaCount = 0;
-    final mediaSection = sections['media'] ?? {'items': []};
-    final mediaItems = (mediaSection['items'] as List?) ?? [];
-    _emitProgress(ImportStage.media, '写入媒体', 0, mediaItems.length);
-    for (var i = 0; i < mediaItems.length; i++) {
-      final item = mediaItems[i] as Map<String, String>;
-      try {
-        final relPath = item['path']!;
-        final b64 = item['base64']!;
-        final bytes = base64Decode(b64);
-        final dir = await _resolveMediaDir(relPath);
-        if (dir != null) {
-          final cleanRel = relPath.contains('/') ? relPath.substring(relPath.indexOf('/') + 1) : relPath;
-          final file = File('${dir.path}${Platform.pathSeparator}$cleanRel');
-          await file.parent.create(recursive: true);
-          await file.writeAsBytes(bytes);
-          mediaCount++;
-        }
-      } catch (e) {
-        errors.add('media: ${item['path']} - $e');
-      }
-      _emitProgress(ImportStage.media, '媒体: ${item['path']}', i + 1, mediaItems.length);
-    }
-
     _emitProgress(ImportStage.done, '导入完成', 1, 1);
 
     return ImportResult(
       prefsCount: prefsCount,
       hiveCount: hiveCount,
       notesCount: notesCount,
-      mediaCount: mediaCount,
       errorCount: errors.length,
       errors: errors,
     );
@@ -310,7 +298,6 @@ class StorageImporter {
       if (_clearBeforeImport) {
         await d.clear();
       }
-      // 通过 BoxDescriptor 提供的 getBox() 拿到 typed 句柄，统一走 put
       final box = d.getBox();
       for (final item in items) {
         final m = item as Map<String, String>;
@@ -358,11 +345,6 @@ class StorageImporter {
   dynamic _decodeTypedValue(String value, String type) {
     switch (type) {
       case HiveTypeNames.event:
-        // 异步注册 adapter（确保打开 box 时 typed 可用）
-        if (!Hive.isAdapterRegistered(90)) {
-          // 这里依赖 CalendarHive.init() 已经被应用调用过；
-          // 若没调用，调用方需要保证导入前先 init。
-        }
         final map = jsonDecode(value) as Map<String, dynamic>;
         return Event.fromJson(map);
       case HiveTypeNames.person:
@@ -407,28 +389,6 @@ class StorageImporter {
         } catch (_) {
           return value;
         }
-    }
-  }
-
-  Future<Directory?> _resolveMediaDir(String relPath) async {
-    if (relPath.startsWith('temp/')) {
-      try {
-        return await getTemporaryDirectory();
-      } catch (_) {
-        return null;
-      }
-    }
-    if (relPath.startsWith('docs/')) {
-      try {
-        return await getApplicationDocumentsDirectory();
-      } catch (_) {
-        return null;
-      }
-    }
-    try {
-      return await getApplicationDocumentsDirectory();
-    } catch (_) {
-      return null;
     }
   }
 }

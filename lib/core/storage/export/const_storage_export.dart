@@ -31,19 +31,14 @@
 // [notes]
 // F:abc123.toml
 // B:TOML_BASE64_ENCODED_CONTENT
-//
-// [media]
-// P:relative/path/to/file.jpg
-// T:image
-// B:BASE64_ENCODED_FILE_BYTES
 // ```
 //
 // 关键设计：
+// - 文件格式：纯文本，可被任意新 app 解析还原
 // - 使用 `# 注释` 开头行作为头信息
-// - 多行用一对前缀标签（K/T/V 或 F/B 或 P/T/B），便于手动复制粘贴保留语义
-// - 大字段（二进制/TOML/媒体文件）使用 Base64 编码
+// - 多行用一对前缀标签（K/T/V 或 F/B），便于手动复制粘贴保留语义
+// - 大字段（TOML）使用 Base64 编码
 // - 块定义以 `[section]` 单独成行开始
-// - 完整可靠：可被任意新 app 解析还原
 
 const String kStorageDumpHeader = 'STORAGE_DUMP_V1';
 const String kStorageDumpCommentPrefix = '# ';
@@ -63,9 +58,6 @@ String storageValueMarker(String value) => 'V:$value';
 /// file marker
 String storageFileMarker(String name) => 'F:$name';
 
-/// path marker
-String storagePathMarker(String path) => 'P:$path';
-
 /// base64 marker
 String storageBase64Marker(String b64) => 'B:$b64';
 
@@ -84,13 +76,21 @@ class HiveTypeNames {
   static const String null_ = 'null';
 }
 
+/// 导出文件名前缀
+const String kExportFilePrefix = 'storage_dump_';
+
+/// 导出文件扩展名
+const String kExportFileExtension = '.txt';
+
+/// 导出文件存放目录名（位于应用 Documents 目录下）
+const String kExportDirName = 'exports';
+
 /// 导出进度阶段
 enum ExportStage {
   meta,
   hive,
   prefs,
   notes,
-  media,
   done,
 }
 
@@ -104,8 +104,6 @@ String exportStageLabel(ExportStage stage) {
       return '应用配置';
     case ExportStage.notes:
       return '笔记文件';
-    case ExportStage.media:
-      return '媒体文件';
     case ExportStage.done:
       return '完成';
   }
@@ -113,16 +111,18 @@ String exportStageLabel(ExportStage stage) {
 
 /// 导入进度阶段
 enum ImportStage {
+  read,
   parse,
   prefs,
   hive,
   notes,
-  media,
   done,
 }
 
 String importStageLabel(ImportStage stage) {
   switch (stage) {
+    case ImportStage.read:
+      return '读取文件';
     case ImportStage.parse:
       return '解析文本';
     case ImportStage.prefs:
@@ -131,8 +131,6 @@ String importStageLabel(ImportStage stage) {
       return '写入 Hive Boxes';
     case ImportStage.notes:
       return '写入笔记';
-    case ImportStage.media:
-      return '写入媒体文件';
     case ImportStage.done:
       return '完成';
   }

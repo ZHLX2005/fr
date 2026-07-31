@@ -1,10 +1,13 @@
 // 存储导出器
 //
-// 把应用全部本地存储序列化为可读文本格式：
+// 把应用核心本地存储序列化为可读文本格式：
 // - Hive Boxes（注册表 + 遗留）
 // - SharedPreferences
 // - 笔记文件（TOML，Base64 编码）
-// - 媒体文件（图片/视频/音频，Base64 编码）
+//
+// 媒体文件不导出（尺寸大、剪切板与文本编辑受限）。
+// 导出结果写到 <docs>/exports/storage_dump_<timestamp>.txt，便于
+// 通过文件管理器 / 分享面板传给另一台设备。
 //
 // 用法见 storage_analyze_demo.dart 的 _onExport 按钮。
 
@@ -17,8 +20,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/storage/storage_manager.dart';
-import '../../../core/storage/storage_registry.dart';
+import '../storage_manager.dart';
+import '../storage_registry.dart';
 import 'const_storage_export.dart';
 
 /// 导出进度
@@ -42,12 +45,14 @@ class ExportResult {
   final int totalKeys;
   final int totalSize;
   final String timestamp;
+  final String filePath;
 
   const ExportResult({
     required this.text,
     required this.totalKeys,
     required this.totalSize,
     required this.timestamp,
+    required this.filePath,
   });
 }
 
@@ -58,7 +63,8 @@ class StorageExporter {
   StorageExporter({StorageManager? storage, this.onProgress})
       : _storage = storage ?? StorageManager.instance;
 
-  /// 全量导出
+  /// 全量导出到文件
+  /// 返回 [ExportResult]，包含文件路径与文本内容（用于备份展示）。
   Future<ExportResult> exportAll() async {
     await _storage.init();
     final prefs = await SharedPreferences.getInstance();
@@ -172,36 +178,41 @@ class StorageExporter {
     }
     buffer.writeln();
 
-    // === Media ===
-    final media = await _collectMedia();
-    _emitProgress(ExportStage.media, '导出媒体文件', 0, media.length);
-    buffer.writeln(storageSection('media'));
-    buffer.writeln('# mediaCount=${media.length}');
-    for (var i = 0; i < media.length; i++) {
-      final m = media[i];
-      _emitProgress(ExportStage.media, '媒体: ${m.relPath}', i, media.length);
-      final b64 = base64Encode(m.bytes);
-      buffer.writeln(storagePathMarker(m.relPath));
-      buffer.writeln(storageTypeMarker(m.type));
-      buffer.writeln(storageBase64Marker(b64));
-      buffer.writeln();
-      totalSize += m.bytes.length;
-    }
-    buffer.writeln();
-
     // === footer ===
     buffer.writeln('# END_STORAGE_DUMP_V1');
     buffer.writeln('# total_keys=$totalKeys');
     buffer.writeln('# total_size=$totalSize');
 
+    final text = buffer.toString();
+
+    // 写入文件
+    _emitProgress(ExportStage.done, '写入文件', 0, 1);
+    final filePath = await _writeExportFile(text, timestamp);
+
     _emitProgress(ExportStage.done, '导出完成', 1, 1);
 
     return ExportResult(
-      text: buffer.toString(),
+      text: text,
       totalKeys: totalKeys,
       totalSize: totalSize,
       timestamp: timestamp,
+      filePath: filePath,
     );
+  }
+
+  /// 把导出文本写入 `<docs>/exports/storage_dump_<timestamp>.txt`
+  Future<String> _writeExportFile(String text, String isoTimestamp) async {
+    final docDir = await getApplicationDocumentsDirectory();
+    final exportsDir = Directory('${docDir.path}${Platform.pathSeparator}$kExportDirName');
+    if (!await exportsDir.exists()) {
+      await exportsDir.create(recursive: true);
+    }
+    final safeName = isoTimestamp.replaceAll(':', '-').replaceAll('.', '-');
+    final file = File(
+      '${exportsDir.path}${Platform.pathSeparator}$kExportFilePrefix$safeName$kExportFileExtension',
+    );
+    await file.writeAsString(text);
+    return file.path;
   }
 
   // ── helpers ────────────────────────────────────────────
@@ -282,77 +293,10 @@ class StorageExporter {
     }
     return result;
   }
-
-  Future<List<_MediaEntry>> _collectMedia() async {
-    final result = <_MediaEntry>[];
-    const mediaExt = {
-      'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
-      'mp4', 'mov', 'avi', 'mkv', 'webm',
-      'mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac',
-    };
-    final dirs = <Directory>[];
-    try {
-      dirs.add(await getTemporaryDirectory());
-    } catch (_) {}
-    try {
-      dirs.add(await getApplicationDocumentsDirectory());
-    } catch (_) {}
-
-    for (final dir in dirs) {
-      if (!await dir.exists()) continue;
-      try {
-        await for (final entity in dir.list(recursive: true, followLinks: false)) {
-          if (entity is File) {
-            final ext = entity.path.split('.').last.toLowerCase();
-            if (!mediaExt.contains(ext)) continue;
-            try {
-              final bytes = await entity.readAsBytes();
-              final dirPath = dir.path;
-              var relPath = entity.path;
-              if (entity.path.startsWith(dirPath)) {
-                relPath = entity.path.substring(dirPath.length);
-                if (relPath.startsWith(Platform.pathSeparator)) {
-                  relPath = relPath.substring(1);
-                }
-              }
-              // 标记目录来源
-              final tag = (dirPath.contains('cache') || dirPath.contains('tmp'))
-                  ? 'temp'
-                  : 'docs';
-              final type = _mediaTypeOf(ext);
-              result.add(_MediaEntry(
-                relPath: '$tag/$relPath',
-                type: type,
-                bytes: bytes,
-              ));
-            } catch (_) {}
-          }
-        }
-      } catch (_) {}
-    }
-    return result;
-  }
-
-  String _mediaTypeOf(String ext) {
-    const images = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'};
-    const videos = {'mp4', 'mov', 'avi', 'mkv', 'webm'};
-    const audios = {'mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac'};
-    if (images.contains(ext)) return 'image';
-    if (videos.contains(ext)) return 'video';
-    if (audios.contains(ext)) return 'audio';
-    return 'file';
-  }
 }
 
 class _NoteEntry {
   final String name;
   final String content;
   _NoteEntry({required this.name, required this.content});
-}
-
-class _MediaEntry {
-  final String relPath;
-  final String type;
-  final List<int> bytes;
-  _MediaEntry({required this.relPath, required this.type, required this.bytes});
 }
