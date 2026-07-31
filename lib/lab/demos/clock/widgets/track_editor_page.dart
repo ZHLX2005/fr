@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
-import 'package:xiaodouzi_fr/lab/demos/clock/widgets/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 Future<LabTrack?> showTrackEditor(BuildContext context, {LabTrack? existing}) {
   return Navigator.push<LabTrack>(
@@ -98,23 +98,18 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ZenColors.bg,
-      appBar: AppBar(
-        backgroundColor: ZenColors.bg,
-        elevation: 0,
-        title: Text(widget.existing == null ? 'New track' : 'Edit track', style: ZenText.title),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: OutlinedButton(
-              onPressed: _segments.isEmpty ? null : _save,
-              style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
-              child: const Text('Save'),
-            ),
+    return zenPageScaffold(
+      title: widget.existing == null ? 'New track' : 'Edit track',
+      actions: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: OutlinedButton(
+            onPressed: _segments.isEmpty ? null : _save,
+            style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
+            child: const Text('Save'),
           ),
-        ],
-      ),
+        ),
+      ],
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -174,7 +169,7 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                               ),
                             ]),
                             const Spacer(),
-                            Text(_formatDuration(c.durationSeconds ?? 0), style: ZenText.monoDigitSmall),
+                            Text(formatDuration(c.durationSeconds ?? 0), style: ZenText.monoDigitSmall),
                           ],
                         ),
                       ),
@@ -224,7 +219,7 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                         ],
                       ),
                     ),
-                    Text(_formatDuration(seg.snapshotDurationSeconds), style: ZenText.monoDigitSmall),
+                    Text(formatDuration(seg.snapshotDurationSeconds), style: ZenText.monoDigitSmall),
                     IconButton(
                       onPressed: i == 0 ? null : () => _moveUp(i),
                       icon: const Icon(Icons.keyboard_arrow_up, size: 20),
@@ -245,28 +240,14 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
               );
             }),
           const SizedBox(height: 16),
-          Container(
+          ZenSection(
+            title: 'Total',
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: zenCard(color: ZenColors.surface),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total', style: ZenText.label),
-                Text(_formatDuration(_totalSeconds), style: ZenText.monoDigit.copyWith(fontSize: 20)),
-              ],
-            ),
+            child: Text(formatDuration(_totalSeconds),
+                style: ZenText.monoDigit.copyWith(fontSize: 20)),
           ),
         ],
       ),
     );
   }
-}
-
-String _formatDuration(int seconds) {
-  final h = seconds ~/ 3600;
-  final m = (seconds % 3600) ~/ 60;
-  final s = seconds % 60;
-  if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
-  if (m > 0) return '${m}m ${s.toString().padLeft(2, '0')}s';
-  return '${s}s';
 }

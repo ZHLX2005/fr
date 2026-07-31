@@ -31,9 +31,7 @@ class DayDetailSheet extends StatelessWidget {
     return AnimatedBuilder(
       animation: Listenable.merge([cal, people]),
       builder: (context, _) {
-        final events = cal.events
-            .where((e) => e.month == date.month && e.day == date.day)
-            .toList();
+        final events = cal.eventsOnDate(date);
 
         return Container(
           padding: EdgeInsets.only(

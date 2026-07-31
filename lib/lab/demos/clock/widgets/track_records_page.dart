@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
-import 'package:xiaodouzi_fr/lab/demos/clock/widgets/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 class TrackRecordsPage extends StatelessWidget {
   const TrackRecordsPage({super.key});
@@ -42,19 +42,12 @@ class TrackRecordsPage extends StatelessWidget {
   }
 
   void _confirmClear(BuildContext context, LabTrackProvider p) {
-    showDialog(
+    ZenConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear track records'),
-        content: const Text('Clear all track records? This cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () { p.clearRecords(); Navigator.pop(ctx); },
-            child: const Text('Clear', style: TextStyle(color: ZenColors.mutedRed)),
-          ),
-        ],
-      ),
+      title: 'Clear track records',
+      message: 'Clear all track records? This cannot be undone.',
+      onConfirm: p.clearRecords,
+      confirmLabel: 'Clear',
     );
   }
 }
@@ -97,7 +90,7 @@ class _TrackRecordTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(record.customTitle ?? record.trackTitle, style: ZenText.body),
-                  Text('$dateStr · planned ${_formatDuration(record.totalDurationSeconds)} · actual ${_formatDuration(p.getRecordLiveDuration(record))}',
+                  Text('$dateStr · planned ${formatDuration(record.totalDurationSeconds)} · actual ${formatDuration(p.getRecordLiveDuration(record))}',
                       style: ZenText.monoDigitSmall),
                 ],
               ),
@@ -134,13 +127,4 @@ class _TrackRecordTile extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatDuration(int seconds) {
-  final h = seconds ~/ 3600;
-  final m = (seconds % 3600) ~/ 60;
-  final s = seconds % 60;
-  if (h > 0) return '${h}h ${m}m';
-  if (m > 0) return '${m}m ${s}s';
-  return '${s}s';
 }

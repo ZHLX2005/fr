@@ -19,9 +19,7 @@ class WeekView extends StatelessWidget {
 
     return ListView(
       children: days.map((d) {
-        final events = p.events
-            .where((e) => e.month == d.month && e.day == d.day)
-            .toList();
+        final events = p.eventsOnDate(d);
         final isToday = d.year == today.year &&
             d.month == today.month &&
             d.day == today.day;

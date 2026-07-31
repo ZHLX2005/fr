@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/focus_provider.dart';
 import 'models/focus_session.dart';
+import '../../widgets/theme/zen_theme.dart';
 
 /// 数据统计页面 - 增强版
 class FocusStatsPage extends StatefulWidget {
@@ -37,8 +38,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('数据统计')),
+    return zenPageScaffold(
+      title: '数据统计',
       body: Consumer<FocusProvider>(
         builder: (context, focusProvider, child) {
           return SingleChildScrollView(
@@ -53,8 +54,6 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   _buildDayDetailSection(focusProvider),
                   const SizedBox(height: 16),
                 ],
-                _buildSubjectDistribution(focusProvider),
-                const SizedBox(height: 16),
                 _buildRecentSessions(focusProvider),
               ],
             ),
@@ -145,11 +144,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
+      decoration: zenCard(),
       child: Column(
         children: [
           // 月份导航
@@ -157,18 +152,15 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left),
+                icon: const Icon(Icons.chevron_left, color: ZenColors.ink),
                 onPressed: _previousMonth,
               ),
               Text(
                 '${_currentMonth.year}年${_currentMonth.month}月',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: ZenText.body.copyWith(fontWeight: FontWeight.w500),
               ),
               IconButton(
-                icon: const Icon(Icons.chevron_right),
+                icon: const Icon(Icons.chevron_right, color: ZenColors.ink),
                 onPressed: _nextMonth,
               ),
             ],
@@ -186,7 +178,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
-                    color: isWeekend ? Colors.red[300] : Colors.grey[600],
+                    color: isWeekend ? ZenColors.mutedRed : ZenColors.secondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -286,11 +278,11 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final day = dayData['day'] as int;
 
     final colors = [
-      Colors.grey[100]!,
+      ZenColors.hair,
       const Color(0xFFD4E4C4),
       const Color(0xFFB5C9A3),
       const Color(0xFF9CAF88),
-      const Color(0xFF7A9A6E),
+      ZenColors.sage,
     ];
 
     return GestureDetector(
@@ -316,9 +308,9 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           color: colors[level],
           borderRadius: BorderRadius.circular(8),
           border: isSelected
-              ? Border.all(color: const Color(0xFF7A9A6E), width: 2)
+              ? Border.all(color: ZenColors.sage, width: 2)
               : isToday
-              ? Border.all(color: Colors.blue[300]!, width: 1)
+              ? Border.all(color: ZenColors.ink, width: 1)
               : null,
         ),
         child: Center(
@@ -328,7 +320,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
               fontSize: 12,
               color: level > 0
                   ? Colors.white
-                  : (isWeekend ? Colors.red[300] : Colors.grey[700]),
+                  : (isWeekend ? ZenColors.mutedRed : ZenColors.ink),
               fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -449,15 +441,11 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           ),
           const SizedBox(height: 12),
           ...daySessions.map((session) {
-            final subject = focusProvider.subjects.firstWhere(
-              (s) => s.id == session.subjectId,
-              orElse: () => focusProvider.subjects.first,
-            );
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: subject.color.withValues(alpha: 0.08),
+                color: Colors.grey.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -466,123 +454,30 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: subject.color.withValues(alpha: 0.15),
+                      color: Colors.grey.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(subject.icon, size: 18, color: subject.color),
+                    child: const Icon(
+                      Icons.self_improvement,
+                      size: 18,
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          subject.name,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        Text(
-                          '${session.startTime.hour}:${session.startTime.minute.toString().padLeft(2, '0')} - '
-                          '${session.endTime.hour}:${session.endTime.minute.toString().padLeft(2, '0')}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      session.mode == FocusMode.pomodoro ? '番茄钟' : '自由计时',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                   ),
                   Text(
                     '${session.durationMinutes}分钟',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: subject.color,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
             );
           }),
-        ],
-      ),
-    );
-  }
-
-  /// 学科分布
-  Widget _buildSubjectDistribution(FocusProvider focusProvider) {
-    final subjects = focusProvider.subjects;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '学科分布',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 16),
-          if (subjects.isEmpty)
-            Center(
-              child: Text('暂无学科数据', style: TextStyle(color: Colors.grey[600])),
-            )
-          else
-            ...subjects.map((subject) {
-              final minutes = focusProvider.getSubjectMinutes(subject.id);
-              if (minutes == 0) return const SizedBox.shrink();
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: subject.color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            subject.icon,
-                            size: 16,
-                            color: subject.color,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(subject.name),
-                        const Spacer(),
-                        Text(
-                          '${minutes ~/ 60}h ${minutes % 60}m',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: subject.progress,
-                        backgroundColor: subject.color.withValues(alpha: 0.12),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          subject.color,
-                        ),
-                        minHeight: 6,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
         ],
       ),
     );
@@ -629,23 +524,22 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           ),
           const SizedBox(height: 16),
           ...sessions.map((session) {
-            final subject = focusProvider.subjects.firstWhere(
-              (s) => s.id == session.subjectId,
-              orElse: () => focusProvider.subjects.first,
-            );
-
             return ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: subject.color.withValues(alpha: 0.15),
+                  color: Colors.grey.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(subject.icon, size: 20, color: subject.color),
+                child: const Icon(
+                  Icons.self_improvement,
+                  size: 20,
+                  color: Colors.grey,
+                ),
               ),
-              title: Text(subject.name),
+              title: Text(session.mode.label),
               subtitle: Text(
                 '${session.mode == FocusMode.pomodoro ? "番茄钟" : "自由计时"} · ${_formatDate(session.startTime)}',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),

@@ -22,20 +22,26 @@ class NextBirthdayResolver {
   }
 
   DateTime _lunarUpcoming(Event e, DateTime from) {
-    // lunarAnchorYear 是那次农历月日所在的农历年；如果没存，取 from 的农历年
-    int anchorLunarYear;
-    if (e.lunarAnchorYear != null) {
-      anchorLunarYear = e.lunarAnchorYear!;
-    } else {
-      final lNow = _cal.fromSolar(from);
-      anchorLunarYear = lNow.year;
-    }
-    // 用 anchorLunarYear 反推那年的农历月日对应的公历
-    final sAnchor = _cal.toSolar(anchorLunarYear, e.month, e.day);
-    var candidate = DateTime(sAnchor.year, sAnchor.month, sAnchor.day);
+    // 当前所在的农历年——以它为基底计算"今年或明年"的公历生日。
+    // 之前用 anchorLunarYear（出生年），导致 toSolar 永远算的是 199× 年，
+    // 从不跳到当前年：生日"下次"永远是 30 年前。
+    final currentLunarYear = _cal.fromSolar(from).year;
+    // 尝试今年（农历年）的对应公历
+    final sThis = _cal.toSolar(
+      currentLunarYear,
+      e.month,
+      e.day,
+      isLeap: e.isLeap,
+    );
+    var candidate = DateTime(sThis.year, sThis.month, sThis.day);
     if (!candidate.isAfter(from)) {
-      // 推到下一年（农历）的农历月日对应公历
-      final sNext = _cal.toSolar(anchorLunarYear + 1, e.month, e.day);
+      // 已经过了 → 推下一农历年
+      final sNext = _cal.toSolar(
+        currentLunarYear + 1,
+        e.month,
+        e.day,
+        isLeap: e.isLeap,
+      );
       candidate = DateTime(sNext.year, sNext.month, sNext.day);
     }
     return candidate;

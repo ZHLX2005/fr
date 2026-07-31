@@ -4,12 +4,10 @@ import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 import '../data/lab_people_provider.dart';
-import '../domain/age_calculator.dart';
 import '../domain/event.dart';
 import '../domain/next_birthday.dart';
 import '../lunar_adapter.dart';
 import 'person_form_sheet.dart';
-import 'widgets/paper_button.dart';
 
 /// 人物详情页
 class PersonDetailPage extends StatelessWidget {
@@ -42,13 +40,11 @@ class PersonDetailPage extends StatelessWidget {
             .firstWhere((_) => true, orElse: () => null);
         final today = DateTime.now();
         final resolver = NextBirthdayResolver(LunarAdapter());
-final next = birthday == null ? null : resolver.upcoming(birthday, today);
+        final next = birthday == null ? null : resolver.upcoming(birthday, today);
+        // age 委托 provider：内部已按 system 区分（lunar 用出生公历日换算）
         final age = birthday == null
             ? null
-            : AgeCalculator.calculate(
-                DateTime(today.year, birthday.month, birthday.day),
-                today,
-              );
+            : cal.ageOfBirthdayPerson(birthday, today);
 
         return Scaffold(
           backgroundColor: PaperPalette.bg,
@@ -95,27 +91,50 @@ final next = birthday == null ? null : resolver.upcoming(birthday, today);
               if (birthday != null && next != null) ...[
                 Text('生日', style: AppText.title()),
                 const SizedBox(height: 8),
+                // SoT：显示存储的原值（已是该 system 历法下的值）+ 历法标签
+                Builder(builder: (_) {
+                  final leap = birthday.isLeap ? '闰' : '';
+                  return Text(
+                    birthday.system == CalendarSystem.solar
+                        ? '公历 ${birthday.year} 年 ${birthday.month} 月 ${birthday.day} 日'
+                        : '农历 ${birthday.year} 年 $leap${birthday.month} 月 ${birthday.day}',
+                    style: AppText.body(),
+                  );
+                }),
+                const SizedBox(height: 4),
+                // 对方历法等值（双向）
+                Builder(builder: (_) {
+                  if (birthday.system == CalendarSystem.solar) {
+                    final l = LunarAdapter().fromSolar(
+                      DateTime(birthday.year, birthday.month, birthday.day),
+                    );
+                    return Text(
+                      '≈ 农历 ${l.year} 年 ${l.isLeap ? "闰" : ""}${l.month} 月 ${l.day}',
+                      style: AppText.caption(color: PaperPalette.inkMuted),
+                    );
+                  } else {
+                    final anchor = birthday.lunarAnchorYear ?? birthday.year;
+                    final s = LunarAdapter().toSolar(
+                      anchor,
+                      birthday.month,
+                      birthday.day,
+                      isLeap: birthday.isLeap,
+                    );
+                    return Text(
+                      '≈ 公历 ${s.year} 年 ${s.month} 月 ${s.day}',
+                      style: AppText.caption(color: PaperPalette.inkMuted),
+                    );
+                  }
+                }),
+                const SizedBox(height: 4),
                 Text(
-                  '${next.year}年${next.month}月${next.day}日 · 距今 ${NextBirthdayResolver.daysUntil(next, today)} 天',
-                  style: AppText.body(),
+                  '下次生日：${next.year}年${next.month}月${next.day}日 · 距今 ${NextBirthdayResolver.daysUntil(next, today)} 天',
+                  style: AppText.caption(),
                 ),
                 if (age != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text('$age 岁', style: AppText.caption()),
-                  ),
-                if (birthday.system == CalendarSystem.solar)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Builder(builder: (_) {
-                      final l = LunarAdapter().fromSolar(
-                        DateTime(today.year, birthday.month, birthday.day),
-                      );
-                      return Text(
-                        '每年农历 ${l.month} 月 ${l.day} 日',
-                        style: AppText.caption(color: PaperPalette.inkMuted),
-                      );
-                    }),
                   ),
               ],
               const SizedBox(height: 24),

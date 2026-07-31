@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
-import 'zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 class ClockEditorResult {
   final String title;

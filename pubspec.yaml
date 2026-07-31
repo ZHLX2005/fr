@@ -93,7 +93,6 @@ dependencies:
   flutter_overlay_window: ^0.5.0
 
   # Audio Player
-  audioplayers: ^5.2.1
   just_audio: ^0.9.40
 
   # WebSocket (Relay 模式传输层)
@@ -145,10 +144,6 @@ dependencies:
 
   # Image Cropper (图片裁剪)
   image_cropper: ^8.0.2
-
-  # QR Code (二维码扫描和生成)
-  mobile_scanner: ^6.0.2
-  qr_flutter: ^4.1.0
 
   # Drag and Drop Reordering
   flutter_reorderable_grid_view: ^5.1.3

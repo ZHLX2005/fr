@@ -9,11 +9,13 @@ import '../../../../native/home_widget/calendar_widget_service.dart';
 import '../domain/age_calculator.dart';
 import '../domain/event.dart';
 import '../domain/recurrence.dart';
+import '../lunar_adapter.dart';
 import 'calendar_hive.dart';
 import 'event_repository.dart';
 
 class LabCalendarProvider with ChangeNotifier {
   final EventRepository _repo = EventRepository();
+  final _lunar = LunarAdapter();
   final _uuid = const Uuid();
   Timer? _midnightTimer;
 
@@ -62,9 +64,42 @@ class LabCalendarProvider with ChangeNotifier {
     return setView(n.year, n.month);
   }
 
-  /// 取某天的所有事件（按 month/day 匹配，不做农历推算）
-  List<Event> eventsOf(int month, int day) =>
-      _events.where((e) => e.month == month && e.day == day).toList();
+  /// 某公历日的所有事件（正确处理农历：把单元格日期反查成农历再比对 lunar 事件）
+  ///
+  /// 之前 eventsOf 直接 e.month==month 匹配，对 lunar 事件（存农历月日）失效。
+  /// 现在：solar 事件按公历月日匹配；lunar 事件把单元格日期 fromSolar 成农历
+  /// 后比对农历月日 + isLeap——自动处理年份对齐（农历年跨公历年）。
+  List<Event> eventsOnDate(DateTime date) {
+    final lunar = _lunar.fromSolar(date);
+    return _events.where((e) {
+      if (e.system == CalendarSystem.solar) {
+        return e.month == date.month && e.day == date.day;
+      }
+      return e.month == lunar.month &&
+          e.day == lunar.day &&
+          e.isLeap == lunar.isLeap;
+    }).toList();
+  }
+
+  /// 事件在某公历年的发生日（用于年度报表按公历月分组）。
+  /// lunar 事件：尝试 lunarYear∈{solarYear-1, solarYear}，取落在 solarYear 的那个。
+  /// 找不到（如闰月该年不存在）返回 null。
+  DateTime? solarOccurrenceInYear(Event e, int solarYear) {
+    if (e.system == CalendarSystem.solar) {
+      return DateTime(solarYear, e.month, e.day);
+    }
+    for (final ly in [solarYear - 1, solarYear]) {
+      try {
+        final s = _lunar.toSolar(ly, e.month, e.day, isLeap: e.isLeap);
+        if (s.year == solarYear) {
+          return DateTime(s.year, s.month, s.day);
+        }
+      } catch (_) {
+        // 该农历年无此月日（如闰月），跳过
+      }
+    }
+    return null;
+  }
 
   Future<Event> add({
     required EventType type,
@@ -74,6 +109,8 @@ class LabCalendarProvider with ChangeNotifier {
     required int day,
     required Recurrence recurrence,
     required ColorTag colorTag,
+    int? year,
+    bool isLeap = false,
     int? solarYearOffset,
     String? personId,
     String? note,
@@ -84,9 +121,11 @@ class LabCalendarProvider with ChangeNotifier {
       type: type,
       title: title,
       system: system,
-      year: DateTime.now().year,
+      // year/month/day 是 system 历法下的值；year 缺省用今年（非 birthday 场景）
+      year: year ?? DateTime.now().year,
       month: month,
       day: day,
+      isLeap: isLeap,
       recurrence: recurrence,
       colorTag: colorTag,
       solarYearOffset: solarYearOffset,
@@ -135,12 +174,15 @@ class LabCalendarProvider with ChangeNotifier {
     if (event.systemCalendarEventId != null) {
       await CalendarService.deleteEvent(event.systemCalendarEventId!);
     }
+    // 用事件在今年的公历发生日同步到系统日历（lunar 事件要先 resolve 到公历）
+    final occurrence = solarOccurrenceInYear(event, DateTime.now().year) ??
+        DateTime(event.year, event.month, event.day);
     final systemId = await CalendarService.insertEvent(
       title: event.title,
       description: event.note ?? '',
-      year: event.year,
-      month: event.month,
-      day: event.day,
+      year: occurrence.year,
+      month: occurrence.month,
+      day: occurrence.day,
     );
     if (systemId == null) return false;
     final updated = event.copyWith(systemCalendarEventId: systemId);
@@ -151,9 +193,25 @@ class LabCalendarProvider with ChangeNotifier {
   }
 
   /// 年龄计算（仅 birthday 类型）
+  ///
+  /// 公历生日：直接 DateTime(year, month, day)。
+  /// 农历生日：year/month/day 是农历值，必须先用 lunarAnchorYear 换算成出生公历日
+  /// （否则按农历月日当公历算会错）。闰月用 isLeap 标识。
   int? ageOfBirthdayPerson(Event birthdayEvent, DateTime today) {
     if (birthdayEvent.type != EventType.birthday) return null;
-    final dob = DateTime(birthdayEvent.year, birthdayEvent.month, birthdayEvent.day);
+    DateTime dob;
+    if (birthdayEvent.system == CalendarSystem.solar) {
+      dob = DateTime(birthdayEvent.year, birthdayEvent.month, birthdayEvent.day);
+    } else {
+      final anchor = birthdayEvent.lunarAnchorYear ?? birthdayEvent.year;
+      final s = LunarAdapter().toSolar(
+        anchor,
+        birthdayEvent.month,
+        birthdayEvent.day,
+        isLeap: birthdayEvent.isLeap,
+      );
+      dob = DateTime(s.year, s.month, s.day);
+    }
     return AgeCalculator.calculate(dob, today);
   }
 
@@ -171,6 +229,7 @@ class LabCalendarProvider with ChangeNotifier {
       year: _viewYear,
       month: _viewMonth,
       events: _events,
+      lunar: _lunar,
     );
     CalendarWidgetService.updateCalendarWidget(data);
   }

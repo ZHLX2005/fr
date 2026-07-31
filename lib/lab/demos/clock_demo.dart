@@ -7,7 +7,7 @@ import 'clock/widgets/clocks_tab.dart';
 import 'clock/widgets/tracks_tab.dart';
 import 'clock/widgets/dashboard_tab.dart';
 import 'clock/widgets/track_records_page.dart';
-import 'clock/widgets/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 class ClockDemo extends DemoPage {
   @override
@@ -18,6 +18,8 @@ class ClockDemo extends DemoPage {
   String get description => '时钟 · 编排 · 节拍';
   @override
   bool get preferFullScreen => true;
+  @override
+  bool get timePage => true;
 
   @override
   Widget buildPage(BuildContext context) {
@@ -91,10 +93,22 @@ class _ClockShellState extends State<_ClockShell> {
         IconButton(
           tooltip: 'Track records',
           icon: const Icon(Icons.history),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const TrackRecordsPage()),
-          ),
+          onPressed: () {
+            // push 出来的新 route 不在 ClockDemo 的 ChangeNotifierProvider 树里，
+            // 必须把当前的 LabTrackProvider 实例手动带进去，否则
+            // TrackRecordsPage 里的 Consumer<LabTrackProvider> 会抛
+            // ProviderNotFoundException → 白屏。
+            final trackP = context.read<LabTrackProvider>();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChangeNotifierProvider<LabTrackProvider>.value(
+                  value: trackP,
+                  child: const TrackRecordsPage(),
+                ),
+              ),
+            );
+          },
         ),
     ];
   }
@@ -102,37 +116,25 @@ class _ClockShellState extends State<_ClockShell> {
   Future<void> _confirmWipeAll() async {
     final clockP = context.read<LabClockProvider>();
     final trackP = context.read<LabTrackProvider>();
-    final ok = await showDialog<bool>(
+    final ok = await ZenConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Wipe all clock data?'),
-        content: const Text(
+      title: 'Wipe all clock data?',
+      message:
           '这会清空所有 clock、track、记录及节拍配置（包括旧版残留数据）。\n'
           '用于修复旧版本导致的卡死问题。\n\n'
           '此操作不可撤销。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Wipe',
-              style: TextStyle(color: ZenColors.mutedRed),
-            ),
-          ),
-        ],
-      ),
+      confirmLabel: 'Wipe',
+      onConfirm: () async {
+        await clockP.wipeAllData();
+        await trackP.wipeAllData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('All clock data wiped.')),
+          );
+        }
+      },
     );
-    if (ok != true) return;
-    await clockP.wipeAllData();
-    await trackP.wipeAllData();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('All clock data wiped.')),
-    );
+    if (!ok || !mounted) return;
   }
 
   void _onFabPressed() {

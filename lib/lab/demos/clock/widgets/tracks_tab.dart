@@ -5,7 +5,7 @@ import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_editor_page.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_runner_page.dart';
-import 'package:xiaodouzi_fr/lab/demos/clock/widgets/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 /// Tracks tab content. Plain widgets — the shell owns the Scaffold/FAB.
 class TracksTab extends StatefulWidget {
@@ -41,15 +41,9 @@ class _TracksTabState extends State<TracksTab> {
     return Consumer2<LabTrackProvider, LabClockProvider>(
       builder: (context, tp, cp, _) {
         if (tp.tracks.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.queue_music_outlined, size: 64, color: ZenColors.hair),
-                const SizedBox(height: 16),
-                const Text('No tracks yet', style: ZenText.label),
-              ],
-            ),
+          return const ZenEmptyState(
+            icon: Icons.queue_music_outlined,
+            message: 'No tracks yet',
           );
         }
         return ListView.builder(
@@ -91,7 +85,7 @@ class _TrackCard extends StatelessWidget {
         children: [
           Text(track.title, style: ZenText.body.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('${track.segments.length} segments · ${_formatDuration(totalSeconds)}',
+          Text('${track.segments.length} segments · ${formatDuration(totalSeconds)}',
               style: ZenText.monoDigitSmall),
           if (track.description.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -142,28 +136,11 @@ class _TrackCard extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, LabTrackProvider tp) {
-    showDialog(
+    ZenConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete track'),
-        content: Text('Delete "${track.title}"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () { tp.deleteTrack(track.id); Navigator.pop(ctx); },
-            child: const Text('Delete', style: TextStyle(color: ZenColors.mutedRed)),
-          ),
-        ],
-      ),
+      title: 'Delete track',
+      message: 'Delete "${track.title}"?',
+      onConfirm: () => tp.deleteTrack(track.id),
     );
   }
-}
-
-String _formatDuration(int seconds) {
-  final h = seconds ~/ 3600;
-  final m = (seconds % 3600) ~/ 60;
-  final s = seconds % 60;
-  if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
-  if (m > 0) return '${m}m ${s.toString().padLeft(2, '0')}s';
-  return '${s}s';
 }

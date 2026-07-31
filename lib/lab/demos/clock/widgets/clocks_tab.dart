@@ -4,7 +4,7 @@ import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/clock_editor_sheet.dart';
-import 'package:xiaodouzi_fr/lab/demos/clock/widgets/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 /// Clocks tab — grid of clock cards + records list.
 /// Preserves the core clock functionality (start/pause/reset, swipe-rename,
@@ -122,21 +122,11 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.timer_outlined, size: 64, color: ZenColors.hair),
-          const SizedBox(height: 16),
-          const Text('No clocks yet', style: ZenText.label),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: onAdd,
-            style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
-            child: const Text('Add clock'),
-          ),
-        ],
-      ),
+    return ZenEmptyState(
+      icon: Icons.timer_outlined,
+      message: 'No clocks yet',
+      actionLabel: 'Add clock',
+      onAction: onAdd,
     );
   }
 }
@@ -207,7 +197,7 @@ class _ClockCard extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  _formatTime(remaining),
+                  formatTime(remaining),
                   style: ZenText.monoDigit.copyWith(
                     fontSize: 32,
                     color: remaining < 0 ? ZenColors.mutedRed : ZenColors.ink,
@@ -219,14 +209,7 @@ class _ClockCard extends StatelessWidget {
             if (hasBeat)
               Row(
                 children: [
-                  Container(
-                    width: 12, height: 12,
-                    decoration: BoxDecoration(
-                      color: isActive ? ZenColors.sage : Colors.transparent,
-                      border: Border.all(color: isActive ? ZenColors.sage : ZenColors.secondary),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+                  ZenDot(active: isActive),
                   const SizedBox(width: 6),
                   Text(
                     (() {
@@ -241,7 +224,7 @@ class _ClockCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _ControlButton(
+                ZenIconButton(
                   icon: clock.isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
                   color: baseColor,
                   onTap: () => clock.isRunning
@@ -249,7 +232,7 @@ class _ClockCard extends StatelessWidget {
                       : p.startCountdown(clock.id),
                 ),
                 const SizedBox(width: 12),
-                _ControlButton(
+                ZenIconButton(
                   icon: Icons.refresh_rounded,
                   color: ZenColors.secondary,
                   onTap: () => p.resetCountdown(clock.id),
@@ -263,43 +246,11 @@ class _ClockCard extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, LabClockProvider p) {
-    showDialog(
+    ZenConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete clock'),
-        content: Text('Delete "${clock.title}"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () { p.deleteClock(clock.id); Navigator.pop(ctx); },
-            child: const Text('Delete', style: TextStyle(color: ZenColors.mutedRed)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ControlButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  const _ControlButton({required this.icon, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        width: 44, height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: color, size: 24),
-      ),
+      title: 'Delete clock',
+      message: 'Delete "${clock.title}"?',
+      onConfirm: () => p.deleteClock(clock.id),
     );
   }
 }
@@ -370,7 +321,7 @@ class _RecordTileState extends State<_RecordTile> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              _formatDuration(p.getRecordLiveDuration(record)),
+              formatDuration(p.getRecordLiveDuration(record)),
               style: ZenText.monoDigitSmall.copyWith(color: color, fontWeight: FontWeight.w600),
             ),
           ),
@@ -424,7 +375,7 @@ class _RecordTileState extends State<_RecordTile> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    _SwipeAction(
+                    ZenSwipeAction(
                       label: 'Delete',
                       icon: Icons.delete_outline,
                       color: ZenColors.mutedRed,
@@ -439,7 +390,7 @@ class _RecordTileState extends State<_RecordTile> {
                         p.deleteRecord(record.id);
                       },
                     ),
-                    _SwipeAction(
+                    ZenSwipeAction(
                       label: 'Create',
                       icon: Icons.add,
                       color: ZenColors.sage,
@@ -495,67 +446,4 @@ class _RecordTileState extends State<_RecordTile> {
       ),
     );
   }
-}
-
-class _SwipeAction extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  /// Round the left corners (used on the leftmost action so it tucks under
-  /// the card's right edge cleanly).
-  final bool leftRounded;
-  const _SwipeAction({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    this.leftRounded = false,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 80,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: leftRounded
-              ? const BorderRadius.only(
-                  topLeft: Radius.circular(6),
-                  bottomLeft: Radius.circular(6),
-                )
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 22),
-            const SizedBox(height: 2),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _formatTime(int seconds) {
-  final isNegative = seconds < 0;
-  final absSeconds = seconds.abs();
-  final h = absSeconds ~/ 3600;
-  final m = (absSeconds % 3600) ~/ 60;
-  final s = absSeconds % 60;
-  final sign = isNegative ? '-' : '';
-  return '$sign${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-}
-
-String _formatDuration(int seconds) {
-  final h = seconds ~/ 3600;
-  final m = (seconds % 3600) ~/ 60;
-  final s = seconds % 60;
-  if (h > 0) return '${h}h ${m}m';
-  if (m > 0) return '${m}m ${s}s';
-  return '${s}s';
 }

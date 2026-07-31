@@ -26,6 +26,7 @@ Flutter 项目里出现以下任一情况时，必须走本 skill 路线：
 | [[oboe-cpp-synthesis]] | 想知道 C++ Oboe audio callback 怎么工作 / 实时 sin 合成的数学 / sampleCounter 为什么要 `=` 而不是 `-=` / 衰减包络怎么算 / 钳位为什么必要 |
 | [[android-native-c-setup]] | 对 Android 原生层不熟：CMake/Gradle 怎么搭、ABI 多架构、FFI vs JNI 选型、库加载机制、extern "C" 作用、常见构建错误排查 |
 | [[wav-sample-playback]] | 需要自定义拍声音色：不想用纯合成 tone、想用 WAV 采样替代 click/木鱼/鼓、或让用户上传自己的 wav 作为拍声 |
+| [[clock-vs-metronome-lifecycle]] | 在设计「同时有数据驱动 UI（Clock）和流驱动音频（Metronome）」的功能时 — 决定哪些状态该跟 page 销毁、哪些必须抽 service 跨页面持久 |
 
 ## 核心架构
 
@@ -246,3 +247,4 @@ cpp 端用 `beatAccentLevels[beatsPerBar]` 数组，Dart 在 `setBeatPattern` �
 | [[oboe-cpp-synthesis]] | C++ Oboe 实时 sin 合成原理（sample 模型 / 回调机制 / 相位累加器 / 包络数学 / 钳位 / PerformanceMode） | ~200 |
 | [[android-native-c-setup]] | Android 原生 C 编码原理（CMake/Gradle/ABI/FFI vs JNI/库加载/extern "C"/调试技巧/错误排查） | ~250 |
 | [[wav-sample-playback]] | 自定义 WAV 采样拍声音色（3-slot 架构/dr_wav 加载/resample/asset materializer/FFI 传路径/slot 映射陷阱） | ~150 |
+| [[clock-vs-metronome-lifecycle]] | 数据驱动 UI（Clock）vs 流驱动音频（Metronome）的生命周期策略差异（哪些跟 page 销毁、哪些抽 service） | ~80 |

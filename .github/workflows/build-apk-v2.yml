@@ -1,0 +1,130 @@
+name: Build Android APK (v2 - manual)
+
+# v2 是 v1 的可调试变体（手动触发），用于验证主动瘦身的 split-per-abi 构建。
+# 默认 push/pull_request 不会触发，避免误替代 master fat APK。
+#
+# 与 v1 的差异只在一行构建命令（加 --split-per-abi），其他流程完全一致：
+#   - 同套 Flutter 3.41.4 / Java 17 / build_runner / keystore
+#   - 同套产物上传（artifact + 调试符号 + 文件服务器）
+# 仅多一个 workflow_dispatch input 让操作者选 mode。
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'APK 模式（v2 提供 split-per-abi arm64 单架构；fat 用于对照验证）'
+        type: choice
+        required: true
+        default: 'split-arm64'
+        options:
+          - split-arm64
+          - fat-all-abis
+      obfuscate:
+        description: '启用代码混淆（与 v1 一致，减少反编译可读性，分离调试符号）'
+        type: boolean
+        required: false
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Generate code
+        run: flutter pub run build_runner build --delete-conflicting-outputs || true
+
+      - name: Setup release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p android/app
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+            # 验证 keystore
+            keytool -list -keystore android/app/release.keystore -storepass android
+          else
+            echo "请在GitHub Secrets中添加KEYSTORE_BASE64"
+            exit 1
+          fi
+
+      # ↓ 这里是与 v1 的唯一差异：按 inputs 选择构建命令
+      - name: Build Android APK (v2 - ${{ inputs.mode }})
+        run: |
+          if [ "${{ inputs.mode }}" = "split-arm64" ]; then
+            # 单架构 arm64 + 拆 abi 拆分：现代手机用户实际下载约 36 MB
+            # （master fat APK 在 105 MB 左右）
+            SPLIT_FLAG="--split-per-abi"
+            TARGET="--target-platform android-arm64"
+          else
+            # fat-all-abis：与 v1 默认构建对齐，用于对比
+            SPLIT_FLAG=""
+            TARGET=""
+          fi
+
+          OBFUSCATE_FLAG=""
+          if [ "${{ inputs.obfuscate }}" = "true" ]; then
+            OBFUSCATE_FLAG="--obfuscate --split-debug-info=./debug_symbols"
+          fi
+
+          flutter build apk --release \
+            $TARGET \
+            $SPLIT_FLAG \
+            $OBFUSCATE_FLAG
+
+      - name: List output files
+        run: find build/app/outputs/flutter-apk -name "*.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-app-v2-${{ inputs.mode }}-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-*.apk
+          retention-days: 30
+
+      - name: Upload debug symbols
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-symbols-v2-${{ github.sha }}
+          path: debug_symbols
+          retention-days: 90
+
+      - name: Upload APK to file server
+        run: |
+          APK_FILE=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
+          if [ -n "$APK_FILE" ]; then
+            echo "Uploading $APK_FILE to file server..."
+            # v2 上传用独立 key，避免覆盖 v1 的 fr_latest_apk
+            UPLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
+            DOWNLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
+            RESPONSE=$(curl -s -X POST "http://47.110.80.47:8988/api/v1/upload/${UPLOAD_KEY}" \
+              -F "file=@$APK_FILE" \
+              -F "ttl=0")
+            echo "Upload response: $RESPONSE"
+            if echo "$RESPONSE" | grep -q '"code":0'; then
+              echo "APK uploaded successfully"
+              echo "download_url=http://47.110.80.47:8988/api/v1/file/${DOWNLOAD_KEY}" >> $GITHUB_ENV
+            else
+              echo "APK uploaded failed, but continuing..."
+            fi
+          else
+            echo "No APK found to upload"
+          fi

@@ -22,7 +22,6 @@ import 'demos/notion_image_host_demo.dart';
 import 'demos/overlay_demo.dart';
 import 'demos/pigment_palette_demo.dart';
 import 'demos/price_compare_demo.dart';
-import 'demos/qr_demo.dart';
 import 'demos/schema_demo.dart';
 import 'demos/sensor_demo.dart';
 import 'demos/snake_game_demo.dart';
@@ -44,6 +43,7 @@ import 'demos/team_card_lua_demo.dart' show registerTeamCardLuaDemo;
 import 'demos/surround_game_lua_demo.dart' show registerSurroundGameLuaDemo;
 import 'demos/gomoku_lua_demo.dart' show registerGomokuLuaDemo;
 import 'demos/tetris_lua_demo.dart' show registerTetrisLuaDemo;
+import 'demos/coup_lua_demo.dart' show registerCoupLuaDemo;
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -67,7 +67,6 @@ void registerAllDemos() {
   registerSchemaDemo();
   registerColorPaletteDemo();
   registerGithubDemo();
-  registerQrDemo();
   registerWebBookmarkDemo();
   registerDoubleTimeDemo();
   registerNovelReaderDemo();
@@ -88,6 +87,7 @@ void registerAllDemos() {
   registerSurroundGameLuaDemo();
   registerGomokuLuaDemo();
   registerTetrisLuaDemo();
+  registerCoupLuaDemo();
 }
 
 // 初始化 Lab 模块
