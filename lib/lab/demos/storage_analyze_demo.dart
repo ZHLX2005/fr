@@ -3,12 +3,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/storage/storage_manager.dart';
 import '../../core/storage/export/const_storage_export.dart';
 import '../../core/storage/export/storage_exporter.dart';
 import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
+import 'calendar/data/calendar_hive.dart';
 
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {
@@ -91,11 +93,26 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     super.dispose();
   }
 
+  /// 确保所有 typed Hive box 都注册了 adapter。
+  ///
+  /// main.dart 启动时只 init 了 timetable + body_records；calendar 是按需 init
+  /// 的。如果用户没先进过日历 demo 就打开存储分析页，calendarEvents /
+  /// calendarPeople 这类 typed box 不会进 StorageRegistry，面板看不到、导出也
+  /// 拿不到（缺 adapter 时 Hive 读会抛）。所以在加载 / 导出 / 导入前统一兜底。
+  Future<void> _ensureBoxesInitialized() async {
+    await _storage.init().timeout(const Duration(seconds: 10));
+    try {
+      await CalendarHive.init();
+    } catch (e) {
+      debugPrint('CalendarHive.init 失败（忽略）: $e');
+    }
+  }
+
   Future<void> _loadStorageData() async {
     setState(() => _isLoading = true);
 
     try {
-      await _storage.init().timeout(const Duration(seconds: 10));
+      await _ensureBoxesInitialized();
       final list = await _storage.getAllStorageInfo().timeout(const Duration(seconds: 10));
 
       final keyDetails = <String, List<KeyDetail>>{};
@@ -145,6 +162,9 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     });
 
     try {
+      // 先确保所有 typed box 已注册（calendar 等），否则导出会漏掉它们
+      await _ensureBoxesInitialized();
+
       final exporter = StorageExporter(
         onProgress: (p) {
           if (mounted) {
@@ -239,6 +259,9 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     });
 
     try {
+      // 先确保 typed box 已注册，导入时才能按 typed 类型写回（Event/Person 等）
+      await _ensureBoxesInitialized();
+
       final importer = StorageImporter(
         clearBeforeImport: confirm,
         onProgress: (p) {
@@ -1830,8 +1853,8 @@ class _ExportResultDialog extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '可通过文件管理器 / 分享面板传给另一台设备，'
-              '或在本页用 "从文件导入" 立刻还原。',
+              '文件已存到「内部存储/Android/data/小豆子/files/exports/」，'
+              '可用文件管理器找到。点「分享/保存到…」可一键存到 Download 或发到另一台设备。',
               style: TextStyle(color: Colors.grey[700], fontSize: 12),
             ),
             const SizedBox(height: 16),
@@ -1852,12 +1875,26 @@ class _ExportResultDialog extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.check, size: 18),
-                    label: const Text('完成'),
+                    onPressed: () {
+                      // 通过系统分享面板，用户可保存到 Download / Files / 发到另一台设备
+                      Share.shareXFiles(
+                        [XFile(filePath)],
+                        text: '存储数据备份',
+                      );
+                    },
+                    icon: const Icon(Icons.ios_share, size: 18),
+                    label: const Text('分享/保存到…'),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('关闭'),
+              ),
             ),
           ],
         ),

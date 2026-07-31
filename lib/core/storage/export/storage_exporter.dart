@@ -90,7 +90,7 @@ class StorageExporter {
     buffer.writeln();
 
     // === Hive boxes ===
-    final boxNames = _allBoxNames();
+    final boxNames = await _discoverBoxNames();
     _emitProgress(ExportStage.hive, '导出 Hive Boxes', 0, boxNames.length);
     int hiveIdx = 0;
     for (final name in boxNames) {
@@ -120,7 +120,14 @@ class StorageExporter {
         buffer.writeln('# keyCount=${keys.length}');
 
         for (final key in keys) {
-          final raw = d != null ? d.get(key) : Hive.box(name).get(key);
+          dynamic raw;
+          try {
+            raw = d != null ? d.get(key) : Hive.box(name).get(key);
+          } catch (e) {
+            // typed box 的 adapter 没注册时，读会抛；跳过该 key 不中断整体
+            debugPrint('导出 Box $name key=$key 读值失败（可能缺 adapter）: $e');
+            continue;
+          }
           if (raw == null) continue;
 
           final typeName = _typeNameOf(raw);
@@ -200,10 +207,14 @@ class StorageExporter {
     );
   }
 
-  /// 把导出文本写入 `<docs>/exports/storage_dump_<timestamp>.txt`
+  /// 把导出文本写入可见的外部存储目录
+  ///
+  /// 优先 [getExternalStorageDirectory]（Android:
+  /// `/storage/emulated/0/Android/data/<pkg>/files/exports/`，文件管理器可见），
+  /// 回退到 [getApplicationDocumentsDirectory]（iOS / web / 无外部存储时）。
   Future<String> _writeExportFile(String text, String isoTimestamp) async {
-    final docDir = await getApplicationDocumentsDirectory();
-    final exportsDir = Directory('${docDir.path}${Platform.pathSeparator}$kExportDirName');
+    final baseDir = await _resolveExportBaseDir();
+    final exportsDir = Directory('${baseDir.path}${Platform.pathSeparator}$kExportDirName');
     if (!await exportsDir.exists()) {
       await exportsDir.create(recursive: true);
     }
@@ -213,6 +224,17 @@ class StorageExporter {
     );
     await file.writeAsString(text);
     return file.path;
+  }
+
+  /// 解析导出文件根目录：Android 优先用外部存储（文件管理器可见）。
+  Future<Directory> _resolveExportBaseDir() async {
+    try {
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) return ext;
+    } catch (e) {
+      debugPrint('getExternalStorageDirectory 失败，回退 documents: $e');
+    }
+    return getApplicationDocumentsDirectory();
   }
 
   // ── helpers ────────────────────────────────────────────
@@ -226,25 +248,47 @@ class StorageExporter {
     ));
   }
 
-  /// 已知 box 列表（注册表 + 遗留）
-  List<String> _allBoxNames() {
-    final fromRegistry = StorageRegistry.all.map((d) => d.name).toList();
-    const legacy = [
+  /// 发现所有 Hive box：注册表 + 遗留名 + 磁盘扫描（兜底未注册的 box）。
+  ///
+  /// 磁盘扫描是关键 —— 像 `price_compare` 这类直接 `Hive.openBox` 但没
+  /// 注册到 StorageRegistry 的 box，靠注册表发现不到；扫描 `<docs>/*.hive`
+  /// 才能把它们也导出。
+  Future<List<String>> _discoverBoxNames() async {
+    final names = <String>{};
+    // 1. 注册表
+    for (final d in StorageRegistry.all) {
+      names.add(d.name);
+    }
+    // 2. 遗留硬编码名
+    for (final n in const [
       'timetable_config',
       'timetable_items',
       'focus_sessions',
       'focus_subjects',
       'clock_records',
       'notes',
-    ];
-    final all = <String>[];
-    for (final n in legacy) {
-      if (!all.contains(n)) all.add(n);
+    ]) {
+      names.add(n);
     }
-    for (final n in fromRegistry) {
-      if (!all.contains(n)) all.add(n);
+    // 3. 磁盘扫描兜底
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final dir = Directory(docDir.path);
+      if (await dir.exists()) {
+        await for (final entity in dir.list(followLinks: false)) {
+          if (entity is File) {
+            final fileName = entity.path.split(Platform.pathSeparator).last;
+            // Hive 非 lazy box 文件为 <name>.hive
+            if (fileName.endsWith('.hive')) {
+              names.add(fileName.substring(0, fileName.length - 5));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('磁盘扫描 box 失败: $e');
     }
-    return all;
+    return names.toList()..sort();
   }
 
   String _typeNameOf(dynamic v) {
