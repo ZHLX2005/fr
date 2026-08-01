@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import '../../core/storage/box_descriptor.dart';
+import '../../core/storage/storage_registry.dart';
 import '../lab_container.dart';
 import 'price_compare/price_compare_chrome.dart';
 import 'price_compare/price_compare_models.dart';
@@ -63,6 +65,7 @@ class _PriceComparePageState extends State<_PriceComparePage> {
       await Hive.openBox(kPriceCompareBoxName);
     }
     _box = Hive.box(kPriceCompareBoxName);
+    _registerToStorageRegistry();
     // 恢复上次主题；没有就新建
     final lastId = _box!.get(kPriceCompareLastTopicIdKey) as String?;
     PriceTopic? loaded;
@@ -73,6 +76,27 @@ class _PriceComparePageState extends State<_PriceComparePage> {
     loaded ??= _createNewTopic(persist: true);
     _bindTopic(loaded);
     if (mounted) setState(() => _loading = false);
+  }
+
+  /// 把 box 注册到 StorageRegistry，存储分析面板自动接管展示/清空。
+  /// 幂等：已注册则跳过。
+  void _registerToStorageRegistry() {
+    if (StorageRegistry.has(kPriceCompareBoxName)) return;
+    StorageRegistry.register(BoxDescriptor(
+      name: kPriceCompareBoxName,
+      displayName: '比价主题',
+      openUntyped: () => Hive.openBox(kPriceCompareBoxName),
+      formatValue: (v) {
+        if (v is Map) {
+          final title = v['title'];
+          final rows = v['rows'];
+          final rowCount = rows is List ? rows.length : 0;
+          final t = (title is String && title.isNotEmpty) ? title : '（未命名）';
+          return '$t · $rowCount 行';
+        }
+        return v.toString();
+      },
+    ));
   }
 
   PriceTopic _createNewTopic({bool persist = false}) {

@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'box_descriptor.dart';
 import 'storage_registry.dart';
 
 /// 统一存储管理器
@@ -28,33 +27,14 @@ class StorageManager {
 
   bool _isInitialized = false;
 
-  /// 非注册方式的老 box 中文名映射（过渡；建议逐步迁移到注册表）
-  static const _legacyNameMap = {
-    'timetable_config': '课表配置',
-    'timetable_items': '课表课程',
-    'focus_sessions': '专注记录',
-    'focus_subjects': '专注科目',
-    'clock_records': '时钟记录',
-    'notes': '笔记',
-    'SharedPreferences': '应用配置',
-  };
-
-  /// 所有已知 box 名（注册表 + 遗留硬编码）
+  /// 所有已知 box 名 —— 纯注册表驱动。
+  ///
+  /// 每个 feature 在自己的 Hive init 处注册 [BoxDescriptor]，这里就能遍历到。
+  /// 不再有遗留硬编码 box 名（旧的 _legacyNameMap 含 focus_sessions /
+  /// clock_records 等"幽灵条目"——它们其实是 SharedPreferences key，不是
+  /// Hive box，会让面板误判并顺手建出空 box，已删除）。
   List<String> _allBoxNames() {
-    final fromRegistry = StorageRegistry.all.map((d) => d.name).toList();
-    final legacy = _legacyNameMap.keys
-        .where((n) => n != 'SharedPreferences')
-        .where((n) => !fromRegistry.contains(n))
-        .toList();
-    return [...legacy, ...fromRegistry];
-  }
-
-  /// 获取 box 的中文显示名
-  String _displayName(String name) {
-    if (name == 'SharedPreferences') return '应用配置';
-    final d = StorageRegistry.get(name);
-    if (d != null) return d.displayName;
-    return _legacyNameMap[name] ?? name;
+    return StorageRegistry.all.map((d) => d.name).toList();
   }
 
   // ── Public API ────────────────────────────────────────────
@@ -499,17 +479,7 @@ class StorageInfo {
 
   String get displayName {
     if (name == 'SharedPreferences') return '应用配置';
-    final d = StorageRegistry.get(name);
-    if (d != null) return d.displayName;
-    const legacy = {
-      'timetable_config': '课表配置',
-      'timetable_items': '课表课程',
-      'focus_sessions': '专注记录',
-      'focus_subjects': '专注科目',
-      'clock_records': '时钟记录',
-      'notes': '笔记',
-    };
-    return legacy[name] ?? name;
+    return StorageRegistry.get(name)?.displayName ?? name;
   }
 }
 

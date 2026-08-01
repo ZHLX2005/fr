@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../../storage/box_descriptor.dart';
+import '../../storage/storage_registry.dart';
 import '../domain/models.dart';
 import 'timetable_repository.dart';
 
@@ -19,6 +21,7 @@ class HiveTimetableRepository extends TimetableRepository {
       await Hive.initFlutter();
       _configBox = await Hive.openBox(_configBoxName);
       _itemsBox = await Hive.openBox(_itemsBoxName);
+      _registerToStorageRegistry();
       _isInitialized = true;
       debugPrint('HiveTimetableRepository: 初始化成功');
       debugPrint(
@@ -27,6 +30,48 @@ class HiveTimetableRepository extends TimetableRepository {
     } catch (e, st) {
       debugPrint('HiveTimetableRepository: 初始化失败 $e\n$st');
       rethrow;
+    }
+  }
+
+  /// 把两个 box 注册到 StorageRegistry，存储分析面板自动接管展示/清空。
+  void _registerToStorageRegistry() {
+    if (!StorageRegistry.has(_configBoxName)) {
+      StorageRegistry.register(BoxDescriptor(
+        name: _configBoxName,
+        displayName: '课表配置',
+        openUntyped: () => Hive.openBox(_configBoxName),
+        formatValue: (v) {
+          if (v is! Map) return v.toString();
+          final m = v.map((k, e) => MapEntry(k.toString(), e));
+          final cycle = m['cycleCount'];
+          final days = m['daysPerCycle'];
+          final slots = m['slotsPerDay'];
+          return '周期: $cycle · 每周期 $days 天 · 每天 $slots 节';
+        },
+      ));
+    }
+    if (!StorageRegistry.has(_itemsBoxName)) {
+      StorageRegistry.register(BoxDescriptor(
+        name: _itemsBoxName,
+        displayName: '课表课程',
+        openUntyped: () => Hive.openBox(_itemsBoxName),
+        formatValue: (v) {
+          if (v is List) {
+            final titles = v
+                .whereType<Map>()
+                .map((m) => m['title'])
+                .whereType<String>()
+                .where((t) => t.isNotEmpty)
+                .toList();
+            final head = titles.isEmpty ? '（未命名）' : titles.first;
+            return '${v.length} 节 · $head${titles.length > 1 ? ' 等' : ''}';
+          }
+          if (v is Map) {
+            return v['title']?.toString() ?? '课程';
+          }
+          return v.toString();
+        },
+      ));
     }
   }
 
