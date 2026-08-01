@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/storage/storage_manager.dart';
 import '../../core/storage/export/const_storage_export.dart';
 import '../../core/storage/export/storage_exporter.dart';
@@ -48,6 +49,9 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   List<NoteInfo> _noteList = [];
   NoteSummary _noteSummary = const NoteSummary(noteCount: 0, totalBlocks: 0, totalSize: 0);
 
+  // 应用配置 (SharedPreferences) —— 让 prefs 导入导出生效"看得见"
+  List<MapEntry<String, Object?>> _prefsList = [];
+
   // 导出/导入状态
   bool _isExporting = false;
   bool _isImporting = false;
@@ -83,7 +87,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStorageData());
   }
 
@@ -133,6 +137,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       final noteRoot = NoteRootScope.of(context).noteRoot;
       final noteList = await noteRoot.listNotes().timeout(const Duration(seconds: 10));
       final noteSummary = await noteRoot.getNoteSummary().timeout(const Duration(seconds: 10));
+      final prefsList = await _loadPrefs();
 
       setState(() {
         _storageList = list;
@@ -140,6 +145,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
         _mediaFiles = mediaFiles;
         _noteList = noteList;
         _noteSummary = noteSummary;
+        _prefsList = prefsList;
         _isLoading = false;
       });
     } catch (e) {
@@ -150,6 +156,116 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
         ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     }
+  }
+
+  // ── SharedPreferences ────────────────────────────────
+
+  Future<List<MapEntry<String, Object?>>> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final entries = prefs.getKeys().map((k) => MapEntry(k, prefs.get(k))).toList();
+    entries.sort((a, b) => a.key.compareTo(b.key));
+    return entries;
+  }
+
+  Future<void> _addPref() async {
+    final added = await showDialog<_PrefEdit>(
+      context: context,
+      builder: (_) => const _PrefEditDialog(isNew: true),
+    );
+    if (added == null || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    switch (added.type) {
+      case 'String':
+        await prefs.setString(added.key, added.value);
+        break;
+      case 'int':
+        await prefs.setInt(added.key, int.tryParse(added.value) ?? 0);
+        break;
+      case 'double':
+        await prefs.setDouble(added.key, double.tryParse(added.value) ?? 0);
+        break;
+      case 'bool':
+        await prefs.setBool(added.key, added.value == 'true');
+        break;
+      case 'List<String>':
+        await prefs.setStringList(
+          added.key,
+          added.value.split(',').map((e) => e.trim()).toList(),
+        );
+        break;
+    }
+    final reloaded = await _loadPrefs();
+    if (!mounted) return;
+    setState(() {
+      _prefsList = reloaded;
+    });
+  }
+
+  Future<void> _editPref(MapEntry<String, Object?> entry) async {
+    final updated = await showDialog<_PrefEdit>(
+      context: context,
+      builder: (_) => _PrefEditDialog(
+        isNew: false,
+        initialKey: entry.key,
+        initialType: entry.value.runtimeType.toString(),
+        initialValue: entry.value?.toString() ?? '',
+      ),
+    );
+    if (updated == null || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    // 类型可能变了，先删旧的
+    await prefs.remove(entry.key);
+    switch (updated.type) {
+      case 'String':
+        await prefs.setString(updated.key, updated.value);
+        break;
+      case 'int':
+        await prefs.setInt(updated.key, int.tryParse(updated.value) ?? 0);
+        break;
+      case 'double':
+        await prefs.setDouble(updated.key, double.tryParse(updated.value) ?? 0);
+        break;
+      case 'bool':
+        await prefs.setBool(updated.key, updated.value == 'true');
+        break;
+      case 'List<String>':
+        await prefs.setStringList(
+          updated.key,
+          updated.value.split(',').map((e) => e.trim()).toList(),
+        );
+        break;
+    }
+    final reloaded = await _loadPrefs();
+    if (!mounted) return;
+    setState(() {
+      _prefsList = reloaded;
+    });
+  }
+
+  Future<void> _deletePref(String key) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除确认'),
+        content: Text('确定删除 "$key" ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+    setState(() {
+      _prefsList = _prefsList.where((e) => e.key != key).toList();
+    });
   }
 
   Future<void> _onExport() async {
@@ -426,6 +542,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
             tabs: const [
               Tab(text: '存储数据'),
               Tab(text: '多媒体文件'),
+              Tab(text: '应用配置'),
             ],
           ),
           Expanded(
@@ -433,7 +550,11 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                 ? const Center(child: CircularProgressIndicator())
                 : TabBarView(
                     controller: _tabController,
-                    children: [_buildStorageTab(), _buildMediaTab()],
+                    children: [
+                      _buildStorageTab(),
+                      _buildMediaTab(),
+                      _buildPrefsTab(),
+                    ],
                   ),
           ),
         ],
@@ -616,6 +737,56 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
         }
       }
     }
+  }
+
+  Widget _buildPrefsTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'SharedPreferences · ${_prefsList.length} 条',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _addPref,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('新增'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _prefsList.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text('暂无配置项', style: TextStyle(color: Colors.grey[600])),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _prefsList.length,
+                  itemBuilder: (context, index) {
+                    final entry = _prefsList[index];
+                    return _PrefCard(
+                      entry: entry,
+                      onEdit: () => _editPref(entry),
+                      onDelete: () => _deletePref(entry.key),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
   }
 
   Widget _buildMediaTab() {
@@ -1771,6 +1942,275 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+/// prefs 编辑返回值
+class _PrefEdit {
+  final String key;
+  final String type;
+  final String value;
+  _PrefEdit({required this.key, required this.type, required this.value});
+}
+
+/// prefs 新增 / 编辑对话框
+class _PrefEditDialog extends StatefulWidget {
+  final bool isNew;
+  final String initialKey;
+  final String initialType;
+  final String initialValue;
+
+  const _PrefEditDialog({
+    required this.isNew,
+    this.initialKey = '',
+    this.initialType = 'String',
+    this.initialValue = '',
+  });
+
+  @override
+  State<_PrefEditDialog> createState() => _PrefEditDialogState();
+}
+
+class _PrefEditDialogState extends State<_PrefEditDialog> {
+  late final TextEditingController _keyCtrl;
+  late final TextEditingController _valCtrl;
+  late String _type;
+
+  static const _types = ['String', 'int', 'double', 'bool', 'List<String>'];
+
+  @override
+  void initState() {
+    super.initState();
+    _keyCtrl = TextEditingController(text: widget.initialKey);
+    _valCtrl = TextEditingController(text: widget.initialValue);
+    _type = widget.initialType;
+  }
+
+  @override
+  void dispose() {
+    _keyCtrl.dispose();
+    _valCtrl.dispose();
+    super.dispose();
+  }
+
+  String _hintFor(String t) {
+    switch (t) {
+      case 'String':
+        return '任意字符串';
+      case 'int':
+        return '整数，如 42';
+      case 'double':
+        return '浮点数，如 3.14';
+      case 'bool':
+        return 'true 或 false';
+      case 'List<String>':
+        return '逗号分隔，如 a, b, c';
+    }
+    return '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 480),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(widget.isNew ? '新增配置' : '编辑配置',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text('Key', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _keyCtrl,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                hintText: '配置 key（导出导入都用这个 key）',
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('类型', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            DropdownButtonFormField<String>(
+              value: _type,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              items: _types
+                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                  .toList(),
+              onChanged: (v) => setState(() => _type = v ?? _type),
+            ),
+            const SizedBox(height: 12),
+            const Text('Value', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _valCtrl,
+              maxLines: null,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                hintText: _hintFor(_type),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () {
+                      if (_keyCtrl.text.trim().isEmpty) return;
+                      Navigator.pop(
+                        context,
+                        _PrefEdit(
+                          key: _keyCtrl.text.trim(),
+                          type: _type,
+                          value: _valCtrl.text,
+                        ),
+                      );
+                    },
+                    child: const Text('保存'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// prefs 单条卡片
+class _PrefCard extends StatelessWidget {
+  final MapEntry<String, Object?> entry;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _PrefCard({
+    required this.entry,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  Color _typeColor(String type) {
+    switch (type) {
+      case 'String':
+        return Colors.blue;
+      case 'int':
+        return Colors.green;
+      case 'double':
+        return Colors.teal;
+      case 'bool':
+        return Colors.orange;
+      case 'List<String>':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final type = entry.value.runtimeType.toString();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onEdit,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _typeColor(type).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.settings, color: _typeColor(type)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.key,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.value?.toString() ?? 'null',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _typeColor(type).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  type,
+                  style: TextStyle(fontSize: 10, color: _typeColor(type)),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: Colors.red[400], size: 20),
+                onPressed: onDelete,
+                tooltip: '删除',
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

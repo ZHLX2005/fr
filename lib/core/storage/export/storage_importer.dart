@@ -138,15 +138,19 @@ class StorageImporter {
       final item = prefsItems[i] as Map<String, String>;
       try {
         final key = item['key']!;
-        final type = item['type']!;
-        final value = item['value']!;
-        _writePref(prefs, key, type, value);
+        final type = item['type'] ?? HiveTypeNames.string;
+        final value = item['value'] ?? '';
+        // set* 返回 Future<bool> —— 必须 await，否则 setString 没落盘，
+        // 紧接着 _loadStorageData 读 prefs 还是老值，整段导入看似成功但 0 生效。
+        await _writePref(prefs, key, type, value);
         prefsCount++;
       } catch (e) {
         errors.add('prefs: ${item['key']} - $e');
       }
       _emitProgress(ImportStage.prefs, '写入: ${item['key']}', i + 1, prefsItems.length);
     }
+    // 强制 commit 让写入立刻落盘，避免 demo 立即 _loadStorageData 时拿到旧值
+    await prefs.reload();
 
     // ── hive ──
     int hiveCount = 0;
@@ -275,29 +279,29 @@ class StorageImporter {
     }
   }
 
-  void _writePref(SharedPreferences prefs, String key, String type, String value) {
+  Future<void> _writePref(SharedPreferences prefs, String key, String type, String value) async {
     switch (type) {
       case HiveTypeNames.string:
-        prefs.setString(key, value);
+        await prefs.setString(key, value);
         break;
       case HiveTypeNames.int:
-        prefs.setInt(key, int.parse(value));
+        await prefs.setInt(key, int.parse(value));
         break;
       case HiveTypeNames.double:
-        prefs.setDouble(key, double.parse(value));
+        await prefs.setDouble(key, double.parse(value));
         break;
       case HiveTypeNames.bool:
-        prefs.setBool(key, value.toLowerCase() == 'true');
+        await prefs.setBool(key, value.toLowerCase() == 'true');
         break;
       case HiveTypeNames.list:
         final decoded = jsonDecode(value);
         if (decoded is List) {
-          prefs.setStringList(key, decoded.map((e) => e.toString()).toList());
+          await prefs.setStringList(key, decoded.map((e) => e.toString()).toList());
         }
         break;
       default:
         // 兜底：原样存为 string
-        prefs.setString(key, value);
+        await prefs.setString(key, value);
     }
   }
 
