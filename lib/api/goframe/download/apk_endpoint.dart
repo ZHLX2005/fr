@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -128,4 +129,35 @@ class ApkDownloadEndpoint {
       if (await f.exists()) await f.delete();
     } catch (_) {}
   }
+
+  /// 拉取 fr_latest_apk 的元数据（大小 / 上传时间），供"检查更新"展示。
+  /// GET /api/v1/file/{key}/metadata，GoFrame 包络 {code, message, data}。
+  /// 与本文件其它方法一致：走 http.Client 直连，不走拦截器链。
+  Future<ApkMetadataResult?> metadata() async {
+    try {
+      final resp = await http
+          .get(Uri.parse('$_base/api/v1/file/$_fileKey/metadata'))
+          .timeout(_config.timeout);
+      if (resp.statusCode != 200 || resp.body.isEmpty) return null;
+      final json = jsonDecode(resp.body) as Map<String, dynamic>;
+      final data = json['data'] as Map<String, dynamic>?;
+      if (data == null) return null;
+      return ApkMetadataResult(
+        size: data['size'] as int?,
+        uploadTime: data['upload_time'] != null
+            ? DateTime.tryParse(data['upload_time'] as String)
+            : null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// APK 元数据（仅"检查更新"需要的两个字段）。
+class ApkMetadataResult {
+  final int? size;
+  final DateTime? uploadTime;
+
+  const ApkMetadataResult({this.size, this.uploadTime});
 }

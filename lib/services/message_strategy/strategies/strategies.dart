@@ -8,3 +8,4 @@ export 'ask_message_strategy.dart';
 export 'selection_message_strategy.dart';
 export 'smart_accounting_message_strategy.dart';
 export 'bill_overview_message_strategy.dart';
+export 'card_manager_message_strategy.dart';
