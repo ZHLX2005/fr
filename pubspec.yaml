@@ -56,6 +56,10 @@ dependencies:
   # HTTP Requests
   http: ^1.2.2
 
+  # Crypto — e2ekv 客户端加密（PBKDF2 / AES-GCM），SHA-256+HMAC 给 HKDF 手工实现用
+  crypto: ^3.0.3
+  cryptography: ^2.7.0
+
   # URL Launcher
   url_launcher: ^6.3.1
 
