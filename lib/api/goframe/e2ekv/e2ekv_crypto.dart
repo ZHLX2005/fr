@@ -39,8 +39,9 @@ class E2EKVCrypto {
   }
 
   // ── AuthKey / AuthHash ────────────────────────────────
-  static Future<List<int>> deriveAuthKey(SecretKey kek) =>
-      _hkdfSha256(ikmBytes: await kek.extractBytes(), info: utf8.encode('auth'));
+  static Future<List<int>> deriveAuthKey(SecretKey kek) async {
+    return _hkdfSha256(ikmBytes: await kek.extractBytes(), info: utf8.encode('auth'));
+  }
 
   /// 64 位小写 hex；唯一凭证/令牌，一定要保存。
   static Future<String> authHash(SecretKey kek) async {
@@ -59,14 +60,14 @@ class E2EKVCrypto {
   static Future<(List<int>, List<int>)> encrypt(SecretKey dek, List<int> plaintext) async {
     final nonce = _randomBytes(E2EKVConst.nonceBytes);
     final box = await _aesGcm.encrypt(plaintext, secretKey: dek, nonce: nonce);
-    return (box.nonce, [...box.cipherText, ...box.mac]);
+    return (box.nonce, [...box.cipherText, ...box.mac.bytes]);
   }
 
   static Future<List<int>> decrypt(SecretKey dek, List<int> nonce, List<int> ciphertextWithTag) async {
     const macLen = 16;
     final ct = ciphertextWithTag.sublist(0, ciphertextWithTag.length - macLen);
     final mac = ciphertextWithTag.sublist(ciphertextWithTag.length - macLen);
-    return _aesGcm.decrypt(SecretBox(ct, nonce: nonce, mac: mac), secretKey: dek);
+    return _aesGcm.decrypt(SecretBox(ct, nonce: nonce, mac: Mac(mac)), secretKey: dek);
   }
 
   // ── 工具 ─────────────────────────────────────────────

@@ -19,7 +19,8 @@ class E2EKVStorage {
   Future<int> get iter async =>
       (await _prefs()).getInt(_kIter) ?? E2EKVConst.pbkdf2Iterations;
 
-  Future<bool> hasCredential async => (await authHash) != null && (await salt) != null;
+  Future<bool> get hasCredential async =>
+      (await authHash) != null && (await salt) != null;
 
   Future<void> saveCredential({
     required String authHash,
