@@ -3,6 +3,7 @@ import '../interfaces/interfaces.dart';
 import '../strategies/strategies.dart';
 import '../factory/factory.dart';
 import '../panel/panel.dart';
+import '../../../api/user/user_auth_service.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -20,6 +21,8 @@ void registerMessageStrategies() {
     SmartAccountingMessageWidgetStrategy(),
     BillOverviewMessageWidgetStrategy(),
     CardManagerMessageWidgetStrategy(),
+    LoginMessageWidgetStrategy(),
+    RegisterMessageWidgetStrategy(),
   ];
 
   final strategies = <String, MessageWidgetStrategy<IMessageData>>{};
@@ -34,9 +37,14 @@ void registerMessageStrategies() {
     MessageWidgetFactory(strategies, mockData),
   );
 
-  // 全局面板控制器 —— 任意位置可通过 GetIt 取到，操作整个消息面板。
-  // isRegistered 保护，防止热重载重复注册。
+  // 卡片交互依赖的全局对象（isRegistered 保护，防热重载重复注册）
   if (!getIt.isRegistered<MessagePanelController>()) {
     getIt.registerSingleton<MessagePanelController>(MessagePanelController());
+  }
+  if (!getIt.isRegistered<UserAuthService>()) {
+    getIt.registerSingleton<UserAuthService>(UserAuthService());
+  }
+  if (!getIt.isRegistered<RegisterFlowController>()) {
+    getIt.registerSingleton<RegisterFlowController>(RegisterFlowController());
   }
 }
