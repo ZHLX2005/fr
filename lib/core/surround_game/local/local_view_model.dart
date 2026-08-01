@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../engine/game_engine.dart';
 import '../models/game_state.dart';
 import '../surround_game_constants.dart';
+import '../../game_audio/piece_sound.dart';
 import 'local_match_state.dart';
 import 'local_match_event.dart';
 
@@ -9,13 +10,21 @@ import 'local_match_event.dart';
 ///
 /// 接收 [LocalMatchEvent] 事件，驱动引擎并产生新的 [LocalMatchState]。
 final class LocalViewModel extends ValueNotifier<LocalMatchState> {
-  LocalViewModel() : super(const LocalIdle());
+  LocalViewModel() : super(const LocalIdle()) {
+    // 预加载落子音，消除首次落子的加载延迟
+    PieceSound.instance.preload();
+  }
 
   /// 分发事件
   void dispatch(LocalMatchEvent event) {
     final next = reduce(value, event);
-    if (!identical(next, value)) {
+    final advanced = !identical(next, value);
+    if (advanced) {
       value = next;
+    }
+    // 落子（走棋 / 放墙）且状态确实前进 → 播放落子音（非法操作不响）
+    if (advanced && event is LocalMoveCommitted) {
+      PieceSound.instance.play();
     }
   }
 

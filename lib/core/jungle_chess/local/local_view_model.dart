@@ -2,15 +2,24 @@
 import 'package:flutter/foundation.dart';
 import '../engine/jungle_engine.dart';
 import '../models/piece.dart';
+import '../../game_audio/piece_sound.dart';
 import 'local_match_state.dart';
 import 'local_match_event.dart';
 
 final class LocalViewModel extends ValueNotifier<LocalMatchState> {
-  LocalViewModel() : super(const LocalIdle());
+  LocalViewModel() : super(const LocalIdle()) {
+    // 预加载落子音，消除首次落子的加载延迟
+    PieceSound.instance.preload();
+  }
 
   void dispatch(LocalMatchEvent event) {
     final next = reduce(value, event);
-    if (!identical(next, value)) value = next;
+    final advanced = !identical(next, value);
+    if (advanced) value = next;
+    // 走子且状态确实前进 → 播放落子音（非法 / 终局不响）
+    if (advanced && event is LocalMoveCommitted) {
+      PieceSound.instance.play();
+    }
   }
 
   static LocalMatchState reduce(LocalMatchState state, LocalMatchEvent event) {

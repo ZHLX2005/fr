@@ -30,6 +30,7 @@ import 'package:xiaodouzi_fr/core/surround_game/widgets/touch_controller.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/player_panel.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/confirm_actions.dart';
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
+import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Lobby Entry Page（单表单：输入昵称 + 房间码，按按钮即尝试加入/创建）
@@ -306,15 +307,22 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _snap = widget.handle.latest;
     _rebuildGs(_snap);
     _sub = widget.handle.snapshots.listen(_onSnapshot);
+    // 预加载落子音，消除首次落子的加载延迟
+    PieceSound.instance.preload();
   }
 
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
     final prevMyTurn = _isMyTurn;
+    final prevHistoryLen = _gs.history.length;
     setState(() {
       _snap = s;
       _rebuildGs(s);
     });
+    // 棋谱增长 = 有新落子（走子或放墙，自己或对方）→ 播放落子音
+    if (_gs.history.length > prevHistoryLen) {
+      PieceSound.instance.play();
+    }
     // 回合切换时，清掉残留的触摸/确认状态（防止按钮卡在 confirming）
     if (prevMyTurn && !_isMyTurn) {
       _touchCtrl.reset();

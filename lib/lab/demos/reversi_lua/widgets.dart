@@ -32,6 +32,7 @@ import 'engine.dart'
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show RelayV3Exception;
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
+import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Lobby Entry Page（单表单：输入昵称 + 房间码，按按钮即尝试加入/创建）
@@ -318,6 +319,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _snap = widget.handle.latest;
     _rebuild(_snap);
     _sub = widget.handle.snapshots.listen(_onSnapshot);
+    // 预加载落子音，消除首次落子的加载延迟
+    PieceSound.instance.preload();
   }
 
   void _onSnapshot(Snapshot s) {
@@ -327,6 +330,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _snap = s;
       _rebuild(s);
     });
+    // 棋谱增长 = 有新落子（自己或对方）→ 播放落子音
+    if (_moves.length > prevMoveCount) {
+      PieceSound.instance.play();
+    }
     if (_moves.length != prevMoveCount && _pendingPoint != null) {
       setState(() => _pendingPoint = null);
     }
