@@ -29,6 +29,19 @@ import '../../../../lab/demos/calendar/domain/event.dart';
 import '../../../../lab/demos/calendar/domain/person.dart';
 import 'const_storage_export.dart';
 
+/// 文本标记（导出端写入的 K/T/V/F/B）→ 消费者读取的字段名。
+///
+/// 历史坑：`_parse` 曾把每行直接存成 `{marker: value}`（即 `{'K':..,'T':..,'V':..}`），
+/// 但 prefs/hive/notes 三处消费者读的是 `item['key'/'type'/'value'/'name'/'base64']`，
+/// 导致 `item['key']!` 恒为 null 抛错、整段导入静默失败。这里统一把标记翻成字段名。
+const Map<String, String> _kFieldByMarker = {
+  'K': 'key',
+  'T': 'type',
+  'V': 'value',
+  'F': 'name',
+  'B': 'base64',
+};
+
 /// 导入进度
 class ImportProgress {
   final ImportStage stage;
@@ -241,7 +254,8 @@ class StorageImporter {
       final value = line.substring(sepIdx + 1);
 
       currentItem ??= <String, String>{};
-      currentItem[marker] = value;
+      // 标记 → 字段名（K→key / T→type / V→value / F→name / B→base64）
+      currentItem[_kFieldByMarker[marker] ?? marker] = value;
     }
     if (currentItem != null && currentSection != null) {
       _appendItem(result, currentSection, currentItem);

@@ -22,6 +22,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../storage_manager.dart';
 import '../storage_registry.dart';
+import '../../body/models/body_record.dart';
+import '../../../../lab/demos/calendar/domain/event.dart';
+import '../../../../lab/demos/calendar/domain/person.dart';
 import 'const_storage_export.dart';
 
 /// 导出进度
@@ -308,6 +311,19 @@ class StorageExporter {
 
   String _encodeValue(dynamic v) {
     if (v == null) return '';
+    // typed 对象必须走 toJson / 显式序列化 —— toString() 产出 "Instance of 'X'"
+    // 会让导入端 jsonDecode + fromJson 必败，typed box（日历事件/人物/身体记录）无法还原。
+    if (v is Event) return jsonEncode(v.toJson());
+    if (v is Person) return jsonEncode(v.toJson());
+    if (v is BodyRecord) {
+      // BodyRecord 无 toJson；按导入端 _decodeTypedValue 的字段契约手工序列化
+      return jsonEncode({
+        'bodyPartId': v.bodyPartId,
+        'content': v.content,
+        'painLevel': v.painLevel,
+        'createdAt': v.createdAt.toIso8601String(),
+      });
+    }
     if (v is Map || v is List) {
       try {
         return jsonEncode(v);
