@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../../core/storage/box_descriptor.dart';
+import '../../../../core/storage/hive_type_ids.dart';
 import '../../../../core/storage/storage_registry.dart';
 import '../domain/event.dart';
 import '../domain/person.dart';
@@ -16,9 +17,6 @@ class CalendarHive {
   static const eventsBoxName = 'calendarEvents';
   static const peopleBoxName = 'calendarPeople';
   static const viewStateBoxName = 'calendarViewState';
-
-  static const _eventTypeId = 90;
-  static const _personTypeId = 91;
 
   static bool _initialized = false;
   static bool _hiveFlutterInited = false;
@@ -38,10 +36,10 @@ class CalendarHive {
       _hiveFlutterInited = true;
     }
     // 注册 adapter（即使 box 已开也注册，下次开新 box 用得上）
-    if (!Hive.isAdapterRegistered(_eventTypeId)) {
+    if (!Hive.isAdapterRegistered(HiveTypeIds.calendarEvent)) {
       Hive.registerAdapter(EventAdapter());
     }
-    if (!Hive.isAdapterRegistered(_personTypeId)) {
+    if (!Hive.isAdapterRegistered(HiveTypeIds.calendarPerson)) {
       Hive.registerAdapter(PersonAdapter());
     }
     // 打开 box（已开则跳过）
@@ -58,7 +56,7 @@ class CalendarHive {
     StorageRegistry.register(BoxDescriptor<Event>(
       name: eventsBoxName,
       displayName: '日历事件',
-      typeId: _eventTypeId,
+      typeId: HiveTypeIds.calendarEvent,
       openTyped: () => Hive.openBox<Event>(eventsBoxName),
       formatValue: (v) {
         final e = v as Event;
@@ -77,7 +75,7 @@ class CalendarHive {
     StorageRegistry.register(BoxDescriptor<Person>(
       name: peopleBoxName,
       displayName: '人物档案',
-      typeId: _personTypeId,
+      typeId: HiveTypeIds.calendarPerson,
       openTyped: () => Hive.openBox<Person>(peopleBoxName),
       formatValue: (v) {
         final p = v as Person;

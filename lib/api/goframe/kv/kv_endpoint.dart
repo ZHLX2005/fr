@@ -21,7 +21,7 @@ class KvEndpoint {
       _client.request<void>(
         method: 'POST',
         path: '/api/v1/kv',
-        body: {'key': key, 'value': value, ?ttl: ttl},
+        body: {'key': key, 'value': value, if (ttl != null) 'ttl': ttl},
       );
 
   Future<ApiResponse<void>> delete(String key) => _client.request<void>(

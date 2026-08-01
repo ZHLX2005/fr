@@ -180,7 +180,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
             ),
           ],
         ),
-        ?overlay,
+        if (overlay != null) overlay,
       ],
     );
   }

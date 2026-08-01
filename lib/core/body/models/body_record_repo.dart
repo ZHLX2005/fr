@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'body_record.dart';
 import '../../storage/box_descriptor.dart';
+import '../../storage/hive_type_ids.dart';
 import '../../storage/storage_registry.dart';
 
 class BodyRecordRepo {
@@ -11,14 +12,14 @@ class BodyRecordRepo {
   Future<void> init() async {
     if (_initialized) return;
     await Hive.initFlutter();
-    if (!Hive.isAdapterRegistered(0)) {
+    if (!Hive.isAdapterRegistered(HiveTypeIds.bodyRecord)) {
       Hive.registerAdapter(BodyRecordAdapter());
     }
     _box = await Hive.openBox<BodyRecord>(_boxName);
     StorageRegistry.register(BoxDescriptor<BodyRecord>(
       name: _boxName,
       displayName: '身体记录',
-      typeId: 0,
+      typeId: HiveTypeIds.bodyRecord,
       openTyped: () => Hive.openBox<BodyRecord>(_boxName),
       formatValue: (v) {
         final r = v as BodyRecord;

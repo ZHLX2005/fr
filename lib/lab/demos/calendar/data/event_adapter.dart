@@ -1,14 +1,18 @@
 import 'package:hive/hive.dart';
 
+import '../../../../core/storage/hive_type_ids.dart';
 import '../domain/event.dart';
 import '../domain/recurrence.dart';
 
-/// Event 类型的 Hive TypeAdapter
+/// Event 类型的 Hive TypeAdapter（手写）
 ///
-/// typeId = 90（避开项目其它 adapter 0-9 的范围）
+/// 为什么手写：hive_generator 2.0.1 的枚举序列化格式
+/// （`writeByte(枚举typeId) + index`）与既有的 index-int 数据不兼容，
+/// 手写 adapter 用 `obj.type.index` / `values[index]` 保证旧数据可读。
+/// typeId 由 [HiveTypeIds] 集中分配。
 class EventAdapter extends TypeAdapter<Event> {
   @override
-  final int typeId = 90;
+  final int typeId = HiveTypeIds.calendarEvent;
 
   @override
   Event read(BinaryReader reader) {

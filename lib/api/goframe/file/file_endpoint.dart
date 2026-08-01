@@ -15,7 +15,7 @@ class FileEndpoint {
       _client.request<FileUploadResult>(
         method: 'POST',
         path: '/api/v1/upload',
-        body: {'file_name': fileName, 'file_bytes': bytes, ?ttl: ttl},
+        body: {'file_name': fileName, 'file_bytes': bytes, if (ttl != null) 'ttl': ttl},
         fromJson: (json) => FileUploadResult.fromJson(json),
       );
 
@@ -28,7 +28,7 @@ class FileEndpoint {
       _client.request<FileUploadResult>(
         method: 'POST',
         path: '/api/v1/upload/$key',
-        body: {'file_name': fileName, 'file_bytes': bytes, ?ttl: ttl},
+        body: {'file_name': fileName, 'file_bytes': bytes, if (ttl != null) 'ttl': ttl},
         fromJson: (json) => FileUploadResult.fromJson(json),
       );
 

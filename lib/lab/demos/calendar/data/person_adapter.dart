@@ -1,13 +1,15 @@
 import 'package:hive/hive.dart';
 
+import '../../../../core/storage/hive_type_ids.dart';
 import '../domain/person.dart';
 
-/// Person 类型的 Hive TypeAdapter
+/// Person 类型的 Hive TypeAdapter（手写）
 ///
-/// typeId = 91
+/// 为什么手写：同 [EventAdapter] —— hive_generator 2.0.1 的枚举序列化
+/// 与既有 index-int 数据不兼容。typeId 由 [HiveTypeIds] 集中分配。
 class PersonAdapter extends TypeAdapter<Person> {
   @override
-  final int typeId = 91;
+  final int typeId = HiveTypeIds.calendarPerson;
 
   @override
   Person read(BinaryReader reader) {
