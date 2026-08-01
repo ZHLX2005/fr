@@ -1,9 +1,16 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart' hide RichText;
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/storage/storage_manager.dart';
+import '../../core/storage/export/const_storage_export.dart';
+import '../../core/storage/export/storage_exporter.dart';
+import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
+import 'calendar/data/calendar_hive.dart';
 
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {
@@ -41,6 +48,18 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   List<NoteInfo> _noteList = [];
   NoteSummary _noteSummary = const NoteSummary(noteCount: 0, totalBlocks: 0, totalSize: 0);
 
+  // 导出/导入状态
+  bool _isExporting = false;
+  bool _isImporting = false;
+  ExportStage _exportStage = ExportStage.meta;
+  ImportStage _importStage = ImportStage.parse;
+  String _exportMessage = '';
+  String _importMessage = '';
+  int _exportCurrent = 0;
+  int _exportTotal = 0;
+  int _importCurrent = 0;
+  int _importTotal = 0;
+
   static const _mediaExtensions = {
     'jpg',
     'jpeg',
@@ -74,11 +93,26 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     super.dispose();
   }
 
+  /// 确保所有 typed Hive box 都注册了 adapter。
+  ///
+  /// main.dart 启动时只 init 了 timetable + body_records；calendar 是按需 init
+  /// 的。如果用户没先进过日历 demo 就打开存储分析页，calendarEvents /
+  /// calendarPeople 这类 typed box 不会进 StorageRegistry，面板看不到、导出也
+  /// 拿不到（缺 adapter 时 Hive 读会抛）。所以在加载 / 导出 / 导入前统一兜底。
+  Future<void> _ensureBoxesInitialized() async {
+    await _storage.init().timeout(const Duration(seconds: 10));
+    try {
+      await CalendarHive.init();
+    } catch (e) {
+      debugPrint('CalendarHive.init 失败（忽略）: $e');
+    }
+  }
+
   Future<void> _loadStorageData() async {
     setState(() => _isLoading = true);
 
     try {
-      await _storage.init().timeout(const Duration(seconds: 10));
+      await _ensureBoxesInitialized();
       final list = await _storage.getAllStorageInfo().timeout(const Duration(seconds: 10));
 
       final keyDetails = <String, List<KeyDetail>>{};
@@ -115,6 +149,158 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
           context,
         ).showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
+    }
+  }
+
+  Future<void> _onExport() async {
+    setState(() {
+      _isExporting = true;
+      _exportStage = ExportStage.meta;
+      _exportMessage = '准备导出';
+      _exportCurrent = 0;
+      _exportTotal = 0;
+    });
+
+    try {
+      // 先确保所有 typed box 已注册（calendar 等），否则导出会漏掉它们
+      await _ensureBoxesInitialized();
+
+      final exporter = StorageExporter(
+        onProgress: (p) {
+          if (mounted) {
+            setState(() {
+              _exportStage = p.stage;
+              _exportMessage = p.message;
+              _exportCurrent = p.current;
+              _exportTotal = p.total;
+            });
+          }
+        },
+      );
+
+      final result = await exporter.exportAll();
+
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+      });
+
+      // 展示导出结果对话框
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => _ExportResultDialog(
+          filePath: result.filePath,
+          totalKeys: result.totalKeys,
+          totalSize: result.totalSize,
+          timestamp: result.timestamp,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isExporting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导出失败: $e')),
+      );
+    }
+  }
+
+  Future<void> _onImport() async {
+    // 弹文件选择器
+    FilePickerResult? picked;
+    try {
+      picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['txt'],
+        allowMultiple: false,
+        withData: false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('文件选择失败: $e')),
+      );
+      return;
+    }
+    if (picked == null || picked.files.isEmpty) return;
+    final path = picked.files.single.path;
+    if (path == null) return;
+    final fileName = picked.files.single.name;
+
+    if (!mounted) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认导入'),
+        content: Text(
+          '将解析 "$fileName" 中的全部数据并写入。\n'
+          '建议先导出当前数据作为备份。\n'
+          '是否同时清空已有数据？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('保留'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清空后导入', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == null || !mounted) return;
+
+    setState(() {
+      _isImporting = true;
+      _importStage = ImportStage.read;
+      _importMessage = '准备导入';
+      _importCurrent = 0;
+      _importTotal = 0;
+    });
+
+    try {
+      // 先确保 typed box 已注册，导入时才能按 typed 类型写回（Event/Person 等）
+      await _ensureBoxesInitialized();
+
+      final importer = StorageImporter(
+        clearBeforeImport: confirm,
+        onProgress: (p) {
+          if (mounted) {
+            setState(() {
+              _importStage = p.stage;
+              _importMessage = p.message;
+              _importCurrent = p.current;
+              _importTotal = p.total;
+            });
+          }
+        },
+      );
+
+      final result = await importer.importFromFile(path);
+
+      if (!mounted) return;
+      setState(() {
+        _isImporting = false;
+      });
+
+      await _loadStorageData();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '导入完成: Hive ${result.hiveCount} 条 / 配置 ${result.prefsCount} 条 / '
+            '笔记 ${result.notesCount} 个'
+            '${result.errorCount > 0 ? ' / 错误 ${result.errorCount} 个' : ''}',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isImporting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导入失败: $e')),
+      );
     }
   }
 
@@ -260,18 +446,57 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _loadStorageData,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('刷新'),
-                ),
+              OutlinedButton.icon(
+                onPressed: _isExporting ? null : _loadStorageData,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('刷新'),
+              ),
+              FilledButton.icon(
+                onPressed: _isExporting ? null : _onExport,
+                icon: const Icon(Icons.upload_file, size: 18),
+                label: const Text('导出到文件'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _isImporting ? null : _onImport,
+                icon: const Icon(Icons.file_open, size: 18),
+                label: const Text('从文件导入'),
               ),
             ],
           ),
         ),
+        if (_isExporting || _isImporting)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isExporting
+                      ? '导出中: ${exportStageLabel(_exportStage)} - ${_exportMessage}'
+                      : '导入中: ${importStageLabel(_importStage)} - ${_importMessage}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if ((_isExporting && _exportTotal > 0) ||
+                    (_isImporting && _importTotal > 0))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: LinearProgressIndicator(
+                      value: (_isExporting
+                              ? _exportCurrent / _exportTotal
+                              : _importCurrent / _importTotal)
+                          .clamp(0.0, 1.0),
+                      minHeight: 4,
+                    ),
+                  ),
+              ],
+            ),
+          ),
         Expanded(
           child: _storageList.isEmpty && _noteList.isEmpty
               ? Center(
@@ -1562,6 +1787,134 @@ class FileItem {
     required this.size,
     required this.type,
   });
+}
+
+/// 导出结果对话框
+class _ExportResultDialog extends StatelessWidget {
+  final String filePath;
+  final int totalKeys;
+  final int totalSize;
+  final String timestamp;
+
+  const _ExportResultDialog({
+    required this.filePath,
+    required this.totalKeys,
+    required this.totalSize,
+    required this.timestamp,
+  });
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green),
+                const SizedBox(width: 8),
+                const Text('导出成功', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _kvRow('条目数', '$totalKeys'),
+            _kvRow('数据量', _formatSize(totalSize)),
+            _kvRow('时间', timestamp),
+            const SizedBox(height: 12),
+            const Text('文件路径', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(
+                filePath,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '文件已存到「内部存储/Android/data/小豆子/files/exports/」，'
+              '可用文件管理器找到。点「分享/保存到…」可一键存到 Download 或发到另一台设备。',
+              style: TextStyle(color: Colors.grey[700], fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: filePath));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('路径已复制')),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('复制路径'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      // 通过系统分享面板，用户可保存到 Download / Files / 发到另一台设备
+                      Share.shareXFiles(
+                        [XFile(filePath)],
+                        text: '存储数据备份',
+                      );
+                    },
+                    icon: const Icon(Icons.ios_share, size: 18),
+                    label: const Text('分享/保存到…'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('关闭'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kvRow(String k, String v) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(width: 60, child: Text(k, style: TextStyle(color: Colors.grey[600]))),
+          Expanded(
+            child: Text(v, style: const TextStyle(fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 void registerStorageAnalyzeDemo() {

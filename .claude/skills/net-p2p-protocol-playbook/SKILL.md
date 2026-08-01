@@ -19,6 +19,7 @@ description: 当用户提及 Relay/LAN/快照/action 流/net_p2p/net_engine 协�
 | ref | 何时读取 |
 |---|---|
 | [[references/v3-lua-state-machine]] | **新功能默认走这个**。需要"服务端权威业务逻辑""客户端上传 Lua 定义状态机""多场景/多租户不同状态流转""排查业务逻辑前后端重复"时。v2 的继任者，已删除 v2 改用 v3。互联网 Relay 模式推荐。 |
+| [[references/v4-coup-bugfixes]] | **Coup Lua 游戏状态机问题排查和修复参考**。需要排查"死锁""金币吞噬""双方等待""EXCHANGE 卡死""FOREIGN_AID 阻断失效"等问题时。v3 的完整修复记录，包含服务端状态机和前端 UI 的所有修复细节。 |
 | [[references/v2-snapshot-driven]] | 维护老代码时（v2 已删除，仅用于理解历史和迁移）。理解 v3 为什么出现。 |
 | [[references/v1-action-driven]] | 维护 LAN 模式时。老 LAN 模式（不需升级到 v2/v3 时）。 |
 
