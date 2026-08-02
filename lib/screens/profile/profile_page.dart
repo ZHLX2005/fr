@@ -4,7 +4,7 @@ import 'native_controller/native_controller_page.dart';
 import 'lab/lab_page.dart';
 import 'lab/game_center_page.dart';
 import '../../lab/lab_container.dart';
-import '../banner_crop_page.dart';
+import 'banner_crop_page.dart';
 import 'theme/theme_page.dart';
 import '../../widgets/springy_banner.dart';
 import '../../widgets/bounded_bouncing_scroll_physics.dart';
