@@ -1,6 +1,7 @@
 # 桌面小组件点击 → 直达具体 Demo 页面
 
 本 ref 沉淀自 2026-07 `clock_widget` "点击直达 clock 页面"实战(用户反馈:点击 widget 只进 lab 首页,多一步跳转)。
+2026-08 补充:录音机 widget / notion widget 深链失效实战 → 新增「带 query 的 URI 必须 `startsWith`」必踩坑。
 
 适用任何 **widget 主体点击 → 打开 Flutter 内某个具体页面** 的场景,与现有 `fr://` 路由体系无缝对接。
 
@@ -11,6 +12,7 @@
 - 给新 widget(`CalendarWidget`/`TimetableWidget` 等)做主体点击跳转
 - 想利用现有 `fr://lab/demo/{slug}` 路由而不重新写一套 Intent extra 解析
 - 排查 "widget 点击后页面被多次 push / 返回手势要折叠多次" 类 bug
+- 排查 "点击 widget 只进 app 首页,进不到 demo,且 notion/recorder 都失效" 类 bug → **带 query 的 URI 用 `==` 匹配了**(见下方必踩坑)
 
 ## 核心架构:Intent.data → fr:// URL → Flutter 路由
 
@@ -103,6 +105,8 @@ when {
     }
 }
 ```
+
+> ⚠️ **⚠️ 带 query 的 URI 必须用 `startsWith`,不能用 `==`。** 见下方「必踩坑:query URI 精确匹配失效」。
 
 **为何三种 URI 都接受?**
 
@@ -215,6 +219,47 @@ nav.push(MaterialPageRoute(settings: RouteSettings(name: routeName), builder: ..
 - 滑出 app → 再次点 widget → 又 push 一个 clock
 - 退出要按两次 back
 
+## 必踩坑:带 query 的 URI 必须 `startsWith`,不能 `==`
+
+> 沉淀自 2026-08 录音机 widget + notion widget 深链失效实战。
+> 症状:点击 widget 只进 app 首页,进不到对应 demo,logcat 里
+> `MainActivity` 无任何 `navigateToXxx` 日志(handleIntent 静默 drop)。
+
+**根因**:`Uri.parse("fr://lab/demo/recorder?autostart=true")` 拆解后:
+
+```kotlin
+uriStr        = "fr://lab/demo/recorder?autostart=true"  // 带 query,不再等于纯 path
+uri.authority = "lab"                                     // host 段
+uri.path      = "/demo/recorder"                          // 不含 "lab"(authority 里)
+```
+
+所以 **widget 发出的带 query 的 URI,任何一个 `==` 条件都匹配不上**:
+
+```kotlin
+// ❌ 错误:widget 发 fr://lab/demo/recorder?autostart=true,三个 == 全 miss → 静默 drop
+uriStr == "fr://recorder" || uriStr == "fr://lab/demo/recorder" ||
+    uri.path == "/lab/demo/recorder" -> { ... }
+
+// ✅ 正确:startsWith 天然兼容带 query 与不带 query
+uriStr == "fr://recorder" || uriStr.startsWith("fr://lab/demo/recorder") ||
+    uri.path == "/demo/recorder" -> { ... }   // ← path 也要对齐 Uri 语义(不含 authority)
+```
+
+**判定规则**:
+
+| 场景 | 用 `==` | 用 `startsWith` |
+|------|---------|-----------------|
+| URI 永远无 query(如 clock widget `fr://lab/demo/clock`) | ✅ 可 | ✅ 也可 |
+| URI 可能带 query(如 notion `fr://notionimg?autocapture=1`、recorder `?autostart=true`) | ❌ 必 miss | ✅ 必须 |
+
+**通用原则**:handleIntent 的 when 分支一律用 `startsWith(prefix)` 兜底 query,
+尤其当 widget PendingIntent 里带了 `?xxx=true` 这类动作参数时。
+
+**`uri.path` 分支的第二个坑**:`Uri.path` 返回的是 **authority 之后的 path 段**,
+不含 host(`fr://lab/demo/recorder` 的 path 是 `/demo/recorder`,不是 `/lab/demo/recorder`)。
+写 `uri.path == "/lab/demo/recorder"` 永远匹配不到 —— 要么写 `/demo/recorder`,
+要么干脆省略 path 分支,只靠 `startsWith` 就够了。
+
 ## 错误案例
 
 | 错误操作 | 实际后果 | 正确做法 |
@@ -226,6 +271,8 @@ nav.push(MaterialPageRoute(settings: RouteSettings(name: routeName), builder: ..
 | 改完不删桌面旧 widget 实例 | 部分 launcher 把 Intent Intent extras 缓存,看不到新效果 | 长按删除旧 widget,重新从 picker 添加(只针对改 manifest 的场景;改 Intent.data 通常无需重添) |
 | PendingIntent requestCode 写 `appWidgetId` 配合 `getActivity` | 无害但不必要;`getActivity` 走系统启动器,系统按 data 区分 | `getActivity` 用 0 即可,只有 `getBroadcast`/`getService` 需要 appWidgetId |
 | 漏写 `FLAG_IMMUTABLE` (Android 12+) | `IllegalArgumentException` 崩溃,widget 完全无法点击 | `FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE` |
+| widget 发 `fr://lab/demo/recorder?autostart=true`,handleIntent 用 `==` 精确匹配 | 三个 `==` 条件全 miss,handleIntent 静默 drop → 点击 widget 只进 app 首页,进不到 demo | 用 `startsWith("fr://lab/demo/recorder")` 兜底 query |
+| `uri.path == "/lab/demo/recorder"` | `Uri.path` 是 authority 之后的段 = `/demo/recorder`,此条件永远匹配不到 | 写 `/demo/recorder`,或省略 path 分支只靠 `startsWith` |
 
 ## 验证清单
 
@@ -235,6 +282,7 @@ nav.push(MaterialPageRoute(settings: RouteSettings(name: routeName), builder: ..
 - [ ] `flutter build apk --debug` 成功(Kotlin 编译过)
 - [ ] `WidgetChannel.kt` 三处齐全: when 分支 / `onNavigateToXxx` 字段 / `notifyNavigateToXxx()` 方法
 - [ ] `MainActivity.handleIntent` when 分支包含新 URI,且与 WidgetChannel method name 一致
+- [ ] **带 query 的 URI 用 `startsWith` 匹配**(`fr://xxx?flag=true` 用 `==` 会静默 drop;`uri.path` 不含 authority 段)
 - [ ] `main.dart _handleMethodCall` switch 包含新 method,翻译出的 fr:// URL 与 `bootstrap_routes.dart` 注册的 authority 对齐
 - [ ] **冷启动验证**:kill app → 点 widget → 应直接进入目标 demo(不经过 lab 首页)
 - [ ] **温启动验证**:app 在后台 → 点 widget → 应直接进入目标 demo,不堆叠新实例
@@ -268,7 +316,9 @@ fun notifyNavigateToXxx() { channel.invokeMethod("navigateToXxx", null) }
 
 ```kotlin
 // MainActivity.kt handleIntent when
-uriStr == "fr://lab/demo/<slug>" -> widgetChannel.notifyNavigateToXxx()
+// ⚠️ 用 startsWith 而不是 == —— 若 widget 带 ?autostart=true 之类 query,== 必 miss(见上方必踩坑)
+uriStr == "fr://lab/demo/<slug>" || uriStr.startsWith("fr://lab/demo/<slug>") ->
+    widgetChannel.notifyNavigateToXxx()
 
 // main.dart _handleMethodCall switch
 'navigateToXxx' => 'fr://lab/demo/<slug>',
