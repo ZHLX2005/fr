@@ -5,7 +5,6 @@ import '../interfaces/interfaces.dart';
 import '../data/register_message_data.dart';
 import '../panel/register_flow_controller.dart';
 import '../../../api/user/user_auth_service.dart';
-import '../../../core/design/slate_palette.dart';
 
 /// Strategy for rendering Register messages.
 ///
@@ -51,20 +50,15 @@ Widget _stepShell(
   required List<Widget> children,
 }) {
   final theme = Theme.of(context);
-  final isDark = theme.brightness == Brightness.dark;
   return Container(
     constraints: const BoxConstraints(maxWidth: 320),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: theme.colorScheme.surface,
-      borderRadius: BorderRadius.circular(SlatePalette.radius),
-      boxShadow: [
-        BoxShadow(
-          color: isDark ? SlatePalette.darkShadow : SlatePalette.lightShadow,
-          blurRadius: 6,
-          offset: const Offset(0, 1),
-        ),
-      ],
+      color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.25),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: theme.colorScheme.tertiary.withValues(alpha: 0.4),
+      ),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -175,7 +169,11 @@ class _EmailStepState extends State<_EmailStep> {
           controller: _emailCtrl,
           keyboardType: TextInputType.emailAddress,
           readOnly: _sent,
-          decoration: const InputDecoration(labelText: '邮箱'),
+          decoration: const InputDecoration(
+            labelText: '邮箱',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -244,6 +242,8 @@ class _CodeStepState extends State<_CodeStep> {
           maxLength: 6,
           decoration: const InputDecoration(
             labelText: '验证码',
+            border: OutlineInputBorder(),
+            isDense: true,
             counterText: '',
           ),
         ),
@@ -309,7 +309,11 @@ class _PasswordStepState extends State<_PasswordStep> {
         TextField(
           controller: _pwdCtrl,
           obscureText: _obscure,
-          decoration: const InputDecoration(labelText: '密码（≥6 位）'),
+          decoration: const InputDecoration(
+            labelText: '密码（≥6 位）',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -317,6 +321,8 @@ class _PasswordStepState extends State<_PasswordStep> {
           obscureText: _obscure,
           decoration: InputDecoration(
             labelText: '确认密码',
+            border: const OutlineInputBorder(),
+            isDense: true,
             suffixIcon: IconButton(
               icon: Icon(
                 _obscure ? Icons.visibility_off : Icons.visibility,
@@ -394,12 +400,20 @@ class _InviteStepState extends State<_InviteStep> {
       children: [
         TextField(
           controller: _inviteCtrl,
-          decoration: const InputDecoration(labelText: '邀请码（必填）'),
+          decoration: const InputDecoration(
+            labelText: '邀请码（必填）',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _nickCtrl,
-          decoration: const InputDecoration(labelText: '昵称（可选）'),
+          decoration: const InputDecoration(
+            labelText: '昵称（可选）',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -446,17 +460,11 @@ class _SuccessStep extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 320),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(SlatePalette.radius),
-        boxShadow: [
-          BoxShadow(
-            color: theme.brightness == Brightness.dark
-                ? SlatePalette.darkShadow
-                : SlatePalette.lightShadow,
-            blurRadius: 6,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -49,7 +49,6 @@ class _WaveCapsuleState extends State<_WaveCapsule>
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -58,11 +57,11 @@ class _WaveCapsuleState extends State<_WaveCapsule>
           width: 60,
           height: 160,
           decoration: BoxDecoration(
-            color: scheme.primaryContainer,
+            color: const Color(0xFFE8EDFE),
             borderRadius: BorderRadius.circular(80),
             boxShadow: [
               BoxShadow(
-                color: scheme.shadow,
+                color: Colors.grey.withValues(alpha: 0.4),
                 offset: const Offset(2, 2),
                 blurRadius: 4,
               ),
@@ -77,7 +76,6 @@ class _WaveCapsuleState extends State<_WaveCapsule>
                   painter: _WavePainter(
                     waveValue: _controller.value,
                     level: _level,
-                    waveColor: scheme.primary,
                   ),
                   child: Center(
                     child: Column(
@@ -85,18 +83,18 @@ class _WaveCapsuleState extends State<_WaveCapsule>
                       children: [
                         Text(
                           _level.round().toString(),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 24,
-                            color: scheme.onPrimary,
+                            color: Colors.white,
                           ),
                         ),
-                        Text(
+                        const Text(
                           '%',
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 14,
-                            color: scheme.onPrimary,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -124,14 +122,13 @@ class _WaveCapsuleState extends State<_WaveCapsule>
   }
 
   Widget _buildControlButton(IconData icon, VoidCallback onTap) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
+        color: const Color(0xFFFAFAFA),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: scheme.shadow,
+            color: const Color(0xFF2633C5).withValues(alpha: 0.4),
             offset: const Offset(2, 2),
             blurRadius: 6,
           ),
@@ -142,7 +139,7 @@ class _WaveCapsuleState extends State<_WaveCapsule>
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Icon(icon, color: scheme.primary, size: 24),
+          child: Icon(icon, color: const Color(0xFF2633C5), size: 24),
         ),
       ),
     );
@@ -152,13 +149,10 @@ class _WaveCapsuleState extends State<_WaveCapsule>
 class _WavePainter extends CustomPainter {
   final double waveValue;
   final int level;
-  final Color waveColor;
 
-  _WavePainter({
-    required this.waveValue,
-    required this.level,
-    required this.waveColor,
-  });
+  static const Color _nearlyDarkBlue = Color(0xFF2633C5);
+
+  _WavePainter({required this.waveValue, required this.level});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -183,7 +177,7 @@ class _WavePainter extends CustomPainter {
     canvas.drawPath(
       path1,
       Paint()
-        ..color = waveColor.withValues(alpha: 0.5)
+        ..color = _nearlyDarkBlue.withValues(alpha: 0.5)
         ..style = PaintingStyle.fill,
     );
 
@@ -202,16 +196,14 @@ class _WavePainter extends CustomPainter {
     canvas.drawPath(
       path2,
       Paint()
-        ..color = waveColor
+        ..color = _nearlyDarkBlue
         ..style = PaintingStyle.fill,
     );
   }
 
   @override
   bool shouldRepaint(_WavePainter oldDelegate) {
-    return oldDelegate.waveValue != waveValue ||
-        oldDelegate.level != level ||
-        oldDelegate.waveColor != waveColor;
+    return oldDelegate.waveValue != waveValue || oldDelegate.level != level;
   }
 }
 

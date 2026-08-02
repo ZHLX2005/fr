@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/design/slate_palette.dart';
 import '../interfaces/interfaces.dart';
 import '../data/ask_message_data.dart';
 
@@ -83,8 +82,14 @@ class _AskMessageContentState extends State<_AskMessageContent> {
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
+                OutlinedButton(
                   onPressed: _handleConfirm,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
                   child: const Text('确认'),
                 ),
               ],
@@ -99,7 +104,10 @@ class _AskMessageContentState extends State<_AskMessageContent> {
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(SlatePalette.radius),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.3),
+        ),
       ),
       child: TextField(
         controller: _controller,
@@ -122,8 +130,11 @@ class _AskMessageContentState extends State<_AskMessageContent> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(SlatePalette.radius),
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         children: [

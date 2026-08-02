@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/design/slate_palette.dart';
 import '../interfaces/interfaces.dart';
 import '../data/selection_message_data.dart';
 
@@ -94,7 +93,7 @@ class _SelectionMessageContentState extends State<_SelectionMessageContent> {
           Text(
             widget.data.multiSelect ? '可多选' : '单选',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 12),
@@ -116,8 +115,14 @@ class _SelectionMessageContentState extends State<_SelectionMessageContent> {
                   child: const Text('取消'),
                 ),
                 const SizedBox(width: 8),
-                FilledButton(
+                OutlinedButton(
                   onPressed: _handleConfirm,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
                   child: const Text('确认'),
                 ),
               ],
@@ -136,7 +141,7 @@ class _SelectionMessageContentState extends State<_SelectionMessageContent> {
           padding: const EdgeInsets.only(bottom: 8),
           child: InkWell(
             onTap: () => _toggleSelection(option.id),
-            borderRadius: BorderRadius.circular(SlatePalette.radius),
+            borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 12,
@@ -146,7 +151,13 @@ class _SelectionMessageContentState extends State<_SelectionMessageContent> {
                 color: isSelected
                     ? theme.colorScheme.primaryContainer
                     : theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(SlatePalette.radius),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline.withValues(alpha: 0.3),
+                  width: isSelected ? 2 : 1,
+                ),
               ),
               child: Row(
                 children: [
@@ -157,7 +168,7 @@ class _SelectionMessageContentState extends State<_SelectionMessageContent> {
                     size: 20,
                     color: isSelected
                         ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -184,8 +195,11 @@ class _SelectionMessageContentState extends State<_SelectionMessageContent> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(SlatePalette.radius),
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         children: [

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import '../../../core/design/slate_palette.dart';
 import '../interfaces/interfaces.dart';
 import '../factory/factory.dart';
 import '../panel/panel.dart';
@@ -54,21 +53,16 @@ class _CardManagerContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 320),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(SlatePalette.radius),
-        boxShadow: [
-          BoxShadow(
-            color: isDark ? SlatePalette.darkShadow : SlatePalette.lightShadow,
-            blurRadius: 6,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.tertiary.withValues(alpha: 0.4),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,7 +71,7 @@ class _CardManagerContent extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.dashboard_customize,
-                  size: 18, color: theme.colorScheme.primary),
+                  size: 18, color: theme.colorScheme.tertiary),
               const SizedBox(width: 6),
               Text(
                 data.title,
@@ -90,7 +84,7 @@ class _CardManagerContent extends StatelessWidget {
           Text(
             '点按钮追加卡片到面板（经全局 MessagePanelController）',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 10),
@@ -99,18 +93,9 @@ class _CardManagerContent extends StatelessWidget {
             runSpacing: 8,
             children: _buttons
                 .map((b) => ActionChip(
-                      avatar: Icon(b.icon,
-                          size: 16, color: theme.colorScheme.primary),
+                      avatar: Icon(b.icon, size: 16),
                       label: Text(b.label),
                       onPressed: () => _appendCard(b.type),
-                      backgroundColor:
-                          theme.colorScheme.surfaceContainerHighest,
-                      labelStyle: TextStyle(color: theme.colorScheme.primary),
-                      side: BorderSide.none,
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(SlatePalette.radius),
-                      ),
                     ))
                 .toList(),
           ),
@@ -120,7 +105,7 @@ class _CardManagerContent extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: FilledButton.icon(
+                child: FilledButton.tonalIcon(
                   onPressed: _appendLogin,
                   icon: const Icon(Icons.login, size: 18),
                   label: const Text('登录卡'),
@@ -128,7 +113,7 @@ class _CardManagerContent extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: FilledButton.icon(
+                child: FilledButton.tonalIcon(
                   onPressed: _startRegister,
                   icon: const Icon(Icons.person_add, size: 18),
                   label: const Text('开始注册'),

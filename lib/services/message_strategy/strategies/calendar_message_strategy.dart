@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../interfaces/interfaces.dart';
 import '../data/calendar_message_data.dart';
-import '../../../core/design/slate_palette.dart';
 
 /// 日历消息组件（保留日期范围选择交互）
 class _CalendarMessageWidget extends StatefulWidget {
@@ -43,19 +42,11 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(SlatePalette.radius),
-        boxShadow: [
-          BoxShadow(
-            color: isDark ? SlatePalette.darkShadow : SlatePalette.lightShadow,
-            blurRadius: 6,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(8),
       child: Column(

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../design/slate_theme.dart';
-
 /// 应用主题模式枚举
 enum AppThemeMode {
   /// 浅色模式（默认蓝色主题）
@@ -844,11 +842,10 @@ class AppTheme {
   /// 根据模式获取主题数据
   static ThemeData getThemeData(AppThemeMode mode) {
     switch (mode) {
-      // light / dark 使用 Slate 设计系统（无边框 + 去塑料感）
       case AppThemeMode.light:
-        return SlateTheme.light();
+        return createLightTheme();
       case AppThemeMode.dark:
-        return SlateTheme.dark();
+        return createDarkTheme();
       case AppThemeMode.pink:
         return createPinkTheme();
       case AppThemeMode.green:
