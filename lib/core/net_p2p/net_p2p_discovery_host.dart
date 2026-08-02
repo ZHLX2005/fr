@@ -3,7 +3,10 @@
 // NetP2P 入口 — LAN 局域网发现 / Relay 互联网房间（v3 Lua 状态机 + 大厅等待）
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
+import 'package:xiaodouzi_fr/core/net_engine/lan/lan_discovery.dart';
+import 'package:xiaodouzi_fr/core/net_engine/lan/transport.dart';
+import 'package:xiaodouzi_fr/core/net_engine/pages/net_engine_debug_page.dart';
+import 'package:xiaodouzi_fr/core/net_engine/pages/net_engine_settings_page.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_widget.dart';
 
@@ -24,7 +27,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
   _Mode _mode = _Mode.lan;
 
   // LAN 模式连接状态
-  fw.Transport? _lanTransport;
+  Transport? _lanTransport;
   String? _lanMyNodeId;
   String? _lanPeerAlias;
   String? _lanSessionScope;
@@ -41,7 +44,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
 
   // ——— LAN 模式 ———
 
-  void _onLanConnected(fw.DiscoveredPeer peer, fw.Transport transport) {
+  void _onLanConnected(DiscoveredPeer peer, Transport transport) {
     final ids = [transport.myNodeId, peer.id];
     ids.sort();
     final scope = 'chat-${ids[0]}-${ids[1]}';
@@ -103,7 +106,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const fw.NetEngineSettingsPage(),
+                builder: (_) => const NetEngineSettingsPage(),
               ),
             ),
           ),
@@ -111,7 +114,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
             icon: const Icon(Icons.bug_report),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const fw.NetEngineDebugPage()),
+              MaterialPageRoute(builder: (_) => const NetEngineDebugPage()),
             ),
           ),
         ],
@@ -141,7 +144,7 @@ class _NetP2PPageState extends State<NetP2PPage> {
 
   Widget _buildDiscoveryView() {
     if (_mode == _Mode.lan) {
-      return fw.LanDiscovery().buildPage(
+      return LanDiscovery().buildPage(
         onPeerSelected: _onLanConnected,
         onError: (e) {
           if (mounted) {

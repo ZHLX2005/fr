@@ -37,7 +37,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'relay_device_id.dart';
-import 'package:xiaodouzi_fr/core/net_engine/widgets/participants_grid.dart';
+import 'participants_grid.dart';
 
 import 'relay_v3_transport.dart';
 

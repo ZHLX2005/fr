@@ -5,7 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
+import 'package:xiaodouzi_fr/core/net_engine/lan/transport.dart';
 
 /// 聊天消息模型
 class _ChatMsg {
@@ -38,7 +38,7 @@ class NetP2PChatPage extends StatefulWidget {
     this.onLeave,
   });
 
-  final fw.Transport transport;
+  final Transport transport;
   final String scope;
   final String myNodeId;
   final String peerAlias;
@@ -52,7 +52,7 @@ class _NetP2PChatPageState extends State<NetP2PChatPage> {
   final _textCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   final _msgs = <_ChatMsg>[];
-  StreamSubscription<fw.DataLog>? _scopeSub;
+  StreamSubscription<DataLog>? _scopeSub;
 
   @override
   void initState() {
@@ -73,7 +73,7 @@ class _NetP2PChatPageState extends State<NetP2PChatPage> {
     super.dispose();
   }
 
-  void _onScopeUpdate(fw.DataLog log) {
+  void _onScopeUpdate(DataLog log) {
     final raw = log.state['messages'];
     if (raw is! List) return;
     setState(() {
