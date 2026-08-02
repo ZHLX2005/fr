@@ -3,13 +3,16 @@ import 'package:get_it/get_it.dart';
 import '../../services/message_strategy/interfaces/interfaces.dart';
 import '../../services/message_strategy/factory/factory.dart';
 import '../../services/message_strategy/panel/panel.dart';
-import '../../services/message_strategy/data/card_manager_message_data.dart';
 
 /// 格式兼容性 / 消息策略聚合测试页。
 ///
 /// 监听全局 [MessagePanelController]，统一渲染所有消息卡片：
 /// - 输入 type 或点 chip → 追加对应 mock 卡
-/// - card_manager 卡作为调度入口，点其按钮可追加其它卡或启动登录/注册流程
+/// - card_manager 卡本身也是一张普通卡（输入 `card_manager` 唤出），
+///   唤出后可作为调度入口，点其按钮追加其它卡或启动登录/注册流程
+///
+/// 面板不预置任何卡片 —— 所有卡片（含 card_manager）一律通过底部输入唤出，
+/// 不 pin 任何一张，保证面板初始为空、内容完全由用户驱动。
 ///
 /// 登录、注册等交互卡片都 append 到同一个全局控制器，在此页统一展示，
 /// 不再为它们单独建页面。
@@ -35,10 +38,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     _panel = GetIt.instance<MessagePanelController>();
     _factory = GetIt.instance<MessageWidgetFactory>();
     _supportedTypes = _factory.supportedTypes;
-    // 进入时若面板为空，放一张 card_manager 卡作为调度入口
-    if (_panel.isEmpty) {
-      _panel.append(const CardManagerMessageData());
-    }
+    // 不预置任何卡片：card_manager 与其它卡一视同仁，由底部输入唤出
   }
 
   @override
@@ -78,9 +78,9 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     _panel.append(_factory.getMockData(t));
   }
 
+  /// 重置 = 清空面板（不回填 card_manager，保持"全部由输入唤出"）
   void _reset() {
     _panel.clear();
-    _panel.append(const CardManagerMessageData());
   }
 
   @override
@@ -132,7 +132,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                 final messages = _panel.messages;
                 _scrollToBottom();
                 if (messages.isEmpty) {
-                  return const Center(child: Text('面板为空'));
+                  return _buildEmptyHint();
                 }
                 return ListView.builder(
                   controller: _scrollController,
@@ -165,6 +165,47 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
           ),
           _buildInputArea(),
         ],
+      ),
+    );
+  }
+
+  /// 空面板提示 —— 面板初始为空是正常状态，引导用户从底部唤出卡片。
+  Widget _buildEmptyHint() {
+    final theme = Theme.of(context);
+    final hintColor = theme.colorScheme.onSurfaceVariant;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 44,
+              color: hintColor.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '面板为空',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: hintColor,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '在底部输入 type 或点下方胶囊唤出卡片\n'
+              '输入 card_manager 可唤出卡片管理器',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: hintColor.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
