@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'chat/agent_chat_page.dart';
-import 'chat/format_compatibility_page.dart';
+import '../../core/ai_chat/agent_chat_page.dart';
+import '../../core/message_strategy/format_compatibility_page.dart';
 
 /// AI 助手功能入口条目配置。
 ///

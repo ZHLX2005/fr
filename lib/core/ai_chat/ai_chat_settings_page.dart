@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../services/ai_chat/ai_chat_provider.dart';
-import '../../../services/ai_chat/agent_chat_provider.dart';
-import '../../../services/ai_chat/ai_chat_models.dart';
+import '../../services/ai_chat/ai_chat_provider.dart';
+import '../../services/ai_chat/agent_chat_provider.dart';
+import '../../services/ai_chat/ai_chat_models.dart';
 
 /// AI 聊天设置页面
 class AIChatSettingsPage extends StatefulWidget {
