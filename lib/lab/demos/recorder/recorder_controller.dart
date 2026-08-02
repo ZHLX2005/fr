@@ -101,12 +101,12 @@ class RecorderController extends ChangeNotifier {
     try {
       final dir = await _recordingsDir();
       final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final filename =
-          '${RecorderConsts.filePrefix}${ts}.${RecorderConsts.fileExt}';
+      final filename = '${RecorderConsts.filePrefix}$ts.${RecorderConsts.fileExt}';
       final path = '${dir.path}${Platform.pathSeparator}$filename';
 
+      // record 6.x:直接用 AudioEncoder enum,不再需要 EncoderConfig 工厂。
       final config = RecordConfig(
-        encoder: _encoderFromString(RecorderDefaults.encoder),
+        encoder: AudioEncoder.aacLc,
         bitRate: RecorderDefaults.bitRate,
         sampleRate: RecorderDefaults.sampleRate,
         numChannels: RecorderDefaults.numChannels,
@@ -215,7 +215,7 @@ class RecorderController extends ChangeNotifier {
       if (_state != RecorderState.recording) return;
       _elapsed += const Duration(seconds: 1);
       // ticker 不调用 notifyListeners —— UI 用 AnimatedBuilder 订阅
-      // errorNotifier/状态变化驱动重 build;时长由 _TickerNotifier 暴露。
+      // errorNotifier/状态变化驱动重 build;时长由 _tickNotifier 暴露。
       _tickNotifier.value = _elapsed;
     });
   }
@@ -234,26 +234,13 @@ class RecorderController extends ChangeNotifier {
 
   Future<Directory> _recordingsDir() async {
     final docs = await getApplicationDocumentsDirectory();
-    final dir = Directory('${docs.path}${Platform.pathSeparator}${RecorderConsts.dirName}');
+    final dir = Directory(
+      '${docs.path}${Platform.pathSeparator}${RecorderConsts.dirName}',
+    );
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
     return dir;
-  }
-
-  EncoderConfig _encoderFromString(String s) {
-    return switch (s) {
-      'aacLc' => AudioEncoder.aacLc,
-      'aacEld' => AudioEncoder.aacEld,
-      'aacHe' => AudioEncoder.aacHe,
-      'amrNb' => AudioEncoder.amrNb,
-      'amrWb' => AudioEncoder.amrWb,
-      'opus' => AudioEncoder.opus,
-      'flac' => AudioEncoder.flac,
-      'pcm16bits' => AudioEncoder.pcm16bits,
-      'wav' => AudioEncoder.wav,
-      _ => AudioEncoder.aacLc,
-    };
   }
 
   void _emitError(String msg) {

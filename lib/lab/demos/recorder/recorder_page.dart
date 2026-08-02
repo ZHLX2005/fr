@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'recorder_controller.dart';
+import 'const_recorder.dart';
 
 /// 录音机 widget 桥接 —— 给桌面 widget 点击后的 autostart 用。
 ///
@@ -101,7 +104,7 @@ class _RecorderDemoPageState extends State<RecorderDemoPage> {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
             ..showSnackBar(SnackBar(
-              content: Text('${RecorderUiTextText.saved}$path'),
+              content: Text('${RecorderUiText.savedPrefix}$path'),
             ));
         }
       },
@@ -322,8 +325,8 @@ class _PermissionBanner extends StatelessWidget {
             children: [
               Text(
                 isPermanent
-                    ? RecorderUiTextText.permissionDeniedHint
-                    : RecorderUiTextText.requestPermission,
+                    ? RecorderUiText.permissionDeniedHint
+                    : RecorderUiText.requestPermission,
                 style: TextStyle(color: Colors.orange.shade900),
               ),
               const SizedBox(height: 8),
@@ -370,7 +373,7 @@ class _ControlPanel extends StatelessWidget {
             buttons = [
               _RecordButton(
                 icon: Icons.fiber_manual_record,
-                label: RecorderUiTextText.start,
+                label: RecorderUiText.start,
                 color: Colors.redAccent,
                 onPressed: onStart,
               ),
@@ -380,13 +383,13 @@ class _ControlPanel extends StatelessWidget {
             buttons = [
               _RecordButton(
                 icon: Icons.pause,
-                label: RecorderUiTextText.pause,
+                label: RecorderUiText.pause,
                 color: Colors.orange,
                 onPressed: onPause,
               ),
               _RecordButton(
                 icon: Icons.stop,
-                label: RecorderUiTextText.stop,
+                label: RecorderUiText.stop,
                 color: Colors.grey,
                 onPressed: onStop,
               ),
@@ -396,13 +399,13 @@ class _ControlPanel extends StatelessWidget {
             buttons = [
               _RecordButton(
                 icon: Icons.play_arrow,
-                label: RecorderUiTextText.resume,
+                label: RecorderUiText.resume,
                 color: Colors.redAccent,
                 onPressed: onResume,
               ),
               _RecordButton(
                 icon: Icons.stop,
-                label: RecorderUiTextText.stop,
+                label: RecorderUiText.stop,
                 color: Colors.grey,
                 onPressed: onStop,
               ),
@@ -412,13 +415,13 @@ class _ControlPanel extends StatelessWidget {
             buttons = [
               _RecordButton(
                 icon: Icons.save,
-                label: RecorderUiTextText.save,
+                label: RecorderUiText.save,
                 color: Colors.green,
                 onPressed: () async => onSave(),
               ),
               _RecordButton(
                 icon: Icons.delete_outline,
-                label: RecorderUiTextText.discard,
+                label: RecorderUiText.discard,
                 color: Colors.grey,
                 onPressed: () async => onDiscard(),
               ),
@@ -475,12 +478,12 @@ class _LastRecordingCard extends StatelessWidget {
         final path = controller.lastSavedPath;
         if (path == null) {
           return Text(
-            RecorderUiTextText.noRecordingHint,
+            RecorderUiText.noRecordingHint,
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           );
         }
         final sizeKb = (controller.lastFileSize / 1024).toStringAsFixed(1);
-        final name = path.split(Platform_separator).last;
+        final name = path.split(Platform.pathSeparator).last;
         return Card(
           margin: EdgeInsets.zero,
           child: ListTile(
@@ -494,23 +497,3 @@ class _LastRecordingCard extends StatelessWidget {
   }
 }
 
-/// 复用 const_recorder 内的文本常量 —— 这里用 alias 是为了在 widget 层只
-/// 引入 UI 字符串,避免 widget 文件 import 整个 const 文件的 enum。
-class RecorderUiTextText {
-  RecorderUiTextText._();
-  static const String saved = '已保存: ';
-  static const String start = '开始录音';
-  static const String stop = '停止';
-  static const String pause = '暂停';
-  static const String resume = '继续';
-  static const String save = '保存';
-  static const String discard = '放弃';
-  static const String requestPermission = '请授予麦克风权限';
-  static const String permissionDeniedHint =
-      '录音权限被拒绝,可在系统设置 → 应用 → 小豆子 中开启';
-  static const String noRecordingHint = '轻点下方按钮开始录音';
-}
-
-/// 字符串路径分隔符 — 不直接用 Platform.pathSeparator 因为会被静态分析标记
-/// 'unused_import' on web;此处只编译到 android/iOS,不影响。
-const String Platform_separator = '/';

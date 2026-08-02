@@ -54,9 +54,9 @@ class RecorderUiText {
   static const String resume = '继续';
   static const String save = '保存';
   static const String discard = '放弃';
+  static const String savedPrefix = '已保存: ';
   static const String requestPermission = '请授予麦克风权限';
   static const String permissionDeniedHint =
       '录音权限被拒绝,可在系统设置 → 应用 → 小豆子 中开启';
   static const String noRecordingHint = '轻点下方按钮开始录音';
-  static const String savedHint = '已保存: ';
 }
