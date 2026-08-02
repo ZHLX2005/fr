@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'chat/agent_chat_page.dart';
 import 'chat/format_compatibility_page.dart';
-import 'chat/card_manager_panel_page.dart';
 
 /// AI 助手功能入口条目配置。
 ///
@@ -36,16 +35,9 @@ final List<AssistantEntry> _entries = [
   AssistantEntry(
     icon: Icons.format_align_left,
     title: 'Format',
-    subtitle: '格式兼容性测试',
+    subtitle: '消息策略聚合（含登录/注册）',
     color: (context) => Theme.of(context).colorScheme.secondary,
     builder: (context) => const FormatCompatibilityPage(),
-  ),
-  AssistantEntry(
-    icon: Icons.dashboard_customize,
-    title: 'CardManager',
-    subtitle: '全局卡片管理器',
-    color: (context) => Theme.of(context).colorScheme.tertiary,
-    builder: (context) => const CardManagerPanelPage(),
   ),
 ];
 

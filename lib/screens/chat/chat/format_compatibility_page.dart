@@ -2,33 +2,43 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../services/message_strategy/interfaces/interfaces.dart';
 import '../../../services/message_strategy/factory/factory.dart';
+import '../../../services/message_strategy/panel/panel.dart';
+import '../../../services/message_strategy/data/card_manager_message_data.dart';
 
-/// 格式兼容性测试页面
-/// 使用策略模式展示各种消息组件
+/// 格式兼容性 / 消息策略聚合测试页。
+///
+/// 监听全局 [MessagePanelController]，统一渲染所有消息卡片：
+/// - 输入 type 或点 chip → 追加对应 mock 卡
+/// - card_manager 卡作为调度入口，点其按钮可追加其它卡或启动登录/注册流程
+///
+/// 登录、注册等交互卡片都 append 到同一个全局控制器，在此页统一展示，
+/// 不再为它们单独建页面。
 class FormatCompatibilityPage extends StatefulWidget {
   const FormatCompatibilityPage({super.key});
 
   @override
-  State<FormatCompatibilityPage> createState() => _FormatCompatibilityPageState();
+  State<FormatCompatibilityPage> createState() =>
+      _FormatCompatibilityPageState();
 }
 
 class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _inputController = TextEditingController();
-  final List<_DisplayMessage> _messages = [];
 
-  // Mock 数据工厂 - 从工厂获取
-  late final Map<String, IMessageData> _mockData;
+  late final MessagePanelController _panel;
+  late final MessageWidgetFactory _factory;
   late final List<String> _supportedTypes;
 
   @override
   void initState() {
     super.initState();
-    final factory = GetIt.instance<MessageWidgetFactory>();
-    _mockData = {
-      for (final type in factory.supportedTypes) type: factory.getMockData(type),
-    };
-    _supportedTypes = factory.supportedTypes;
+    _panel = GetIt.instance<MessagePanelController>();
+    _factory = GetIt.instance<MessageWidgetFactory>();
+    _supportedTypes = _factory.supportedTypes;
+    // 进入时若面板为空，放一张 card_manager 卡作为调度入口
+    if (_panel.isEmpty) {
+      _panel.append(const CardManagerMessageData());
+    }
   }
 
   @override
@@ -38,66 +48,44 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     super.dispose();
   }
 
-  Future<void> _scrollToBottom() async {
-    if (_scrollController.hasClients) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      final position = _scrollController.position;
-      if (position.maxScrollExtent.isFinite) {
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final pos = _scrollController.position;
+      if (pos.maxScrollExtent.isFinite) {
         _scrollController.animateTo(
-          position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
+          pos.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
       }
-    }
+    });
   }
 
-  void _handleSend(String type) async {
-    final trimmedType = type.trim().toLowerCase();
-    if (trimmedType.isEmpty) return;
-
-    // 检查 type 是否支持
-    if (!_supportedTypes.contains(trimmedType)) {
+  void _handleSend(String type) {
+    final t = type.trim().toLowerCase();
+    if (t.isEmpty) return;
+    if (!_supportedTypes.contains(t)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('不支持的 type: $trimmedType，支持的类型: ${_supportedTypes.join(", ")}'),
+          content: Text('不支持的 type: $t，支持: ${_supportedTypes.join(", ")}'),
           duration: const Duration(seconds: 2),
         ),
       );
       return;
     }
-
-    // 添加用户消息
-    setState(() {
-      _messages.add(_DisplayMessage(
-        type: trimmedType,
-        isMe: true,
-      ));
-    });
-
     _inputController.clear();
-    await _scrollToBottom();
+    _panel.append(_factory.getMockData(t));
+  }
 
-    // 模拟 AI 响应
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final messageData = _mockData[trimmedType]!;
-    setState(() {
-      _messages.add(_DisplayMessage(
-        type: trimmedType,
-        isMe: false,
-        messageData: messageData,
-      ));
-    });
-
-    await _scrollToBottom();
+  void _reset() {
+    _panel.clear();
+    _panel.append(const CardManagerMessageData());
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final factory = GetIt.instance<MessageWidgetFactory>();
-
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -119,7 +107,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                 children: [
                   Text('Format 测试', style: TextStyle(fontSize: 16)),
                   Text(
-                    '策略模式渲染演示',
+                    '消息策略聚合（含登录/注册）',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
@@ -130,11 +118,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _messages.clear();
-              });
-            },
+            onPressed: _reset,
             tooltip: '重置',
           ),
         ],
@@ -142,27 +126,36 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
       body: Column(
         children: [
           Expanded(
-            child: _messages.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      return _FormatMessageBubble(
-                        message: message,
-                        isMe: message.isMe,
-                        factory: factory,
-                      );
-                    },
+            child: ListenableBuilder(
+              listenable: _panel,
+              builder: (context, _) {
+                final messages = _panel.messages;
+                _scrollToBottom();
+                if (messages.isEmpty) {
+                  return const Center(child: Text('面板为空'));
+                }
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final m = messages[index];
+                    return _FormatMessageBubble(
+                      key: ValueKey(m.id),
+                      typeName: m.data.type,
+                      factory: _factory,
+                      data: m.data,
+                    );
+                  },
+                );
+              },
+            ),
           ),
           _TypeChipStrip(
-            types: factory.supportedTypes,
+            types: _supportedTypes,
             onTap: (type) {
               _inputController.text = type;
               _inputController.selection = TextSelection.collapsed(
@@ -176,12 +169,6 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Text('输入 type 名称查看渲染效果'),
-    );
-  }
-
   Widget _buildInputArea() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -189,7 +176,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -202,7 +189,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
               child: TextField(
                 controller: _inputController,
                 decoration: InputDecoration(
-                  hintText: '输入 type (text/markdown/html)...',
+                  hintText: '输入 type (text/login/register/card_manager)...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
@@ -240,47 +227,35 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   }
 }
 
-class _DisplayMessage {
-  final String type;
-  final bool isMe;
-  final IMessageData? messageData;
-
-  _DisplayMessage({
-    required this.type,
-    required this.isMe,
-    this.messageData,
-  });
-}
-
 class _FormatMessageBubble extends StatelessWidget {
-  final _DisplayMessage message;
-  final bool isMe;
+  final String typeName;
   final MessageWidgetFactory factory;
+  final IMessageData data;
 
   const _FormatMessageBubble({
-    required this.message,
-    required this.isMe,
+    super.key,
+    required this.typeName,
     required this.factory,
+    required this.data,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.95,
         ),
         child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               margin: const EdgeInsets.only(left: 12, bottom: 4),
               child: Text(
-                message.type.toUpperCase(),
+                typeName.toUpperCase(),
                 style: TextStyle(
                   fontSize: 11,
                   color: theme.colorScheme.primary,
@@ -291,26 +266,15 @@ class _FormatMessageBubble extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isMe
-                    ? theme.colorScheme.secondary
-                    : theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-                  bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.zero,
+                  bottomRight: Radius.circular(16),
                 ),
               ),
-              child: isMe
-                  ? Text(
-                      message.type,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : theme.colorScheme.onSurface,
-                      ),
-                    )
-                  : message.messageData != null
-                      ? factory.create(context, message.messageData!)
-                      : const SizedBox.shrink(),
+              child: factory.create(context, data),
             ),
           ],
         ),
@@ -319,7 +283,7 @@ class _FormatMessageBubble extends StatelessWidget {
   }
 }
 
-/// 可左右滑动的 type 胶囊行 — 快速填入输入框
+/// 可左右滑动的 type 胶囊行 — 点击填入输入框
 class _TypeChipStrip extends StatelessWidget {
   final List<String> types;
   final ValueChanged<String> onTap;
@@ -334,6 +298,12 @@ class _TypeChipStrip extends StatelessWidget {
         return Icons.code;
       case 'html':
         return Icons.html;
+      case 'login':
+        return Icons.login;
+      case 'register':
+        return Icons.person_add;
+      case 'card_manager':
+        return Icons.dashboard_customize;
       default:
         return Icons.chat_bubble_outline;
     }
