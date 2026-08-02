@@ -114,6 +114,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       'navigateToTimetable' => 'fr://timetable',
       'navigateToNotionImage' =>
         'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
+      'navigateToRecorder' =>
+        'fr://lab/demo/recorder?autostart=${(call.arguments as bool?) ?? true}',
       _ => null,
     };
     if (frUrl == null) return;

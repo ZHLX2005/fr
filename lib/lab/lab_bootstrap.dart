@@ -44,6 +44,7 @@ import 'demos/surround_game_lua_demo.dart' show registerSurroundGameLuaDemo;
 import 'demos/gomoku_lua_demo.dart' show registerGomokuLuaDemo;
 import 'demos/tetris_lua_demo.dart' show registerTetrisLuaDemo;
 import 'demos/coup_lua_demo.dart' show registerCoupLuaDemo;
+import 'demos/recorder/recorder_demo.dart' show registerRecorderDemo;
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -88,6 +89,7 @@ void registerAllDemos() {
   registerGomokuLuaDemo();
   registerTetrisLuaDemo();
   registerCoupLuaDemo();
+  registerRecorderDemo();
 }
 
 // 初始化 Lab 模块

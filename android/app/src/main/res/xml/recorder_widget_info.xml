@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Notion 图床桌面小组件 — 支持 1x1 ~ 2x2。
+  录音机桌面小组件 — 支持 1x1 ~ 2x2。
 
   尺寸规则（Android 12+ 推荐规范）：
     - minWidth/minHeight 设为系统下限 40dp，确保 launcher 把它识别为 1x1 候选
@@ -21,9 +21,9 @@
     android:targetCellWidth="1"
     android:targetCellHeight="1"
     android:updatePeriodMillis="1800000"
-    android:initialLayout="@layout/notion_widget"
-    android:previewLayout="@layout/notion_widget"
+    android:initialLayout="@layout/recorder_widget"
+    android:previewLayout="@layout/recorder_widget"
     android:resizeMode="horizontal"
-    android:description="@string/widget_description_notion"
+    android:description="@string/widget_description_recorder"
     android:widgetCategory="home_screen">
 </appwidget-provider>

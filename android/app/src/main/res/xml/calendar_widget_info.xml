@@ -8,6 +8,8 @@
     android:targetCellHeight="3"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/calendar_widget"
+    android:previewLayout="@layout/calendar_widget"
     android:resizeMode="horizontal|vertical"
+    android:description="@string/widget_description_calendar"
     android:widgetCategory="home_screen">
 </appwidget-provider>

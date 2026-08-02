@@ -4,6 +4,8 @@
     android:minHeight="110dp"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/clock_widget"
+    android:previewLayout="@layout/clock_widget"
     android:resizeMode="horizontal|vertical"
+    android:description="@string/widget_description_clock"
     android:widgetCategory="home_screen">
 </appwidget-provider>
