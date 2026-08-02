@@ -48,14 +48,12 @@ class ExportResult {
   final int totalKeys;
   final int totalSize;
   final String timestamp;
-  final String filePath;
 
   const ExportResult({
     required this.text,
     required this.totalKeys,
     required this.totalSize,
     required this.timestamp,
-    required this.filePath,
   });
 }
 
@@ -66,9 +64,12 @@ class StorageExporter {
   StorageExporter({StorageManager? storage, this.onProgress})
       : _storage = storage ?? StorageManager.instance;
 
-  /// 全量导出到文件
-  /// 返回 [ExportResult]，包含文件路径与文本内容（用于备份展示）。
-  Future<ExportResult> exportAll() async {
+  /// 全量导出 —— 拼文本（不写文件）。
+  ///
+  /// 保留 _storage.init() + _discoverBoxNames() + 逐 box 打开 + meta +
+  /// hive/prefs/notes + footer；不写文件。返回的 [ExportResult.text] 是
+  /// 完整 dump 文本，可直接走 KV 上传 / 落盘（若日后需要）。
+  Future<ExportResult> buildDumpText() async {
     await _storage.init();
     final prefs = await SharedPreferences.getInstance();
 
@@ -99,7 +100,6 @@ class StorageExporter {
     for (final name in boxNames) {
       _emitProgress(ExportStage.hive, '导出 Box: $name', hiveIdx, boxNames.length);
       try {
-        // 确保 box 已打开
         if (!Hive.isBoxOpen(name)) {
           final d = StorageRegistry.get(name);
           if (d != null) {
@@ -113,7 +113,6 @@ class StorageExporter {
           continue;
         }
 
-        // 计算 box 内条目数
         final d = StorageRegistry.get(name);
         final keys = d != null ? d.keys.toList() : Hive.box(name).keys.toList();
 
@@ -127,7 +126,6 @@ class StorageExporter {
           try {
             raw = d != null ? d.get(key) : Hive.box(name).get(key);
           } catch (e) {
-            // typed box 的 adapter 没注册时，读会抛；跳过该 key 不中断整体
             debugPrint('导出 Box $name key=$key 读值失败（可能缺 adapter）: $e');
             continue;
           }
@@ -195,10 +193,6 @@ class StorageExporter {
 
     final text = buffer.toString();
 
-    // 写入文件
-    _emitProgress(ExportStage.done, '写入文件', 0, 1);
-    final filePath = await _writeExportFile(text, timestamp);
-
     _emitProgress(ExportStage.done, '导出完成', 1, 1);
 
     return ExportResult(
@@ -206,38 +200,7 @@ class StorageExporter {
       totalKeys: totalKeys,
       totalSize: totalSize,
       timestamp: timestamp,
-      filePath: filePath,
     );
-  }
-
-  /// 把导出文本写入可见的外部存储目录
-  ///
-  /// 优先 [getExternalStorageDirectory]（Android:
-  /// `/storage/emulated/0/Android/data/<pkg>/files/exports/`，文件管理器可见），
-  /// 回退到 [getApplicationDocumentsDirectory]（iOS / web / 无外部存储时）。
-  Future<String> _writeExportFile(String text, String isoTimestamp) async {
-    final baseDir = await _resolveExportBaseDir();
-    final exportsDir = Directory('${baseDir.path}${Platform.pathSeparator}$kExportDirName');
-    if (!await exportsDir.exists()) {
-      await exportsDir.create(recursive: true);
-    }
-    final safeName = isoTimestamp.replaceAll(':', '-').replaceAll('.', '-');
-    final file = File(
-      '${exportsDir.path}${Platform.pathSeparator}$kExportFilePrefix$safeName$kExportFileExtension',
-    );
-    await file.writeAsString(text);
-    return file.path;
-  }
-
-  /// 解析导出文件根目录：Android 优先用外部存储（文件管理器可见）。
-  Future<Directory> _resolveExportBaseDir() async {
-    try {
-      final ext = await getExternalStorageDirectory();
-      if (ext != null) return ext;
-    } catch (e) {
-      debugPrint('getExternalStorageDirectory 失败，回退 documents: $e');
-    }
-    return getApplicationDocumentsDirectory();
   }
 
   // ── helpers ────────────────────────────────────────────

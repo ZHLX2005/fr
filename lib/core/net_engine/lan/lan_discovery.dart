@@ -5,11 +5,11 @@ import 'dart:io' show HttpRequest;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../http/http_client.dart';
-import '../http/http_endpoints.dart';
-import '../http/http_server.dart';
-import '../transport.dart';
-import '../lan/lan_transport.dart';
+import 'http/http_client.dart';
+import 'http/http_endpoints.dart';
+import 'http/http_server.dart';
+import 'lan_transport.dart';
+import 'transport.dart';
 
 /// LAN 发现 — 没有抽象，直接具体 widget
 ///

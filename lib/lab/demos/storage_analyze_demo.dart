@@ -1,14 +1,14 @@
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_it/get_it.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../api/providers/api_providers.dart';
+import '../../api/user/user_auth_service.dart';
 import '../../core/storage/storage_manager.dart';
-import '../../core/storage/export/const_storage_export.dart';
-import '../../core/storage/export/storage_exporter.dart';
-import '../../core/storage/export/storage_importer.dart';
+import '../../core/storage/sync/cloud_storage_sync.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
 import 'calendar/data/calendar_hive.dart';
@@ -30,14 +30,14 @@ class StorageAnalyzeDemo extends DemoPage {
   }
 }
 
-class _StorageAnalyzePage extends StatefulWidget {
+class _StorageAnalyzePage extends ConsumerStatefulWidget {
   const _StorageAnalyzePage();
 
   @override
-  State<_StorageAnalyzePage> createState() => _StorageAnalyzePageState();
+  ConsumerState<_StorageAnalyzePage> createState() => _StorageAnalyzePageState();
 }
 
-class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
+class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     with SingleTickerProviderStateMixin {
   final StorageManager _storage = StorageManager.instance;
   List<StorageInfo> _storageList = [];
@@ -51,18 +51,6 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
 
   // 应用配置 (SharedPreferences) —— 让 prefs 导入导出生效"看得见"
   List<MapEntry<String, Object?>> _prefsList = [];
-
-  // 导出/导入状态
-  bool _isExporting = false;
-  bool _isImporting = false;
-  ExportStage _exportStage = ExportStage.meta;
-  ImportStage _importStage = ImportStage.parse;
-  String _exportMessage = '';
-  String _importMessage = '';
-  int _exportCurrent = 0;
-  int _exportTotal = 0;
-  int _importCurrent = 0;
-  int _importTotal = 0;
 
   static const _mediaExtensions = {
     'jpg',
@@ -87,7 +75,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStorageData());
   }
 
@@ -268,158 +256,6 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
     });
   }
 
-  Future<void> _onExport() async {
-    setState(() {
-      _isExporting = true;
-      _exportStage = ExportStage.meta;
-      _exportMessage = '准备导出';
-      _exportCurrent = 0;
-      _exportTotal = 0;
-    });
-
-    try {
-      // 先确保所有 typed box 已注册（calendar 等），否则导出会漏掉它们
-      await _ensureBoxesInitialized();
-
-      final exporter = StorageExporter(
-        onProgress: (p) {
-          if (mounted) {
-            setState(() {
-              _exportStage = p.stage;
-              _exportMessage = p.message;
-              _exportCurrent = p.current;
-              _exportTotal = p.total;
-            });
-          }
-        },
-      );
-
-      final result = await exporter.exportAll();
-
-      if (!mounted) return;
-      setState(() {
-        _isExporting = false;
-      });
-
-      // 展示导出结果对话框
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => _ExportResultDialog(
-          filePath: result.filePath,
-          totalKeys: result.totalKeys,
-          totalSize: result.totalSize,
-          timestamp: result.timestamp,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isExporting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导出失败: $e')),
-      );
-    }
-  }
-
-  Future<void> _onImport() async {
-    // 弹文件选择器
-    FilePickerResult? picked;
-    try {
-      picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['txt'],
-        allowMultiple: false,
-        withData: false,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('文件选择失败: $e')),
-      );
-      return;
-    }
-    if (picked == null || picked.files.isEmpty) return;
-    final path = picked.files.single.path;
-    if (path == null) return;
-    final fileName = picked.files.single.name;
-
-    if (!mounted) return;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认导入'),
-        content: Text(
-          '将解析 "$fileName" 中的全部数据并写入。\n'
-          '建议先导出当前数据作为备份。\n'
-          '是否同时清空已有数据？',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('保留'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('清空后导入', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirm == null || !mounted) return;
-
-    setState(() {
-      _isImporting = true;
-      _importStage = ImportStage.read;
-      _importMessage = '准备导入';
-      _importCurrent = 0;
-      _importTotal = 0;
-    });
-
-    try {
-      // 先确保 typed box 已注册，导入时才能按 typed 类型写回（Event/Person 等）
-      await _ensureBoxesInitialized();
-
-      final importer = StorageImporter(
-        clearBeforeImport: confirm,
-        onProgress: (p) {
-          if (mounted) {
-            setState(() {
-              _importStage = p.stage;
-              _importMessage = p.message;
-              _importCurrent = p.current;
-              _importTotal = p.total;
-            });
-          }
-        },
-      );
-
-      final result = await importer.importFromFile(path);
-
-      if (!mounted) return;
-      setState(() {
-        _isImporting = false;
-      });
-
-      await _loadStorageData();
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '导入完成: Hive ${result.hiveCount} 条 / 配置 ${result.prefsCount} 条 / '
-            '笔记 ${result.notesCount} 个'
-            '${result.errorCount > 0 ? ' / 错误 ${result.errorCount} 个' : ''}',
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isImporting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导入失败: $e')),
-      );
-    }
-  }
-
   Future<List<FileItem>> _scanMediaFiles() async {
     final List<FileItem> files = [];
 
@@ -543,6 +379,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
               Tab(text: '存储数据'),
               Tab(text: '多媒体文件'),
               Tab(text: '应用配置'),
+              Tab(text: '云同步'),
             ],
           ),
           Expanded(
@@ -554,6 +391,7 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                       _buildStorageTab(),
                       _buildMediaTab(),
                       _buildPrefsTab(),
+                      _CloudSyncTab(onAfterChange: _loadStorageData),
                     ],
                   ),
           ),
@@ -572,52 +410,13 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
-                onPressed: _isExporting ? null : _loadStorageData,
+                onPressed: _loadStorageData,
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('刷新'),
-              ),
-              FilledButton.icon(
-                onPressed: _isExporting ? null : _onExport,
-                icon: const Icon(Icons.upload_file, size: 18),
-                label: const Text('导出到文件'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _isImporting ? null : _onImport,
-                icon: const Icon(Icons.file_open, size: 18),
-                label: const Text('从文件导入'),
               ),
             ],
           ),
         ),
-        if (_isExporting || _isImporting)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: Theme.of(context).colorScheme.primaryContainer,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isExporting
-                      ? '导出中: ${exportStageLabel(_exportStage)} - ${_exportMessage}'
-                      : '导入中: ${importStageLabel(_importStage)} - ${_importMessage}',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                if ((_isExporting && _exportTotal > 0) ||
-                    (_isImporting && _importTotal > 0))
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: LinearProgressIndicator(
-                      value: (_isExporting
-                              ? _exportCurrent / _exportTotal
-                              : _importCurrent / _importTotal)
-                          .clamp(0.0, 1.0),
-                      minHeight: 4,
-                    ),
-                  ),
-              ],
-            ),
-          ),
         Expanded(
           child: _storageList.isEmpty && _noteList.isEmpty
               ? Center(
@@ -752,10 +551,11 @@ class _StorageAnalyzePageState extends State<_StorageAnalyzePage>
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
-              FilledButton.icon(
+              OutlinedButton.icon(
                 onPressed: _addPref,
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('新增'),
+                style: _outlinedActionStyle(Colors.green),
               ),
             ],
           ),
@@ -2087,12 +1887,15 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
+                    style: _outlinedActionStyle(
+                      Theme.of(context).colorScheme.primary,
+                    ),
                     child: const Text('取消'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: FilledButton(
+                  child: OutlinedButton(
                     onPressed: () {
                       if (_keyCtrl.text.trim().isEmpty) return;
                       Navigator.pop(
@@ -2104,6 +1907,7 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
                         ),
                       );
                     },
+                    style: _outlinedActionStyle(Colors.green),
                     child: const Text('保存'),
                   ),
                 ),
@@ -2229,129 +2033,468 @@ class FileItem {
   });
 }
 
-/// 导出结果对话框
-class _ExportResultDialog extends StatelessWidget {
-  final String filePath;
-  final int totalKeys;
-  final int totalSize;
-  final String timestamp;
+/// 第 4 个 tab：云同步（登录闸 + 备份/恢复/删除）。
+/// 复用 UserAuthService 登录 / GetIt；复用 Riverpod 拿 kvEndpoint + tokenManager。
+class _CloudSyncTab extends ConsumerStatefulWidget {
+  const _CloudSyncTab({required this.onAfterChange});
 
-  const _ExportResultDialog({
-    required this.filePath,
-    required this.totalKeys,
-    required this.totalSize,
-    required this.timestamp,
-  });
+  /// 恢复完成后回调，用于让父页面刷新本地数据视图。
+  final Future<void> Function() onAfterChange;
 
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+  @override
+  ConsumerState<_CloudSyncTab> createState() => _CloudSyncTabState();
+}
+
+class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
+  final _emailCtrl = TextEditingController();
+  final _pwdCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  bool _busy = false;
+  String? _identity;
+  List<String> _backups = const [];
+  String? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIdentity();
+    _loadBackups();
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _pwdCtrl.dispose();
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<bool> _hasToken() async {
+    final t = await ref.read(tokenManagerProvider).accessToken;
+    return t != null && t.isNotEmpty;
+  }
+
+  Future<void> _loadIdentity() async {
+    if (!(await _hasToken())) {
+      if (mounted) setState(() => _identity = null);
+      return;
+    }
+    final r = await GetIt.instance<UserAuthService>().userInfo();
+    if (!mounted) return;
+    if (r.code == 401) {
+      // token 失效 → 清掉、回登录闸
+      await ref.read(tokenManagerProvider).clear();
+      setState(() {
+        _identity = null;
+        _backups = const [];
+      });
+      return;
+    }
+    if (r.isSuccess) {
+      setState(() {
+        _identity = (r.data?['email'] ?? r.data?['nickname'] ?? '').toString();
+      });
+    }
+  }
+
+  Future<void> _loadBackups() async {
+    if (!(await _hasToken())) {
+      if (mounted) setState(() => _backups = const []);
+      return;
+    }
+    final sync = CloudStorageSync(ref.read(kvEndpointProvider));
+    final names = await sync.listBackups();
+    if (mounted) setState(() => _backups = names);
+  }
+
+  Future<void> _login() async {
+    final email = _emailCtrl.text.trim();
+    final pwd = _pwdCtrl.text;
+    if (email.isEmpty || pwd.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final r = await GetIt.instance<UserAuthService>().login(email, pwd);
+      if (!mounted) return;
+      if (r.isSuccess) {
+        _pwdCtrl.clear();
+        await _loadIdentity();
+        await _loadBackups();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('登录成功')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('登录失败: ${r.message}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _logout() async {
+    await ref.read(tokenManagerProvider).clear();
+    if (!mounted) return;
+    setState(() {
+      _identity = null;
+      _backups = const [];
+      _selected = null;
+    });
+  }
+
+  Future<void> _doBackup() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final sync = CloudStorageSync(ref.read(kvEndpointProvider));
+      final r = await sync.backup(name);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(r.ok
+            ? '已备份 "$name"（${r.bytes ?? 0} bytes）'
+            : '备份失败: ${r.error ?? "?"}'),
+      ));
+      if (r.ok) {
+        _nameCtrl.clear();
+        await _loadBackups();
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _doRestore() async {
+    final name = _selected;
+    if (name == null) return;
+    final clearFirst = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('从 "$name" 恢复'),
+        content: const Text(
+            '建议先备份当前数据。\n是否同时清空已有数据？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('保留'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清空后导入',
+                style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (clearFirst == null) return;
+    setState(() => _busy = true);
+    try {
+      final sync = CloudStorageSync(ref.read(kvEndpointProvider));
+      final r = await sync.restore(name, clearFirst: clearFirst);
+      if (!mounted) return;
+      if (!r.ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('恢复失败: ${r.error ?? "?"}')),
+        );
+        return;
+      }
+      final imp = r.import!;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          '恢复完成: Hive ${imp.hiveCount} / 配置 ${imp.prefsCount} / 笔记 ${imp.notesCount}'
+          '${imp.errorCount > 0 ? " / 错误 ${imp.errorCount}" : ""}',
+        ),
+      ));
+      await widget.onAfterChange();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _doDelete() async {
+    final name = _selected;
+    if (name == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('删除备份 "$name"'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      final sync = CloudStorageSync(ref.read(kvEndpointProvider));
+      final removed = await sync.deleteBackup(name);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(removed ? '已删除' : '删除失败')),
+      );
+      await _loadBackups();
+      if (mounted) setState(() => _selected = null);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.all(16),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 600),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.green),
-                const SizedBox(width: 8),
-                const Text('导出成功', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _kvRow('条目数', '$totalKeys'),
-            _kvRow('数据量', _formatSize(totalSize)),
-            _kvRow('时间', timestamp),
-            const SizedBox(height: 12),
-            const Text('文件路径', style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SelectableText(
-                filePath,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '文件已存到「内部存储/Android/data/小豆子/files/exports/」，'
-              '可用文件管理器找到。点「分享/保存到…」可一键存到 Download 或发到另一台设备。',
-              style: TextStyle(color: Colors.grey[700], fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: filePath));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('路径已复制')),
-                      );
-                    },
-                    icon: const Icon(Icons.copy, size: 18),
-                    label: const Text('复制路径'),
+    return FutureBuilder<bool>(
+      future: _hasToken(),
+      builder: (context, snap) {
+        final loggedIn = snap.data == true;
+        if (!loggedIn) return _buildLogin();
+        return _buildSync();
+      },
+    );
+  }
+
+  Widget _buildLogin() {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: accent.withValues(alpha: 0.35),
+                    width: 1.5,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      // 通过系统分享面板，用户可保存到 Download / Files / 发到另一台设备
-                      Share.shareXFiles(
-                        [XFile(filePath)],
-                        text: '存储数据备份',
-                      );
-                    },
-                    icon: const Icon(Icons.ios_share, size: 18),
-                    label: const Text('分享/保存到…'),
+                child: Icon(Icons.cloud_outlined, color: accent, size: 28),
+              ),
+              const SizedBox(height: 12),
+              Text('云同步需要登录',
+                  style: theme.textTheme.titleMedium),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _emailCtrl,
+                decoration: const InputDecoration(labelText: '邮箱'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _pwdCtrl,
+                decoration: const InputDecoration(labelText: '密码'),
+                obscureText: true,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _login,
+                icon: _busy
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: accent,
+                        ),
+                      )
+                    : const Icon(Icons.login, size: 18),
+                label: const Text('登录'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: accent,
+                  side: BorderSide(
+                    color: accent.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('关闭'),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _kvRow(String k, String v) {
+  Widget _buildSync() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(width: 60, child: Text(k, style: TextStyle(color: Colors.grey[600]))),
-          Expanded(
-            child: Text(v, style: const TextStyle(fontWeight: FontWeight.w500)),
+          // 登录状态指示 —— border-emphasis green
+          Row(children: [
+            _StatusChip(label: '已登录${_identity == null ? "" : ": $_identity"}'),
+            const Spacer(),
+            TextButton(
+              onPressed: _busy ? null : _logout,
+              child: const Text('退出'),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: '备份名（友好名）',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _doBackup,
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: const Text('备份到云端'),
+              style: _outlinedActionStyle(Colors.green),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text('已有备份',
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ),
+          Expanded(
+            child: _backups.isEmpty
+                ? const Center(child: Text('还没有云端备份'))
+                : ListView.builder(
+                    itemCount: _backups.length,
+                    itemBuilder: (_, i) {
+                      final n = _backups[i];
+                      return _BackupRow(
+                        name: n,
+                        selected: _selected == n,
+                        onTap: () => setState(() => _selected = n),
+                      );
+                    },
+                  ),
+          ),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: (_busy || _selected == null) ? null : _doRestore,
+                icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                label: const Text('从云端恢复'),
+                style: _outlinedActionStyle(Colors.blue),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: (_busy || _selected == null) ? null : _doDelete,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('删除备份'),
+                style: _outlinedActionStyle(Colors.red),
+              ),
+            ),
+          ]),
         ],
+      ),
+    );
+  }
+}
+
+/// OutlinedButton 撞色编码：浅 tint 底 + 同色描边 + 同色前景。
+/// 操作按钮专用（与内容型页面的"统一主题色"反向）。
+ButtonStyle _outlinedActionStyle(Color color) => OutlinedButton.styleFrom(
+      foregroundColor: color,
+      side: BorderSide(color: color.withValues(alpha: 0.5), width: 1.5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+
+/// 已登录状态指示 —— border-emphasis green
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.check_circle_outline, size: 14, color: Colors.green),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(
+                color: Colors.green,
+                fontSize: 12,
+                fontWeight: FontWeight.w500)),
+      ]),
+    );
+  }
+}
+
+/// 单个备份条目 —— 选中态用 primary 描边+浅 tint 强提示，未选中态无边框。
+class _BackupRow extends StatelessWidget {
+  const _BackupRow({
+    required this.name,
+    required this.selected,
+    required this.onTap,
+  });
+  final String name;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Material(
+        color: selected
+            ? accent.withValues(alpha: 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected
+                    ? accent.withValues(alpha: 0.45)
+                    : theme.dividerColor.withValues(alpha: 0.4),
+                width: 1.2,
+              ),
+            ),
+            child: Row(children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+                size: 18,
+                color: selected ? accent : theme.iconTheme.color?.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(name)),
+            ]),
+          ),
+        ),
       ),
     );
   }

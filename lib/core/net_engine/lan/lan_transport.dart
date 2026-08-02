@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import '../io/udp_socket.dart';
-import '../transport.dart';
+import 'io/udp_socket.dart';
+import 'transport.dart';
 
 /// LAN 传输实现 — UDP 发现 + HTTP pub/sub（双 API 兼容）
 ///

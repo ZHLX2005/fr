@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/net_engine/net_engine.dart' as fw;
+
+import 'package:xiaodouzi_fr/core/net_engine/lan/lan_discovery.dart';
 
 import '../net_engine_types.dart';
 
@@ -22,7 +23,7 @@ class NetEngineSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
-      body: fw.LanDiscovery(
+      body: LanDiscovery(
         multicastPort: multicastPort,
         multicastAddress: multicastAddress,
       ).buildSettingsPage(
