@@ -219,12 +219,16 @@ class MainActivity : FlutterActivity() {
             val uriStr = uri.toString()
             // 解析 fr://notionimg?autocapture=1 或 fr://notionimg 两种 URI
             when {
-                uriStr == "fr://notionimg" -> {
+                // 必须 startsWith —— widget 发的是 fr://notionimg?autocapture=1(带 query),
+                // 精确 == 会 miss → notion 深链失效。恢复原始 startsWith 语义。
+                uriStr.startsWith("fr://notionimg") -> {
                     val autocapture = uri.getBooleanQueryParameter("autocapture", false)
                     widgetChannel.notifyNavigateToNotionImage(autocapture)
                 }
-                uriStr == "fr://recorder" || uriStr == "fr://lab/demo/recorder" ||
-                    uri.path == "/lab/demo/recorder" -> {
+                // 同理:widget 发 fr://lab/demo/recorder?autostart=true(带 query),
+                // 必须 startsWith;fr://recorder 保留作短别名;path 分支兜底第三方拉起。
+                uriStr == "fr://recorder" || uriStr.startsWith("fr://lab/demo/recorder") ||
+                    uri.path == "/demo/recorder" -> {
                     // 桌面 widget 进入默认 autostart=true；普通 fr:// 链接可显式 ?autostart=false
                     val autostart = uri.getBooleanQueryParameter("autostart", true)
                     widgetChannel.notifyNavigateToRecorder(autostart)

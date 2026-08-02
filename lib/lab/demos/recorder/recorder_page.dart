@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'recorder_controller.dart';
 import 'const_recorder.dart';
+import 'recorder_list_page.dart';
 
 /// 录音机 widget 桥接 —— 给桌面 widget 点击后的 autostart 用。
 ///
@@ -145,6 +146,20 @@ class RecorderPageScaffold extends StatelessWidget {
       appBar: AppBar(
         title: const Text('录音机'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            tooltip: RecorderUiText.openList,
+            icon: const Icon(Icons.library_music_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      RecorderListPage(controller: controller),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(

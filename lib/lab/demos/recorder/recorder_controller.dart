@@ -2,11 +2,29 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import 'const_recorder.dart';
+
+/// 录音文件元数据 —— 列表页(Read)用。
+class RecordingFile {
+  final String path;
+  final String name;
+  final int sizeBytes;
+  final DateTime lastModified;
+
+  const RecordingFile({
+    required this.path,
+    required this.name,
+    required this.sizeBytes,
+    required this.lastModified,
+  });
+
+  double get sizeKb => sizeBytes / 1024;
+}
 
 /// RecorderController —— 录音状态机 + 文件落盘
 ///
@@ -49,6 +67,13 @@ class RecorderController extends ChangeNotifier {
 
   /// 错误事件 sink —— UI 用 `errorNotifier.addListener((){...showSnackBar...})`
   final ValueNotifier<String?> errorNotifier = ValueNotifier(null);
+
+  /// 播放器(列表页试听)。null 表示从未初始化。
+  final AudioPlayer _player = AudioPlayer();
+
+  /// 当前播放的文件路径(无则 null)。
+  String? _playingPath;
+  String? get playingPath => _playingPath;
 
   bool _disposed = false;
 
@@ -207,6 +232,102 @@ class RecorderController extends ChangeNotifier {
     return p;
   }
 
+  // ─────────────────────────── 列表 / CRUD ───────────────────────────
+
+  /// 读取 recordings/ 目录下所有 `.aac` 文件,按修改时间倒序。
+  Future<List<RecordingFile>> listRecordings() async {
+    try {
+      final dir = await _recordingsDir();
+      if (!await dir.exists()) return [];
+      final files = await dir.list().where((e) {
+        return e is File &&
+            e.path.endsWith('.${RecorderConsts.fileExt}');
+      }).toList();
+
+      final result = <RecordingFile>[];
+      for (final e in files) {
+        final f = e as File;
+        final stat = await f.stat();
+        result.add(RecordingFile(
+          path: f.path,
+          name: f.path.split(Platform.pathSeparator).last,
+          sizeBytes: stat.size,
+          lastModified: stat.modified,
+        ));
+      }
+      result.sort((a, b) => b.lastModified.compareTo(a.lastModified));
+      return result;
+    } catch (e) {
+      _emitError('读取录音列表失败: $e');
+      return [];
+    }
+  }
+
+  /// 重命名录音文件。[newName] 不含扩展名(自动补 `.aac`)。
+  /// 返回 null = 成功;返回 String = 错误提示。
+  Future<String?> renameRecording(String oldPath, String newName) async {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty) return RecorderUiText.nameEmpty;
+
+    final oldFile = File(oldPath);
+    if (!await oldFile.exists()) return '文件不存在';
+    final dir = oldFile.parent;
+    final newPath =
+        '${dir.path}${Platform.pathSeparator}$trimmed.${RecorderConsts.fileExt}';
+    if (newPath != oldPath && await File(newPath).exists()) {
+      return RecorderUiText.nameExists;
+    }
+    try {
+      await oldFile.rename(newPath);
+      if (_lastSavedPath == oldPath) _lastSavedPath = newPath;
+      return null;
+    } catch (e) {
+      return '重命名失败: $e';
+    }
+  }
+
+  /// 删除录音文件。若正在播放该文件先停止。返回是否成功。
+  Future<bool> deleteRecording(String path) async {
+    if (_playingPath == path) await _stopPlayback();
+    try {
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+      if (_lastSavedPath == path) _lastSavedPath = null;
+      return true;
+    } catch (e) {
+      _emitError('删除失败: $e');
+      return false;
+    }
+  }
+
+  /// 播放某条录音;若已是同一文件则切换播放/停止。
+  Future<void> playFile(String path) async {
+    if (_playingPath == path && _player.playing) {
+      await _stopPlayback();
+      return;
+    }
+    await _stopPlayback();
+    try {
+      await _player.setFilePath(path);
+      _playingPath = path;
+      _player.play();
+      _safeNotify();
+    } catch (e) {
+      _emitError('播放失败: $e');
+    }
+  }
+
+  Future<void> _stopPlayback() async {
+    try {
+      await _player.stop();
+    } catch (_) {}
+    _playingPath = null;
+    _safeNotify();
+  }
+
+  /// 列表页离开时调用,停止播放释放资源。
+  Future<void> stopPlayback() => _stopPlayback();
+
   // ─────────────────────────── ticker ───────────────────────────
 
   void _startTicker() {
@@ -263,6 +384,7 @@ class RecorderController extends ChangeNotifier {
       _recorder.stop().catchError((_) => null);
     }
     _recorder.dispose();
+    _player.dispose();
     errorNotifier.dispose();
     _tickNotifier.dispose();
     super.dispose();

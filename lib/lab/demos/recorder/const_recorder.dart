@@ -59,4 +59,24 @@ class RecorderUiText {
   static const String permissionDeniedHint =
       '录音权限被拒绝,可在系统设置 → 应用 → 小豆子 中开启';
   static const String noRecordingHint = '轻点下方按钮开始录音';
+
+  // ── 录音列表(CRUD) ──
+  static const String listTitle = '录音列表';
+  static const String openList = '查看录音';
+  static const String emptyList = '还没有录音,点击下方按钮开始';
+  static const String play = '播放';
+  static const String stopPlay = '停止';
+  static const String playingPrefix = '播放中: ';
+  static const String rename = '重命名';
+  static const String delete = '删除';
+  static const String renameTitle = '重命名录音';
+  static const String renameHint = '输入新名称';
+  static const String renameCancel = '取消';
+  static const String renameOk = '确定';
+  static const String deleteTitle = '删除录音';
+  static const String deleteConfirmPrefix = '确定删除「';
+  static const String deleteConfirmSuffix = '」吗?此操作不可恢复。';
+  static const String deleteBtn = '删除';
+  static const String nameExists = '名称已存在,请换一个';
+  static const String nameEmpty = '名称不能为空';
 }

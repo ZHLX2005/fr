@@ -15,9 +15,6 @@
 //
 // // MethodChannel 反注册（main.dart）
 // await FrNavigator.handle(context, 'fr://notion/image-host?autocapture=true');
-//
-// // MethodChannel 反注册（新方式：直接拿到 fr:// URL）
-// final frUrl = FrMethodChannelTranslator.translate(call);
 // ```
 
 export 'fr_uri.dart';
@@ -27,7 +24,6 @@ export 'fr_router.dart';
 export 'fr_navigator.dart';
 export 'schema_text.dart';
 export 'bootstrap_routes.dart';
-export 'method_channel_translator.dart';
 export 'handlers/lab_index_handler.dart';
 export 'handlers/lab_demo_handler.dart';
 export 'handlers/lab_core_handler.dart';
