@@ -11,6 +11,7 @@ import 'package:xiaodouzi_fr/core/storage/sync/cloud_storage_sync.dart';
 
 class _FakeKv implements KvOps {
   final List<String> stored;
+  final Map<String, String> values = {};
   String? lastDeleted;
   String? lastSet;
   String? lastSetValue;
@@ -23,10 +24,11 @@ class _FakeKv implements KvOps {
     if (!stored.contains(key)) {
       return ApiResponse<KvItem?>(code: 50, message: 'not found');
     }
+    final v = values[key] ?? '';
     return ApiResponse(
       code: 0,
       message: 'OK',
-      data: KvItem(key: key, value: '', expiresAt: null),
+      data: KvItem(key: key, value: v, expiresAt: null),
     );
   }
 
@@ -39,6 +41,7 @@ class _FakeKv implements KvOps {
     lastSet = key;
     lastSetValue = value;
     if (!stored.contains(key)) stored.add(key);
+    values[key] = value;
     return ApiResponse(code: 0, message: 'OK');
   }
 
@@ -46,6 +49,7 @@ class _FakeKv implements KvOps {
   Future<ApiResponse<void>> delete(String key) async {
     lastDeleted = key;
     stored.remove(key);
+    values.remove(key);
     return ApiResponse(code: 0, message: 'OK');
   }
 
@@ -55,7 +59,7 @@ class _FakeKv implements KvOps {
     int offset = 0,
   }) async {
     final items = stored
-        .map((k) => KvItem(key: k, value: '', expiresAt: null))
+        .map((k) => KvItem(key: k, value: values[k] ?? '', expiresAt: null))
         .toList();
     return ApiResponse(
       code: 0,
@@ -134,5 +138,30 @@ void main() {
     expect(fake.lastSetValue, isNotEmpty);
     expect(fake.lastSetValue, contains('[hive:test_box]'));
     expect(fake.lastSetValue, contains('K:k'));
+  });
+
+  test('restore reads prefixed key and writes to local Hive', () async {
+    // 先做一次 backup 拿到合法 dump 文本，存进 fake 模拟云端。
+    final fake = _FakeKv();
+    final box = await Hive.openBox<dynamic>('test_box');
+    await box.put('hello', 'world');
+    final b = await CloudStorageSync(fake).backup('r1');
+    expect(b.ok, true);
+
+    // 清空本地，再 restore —— 应该恢复 hello=world。
+    await box.clear();
+    final r = await CloudStorageSync(fake).restore('r1');
+    expect(r.ok, true);
+    expect(r.import, isNotNull);
+    expect(r.import!.errorCount, 0,
+        reason: 'restore errors: ${r.import!.errors}');
+    expect(Hive.box<dynamic>('test_box').get('hello'), 'world');
+  });
+
+  test('restore missing key returns ok=false', () async {
+    final fake = _FakeKv();
+    final r = await CloudStorageSync(fake).restore('does-not-exist');
+    expect(r.ok, false);
+    expect(r.error, isNotNull);
   });
 }

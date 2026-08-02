@@ -1,11 +1,19 @@
 import '../../../api/goframe/kv/kv_endpoint.dart';
 import '../export/storage_exporter.dart';
+import '../export/storage_importer.dart';
 
 class BackupResult {
   final bool ok;
   final int? bytes;
   final String? error;
   const BackupResult({required this.ok, this.bytes, this.error});
+}
+
+class RestoreResult {
+  final bool ok;
+  final ImportResult? import;
+  final String? error;
+  const RestoreResult({required this.ok, this.import, this.error});
 }
 
 /// 云端存储同步 —— 把本地 Hive+prefs+notes 整份快照存到一个 KV key。
@@ -37,6 +45,27 @@ class CloudStorageSync {
       );
     }
     return BackupResult(ok: true, bytes: er.text.length);
+  }
+
+  /// 恢复：kv.get(prefix+name) → importFromText(value, clearBeforeImport: …)
+  Future<RestoreResult> restore(
+    String name, {
+    bool clearFirst = false,
+  }) async {
+    final r = await _kv.get(_realKey(name));
+    if (r.code != 0 || r.data == null) {
+      return RestoreResult(
+        ok: false,
+        error: r.message.isEmpty ? 'kv get 失败' : r.message,
+      );
+    }
+    final value = r.data!.value;
+    if (value.isEmpty) {
+      return const RestoreResult(ok: false, error: '备份内容为空');
+    }
+    final imp = await StorageImporter(clearBeforeImport: clearFirst)
+        .importFromText(value);
+    return RestoreResult(ok: true, import: imp);
   }
 
   /// 列已有备份的友好名（剥前缀；过滤非本前缀的 key）。
