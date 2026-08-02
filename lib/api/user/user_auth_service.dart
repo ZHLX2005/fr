@@ -27,15 +27,47 @@ class UserAuthService {
   static const _baseUrl = 'http://47.110.80.47:8988/api/v1';
 
   final TokenStorage _storage = SharedPrefsTokenStorage();
-  final http.Client _client = http.Client();
+  /// 可注入 http.Client，便于测试；默认 new http.Client()。
+  final http.Client _client;
+
+  UserAuthService({http.Client? client}) : _client = client ?? http.Client();
+
+  /// 从 token 存储读 token 并拼 Authorization 头。
+  Future<Map<String, String>> _authHeaders() async {
+    final token = await _storage.accessToken;
+    final h = <String, String>{'Content-Type': 'application/json'};
+    if (token != null && token.isNotEmpty) {
+      h['Authorization'] = 'Bearer $token';
+    }
+    return h;
+  }
 
   Future<AuthResult> _post(String path, Map<String, dynamic> body) async {
     try {
       final res = await _client
           .post(
             Uri.parse('$_baseUrl$path'),
-            headers: {'Content-Type': 'application/json'},
+            headers: await _authHeaders(),
             body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      return AuthResult(
+        code: (json['code'] as num?)?.toInt() ?? -1,
+        message: json['message'] as String? ?? '',
+        data: json['data'] as Map<String, dynamic>?,
+      );
+    } catch (e) {
+      return AuthResult(code: -1, message: '网络错误: $e');
+    }
+  }
+
+  Future<AuthResult> _get(String path) async {
+    try {
+      final res = await _client
+          .get(
+            Uri.parse('$_baseUrl$path'),
+            headers: await _authHeaders(),
           )
           .timeout(const Duration(seconds: 15));
       final json = jsonDecode(res.body) as Map<String, dynamic>;
@@ -80,4 +112,7 @@ class UserAuthService {
     }
     return r;
   }
+
+  /// 我的信息（需已登录；失败 401 时返回 envelope.code=401 让上游处理）。
+  Future<AuthResult> userInfo() => _get('/user/info');
 }
