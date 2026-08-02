@@ -2256,6 +2256,8 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
   }
 
   Widget _buildLogin() {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
@@ -2264,10 +2266,22 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_outlined, size: 48),
-              const SizedBox(height: 8),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: accent.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
+                ),
+                child: Icon(Icons.cloud_outlined, color: accent, size: 28),
+              ),
+              const SizedBox(height: 12),
               Text('云同步需要登录',
-                  style: Theme.of(context).textTheme.titleMedium),
+                  style: theme.textTheme.titleMedium),
               const SizedBox(height: 16),
               TextField(
                 controller: _emailCtrl,
@@ -2281,15 +2295,30 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                 obscureText: true,
               ),
               const SizedBox(height: 16),
-              FilledButton(
+              OutlinedButton.icon(
                 onPressed: _busy ? null : _login,
-                child: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                icon: _busy
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: accent,
+                        ),
                       )
-                    : const Text('登录'),
+                    : const Icon(Icons.login, size: 18),
+                label: const Text('登录'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: accent,
+                  side: BorderSide(
+                    color: accent.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
               ),
             ],
           ),
@@ -2304,12 +2333,10 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 登录状态指示 —— border-emphasis green
           Row(children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 18),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(_identity == null ? '已登录' : '已登录: $_identity'),
-            ),
+            _StatusChip(label: '已登录${_identity == null ? "" : ": $_identity"}'),
+            const Spacer(),
             TextButton(
               onPressed: _busy ? null : _logout,
               child: const Text('退出'),
@@ -2326,9 +2353,11 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
               ),
             ),
             const SizedBox(width: 8),
-            FilledButton(
+            OutlinedButton.icon(
               onPressed: _busy ? null : _doBackup,
-              child: const Text('备份到云端'),
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: const Text('备份到云端'),
+              style: _outlinedActionStyle(Colors.green),
             ),
           ]),
           const SizedBox(height: 12),
@@ -2344,31 +2373,123 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                     itemCount: _backups.length,
                     itemBuilder: (_, i) {
                       final n = _backups[i];
-                      return RadioListTile<String>(
-                        value: n,
-                        groupValue: _selected,
-                        title: Text(n),
-                        onChanged: (v) => setState(() => _selected = v),
+                      return _BackupRow(
+                        name: n,
+                        selected: _selected == n,
+                        onTap: () => setState(() => _selected = n),
                       );
                     },
                   ),
           ),
           Row(children: [
             Expanded(
-              child: OutlinedButton(
+              child: OutlinedButton.icon(
                 onPressed: (_busy || _selected == null) ? null : _doRestore,
-                child: const Text('从云端恢复'),
+                icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                label: const Text('从云端恢复'),
+                style: _outlinedActionStyle(Colors.blue),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: OutlinedButton(
+              child: OutlinedButton.icon(
                 onPressed: (_busy || _selected == null) ? null : _doDelete,
-                child: const Text('删除备份'),
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('删除备份'),
+                style: _outlinedActionStyle(Colors.red),
               ),
             ),
           ]),
         ],
+      ),
+    );
+  }
+}
+
+/// OutlinedButton 撞色编码：浅 tint 底 + 同色描边 + 同色前景。
+/// 操作按钮专用（与内容型页面的"统一主题色"反向）。
+ButtonStyle _outlinedActionStyle(Color color) => OutlinedButton.styleFrom(
+      foregroundColor: color,
+      side: BorderSide(color: color.withValues(alpha: 0.5), width: 1.5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+
+/// 已登录状态指示 —— border-emphasis green
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.check_circle_outline, size: 14, color: Colors.green),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(
+                color: Colors.green,
+                fontSize: 12,
+                fontWeight: FontWeight.w500)),
+      ]),
+    );
+  }
+}
+
+/// 单个备份条目 —— 选中态用 primary 描边+浅 tint 强提示，未选中态无边框。
+class _BackupRow extends StatelessWidget {
+  const _BackupRow({
+    required this.name,
+    required this.selected,
+    required this.onTap,
+  });
+  final String name;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Material(
+        color: selected
+            ? accent.withValues(alpha: 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected
+                    ? accent.withValues(alpha: 0.45)
+                    : theme.dividerColor.withValues(alpha: 0.4),
+                width: 1.2,
+              ),
+            ),
+            child: Row(children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+                size: 18,
+                color: selected ? accent : theme.iconTheme.color?.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(name)),
+            ]),
+          ),
+        ),
       ),
     );
   }
