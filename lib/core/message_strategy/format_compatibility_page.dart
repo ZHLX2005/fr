@@ -4,6 +4,8 @@ import '../../services/message_strategy/interfaces/interfaces.dart';
 import '../../services/message_strategy/factory/factory.dart';
 import '../../services/message_strategy/panel/panel.dart';
 import '../../services/message_strategy/data/card_manager_message_data.dart';
+import '../design/chat_composer.dart';
+import '../design/message_bubble.dart';
 
 /// 格式兼容性 / 消息策略聚合测试页。
 ///
@@ -170,59 +172,11 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
   }
 
   Widget _buildInputArea() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _inputController,
-                decoration: InputDecoration(
-                  hintText: '输入 type (text/login/register/card_manager)...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  filled: true,
-                  fillColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                maxLines: 1,
-                minLines: 1,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (value) => _handleSend(value),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                onPressed: () => _handleSend(_inputController.text),
-                icon: const Icon(Icons.send, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return ChatComposer(
+      controller: _inputController,
+      hintText: '输入 type (text/login/register/card_manager)...',
+      onSend: () => _handleSend(_inputController.text),
+      onSubmitted: (v) => _handleSend(v),
     );
   }
 }
@@ -242,42 +196,28 @@ class _FormatMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.95,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(left: 12, bottom: 4),
-              child: Text(
-                typeName.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w500,
-                ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 14, bottom: 4),
+            child: Text(
+              typeName.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.zero,
-                  bottomRight: Radius.circular(16),
-                ),
-              ),
-              child: factory.create(context, data),
-            ),
-          ],
-        ),
+          ),
+          // 复用 Slate 消息气泡：AI 侧、无边框、柔和阴影
+          MessageBubble(
+            side: BubbleSide.ai,
+            child: factory.create(context, data),
+          ),
+        ],
       ),
     );
   }

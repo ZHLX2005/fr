@@ -67,13 +67,10 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 8),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 itemCount: _entries.length,
-                separatorBuilder: (context, index) => const Divider(
-                  height: 1,
-                  indent: 84,
-                  endIndent: 16,
-                ),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 8),
                 itemBuilder: (context, index) =>
                     _AssistantTile(entry: _entries[index]),
               ),
@@ -94,35 +91,43 @@ class _AssistantTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = entry.color(context);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: CircleAvatar(
-        radius: 26,
-        backgroundColor: color.withValues(alpha: 0.1),
-        child: Icon(entry.icon, size: 28, color: color),
-      ),
-      title: Text(
-        entry.title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-      ),
-      subtitle: Text(
-        entry.subtitle,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          radius: 26,
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Icon(entry.icon, size: 28, color: color),
         ),
+        title: Text(
+          entry.title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          entry.subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.3),
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: entry.builder),
+          );
+        },
       ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-      ),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: entry.builder),
-        );
-      },
     );
   }
 }

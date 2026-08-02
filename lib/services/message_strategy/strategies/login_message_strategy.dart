@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../interfaces/interfaces.dart';
 import '../data/login_message_data.dart';
 import '../../../api/user/user_auth_service.dart';
+import '../../../core/design/slate_palette.dart';
 
 /// Strategy for rendering Login messages.
 ///
@@ -74,15 +75,20 @@ class _LoginContentState extends State<_LoginContent> {
     final theme = Theme.of(context);
     if (_isFixed) return _buildFixed(theme);
 
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       constraints: const BoxConstraints(maxWidth: 320),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.4),
-        ),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(SlatePalette.radius),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? SlatePalette.darkShadow : SlatePalette.lightShadow,
+            blurRadius: 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -103,11 +109,7 @@ class _LoginContentState extends State<_LoginContent> {
           TextField(
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: '邮箱',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
+            decoration: const InputDecoration(labelText: '邮箱'),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -115,8 +117,6 @@ class _LoginContentState extends State<_LoginContent> {
             obscureText: _obscure,
             decoration: InputDecoration(
               labelText: '密码',
-              border: const OutlineInputBorder(),
-              isDense: true,
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscure ? Icons.visibility_off : Icons.visibility,
@@ -158,11 +158,17 @@ class _LoginContentState extends State<_LoginContent> {
       constraints: const BoxConstraints(maxWidth: 320),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.5),
-        ),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(SlatePalette.radius),
+        boxShadow: [
+          BoxShadow(
+            color: theme.brightness == Brightness.dark
+                ? SlatePalette.darkShadow
+                : SlatePalette.lightShadow,
+            blurRadius: 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         children: [

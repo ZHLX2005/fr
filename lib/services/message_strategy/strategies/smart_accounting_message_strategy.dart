@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../interfaces/interfaces.dart';
 import '../data/smart_accounting_message_data.dart';
+import '../../../core/design/slate_palette.dart';
 
 /// Strategy for rendering Smart Accounting messages (AI-recognized expense with confirm/modify/ignore)
 class SmartAccountingMessageWidgetStrategy
@@ -89,15 +90,20 @@ class _SmartAccountingContentState extends State<_SmartAccountingContent> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 320),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.2),
-        ),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(SlatePalette.radius),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? SlatePalette.darkShadow : SlatePalette.lightShadow,
+            blurRadius: 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,9 +369,7 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
                 const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               prefixText: '¥ ',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,
@@ -385,9 +389,7 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
           TextField(
             controller: _descController,
             decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,

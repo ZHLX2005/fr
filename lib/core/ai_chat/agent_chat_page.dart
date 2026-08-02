@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/ai_chat/agent_chat_provider.dart';
 import '../../services/ai_chat/ai_chat_models.dart';
 import '../../widgets/markdown_renderer_widget.dart';
+import '../design/message_bubble.dart';
 import 'ai_chat_settings_page.dart';
 
 /// Agent 聊天页面 - 事件记录 Agent
@@ -367,8 +368,6 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return GestureDetector(
       onLongPress: () {
         Clipboard.setData(ClipboardData(text: message.content));
@@ -376,34 +375,11 @@ class _MessageBubble extends StatelessWidget {
           const SnackBar(content: Text('已复制到剪贴板')),
         );
       },
-      child: Align(
-        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.95,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: isMe
-                ? theme.colorScheme.secondary
-                : theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(16),
-              topRight: const Radius.circular(16),
-              bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-              bottomRight: isMe ? Radius.zero : const Radius.circular(16),
-            ),
-          ),
-          child: isMe
-              ? Text(
-                  message.content,
-                  style: TextStyle(
-                    color: isMe ? Colors.white : theme.colorScheme.onSurface,
-                  ),
-                )
-              : MarkdownRendererWidget(data: message.content),
-        ),
+      child: MessageBubble(
+        side: isMe ? BubbleSide.user : BubbleSide.ai,
+        child: isMe
+            ? Text(message.content)
+            : MarkdownRendererWidget(data: message.content),
       ),
     );
   }
