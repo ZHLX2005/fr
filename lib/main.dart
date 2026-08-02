@@ -14,8 +14,6 @@ import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
-import 'core/schema/fr_navigator.dart';
-import 'core/schema/bootstrap_routes.dart';
 import 'lab/demos/clock/providers/lab_clock_provider.dart';
 import 'core/body/models/body_record_repo.dart';
 import 'core/line/io/supabase_config.dart';
@@ -103,19 +101,12 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {}
 
-  /// 桌面 widget MethodChannel 回调 — 翻译 4 个 method name 到 fr:// URL，
-  /// 统一走 FrNavigator.handle 分发（FrNavigator 内部按 RouteSettings.name
+  /// 桌面 widget MethodChannel 回调 — 翻译走 `FrMethodChannelTranslator`
+  /// (统一在 core/schema/method_channel_translator.dart 维护),
+  /// 统一经 FrNavigator.handle 分发（FrNavigator 内部按 RouteSettings.name
   /// 做 CLEAR_TOP 防重复堆叠：已在栈中则提到栈顶，不再 push）。
   Future<dynamic> _handleMethodCall(MethodCall call) async {
-    final frUrl = switch (call.method) {
-      'navigateToLab' => 'fr://lab',
-      'navigateToCalendar' => 'fr://lab/demo/calendar',
-      'navigateToClock' => 'fr://lab/demo/clock',
-      'navigateToTimetable' => 'fr://timetable',
-      'navigateToNotionImage' =>
-        'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
-      _ => null,
-    };
+    final frUrl = FrMethodChannelTranslator.translate(call);
     if (frUrl == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FrNavigator.handle(navigatorKey.currentContext, frUrl);

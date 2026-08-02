@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  录音机桌面小组件 — 1x1 极简版。
+
+  核心策略：
+    - 整个 widget 只有「录音」按钮一个元素，撑满 match_parent
+    - 不再保留任何 header / 副标题 / 装饰 — 1x1 区域本就只够一个交互按钮
+    - 2x2 拉大时按钮仍居中显示（FrameLayout gravity center 自适应）
+    - 文字「录音」+ 红色强调 + 圆角描边背景，靠风格而非体积传达品牌
+
+  交互：
+    - 点击按钮（整个 widget 唯一可点元素）→ 触发 fr://lab/demo/recorder?autostart=true
+      → Flutter RecorderHandler 标记 autostart → RecorderDemoPage mount 后
+      自动调 controller.start()
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background">
+
+    <TextView
+        android:id="@+id/widget_record_btn"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:text="录音"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#D32F2F"
+        android:clickable="true"
+        android:focusable="true"
+        android:contentDescription="开始录音并跳转到录音页面" />
+
+</FrameLayout>

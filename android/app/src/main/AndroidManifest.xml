@@ -165,6 +165,7 @@
         <!-- 时钟桌面小组件 -->
         <receiver
             android:name=".native.widget.ClockWidgetProvider"
+            android:label="@string/widget_label_clock"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -177,6 +178,7 @@
         <!-- 日历桌面小组件 -->
         <receiver
             android:name=".native.widget.CalendarWidgetProvider"
+            android:label="@string/widget_label_calendar"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -190,6 +192,7 @@
         <!-- 课表桌面小组件 -->
         <receiver
             android:name=".native.widget.TimetableWidgetProvider"
+            android:label="@string/widget_label_timetable"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -203,6 +206,7 @@
         <!-- Notion 图床桌面小组件 — 点击直接打开图床页 + 自动触发拍照 -->
         <receiver
             android:name=".native.widget.NotionWidgetProvider"
+            android:label="@string/widget_label_notion"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -210,6 +214,20 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/notion_widget_info" />
+        </receiver>
+
+        <!-- 录音机桌面小组件 — 点击直接进入录音页 + 自动开始录音 -->
+        <receiver
+            android:name=".native.widget.RecorderWidgetProvider"
+            android:label="@string/widget_label_recorder"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="io.github.xiaodouzi.fr.action.RECORDER_WIDGET_RECORD" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/recorder_widget_info" />
         </receiver>
 
         <!-- image_picker FileProvider -->

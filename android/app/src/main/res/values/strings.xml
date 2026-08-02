@@ -5,4 +5,22 @@
     <string name="shortcut_turn_on_long">开启音量衰减</string>
     <string name="shortcut_turn_off">关闭衰减</string>
     <string name="shortcut_turn_off_long">关闭音量衰减</string>
+
+    <!-- 桌面小组件 label —— 显示在 launcher 的 widget picker 里。
+         每个 widget 必须有独立 label，否则全部 fallback 到 app_name="小豆子"，
+         用户无法区分。命名规范：widget_label_<slug>，值=小豆子 · <功能>。
+         修改后需长按删除旧 widget 实例再重新添加，launcher 才刷新 metadata。 -->
+    <string name="widget_label_clock">小豆子 · 时钟</string>
+    <string name="widget_label_calendar">小豆子 · 日历</string>
+    <string name="widget_label_timetable">小豆子 · 课表</string>
+    <string name="widget_label_notion">小豆子 · 拍照</string>
+    <string name="widget_label_recorder">小豆子 · 录音</string>
+
+    <!-- 桌面小组件 description —— 显示在 picker 中 label 下方。
+         简短描述 widget 行为，长度建议 < 30 字符。 -->
+    <string name="widget_description_clock">桌面时钟 / 倒计时</string>
+    <string name="widget_description_calendar">日历待办 / 提醒</string>
+    <string name="widget_description_timetable">今日 / 明日课表</string>
+    <string name="widget_description_notion">一键拍照上传到 Notion</string>
+    <string name="widget_description_recorder">一键开始录音</string>
 </resources>

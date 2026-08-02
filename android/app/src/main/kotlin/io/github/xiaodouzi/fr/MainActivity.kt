@@ -59,6 +59,9 @@ class MainActivity : FlutterActivity() {
             onNavigateToNotionImage = { autocapture ->
                 navigateToNotionImage(autocapture)
             }
+            onNavigateToRecorder = { autostart ->
+                navigateToRecorder(autostart)
+            }
         }
 
         // Clock Channel
@@ -216,9 +219,15 @@ class MainActivity : FlutterActivity() {
             val uriStr = uri.toString()
             // 解析 fr://notionimg?autocapture=1 或 fr://notionimg 两种 URI
             when {
-                uriStr.startsWith("fr://notionimg") -> {
+                uriStr == "fr://notionimg" -> {
                     val autocapture = uri.getBooleanQueryParameter("autocapture", false)
                     widgetChannel.notifyNavigateToNotionImage(autocapture)
+                }
+                uriStr == "fr://recorder" || uriStr == "fr://lab/demo/recorder" ||
+                    uri.path == "/lab/demo/recorder" -> {
+                    // 桌面 widget 进入默认 autostart=true；普通 fr:// 链接可显式 ?autostart=false
+                    val autostart = uri.getBooleanQueryParameter("autostart", true)
+                    widgetChannel.notifyNavigateToRecorder(autostart)
                 }
                 uriStr == "fr://calendar" || uri.path == "/calendar" -> {
                     widgetChannel.notifyNavigateToCalendar()
@@ -247,6 +256,10 @@ class MainActivity : FlutterActivity() {
 
     private fun navigateToNotionImage(autocapture: Boolean) {
         widgetChannel.notifyNavigateToNotionImage(autocapture)
+    }
+
+    private fun navigateToRecorder(autostart: Boolean) {
+        widgetChannel.notifyNavigateToRecorder(autostart)
     }
 
     private fun registerRegionCaptureReceiver() {

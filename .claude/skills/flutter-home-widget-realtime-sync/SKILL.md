@@ -307,6 +307,7 @@ widget 不刷新
 | --- | --- | --- |
 | [[widget-click-deeplink]] | widget 主体点击 → 直达 Flutter 具体 demo 页面;`fr://` 深链 + MethodChannel + FrNavigator 整链路;首次给新 widget 加点击跳转 | references/widget-click-deeplink.md |
 | [[widget-style-spec]] | 设计或修改 widget layout/xml 之前;去 emoji、支持 1×1、launcher 兼容、layout 自适应 | references/widget-style-spec.md |
+| [[widget-label-and-manifest]] | widget picker label 全是 "小豆子" 无法区分 / 加 `android:label` `description` `previewLayout` / autostart flag 模式 / MethodChannel 翻译表抽取 | references/widget-label-and-manifest.md |
 
 **加载触发关键词**:
 
@@ -314,6 +315,8 @@ widget 不刷新
   → [[widget-click-deeplink]]
 - "widget 样式优化 / 去掉 emoji / 支持 1×1 / widget 太大 / launcher 兼容性"
   → [[widget-style-spec]]
+- "widget 都是小豆子 / widget 没法区分 / picker 显示一样 / 给 widget 加 label / widget label 命名"
+  → [[widget-label-and-manifest]]
 
 ## 调用 skill-creator（可选）
 

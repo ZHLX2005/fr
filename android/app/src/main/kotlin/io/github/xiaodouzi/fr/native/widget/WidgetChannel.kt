@@ -33,6 +33,11 @@ class WidgetChannel(messenger: BinaryMessenger) {
                     onNavigateToNotionImage?.invoke(autocapture)
                     result.success(null)
                 }
+                "navigateToRecorder" -> {
+                    val autostart = call.argument<Boolean>("autostart") ?: true
+                    onNavigateToRecorder?.invoke(autostart)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -46,6 +51,10 @@ class WidgetChannel(messenger: BinaryMessenger) {
     /// Notion 图床页面跳转回调，[autocapture] = true 表示从桌面 widget 进入，
     /// 期望自动触发拍照。
     var onNavigateToNotionImage: ((Boolean) -> Unit)? = null
+
+    /// 录音机页面跳转回调，[autostart] = true 表示从桌面 widget 进入，
+    /// 期望自动开始录音。
+    var onNavigateToRecorder: ((Boolean) -> Unit)? = null
 
     fun notifyNavigateToLab() {
         channel.invokeMethod("navigateToLab", null)
@@ -65,5 +74,9 @@ class WidgetChannel(messenger: BinaryMessenger) {
 
     fun notifyNavigateToNotionImage(autocapture: Boolean) {
         channel.invokeMethod("navigateToNotionImage", autocapture)
+    }
+
+    fun notifyNavigateToRecorder(autostart: Boolean) {
+        channel.invokeMethod("navigateToRecorder", autostart)
     }
 }
