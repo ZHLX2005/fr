@@ -551,10 +551,11 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
-              FilledButton.icon(
+              OutlinedButton.icon(
                 onPressed: _addPref,
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('新增'),
+                style: _outlinedActionStyle(Colors.green),
               ),
             ],
           ),
@@ -1886,12 +1887,15 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
+                    style: _outlinedActionStyle(
+                      Theme.of(context).colorScheme.primary,
+                    ),
                     child: const Text('取消'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: FilledButton(
+                  child: OutlinedButton(
                     onPressed: () {
                       if (_keyCtrl.text.trim().isEmpty) return;
                       Navigator.pop(
@@ -1903,6 +1907,7 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
                         ),
                       );
                     },
+                    style: _outlinedActionStyle(Colors.green),
                     child: const Text('保存'),
                   ),
                 ),
