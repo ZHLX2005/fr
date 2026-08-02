@@ -4,6 +4,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 
 import 'constants.dart';
 import 'engine.dart';
@@ -209,7 +210,7 @@ class _SetupPageState extends State<SetupPage> {
       final t = RelayV3Transport(
         relayUrl: kTeamCardRelayUrl,
         alias: alias,
-        deviceId: 'host-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: await RelayDeviceId.get(),
       );
       final roles = rolePool.map((r) => {'label': r.label, 'count': r.count}).toList();
       final total = _playerSlots + _spectatorSlots;
@@ -485,7 +486,7 @@ class _JoinPageState extends State<JoinPage> {
       final t = RelayV3Transport(
         relayUrl: kTeamCardRelayUrl,
         alias: alias,
-        deviceId: 'guest-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: await RelayDeviceId.get(),
       );
       final h = await TeamCardRoom.join(t, code: code);
       if (!mounted) return;

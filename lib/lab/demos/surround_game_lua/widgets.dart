@@ -12,6 +12,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 
 import 'constants.dart';
 import 'engine.dart' show SgRoom, QuoridorEngine, GameState, MoveRecord,
@@ -96,7 +97,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
       final t = RelayV3Transport(
         relayUrl: kSgRelayUrl,
         alias: alias,
-        deviceId: 'sg-p-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: await RelayDeviceId.get(),
       );
       await LuaGameAlias.save(alias);
       // tryJoinOrCreate 内部：先 join，404 则用此 code 作 requested_code 创建。

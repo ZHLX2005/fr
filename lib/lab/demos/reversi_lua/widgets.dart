@@ -12,6 +12,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 
 import 'package:xiaodouzi_fr/core/reversi/board_theme.dart';
 import 'package:xiaodouzi_fr/core/reversi/models/reversi_board.dart';
@@ -100,7 +101,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
       final t = RelayV3Transport(
         relayUrl: 'http://47.110.80.47:8988',
         alias: alias,
-        deviceId: 'rv-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: await RelayDeviceId.get(),
       );
       await LuaGameAlias.save(alias);
       final h = await t.tryJoinOrCreate(

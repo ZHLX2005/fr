@@ -11,6 +11,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 
 import 'engine.dart';
 import 'board.dart';
@@ -85,7 +86,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
       final t = RelayV3Transport(
         relayUrl: kTetrisRelayUrl,
         alias: alias,
-        deviceId: 'tet-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: await RelayDeviceId.get(),
       );
       await LuaGameAlias.save(alias);
       final h = await t.tryJoinOrCreate(

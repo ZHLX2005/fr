@@ -36,6 +36,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'relay_device_id.dart';
 import 'package:xiaodouzi_fr/core/net_engine/widgets/participants_grid.dart';
 
 import 'relay_v3_transport.dart';
@@ -120,7 +121,7 @@ class _RelayV3LobbyState extends State<RelayV3Lobby> {
       final t = RelayV3Transport(
         relayUrl: widget.relayUrl,
         alias: alias,
-        deviceId: 'host-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: await RelayDeviceId.get(),
       );
       final h = await t.createRoom(
         script: widget.script ?? '',
@@ -169,7 +170,7 @@ class _RelayV3LobbyState extends State<RelayV3Lobby> {
       final t = RelayV3Transport(
         relayUrl: widget.relayUrl,
         alias: alias,
-        deviceId: 'guest-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: await RelayDeviceId.get(),
       );
       final h = await t.joinRoom(code: code);
       _transport = t;

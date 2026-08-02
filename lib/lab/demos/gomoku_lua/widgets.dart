@@ -10,6 +10,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 
 import 'constants.dart';
 import 'engine.dart' show
@@ -85,7 +86,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
       final t = RelayV3Transport(
         relayUrl: kGomokuRelayUrl,
         alias: alias,
-        deviceId: 'gm-black-${DateTime.now().microsecondsSinceEpoch}',
+        deviceId: await RelayDeviceId.get(),
       );
       await LuaGameAlias.save(alias);
       final h = await t.tryJoinOrCreate(
