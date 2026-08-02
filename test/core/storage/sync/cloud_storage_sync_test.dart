@@ -1,6 +1,12 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaodouzi_fr/api/api_response.dart';
 import 'package:xiaodouzi_fr/api/goframe/kv/kv_endpoint.dart';
+import 'package:xiaodouzi_fr/core/storage/box_descriptor.dart';
+import 'package:xiaodouzi_fr/core/storage/storage_registry.dart';
 import 'package:xiaodouzi_fr/core/storage/sync/cloud_storage_sync.dart';
 
 class _FakeKv implements KvOps {
@@ -60,6 +66,42 @@ class _FakeKv implements KvOps {
 }
 
 void main() {
+  // path_provider 桩（buildDumpText 内部会调 getApplicationDocumentsDirectory）
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final tmpPath = Directory.systemTemp.createTempSync('fr_pp_').path;
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory' ||
+            call.method == 'getApplicationSupportDirectory' ||
+            call.method == 'getTemporaryDirectory' ||
+            call.method == 'getExternalStorageDirectory') {
+          return tmpPath;
+        }
+        return null;
+      },
+    );
+  });
+
+  late Directory tempDir;
+  setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('fr_cloud_sync_test');
+    Hive.init(tempDir.path);
+    StorageRegistry.register(BoxDescriptor<dynamic>(
+      name: 'test_box',
+      displayName: '测试',
+      openUntyped: () => Hive.openBox('test_box'),
+    ));
+  });
+  tearDown(() async {
+    StorageRegistry.clear();
+    await Hive.close();
+    if (await tempDir.exists()) await tempDir.delete(recursive: true);
+  });
+
   test('listBackups filters and strips prefix', () async {
     final fake = _FakeKv(initial: [
       'a',
@@ -79,5 +121,18 @@ void main() {
     expect(ok, true);
     expect(fake.lastDeleted, 'fr_storage_backup:alpha');
     expect(fake.stored, isNot(contains('fr_storage_backup:alpha')));
+  });
+
+  test('backup writes prefixed key with dump text', () async {
+    final fake = _FakeKv();
+    final box = await Hive.openBox<dynamic>('test_box');
+    await box.put('k', 'v');
+
+    final r = await CloudStorageSync(fake).backup('myphone');
+    expect(r.ok, true);
+    expect(fake.lastSet, 'fr_storage_backup:myphone');
+    expect(fake.lastSetValue, isNotEmpty);
+    expect(fake.lastSetValue, contains('[hive:test_box]'));
+    expect(fake.lastSetValue, contains('K:k'));
   });
 }

@@ -1,4 +1,12 @@
 import '../../../api/goframe/kv/kv_endpoint.dart';
+import '../export/storage_exporter.dart';
+
+class BackupResult {
+  final bool ok;
+  final int? bytes;
+  final String? error;
+  const BackupResult({required this.ok, this.bytes, this.error});
+}
 
 /// 云端存储同步 —— 把本地 Hive+prefs+notes 整份快照存到一个 KV key。
 ///
@@ -14,6 +22,22 @@ class CloudStorageSync {
   static const String prefix = 'fr_storage_backup:';
 
   String _realKey(String name) => '$prefix$name';
+
+  /// 备份：本地全量 → dump 文本 → kv.set(prefix+name, text)
+  Future<BackupResult> backup(String name) async {
+    final er = await StorageExporter().buildDumpText();
+    if (er.text.isEmpty) {
+      return const BackupResult(ok: false, error: '导出内容为空');
+    }
+    final r = await _kv.set(key: _realKey(name), value: er.text);
+    if (r.code != 0) {
+      return BackupResult(
+        ok: false,
+        error: r.message.isEmpty ? 'kv set 失败' : r.message,
+      );
+    }
+    return BackupResult(ok: true, bytes: er.text.length);
+  }
 
   /// 列已有备份的友好名（剥前缀；过滤非本前缀的 key）。
   Future<List<String>> listBackups() async {
