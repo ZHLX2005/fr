@@ -387,11 +387,30 @@ class _HeroRecord extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ZenIconButton(
-      icon: icon,
-      variant: ZenIconButtonVariant.hero,
-      color: ZenColors.mutedRed,
+    // 本地自绘 hero 键 —— ZenIconButton.hero 硬编码 sage,忽略 color 参数
+    // (clocks/metronome/track 依赖该 sage 行为,不改 zen_theme)。
+    // 这里直接复刻 hero 视觉规格(80×80 圆 + 0.4 alpha 阴影 + 48px 白图标),
+    // 但把底色换成 ZenColors.mutedRed,使录音/停止键与状态指示器同色。
+    return InkWell(
       onTap: () async => await onTap(),
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 80,
+        height: 80,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: ZenColors.mutedRed,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: ZenColors.mutedRed.withValues(alpha: 0.4),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Icon(icon, color: Colors.white, size: 48),
+      ),
     );
   }
 }
