@@ -161,6 +161,20 @@ const Map<String, GameMeta> kGameMeta = {
     mode: '联机双人',
     pattern: GameArtPattern.grid,
   ),
+  'coup-lua': GameMeta(
+    categories: {GameCategory.multiplayer, GameCategory.party},
+    icon: Icons.crisis_alert_rounded,
+    gradient: [Color(0xFF7C2D12), Color(0xFFEA580C)],
+    mode: '联机多人',
+    pattern: GameArtPattern.dots,
+  ),
+  'reversi-lua': GameMeta(
+    categories: {GameCategory.multiplayer, GameCategory.board},
+    icon: Icons.cached_rounded,
+    gradient: [Color(0xFF1F2937), Color(0xFF4B5563)],
+    mode: '联机双人',
+    pattern: GameArtPattern.dots,
+  ),
 
   // ── 本地 ────────────────────────────────────────────────────
   // 围追堵截本地版：本地双人对战，归「棋游」，不进「联机」。
