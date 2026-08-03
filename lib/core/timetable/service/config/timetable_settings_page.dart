@@ -296,43 +296,86 @@ class _TimetableSettingsPageState
     );
   }
 
-  // ──── 子组件：日期字段（点开 WeekCalculatorDialog） ────
+  // ──── 子组件：日期字段 ────
+  // 点字段 → 打开 WeekCalculatorDialog（周数推算 / 选日期回退）
+  // 右侧按钮 → 直接弹系统日期选择器，自动回退到最近周一
   Widget _buildDateField() {
-    return InkWell(
-      borderRadius: BorderRadius.circular(6),
-      onTap: () async {
-        final date = await showDialog<String>(
-          context: context,
-          builder: (_) => const WeekCalculatorDialog(),
-        );
-        if (date != null) {
-          setState(() => _startDateController.text = date);
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: zenCard(),
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_isSchoolMode ? '起始日期（周一）' : '起始日期', style: ZenText.label),
-                  const SizedBox(height: 2),
-                  Text(
-                    _startDateController.text,
-                    style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () async {
+            final date = await showDialog<String>(
+              context: context,
+              builder: (_) => const WeekCalculatorDialog(),
+            );
+            if (date != null) {
+              setState(() => _startDateController.text = date);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: zenCard(),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_isSchoolMode ? '起始日期（周一）' : '起始日期', style: ZenText.label),
+                      const SizedBox(height: 2),
+                      Text(
+                        _startDateController.text,
+                        style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+                const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // 直接入口：选任意日期 → 自动回退到最近周一
+        SizedBox(
+          height: 40,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final current = DateTime.tryParse(_startDateController.text);
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: current ?? DateTime.now(),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2035),
+                helpText: '选择开学日期或之前的任意一天',
+              );
+              if (picked == null) return;
+              final monday = findNearestMondayOnOrBefore(picked);
+              final iso = monday.toIso8601String().split('T')[0];
+              setState(() => _startDateController.text = iso);
+              _save();
+            },
+            style: zenButton(
+              foreground: ZenColors.sage,
+              border: ZenColors.hair,
+            ).copyWith(
+              minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
-            const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
-          ],
+            icon: const Icon(Icons.calendar_today, size: 16, color: ZenColors.sage),
+            label: Text(
+              '选日期（自动对齐到最近周一）',
+              style: ZenText.button.copyWith(color: ZenColors.sage),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
