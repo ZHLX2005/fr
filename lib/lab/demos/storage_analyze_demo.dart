@@ -9,6 +9,7 @@ import '../../api/providers/api_providers.dart';
 import '../../api/user/user_auth_service.dart';
 import '../../core/storage/storage_manager.dart';
 import '../../core/storage/sync/cloud_storage_sync.dart';
+import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
 import 'calendar/data/calendar_hive.dart';
@@ -2207,10 +2208,101 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
           '${imp.errorCount > 0 ? " / 错误 ${imp.errorCount}" : ""}',
         ),
       ));
+      if (imp.errorCount > 0 && mounted) {
+        await _showImportErrorSheet(imp.structured);
+      }
       await widget.onAfterChange();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// 导入失败时弹出底部抽屉，逐条列出 [ImportError]（section/key + reason），
+  /// 方便用户长按复制 key 后去对应 box 手动恢复。
+  Future<void> _showImportErrorSheet(List<ImportError> items) async {
+    final scheme = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: scheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (ctx, scroll) => Column(
+          children: [
+            ListTile(
+              title: Text(
+                '导入错误日志 (${items.length} 条)',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('长按条目可复制 key'),
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: scheme.errorContainer,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: scheme.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: ListView.builder(
+                  controller: scroll,
+                  itemCount: items.length,
+                  itemBuilder: (_, i) {
+                    final e = items[i];
+                    final title = switch (e.section) {
+                      ImportErrorSection.hive =>
+                        'hive:${e.boxName}${e.key.isNotEmpty ? "[${e.key}]" : ""}',
+                      ImportErrorSection.prefs => 'prefs:${e.key}',
+                      ImportErrorSection.notes => 'notes:${e.key}',
+                    };
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SelectableText(
+                            title,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (e.reason.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            SelectableText(
+                              e.reason,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scheme.onErrorContainer,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _doDelete() async {

@@ -65,16 +65,41 @@ class ImportResult {
   final int errorCount;
   final List<String> errors;
 
+  /// 与 [errors] 一一对应的结构化条目（生产侧填充，UI 直接消费）。
+  /// 默认空列表保证旧的 `ImportResult(...)` 构造兼容。
+  final List<ImportError> structured;
+
   const ImportResult({
     required this.prefsCount,
     required this.hiveCount,
     required this.notesCount,
     required this.errorCount,
     required this.errors,
+    this.structured = const [],
   });
 
   int get totalCount => prefsCount + hiveCount + notesCount;
 }
+
+/// 导入失败的单个错误条目。
+///
+/// 按 section 分组渲染：hive 显示 `hive:boxName[key]`，prefs 显示 `prefs:key`，
+/// notes 显示 `notes:name`。reason 保留异常 toString 原样，不剥前缀。
+class ImportError {
+  final ImportErrorSection section;
+  final String boxName;
+  final String key;
+  final String reason;
+
+  const ImportError({
+    required this.section,
+    required this.boxName,
+    required this.key,
+    required this.reason,
+  });
+}
+
+enum ImportErrorSection { hive, prefs, notes }
 
 class StorageImporter {
   final StorageManager _storage;
@@ -113,6 +138,7 @@ class StorageImporter {
 
     final sections = _parse(text);
     final errors = <String>[];
+    final structured = <ImportError>[];
 
     _emitProgress(ImportStage.parse, '解析文本', 0, 1);
     if (sections.isEmpty) {
@@ -145,7 +171,14 @@ class StorageImporter {
         await _writePref(prefs, key, type, value);
         prefsCount++;
       } catch (e) {
-        errors.add('prefs: ${item['key']} - $e');
+        final keyStr = item['key'] ?? '';
+        errors.add('prefs: $keyStr - $e');
+        structured.add(ImportError(
+          section: ImportErrorSection.prefs,
+          boxName: '',
+          key: keyStr,
+          reason: e.toString(),
+        ));
       }
       _emitProgress(ImportStage.prefs, '写入: ${item['key']}', i + 1, prefsItems.length);
     }
@@ -162,10 +195,16 @@ class StorageImporter {
       final section = sections[key] as Map<String, dynamic>;
       final items = (section['items'] as List?) ?? [];
       try {
-        await _writeHiveBox(boxName, items, errors);
+        await _writeHiveBox(boxName, items, errors, structured);
         hiveCount += items.length;
       } catch (e) {
         errors.add('hive:$boxName - $e');
+        structured.add(ImportError(
+          section: ImportErrorSection.hive,
+          boxName: boxName,
+          key: '',
+          reason: e.toString(),
+        ));
       }
       _emitProgress(ImportStage.hive, 'Box: $boxName', i + 1, hiveKeys.length);
     }
@@ -189,7 +228,14 @@ class StorageImporter {
           await file.writeAsString(content);
           notesCount++;
         } catch (e) {
-          errors.add('notes: ${item['name']} - $e');
+          final nameStr = item['name'] ?? '';
+          errors.add('notes: $nameStr - $e');
+          structured.add(ImportError(
+            section: ImportErrorSection.notes,
+            boxName: '',
+            key: nameStr,
+            reason: e.toString(),
+          ));
         }
         _emitProgress(ImportStage.notes, '笔记: ${item['name']}', i + 1, notesItems.length);
       }
@@ -203,6 +249,7 @@ class StorageImporter {
       notesCount: notesCount,
       errorCount: errors.length,
       errors: errors,
+      structured: structured,
     );
   }
 
@@ -309,6 +356,7 @@ class StorageImporter {
     String boxName,
     List<dynamic> items,
     List<String> errors,
+    List<ImportError> structured,
   ) async {
     final d = StorageRegistry.get(boxName);
     if (d != null) {
@@ -328,6 +376,12 @@ class StorageImporter {
           await box.put(typedKey, obj);
         } catch (e) {
           errors.add('hive:$boxName[$key] - $e');
+          structured.add(ImportError(
+            section: ImportErrorSection.hive,
+            boxName: boxName,
+            key: key,
+            reason: e.toString(),
+          ));
         }
       }
     } else {
@@ -346,7 +400,14 @@ class StorageImporter {
           final obj = _decodeDynamicValue(m['value'] ?? '', m['type'] ?? '');
           await box.put(key, obj);
         } catch (e) {
-          errors.add('hive:$boxName[${m['key']}] - $e');
+          final keyStr = m['key'] ?? '';
+          errors.add('hive:$boxName[$keyStr] - $e');
+          structured.add(ImportError(
+            section: ImportErrorSection.hive,
+            boxName: boxName,
+            key: keyStr,
+            reason: e.toString(),
+          ));
         }
       }
     }
