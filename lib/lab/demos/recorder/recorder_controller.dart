@@ -26,6 +26,29 @@ class RecordingFile {
   double get sizeKb => sizeBytes / 1024;
 }
 
+/// dBFS 可监听值 —— 值不变也照常 notify。
+///
+/// 默认 `ValueNotifier` 在 set 的值与当前相等时不通知监听者;但录音时
+/// 振幅可能长时间恒定(静音 → -60、削波 → 0)。若静音段不通知,波形
+/// 缓冲就推进不了、画面停住。这里总是 notify,保证 5Hz 每帧都前进。
+///
+/// 不继承 `ValueNotifier`(其内部 `_value` 跨库不可访问),直接实现
+/// [ValueListenable] + [ChangeNotifier],字段自持。
+class AlwaysNotifyValueListenable<T> extends ChangeNotifier
+    implements ValueListenable<T> {
+  AlwaysNotifyValueListenable(this._value);
+
+  T _value;
+
+  @override
+  T get value => _value;
+
+  set value(T newValue) {
+    _value = newValue;
+    notifyListeners();
+  }
+}
+
 /// RecorderController —— 录音状态机 + 文件落盘
 ///
 /// 职责边界:
@@ -364,8 +387,8 @@ class RecorderController extends ChangeNotifier {
   /// 来源:`AudioRecorder.onAmplitudeChanged`(record 6.x)。
   /// `Amplitude.current` 已是 dBFS(见 record_platform_interface
   /// amplitude.dart 类注释 `/// dBFS amplitude`),无需再 20*log10 换算。
-  final ValueNotifier<double> amplitudeDbListenable =
-      ValueNotifier<double>(-60.0);
+  final AlwaysNotifyValueListenable<double> amplitudeDbListenable =
+      AlwaysNotifyValueListenable(-60.0);
   ValueListenable<double> get dbListenable => amplitudeDbListenable;
 
   StreamSubscription<Amplitude>? _amplitudeSub;

@@ -16,13 +16,23 @@ double dbToRatio(double db) {
   return (db + 60.0) / 60.0;
 }
 
+/// 第 [index] 列柱子的中心 x —— 固定列距流式布局。
+///
+/// 列距恒为 `width / maxBars`,**与当前已录制的帧数无关**。
+/// 这让波形在录制期间不再随缓冲增长而整体缩放/堆叠:
+/// 新帧从右缘进入,填满后整体向左滚动。顶层函数便于单测。
+double barCenterX(int index, int maxBars, double width) =>
+    (index + 0.5) * width / maxBars;
+
 /// 段数常量单点定义,供 [LevelMeterView] 和 [_MeterStrip] 共用。
 const int _kMeterSegments = 16;
 
 /// 实时幅度波形 —— 中央基线上下对称的条形包络。
 ///
-/// 订阅 [dbListenable],内部维护环形缓冲(默认 200 帧 ≈ 200px @ 1px/列)。
-/// 仅在录音中(`active=true`)时追加新帧;暂停/停止时保留最后一帧静止。
+/// 订阅 [dbListenable],内部维护环形缓冲(默认 [maxBars]=200 帧 ≈ 40s @ 5Hz)。
+/// 固定列距流式布局:新帧从右缘进入,填满后整体向左滚动;录制期间不会
+/// 因帧数增长而缩放堆叠。仅在录音中(`active=true`)时追加新帧;
+/// 暂停/停止时保留最后一帧静止。
 class WaveformView extends StatefulWidget {
   final ValueListenable<double> dbListenable;
   final bool active;
@@ -84,6 +94,7 @@ class _WaveformViewState extends State<WaveformView> {
     return CustomPaint(
       painter: WaveformPainter(
         dbs: _dbs.toList(growable: false),
+        maxBars: widget.maxBars,
         baseColor: ZenColors.sage,
         hotColor: ZenColors.mutedRed,
         centerLine: ZenColors.hair,
@@ -95,17 +106,23 @@ class _WaveformViewState extends State<WaveformView> {
   }
 }
 
-/// 波形 painter。中央基线 + 上下对称条形。
+/// 波形 painter。中央基线 + 上下对称条形,固定列距流式。
 ///
+/// 列距恒为 `width / [maxBars]`,因此波形不随 [dbs] 长度缩放。
 /// 公开(public)以便单测直接构造并验证 [shouldRepaint] 契约。
 class WaveformPainter extends CustomPainter {
   final List<double> dbs;
+
+  /// 显示窗口的最大列数(固定列距 = width / maxBars)。
+  final int maxBars;
+
   final Color baseColor;
   final Color hotColor;
   final Color centerLine;
 
   const WaveformPainter({
     required this.dbs,
+    this.maxBars = 200,
     required this.baseColor,
     required this.hotColor,
     required this.centerLine,
@@ -127,14 +144,16 @@ class WaveformPainter extends CustomPainter {
     if (dbs.isEmpty) return;
 
     final barPaint = Paint()..style = PaintingStyle.fill;
-    final step = w / dbs.length;
+    // 固定列距 = width / maxBars,不随 dbs.length 变化 → 流式(新帧在右、
+    // 满屏向左滚动)。修复 v1:step 用 w/dbs.length 会让波形随录制时长整体缩放堆叠。
+    final step = w / maxBars;
     for (var i = 0; i < dbs.length; i++) {
       final ratio = dbToRatio(dbs[i]);
       // 0.7 次幂:让小信号也可见,大信号更突出(视觉冲击)
       final mag = math.pow(ratio, 0.7).toDouble() * maxBarH;
       // 过载(>−3dBFS,即 ratio > 0.95)染红警示
       barPaint.color = ratio > 0.95 ? hotColor : baseColor;
-      final x = i * step + step / 2;
+      final x = barCenterX(i, maxBars, w);
       canvas.drawRect(
         Rect.fromCenter(center: Offset(x, cy), width: step * 0.7, height: mag * 2),
         barPaint,
@@ -146,6 +165,7 @@ class WaveformPainter extends CustomPainter {
   bool shouldRepaint(covariant WaveformPainter old) {
     // 引用不同 → 内容可能变了 → 重绘。dbs 是 build 时新建的 toList,所以每次 setState 都会不同。
     return !identical(dbs, old.dbs) ||
+        maxBars != old.maxBars ||
         baseColor != old.baseColor ||
         hotColor != old.hotColor ||
         centerLine != old.centerLine;

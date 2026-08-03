@@ -35,5 +35,17 @@ void main() {
       expect(identical(c.dbListenable, c.amplitudeDbListenable), isTrue);
       c.dispose();
     });
+
+    test('值不变也 notify(静音段波形持续推进)', () {
+      final c = RecorderController();
+      var notified = 0;
+      c.amplitudeDbListenable.addListener(() => notified++);
+      // 连续设置与当前值相同的 -60 —— 默认 ValueNotifier 不会通知,
+      // _AmplitudeDbNotifier 每次都会通知,保证 5Hz 波形逐帧前进。
+      c.amplitudeDbListenable.value = -60.0;
+      c.amplitudeDbListenable.value = -60.0;
+      expect(notified, 2);
+      c.dispose();
+    });
   });
 }
