@@ -364,6 +364,15 @@ String formatTime(int seconds) {
   return '$sign${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
 }
 
+/// 录音/记录列表用的日期格式:`YYYY-MM-DD HH:MM`(零填充)。
+///
+/// 比 `formatTime` 多了日期,给 recorder 列表页、native_media 测试页等
+/// 需要展示"文件最后修改时间"的场景复用。
+String formatRecordDate(DateTime d) {
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
+}
+
 // =====================================================================
 // Page-level helpers — Scaffold shell + confirm dialog.
 // =====================================================================
