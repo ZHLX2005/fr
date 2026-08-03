@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../design/slate_button.dart';
 import '../models/word.dart';
 
 /// 单词详情页 - 全屏展示单词详细信息
@@ -73,13 +74,12 @@ class WordDetailPage extends StatelessWidget {
                     onComplete?.call();
                     Navigator.of(context).pop();
                   },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blue.shade600,
-                    side: BorderSide(
-                      color: Colors.blue.shade600.withValues(alpha: 0.5),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                  style: SlateButton.borderEmphasis(
+                    context,
+                    color: Theme.of(context).colorScheme.primary,
+                  ).copyWith(
+                    minimumSize: const WidgetStatePropertyAll(
+                      Size(double.infinity, 56),
                     ),
                   ),
                   child: const Text(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/design/slate_button.dart';
 import '../lab_container.dart';
 import 'clock/providers/lab_clock_provider.dart';
 import 'clock/providers/lab_track_provider.dart';
@@ -181,10 +182,13 @@ class _ClockShellState extends State<_ClockShell> {
           ],
         ),
         floatingActionButton: showFab
-            ? FloatingActionButton(
+            ? OutlinedButton(
                 onPressed: _onFabPressed,
-                backgroundColor: ZenColors.sage,
-                child: const Icon(Icons.add, color: Colors.white),
+                style: SlateButton.borderEmphasis(
+                  context,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                child: const Icon(Icons.add),
               )
             : null,
         bottomNavigationBar: NavigationBar(

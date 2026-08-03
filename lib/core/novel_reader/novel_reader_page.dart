@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
 import 'canvas_reader_engine.dart';
+import '../design/slate_button.dart';
 import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';
 import 'novel_volume_key_turn.dart';
@@ -223,6 +224,10 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
         body: Center(
           child: OutlinedButton(
             onPressed: _importTxt,
+            style: SlateButton.borderEmphasis(
+              context,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             child: const Text('Import TXT'),
           ),
         ),
@@ -293,14 +298,17 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                         : book.isBuiltIn
                         ? _downloadCurrentBook
                         : null,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF714B35),
-                      side: BorderSide(
-                        color: const Color(0xFF714B35).withValues(alpha: 0.5),
+                    style: SlateButton.borderEmphasis(
+                      context,
+                      color: Theme.of(context).colorScheme.primary,
+                    ).copyWith(
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(vertical: 16),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                       ),
                     ),
                     child: Text(
@@ -324,6 +332,10 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                           onPressed: _isImporting || _isDownloading
                               ? null
                               : _importTxt,
+                          style: SlateButton.borderEmphasis(
+                            context,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                           child: Text(
                             _isImporting ? 'Importing...' : 'Import TXT',
                           ),
@@ -337,6 +349,12 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                               : book.isBuiltIn
                               ? () => _downloadCurrentBook(redownload: true)
                               : _removeCurrentBook,
+                          style: book.isBuiltIn
+                              ? SlateButton.borderEmphasis(
+                                  context,
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                              : SlateButton.dangerEmphasis(context),
                           child: Text(
                             book.isBuiltIn ? 'Redownload' : 'Remove Book',
                           ),
@@ -348,6 +366,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                           onPressed: _isDownloading || _isImporting
                               ? null
                               : _clearProgress,
+                          style: SlateButton.dangerEmphasis(context),
                           child: const Text('Clear progress'),
                         ),
                       ),
@@ -731,7 +750,14 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                 const SizedBox(height: 12),
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 12),
-                OutlinedButton(onPressed: _loadBook, child: const Text('Retry')),
+                OutlinedButton(
+                  onPressed: _loadBook,
+                  style: SlateButton.borderEmphasis(
+                    context,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  child: const Text('Retry'),
+                ),
               ],
             ),
           ),
@@ -1424,8 +1450,13 @@ class _ReaderBottomBar extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: canGoPrevious ? () => onPrevious?.call() : null,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    style: SlateButton.borderEmphasis(
+                      context,
+                      color: Theme.of(context).colorScheme.primary,
+                    ).copyWith(
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(vertical: 14),
+                      ),
                     ),
                     child: const Text('Previous'),
                   ),
@@ -1434,11 +1465,12 @@ class _ReaderBottomBar extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: canGoNext ? () => onNext?.call() : null,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      foregroundColor: const Color(0xFF7A5339),
-                      side: BorderSide(
-                        color: const Color(0xFF7A5339).withValues(alpha: 0.5),
+                    style: SlateButton.borderEmphasis(
+                      context,
+                      color: Theme.of(context).colorScheme.primary,
+                    ).copyWith(
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
                     child: const Text('Next'),

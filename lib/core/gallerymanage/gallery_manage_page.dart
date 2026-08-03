@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../services/gallery_service.dart';
+import '../design/slate_button.dart';
 
 /// 图库管理页面
 /// 展示所有图片和相册分组，支持图片移动
@@ -223,14 +224,9 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: _initGallery,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-              side: BorderSide(
-                color: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: 0.5),
-              ),
+            style: SlateButton.borderEmphasis(
+              context,
+              color: Theme.of(context).colorScheme.primary,
             ),
             child: const Text('请求权限'),
           ),
@@ -457,15 +453,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
               Navigator.pop(context);
               _deleteImages();
             },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-              side: BorderSide(
-                color: Theme.of(context)
-                    .colorScheme
-                    .error
-                    .withValues(alpha: 0.5),
-              ),
-            ),
+            style: SlateButton.dangerEmphasis(context),
             child: const Text('删除'),
           ),
         ],
@@ -809,14 +797,9 @@ class _MoveImageDialogState extends State<_MoveImageDialog> {
               _selectedAlbum != null && _selectedAlbum != widget.currentAlbum
               ? () => widget.onMove(_selectedAlbum!)
               : null,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.primary,
-            side: BorderSide(
-              color: Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withValues(alpha: 0.5),
-            ),
+          style: SlateButton.borderEmphasis(
+            context,
+            color: Theme.of(context).colorScheme.primary,
           ),
           child: const Text('移动'),
         ),

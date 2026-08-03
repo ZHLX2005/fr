@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../design/slate_button.dart';
 import 'doubletime_mapper.dart';
 import 'doubletime_models.dart';
 import 'doubletime_painter.dart';
@@ -298,11 +299,18 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                 setState(() => _events.add(event));
                                 Navigator.pop(sheetContext);
                               },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Color(selectedColor),
-                                side: BorderSide(color: Color(selectedColor).withValues(alpha: 0.5)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                              style: SlateButton.borderEmphasis(
+                                context,
+                                color: Color(selectedColor),
+                              ).copyWith(
+                                padding: const WidgetStatePropertyAll(
+                                  EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 14),
+                                ),
+                                shape: WidgetStatePropertyAll(
+                                  RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
                                 ),
                               ),
                               child: const Text(
@@ -523,11 +531,16 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                     Navigator.pop(sheetContext);
                                     _confirmDeleteEvent(event);
                                   },
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.red,
-                                    side: const BorderSide(color: Colors.red),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                  style: SlateButton.dangerEmphasis(context)
+                                      .copyWith(
+                                    padding: const WidgetStatePropertyAll(
+                                      EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 14),
+                                    ),
+                                    shape: WidgetStatePropertyAll(
+                                      RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
                                     ),
                                   ),
                                   child: const Icon(Icons.delete_outline),
@@ -579,11 +592,19 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                       });
                                       Navigator.pop(sheetContext);
                                     },
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Color(selectedColor),
-                                      side: BorderSide(color: Color(selectedColor).withValues(alpha: 0.5)),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
+                                    style: SlateButton.borderEmphasis(
+                                      context,
+                                      color: Color(selectedColor),
+                                    ).copyWith(
+                                      padding: const WidgetStatePropertyAll(
+                                        EdgeInsets.symmetric(
+                                            horizontal: 20, vertical: 14),
+                                      ),
+                                      shape: WidgetStatePropertyAll(
+                                        RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
                                       ),
                                     ),
                                     child: const Text(
@@ -727,10 +748,20 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
         ],
       ),
       // 添加按钮
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddEventSheet,
-        backgroundColor: const Color(0xFF6366F1),
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: SizedBox(
+        width: 56,
+        height: 56,
+        child: OutlinedButton(
+          onPressed: _showAddEventSheet,
+          style: SlateButton.borderEmphasis(
+            context,
+            color: const Color(0xFF6366F1),
+          ).copyWith(
+            shape: WidgetStatePropertyAll(const CircleBorder()),
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          ),
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/design/slate_button.dart';
 import '../lab_container.dart';
 
 class CrashLogDemo extends DemoPage {
@@ -86,10 +87,7 @@ class _CrashLogDemoPageState extends State<CrashLogDemoPage> {
                           Navigator.pop(ctx);
                           _clearLogs();
                         },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
-                        ),
+                        style: SlateButton.dangerEmphasis(context),
                         child: const Text('清除'),
                       ),
                     ],

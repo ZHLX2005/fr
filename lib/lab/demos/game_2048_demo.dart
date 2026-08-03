@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:xiaodouzi_fr/core/design/slate_button.dart';
 import '../lab_container.dart';
 
 /// 2048 游戏 Demo
@@ -327,15 +328,9 @@ class _Game2048PageState extends State<_Game2048Page> {
                         _initGame();
                       });
                     },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF8F7A66),
-                      side: BorderSide(
-                        color: const Color(0xFF8F7A66).withValues(alpha: 0.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
+                    style: SlateButton.borderEmphasis(
+                      context,
+                      color: const Color(0xFF8F7A66),
                     ),
                     child: const Text('新游戏'),
                   ),

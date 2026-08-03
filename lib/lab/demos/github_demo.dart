@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/design/slate_button.dart';
 import '../../core/github/github.dart';
 import '../lab_container.dart';
 
@@ -131,11 +132,9 @@ class _GithubDemoShellState extends State<_GithubDemoShell> {
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: _confirm,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blue,
-                    side: BorderSide(
-                      color: Colors.blue.withValues(alpha: 0.5),
-                    ),
+                  style: SlateButton.borderEmphasis(
+                    context,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                   child: const Text('确认并进入'),
                 ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../design/slate_button.dart';
 import 'models/focus_session.dart';
 import 'providers/focus_timer_provider.dart';
 import 'providers/focus_provider.dart';
@@ -443,27 +444,22 @@ class _FocusTimerPageState extends State<FocusTimerPage>
             Row(
               children: [
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '取消',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      ),
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: SlateButton.ghostEmphasis(
+                      context,
+                      color: Colors.grey,
+                    ),
+                    child: const Text(
+                      '取消',
+                      style: TextStyle(fontSize: 16),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () async {
+                  child: OutlinedButton(
+                    onPressed: () async {
                       // await 之前先抓 focusProvider 与 session；await 之后
                       // 不再触碰 onTap 的 builder context（那是参数 context，
                       // 不是 State.context，lint 不接受它跨 await 用）。
@@ -479,21 +475,15 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                       // 委托给 State 方法：使用 State.context（在 mounted 守卫下安全）。
                       _showCompletionDialog(session);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7A9A6E),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '完成',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
+                    style: SlateButton.borderEmphasis(
+                      context,
+                      color: const Color(0xFF7A9A6E),
+                    ),
+                    child: const Text(
+                      '完成',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -538,9 +528,9 @@ class _FocusTimerPageState extends State<FocusTimerPage>
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFB5C9A3),
-              side: BorderSide(color: const Color(0xFFB5C9A3).withValues(alpha: 0.5)),
+            style: SlateButton.borderEmphasis(
+              context,
+              color: const Color(0xFFB5C9A3),
             ),
             child: const Text('返回'),
           ),

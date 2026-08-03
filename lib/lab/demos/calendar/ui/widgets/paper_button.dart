@@ -58,9 +58,9 @@ class PaperSecondaryButton extends StatelessWidget {
   }
 }
 
-/// 纸张风格主操作按钮
+/// 纸张风格主操作按钮（边框强调式：浅tint底 + 茶色描边 + 茶色文字）
 ///
-/// 边框强调 + 茶色填充 + 卡片白文字，确保对比度足够。
+/// 取代纯色填充，遵循 border-emphasis 风格：浅色调底 + 彩色描边 + 彩色文字。
 /// 不依赖 Material 3 primary，因此永远不会出现"纯色看不清"的情况。
 class PaperPrimaryButton extends StatelessWidget {
   final String label;
@@ -78,27 +78,28 @@ class PaperPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = PaperPalette.accent;
     final child = icon == null
         ? Text(label, style: AppText.body().copyWith(
-              color: PaperPalette.bg,
+              color: accent,
               fontWeight: FontWeight.w600,
             ))
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: PaperPalette.bg),
+              Icon(icon, size: 16, color: accent),
               const SizedBox(width: 6),
               Text(label, style: AppText.body().copyWith(
-                color: PaperPalette.bg,
+                color: accent,
                 fontWeight: FontWeight.w600,
               )),
             ],
           );
     return Material(
-      color: PaperPalette.accent,
+      color: PaperPalette.bgElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: PaperPalette.accent, width: 1.5),
+        side: BorderSide(color: accent.withValues(alpha: 0.5), width: 1.5),
       ),
       child: InkWell(
         onTap: onPressed,

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'recorder_controller.dart';
 import 'const_recorder.dart';
 import 'recorder_list_page.dart';
+import '../../../core/design/slate_button.dart';
 
 /// 录音机 widget 桥接 —— 给桌面 widget 点击后的 autostart 用。
 ///

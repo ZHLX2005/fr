@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../interfaces/interfaces.dart';
 import '../data/login_message_data.dart';
 import '../../../api/user/user_auth_service.dart';
+import '../../../core/design/slate_button.dart';
 
 /// Strategy for rendering Login messages.
 ///
@@ -134,7 +135,11 @@ class _LoginContentState extends State<_LoginContent> {
             ),
           ],
           const SizedBox(height: 12),
-          FilledButton(
+          OutlinedButton(
+            style: SlateButton.borderEmphasis(
+              context,
+              color: theme.colorScheme.primary,
+            ),
             onPressed: _loading ? null : _submit,
             child: _loading
                 ? const SizedBox(

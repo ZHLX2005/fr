@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'const_recorder.dart';
 import 'recorder_controller.dart';
+import '../../../core/design/slate_button.dart';
 
 /// 录音列表页 —— CRUD 的 Read/Update/Delete + 试听。
 ///
@@ -68,7 +69,11 @@ class _RecorderListPageState extends State<RecorderListPage> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text(RecorderUiText.renameCancel),
           ),
-          FilledButton(
+          OutlinedButton(
+            style: SlateButton.borderEmphasis(
+              ctx,
+              color: Theme.of(ctx).colorScheme.primary,
+            ),
             onPressed: () => Navigator.pop(ctx, controller.text),
             child: const Text(RecorderUiText.renameOk),
           ),
@@ -99,11 +104,8 @@ class _RecorderListPageState extends State<RecorderListPage> {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text(RecorderUiText.renameCancel),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
+          OutlinedButton(
+            style: SlateButton.dangerEmphasis(ctx),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(RecorderUiText.deleteBtn),
           ),

@@ -5,6 +5,7 @@ import '../interfaces/interfaces.dart';
 import '../data/register_message_data.dart';
 import '../panel/register_flow_controller.dart';
 import '../../../api/user/user_auth_service.dart';
+import '../../../core/design/slate_button.dart';
 
 /// Strategy for rendering Register messages.
 ///
@@ -184,7 +185,11 @@ class _EmailStepState extends State<_EmailStep> {
           ),
         ),
         const SizedBox(height: 10),
-        FilledButton.icon(
+        OutlinedButton.icon(
+          style: SlateButton.borderEmphasis(
+            context,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           onPressed: (_sending || (_sent && _countdown > 0)) ? null : _onSend,
           icon: _sending
               ? const SizedBox(
@@ -231,6 +236,7 @@ class _CodeStepState extends State<_CodeStep> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return _stepShell(
       context,
       icon: Icons.password_outlined,
@@ -253,7 +259,11 @@ class _CodeStepState extends State<_CodeStep> {
             _backButton(),
             const SizedBox(width: 8),
             Expanded(
-              child: FilledButton(
+              child: OutlinedButton(
+                style: SlateButton.borderEmphasis(
+                  context,
+                  color: theme.colorScheme.primary,
+                ),
                 onPressed: _confirm,
                 child: const Text('下一步：设置密码'),
               ),
@@ -301,6 +311,7 @@ class _PasswordStepState extends State<_PasswordStep> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return _stepShell(
       context,
       icon: Icons.lock_outline,
@@ -338,7 +349,11 @@ class _PasswordStepState extends State<_PasswordStep> {
             _backButton(),
             const SizedBox(width: 8),
             Expanded(
-              child: FilledButton(
+              child: OutlinedButton(
+                style: SlateButton.borderEmphasis(
+                  context,
+                  color: theme.colorScheme.primary,
+                ),
                 onPressed: _confirm,
                 child: const Text('下一步：邀请码'),
               ),
@@ -393,6 +408,7 @@ class _InviteStepState extends State<_InviteStep> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return _stepShell(
       context,
       icon: Icons.card_giftcard,
@@ -425,7 +441,11 @@ class _InviteStepState extends State<_InviteStep> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: FilledButton(
+              child: OutlinedButton(
+                style: SlateButton.borderEmphasis(
+                  context,
+                  color: theme.colorScheme.primary,
+                ),
                 onPressed: _loading ? null : _register,
                 child: _loading
                     ? const SizedBox(

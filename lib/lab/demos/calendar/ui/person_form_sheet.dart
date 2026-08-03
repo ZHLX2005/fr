@@ -325,9 +325,22 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
             maxLines: 3,
           ),
           const SizedBox(height: 24),
-          PaperPrimaryButton(
-            label: '保存',
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: PaperPalette.accent,
+              backgroundColor: PaperPalette.bgElevated,
+              side: BorderSide(
+                color: PaperPalette.accent.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
             onPressed: _save,
+            child: const Text('保存'),
           ),
         ],
       ),
