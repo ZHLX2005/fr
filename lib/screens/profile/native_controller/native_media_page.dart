@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../services/media_service.dart';
 import '../../../services/audio_recording_service.dart';
+import '../../../widgets/theme/zen_theme.dart';
 
 /// 原生媒体功能测试页面
 /// 用于在Web和移动端验证摄像头、图库、麦克风等原生功能
@@ -431,56 +432,31 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _isAudioRecording
-                                ? null
-                                : _startRecording,
-                            icon: const Icon(Icons.mic),
-                            label: const Text('开始录音'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: Colors.red.withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ),
+                        ZenIconButton(
+                          icon: Icons.mic,
+                          color: ZenColors.mutedRed,
+                          variant: _isAudioRecording
+                              ? ZenIconButtonVariant.tint
+                              : ZenIconButtonVariant.outline,
+                          onTap: _isAudioRecording ? null : _startRecording,
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _isAudioRecording
-                                ? _stopRecording
-                                : null,
-                            icon: const Icon(Icons.stop),
-                            label: const Text('停止录音'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: theme.colorScheme.primary,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: theme.colorScheme.primary
-                                    .withValues(alpha: 0.5),
-                              ),
+                        ZenIconButton(
+                          icon: Icons.stop,
+                          color: ZenColors.secondary,
+                          variant: ZenIconButtonVariant.outline,
+                          onTap: _isAudioRecording ? _stopRecording : null,
+                        ),
+                        const SizedBox(width: 12),
+                        if (_isAudioRecording)
+                          Expanded(
+                            child: Text(
+                              '录音中 ${_recordingDuration}s',
+                              style: ZenText.monoDigitSmall,
                             ),
                           ),
-                        ),
                       ],
                     ),
-                    if (_isAudioRecording) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.fiber_manual_record,
-                            color: Colors.red,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Text('录音中: $_recordingDuration 秒'),
-                        ],
-                      ),
-                    ],
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _checkAudioPermission,
@@ -512,53 +488,38 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
 
             // 录音预览
             if (_recordedAudioPath != null && _recordedAudioPath!.isNotEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('录音预览', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(8),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: zenCard(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('录音预览', style: ZenText.title),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        ZenIconButton(
+                          icon: _isPlaying ? Icons.pause_circle : Icons.play_circle,
+                          color: ZenColors.sage,
+                          variant: ZenIconButtonVariant.tint,
+                          size: 48,
+                          iconSize: 24,
+                          onTap: () => _playAudio(_recordedAudioPath!),
                         ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                _isPlaying
-                                    ? Icons.pause_circle
-                                    : Icons.play_circle,
-                              ),
-                              iconSize: 40,
-                              color: theme.colorScheme.primary,
-                              onPressed: () => _playAudio(_recordedAudioPath!),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '录音文件',
-                                    style: theme.textTheme.bodyMedium,
-                                  ),
-                                  Text(
-                                    '时长: $_recordingDuration 秒',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('录音文件', style: ZenText.body),
+                              Text('时长: ${_recordingDuration}s',
+                                  style: ZenText.monoDigitSmall),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
 
