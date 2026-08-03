@@ -1,10 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import 'const_recorder.dart';
 import 'recorder_controller.dart';
-import '../../../core/design/emphasis_button.dart';
+import '../../../widgets/theme/zen_theme.dart';
 
 /// 录音列表页 —— CRUD 的 Read/Update/Delete + 试听。
 ///
@@ -70,9 +68,9 @@ class _RecorderListPageState extends State<RecorderListPage> {
             child: const Text(RecorderUiText.renameCancel),
           ),
           OutlinedButton(
-            style: EmphasisButton.borderEmphasis(
-              ctx,
-              color: Theme.of(ctx).colorScheme.primary,
+            style: zenButton(
+              foreground: ZenColors.sage,
+              border: ZenColors.sage,
             ),
             onPressed: () => Navigator.pop(ctx, controller.text),
             child: const Text(RecorderUiText.renameOk),
@@ -105,7 +103,10 @@ class _RecorderListPageState extends State<RecorderListPage> {
             child: const Text(RecorderUiText.renameCancel),
           ),
           OutlinedButton(
-            style: EmphasisButton.dangerEmphasis(ctx),
+            style: zenButton(
+              foreground: ZenColors.mutedRed,
+              border: ZenColors.mutedRed,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(RecorderUiText.deleteBtn),
           ),
@@ -121,14 +122,24 @@ class _RecorderListPageState extends State<RecorderListPage> {
   @override
   Widget build(BuildContext context) {
     final files = _files;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(RecorderUiText.listTitle),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
+    return zenPageScaffold(
+      title: RecorderUiText.listTitle,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: ZenColors.secondary),
+          tooltip: '刷新',
+          onPressed: _load,
+        ),
+        const SizedBox(width: 8),
+      ],
       body: switch (files) {
-        null => const Center(child: CircularProgressIndicator()),
-        _ when files.isEmpty => _EmptyState(onRefresh: _load),
+        null => const Center(child: CircularProgressIndicator(color: ZenColors.sage)),
+        _ when files.isEmpty => ZenEmptyState(
+            icon: Icons.mic_none,
+            message: RecorderUiText.emptyList,
+            actionLabel: '刷新',
+            onAction: _load,
+          ),
         _ => RefreshIndicator(
             onRefresh: _load,
             child: ListView.separated(
@@ -153,33 +164,6 @@ class _RecorderListPageState extends State<RecorderListPage> {
   }
 }
 
-/// 空列表状态(允许下拉刷新)。
-class _EmptyState extends StatelessWidget {
-  final Future<void> Function() onRefresh;
-  const _EmptyState({required this.onRefresh});
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-          const Icon(Icons.mic_off, size: 56, color: Colors.grey),
-          const SizedBox(height: 16),
-          Center(
-            child: Text(
-              RecorderUiText.emptyList,
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// 单条录音 tile:文件名 + 大小 + 播放/重命名/删除。
 class _RecordingTile extends StatelessWidget {
   final RecordingFile file;
@@ -196,52 +180,63 @@ class _RecordingTile extends StatelessWidget {
     required this.onDelete,
   });
 
-  String _fmtDate(DateTime d) {
-    final mm = d.month.toString().padLeft(2, '0');
-    final dd = d.day.toString().padLeft(2, '0');
-    final hh = d.hour.toString().padLeft(2, '0');
-    final mi = d.minute.toString().padLeft(2, '0');
-    return '${d.year}-$mm-$dd $hh:$mi';
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: Icon(
-          playing ? Icons.graphic_eq : Icons.audiotrack,
-          color: playing ? Colors.redAccent : null,
-        ),
-        title: Text(
-          file.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          '${file.sizeKb.toStringAsFixed(1)} KB · ${_fmtDate(file.lastModified)}',
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: playing ? RecorderUiText.stopPlay : RecorderUiText.play,
-              icon: Icon(playing ? Icons.stop_circle : Icons.play_circle),
-              color: playing ? Colors.redAccent : Colors.green,
-              onPressed: onPlay,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: zenCard(),
+      child: Row(
+        children: [
+          Icon(
+            playing ? Icons.graphic_eq : Icons.audiotrack,
+            color: playing ? ZenColors.mutedRed : ZenColors.sage,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  file.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: ZenText.body,
+                ),
+                Text(
+                  '${file.sizeKb.toStringAsFixed(1)} KB · ${formatRecordDate(file.lastModified)}',
+                  style: ZenText.monoDigitSmall,
+                ),
+              ],
             ),
-            IconButton(
-              tooltip: RecorderUiText.rename,
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: onRename,
-            ),
-            IconButton(
-              tooltip: RecorderUiText.delete,
-              icon: const Icon(Icons.delete_outline),
-              onPressed: onDelete,
-            ),
-          ],
-        ),
+          ),
+          ZenIconButton(
+            icon: playing ? Icons.stop_circle : Icons.play_circle,
+            color: playing ? ZenColors.mutedRed : ZenColors.sage,
+            variant: ZenIconButtonVariant.tint,
+            size: 40,
+            iconSize: 20,
+            onTap: onPlay,
+          ),
+          const SizedBox(width: 4),
+          ZenIconButton(
+            icon: Icons.edit_outlined,
+            color: ZenColors.secondary,
+            variant: ZenIconButtonVariant.tint,
+            size: 40,
+            iconSize: 20,
+            onTap: onRename,
+          ),
+          const SizedBox(width: 4),
+          ZenIconButton(
+            icon: Icons.delete_outline,
+            color: ZenColors.mutedRed,
+            variant: ZenIconButtonVariant.tint,
+            size: 40,
+            iconSize: 20,
+            onTap: onDelete,
+          ),
+        ],
       ),
     );
   }
