@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'recorder_controller.dart';
 import 'const_recorder.dart';
 import 'recorder_list_page.dart';
-import '../../../core/design/emphasis_button.dart';
+import 'waveform_view.dart';
+import '../../../widgets/theme/zen_theme.dart';
 
 /// 录音机 widget 桥接 —— 给桌面 widget 点击后的 autostart 用。
 ///
@@ -143,94 +144,37 @@ class RecorderPageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('录音机'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            tooltip: RecorderUiText.openList,
-            icon: const Icon(Icons.library_music_outlined),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      RecorderListPage(controller: controller),
-                ),
-              );
-            },
+    return zenPageScaffold(
+      title: '录音机',
+      actions: [
+        ZenIconButton(
+          icon: Icons.library_music_outlined,
+          color: ZenColors.ink,
+          variant: ZenIconButtonVariant.outline,
+          size: 40,
+          iconSize: 20,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => RecorderListPage(controller: controller),
+            ),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 500;
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 32,
-                ),
-                child: isWide
-                    ? _buildWideLayout(context)
-                    : _buildNarrowLayout(context),
-              ),
-            );
-          },
         ),
-      ),
-    );
-  }
-
-  Widget _buildNarrowLayout(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _ElapsedDisplay(listenable: controller.tickListenable),
-        const SizedBox(height: 32),
-        _WaveformPlaceholder(),
-        const SizedBox(height: 32),
-        _PermissionBanner(controller: controller),
-        const SizedBox(height: 16),
-        _ControlPanel(
-          controller: controller,
-          onStart: onStart,
-          onPause: onPause,
-          onResume: onResume,
-          onStop: onStop,
-          onSave: onSave,
-          onDiscard: onDiscard,
-        ),
-        const SizedBox(height: 24),
-        _LastRecordingCard(controller: controller),
+        const SizedBox(width: 8),
       ],
-    );
-  }
-
-  Widget _buildWideLayout(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          flex: 1,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _FormatInfoSection(),
+              const SizedBox(height: 16),
+              _WaveformSection(controller: controller),
+              const SizedBox(height: 12),
+              _LevelSection(controller: controller),
+              const SizedBox(height: 20),
               _ElapsedDisplay(listenable: controller.tickListenable),
               const SizedBox(height: 24),
-              _WaveformPlaceholder(),
-            ],
-          ),
-        ),
-        const SizedBox(width: 32),
-        Expanded(
-          flex: 1,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _PermissionBanner(controller: controller),
-              const SizedBox(height: 16),
               _ControlPanel(
                 controller: controller,
                 onStart: onStart,
@@ -242,17 +186,106 @@ class RecorderPageScaffold extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               _LastRecordingCard(controller: controller),
+              const SizedBox(height: 16),
+              _PermissionBanner(controller: controller),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
 // ─────────────────────────── 子组件 ───────────────────────────
 
-/// 录音时长大字号显示(订阅 tickListenable,1Hz rebuild 但自身很轻)。
+/// 工程信息面板:编码 / 采样率 / 比特率 / 声道。只读展示。
+class _FormatInfoSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ZenSection(
+      title: '工程信息',
+      child: Text(
+        'AAC LC · ${RecorderDefaults.sampleRate ~/ 1000}.1 kHz · '
+        '${RecorderDefaults.bitRate ~/ 1000} kbps · '
+        '${RecorderDefaults.numChannels == 1 ? "MONO" : "STEREO"}',
+        style: ZenText.monoDigitSmall,
+      ),
+    );
+  }
+}
+
+/// 波形 + 状态指示。
+class _WaveformSection extends StatelessWidget {
+  final RecorderController controller;
+  const _WaveformSection({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final isLive = controller.state == RecorderState.recording;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: zenCard(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  ZenDot(active: isLive, color: ZenColors.mutedRed),
+                  const SizedBox(width: 8),
+                  Text(
+                    isLive ? '正在录音' : _stateLabel(controller.state),
+                    style: ZenText.label,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              WaveformView(
+                dbListenable: controller.dbListenable,
+                active: isLive,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _stateLabel(RecorderState s) => switch (s) {
+        RecorderState.idle => '就绪',
+        RecorderState.paused => '已暂停',
+        RecorderState.stopped => '已停止',
+        RecorderState.recording => '正在录音',
+      };
+}
+
+/// 电平条。
+class _LevelSection extends StatelessWidget {
+  final RecorderController controller;
+  const _LevelSection({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final isLive = controller.state == RecorderState.recording;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: zenCard(),
+          child: LevelMeterView(
+            dbListenable: controller.dbListenable,
+            active: isLive,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 时长大字号显示。
 class _ElapsedDisplay extends StatelessWidget {
   final ValueListenable<Duration> listenable;
   const _ElapsedDisplay({required this.listenable});
@@ -262,95 +295,10 @@ class _ElapsedDisplay extends StatelessWidget {
     return ValueListenableBuilder<Duration>(
       valueListenable: listenable,
       builder: (context, value, _) {
-        return Text(
-          _format(value),
-          style: const TextStyle(
-            fontSize: 56,
-            fontWeight: FontWeight.w300,
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
-        );
-      },
-    );
-  }
-
-  static String _format(Duration d) {
-    final total = d.inSeconds;
-    final h = total ~/ 3600;
-    final m = (total % 3600) ~/ 60;
-    final s = total % 60;
-    final mm = m.toString().padLeft(2, '0');
-    final ss = s.toString().padLeft(2, '0');
-    if (h > 0) return '$h:${mm.padLeft(2, '0')}:$ss';
-    return '$mm:$ss';
-  }
-}
-
-/// 简易波形占位 —— v1 不画真实波形,只用一个脉冲圆环表示录音中。
-/// v2 可接 AudioRecorder.onAmplitudeChanged 取 dBFS 实时绘制。
-class _WaveformPlaceholder extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 96,
-      child: Center(
-        child: AnimatedBuilder(
-          animation: AlwaysStoppedAnimation(0),
-          builder: (context, _) {
-            return Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.redAccent.withValues(alpha: 0.2),
-                border: Border.all(color: Colors.redAccent, width: 2),
-              ),
-              child: const Icon(Icons.mic, color: Colors.redAccent, size: 32),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _PermissionBanner extends StatelessWidget {
-  final RecorderController controller;
-  const _PermissionBanner({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final status = controller.permissionStatus;
-        if (status == RecorderPermissionStatus.granted ||
-            status == RecorderPermissionStatus.unknown) {
-          return const SizedBox.shrink();
-        }
-        final isPermanent = status == RecorderPermissionStatus.permanentlyDenied;
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.orange.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.orange.shade300),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isPermanent
-                    ? RecorderUiText.permissionDeniedHint
-                    : RecorderUiText.requestPermission,
-                style: TextStyle(color: Colors.orange.shade900),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => controller.ensurePermission(),
-                child: Text(isPermanent ? '打开设置' : '授权'),
-              ),
-            ],
+        return Center(
+          child: Text(
+            formatTime(value.inSeconds),
+            style: ZenText.monoDigitLarge,
           ),
         );
       },
@@ -358,6 +306,7 @@ class _PermissionBanner extends StatelessWidget {
   }
 }
 
+/// 控制面板 —— 按状态切 hero + outline 组合。
 class _ControlPanel extends StatelessWidget {
   final RecorderController controller;
   final Future<bool> Function() onStart;
@@ -383,105 +332,107 @@ class _ControlPanel extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         final state = controller.state;
-        final List<Widget> buttons;
         switch (state) {
           case RecorderState.idle:
-            buttons = [
-              _RecordButton(
-                icon: Icons.fiber_manual_record,
-                label: RecorderUiText.start,
-                color: Colors.redAccent,
-                onPressed: onStart,
-              ),
-            ];
-            break;
+            return _CenterControls([
+              _HeroRecord(onTap: onStart, icon: Icons.fiber_manual_record),
+            ]);
           case RecorderState.recording:
-            buttons = [
-              _RecordButton(
-                icon: Icons.pause,
-                label: RecorderUiText.pause,
-                color: Colors.orange,
-                onPressed: onPause,
-              ),
-              _RecordButton(
-                icon: Icons.stop,
-                label: RecorderUiText.stop,
-                color: Colors.grey,
-                onPressed: onStop,
-              ),
-            ];
-            break;
+            return _CenterControls([
+              _OutlineBtn(
+                  icon: Icons.pause, label: '暂停', color: ZenColors.secondary, onTap: onPause),
+              const SizedBox(width: 24),
+              _HeroRecord(onTap: () async => onStop(), icon: Icons.stop),
+            ]);
           case RecorderState.paused:
-            buttons = [
-              _RecordButton(
-                icon: Icons.play_arrow,
-                label: RecorderUiText.resume,
-                color: Colors.redAccent,
-                onPressed: onResume,
-              ),
-              _RecordButton(
-                icon: Icons.stop,
-                label: RecorderUiText.stop,
-                color: Colors.grey,
-                onPressed: onStop,
-              ),
-            ];
-            break;
+            return _CenterControls([
+              _OutlineBtn(
+                  icon: Icons.play_arrow, label: '继续', color: ZenColors.sage, onTap: onResume),
+              const SizedBox(width: 24),
+              _HeroRecord(onTap: () async => onStop(), icon: Icons.stop),
+            ]);
           case RecorderState.stopped:
-            buttons = [
-              _RecordButton(
-                icon: Icons.save,
-                label: RecorderUiText.save,
-                color: Colors.green,
-                onPressed: () async => onSave(),
-              ),
-              _RecordButton(
-                icon: Icons.delete_outline,
-                label: RecorderUiText.discard,
-                color: Colors.grey,
-                onPressed: () async => onDiscard(),
-              ),
-            ];
-            break;
+            return _CenterControls([
+              _OutlineBtn(
+                  icon: Icons.check, label: '保存', color: ZenColors.sage, onTap: () async => onSave()),
+              const SizedBox(width: 24),
+              _OutlineBtn(
+                  icon: Icons.close, label: '放弃', color: ZenColors.mutedRed, onTap: () async => onDiscard()),
+            ]);
         }
-        return Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          alignment: WrapAlignment.center,
-          children: buttons,
-        );
       },
     );
   }
 }
 
-class _RecordButton extends StatelessWidget {
+class _CenterControls extends StatelessWidget {
+  final List<Widget> children;
+  const _CenterControls(this.children);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: children,
+    );
+  }
+}
+
+/// hero 大圆录音键(磁带符号)。
+class _HeroRecord extends StatelessWidget {
+  final Future Function() onTap;
+  final IconData icon;
+  const _HeroRecord({required this.onTap, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return ZenIconButton(
+      icon: icon,
+      variant: ZenIconButtonVariant.hero,
+      color: ZenColors.mutedRed,
+      onTap: () async => await onTap(),
+    );
+  }
+}
+
+class _OutlineBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final Future Function() onPressed;
-
-  const _RecordButton({
+  final Future Function() onTap;
+  const _OutlineBtn({
     required this.icon,
     required this.label,
     required this.color,
-    required this.onPressed,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: () async => await onPressed(),
-      icon: Icon(icon, color: color),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+    return InkWell(
+      onTap: () async => await onTap(),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: ZenColors.hair),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 4),
+            Text(label, style: ZenText.label.copyWith(color: color)),
+          ],
+        ),
       ),
     );
   }
 }
 
+/// 最近一次录音卡片。
 class _LastRecordingCard extends StatelessWidget {
   final RecorderController controller;
   const _LastRecordingCard({required this.controller});
@@ -495,17 +446,78 @@ class _LastRecordingCard extends StatelessWidget {
         if (path == null) {
           return Text(
             RecorderUiText.noRecordingHint,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            style: ZenText.label,
           );
         }
         final sizeKb = (controller.lastFileSize / 1024).toStringAsFixed(1);
         final name = path.split(Platform.pathSeparator).last;
-        return Card(
-          margin: EdgeInsets.zero,
-          child: ListTile(
-            leading: const Icon(Icons.audiotrack),
-            title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text('$sizeKb KB'),
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: zenCard(),
+          child: Row(
+            children: [
+              const Icon(Icons.audiotrack, color: ZenColors.sage),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ZenText.body),
+                    Text('$sizeKb KB', style: ZenText.monoDigitSmall),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 权限横幅:未授权时展示,提供授权按钮。
+class _PermissionBanner extends StatelessWidget {
+  final RecorderController controller;
+  const _PermissionBanner({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final status = controller.permissionStatus;
+        if (status == RecorderPermissionStatus.granted ||
+            status == RecorderPermissionStatus.unknown) {
+          return const SizedBox.shrink();
+        }
+        final isPermanent = status == RecorderPermissionStatus.permanentlyDenied;
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: zenCard(color: ZenColors.mutedRed.withValues(alpha: 0.06)),
+          child: Row(
+            children: [
+              const Icon(Icons.mic_off, color: ZenColors.mutedRed, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  isPermanent
+                      ? RecorderUiText.permissionDeniedHint
+                      : RecorderUiText.requestPermission,
+                  style: ZenText.label.copyWith(color: ZenColors.mutedRed),
+                ),
+              ),
+              OutlinedButton(
+                style: zenButton(
+                  foreground: ZenColors.mutedRed,
+                  border: ZenColors.mutedRed,
+                ),
+                onPressed: () => controller.ensurePermission(),
+                child: Text(isPermanent ? '打开设置' : '授权'),
+              ),
+            ],
           ),
         );
       },
