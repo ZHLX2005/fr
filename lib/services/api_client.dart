@@ -58,7 +58,13 @@ class ApiService {
   static Future<({int? size, String? uploadTime})?> getApkMetadata() async {
     final meta = await ApkDownloadEndpoint(ApiConfig.production()).metadata();
     if (meta == null) return null;
-    return (size: meta.size, uploadTime: meta.uploadTime?.toIso8601String());
+    // 必须保留原始时区：toUtc() 后输出 "...Z"，substring(0,10) 拿到的是统一 UTC 日期，
+    // 避免设备时区非 +08:00 时早 8 小时。如果只想要本地时区日期，
+    // 把 toUtc() 换成 toLocal()。
+    return (
+      size: meta.size,
+      uploadTime: meta.uploadTime?.toUtc().toIso8601String(),
+    );
   }
 
   // 下载APK（通过key）

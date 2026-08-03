@@ -247,7 +247,13 @@ class ApkDownloadManager {
     if (metadata != null) {
       final sizeStr = _formatFileSize(metadata.size ?? 0);
       final updateTime = metadata.uploadTime;
-      final status = '发现新版本 (${updateTime?.substring(0, 10) ?? ""})';
+      // uploadTime 现在是带 "Z" 的统一 UTC ISO 串（如 "2026-08-03T10:35:45Z"），
+      // 截前 10 位得 "2026-08-03" 始终是真实日期，跨时区无漂移。
+      final ut = updateTime;
+      final dateStr = ut != null && ut.length >= 10 ? ut.substring(0, 10) : '';
+      // 完整时间显示：截到分钟（19 位）"2026-08-03T10:35"，更直观。
+      final timeStr = ut != null && ut.length >= 16 ? ut.substring(0, 16) : '';
+      final status = '发现新版本 ($dateStr)';
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kApkMetadataKey, sizeStr);
@@ -256,7 +262,7 @@ class ApkDownloadManager {
       state.value = state.value.copyWith(
         isCheckingUpdate: false,
         apkMetadata: sizeStr,
-        apkUpdateTime: updateTime,
+        apkUpdateTime: timeStr.isNotEmpty ? timeStr : updateTime,
         statusMessage: status,
       );
     } else {
