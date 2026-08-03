@@ -177,7 +177,8 @@ class ApkDownloadManager {
       downloadedPath: validPath,
       downloadedSize: validSize,
       apkMetadata: prefs.getString(_kApkMetadataKey),
-      apkUpdateTime: prefs.getString(_kApkUpdateTimeKey),
+      // 持久化的是 UTC 串，读回时同样要转本地时区，否则重启后仍差 8 小时。
+      apkUpdateTime: _formatLocalTime(prefs.getString(_kApkUpdateTimeKey)),
     );
 
     // Android + 临时文件存在 → 检测后台服务是否正在运行
@@ -247,12 +248,11 @@ class ApkDownloadManager {
     if (metadata != null) {
       final sizeStr = _formatFileSize(metadata.size ?? 0);
       final updateTime = metadata.uploadTime;
-      // uploadTime 现在是带 "Z" 的统一 UTC ISO 串（如 "2026-08-03T10:35:45Z"），
-      // 截前 10 位得 "2026-08-03" 始终是真实日期，跨时区无漂移。
-      final ut = updateTime;
-      final dateStr = ut != null && ut.length >= 10 ? ut.substring(0, 10) : '';
-      // 完整时间显示：截到分钟（19 位）"2026-08-03T10:35"，更直观。
-      final timeStr = ut != null && ut.length >= 16 ? ut.substring(0, 16) : '';
+      // uploadTime 是统一 UTC ISO 串（如 "2026-08-03T14:29:40.000Z"），
+      // 直接截串会固定显示 UTC 时间，导致本地时区（+08:00）差 8 小时。
+      // 先转设备本地时区再截取。
+      final timeStr = _formatLocalTime(updateTime);
+      final dateStr = timeStr.length >= 10 ? timeStr.substring(0, 10) : '';
       final status = '发现新版本 ($dateStr)';
 
       final prefs = await SharedPreferences.getInstance();
@@ -485,5 +485,15 @@ class ApkDownloadManager {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  /// 把统一 UTC ISO 串（"2026-08-03T14:29:40.000Z"）转为设备本地时区的
+  /// 可读时间串（"2026-08-03T22:29"）。空值返回空串，解析失败原样返回。
+  String _formatLocalTime(String? utcTime) {
+    if (utcTime == null || utcTime.isEmpty) return '';
+    final utc = DateTime.tryParse(utcTime);
+    if (utc == null) return utcTime;
+    final local = utc.toLocal().toIso8601String();
+    return local.length >= 16 ? local.substring(0, 16) : local;
   }
 }
