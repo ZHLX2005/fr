@@ -3,7 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../interfaces/interfaces.dart';
 import '../data/login_message_data.dart';
 import '../../../api/user/user_auth_service.dart';
-import '../../../core/design/slate_button.dart';
+import '../../../core/design/emphasis_button.dart';
 
 /// Strategy for rendering Login messages.
 ///
@@ -136,7 +136,7 @@ class _LoginContentState extends State<_LoginContent> {
           ],
           const SizedBox(height: 12),
           OutlinedButton(
-            style: SlateButton.borderEmphasis(
+            style: EmphasisButton.borderEmphasis(
               context,
               color: theme.colorScheme.primary,
             ),

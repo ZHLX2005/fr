@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/design/slate_button.dart';
+import '../../core/design/emphasis_button.dart';
 import '../../core/github/github.dart';
 import '../lab_container.dart';
 
@@ -132,7 +132,7 @@ class _GithubDemoShellState extends State<_GithubDemoShell> {
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: _confirm,
-                  style: SlateButton.borderEmphasis(
+                  style: EmphasisButton.borderEmphasis(
                     context,
                     color: Theme.of(context).colorScheme.primary,
                   ),

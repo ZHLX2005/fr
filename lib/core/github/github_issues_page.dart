@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../design/slate_button.dart';
+import '../design/emphasis_button.dart';
 import 'github_api_exception.dart';
 import 'github_issues_models.dart';
 import 'github_issues_service.dart';
@@ -267,7 +267,7 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
                   )
                 : const Icon(Icons.add),
             label: const Text('创建 Issue'),
-            style: SlateButton.borderEmphasis(
+            style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -489,7 +489,7 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
               Navigator.pop(dialogContext);
               _cloneIssue(title, bodyController.text.trim());
             },
-            style: SlateButton.borderEmphasis(
+            style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -566,7 +566,7 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                           },
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('查看 URL'),
-                    style: SlateButton.borderEmphasis(
+                    style: EmphasisButton.borderEmphasis(
                       context,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -585,8 +585,8 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                         : Icon(isOpen ? Icons.close : Icons.refresh),
                     label: Text(isOpen ? '关闭' : '重新打开'),
                     style: isOpen
-                        ? SlateButton.dangerEmphasis(context)
-                        : SlateButton.borderEmphasis(
+                        ? EmphasisButton.dangerEmphasis(context)
+                        : EmphasisButton.borderEmphasis(
                             context,
                             color: Theme.of(context).colorScheme.primary,
                           ),
@@ -597,7 +597,7 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                   onPressed: _loading ? null : _showCloneDialog,
                   icon: const Icon(Icons.copy),
                   label: const Text('克隆'),
-                  style: SlateButton.borderEmphasis(
+                  style: EmphasisButton.borderEmphasis(
                     context,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -631,7 +631,7 @@ class _GithubIssuesErrorState extends StatelessWidget {
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
             label: const Text('重试'),
-            style: SlateButton.borderEmphasis(
+            style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,
             ),

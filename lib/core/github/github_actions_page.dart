@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../design/slate_button.dart';
+import '../design/emphasis_button.dart';
 import 'github_actions_models.dart';
 import 'github_actions_service.dart';
 import 'github_api_exception.dart';
@@ -283,7 +283,7 @@ class _GithubActionsErrorState extends StatelessWidget {
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
             label: const Text('重试'),
-            style: SlateButton.borderEmphasis(
+            style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,
             ),

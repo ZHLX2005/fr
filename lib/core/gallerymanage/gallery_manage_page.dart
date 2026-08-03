@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../services/gallery_service.dart';
-import '../design/slate_button.dart';
+import '../design/emphasis_button.dart';
 
 /// 图库管理页面
 /// 展示所有图片和相册分组，支持图片移动
@@ -224,7 +224,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: _initGallery,
-            style: SlateButton.borderEmphasis(
+            style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -453,7 +453,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
               Navigator.pop(context);
               _deleteImages();
             },
-            style: SlateButton.dangerEmphasis(context),
+            style: EmphasisButton.dangerEmphasis(context),
             child: const Text('删除'),
           ),
         ],
@@ -797,7 +797,7 @@ class _MoveImageDialogState extends State<_MoveImageDialog> {
               _selectedAlbum != null && _selectedAlbum != widget.currentAlbum
               ? () => widget.onMove(_selectedAlbum!)
               : null,
-          style: SlateButton.borderEmphasis(
+          style: EmphasisButton.borderEmphasis(
             context,
             color: Theme.of(context).colorScheme.primary,
           ),

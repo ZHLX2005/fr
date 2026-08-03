@@ -5,7 +5,7 @@ import '../interfaces/interfaces.dart';
 import '../data/register_message_data.dart';
 import '../panel/register_flow_controller.dart';
 import '../../../api/user/user_auth_service.dart';
-import '../../../core/design/slate_button.dart';
+import '../../../core/design/emphasis_button.dart';
 
 /// Strategy for rendering Register messages.
 ///
@@ -186,7 +186,7 @@ class _EmailStepState extends State<_EmailStep> {
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(
-          style: SlateButton.borderEmphasis(
+          style: EmphasisButton.borderEmphasis(
             context,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -260,7 +260,7 @@ class _CodeStepState extends State<_CodeStep> {
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
-                style: SlateButton.borderEmphasis(
+                style: EmphasisButton.borderEmphasis(
                   context,
                   color: theme.colorScheme.primary,
                 ),
@@ -350,7 +350,7 @@ class _PasswordStepState extends State<_PasswordStep> {
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
-                style: SlateButton.borderEmphasis(
+                style: EmphasisButton.borderEmphasis(
                   context,
                   color: theme.colorScheme.primary,
                 ),
@@ -442,7 +442,7 @@ class _InviteStepState extends State<_InviteStep> {
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
-                style: SlateButton.borderEmphasis(
+                style: EmphasisButton.borderEmphasis(
                   context,
                   color: theme.colorScheme.primary,
                 ),

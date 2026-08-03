@@ -15,11 +15,11 @@ import 'package:flutter/material.dart';
 ///
 /// 用法：
 ///   OutlinedButton(
-///     style: SlateButton.borderEmphasis(context, color: colorScheme.primary),
+///     style: EmphasisButton.borderEmphasis(context, color: colorScheme.primary),
 ///     onPressed: ...,
 ///     child: Text('发送'),
 ///   )
-abstract final class SlateButton {
+abstract final class EmphasisButton {
   /// 统一圆角：从主题 cardTheme 取，缺省 14
   static double _radiusOf(BuildContext context) {
     final shape = Theme.of(context).cardTheme.shape;

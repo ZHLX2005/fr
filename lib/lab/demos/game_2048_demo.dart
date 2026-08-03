@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/design/slate_button.dart';
+import 'package:xiaodouzi_fr/core/design/emphasis_button.dart';
 import '../lab_container.dart';
 
 /// 2048 游戏 Demo
@@ -328,7 +328,7 @@ class _Game2048PageState extends State<_Game2048Page> {
                         _initGame();
                       });
                     },
-                    style: SlateButton.borderEmphasis(
+                    style: EmphasisButton.borderEmphasis(
                       context,
                       color: const Color(0xFF8F7A66),
                     ),

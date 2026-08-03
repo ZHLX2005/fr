@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
 import 'canvas_reader_engine.dart';
-import '../design/slate_button.dart';
+import '../design/emphasis_button.dart';
 import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';
 import 'novel_volume_key_turn.dart';
@@ -224,7 +224,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
         body: Center(
           child: OutlinedButton(
             onPressed: _importTxt,
-            style: SlateButton.borderEmphasis(
+            style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -298,7 +298,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                         : book.isBuiltIn
                         ? _downloadCurrentBook
                         : null,
-                    style: SlateButton.borderEmphasis(
+                    style: EmphasisButton.borderEmphasis(
                       context,
                       color: Theme.of(context).colorScheme.primary,
                     ).copyWith(
@@ -332,7 +332,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                           onPressed: _isImporting || _isDownloading
                               ? null
                               : _importTxt,
-                          style: SlateButton.borderEmphasis(
+                          style: EmphasisButton.borderEmphasis(
                             context,
                             color: Theme.of(context).colorScheme.primary,
                           ),
@@ -350,11 +350,11 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                               ? () => _downloadCurrentBook(redownload: true)
                               : _removeCurrentBook,
                           style: book.isBuiltIn
-                              ? SlateButton.borderEmphasis(
+                              ? EmphasisButton.borderEmphasis(
                                   context,
                                   color: Theme.of(context).colorScheme.primary,
                                 )
-                              : SlateButton.dangerEmphasis(context),
+                              : EmphasisButton.dangerEmphasis(context),
                           child: Text(
                             book.isBuiltIn ? 'Redownload' : 'Remove Book',
                           ),
@@ -366,7 +366,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                           onPressed: _isDownloading || _isImporting
                               ? null
                               : _clearProgress,
-                          style: SlateButton.dangerEmphasis(context),
+                          style: EmphasisButton.dangerEmphasis(context),
                           child: const Text('Clear progress'),
                         ),
                       ),
@@ -752,7 +752,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                 const SizedBox(height: 12),
                 OutlinedButton(
                   onPressed: _loadBook,
-                  style: SlateButton.borderEmphasis(
+                  style: EmphasisButton.borderEmphasis(
                     context,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -1450,7 +1450,7 @@ class _ReaderBottomBar extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: canGoPrevious ? () => onPrevious?.call() : null,
-                    style: SlateButton.borderEmphasis(
+                    style: EmphasisButton.borderEmphasis(
                       context,
                       color: Theme.of(context).colorScheme.primary,
                     ).copyWith(
@@ -1465,7 +1465,7 @@ class _ReaderBottomBar extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: canGoNext ? () => onNext?.call() : null,
-                    style: SlateButton.borderEmphasis(
+                    style: EmphasisButton.borderEmphasis(
                       context,
                       color: Theme.of(context).colorScheme.primary,
                     ).copyWith(

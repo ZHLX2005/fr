@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../core/design/slate_button.dart';
+import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
 
 class CrashLogDemo extends DemoPage {
@@ -87,7 +87,7 @@ class _CrashLogDemoPageState extends State<CrashLogDemoPage> {
                           Navigator.pop(ctx);
                           _clearLogs();
                         },
-                        style: SlateButton.dangerEmphasis(context),
+                        style: EmphasisButton.dangerEmphasis(context),
                         child: const Text('清除'),
                       ),
                     ],

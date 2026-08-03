@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/design/slate_button.dart';
+import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
 import 'clock/providers/lab_clock_provider.dart';
 import 'clock/providers/lab_track_provider.dart';
@@ -184,7 +184,7 @@ class _ClockShellState extends State<_ClockShell> {
         floatingActionButton: showFab
             ? OutlinedButton(
                 onPressed: _onFabPressed,
-                style: SlateButton.borderEmphasis(
+                style: EmphasisButton.borderEmphasis(
                   context,
                   color: Theme.of(context).colorScheme.primary,
                 ),

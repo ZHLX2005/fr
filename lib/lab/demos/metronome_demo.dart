@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/design/slate_button.dart';
+import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
 import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart'
     show ZenColors, ZenText, ZenSection, zenPageScaffold;
@@ -559,7 +559,7 @@ class _MetronomePageState extends State<_MetronomePage> {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () => Navigator.pop(ctx),
-                style: SlateButton.borderEmphasis(
+                style: EmphasisButton.borderEmphasis(
                   context,
                   color: Theme.of(context).colorScheme.primary,
                 ),

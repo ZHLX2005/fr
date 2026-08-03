@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'const_recorder.dart';
 import 'recorder_controller.dart';
-import '../../../core/design/slate_button.dart';
+import '../../../core/design/emphasis_button.dart';
 
 /// 录音列表页 —— CRUD 的 Read/Update/Delete + 试听。
 ///
@@ -70,7 +70,7 @@ class _RecorderListPageState extends State<RecorderListPage> {
             child: const Text(RecorderUiText.renameCancel),
           ),
           OutlinedButton(
-            style: SlateButton.borderEmphasis(
+            style: EmphasisButton.borderEmphasis(
               ctx,
               color: Theme.of(ctx).colorScheme.primary,
             ),
@@ -105,7 +105,7 @@ class _RecorderListPageState extends State<RecorderListPage> {
             child: const Text(RecorderUiText.renameCancel),
           ),
           OutlinedButton(
-            style: SlateButton.dangerEmphasis(ctx),
+            style: EmphasisButton.dangerEmphasis(ctx),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(RecorderUiText.deleteBtn),
           ),

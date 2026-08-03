@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../design/slate_button.dart';
+import '../design/emphasis_button.dart';
 import 'doubletime_mapper.dart';
 import 'doubletime_models.dart';
 import 'doubletime_painter.dart';
@@ -299,7 +299,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                 setState(() => _events.add(event));
                                 Navigator.pop(sheetContext);
                               },
-                              style: SlateButton.borderEmphasis(
+                              style: EmphasisButton.borderEmphasis(
                                 context,
                                 color: Color(selectedColor),
                               ).copyWith(
@@ -531,7 +531,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                     Navigator.pop(sheetContext);
                                     _confirmDeleteEvent(event);
                                   },
-                                  style: SlateButton.dangerEmphasis(context)
+                                  style: EmphasisButton.dangerEmphasis(context)
                                       .copyWith(
                                     padding: const WidgetStatePropertyAll(
                                       EdgeInsets.symmetric(
@@ -592,7 +592,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                       });
                                       Navigator.pop(sheetContext);
                                     },
-                                    style: SlateButton.borderEmphasis(
+                                    style: EmphasisButton.borderEmphasis(
                                       context,
                                       color: Color(selectedColor),
                                     ).copyWith(
@@ -753,7 +753,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
         height: 56,
         child: OutlinedButton(
           onPressed: _showAddEventSheet,
-          style: SlateButton.borderEmphasis(
+          style: EmphasisButton.borderEmphasis(
             context,
             color: const Color(0xFF6366F1),
           ).copyWith(
