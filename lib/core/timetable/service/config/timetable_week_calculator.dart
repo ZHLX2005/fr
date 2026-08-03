@@ -2,7 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../presentation/timetable_colors.dart';
 
+/// 工具：给定一个日期，返回**该日期或之前最近的那个周一**。
+///
+/// 例：周三 → 回退 2 天到本周一；周一 → 原样；周日 → 回退 6 天到本周一。
+/// 用于"输入开学日 → 自动定位起始周"。
+DateTime findNearestMondayOnOrBefore(DateTime date) {
+  // Dart DateTime.weekday: 1=Mon, 7=Sun
+  final back = date.weekday - DateTime.monday;
+  return DateTime(date.year, date.month, date.day - back);
+}
+
 /// 学校模式：输入当前周数 → 计算起始日期
+/// 输入任意日期 → 自动回退到该日期之前的最近周一
 class WeekCalculatorDialog extends StatefulWidget {
   const WeekCalculatorDialog({super.key});
 
@@ -10,10 +21,18 @@ class WeekCalculatorDialog extends StatefulWidget {
   State<WeekCalculatorDialog> createState() => _WeekCalculatorDialogState();
 }
 
-class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
+class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
+    with SingleTickerProviderStateMixin {
   final _controller = TextEditingController();
+  late final TabController _tab;
   String? _resultDate;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = TabController(length: 2, vsync: this);
+  }
 
   void _calculate() {
     final input = _controller.text.trim();
@@ -38,8 +57,26 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
     });
   }
 
+  /// 从任意日期回到之前的最近周一
+  Future<void> _pickDateAndCompute() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+      helpText: '选择开学日期或之前的任意一天',
+    );
+    if (picked == null) return;
+    final monday = findNearestMondayOnOrBefore(picked);
+    setState(() {
+      _error = null;
+      _resultDate = monday.toIso8601String().split('T')[0];
+    });
+  }
+
   @override
   void dispose() {
+    _tab.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -60,7 +97,7 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
             borderRadius: BorderRadius.circular(20),
             color: theme.colorScheme.surface,
             child: Container(
-              width: 300,
+              width: 320,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: TimetableColors.border, width: 1),
@@ -68,6 +105,7 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Header
                   Row(
@@ -75,7 +113,7 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
                       Icon(Icons.calendar_month, color: TimetableColors.accent, size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        '周数推算起始日期',
+                        '起始日期',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: TimetableColors.textPrimary,
@@ -89,53 +127,109 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // 说明
-                  Text(
-                    '输入当前是第几周，系统自动推算出开学起始日期（周一）',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: TimetableColors.textSecondary,
+                  const SizedBox(height: 12),
+                  // Tab：第几周 / 任意日期
+                  TabBar(
+                    controller: _tab,
+                    labelColor: TimetableColors.accent,
+                    unselectedLabelColor: TimetableColors.textSecondary,
+                    indicatorColor: TimetableColors.accent,
+                    indicatorWeight: 2,
+                    labelStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
+                    tabs: const [
+                      Tab(text: '当前是第几周'),
+                      Tab(text: '选日期自动回退到周一'),
+                    ],
                   ),
                   const SizedBox(height: 16),
-                  // 输入框
-                  TextField(
-                    controller: _controller,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    textAlign: TextAlign.center,
-                    decoration: InputDecoration(
-                      hintText: '例如：10',
-                      hintStyle: TextStyle(color: TimetableColors.textTertiary, fontSize: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      filled: true,
-                      fillColor: theme.colorScheme.surfaceContainerHighest,
+                  // Tab 1：输入周数
+                  if (_tab.index == 0) ...[
+                    Text(
+                      '输入当前是第几周，系统自动推算出开学起始日期（周一）',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: TimetableColors.textSecondary,
+                      ),
                     ),
-                    onSubmitted: (_) => _calculate(),
-                  ),
-                  const SizedBox(height: 16),
-                  // 计算按钮
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: _calculate,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: TimetableColors.accent,
-                        side: BorderSide(
-                          color: TimetableColors.accent.withValues(
-                            alpha: 0.5,
-                          ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _controller,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      decoration: InputDecoration(
+                        hintText: '例如：10',
+                        hintStyle: TextStyle(
+                          color: TimetableColors.textTertiary,
+                          fontSize: 14,
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceContainerHighest,
                       ),
-                      child: const Text('计算起始日期', style: TextStyle(fontWeight: FontWeight.w700)),
+                      onSubmitted: (_) => _calculate(),
                     ),
-                  ),
-                  // 结果
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _calculate,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: TimetableColors.accent,
+                          side: BorderSide(
+                            color: TimetableColors.accent.withValues(alpha: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          '计算起始日期',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                  // Tab 2：选日期回退
+                    Text(
+                      '选择开学日（任意一天），系统自动回退到当天或之前的最近周一。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: TimetableColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _pickDateAndCompute,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: TimetableColors.accent,
+                          side: BorderSide(
+                            color: TimetableColors.accent.withValues(alpha: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.calendar_today, size: 18),
+                        label: const Text(
+                          '选择日期',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ],
+                  // 结果（两种 tab 共享）
                   if (_resultDate != null) ...[
                     const SizedBox(height: 16),
                     Container(
@@ -144,12 +238,14 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
                       decoration: BoxDecoration(
                         color: TimetableColors.selectedBg,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: TimetableColors.accent.withValues(alpha: 0.4)),
+                        border: Border.all(
+                          color: TimetableColors.accent.withValues(alpha: 0.4),
+                        ),
                       ),
                       child: Column(
                         children: [
                           Text(
-                            '起始日期',
+                            '起始日期（周一）',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: TimetableColors.textSecondary,
                             ),
@@ -172,7 +268,10 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog> {
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(context, _resultDate),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: TimetableColors.accent, width: 1.5),
+                          side: BorderSide(
+                            color: TimetableColors.accent,
+                            width: 1.5,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),

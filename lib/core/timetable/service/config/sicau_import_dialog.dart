@@ -7,8 +7,12 @@ import '../../presentation/timetable_store.dart';
 import 'timetable_dsl_parser.dart';
 import '../../presentation/timetable_colors.dart';
 import '../../../design/emphasis_button.dart';
+import 'timetable_prefs.dart';
 
 /// SICAU 教务系统课表导入对话框
+///
+/// 学号/密码/学期 通过 [TimetablePrefs] 持久化到 SharedPreferences，
+/// 下次打开 dialog 自动填入，避免重复编辑。
 class SicauImportDialog extends ConsumerStatefulWidget {
   const SicauImportDialog({super.key});
 
@@ -19,9 +23,28 @@ class SicauImportDialog extends ConsumerStatefulWidget {
 class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
   final _userIdCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _semesterCtrl = TextEditingController(text: '2025-2026-2');
+  final _semesterCtrl = TextEditingController();
+  bool _loaded = false;
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // 首次 build 前预填（异步），填好就 _loaded=true
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final c = await TimetablePrefs.loadSicauCreds();
+    if (!mounted) return;
+    setState(() {
+      _userIdCtrl.text = c.userId;
+      _passwordCtrl.text = c.password;
+      _semesterCtrl.text = c.semester;
+      _loaded = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -40,6 +63,13 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
       setState(() => _error = '学号和密码不能为空');
       return;
     }
+
+    // 持久化：学号 + 学期 + 密码（密码非空才存，避免误清空）
+    await TimetablePrefs.saveSicauCreds(
+      userId: userId,
+      password: password,
+      semester: semester.isNotEmpty ? semester : TimetablePrefs.defaultSemester,
+    );
 
     setState(() {
       _loading = true;

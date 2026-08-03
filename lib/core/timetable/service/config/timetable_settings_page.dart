@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
-import '../../presentation/timetable_colors.dart';
 import 'sicau_import_dialog.dart';
 import 'timetable_import_dialog.dart';
 import 'timetable_week_calculator.dart';
+import '../../../../widgets/theme/zen_theme.dart';
 
-/// 设置页面
+/// 课表设置页 —— 沿用 Zen 设计系统组件（zenCard/ZenSection/zenButton）。
+/// 课表主页面（timetable_page）使用 TimetableColors 自己的配色保持稳定，不动。
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
 
@@ -17,7 +18,8 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
       _TimetableSettingsPageState();
 }
 
-class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
+class _TimetableSettingsPageState
+    extends ConsumerState<TimetableSettingsPage> {
   late final TextEditingController _startDateController;
   late int _cycleCount;
   late int _daysPerCycle;
@@ -44,25 +46,39 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   Future<void> _save() async {
     final store = ref.read(TimetableStore.provider.notifier);
 
+    // 用户输入任意日期 → 自动回退到该日期之前的最近周一
+    final rawStart = _startDateController.text.trim();
+    DateTime? parsed;
+    try {
+      parsed = DateTime.parse(rawStart);
+    } catch (_) {}
+    final mondayStart = parsed != null
+        ? findNearestMondayOnOrBefore(parsed).toIso8601String().split('T')[0]
+        : rawStart;
+    if (mondayStart != rawStart) {
+      _startDateController.text = mondayStart;
+    }
+
     // 学校模式下强制 daysPerCycle = 7
     final daysToSave = _isSchoolMode ? 7 : _daysPerCycle;
 
     final error = await store.updateConfig(
-      startDateIso: _startDateController.text.trim(),
+      startDateIso: mondayStart,
       cycleCount: _cycleCount,
       daysPerCycle: daysToSave,
       slotsPerDay: _slotsPerDay,
       isSchoolMode: _isSchoolMode,
     );
 
-    if (error != null && mounted) {
+    if (!mounted) return;
+    if (error != null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error)));
-    } else if (mounted) {
+    } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('设置已保存')));
+      ).showSnackBar(SnackBar(content: Text('设置已保存（起始日期 $mondayStart）')));
       Navigator.pop(context);
     }
   }
@@ -120,7 +136,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: ZenColors.mutedRed),
             child: const Text('清空'),
           ),
         ],
@@ -138,309 +154,240 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('时间配置'),
-        backgroundColor: TimetableColors.surface,
-        foregroundColor: TimetableColors.textPrimary,
-      ),
-      backgroundColor: TimetableColors.surfaceVariant,
+    return zenPageScaffold(
+      title: '时间配置',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.save),
+          tooltip: '保存',
+          onPressed: _save,
+        ),
+      ],
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 模式选择
-          _buildModeSelector(theme),
-          const SizedBox(height: 24),
-          // 起始日期
-          _buildDatePicker(theme),
-          const SizedBox(height: 24),
-          // 周期数
-          _ConfigSlider(
-            label: '周期数',
-            value: _cycleCount.toDouble(),
-            min: TimetableConfig.minCycles.toDouble(),
-            max: TimetableConfig.maxCycles.toDouble(),
-            divisions: TimetableConfig.maxCycles - TimetableConfig.minCycles,
-            onChanged: (v) => setState(() => _cycleCount = v.round()),
+          // ── 模式选择 ──
+          ZenSection(
+            title: '课表模式',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildModeSelector(),
+                if (_isSchoolMode) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '学校模式：周一为起始日期，7天固定，支持批量导入',
+                    style: ZenText.label.copyWith(fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
           ),
-          // 每周期天数（学校模式固定7天，隐藏 slider）
+          const SizedBox(height: 12),
+          // ── 起始日期 ──
+          ZenSection(
+            title: '起始日期',
+            child: _buildDateField(),
+          ),
+          const SizedBox(height: 12),
+          // ── 周期配置 ──
+          ZenSection(
+            title: '周期配置',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ZenConfigSlider(
+                  label: '周期数',
+                  value: _cycleCount.toDouble(),
+                  min: TimetableConfig.minCycles.toDouble(),
+                  max: TimetableConfig.maxCycles.toDouble(),
+                  divisions:
+                      TimetableConfig.maxCycles - TimetableConfig.minCycles,
+                  onChanged: (v) => setState(() => _cycleCount = v.round()),
+                ),
+                if (_isSchoolMode)
+                  _ZenFixedLabel(
+                    label: '每周期天数',
+                    value: '7天（固定）',
+                  )
+                else
+                  _ZenConfigSlider(
+                    label: '每周期天数 (1-7)',
+                    value: _daysPerCycle.toDouble(),
+                    min: TimetableConfig.minDaysPerCycle.toDouble(),
+                    max: TimetableConfig.maxDaysPerCycle.toDouble(),
+                    divisions: TimetableConfig.maxDaysPerCycle -
+                        TimetableConfig.minDaysPerCycle,
+                    onChanged: (v) => setState(() => _daysPerCycle = v.round()),
+                  ),
+                _ZenConfigSlider(
+                  label: '每天节数 (1-6)',
+                  value: _slotsPerDay.toDouble(),
+                  min: TimetableConfig.minSlotsPerDay.toDouble(),
+                  max: TimetableConfig.maxSlotsPerDay.toDouble(),
+                  divisions: TimetableConfig.maxSlotsPerDay -
+                      TimetableConfig.minSlotsPerDay,
+                  onChanged: (v) => setState(() => _slotsPerDay = v.round()),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ── 学校模式：导入 / 导出 / 清空 ──
           if (_isSchoolMode)
-            _FixedLabel(label: '每周期天数', value: '7天（固定）')
-          else
-            _ConfigSlider(
-              label: '每周期天数 (1-7)',
-              value: _daysPerCycle.toDouble(),
-              min: TimetableConfig.minDaysPerCycle.toDouble(),
-              max: TimetableConfig.maxDaysPerCycle.toDouble(),
-              divisions:
-                  TimetableConfig.maxDaysPerCycle -
-                  TimetableConfig.minDaysPerCycle,
-              onChanged: (v) => setState(() => _daysPerCycle = v.round()),
-            ),
-          // 每天节数
-          _ConfigSlider(
-            label: '每天节数 (1-6)',
-            value: _slotsPerDay.toDouble(),
-            min: TimetableConfig.minSlotsPerDay.toDouble(),
-            max: TimetableConfig.maxSlotsPerDay.toDouble(),
-            divisions:
-                TimetableConfig.maxSlotsPerDay - TimetableConfig.minSlotsPerDay,
-            onChanged: (v) => setState(() => _slotsPerDay = v.round()),
-          ),
-          // 学校模式：批量导入按钮
-          if (_isSchoolMode) ...[
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: _openImport,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: BorderSide(color: TimetableColors.accent, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.upload_file, color: TimetableColors.accent),
-              label: const Text(
-                '批量导入课程',
-                style: TextStyle(
-                  color: TimetableColors.accent,
-                  fontWeight: FontWeight.w600,
-                ),
+            ZenSection(
+              title: '课程管理',
+              child: Column(
+                children: [
+                  _ZenActionButton(
+                    icon: Icons.upload_file,
+                    label: '批量导入课程',
+                    onPressed: _openImport,
+                  ),
+                  const SizedBox(height: 8),
+                  _ZenActionButton(
+                    icon: Icons.school,
+                    label: 'SICAU 课表导入',
+                    onPressed: _openSicauImport,
+                    secondary: true,
+                  ),
+                  const SizedBox(height: 8),
+                  _ZenActionButton(
+                    icon: Icons.download,
+                    label: '导出 DSL',
+                    onPressed: _exportDsl,
+                    secondary: true,
+                  ),
+                  const SizedBox(height: 8),
+                  _ZenActionButton(
+                    icon: Icons.delete_outline,
+                    label: '清空所有课程',
+                    onPressed: _clearAll,
+                    danger: true,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openSicauImport,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: BorderSide(color: TimetableColors.accent.withValues(alpha: 0.6), width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: Icon(Icons.school, color: TimetableColors.accent.withValues(alpha: 0.8)),
-              label: Text(
-                'SICAU 课表导入',
-                style: TextStyle(
-                  color: TimetableColors.accent.withValues(alpha: 0.8),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _exportDsl,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: BorderSide(color: TimetableColors.accent.withValues(alpha: 0.6), width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: Icon(Icons.download, color: TimetableColors.accent.withValues(alpha: 0.8)),
-              label: Text(
-                '导出 DSL',
-                style: TextStyle(
-                  color: TimetableColors.accent.withValues(alpha: 0.8),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _clearAll,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: Colors.red, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              label: const Text(
-                '清空所有课程',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: _save,
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              side: const BorderSide(color: TimetableColors.accent, width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.save, color: TimetableColors.accent),
-            label: const Text(
-              '保存设置',
-              style: TextStyle(
-                color: TimetableColors.accent,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildModeSelector(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  // ──── 子组件：模式选择 ────
+  Widget _buildModeSelector() {
+    return Row(
       children: [
-        Text(
-          '课表模式',
-          style: const TextStyle(
-            color: TimetableColors.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
+        Expanded(
+          child: _ZenSegmentButton(
+            label: '学校模式',
+            selected: _isSchoolMode,
+            onTap: () => setState(() => _isSchoolMode = true),
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: TimetableColors.border),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _isSchoolMode = true),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: _isSchoolMode
-                          ? TimetableColors.accent.withValues(alpha: 0.1)
-                          : Colors.transparent,
-                      borderRadius: const BorderRadius.horizontal(
-                        left: Radius.circular(9),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '学校模式',
-                        style: TextStyle(
-                          color: _isSchoolMode
-                              ? TimetableColors.accent
-                              : TimetableColors.textSecondary,
-                          fontWeight: _isSchoolMode
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _isSchoolMode = false),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: !_isSchoolMode
-                          ? TimetableColors.accent.withValues(alpha: 0.1)
-                          : Colors.transparent,
-                      borderRadius: const BorderRadius.horizontal(
-                        right: Radius.circular(9),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '通用模式',
-                        style: TextStyle(
-                          color: !_isSchoolMode
-                              ? TimetableColors.accent
-                              : TimetableColors.textSecondary,
-                          fontWeight: !_isSchoolMode
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ZenSegmentButton(
+            label: '通用模式',
+            selected: !_isSchoolMode,
+            onTap: () => setState(() => _isSchoolMode = false),
           ),
         ),
-        if (_isSchoolMode)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              '周一为起始日期，7天固定，支持批量导入',
-              style: TextStyle(
-                color: TimetableColors.textTertiary,
-                fontSize: 11,
-              ),
-            ),
-          ),
       ],
     );
   }
 
-  Widget _buildDatePicker(ThemeData theme) {
-    if (_isSchoolMode) {
-      return _WeekCalculatorField(
-        controller: _startDateController,
-        onDateApplied: (date) {
-          setState(() {
-            _startDateController.text = date;
-          });
-          // 应用日期后自动保存
-          _save();
-        },
-      );
-    }
-
-    return TextField(
-      controller: _startDateController,
-      style: const TextStyle(color: TimetableColors.textPrimary),
-      decoration: InputDecoration(
-        labelText: _isSchoolMode ? '起始日期（周一）' : '起始日期',
-        labelStyle: const TextStyle(color: TimetableColors.textSecondary),
-        prefixIcon: const Icon(
-          Icons.calendar_today,
-          color: TimetableColors.accent,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        filled: true,
-        fillColor: theme.colorScheme.surfaceContainerHighest,
-      ),
-      readOnly: true,
+  // ──── 子组件：日期字段（点开 WeekCalculatorDialog） ────
+  Widget _buildDateField() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
       onTap: () async {
-        final currentDate = DateTime.tryParse(_startDateController.text);
-        final date = await showDatePicker(
+        final date = await showDialog<String>(
           context: context,
-          initialDate: currentDate ?? DateTime.now(),
-          firstDate: DateTime(2024),
-          lastDate: DateTime(2030),
-          selectableDayPredicate: _isSchoolMode
-              ? (d) => d.weekday == DateTime.monday
-              : null,
+          builder: (_) => const WeekCalculatorDialog(),
         );
         if (date != null) {
-          setState(() {
-            _startDateController.text = date.toIso8601String().split('T')[0];
-          });
+          setState(() => _startDateController.text = date);
         }
       },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: zenCard(),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_isSchoolMode ? '起始日期（周一）' : '起始日期', style: ZenText.label),
+                  const SizedBox(height: 2),
+                  Text(
+                    _startDateController.text,
+                    style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _ConfigSlider extends StatelessWidget {
-  const _ConfigSlider({
+// ──────────────────── Zen 风格子组件 ────────────────────
+
+class _ZenSegmentButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ZenSegmentButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? ZenColors.sage.withValues(alpha: 0.1) : Colors.transparent,
+          border: Border.all(
+            color: selected ? ZenColors.sage : ZenColors.hair,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? ZenColors.sage : ZenColors.secondary,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ZenConfigSlider extends StatelessWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+
+  const _ZenConfigSlider({
     required this.label,
     required this.value,
     required this.min,
@@ -448,13 +395,6 @@ class _ConfigSlider extends StatelessWidget {
     required this.divisions,
     required this.onChanged,
   });
-
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -464,40 +404,29 @@ class _ConfigSlider extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: TimetableColors.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text(label, style: ZenText.body.copyWith(fontWeight: FontWeight.w500)),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
-                border: const Border(
-                  left: BorderSide(
-                    color: TimetableColors.textPrimary,
-                    width: 3,
-                  ),
-                ),
-                color: TimetableColors.selectedBg,
+                color: ZenColors.sage.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 value.round().toString(),
-                style: const TextStyle(
-                  color: TimetableColors.textPrimary,
-                  fontWeight: FontWeight.w600,
+                style: ZenText.body.copyWith(
+                  color: ZenColors.sage,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
           ],
         ),
         SliderTheme(
-          data: SliderThemeData(
-            activeTrackColor: TimetableColors.accent,
-            inactiveTrackColor: TimetableColors.border,
-            thumbColor: TimetableColors.accent,
-            overlayColor: TimetableColors.accent.withValues(alpha: 0.2),
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: ZenColors.sage,
+            inactiveTrackColor: ZenColors.hair,
+            thumbColor: ZenColors.sage,
+            overlayColor: ZenColors.sage.withValues(alpha: 0.2),
           ),
           child: Slider(
             value: value,
@@ -512,42 +441,30 @@ class _ConfigSlider extends StatelessWidget {
   }
 }
 
-/// 固定值标签（学校模式 daysPerCycle 固定显示）
-class _FixedLabel extends StatelessWidget {
-  const _FixedLabel({required this.label, required this.value});
-
+class _ZenFixedLabel extends StatelessWidget {
   final String label;
   final String value;
+
+  const _ZenFixedLabel({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: TimetableColors.textPrimary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(label, style: ZenText.body.copyWith(fontWeight: FontWeight.w500)),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
-              border: const Border(
-                left: BorderSide(
-                  color: TimetableColors.accent,
-                  width: 3,
-                ),
-              ),
-              color: TimetableColors.accent.withValues(alpha: 0.08),
+              color: ZenColors.sage.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               value,
-              style: const TextStyle(
-                color: TimetableColors.accent,
+              style: ZenText.body.copyWith(
+                color: ZenColors.sage,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -558,66 +475,36 @@ class _FixedLabel extends StatelessWidget {
   }
 }
 
-/// 学校模式：周数推算起始日期的入口字段
-class _WeekCalculatorField extends StatelessWidget {
-  const _WeekCalculatorField({
-    required this.controller,
-    required this.onDateApplied,
-  });
+class _ZenActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool danger;
+  final bool secondary;
 
-  final TextEditingController controller;
-  final ValueChanged<String> onDateApplied;
+  const _ZenActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.danger = false,
+    this.secondary = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return GestureDetector(
-      onTap: () async {
-        final date = await showDialog<String>(
-          context: context,
-          builder: (_) => const WeekCalculatorDialog(),
-        );
-        if (date != null) {
-          onDateApplied(date);
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: TimetableColors.border),
+    final color = danger
+        ? ZenColors.mutedRed
+        : (secondary ? ZenColors.secondary : ZenColors.sage);
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        style: zenButton(
+          foreground: color,
+          border: color.withValues(alpha: 0.5),
         ),
-        child: Row(
-          children: [
-            Icon(Icons.calendar_month, color: TimetableColors.accent, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '起始日期（周一）',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: TimetableColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    controller.text,
-                    style: const TextStyle(
-                      color: TimetableColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: TimetableColors.textTertiary),
-          ],
-        ),
+        icon: Icon(icon, size: 18),
+        label: Text(label, style: ZenText.button.copyWith(color: color)),
       ),
     );
   }
