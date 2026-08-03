@@ -376,8 +376,12 @@ class _FocusTimerPageState extends State<FocusTimerPage>
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
+              color: color.withValues(alpha: 0.10),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
             ),
             child: Icon(icon, color: color, size: 28),
           ),

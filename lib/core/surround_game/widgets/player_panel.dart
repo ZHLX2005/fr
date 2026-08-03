@@ -4,6 +4,7 @@
 //
 // 颜色全部从 [BoardThemeData] 语义令牌读取，主题切换只改令牌。
 import 'package:flutter/material.dart';
+import '../../design/emphasis_button.dart';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
 import 'touch_controller.dart';
@@ -228,36 +229,33 @@ class PlayerPanel extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 取消
+            // 取消 — 边框强调式（neutral btnText）
             _ConfirmButton(
               icon: Icons.close,
               label: '取消',
-              iconColor: theme.btnText,
-              labelColor: theme.btnSub,
+              color: theme.btnText,
               onTap: onCancel ?? () {},
             ),
             const SizedBox(width: _PanelMetrics.segGap),
             _PanelDivider(theme: theme),
             const SizedBox(width: _PanelMetrics.segGap),
-            // 旋转（仅墙模式）
+            // 旋转（仅墙模式）— 边框强调式（accent）
             if (showRotate) ...[
               _ConfirmButton(
                 icon: rotateIcon,
                 label: '旋转',
-                iconColor: accent,
-                labelColor: accent,
+                color: accent,
                 onTap: onRotate ?? () {},
               ),
               const SizedBox(width: _PanelMetrics.segGap),
               _PanelDivider(theme: theme),
               const SizedBox(width: _PanelMetrics.segGap),
             ],
-            // 确定
+            // 确定 — 边框强调式（accent）
             _ConfirmButton(
               icon: Icons.check_circle,
               label: '确定',
-              iconColor: accent,
-              labelColor: accent,
+              color: accent,
               onTap: onConfirm ?? () {},
             ),
           ],
@@ -464,41 +462,45 @@ class _PanelButton extends StatelessWidget {
   }
 }
 
-/// 确认阶段图标按钮 — 复用放大后的尺寸
+/// 确认阶段图标按钮 — 边框强调式（浅 tint + 同色描边 + 同色前景）
+///
+/// 占用 player_panel pill 内的紧凑空间：缩小 padding、保留胶囊圆角，
+/// 视觉上仍是 OutlinedButton 边框强调（panel 自身有白边+投影做分层）。
 class _ConfirmButton extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color iconColor;
-  final Color labelColor;
+  final Color color;
   final VoidCallback onTap;
 
   const _ConfirmButton({
     required this.icon,
     required this.label,
-    required this.iconColor,
-    required this.labelColor,
+    required this.color,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: _PanelMetrics.segPadH),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: _PanelMetrics.iconSize, color: iconColor),
-            const SizedBox(height: 2),
-            Text(label,
-              style: TextStyle(
-                fontSize: _PanelMetrics.subSize,
-                color: labelColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: _PanelMetrics.iconSize),
+      label: Text(
+        label,
+        style: const TextStyle(
+          fontSize: _PanelMetrics.subSize,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      style: EmphasisButton.borderEmphasis(context, color: color).copyWith(
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        minimumSize: const WidgetStatePropertyAll(Size(0, 0)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(_PanelMetrics.segInnerRadius),
+          ),
         ),
       ),
     );

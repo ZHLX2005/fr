@@ -6,6 +6,7 @@ import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'timetable_dsl_parser.dart';
 import '../../presentation/timetable_colors.dart';
+import '../../../design/emphasis_button.dart';
 
 /// SICAU 教务系统课表导入对话框
 class SicauImportDialog extends ConsumerStatefulWidget {
@@ -244,15 +245,9 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: _loading ? null : _doImport,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: TimetableColors.accent,
-                                width: 1.5,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                            style: EmphasisButton.borderEmphasis(
+                              context,
+                              color: TimetableColors.accent,
                             ),
                             icon: _loading
                                 ? SizedBox(

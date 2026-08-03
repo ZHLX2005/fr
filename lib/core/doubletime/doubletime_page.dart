@@ -649,12 +649,12 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('取消'),
           ),
-          TextButton(
+          OutlinedButton(
             onPressed: () {
               setState(() => _events.removeWhere((e) => e.id == event.id));
               Navigator.pop(ctx);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: EmphasisButton.dangerEmphasis(context),
             child: const Text('删除'),
           ),
         ],

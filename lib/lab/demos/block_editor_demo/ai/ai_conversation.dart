@@ -527,14 +527,19 @@ class _AiConversationOverlayWidgetState
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: colorScheme.primary,
+                    color: colorScheme.primary
+                        .withValues(alpha: colorScheme.brightness == Brightness.dark ? 0.18 : 0.08),
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: colorScheme.primary
+                          .withValues(alpha: colorScheme.brightness == Brightness.dark ? 0.65 : 0.5),
+                      width: 1,
+                    ),
                   ),
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     iconSize: 13,
-                    icon:
-                        const Icon(Icons.arrow_upward, color: Colors.white),
+                    icon: Icon(Icons.arrow_upward, color: colorScheme.primary),
                     onPressed: _sendMessage,
                   ),
                 ),

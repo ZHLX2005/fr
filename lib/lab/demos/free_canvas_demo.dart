@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
 
 /// 自由拖拽画布 Demo
@@ -154,6 +155,10 @@ class _FreeCanvasPageState extends State<_FreeCanvasPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: EmphasisButton.ghostEmphasis(
+              context,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             child: const Text('取消'),
           ),
           TextButton(
@@ -166,6 +171,10 @@ class _FreeCanvasPageState extends State<_FreeCanvasPage> {
               });
               Navigator.pop(context);
             },
+            style: EmphasisButton.borderEmphasis(
+              context,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             child: const Text('保存'),
           ),
         ],

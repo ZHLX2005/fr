@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../board_theme.dart';
 import '../game_ui_state.dart';
 import '../surround_game_constants.dart';
+import '../../design/emphasis_button.dart';
 import '../widgets/chess_board.dart';
 import '../widgets/chess_player.dart';
 import '../widgets/chess_wall.dart';
@@ -55,7 +56,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
         child: ValueListenableBuilder<LocalMatchState>(
           valueListenable: _viewModel,
           builder: (_, matchState, __) => switch (matchState) {
-            LocalIdle() => _buildIdleScreen(theme),
+            LocalIdle() => _buildIdleScreen(context, theme),
             LocalInGame() => _buildGameScreen(matchState, theme),
             LocalFinished() => _buildGameScreen(
                 // 使用已结束的 GameState 渲染最终棋盘
@@ -70,7 +71,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
   }
 
   /// 闲置状态 — 开始界面
-  Widget _buildIdleScreen(BoardThemeData theme) {
+  Widget _buildIdleScreen(BuildContext context, BoardThemeData theme) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -98,12 +99,17 @@ class _LocalGamePageState extends State<LocalGamePage> {
             },
             icon: const Icon(Icons.play_arrow),
             label: const Text('开始游戏'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: theme.piecePlayerA,
-              side: BorderSide(color: theme.piecePlayerA.withValues(alpha: 0.5)),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+            style: EmphasisButton.borderEmphasis(
+              context,
+              color: theme.piecePlayerA,
+            ).copyWith(
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
               ),
             ),
           ),
@@ -584,16 +590,20 @@ class _LocalGamePageState extends State<LocalGamePage> {
                       _touchController.reset();
                       _viewModel.dispatch(const LocalResetRequested());
                     },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      foregroundColor: theme.piecePlayerA,
-                      side: BorderSide(color: theme.piecePlayerA.withValues(alpha: 0.5)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                    style: EmphasisButton.borderEmphasis(
+                      context,
+                      color: theme.piecePlayerA,
+                    ).copyWith(
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
                       ),
                     ),
-                    child: Text('确定',
-                        style: TextStyle(color: theme.piecePlayerA)),
+                    child: const Text('确定'),
                   ),
                 ),
               ],
@@ -675,16 +685,20 @@ class _LocalGamePageState extends State<LocalGamePage> {
                       _touchController.reset();
                       _viewModel.dispatch(const LocalExitRequested());
                     },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      foregroundColor: theme.piecePlayerA,
-                      side: BorderSide(color: theme.piecePlayerA.withValues(alpha: 0.5)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                    style: EmphasisButton.borderEmphasis(
+                      context,
+                      color: theme.piecePlayerA,
+                    ).copyWith(
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
                       ),
                     ),
-                    child: Text('确定',
-                      style: TextStyle(color: theme.piecePlayerA)),
+                    child: const Text('确定'),
                   ),
                 ),
               ],
@@ -764,16 +778,20 @@ class _LocalGamePageState extends State<LocalGamePage> {
                           _viewModel.dispatch(
                               const LocalUndoRequested());
                         },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          foregroundColor: theme.piecePlayerA,
-                          side: BorderSide(color: theme.piecePlayerA.withValues(alpha: 0.5)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
+                        style: EmphasisButton.borderEmphasis(
+                          context,
+                          color: theme.piecePlayerA,
+                        ).copyWith(
+                          padding: const WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          shape: WidgetStatePropertyAll(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
                           ),
                         ),
-                        child: Text('同意',
-                            style: TextStyle(color: theme.piecePlayerA)),
+                        child: const Text('同意'),
                       ),
                     ),
                   ],
@@ -853,14 +871,19 @@ class _LocalGamePageState extends State<LocalGamePage> {
                       _touchController.reset();
                       _viewModel.dispatch(const LocalResetRequested());
                     },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: winColor,
-                      side: BorderSide(color: winColor.withValues(alpha: 0.5)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                    style: EmphasisButton.borderEmphasis(
+                      context,
+                      color: winColor,
+                    ).copyWith(
+                      padding: const WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
                     ),
                     child: const Text('再来一局'),
                   ),

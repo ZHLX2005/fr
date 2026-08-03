@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../design/emphasis_button.dart';
 import '../../services/message_strategy/interfaces/interfaces.dart';
 import '../../services/message_strategy/factory/factory.dart';
 import '../../services/message_strategy/panel/panel.dart';
@@ -251,18 +252,38 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                onPressed: () => _handleSend(_inputController.text),
-                icon: const Icon(Icons.send, color: Colors.white),
-              ),
+            _SendButton(
+              onPressed: () => _handleSend(_inputController.text),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 发送按钮 — 边框强调式圆形图标按钮
+class _SendButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _SendButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.secondary;
+    return Container(
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: accent.withValues(alpha: 0.35),
+          width: 1.5,
+        ),
+      ),
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: '发送',
+        icon: Icon(Icons.send, color: accent),
       ),
     );
   }

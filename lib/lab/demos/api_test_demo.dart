@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
 import 'api_test/api_download_manager.dart';
 import 'api_test/api_speech_tab.dart';
@@ -161,14 +162,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     return '$pct%';
   }
 
-  /// 边框强调式按钮样式：描边 + 同色文字/icon，用功能色区分不同操作。
+  /// 边框强调式按钮样式：浅 tint + 描边 + 同色文字/icon，用功能色区分不同操作。
   /// color 为该操作的功能色（green=主操作/成功、blue=查询/接收、
   /// orange=暂停/警示、red=危险、indigo/teal/deepPurple=差异化操作）。
   ButtonStyle _outlinedBtnStyle(Color color) {
-    return OutlinedButton.styleFrom(
-      foregroundColor: color,
-      side: BorderSide(color: color.withValues(alpha: 0.5)),
-    );
+    return EmphasisButton.borderEmphasis(context, color: color);
   }
 
   // ===== Build =====
@@ -511,10 +509,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           children: [
             OutlinedButton(
               onPressed: _openApkInstall,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.green,
-                side: BorderSide(color: Colors.green.withValues(alpha: 0.5)),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+              style: EmphasisButton.borderEmphasis(
+                context,
+                color: Colors.green,
               ),
               child: const Text('安装'),
             ),

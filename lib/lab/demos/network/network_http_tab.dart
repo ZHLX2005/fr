@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/design/emphasis_button.dart';
 import 'const_network.dart';
 
 /// HTTP 请求测试 Tab
@@ -167,15 +168,13 @@ class _NetworkHttpTabState extends State<NetworkHttpTab>
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.blue,
                       ),
                     )
                   : const Icon(Icons.send),
               label: Text(_loading ? '请求中...' : '发送请求'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.blue,
-                side: BorderSide(
-                    color: Colors.blue.withValues(alpha: 0.5)),
+              style: EmphasisButton.borderEmphasis(
+                context,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ),

@@ -66,17 +66,21 @@ class AiBubble extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (isPrimary) {
+      final isDark = colorScheme.brightness == Brightness.dark;
       return Container(
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: colorScheme.primary,
+          color: colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.08),
           shape: BoxShape.circle,
+          border: Border.all(
+            color: colorScheme.primary.withValues(alpha: isDark ? 0.65 : 0.5),
+          ),
         ),
         child: IconButton(
           padding: EdgeInsets.zero,
           iconSize: 18,
-          icon: const Icon(Icons.check, color: Colors.white),
+          icon: Icon(Icons.check, color: colorScheme.primary),
           onPressed: onTap ?? () {},
         ),
       );

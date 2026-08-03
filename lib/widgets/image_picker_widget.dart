@@ -330,8 +330,10 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                         onPressed: _isLoading ? null : _cancelChanges,
                         icon: const Icon(Icons.close),
                         label: const Text('取消'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        style: EmphasisButton.dangerEmphasis(context).copyWith(
+                          padding: const MaterialStatePropertyAll(
+                            EdgeInsets.symmetric(vertical: 16),
+                          ),
                         ),
                       ),
                     ),
@@ -346,14 +348,12 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                   onPressed: _isLoading ? null : _pickAndCropImage,
                   icon: const Icon(Icons.photo_library),
                   label: Text(displayPath != null ? '重新选择' : '选择图片'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    foregroundColor: Theme.of(context).colorScheme.primary,
-                    side: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.5),
+                  style: EmphasisButton.borderEmphasis(
+                    context,
+                    color: Theme.of(context).colorScheme.primary,
+                  ).copyWith(
+                    padding: const MaterialStatePropertyAll(
+                      EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
                 ),
@@ -368,8 +368,13 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                     onPressed: _isLoading ? null : _reCropImage,
                     icon: const Icon(Icons.crop),
                     label: const Text('调整裁剪区域'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    style: EmphasisButton.borderEmphasis(
+                      context,
+                      color: Theme.of(context).colorScheme.primary,
+                    ).copyWith(
+                      padding: const MaterialStatePropertyAll(
+                        EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
                   ),
                 ),

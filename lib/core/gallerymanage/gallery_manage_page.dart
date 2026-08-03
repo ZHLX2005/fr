@@ -397,10 +397,11 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
             label: const Text('全选'),
           ),
           const SizedBox(width: 8),
-          TextButton.icon(
+          OutlinedButton.icon(
             onPressed: _selectedImages.isEmpty ? null : _showDeleteConfirm,
-            icon: Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
-            label: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('删除'),
+            style: EmphasisButton.dangerEmphasis(context),
           ),
         ],
       ),

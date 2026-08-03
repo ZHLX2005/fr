@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../design/emphasis_button.dart';
 import '../models/word.dart';
 import '../providers/word_drag_notifier.dart';
 import '../providers/word_drag_state.dart';
@@ -465,37 +466,32 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
           style: TextStyle(fontSize: 16, color: Colors.grey.shade400),
         ),
         const SizedBox(height: 40),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            gradient: LinearGradient(
-              colors: [Colors.deepPurple.shade600, Colors.purple.shade600],
+        OutlinedButton(
+          style: EmphasisButton.borderEmphasis(
+            context,
+            color: Theme.of(context).colorScheme.primary,
+          ).copyWith(
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 40, vertical: 16),
             ),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(30),
-              onTap: notifier.resetWords,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.refresh, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      '再学一遍',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+            minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
               ),
             ),
+          ),
+          onPressed: notifier.resetWords,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.refresh),
+              SizedBox(width: 8),
+              Text(
+                '再学一遍',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
         ),
       ],

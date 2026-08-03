@@ -12,6 +12,7 @@ import '../../core/storage/sync/cloud_storage_sync.dart';
 import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
+import '../../core/design/emphasis_button.dart';
 import 'calendar/data/calendar_hive.dart';
 
 /// 存储分析 Demo
@@ -402,6 +403,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
   }
 
   Widget _buildStorageTab() {
+    final theme = Theme.of(context);
     return Column(
       children: [
         Padding(
@@ -414,6 +416,10 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                 onPressed: _loadStorageData,
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('刷新'),
+                style: EmphasisButton.borderEmphasis(
+                  context,
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ],
           ),
@@ -556,7 +562,10 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                 onPressed: _addPref,
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('新增'),
-                style: _outlinedActionStyle(Colors.green),
+                style: EmphasisButton.borderEmphasis(
+                  context,
+                  color: Colors.green,
+                ),
               ),
             ],
           ),
@@ -1262,11 +1271,7 @@ class _KeyDetailSheet extends StatelessWidget {
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete),
                     label: const Text('删除此项'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                    style: EmphasisButton.dangerEmphasis(context),
                   ),
                 ),
               ),
@@ -1731,11 +1736,7 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
                     onPressed: widget.onDelete,
                     icon: const Icon(Icons.delete),
                     label: const Text('删除笔记'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                    style: EmphasisButton.dangerEmphasis(context),
                   ),
                 ),
               ),
@@ -2405,16 +2406,9 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                       )
                     : const Icon(Icons.login, size: 18),
                 label: const Text('登录'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: accent,
-                  side: BorderSide(
-                    color: accent.withValues(alpha: 0.5),
-                    width: 1.5,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
+                style: EmphasisButton.borderEmphasis(
+                  context,
+                  color: accent,
                 ),
               ),
             ],
@@ -2454,7 +2448,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
               onPressed: _busy ? null : _doBackup,
               icon: const Icon(Icons.cloud_upload_outlined, size: 18),
               label: const Text('备份到云端'),
-              style: _outlinedActionStyle(Colors.green),
+              style: EmphasisButton.borderEmphasis(context, color: Colors.green),
             ),
           ]),
           const SizedBox(height: 12),
@@ -2484,7 +2478,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                 onPressed: (_busy || _selected == null) ? null : _doRestore,
                 icon: const Icon(Icons.cloud_download_outlined, size: 18),
                 label: const Text('从云端恢复'),
-                style: _outlinedActionStyle(Colors.blue),
+                style: EmphasisButton.borderEmphasis(context, color: Colors.blue),
               ),
             ),
             const SizedBox(width: 8),
@@ -2493,7 +2487,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                 onPressed: (_busy || _selected == null) ? null : _doDelete,
                 icon: const Icon(Icons.delete_outline, size: 18),
                 label: const Text('删除备份'),
-                style: _outlinedActionStyle(Colors.red),
+                style: EmphasisButton.dangerEmphasis(context),
               ),
             ),
           ]),

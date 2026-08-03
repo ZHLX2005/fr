@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/ai_chat/ai_chat_provider.dart';
 import '../../services/ai_chat/agent_chat_provider.dart';
 import '../../services/ai_chat/ai_chat_models.dart';
+import '../design/emphasis_button.dart';
 
 /// AI 聊天设置页面
 class AIChatSettingsPage extends StatefulWidget {
@@ -275,18 +276,17 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
+                          color: Colors.green,
                         ),
                       )
                     : const Icon(Icons.save),
                 label: Text(_isSaving ? '保存中...' : '保存设置'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  side: BorderSide(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.5),
+                style: EmphasisButton.borderEmphasis(
+                  context,
+                  color: Colors.green,
+                ).copyWith(
+                  padding: WidgetStatePropertyAll(
+                    const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
               ),

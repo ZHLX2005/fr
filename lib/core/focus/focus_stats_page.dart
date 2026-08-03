@@ -390,11 +390,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     if (daySessions.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
+        decoration: zenCard(),
         child: Column(
           children: [
             Icon(Icons.event_busy, size: 32, color: Colors.grey[400]),
@@ -415,11 +411,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
+      decoration: zenCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -454,13 +446,17 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.12),
+                      color: ZenColors.sage.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: ZenColors.sage.withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
                     ),
                     child: const Icon(
                       Icons.self_improvement,
                       size: 18,
-                      color: Colors.grey,
+                      color: ZenColors.sage,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -490,11 +486,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     if (sessions.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
+        decoration: zenCard(),
         child: Column(
           children: [
             Icon(Icons.hourglass_empty, size: 48, color: Colors.grey[400]),
@@ -510,11 +502,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
+      decoration: zenCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -530,13 +518,17 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.12),
+                  color: ZenColors.sage.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: ZenColors.sage.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
                 ),
                 child: const Icon(
                   Icons.self_improvement,
                   size: 20,
-                  color: Colors.grey,
+                  color: ZenColors.sage,
                 ),
               ),
               title: Text(session.mode.label),

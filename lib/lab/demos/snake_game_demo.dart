@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
 
 /// 贪吃蛇游戏 Demo
@@ -86,11 +87,15 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
           ),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () {
               Navigator.of(context).pop();
               _startGame();
             },
+            style: EmphasisButton.borderEmphasis(
+              context,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             child: const Text('重新开始'),
           ),
         ],

@@ -11,6 +11,7 @@ import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import '../lab_container.dart';
 import 'web_bookmark/models/bookmark_item.dart';
 import 'web_bookmark/providers/bookmark_provider.dart';
+import '../../core/design/emphasis_button.dart';
 
 /// Web Bookmark Demo
 class WebBookmarkDemo extends DemoPage {
@@ -490,6 +491,10 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                                 )
                               : const Icon(Icons.refresh),
                           label: const Text('Auto Icon'),
+                          style: EmphasisButton.borderEmphasis(
+                            context,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       ),
                     ],
@@ -640,11 +645,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                 child: const Text('Cancel'),
               ),
               OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                  side: BorderSide(
-                    color: Colors.blue.withValues(alpha: 0.5),
-                  ),
+                style: EmphasisButton.borderEmphasis(
+                  context,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 onPressed: () async {
                   final title = titleController.text.trim();
@@ -946,9 +949,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                       },
                       icon: const Icon(Icons.delete, size: 18),
                       label: const Text('Delete Bookmark'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                      ),
+                      style: EmphasisButton.dangerEmphasis(context),
                     ),
                   ),
                 ],

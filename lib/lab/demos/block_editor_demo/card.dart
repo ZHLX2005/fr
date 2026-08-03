@@ -412,13 +412,17 @@ class _BlockCardState extends State<BlockCard> {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: colorScheme.primary,
+                  color: colorScheme.primary.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
                 ),
                 child: IconButton(
                   padding: EdgeInsets.zero,
                   iconSize: 16,
-                  icon: const Icon(Icons.check, color: Colors.white),
+                  icon: Icon(Icons.check, color: colorScheme.primary),
                   onPressed: () => widget.editorState.confirmAiResult(widget.block.id),
                 ),
               ),
@@ -700,8 +704,7 @@ class _DeletePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -716,7 +719,11 @@ class _DeletePill extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
-              color: scheme.error.withValues(alpha: 0.04),
+              color: scheme.error.withValues(alpha: 0.08),
+              border: Border.all(
+                color: scheme.error.withValues(alpha: 0.5),
+                width: 1,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -727,7 +734,7 @@ class _DeletePill extends StatelessWidget {
                   fontSize: 13,
                   height: 1.0,
                   color: scheme.error,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 )),
               ],
             ),

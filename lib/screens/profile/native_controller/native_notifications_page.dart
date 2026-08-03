@@ -3,6 +3,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../core/design/emphasis_button.dart';
 
 /// 原生通知功能测试页面
 class NativeNotificationsPage extends StatefulWidget {
@@ -391,12 +392,9 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                               onPressed: _requestPermissions,
                               icon: const Icon(Icons.lock_open),
                               label: const Text('请求通知权限'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: theme.colorScheme.primary,
-                                side: BorderSide(
-                                  color: theme.colorScheme.primary
-                                      .withValues(alpha: 0.5),
-                                ),
+                              style: EmphasisButton.borderEmphasis(
+                                context,
+                                color: theme.colorScheme.primary,
                               ),
                             ),
                           ),
@@ -406,6 +404,10 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                               onPressed: _checkPermissionStatus,
                               icon: const Icon(Icons.search),
                               label: const Text('查询当前状态'),
+                              style: EmphasisButton.borderEmphasis(
+                                context,
+                                color: theme.colorScheme.primary,
+                              ),
                             ),
                           ),
                         ],
@@ -560,12 +562,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                               : null,
                           icon: const Icon(Icons.delete_sweep),
                           label: const Text('取消所有通知'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: BorderSide(
-                              color: Colors.red.withValues(alpha: 0.5),
-                            ),
-                          ),
+                          style: EmphasisButton.dangerEmphasis(context),
                         ),
                       ),
                     ],
@@ -628,11 +625,12 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
     final theme = Theme.of(context);
     return OutlinedButton(
       onPressed: _isInitialized ? onPressed : null,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: theme.colorScheme.primary,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        side: BorderSide(
-          color: theme.colorScheme.primary.withValues(alpha: 0.5),
+      style: EmphasisButton.borderEmphasis(
+        context,
+        color: theme.colorScheme.primary,
+      ).copyWith(
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
       ),
       child: Text(label),

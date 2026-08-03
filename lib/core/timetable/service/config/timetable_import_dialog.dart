@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'timetable_dsl_parser.dart';
+import '../../../design/emphasis_button.dart';
 import '../../presentation/timetable_colors.dart';
 
 /// 课程批量导入对话框
@@ -200,13 +201,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                             Expanded(
                               child: OutlinedButton(
                                 onPressed: _doPreview,
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  side: BorderSide(color: TimetableColors.accent),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
+                                style: EmphasisButton.borderEmphasis(context, color: TimetableColors.accent),
                                 child: const Text('预览'),
                               ),
                             ),
@@ -217,28 +212,11 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                                 onPressed: (_preview != null && _preview!.courses.isNotEmpty)
                                     ? _doImport
                                     : null,
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  side: BorderSide(
-                                    color: _preview != null && _preview!.courses.isNotEmpty
-                                        ? TimetableColors.accent
-                                        : TimetableColors.border,
-                                    width: 1.5,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
+                                style: EmphasisButton.borderEmphasis(context, color: TimetableColors.accent),
                                 child: Text(
                                   _preview != null && _preview!.courses.isNotEmpty
                                       ? '导入 ${_preview!.courses.length} 门'
                                       : '导入',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: _preview != null && _preview!.courses.isNotEmpty
-                                        ? TimetableColors.accent
-                                        : TimetableColors.textTertiary,
-                                  ),
                                 ),
                               ),
                             ),

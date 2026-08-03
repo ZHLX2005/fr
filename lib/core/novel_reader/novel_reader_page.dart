@@ -1114,6 +1114,10 @@ class _CurrentBookCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
                   ),
                   child: Icon(
                     book.isBuiltIn
@@ -1132,6 +1136,10 @@ class _CurrentBookCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
                   ),
                   child: Text(
                     book.isBuiltIn ? 'Built-in' : 'Imported TXT',
@@ -1313,6 +1321,10 @@ class _ReaderTopBar extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFF6EEE1).withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: const Color(0xFF7A5339).withValues(alpha: 0.35),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.10),
@@ -1388,6 +1400,10 @@ class _ReaderBottomBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFBF5EA).withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFF7A5339).withValues(alpha: 0.35),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),

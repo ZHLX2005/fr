@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/body_region.dart';
 import '../models/body_record.dart';
 import '../models/body_record_repo.dart';
+import '../../design/emphasis_button.dart';
 
 class RecordSheet extends StatefulWidget {
   final BlockRegion bodyPart;
@@ -198,11 +199,9 @@ class _RecordSheetState extends State<RecordSheet> {
                 icon: Icon(_editing != null ? Icons.check : Icons.save),
                 label: Text(_editing != null ? '更新' : '保存'),
                 onPressed: _save,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                  ),
+                style: EmphasisButton.borderEmphasis(
+                  context,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),

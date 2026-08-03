@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:app_settings/app_settings.dart';
+import '../../../core/design/emphasis_button.dart';
 import 'native_notifications_page.dart';
 import 'native_media_page.dart';
 import 'native_system_page.dart';
@@ -172,13 +173,9 @@ class NativeControllerPage extends StatelessWidget {
                       onPressed: () => _openAppSettings(context),
                       icon: const Icon(Icons.open_in_new),
                       label: const Text('打开权限设置'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: theme.colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(
-                          color: theme.colorScheme.primary
-                              .withValues(alpha: 0.5),
-                        ),
+                      style: EmphasisButton.borderEmphasis(
+                        context,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                   ),
