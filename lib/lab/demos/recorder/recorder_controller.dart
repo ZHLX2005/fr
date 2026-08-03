@@ -142,6 +142,7 @@ class RecorderController extends ChangeNotifier {
       _elapsed = Duration.zero;
       _state = RecorderState.recording;
       _startTicker();
+      _startAmplitude();
       _safeNotify();
       return true;
     } catch (e) {
@@ -157,6 +158,7 @@ class RecorderController extends ChangeNotifier {
       await _recorder.pause();
       _state = RecorderState.paused;
       _stopTicker();
+      _stopAmplitude(); // 暂停时波形静止,回到 -60 基线
       _safeNotify();
     } catch (e) {
       _emitError('暂停失败: $e');
@@ -170,6 +172,7 @@ class RecorderController extends ChangeNotifier {
       await _recorder.resume();
       _state = RecorderState.recording;
       _startTicker();
+      _startAmplitude();
       _safeNotify();
     } catch (e) {
       _emitError('继续录音失败: $e');
@@ -187,6 +190,7 @@ class RecorderController extends ChangeNotifier {
       final returnedPath = await _recorder.stop();
       _stopTicker();
       _state = RecorderState.stopped;
+      _stopAmplitude();
       // record 插件返回的 path 可能为 null(某些 codec),回落用我们写入的。
       _lastSavedPath = returnedPath ?? _currentFilePath;
       if (_lastSavedPath != null) {
@@ -210,6 +214,7 @@ class RecorderController extends ChangeNotifier {
     _lastFileSize = 0;
     _elapsed = Duration.zero;
     _state = RecorderState.idle;
+    _stopAmplitude();
     _safeNotify();
     if (p == null) return;
     try {
@@ -228,6 +233,7 @@ class RecorderController extends ChangeNotifier {
     _lastFileSize = 0;
     _elapsed = Duration.zero;
     _state = RecorderState.idle;
+    _stopAmplitude();
     _safeNotify();
     return p;
   }
@@ -351,6 +357,45 @@ class RecorderController extends ChangeNotifier {
   final ValueNotifier<Duration> _tickNotifier = ValueNotifier(Duration.zero);
   ValueListenable<Duration> get tickListenable => _tickNotifier;
 
+  // ─────────────────────────── amplitude (dBFS) ───────────────────────────
+
+  /// 1Hz 抽样的当前 dBFS。范围 [-60, 0];空闲/暂停态 = -60。
+  ///
+  /// 来源:`AudioRecorder.onAmplitudeChanged`(record 6.x)。
+  /// `Amplitude.current` 已是 dBFS(见 record_platform_interface
+  /// amplitude.dart 类注释 `/// dBFS amplitude`),无需再 20*log10 换算。
+  final ValueNotifier<double> amplitudeDbListenable =
+      ValueNotifier<double>(-60.0);
+  ValueListenable<double> get dbListenable => amplitudeDbListenable;
+
+  StreamSubscription<Amplitude>? _amplitudeSub;
+
+  /// dBFS 抽样间隔 —— 比 ticker(1s)密,保证波形平滑。
+  static const Duration _amplitudeInterval = Duration(milliseconds: 200);
+
+  void _startAmplitude() {
+    _stopAmplitude();
+    // onAmplitudeChanged 内部用 Timer.periodic 轮询平台,hasListener 才吐值。
+    _amplitudeSub = _recorder
+        .onAmplitudeChanged(_amplitudeInterval)
+        .listen((amp) => _pushAmplitude(amp.current));
+  }
+
+  void _stopAmplitude() {
+    _amplitudeSub?.cancel();
+    _amplitudeSub = null;
+    _pushAmplitude(-60.0);
+  }
+
+  void _pushAmplitude(double db) {
+    if (_disposed) return; // dispose 守门
+    // 钳制到 [-60, 0],防止平台异常值(部分设备静音时返回 -inf / -1000)。
+    final clamped = db.isNaN || db < -60.0
+        ? -60.0
+        : (db > 0.0 ? 0.0 : db);
+    amplitudeDbListenable.value = clamped;
+  }
+
   // ─────────────────────────── utils ───────────────────────────
 
   Future<Directory> _recordingsDir() async {
@@ -378,6 +423,8 @@ class RecorderController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _stopTicker();
+    _stopAmplitude();
+    amplitudeDbListenable.dispose();
     // 若 dispose 时还在录音 → 静默 stop & 不保留(防止临时文件泄漏)。
     if (_state == RecorderState.recording ||
         _state == RecorderState.paused) {
