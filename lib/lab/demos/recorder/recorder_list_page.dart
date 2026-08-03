@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'const_recorder.dart';
 import 'recorder_controller.dart';
+import 'recorder_list_utils.dart';
+import 'recording_file.dart';
 import '../../../widgets/theme/zen_theme.dart';
 
 /// 录音列表页 —— CRUD 的 Read/Update/Delete + 试听。
@@ -20,7 +22,6 @@ class RecorderListPage extends StatefulWidget {
 
 class _RecorderListPageState extends State<RecorderListPage> {
   List<RecordingFile>? _files; // null = loading
-  String? _error;
 
   @override
   void initState() {
@@ -35,7 +36,6 @@ class _RecorderListPageState extends State<RecorderListPage> {
   }
 
   Future<void> _load() async {
-    setState(() => _error = null);
     final files = await widget.controller.listRecordings();
     if (!mounted) return;
     setState(() => _files = files);
@@ -116,7 +116,137 @@ class _RecorderListPageState extends State<RecorderListPage> {
     if (ok != true) return;
     final success = await widget.controller.deleteRecording(f.path);
     if (!success) return;
+    setState(() {
+      if (_expandedPath == f.path) _expandedPath = null;
+    });
     _load();
+  }
+
+  /// 当前展开的录音路径(单条展开;null = 全收起)。
+  String? _expandedPath;
+
+  /// 播放某条:先展开再播放(进度条立即可见)。playFile 自带 toggle。
+  void _play(RecordingFile f) {
+    setState(() => _expandedPath = f.path);
+    widget.controller.playFile(f.path);
+  }
+
+  void _toggleExpand(RecordingFile f) {
+    setState(() {
+      _expandedPath = _expandedPath == f.path ? null : f.path;
+    });
+  }
+
+  /// 当前排序(默认时间最新,与 listRecordings 默认一致)。
+  RecordingSort _sort = RecordingSort.timeDesc;
+
+  /// 是否按相对日期分组(今天/昨天/更早)。
+  bool _groupByDay = false;
+
+  static String _sortLabel(RecordingSort s) => switch (s) {
+        RecordingSort.timeDesc => '时间·最新',
+        RecordingSort.timeAsc => '时间·最旧',
+        RecordingSort.nameAsc => '名称 A→Z',
+        RecordingSort.nameDesc => '名称 Z→A',
+        RecordingSort.sizeDesc => '大小·大→小',
+        RecordingSort.sizeAsc => '大小·小→大',
+      };
+
+  /// 排序 + 分组 → 渲染项列表(tile / section 头)。
+  List<Widget> _buildItems(List<RecordingFile> sorted) {
+    Widget tile(RecordingFile f) => _RecordingTile(
+          key: ValueKey(f.path),
+          controller: widget.controller,
+          file: f,
+          expanded: _expandedPath == f.path,
+          onToggleExpand: () => _toggleExpand(f),
+          onPlay: () => _play(f),
+          onRename: () => _rename(f),
+          onDelete: () => _delete(f),
+        );
+    if (!_groupByDay) {
+      return [for (final f in sorted) tile(f)];
+    }
+    final items = <Widget>[];
+    for (final (label, group) in groupFilesByRelativeDay(sorted)) {
+      items.add(_GroupHeader(label: label, count: group.length));
+      items.addAll(group.map(tile));
+    }
+    return items;
+  }
+
+  Widget _buildListBranch(List<RecordingFile> files) {
+    final items = _buildItems(sortFiles(files, _sort));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildToolRow(),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (context, index) => items[index],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToolRow() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _groupByDay = !_groupByDay),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                children: [
+                  Icon(
+                    _groupByDay
+                        ? Icons.calendar_today
+                        : Icons.calendar_today_outlined,
+                    size: 16,
+                    color: ZenColors.sage,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '按日期',
+                    style: ZenText.label.copyWith(color: ZenColors.sage),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Spacer(),
+          PopupMenuButton<RecordingSort>(
+            onSelected: (s) => setState(() => _sort = s),
+            itemBuilder: (ctx) => [
+              for (final s in RecordingSort.values)
+                PopupMenuItem(value: s, child: Text(_sortLabel(s))),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.swap_vert,
+                      size: 16, color: ZenColors.secondary),
+                  const SizedBox(width: 4),
+                  Text(_sortLabel(_sort), style: ZenText.label),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -140,51 +270,104 @@ class _RecorderListPageState extends State<RecorderListPage> {
             actionLabel: '刷新',
             onAction: _load,
           ),
-        _ => RefreshIndicator(
-            onRefresh: _load,
-            child: ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(12),
-              itemCount: files.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final f = files[index];
-                return _RecordingTile(
-                  file: f,
-                  playing: widget.controller.playingPath == f.path,
-                  onPlay: () => widget.controller.playFile(f.path),
-                  onRename: () => _rename(f),
-                  onDelete: () => _delete(f),
-                );
-              },
-            ),
-          ),
+        _ => _buildListBranch(files),
       },
     );
   }
 }
 
-/// 单条录音 tile:文件名 + 大小 + 播放/重命名/删除。
-class _RecordingTile extends StatelessWidget {
+/// 日期分组 section 头:标签 + 条数。
+class _GroupHeader extends StatelessWidget {
+  final String label;
+  final int count;
+
+  const _GroupHeader({required this.label, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
+      child: Row(
+        children: [
+          Text(label, style: ZenText.label),
+          const SizedBox(width: 6),
+          Text('($count)', style: ZenText.monoDigitSmall),
+        ],
+      ),
+    );
+  }
+}
+
+/// 单条录音 tile:收起态 = 元数据行;展开态 = 播放时间轴 + seek。
+///
+/// 播放态用 `AnimatedBuilder(controller)` 驱动(play/stop 时刷新,
+/// 频率低);展开态时间轴用 `ValueListenableBuilder(playbackPosition)`
+/// 订阅(≤250ms 更新,只 rebuild 该 tile 的时间轴 —— 性能隔离)。
+class _RecordingTile extends StatefulWidget {
+  final RecorderController controller;
   final RecordingFile file;
-  final bool playing;
+  final bool expanded;
+  final VoidCallback onToggleExpand;
   final VoidCallback onPlay;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
   const _RecordingTile({
+    super.key,
+    required this.controller,
     required this.file,
-    required this.playing,
+    required this.expanded,
+    required this.onToggleExpand,
     required this.onPlay,
     required this.onRename,
     required this.onDelete,
   });
 
   @override
+  State<_RecordingTile> createState() => _RecordingTileState();
+}
+
+class _RecordingTileState extends State<_RecordingTile> {
+  /// 拖动进度条中的临时位置(ms);null = 未拖动,跟随实际播放进度。
+  double? _dragMs;
+
+  bool _isPlaying() =>
+      widget.controller.playingPath == widget.file.path &&
+      widget.controller.isPlaying;
+
+  String _durationLabel() {
+    final d = widget.file.duration;
+    return d == null ? '' : formatTime(d.inSeconds);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: zenCard(),
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, _) {
+        final playing = _isPlaying();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: zenCard(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(context, playing),
+              if (widget.expanded) ...[
+                const Divider(color: ZenColors.hair, height: 16),
+                _buildTimeline(context),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, bool playing) {
+    return InkWell(
+      onTap: widget.onToggleExpand,
+      borderRadius: BorderRadius.circular(6),
       child: Row(
         children: [
           Icon(
@@ -198,13 +381,17 @@ class _RecordingTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  file.name,
+                  widget.file.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: ZenText.body,
                 ),
                 Text(
-                  '${file.sizeKb.toStringAsFixed(1)} KB · ${formatRecordDate(file.lastModified)}',
+                  [
+                    if (_durationLabel().isNotEmpty) _durationLabel(),
+                    widget.file.sizeLabel,
+                    formatRecordDate(widget.file.displayTime),
+                  ].join(' · '),
                   style: ZenText.monoDigitSmall,
                 ),
               ],
@@ -216,7 +403,7 @@ class _RecordingTile extends StatelessWidget {
             variant: ZenIconButtonVariant.tint,
             size: 40,
             iconSize: 20,
-            onTap: onPlay,
+            onTap: widget.onPlay,
           ),
           const SizedBox(width: 4),
           ZenIconButton(
@@ -225,7 +412,7 @@ class _RecordingTile extends StatelessWidget {
             variant: ZenIconButtonVariant.tint,
             size: 40,
             iconSize: 20,
-            onTap: onRename,
+            onTap: widget.onRename,
           ),
           const SizedBox(width: 4),
           ZenIconButton(
@@ -234,10 +421,77 @@ class _RecordingTile extends StatelessWidget {
             variant: ZenIconButtonVariant.tint,
             size: 40,
             iconSize: 20,
-            onTap: onDelete,
+            onTap: widget.onDelete,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTimeline(BuildContext context) {
+    return ValueListenableBuilder<Duration>(
+      valueListenable: widget.controller.playbackPosition,
+      builder: (context, pos, _) {
+        return ValueListenableBuilder<Duration?>(
+          valueListenable: widget.controller.playbackDuration,
+          builder: (context, total, _) {
+            // 优先实测时长;未播放过则回落 bitrate 估算(见 RecordingFile.duration)。
+            final effectiveTotal = total ?? widget.file.duration;
+            final totalMs = effectiveTotal != null &&
+                    effectiveTotal > Duration.zero
+                ? effectiveTotal.inMilliseconds
+                : null;
+            final maxMs = totalMs?.toDouble() ?? 1.0;
+            final value = (_dragMs ?? pos.inMilliseconds.toDouble())
+                .clamp(0.0, maxMs)
+                .toDouble();
+            final canSeek = totalMs != null;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: ZenColors.sage,
+                    inactiveTrackColor: ZenColors.hair,
+                    thumbColor: ZenColors.sage,
+                    overlayColor: ZenColors.sage.withValues(alpha: 0.1),
+                    trackHeight: 3,
+                  ),
+                  child: Slider(
+                    value: value,
+                    max: maxMs,
+                    onChanged: canSeek
+                        ? (v) => setState(() => _dragMs = v)
+                        : null,
+                    onChangeEnd: canSeek
+                        ? (v) {
+                            setState(() => _dragMs = null);
+                            widget.controller
+                                .seek(Duration(milliseconds: v.round()));
+                          }
+                        : null,
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      formatTime(pos.inSeconds),
+                      style: ZenText.monoDigitSmall,
+                    ),
+                    Text(
+                      effectiveTotal != null
+                          ? formatTime(effectiveTotal.inSeconds)
+                          : '--:--',
+                      style: ZenText.monoDigitSmall,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

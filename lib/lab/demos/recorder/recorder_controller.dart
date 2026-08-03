@@ -8,23 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import 'const_recorder.dart';
-
-/// 录音文件元数据 —— 列表页(Read)用。
-class RecordingFile {
-  final String path;
-  final String name;
-  final int sizeBytes;
-  final DateTime lastModified;
-
-  const RecordingFile({
-    required this.path,
-    required this.name,
-    required this.sizeBytes,
-    required this.lastModified,
-  });
-
-  double get sizeKb => sizeBytes / 1024;
-}
+import 'recorder_list_utils.dart';
+import 'recording_file.dart';
 
 /// dBFS 可监听值 —— 值不变也照常 notify。
 ///
@@ -97,6 +82,40 @@ class RecorderController extends ChangeNotifier {
   /// 当前播放的文件路径(无则 null)。
   String? _playingPath;
   String? get playingPath => _playingPath;
+
+  /// 是否正在播放(供 UI 判断播放/停止图标切换)。
+  bool get isPlaying => _player.playing;
+
+  /// 播放进度(≤250ms 粒度,`positionStream` 驱动)。
+  /// 只订阅这个 notifier 的 tile 才会 rebuild —— 性能隔离(与 tickListenable 同款)。
+  final ValueNotifier<Duration> playbackPosition = ValueNotifier(Duration.zero);
+
+  /// 当前播放文件的总时长;null = 未知/未加载。
+  final ValueNotifier<Duration?> playbackDuration = ValueNotifier(null);
+
+  StreamSubscription<Duration>? _posSub;
+  StreamSubscription<PlayerState>? _stateSub;
+
+  RecorderController() {
+    // 播放可观察量:位置流 → playbackPosition;状态流 → 播完复位。
+    _posSub = _player.positionStream.listen(
+      (pos) {
+        if (_disposed) return;
+        playbackPosition.value = pos;
+      },
+      onError: (_) {},
+    );
+    _stateSub = _player.playerStateStream.listen((state) {
+      if (_disposed) return;
+      if (state.processingState == ProcessingState.completed) {
+        playbackPosition.value = Duration.zero;
+        if (_playingPath != null) {
+          _playingPath = null;
+          _safeNotify();
+        }
+      }
+    });
+  }
 
   bool _disposed = false;
 
@@ -277,11 +296,15 @@ class RecorderController extends ChangeNotifier {
       for (final e in files) {
         final f = e as File;
         final stat = await f.stat();
+        final name = f.path.split(Platform.pathSeparator).last;
         result.add(RecordingFile(
           path: f.path,
-          name: f.path.split(Platform.pathSeparator).last,
+          name: name,
           sizeBytes: stat.size,
           lastModified: stat.modified,
+          // 初始时长为 bitrate 估算(O(1));播放/预读时由 just_audio 覆盖为实测。
+          duration: estimateAacDuration(stat.size),
+          createdAt: parseRecordCreatedAt(name),
         ));
       }
       result.sort((a, b) => b.lastModified.compareTo(a.lastModified));
@@ -309,6 +332,8 @@ class RecorderController extends ChangeNotifier {
     try {
       await oldFile.rename(newPath);
       if (_lastSavedPath == oldPath) _lastSavedPath = newPath;
+      // 播放中重命名 → 同步 _playingPath,否则 playFile 的 toggle 判断失效
+      if (_playingPath == oldPath) _playingPath = newPath;
       return null;
     } catch (e) {
       return '重命名失败: $e';
@@ -330,20 +355,41 @@ class RecorderController extends ChangeNotifier {
   }
 
   /// 播放某条录音;若已是同一文件则切换播放/停止。
-  Future<void> playFile(String path) async {
+  /// 返回解码器实测时长(用于精确进度条);失败返回 null。
+  Future<Duration?> playFile(String path) async {
     if (_playingPath == path && _player.playing) {
       await _stopPlayback();
-      return;
+      return null;
     }
     await _stopPlayback();
     try {
-      await _player.setFilePath(path);
+      final dur = await _player.setFilePath(path);
       _playingPath = path;
+      playbackPosition.value = Duration.zero;
+      playbackDuration.value = dur;
       _player.play();
       _safeNotify();
+      return dur;
     } catch (e) {
       _emitError('播放失败: $e');
+      return null;
     }
+  }
+
+  /// 拖动进度条定位。仅当前有播放文件时生效。
+  Future<void> seek(Duration position) async {
+    if (_playingPath == null) return;
+    try {
+      await _player.seek(position);
+      playbackPosition.value = position; // 立即回写,不等 positionStream
+    } catch (_) {}
+  }
+
+  /// 播放倍速(0.5× / 1× / 1.5× / 2×)。just_audio setSpeed。
+  Future<void> setPlaybackSpeed(double speed) async {
+    try {
+      await _player.setSpeed(speed);
+    } catch (_) {}
   }
 
   Future<void> _stopPlayback() async {
@@ -351,6 +397,7 @@ class RecorderController extends ChangeNotifier {
       await _player.stop();
     } catch (_) {}
     _playingPath = null;
+    playbackPosition.value = Duration.zero;
     _safeNotify();
   }
 
@@ -448,6 +495,10 @@ class RecorderController extends ChangeNotifier {
     _stopTicker();
     _stopAmplitude();
     amplitudeDbListenable.dispose();
+    _posSub?.cancel();
+    _stateSub?.cancel();
+    playbackPosition.dispose();
+    playbackDuration.dispose();
     // 若 dispose 时还在录音 → 静默 stop & 不保留(防止临时文件泄漏)。
     if (_state == RecorderState.recording ||
         _state == RecorderState.paused) {
