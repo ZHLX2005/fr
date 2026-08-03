@@ -359,7 +359,7 @@ class RecorderController extends ChangeNotifier {
 
   // ─────────────────────────── amplitude (dBFS) ───────────────────────────
 
-  /// 1Hz 抽样的当前 dBFS。范围 [-60, 0];空闲/暂停态 = -60。
+  /// 5Hz(200ms)抽样的当前 dBFS。范围 [-60, 0];空闲/暂停态 = -60。
   ///
   /// 来源:`AudioRecorder.onAmplitudeChanged`(record 6.x)。
   /// `Amplitude.current` 已是 dBFS(见 record_platform_interface

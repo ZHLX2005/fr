@@ -54,6 +54,11 @@ class _WaveformViewState extends State<WaveformView> {
   @override
   void didUpdateWidget(covariant WaveformView old) {
     super.didUpdateWidget(old);
+    // false→true 边沿:新一次录音开始,清空上一轮残留帧。
+    // 不在 true→false 清空:停止时仍需展示最后一次的波形。
+    if (widget.active && !old.active) {
+      _dbs.clear();
+    }
     if (old.dbListenable != widget.dbListenable) {
       old.dbListenable.removeListener(_onDb);
       widget.dbListenable.addListener(_onDb);
