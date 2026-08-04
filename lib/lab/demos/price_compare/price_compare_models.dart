@@ -109,3 +109,19 @@ String formatFullDate(DateTime t) {
   String p(int n) => n.toString().padLeft(2, '0');
   return '${t.year}/${p(t.month)}/${p(t.day)} ${p(t.hour)}:${p(t.minute)}';
 }
+
+/// PickerSheet 用的轻量 record —— 与 PriceTopic 分离，
+/// 让 price_topic_picker_sheet.dart 不必依赖 PriceTopic / Hive。
+class PriceTopicSummary {
+  final String id;
+  final String title;
+  final int rowCount;
+  final DateTime? createdAt;
+
+  const PriceTopicSummary({
+    required this.id,
+    required this.title,
+    required this.rowCount,
+    this.createdAt,
+  });
+}

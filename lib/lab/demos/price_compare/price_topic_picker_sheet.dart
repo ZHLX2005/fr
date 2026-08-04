@@ -1,4 +1,5 @@
 // 比价计算器 —— 主题选择/管理 sheet
+// 入参改为 PriceTopicSummary 列表，使 sheet 不依赖 Hive / PriceTopic。
 
 import 'package:flutter/material.dart';
 
@@ -7,13 +8,13 @@ import 'price_compare_models.dart';
 class PriceTopicPickerSheet extends StatelessWidget {
   const PriceTopicPickerSheet({
     super.key,
-    required this.entries,
+    required this.summaries,
     required this.currentId,
     required this.onNew,
     required this.onDelete,
   });
 
-  final List<MapEntry<String, Map>> entries;
+  final List<PriceTopicSummary> summaries;
   final String? currentId;
   final VoidCallback onNew;
   final ValueChanged<String> onDelete;
@@ -45,7 +46,7 @@ class PriceTopicPickerSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            if (entries.isEmpty)
+            if (summaries.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
@@ -61,21 +62,15 @@ class PriceTopicPickerSheet extends StatelessWidget {
                 ),
                 child: ListView.separated(
                   shrinkWrap: true,
-                  itemCount: entries.length,
+                  itemCount: summaries.length,
                   separatorBuilder: (ctx, i) => const SizedBox(height: 6),
                   itemBuilder: (ctx, i) {
-                    final e = entries[i];
-                    final map = e.value;
-                    final id = map['id'] as String;
-                    final title = (map['title'] as String?)?.trim() ?? '';
-                    final rows = (map['rows'] as List?) ?? const [];
-                    final createdAtMs = (map['createdAt'] as int?) ??
-                        (map['updatedAt'] as int?);
-                    final subtitleText = createdAtMs == null
-                        ? '${rows.length} 行'
-                        : '${rows.length} 行 · 创建于 '
-                            '${formatCreatedAt(DateTime.fromMillisecondsSinceEpoch(createdAtMs))}';
-                    final isCurrent = id == currentId;
+                    final s = summaries[i];
+                    final title = s.title.trim();
+                    final subtitleText = s.createdAt == null
+                        ? '${s.rowCount} 行'
+                        : '${s.rowCount} 行 · 创建于 ${formatCreatedAt(s.createdAt!)}';
+                    final isCurrent = s.id == currentId;
                     return Container(
                       decoration: BoxDecoration(
                         color: isCurrent
@@ -109,10 +104,9 @@ class PriceTopicPickerSheet extends StatelessWidget {
                             Icons.delete_outline_rounded,
                             color: Colors.red.withValues(alpha: 0.8),
                           ),
-                          onPressed: () =>
-                              _confirmDelete(context, id, title),
+                          onPressed: () => _confirmDelete(context, s.id, title),
                         ),
-                        onTap: () => Navigator.pop(ctx, id),
+                        onTap: () => Navigator.pop(ctx, s.id),
                       ),
                     );
                   },

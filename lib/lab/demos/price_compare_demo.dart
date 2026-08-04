@@ -214,7 +214,20 @@ class _PriceComparePageState extends State<_PriceComparePage> {
       context: context,
       showDragHandle: true,
       builder: (ctx) => PriceTopicPickerSheet(
-        entries: entries,
+        summaries: entries
+            .map((e) => PriceTopicSummary(
+                  id: e.value['id'] as String,
+                  title: (e.value['title'] as String?) ?? '',
+                  rowCount: ((e.value['rows'] as List?) ?? const []).length,
+                  createdAt: ((e.value['createdAt'] as int?) ??
+                          (e.value['updatedAt'] as int?)) !=
+                      null
+                      ? DateTime.fromMillisecondsSinceEpoch(
+                          ((e.value['createdAt'] as int?) ??
+                              (e.value['updatedAt'] as int?))!)
+                      : null,
+                ))
+            .toList(),
         currentId: _topic?.id,
         onNew: () => Navigator.pop(ctx, '__new__'),
         onDelete: (id) async {
