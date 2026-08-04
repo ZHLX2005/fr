@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:xiaodouzi_fr/lab/lab_container.dart';
+import '../../../screens/profile/lab/demo_detail_page.dart';
 import '../fr_route_handler.dart';
 
 /// fr://lab/demo/{demoKey} → DemoPage
@@ -24,17 +25,9 @@ class LabDemoHandler extends FrRouteHandler {
     if (demo == null) {
       return _NotFoundPage(message: '未找到 Demo: $demoKey');
     }
-    return _DemoDetailPage(demo: demo);
-  }
-}
-
-class _DemoDetailPage extends StatelessWidget {
-  final DemoPage demo;
-  const _DemoDetailPage({required this.demo});
-
-  @override
-  Widget build(BuildContext context) {
-    return demo.buildPage(context);
+    // 复用公共 DemoDetailPage（带 Scaffold + AppBar），避免 schema 入口
+    // 与 Lab 列表入口行为漂移 —— 之前这里裸返回 buildPage 导致无背景色黑屏。
+    return DemoDetailPage(demo: demo);
   }
 }
 
