@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/ai_chat/agent_chat_page.dart';
+import '../../core/ai_chat/receipt_ocr/receipt_ocr_page.dart';
 import '../../core/message_strategy/format_compatibility_page.dart';
 
 /// AI 助手功能入口条目配置。
@@ -38,6 +39,13 @@ final List<AssistantEntry> _entries = [
     subtitle: '消息策略聚合（含登录/注册）',
     color: (context) => Theme.of(context).colorScheme.secondary,
     builder: (context) => const FormatCompatibilityPage(),
+  ),
+  AssistantEntry(
+    icon: Icons.receipt_long,
+    title: '小票',
+    subtitle: 'OCR 识别 → 快速比价',
+    color: (context) => Theme.of(context).colorScheme.tertiary,
+    builder: (context) => const ReceiptOcrPage(),
   ),
 ];
 
