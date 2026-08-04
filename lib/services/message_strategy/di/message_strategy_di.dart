@@ -20,6 +20,7 @@ void registerMessageStrategies() {
     SelectionMessageWidgetStrategy(),
     SmartAccountingMessageWidgetStrategy(),
     BillOverviewMessageWidgetStrategy(),
+    ReceiptOcrMessageWidgetStrategy(),
     CardManagerMessageWidgetStrategy(),
     LoginMessageWidgetStrategy(),
     RegisterMessageWidgetStrategy(),

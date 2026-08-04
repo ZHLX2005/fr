@@ -11,3 +11,4 @@ export 'bill_overview_message_strategy.dart';
 export 'card_manager_message_strategy.dart';
 export 'login_message_strategy.dart';
 export 'register_message_strategy.dart';
+export 'receipt_ocr_message_strategy.dart';
