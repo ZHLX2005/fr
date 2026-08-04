@@ -285,7 +285,6 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
               ),
               const SizedBox(width: 8),
               _EmphasisIconButton(
-                context: context,
                 icon: Icons.check,
                 tooltip: '记入比价',
                 color: theme.colorScheme.primary,
@@ -293,7 +292,6 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
               ),
               const SizedBox(width: 6),
               _EmphasisIconButton(
-                context: context,
                 icon: Icons.close,
                 tooltip: '拒绝',
                 color: theme.colorScheme.error,
@@ -364,14 +362,12 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
 
 /// 边框强调式 IconButton —— 沿用 EmphasisButton 颜色 token。
 class _EmphasisIconButton extends StatelessWidget {
-  final BuildContext context;
   final IconData icon;
   final String tooltip;
   final Color color;
   final VoidCallback onPressed;
 
   const _EmphasisIconButton({
-    required this.context,
     required this.icon,
     required this.tooltip,
     required this.color,
