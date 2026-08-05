@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../core/storage/box_descriptor.dart';
 import '../../core/storage/storage_registry.dart';
@@ -9,6 +8,7 @@ import '../lab_container.dart';
 import 'price_compare/price_compare_chrome.dart';
 import 'price_compare/price_compare_models.dart';
 import 'price_compare/price_compare_row.dart';
+import 'price_compare/price_compare_store.dart';
 import 'price_compare/price_topic_picker_sheet.dart';
 
 // ============================================================================
@@ -43,7 +43,6 @@ class _PriceComparePage extends StatefulWidget {
 }
 
 class _PriceComparePageState extends State<_PriceComparePage> {
-  Box? _box;
   bool _loading = true;
   PriceTopic? _topic;
   final TextEditingController _titleCtrl = TextEditingController();
@@ -60,32 +59,26 @@ class _PriceComparePageState extends State<_PriceComparePage> {
   }
 
   Future<void> _init() async {
-    if (!Hive.isBoxOpen(kPriceCompareBoxName)) {
-      await Hive.initFlutter();
-      await Hive.openBox(kPriceCompareBoxName);
-    }
-    _box = Hive.box(kPriceCompareBoxName);
     _registerToStorageRegistry();
     // 恢复上次主题；没有就新建
-    final lastId = _box!.get(kPriceCompareLastTopicIdKey) as String?;
+    final lastId = await PriceCompareStore.instance.getLastTopicId();
     PriceTopic? loaded;
     if (lastId != null) {
-      final raw = _box!.get(lastId);
-      if (raw is Map) loaded = PriceTopic.fromMap(raw);
+      loaded = await PriceCompareStore.instance.getTopic(lastId);
     }
-    loaded ??= _createNewTopic(persist: true);
+    loaded ??= await _createNewTopic(persist: true);
     _bindTopic(loaded);
     if (mounted) setState(() => _loading = false);
   }
 
   /// 把 box 注册到 StorageRegistry，存储分析面板自动接管展示/清空。
-  /// 幂等：已注册则跳过。
+  /// 幂等：已注册则跳过。Hive 操作委托给 PriceCompareStore，避免 demo 直接 import hive。
   void _registerToStorageRegistry() {
     if (StorageRegistry.has(kPriceCompareBoxName)) return;
     StorageRegistry.register(BoxDescriptor(
       name: kPriceCompareBoxName,
       displayName: '比价主题',
-      openUntyped: () => Hive.openBox(kPriceCompareBoxName),
+      openUntyped: PriceCompareStore.openBoxForDescriptor,
       formatValue: (v) {
         if (v is Map) {
           final title = v['title'];
@@ -99,12 +92,13 @@ class _PriceComparePageState extends State<_PriceComparePage> {
     ));
   }
 
-  PriceTopic _createNewTopic({bool persist = false}) {
-    final id = 't${DateTime.now().microsecondsSinceEpoch}';
+  Future<PriceTopic> _createNewTopic({bool persist = false}) async {
+    final id = persist
+        ? await PriceCompareStore.instance.createEmptyTopic()
+        : 't${DateTime.now().microsecondsSinceEpoch}';
     final t = PriceTopic(id: id);
-    if (persist && _box != null) {
-      _box!.put(id, t.toMap());
-      _box!.put(kPriceCompareLastTopicIdKey, id);
+    if (persist) {
+      await PriceCompareStore.instance.setLastTopicId(id);
     }
     return t;
   }
@@ -139,10 +133,9 @@ class _PriceComparePageState extends State<_PriceComparePage> {
 
   Future<void> _persistNow() async {
     final t = _topic;
-    final box = _box;
-    if (t == null || box == null) return;
-    await box.put(t.id, t.toMap());
-    await box.put(kPriceCompareLastTopicIdKey, t.id);
+    if (t == null) return;
+    await PriceCompareStore.instance.putTopic(t);
+    await PriceCompareStore.instance.setLastTopicId(t.id);
   }
 
   @override
@@ -208,30 +201,17 @@ class _PriceComparePageState extends State<_PriceComparePage> {
 
   Future<void> _switchTopic() async {
     await _persistNow();
-    final entries = _allTopicEntries();
+    final summaries = await PriceCompareStore.instance.listSummaries();
     if (!mounted) return;
     final selected = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => PriceTopicPickerSheet(
-        summaries: entries
-            .map((e) => PriceTopicSummary(
-                  id: e.value['id'] as String,
-                  title: (e.value['title'] as String?) ?? '',
-                  rowCount: ((e.value['rows'] as List?) ?? const []).length,
-                  createdAt: ((e.value['createdAt'] as int?) ??
-                          (e.value['updatedAt'] as int?)) !=
-                      null
-                      ? DateTime.fromMillisecondsSinceEpoch(
-                          ((e.value['createdAt'] as int?) ??
-                              (e.value['updatedAt'] as int?))!)
-                      : null,
-                ))
-            .toList(),
+        summaries: summaries,
         currentId: _topic?.id,
         onNew: () => Navigator.pop(ctx, '__new__'),
         onDelete: (id) async {
-          await _box?.delete(id);
+          await PriceCompareStore.instance.deleteTopic(id);
           if (!ctx.mounted) return;
           Navigator.pop(ctx, '__deleted__:$id');
         },
@@ -239,7 +219,7 @@ class _PriceComparePageState extends State<_PriceComparePage> {
     );
     if (!mounted || selected == null) return;
     if (selected == '__new__') {
-      final t = _createNewTopic(persist: true);
+      final t = await _createNewTopic(persist: true);
       setState(() => _bindTopic(t));
       return;
     }
@@ -247,10 +227,11 @@ class _PriceComparePageState extends State<_PriceComparePage> {
       final deletedId = selected.substring('__deleted__:'.length);
       if (deletedId == _topic?.id) {
         // 当前被删；选下一个或新建
-        final remaining = _allTopicEntries();
+        final remaining = await PriceCompareStore.instance.listSummaries();
         final t = remaining.isNotEmpty
-            ? PriceTopic.fromMap(remaining.first.value)
-            : _createNewTopic(persist: true);
+            ? await PriceCompareStore.instance.getTopic(remaining.first.id)
+                ?? await _createNewTopic(persist: true)
+            : await _createNewTopic(persist: true);
         setState(() => _bindTopic(t));
         await _persistNow();
       } else {
@@ -258,30 +239,11 @@ class _PriceComparePageState extends State<_PriceComparePage> {
       }
       return;
     }
-    final raw = _box?.get(selected);
-    if (raw is Map) {
-      setState(() => _bindTopic(PriceTopic.fromMap(raw)));
+    final loaded = await PriceCompareStore.instance.getTopic(selected);
+    if (loaded != null) {
+      setState(() => _bindTopic(loaded));
       await _persistNow();
     }
-  }
-
-  List<MapEntry<String, Map>> _allTopicEntries() {
-    final box = _box;
-    if (box == null) return const [];
-    final entries = <MapEntry<String, Map>>[];
-    for (final k in box.keys) {
-      if (k == kPriceCompareLastTopicIdKey) continue;
-      final v = box.get(k);
-      if (v is Map && v['id'] is String) {
-        entries.add(MapEntry(k as String, v));
-      }
-    }
-    entries.sort((a, b) {
-      final ua = (a.value['updatedAt'] as int?) ?? 0;
-      final ub = (b.value['updatedAt'] as int?) ?? 0;
-      return ub.compareTo(ua);
-    });
-    return entries;
   }
 
   // ---- 构建 --------------------------------------------------------------

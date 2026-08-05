@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/ai_chat/receipt_ocr/receipt_ocr_models.dart';
 import '../../../core/schema/schema.dart';
 import '../../../lab/demos/price_compare/price_compare_models.dart';
+import '../../../lab/demos/price_compare/price_compare_store.dart';
 import '../../../lab/demos/price_compare/price_topic_picker_sheet.dart';
 import '../interfaces/interfaces.dart';
 import '../data/receipt_ocr_message_data.dart';
@@ -61,10 +61,13 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       final r = widget.data.result.recommendedTopic;
       return r.isNotEmpty ? r : '默认';
     });
+    _refreshSummariesCache();
   }
 
   /// ✓ 记入 —— 优先按默认主题（default_topic）落库，无 default_topic 时才弹选择器。
   /// 后端 LLM 已给主题就是为了省心智；用户主动改主题才弹 PickerSheet。
+  ///
+  /// 落库语义：找到/新建同名主题 → 追加一行 PriceRow（资源/金额/备注）。
   Future<void> _onTapRecord(int i) async {
     if (_statuses[i] != ReceiptLineStatus.pending) return;
     final proposed = _topicTitles[i];
@@ -75,9 +78,15 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       return;
     }
 
-    // 默认主题流程：find-or-create 同名主题 → 落库 → 标记 recorded
-    final box = await _openBox();
-    final topicId = await _findOrCreateTopic(box, proposed);
+    // 默认主题流程：find-or-create 同名主题 → 追加一行 → 标记 recorded
+    final item = widget.data.result.items[i];
+    final topicId =
+        await PriceCompareStore.instance.findOrCreateTopic(proposed);
+    await PriceCompareStore.instance.appendRow(
+      topicId,
+      row: _rowFromItem(item),
+      fallbackTitle: proposed,
+    );
     if (!mounted) return;
     setState(() {
       _statuses[i] = ReceiptLineStatus.recorded;
@@ -85,28 +94,13 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     });
   }
 
-  /// 找同名主题；不存在则新建一个同名主题。
-  /// 后端 LLM 给的 default_topic 名称就是用户的心智主题，这里直接落库即可。
-  Future<String> _findOrCreateTopic(
-      Box<dynamic> box, String title) async {
-    for (final k in box.keys) {
-      if (k == kPriceCompareLastTopicIdKey) continue;
-      final v = box.get(k);
-      if (v is Map && v['id'] is String) {
-        final t = (v['title'] as String?) ?? '';
-        if (t == title) return v['id'] as String;
-      }
-    }
-    final id = 't${DateTime.now().microsecondsSinceEpoch}_${title.hashCode}';
-    await box.put(id, {
-      'id': id,
-      'title': title,
-      'rows': [],
-      'createdAt': DateTime.now().millisecondsSinceEpoch,
-      'updatedAt': DateTime.now().millisecondsSinceEpoch,
-    });
-    return id;
-  }
+  /// 把后端 item 映射成比价器的 PriceRow。
+  /// amount = unit_price * quantity（小计），便于比价器立刻能对比。
+  PriceRow _rowFromItem(LineItem item) => PriceRow(
+        resource: item.resource,
+        amount: (item.unitPrice * item.quantity).toStringAsFixed(2),
+        note: item.note,
+      );
 
   /// 用户主动改主题（点击芯片触发）—— 弹 PickerSheet。
   Future<void> _changeTopic(int i) async {
@@ -119,14 +113,12 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       context: context,
       showDragHandle: true,
       builder: (sheetCtx) {
-        final summaries = _summariesSync();
         return PriceTopicPickerSheet(
-          summaries: summaries,
+          summaries: _summariesCache,
           currentId: oldId,
           onNew: () => Navigator.pop(sheetCtx, '__new__'),
           onDelete: (id) async {
-            final box = await _openBox();
-            await box.delete(id);
+            await PriceCompareStore.instance.deleteTopic(id);
             if (!sheetCtx.mounted) return;
             Navigator.pop(sheetCtx, '__deleted__:$id');
           },
@@ -138,15 +130,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     if (picked == '__new__') {
       // 新建：用旧标题（或 default_topic）
       final title = oldTitle.isNotEmpty ? oldTitle : '新主题';
-      final box = await _openBox();
-      final id = 't${DateTime.now().microsecondsSinceEpoch}';
-      await box.put(id, {
-        'id': id,
-        'title': title,
-        'rows': [],
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
-        'updatedAt': DateTime.now().millisecondsSinceEpoch,
-      });
+      final id = await PriceCompareStore.instance.createEmptyTopic(title: title);
       setState(() {
         _recordedTopicIds[i] = id;
         _topicTitles[i] = title;
@@ -155,8 +139,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       return;
     }
     if (picked.startsWith('__deleted__:')) return;
-    final summaries = _summariesSync();
-    final s = summaries.firstWhere(
+    final s = _summariesCache.firstWhere(
       (e) => e.id == picked,
       orElse: () => const PriceTopicSummary(
           id: '', title: '未命名主题', rowCount: 0, createdAt: null),
@@ -170,17 +153,15 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
 
   /// 兜底流程：原本的 PickerSheet 选主题（仅在 default_topic 为空时使用）
   Future<void> _showPickerAndRecord(int i) async {
-    final summaries = _summariesSync();
     final picked = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (sheetCtx) => PriceTopicPickerSheet(
-        summaries: summaries,
+        summaries: _summariesCache,
         currentId: null,
         onNew: () => Navigator.pop(sheetCtx, '__new__'),
         onDelete: (id) async {
-          final box = await _openBox();
-          await box.delete(id);
+          await PriceCompareStore.instance.deleteTopic(id);
           if (!sheetCtx.mounted) return;
           Navigator.pop(sheetCtx, '__deleted__:$id');
         },
@@ -188,15 +169,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     );
     if (!mounted || picked == null) return;
     if (picked == '__new__') {
-      final box = await _openBox();
-      final id = 't${DateTime.now().microsecondsSinceEpoch}';
-      await box.put(id, {
-        'id': id,
-        'title': '',
-        'rows': [],
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
-        'updatedAt': DateTime.now().millisecondsSinceEpoch,
-      });
+      final id = await PriceCompareStore.instance.createEmptyTopic();
       setState(() {
         _recordedTopicIds[i] = id;
         _topicTitles[i] = '新主题';
@@ -205,7 +178,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       return;
     }
     if (picked.startsWith('__deleted__:')) return;
-    final s = summaries.firstWhere(
+    final s = _summariesCache.firstWhere(
       (e) => e.id == picked,
       orElse: () => const PriceTopicSummary(
           id: '', title: '未命名主题', rowCount: 0, createdAt: null),
@@ -217,40 +190,13 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     });
   }
 
-  /// 同步版摘要（用于 PickerSheet 弹窗）。从已打开的 box 直接读。
-  List<PriceTopicSummary> _summariesSync() {
-    if (!Hive.isBoxOpen(kPriceCompareBoxName)) return const [];
-    final box = Hive.box(kPriceCompareBoxName);
-    final out = <PriceTopicSummary>[];
-    for (final k in box.keys) {
-      if (k == kPriceCompareLastTopicIdKey) continue;
-      final v = box.get(k);
-      if (v is Map && v['id'] is String) {
-        final createdAtMs = (v['createdAt'] as int?) ?? (v['updatedAt'] as int?);
-        out.add(PriceTopicSummary(
-          id: v['id'] as String,
-          title: (v['title'] as String?) ?? '',
-          rowCount: ((v['rows'] as List?) ?? const []).length,
-          createdAt: createdAtMs == null
-              ? null
-              : DateTime.fromMillisecondsSinceEpoch(createdAtMs),
-        ));
-      }
-    }
-    out.sort((a, b) {
-      final ua = a.createdAt?.millisecondsSinceEpoch ?? 0;
-      final ub = b.createdAt?.millisecondsSinceEpoch ?? 0;
-      return ub.compareTo(ua);
-    });
-    return out;
-  }
+  /// 缓存的摘要列表。PickerSheet 是同步构造，必须用缓存而不是 async。
+  List<PriceTopicSummary> _summariesCache = const [];
 
-  Future<Box<dynamic>> _openBox() async {
-    if (!Hive.isBoxOpen(kPriceCompareBoxName)) {
-      await Hive.initFlutter();
-      await Hive.openBox(kPriceCompareBoxName);
-    }
-    return Hive.box(kPriceCompareBoxName);
+  Future<void> _refreshSummariesCache() async {
+    final list = await PriceCompareStore.instance.listSummaries();
+    if (!mounted) return;
+    setState(() => _summariesCache = list);
   }
 
   void _onTapReject(int i) {

@@ -18,6 +18,7 @@
 │   └── calendarViewState    (非 typed, key-value)   ← 已注册（日历 demo）
 │
 ├── core/storage/
+│   ├── hive_type_ids.dart    ← typeId 集中表（唯一真相源；@HiveType(typeId:) 必引用此）
 │   ├── box_descriptor.dart   ← BoxDescriptor<T>（自描述：name/displayName/typeId/openTyped/formatValue）
 │   ├── storage_registry.dart ← 全局注册表（feature 只需注册一次）
 │   └── storage_manager.dart  ← 纯查询代理（遍历 registry，不再有 if-else）
