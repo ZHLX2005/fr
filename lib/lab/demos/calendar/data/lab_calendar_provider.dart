@@ -7,10 +7,10 @@ import '../../../../native/calendar/calendar_service.dart';
 import '../../../../native/home_widget/calendar_widget_data.dart';
 import '../../../../native/home_widget/calendar_widget_service.dart';
 import '../domain/age_calculator.dart';
+import '../../../../core/storage/hive/calendar_repository.dart';
 import '../domain/event.dart';
 import '../domain/recurrence.dart';
 import '../lunar_adapter.dart';
-import 'calendar_hive.dart';
 import 'event_repository.dart';
 
 class LabCalendarProvider with ChangeNotifier {
@@ -32,7 +32,7 @@ class LabCalendarProvider with ChangeNotifier {
   }
 
   Future<void> _init() async {
-    await CalendarHive.init();
+    await CalendarRepository.instance.init();
     _loadAll();
     _scheduleMidnightRefresh();
   }
@@ -50,7 +50,7 @@ class LabCalendarProvider with ChangeNotifier {
     if (y == _viewYear && m == _viewMonth) return;
     _viewYear = y;
     _viewMonth = m;
-    final box = CalendarHive.viewState;
+    final box = CalendarRepository.instance.viewState;
     await box.put('viewYear', y);
     await box.put('viewMonth', m);
     _syncToWidget();
@@ -217,7 +217,7 @@ class LabCalendarProvider with ChangeNotifier {
 
   Future<void> _loadAll() async {
     _events = _repo.load();
-    final box = CalendarHive.viewState;
+    final box = CalendarRepository.instance.viewState;
     _viewYear = (box.get('viewYear') as int?) ?? DateTime.now().year;
     _viewMonth = (box.get('viewMonth') as int?) ?? DateTime.now().month;
     _syncToWidget();

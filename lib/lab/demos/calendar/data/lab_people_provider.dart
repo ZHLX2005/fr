@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/storage/hive/calendar_repository.dart';
 import '../domain/person.dart';
-import 'calendar_hive.dart';
 import 'person_repository.dart';
 
 class LabPeopleProvider with ChangeNotifier {
@@ -17,7 +17,7 @@ class LabPeopleProvider with ChangeNotifier {
   }
 
   Future<void> _init() async {
-    await CalendarHive.init();
+    await CalendarRepository.instance.init();
     _people = _repo.load();
     notifyListeners();
   }

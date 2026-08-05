@@ -13,7 +13,7 @@ import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
 import '../../core/design/emphasis_button.dart';
-import 'calendar/data/calendar_hive.dart';
+import '../../core/storage/hive/calendar_repository.dart';
 
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {
@@ -96,9 +96,9 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
   Future<void> _ensureBoxesInitialized() async {
     await _storage.init().timeout(const Duration(seconds: 10));
     try {
-      await CalendarHive.init();
+      await CalendarRepository.instance.init();
     } catch (e) {
-      debugPrint('CalendarHive.init 失败（忽略）: $e');
+      debugPrint('CalendarRepository.init 失败（忽略）: $e');
     }
   }
 
