@@ -1,14 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../../storage/box_descriptor.dart';
-import '../../storage/storage_registry.dart';
-import '../domain/models.dart';
-import 'timetable_repository.dart';
+
+import '../../timetable/data/timetable_repository.dart';
+import '../../timetable/domain/models.dart';
+import '../box_descriptor.dart';
+import '../storage_registry.dart';
+import 'hive_repository.dart';
+import 'hive_store.dart';
 
 /// Hive 仓储实现
-class HiveTimetableRepository extends TimetableRepository {
+class HiveTimetableRepository extends TimetableRepository
+    implements HiveRepository {
   static const String _configBoxName = 'timetable_config';
   static const String _itemsBoxName = 'timetable_items';
+
+  @override
+  String get boxName => _configBoxName;
 
   late Box _configBox;
   late Box _itemsBox;
@@ -18,9 +25,8 @@ class HiveTimetableRepository extends TimetableRepository {
   /// 初始化 Hive
   Future<void> init() async {
     try {
-      await Hive.initFlutter();
-      _configBox = await Hive.openBox(_configBoxName);
-      _itemsBox = await Hive.openBox(_itemsBoxName);
+      _configBox = await HiveStore.instance.openUntyped(_configBoxName);
+      _itemsBox = await HiveStore.instance.openUntyped(_itemsBoxName);
       _registerToStorageRegistry();
       _isInitialized = true;
       debugPrint('HiveTimetableRepository: 初始化成功');
@@ -39,7 +45,7 @@ class HiveTimetableRepository extends TimetableRepository {
       StorageRegistry.register(BoxDescriptor(
         name: _configBoxName,
         displayName: '课表配置',
-        openUntyped: () => Hive.openBox(_configBoxName),
+        openUntyped: () => HiveStore.instance.openUntyped(_configBoxName),
         formatValue: (v) {
           if (v is! Map) return v.toString();
           final m = v.map((k, e) => MapEntry(k.toString(), e));
@@ -54,7 +60,7 @@ class HiveTimetableRepository extends TimetableRepository {
       StorageRegistry.register(BoxDescriptor(
         name: _itemsBoxName,
         displayName: '课表课程',
-        openUntyped: () => Hive.openBox(_itemsBoxName),
+        openUntyped: () => HiveStore.instance.openUntyped(_itemsBoxName),
         formatValue: (v) {
           if (v is List) {
             final titles = v
