@@ -130,7 +130,14 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     if (picked == '__new__') {
       // 新建：用旧标题（或 default_topic）
       final title = oldTitle.isNotEmpty ? oldTitle : '新主题';
+      final item = widget.data.result.items[i];
       final id = await PriceCompareRepository.instance.createEmptyTopic(title: title);
+      // 已 recorded 的行也调一次（把 row 写入新主题）；pending 的也调
+      await PriceCompareRepository.instance.appendRow(
+        id,
+        row: _rowFromItem(item),
+        fallbackTitle: title,
+      );
       setState(() {
         _recordedTopicIds[i] = id;
         _topicTitles[i] = title;
@@ -143,6 +150,13 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       (e) => e.id == picked,
       orElse: () => const PriceTopicSummary(
           id: '', title: '未命名主题', rowCount: 0, createdAt: null),
+    );
+    if (s.id.isEmpty) return;
+    // 关键修复：改主题时也要把 row 写入新主题（原 bug：只更新 UI 不落库）
+    final item = widget.data.result.items[i];
+    await PriceCompareRepository.instance.appendRow(
+      s.id,
+      row: _rowFromItem(item),
     );
     setState(() {
       _recordedTopicIds[i] = s.id;
@@ -169,7 +183,13 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     );
     if (!mounted || picked == null) return;
     if (picked == '__new__') {
+      final item = widget.data.result.items[i];
       final id = await PriceCompareRepository.instance.createEmptyTopic();
+      await PriceCompareRepository.instance.appendRow(
+        id,
+        row: _rowFromItem(item),
+        fallbackTitle: '新主题',
+      );
       setState(() {
         _recordedTopicIds[i] = id;
         _topicTitles[i] = '新主题';
@@ -182,6 +202,13 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       (e) => e.id == picked,
       orElse: () => const PriceTopicSummary(
           id: '', title: '未命名主题', rowCount: 0, createdAt: null),
+    );
+    if (s.id.isEmpty) return; // 兜底
+    // 关键修复：选中现有主题时也要调 appendRow 把 row 落库
+    final item = widget.data.result.items[i];
+    await PriceCompareRepository.instance.appendRow(
+      s.id,
+      row: _rowFromItem(item),
     );
     setState(() {
       _recordedTopicIds[i] = s.id;
