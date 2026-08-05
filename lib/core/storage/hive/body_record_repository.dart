@@ -1,26 +1,36 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import 'body_record.dart';
-import '../../storage/box_descriptor.dart';
-import '../../storage/hive_type_ids.dart';
-import '../../storage/storage_registry.dart';
 
-class BodyRecordRepo {
+import '../../body/models/body_record.dart';
+import '../box_descriptor.dart';
+import '../hive_type_ids.dart';
+import '../storage_registry.dart';
+import 'hive_repository.dart';
+import 'hive_store.dart';
+
+class BodyRecordRepository implements HiveRepository {
   static const String _boxName = 'body_records';
   late Box<BodyRecord> _box;
   bool _initialized = false;
 
+  @override
+  String get boxName => _boxName;
+
   Future<void> init() async {
     if (_initialized) return;
-    await Hive.initFlutter();
-    if (!Hive.isAdapterRegistered(HiveTypeIds.bodyRecord)) {
-      Hive.registerAdapter(BodyRecordAdapter());
-    }
-    _box = await Hive.openBox<BodyRecord>(_boxName);
+    _box = await HiveStore.instance.openTyped<BodyRecord>(
+      _boxName,
+      adapter: BodyRecordAdapter(),
+      typeId: HiveTypeIds.bodyRecord,
+    );
     StorageRegistry.register(BoxDescriptor<BodyRecord>(
       name: _boxName,
       displayName: '身体记录',
       typeId: HiveTypeIds.bodyRecord,
-      openTyped: () => Hive.openBox<BodyRecord>(_boxName),
+      openTyped: () => HiveStore.instance.openTyped<BodyRecord>(
+        _boxName,
+        adapter: BodyRecordAdapter(),
+        typeId: HiveTypeIds.bodyRecord,
+      ),
       formatValue: (v) {
         final r = v as BodyRecord;
         final parts = <String>[];
@@ -54,4 +64,4 @@ class BodyRecordRepo {
   Future<void> clear() async => await _box.clear();
 }
 
-final bodyRecordRepo = BodyRecordRepo();
+final bodyRecordRepository = BodyRecordRepository();

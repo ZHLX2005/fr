@@ -15,7 +15,7 @@ import 'core/timetable/timetable.dart';
 import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
 import 'lab/demos/clock/providers/lab_clock_provider.dart';
-import 'core/body/models/body_record_repo.dart';
+import 'core/storage/hive/body_record_repository.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
@@ -32,7 +32,7 @@ void main() async {
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();
   await hiveRepo.init();
-  await bodyRecordRepo.init();
+  await bodyRecordRepository.init();
 
   // 初始化 Supabase
   await SupabaseConfig.init();

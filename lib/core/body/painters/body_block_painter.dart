@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/body_region.dart';
-import '../models/body_record_repo.dart';
+import '../../storage/hive/body_record_repository.dart';
 
 class BodyBlockPainter extends CustomPainter {
   final List<BlockRegion> regions;
@@ -72,7 +72,7 @@ class BodyBlockPainter extends CustomPainter {
       );
 
       // 记录数量角标
-      final recordCount = bodyRecordRepo.getRecords(r.id).length;
+      final recordCount = bodyRecordRepository.getRecords(r.id).length;
       if (recordCount > 0) {
         final badgeRadius = r.w < 40 ? 7.0 : 9.0;
         final badgeX = r.x + r.w - badgeRadius;

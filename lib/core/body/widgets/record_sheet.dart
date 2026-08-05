@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/body_region.dart';
 import '../models/body_record.dart';
-import '../models/body_record_repo.dart';
+import '../../storage/hive/body_record_repository.dart';
 import '../../design/emphasis_button.dart';
 
 class RecordSheet extends StatefulWidget {
@@ -56,7 +56,7 @@ class _RecordSheetState extends State<RecordSheet> {
 
   void _load() {
     setState(() {
-      _history = bodyRecordRepo.getRecords(widget.bodyPart.id);
+      _history = bodyRecordRepository.getRecords(widget.bodyPart.id);
       _applyFilter();
     });
   }
@@ -91,11 +91,11 @@ class _RecordSheetState extends State<RecordSheet> {
     if (text.isEmpty) return;
 
     if (_editing != null) {
-      await bodyRecordRepo.remove(_editing!);
-      await bodyRecordRepo.add(widget.bodyPart.id, text, _pain.round());
+      await bodyRecordRepository.remove(_editing!);
+      await bodyRecordRepository.add(widget.bodyPart.id, text, _pain.round());
       setState(() => _editing = null);
     } else {
-      await bodyRecordRepo.add(widget.bodyPart.id, text, _pain.round());
+      await bodyRecordRepository.add(widget.bodyPart.id, text, _pain.round());
     }
     _ctrl.clear();
     _pain = 0;
@@ -247,7 +247,7 @@ class _RecordSheetState extends State<RecordSheet> {
                   isEditing: _editing?.key == r.key,
                   onEdit: () => _startEdit(r),
                   onDelete: () async {
-                    await bodyRecordRepo.remove(r);
+                    await bodyRecordRepository.remove(r);
                     if (_editing?.key == r.key) _cancelEdit();
                     _load();
                   },
