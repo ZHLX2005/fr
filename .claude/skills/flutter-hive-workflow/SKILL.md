@@ -104,76 +104,23 @@ Lab → 存储分析 中统一观察所有 Hive Box（像 Redis 面板）。**�
 
 ## 添加一个自定义 Type 的 Hive 存储
 
-**完整 6 步流程**（范本：`lib/core/body/models/body_record_repo.dart`）：
+→ 完整 6 步流程 + 范本代码已迁移到 ref：[[hive-feature-creation-checklist]]（Step 1–6）。
+SKILL 主文档只保留"为什么要走这套约定"的原则说明，避免与 ref 内容重复。
 
-### Step 1：在 `lib/core/storage/hive_type_ids.dart` 分配 typeId
+### 一句话原则（不展开）
 
-**这是 typeId 的唯一真相源**。`HiveTypeIds` 是 `abstract final class`，所有 typed model 的 `typeId` 必须从这里取（不要在别处写魔法数字）：
+- typeId 必须是 `HiveTypeIds.xxx` 常量（不要写魔法数字）
+- `Hive.openBox<T>(boxName)` 泛型访问（typed box 不能用 `Hive.box(name)`）
+- `init()` 四件套：幂等 guard + adapter 注册 + 泛型 open + `StorageRegistry.register(BoxDescriptor)`
+- 不要碰 `storage_manager.dart`（它是纯查询代理，所有 box 分支已消除）
 
-```dart
-// lib/core/storage/hive_type_ids.dart 内追加（core 区段 0-9 / lab 80-99）
-static const int myFeature = 92;  // 选一个未占用的
-```
+## 仓库层统一（≥ 2 个 Hive 域推荐）
 
-参考值（2026-08 当前已分配）：`0=bodyRecord, 90=calendarEvent, 91=calendarPerson`。
-
-### Step 2：定义数据模型
-
-```dart
-@HiveType(typeId: HiveTypeIds.myFeature)  // 用常量，不用魔法数字
-class MyItem {
-  @HiveField(0) final String id;
-  @HiveField(1) final String content;
-  // ...
-}
-```
-
-或手写 `MyItemAdapter extends TypeAdapter<MyItem>`（如果项目不用 `hive_generator`）。
-
-### Step 3：创建 `your_feature_repo.dart`，init() 里四件套
-
-**关键**：init() 里有 4 个标准动作（参考 `body_record_repo.dart`）：
-
-```dart
-Future<void> init() async {
-  if (_initialized) return;                           // 1) 幂等 guard（防重复 init）
-  await Hive.initFlutter();
-  if (!Hive.isAdapterRegistered(HiveTypeIds.myFeature)) {  // 2) adapter 注册要 guard
-    Hive.registerAdapter(MyItemAdapter());
-  }
-  _box = await Hive.openBox<MyItem>(_boxName);       // 3) 泛型 open（不是 Hive.openBox）
-  StorageRegistry.register(BoxDescriptor<MyItem>(  // 4) 注册到面板（漏了面板看不到）
-    name: _boxName,
-    displayName: '我的功能',
-    typeId: HiveTypeIds.myFeature,
-    openTyped: () => Hive.openBox<MyItem>(_boxName),
-    formatValue: (v) => '内容: ${(v as MyItem).content}',
-  );
-  _initialized = true;
-}
-```
-
-### Step 4：在 main.dart 启动期调一次
-
-```dart
-await myFeatureRepo.init();
-```
-
-**对延迟 init 的 feature**（如 calendar），在自己的 `xxxHive.init()` 里做（参考 `lib/lab/demos/calendar/data/calendar_hive.dart`）—— `StorageManager` 在 Lab 存储分析页 `_ensureBoxesInitialized()` 兜底重试。
-
-### Step 5：不要动 `StorageManager` 任何一行
-
-`storage_manager.dart` 是纯查询代理，**没有 typed box 分支**（`_readTypedBox` / `_typedBoxNames` 已删）。新增 box 一律走 `StorageRegistry.register(BoxDescriptor)` 接入。
-
-### Step 6：验证
-
-```bash
-flutter analyze  # 必须 0 error
-```
-
-Lab → 存储分析 → 你的 box 自动出现（"我的功能" + keys 列表 + 删除/清空按钮）。
-
-**关键：** 面板不再需要修改。**注册即接管**。
+→ 详见 [[hive-feature-creation-checklist]] Step 7。
+- 所有 Hive 仓库实现搬进 `lib/core/storage/hive/`
+- 加 `HiveRepository` 标记接口（`abstract class`，只声明 `boxName`）
+- 加 `HiveStore` 单例统一 `initFlutter + box 句柄缓存`
+- 命名统一：`XxxRepository`（不再用 `HiveXxx` / `XxxStore` / 静态方法）
 
 ## 调试技巧
 
@@ -196,4 +143,4 @@ if (Hive.isBoxOpen(name)) {
 | ref | 何时读取 | 路径 |
 |-----|---------|------|
 | [[hive-storage-panel]] | 需要设计新 feature 的 Hive 存储结构、手写 TypeAdapter、或新增 box 到 StorageManager 面板时 | references/hive-storage-panel.md |
-| [[hive-feature-creation-checklist]] | **新建**带 Hive 存储的模块时：要避免主题/颜色/标签在多个文件散落、要保证 `Lab → 存储分析` 自动显示并可管理 | references/hive-feature-creation-checklist.md |
+| [[hive-feature-creation-checklist]] | **新建**带 Hive 存储的模块时：要避免主题/颜色/标签在多个文件散落、要保证 `Lab → 存储分析` 自动显示并可管理；≥ 2 个 Hive 域时也应统一搬到 `core/storage/hive/` 走 `HiveRepository` 标记接口 + `HiveStore` 共享初始化（详见该 ref Step 7） | references/hive-feature-creation-checklist.md |

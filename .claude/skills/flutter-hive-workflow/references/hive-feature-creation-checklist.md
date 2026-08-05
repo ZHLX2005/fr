@@ -108,6 +108,46 @@ flutter analyze    # 0 error
 flutter run        # Lab → 存储分析 → 你的 box 自动出现
 ```
 
+### Step 7（推荐）：仓库层统一 — `core/storage/hive/`
+
+如果项目里有 ≥ 2 个 Hive 域，建议把它们都搬到统一目录：
+
+```
+lib/core/storage/hive/
+├── hive_repository.dart        ← 标记接口 (abstract class as tag)
+├── hive_store.dart             ← 共享 initFlutter + box 句柄缓存
+├── body_record_repository.dart
+├── timetable_repository.dart
+├── calendar_repository.dart
+└── price_compare_repository.dart
+```
+
+**两个共享层**（`lib/core/storage/hive/lib/` 是历史遗留命名，实际就是 hive/ 内的同层文件）：
+
+```dart
+// hive_repository.dart —— 标记接口，无方法体
+abstract class HiveRepository {
+  String get boxName;  // 用于元数据查找 / 未来反射注册
+}
+
+// hive_store.dart —— 单例
+class HiveStore {
+  static final HiveStore instance = HiveStore._();
+  Future<void> init() async {  /* Hive.initFlutter()，幂等 */  }
+  Future<Box<dynamic>> openUntyped(String name) async { /* + 缓存 */ }
+  Future<Box<T>> openTyped<T>(String name, {required TypeAdapter<T> adapter}) async { /* + adapter 注册 + 缓存 */ }
+}
+```
+
+**命名规范**：仓库类统一 `XxxRepository`，单例用 `XxxRepository.instance`（或在域内用全局变量）。文件按域放在 `core/storage/hive/`。
+
+**反模式**：
+- ❌ 在 demo / UI 层直接 `Hive.openBox(...)` —— 业务逻辑渗透到 UI
+- ❌ 类名带 `Hive` 前缀 / `Store` 后缀 —— `HiveTimetableRepository` / `PriceCompareStore` 这种命名不一致
+- ❌ 静态方法当 API（`CalendarHive.events`）—— 改实例后失去扩展性
+
+**何时做**：第 3 个 Hive 域出现时（或第一个域的 box 操作散落到 ≥ 2 个文件时）。
+
 ---
 
 ## 3. 反模式 checklist（提交前自查）
