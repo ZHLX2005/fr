@@ -259,10 +259,14 @@ class StorageExporter {
 
   String _typeNameOf(dynamic v) {
     if (v == null) return HiveTypeNames.null_;
-    // 已知 typed
-    if (v.runtimeType.toString() == 'Event') return HiveTypeNames.event;
-    if (v.runtimeType.toString() == 'Person') return HiveTypeNames.person;
-    if (v.runtimeType.toString() == 'BodyRecord') return HiveTypeNames.bodyRecord;
+    // 已知 typed —— 必须用 `is` 判断，不能用 runtimeType.toString() 比对：
+    // release/profile 的 AOT 会把类型名混淆成 neb/aBb 之类，字符串比较恒为
+    // false，typed 对象会被错标成 'dynamic'；导入端 _decodeTypedValue 走
+    // default 把 JSON 解码成 Map，再 box.put 进 typed box 就会抛
+    // "_Map<String,dynamic> is not a subtype of <Event/Person>"。
+    if (v is Event) return HiveTypeNames.event;
+    if (v is Person) return HiveTypeNames.person;
+    if (v is BodyRecord) return HiveTypeNames.bodyRecord;
     if (v is Map) return HiveTypeNames.map;
     if (v is List) return HiveTypeNames.list;
     if (v is String) return HiveTypeNames.string;
