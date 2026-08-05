@@ -10,9 +10,6 @@ import '../goframe/download/apk_endpoint.dart';
 import '../goframe/article/article_endpoint.dart';
 import '../goframe/ai/ai_endpoint.dart';
 import '../goframe/room/room_endpoint.dart';
-import '../goframe/e2ekv/e2ekv_endpoint.dart';
-import '../goframe/e2ekv/e2ekv_storage.dart';
-import '../goframe/e2ekv/e2ekv_client.dart';
 import '../notion/database_endpoint.dart';
 import '../notion/page_endpoint.dart';
 import '../notion/file_endpoint.dart';
@@ -65,20 +62,6 @@ final roomEndpointProvider = Provider<RoomEndpoint>((_) {
   return RoomEndpoint(baseUrl: 'http://47.110.80.47:8988');
 });
 
-// ── e2ekv（自持 http.Client）─────────────────────────────────
-//
-// AuthHash 在 setup 后落库（E2EKVStorage），密码/KEK 仅内存。
-final e2ekvStorageProvider = Provider<E2EKVStorage>((_) => E2EKVStorage());
-
-final e2ekvEndpointProvider =
-    Provider<E2EKVEndpoint>((ref) => E2EKVEndpoint());
-
-final e2ekvClientProvider = Provider<E2EKVClient>((ref) {
-  return E2EKVClient(
-    endpoint: ref.watch(e2ekvEndpointProvider),
-    storage: ref.watch(e2ekvStorageProvider),
-  );
-});
 
 // ── Notion ──────────────────────────────────────────────────────────
 //
