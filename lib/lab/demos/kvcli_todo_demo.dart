@@ -1,19 +1,22 @@
-// kvcli todo 行为模拟：两把 key（todo:open / todo:done）的本地等价实现。
+// kvcli todo 行为模拟 — 调真实 GoFrame 后端的 /api/v1/kv 端点，
+// 与 `lab/kvcli` CLI 端共享同一份存储（key: todo:open / todo:done）。
 //
-// 真实工程下，本 demo 复刻 lab/kvcli internal/todo/todo.go 的语义：
-//   - SharedPreferences key 'kvcli_todo_open' 存待办 Task[] JSON
-//   - SharedPreferences key 'kvcli_todo_done' 存已完成 Task[] JSON
-//   - id = max(open 中 id) + 1；完成时从 open 移除并 append 到 done
+// 真实链路：
+//   - set  : POST /api/v1/kv  body={key,value,tags,visibility,ttl}  value 为 Task[] JSON
+//   - get  : GET  /api/v1/kv/{key}                                解析 KvItem.value
+//   - 找不到 key 时视为空数组（与 kvcli internal/todo/todo.go load 行为一致）
 //
-// 视觉骨架遵循 styles-skill → border-emphasis-style：
+// 视觉骨架走 styles-skill → border-emphasis-style：
 //   - 装饰元素统一主题色；操作按钮撞色编码语义
 //   - 添加 = green / 主操作；完成 = blue / 读取+写入；删除/清空 = red / 危险
 
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../api/goframe/kv/kv_endpoint.dart';
+import '../../api/providers/api_providers.dart';
 import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
 
@@ -64,38 +67,13 @@ class _Task {
       );
 }
 
-// ── 两把 key 存储 ─────────────────────────────────────────────────────────
+// ── 错误处理辅助 ──────────────────────────────────────────────────────────
 
-class _TodoStore {
-  static const _kOpen = 'kvcli_todo_open';
-  static const _kDone = 'kvcli_todo_done';
-
-  Future<List<_Task>> readOpen() => _read(_kOpen);
-  Future<List<_Task>> readDone() => _read(_kDone);
-
-  Future<void> writeOpen(List<_Task> tasks) => _write(_kOpen, tasks);
-  Future<void> writeDone(List<_Task> tasks) => _write(_kDone, tasks);
-
-  Future<List<_Task>> _read(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(key);
-    if (raw == null || raw.trim().isEmpty) return <_Task>[];
-    try {
-      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-      return list.map(_Task.fromJson).toList();
-    } catch (_) {
-      // 解析失败时回退空数组并落 debugPrint，不让 demo 崩溃
-      // （与 kvcli load 中 key/value 损坏的回退语义一致）
-      debugPrint('kvcli_todo: parse $key failed, fallback to []');
-      return <_Task>[];
-    }
-  }
-
-  Future<void> _write(String key, List<_Task> tasks) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = jsonEncode(tasks.map((t) => t.toJson()).toList());
-    await prefs.setString(key, raw);
-  }
+/// 把任意异常压平成"错误消息"。ApiException(code/message) 已带语义，
+/// 其他异常（TypeError/FormatException）走 message 兜底。
+String _errMsg(Object e) {
+  final s = e.toString();
+  return s.length > 200 ? '${s.substring(0, 200)}…' : s;
 }
 
 // ── Demo 入口 ─────────────────────────────────────────────────────────────
@@ -108,26 +86,45 @@ class KvcliTodoDemo extends DemoPage {
   String get slug => 'kvcli-todo';
 
   @override
-  String get description => '两把 key 模拟 kvcli todo 行为';
+  String get description => '调后端 /api/v1/kv 模拟 kvcli todo';
 
   @override
   bool get preferFullScreen => true;
 
   @override
-  Widget buildPage(BuildContext context) => const _KvcliTodoDemoPage();
+  Widget buildPage(BuildContext context) {
+    // ConsumerWidget：让 Riverpod 注入 KvEndpoint + 触发 rebuild
+    return Consumer(
+      builder: (context, ref, _) {
+        final KvEndpoint kv;
+        try {
+          kv = ref.watch(kvEndpointProvider);
+        } catch (e) {
+          return Scaffold(
+            body: Center(child: Text('KV 端点初始化失败：${_errMsg(e)}')),
+          );
+        }
+        return _KvcliTodoDemoPage(kv: kv);
+      },
+    );
+  }
 }
 
 // ── 主页面 ────────────────────────────────────────────────────────────────
 
 class _KvcliTodoDemoPage extends StatefulWidget {
-  const _KvcliTodoDemoPage();
+  const _KvcliTodoDemoPage({required this.kv});
+
+  final KvEndpoint kv;
 
   @override
   State<_KvcliTodoDemoPage> createState() => _KvcliTodoDemoPageState();
 }
 
 class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
-  final _store = _TodoStore();
+  static const String _kOpen = 'todo:open';
+  static const String _kDone = 'todo:done';
+
   final _topicCtrl = TextEditingController();
   final _textCtrl = TextEditingController();
   final _textFocus = FocusNode();
@@ -151,16 +148,48 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     super.dispose();
   }
 
+  // ── 网络层 ───────────────────────────────────────────────────────────
+
+  Future<List<_Task>> _readKey(String key) async {
+    final res = await widget.kv.get(key);
+    // key 不存在 / 后端返回失败：当作空数组
+    if (!res.isSuccess || res.data == null) return const <_Task>[];
+    final raw = res.data!.value.trim();
+    if (raw.isEmpty) return const <_Task>[];
+    try {
+      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      return list.map(_Task.fromJson).toList();
+    } catch (_) {
+      // 解析失败不阻塞 UI，留 debugPrint 排查
+      debugPrint('kvcli_todo: parse $key failed, fallback to []');
+      return const <_Task>[];
+    }
+  }
+
+  Future<void> _writeKey(String key, List<_Task> tasks) async {
+    final raw = jsonEncode(tasks.map((t) => t.toJson()).toList());
+    final res = await widget.kv.set(key: key, value: raw, ttl: 0);
+    if (!res.isSuccess) {
+      throw Exception('写 $key 失败: code=${res.code} ${res.message}');
+    }
+  }
+
   Future<void> _loadAll() async {
     setState(() => _loading = true);
-    final open = await _store.readOpen();
-    final done = await _store.readDone();
-    if (!mounted) return;
-    setState(() {
-      _open = open;
-      _done = done;
-      _loading = false;
-    });
+    try {
+      final open = await _readKey(_kOpen);
+      final done = await _readKey(_kDone);
+      if (!mounted) return;
+      setState(() {
+        _open = open;
+        _done = done;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _toast('读取失败：${_errMsg(e)}');
+    }
   }
 
   // 主题去重 + 按出现频次倒序，取前 8 个作为 Chip 行
@@ -177,13 +206,13 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     return list.take(8).map((e) => e.key).toList();
   }
 
+  // ── 操作层 ───────────────────────────────────────────────────────────
+
   Future<void> _add() async {
     final topic = _topicCtrl.text.trim();
     final text = _textCtrl.text.trim();
     if (topic.isEmpty || text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('主题与任务文本均必填')),
-      );
+      _toast('主题与任务文本均必填');
       return;
     }
 
@@ -198,7 +227,12 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
       createdAt: DateTime.now().toIso8601String(),
     );
     final next = [..._open, task];
-    await _store.writeOpen(next);
+    try {
+      await _writeKey(_kOpen, next);
+    } catch (e) {
+      _toast('提交失败：${_errMsg(e)}');
+      return;
+    }
     if (!mounted) return;
     setState(() => _open = next);
     _textCtrl.clear();
@@ -215,8 +249,13 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     );
     final open = _open.where((t) => t.id != task.id).toList();
     final done = [..._done, completed];
-    await _store.writeOpen(open);
-    await _store.writeDone(done);
+    try {
+      await _writeKey(_kOpen, open);
+      await _writeKey(_kDone, done);
+    } catch (e) {
+      _toast('标记完成失败：${_errMsg(e)}');
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _open = open;
@@ -261,7 +300,7 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('清空两把 key？'),
-        content: const Text('将清空 open 与 done 中所有任务，无法撤销。'),
+        content: const Text('将删除 todo:open 与 todo:done 两个 key，无法撤销。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -276,8 +315,13 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
       ),
     );
     if (ok != true) return;
-    await _store.writeOpen(const []);
-    await _store.writeDone(const []);
+    try {
+      await widget.kv.delete(_kOpen);
+      await widget.kv.delete(_kDone);
+    } catch (e) {
+      _toast('清空失败：${_errMsg(e)}');
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _open = const [];
@@ -290,6 +334,13 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     _topicCtrl.selection = TextSelection.collapsed(offset: topic.length);
     _textFocus.requestFocus();
   }
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ── UI ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -346,7 +397,6 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     );
   }
 
-  // 顶部输入区：主题框 + Chip 行 + 内容框 + 添加按钮
   Widget _buildComposer(ColorScheme scheme, List<String> recent) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
