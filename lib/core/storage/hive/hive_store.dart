@@ -17,9 +17,16 @@ class HiveStore {
 
   /// 打开 untyped box（Map 序列化场景）。
   /// 多次调用同一 box 返回缓存句柄。
+  /// 首次打开用 Hive.openBox()，之后直接返回缓存（避免 `Hive.box()` 抛
+  /// `Box not found` —— `Hive.box()` 不会自动打开未 open 的 box）。
   Future<Box<dynamic>> openUntyped(String name) async {
     await init();
-    return _boxes.putIfAbsent(name, () => Hive.box(name));
+    if (_boxes.containsKey(name)) return _boxes[name]!;
+    final box = Hive.isBoxOpen(name)
+        ? Hive.box<dynamic>(name)
+        : await Hive.openBox<dynamic>(name);
+    _boxes[name] = box;
+    return box;
   }
 
   /// 给 typed box 用的便捷方法（registerAdapter + openBox 合并）。
