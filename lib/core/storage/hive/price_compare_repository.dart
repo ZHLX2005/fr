@@ -2,6 +2,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../lab/demos/price_compare/price_compare_models.dart';
 import 'hive_repository.dart';
+import 'hive_store.dart';
 
 /// 比价计算器存储层 —— 封装 `price_compare_topics` Hive box 的所有读写。
 ///
@@ -21,13 +22,8 @@ class PriceCompareRepository implements HiveRepository {
   String get boxName => kPriceCompareBoxName;
 
   /// 确保 box 已打开。多次调用安全。
-  Future<Box<dynamic>> _openBox() async {
-    if (!Hive.isBoxOpen(kPriceCompareBoxName)) {
-      await Hive.initFlutter();
-      await Hive.openBox(kPriceCompareBoxName);
-    }
-    return Hive.box(kPriceCompareBoxName);
-  }
+  Future<Box<dynamic>> _openBox() =>
+      HiveStore.instance.openUntyped(kPriceCompareBoxName);
 
   /// 列出所有主题摘要（按 updatedAt 倒序），供 PickerSheet / 选择面板使用。
   /// 同时跳过孤儿/格式异常的 entry。
@@ -195,11 +191,6 @@ class PriceCompareRepository implements HiveRepository {
   }
 
   /// 给 BoxDescriptor.openUntyped 用的回调，避免 demo 直接 import hive。
-  static Future<Box<dynamic>> openBoxForDescriptor() async {
-    if (!Hive.isBoxOpen(kPriceCompareBoxName)) {
-      await Hive.initFlutter();
-      await Hive.openBox(kPriceCompareBoxName);
-    }
-    return Hive.box<dynamic>(kPriceCompareBoxName);
-  }
+  static Future<Box<dynamic>> openBoxForDescriptor() =>
+      HiveStore.instance.openUntyped(kPriceCompareBoxName);
 }
