@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import '../design/emphasis_button.dart';
-import '../../services/message_strategy/interfaces/interfaces.dart';
-import '../../services/message_strategy/factory/factory.dart';
-import '../../services/message_strategy/panel/panel.dart';
+import '../../../services/message_strategy/interfaces/interfaces.dart';
+import '../../../services/message_strategy/factory/factory.dart';
+import '../../../services/message_strategy/panel/panel.dart';
 
 /// 格式兼容性 / 消息策略聚合测试页。
 ///

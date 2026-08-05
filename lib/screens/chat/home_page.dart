@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../core/ai_chat/agent_chat_page.dart';
+import '../../core/ai_chat/ai_chat_format/format_compatibility_page.dart';
+import '../../core/ai_chat/ai_chat_sports/agent_chat_page.dart';
 import '../../core/ai_chat/receipt_ocr/receipt_ocr_page.dart';
-import '../../core/message_strategy/format_compatibility_page.dart';
 
 /// AI 助手功能入口条目配置。
 ///

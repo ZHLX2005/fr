@@ -10,8 +10,10 @@ import '../../../services/ai_chat/ai_chat_provider.dart';
 import '../../../services/message_strategy/data/receipt_ocr_message_data.dart';
 import '../../../services/message_strategy/factory/factory.dart';
 import '../../../services/message_strategy/interfaces/interfaces.dart';
-import '../ai_chat_settings_page.dart' show AIChatSettingsPage;
+import '../ai_chat_settings_page.dart';
 import 'receipt_ocr_api.dart';
+import 'receipt_ocr_history.dart';
+import 'receipt_ocr_history_store.dart';
 
 /// 小票 OCR 聊天页 —— IM 风格。
 ///
@@ -58,9 +60,63 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
       GetIt.instance<MessageWidgetFactory>();
 
   @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  /// 启动时从 prefs 加载历史记录到聊天列表。
+  /// 用户发新消息也会 append 到历史；只在用户主动清理时才删。
+  Future<void> _loadHistory() async {
+    final list = await ReceiptOcrHistoryStore.load();
+    if (!mounted) return;
+    final entries = <_ChatEntry>[];
+    for (final h in list) {
+      final absPath = await ReceiptOcrHistoryStore.resolveImagePath(h.imageFileName);
+      if (absPath == null) continue; // 图片已被外部删除则跳过
+      entries.add(_ChatEntry(
+        id: '${h.id}-u',
+        isUser: true,
+        imagePath: absPath,
+      ));
+      entries.add(_ChatEntry(
+        id: '${h.id}-a',
+        isUser: false,
+        card: ReceiptOcrMessageData(result: h.result),
+      ));
+    }
+    setState(() {
+      _entries
+        ..clear()
+        ..addAll(entries);
+    });
+    if (_entries.isNotEmpty) _scrollToBottom();
+  }
+
+  /// 用户主动清理：清空 prefs + 删除 docs 里的所有图片 + 重置当前列表。
+  Future<void> _clearHistory() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清理历史记录'),
+        content: const Text('确定清空所有小票识别历史？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await ReceiptOcrHistoryStore.clear();
+    if (!mounted) return;
+    setState(() => _entries.clear());
   }
 
   void _scrollToBottom() {
@@ -111,12 +167,24 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
       final result = await _api.recognize(settings: settings, imageBase64: b64);
 
       if (!mounted) return;
+      // 写历史（图片复制到 docs，结果存 prefs）
+      final history = ReceiptOcrHistory(
+        id: _uid(),
+        createdAt: DateTime.now(),
+        result: result,
+        imageFileName: 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await ReceiptOcrHistoryStore.add(
+        history: history,
+        sourceImagePath: path,
+      );
+
       setState(() {
         // 用卡片替换最后一条 loading
         final lastIdx = _entries.indexWhere((e) => e.isLoading);
         if (lastIdx >= 0) {
           _entries[lastIdx] = _ChatEntry(
-            id: _uid(),
+            id: '${history.id}-a',
             isUser: false,
             card: ReceiptOcrMessageData(result: result),
           );
@@ -142,18 +210,28 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
     }
   }
 
-  void _promptConfig() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('请先配置 LLM API Key'),
-        action: SnackBarAction(
-          label: '去设置',
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AIChatSettingsPage()),
+  void _promptConfig() => _openSettings(prompt: true);
+
+  void _openSettings({bool prompt = false}) {
+    if (prompt) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('请先配置 LLM API Key'),
+          action: SnackBarAction(
+            label: '去设置',
+            onPressed: _navigateToSettings,
           ),
         ),
-      ),
+      );
+      return;
+    }
+    _navigateToSettings();
+  }
+
+  void _navigateToSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AIChatSettingsPage()),
     );
   }
 
@@ -188,6 +266,20 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
             ),
           ],
         ),
+        actions: [
+          // 清理历史（边框强调 IconButton）
+          IconButton(
+            tooltip: '清理历史',
+            onPressed: _entries.isEmpty ? null : _clearHistory,
+            icon: const Icon(Icons.delete_sweep_outlined),
+          ),
+          // 设置（边框强调 IconButton）
+          IconButton(
+            tooltip: '设置',
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings_outlined),
+          ),
+        ],
       ),
       body: Column(
         children: [

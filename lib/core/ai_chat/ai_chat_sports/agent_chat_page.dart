@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../services/ai_chat/agent_chat_provider.dart';
-import '../../services/ai_chat/ai_chat_models.dart';
-import '../../widgets/markdown_renderer_widget.dart';
-import 'ai_chat_settings_page.dart';
+import '../../../services/ai_chat/agent_chat_provider.dart';
+import '../../../services/ai_chat/ai_chat_models.dart';
+import '../../../widgets/markdown_renderer_widget.dart';
+import '../ai_chat_settings_page.dart';
 
 /// Agent 聊天页面 - 事件记录 Agent
 class AgentChatPage extends StatefulWidget {
