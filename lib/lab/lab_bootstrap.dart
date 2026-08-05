@@ -10,7 +10,6 @@ import 'demos/color_palette_demo.dart';
 // demo_laboratory_demo 已并入 rive_demo（统一 Rive 演示）
 import 'demos/rive_demo/rive_demo.dart' show registerRiveDemo;
 import 'demos/doubletime_demo.dart';
-import 'demos/free_canvas_demo.dart';
 import 'demos/gallery_demo.dart';
 import 'demos/game_2048_demo.dart';
 import 'demos/github_demo.dart';
@@ -53,7 +52,6 @@ void registerAllDemos() {
   registerCrashLogDemo();
   registerNetworkDemo();
   registerGame2048Demo();
-  registerFreeCanvasDemo();
   registerStorageAnalyzeDemo();
   registerSnakeGameDemo();
   registerApiTestDemo();
