@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'price_compare_models.dart';
+import '../../../lab/demos/price_compare/price_compare_models.dart';
+import 'hive_repository.dart';
 
 /// 比价计算器存储层 —— 封装 `price_compare_topics` Hive box 的所有读写。
 ///
@@ -11,10 +12,13 @@ import 'price_compare_models.dart';
 /// box 内容是 `Map<String, dynamic>`（避开 TypeAdapter part 文件的 CI 编译坑），
 /// 与 `PriceTopic.toMap` / `PriceTopic.fromMap` / `PriceRow.toMap` /
 /// `PriceRow.fromMap` 一一对应。
-class PriceCompareStore {
-  PriceCompareStore._();
+class PriceCompareRepository implements HiveRepository {
+  PriceCompareRepository._();
 
-  static final PriceCompareStore instance = PriceCompareStore._();
+  static final PriceCompareRepository instance = PriceCompareRepository._();
+
+  @override
+  String get boxName => kPriceCompareBoxName;
 
   /// 确保 box 已打开。多次调用安全。
   Future<Box<dynamic>> _openBox() async {

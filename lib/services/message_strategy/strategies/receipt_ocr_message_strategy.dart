@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/ai_chat/receipt_ocr/receipt_ocr_models.dart';
 import '../../../core/schema/schema.dart';
+import '../../../core/storage/hive/price_compare_repository.dart';
 import '../../../lab/demos/price_compare/price_compare_models.dart';
-import '../../../lab/demos/price_compare/price_compare_store.dart';
 import '../../../lab/demos/price_compare/price_topic_picker_sheet.dart';
 import '../interfaces/interfaces.dart';
 import '../data/receipt_ocr_message_data.dart';
@@ -81,8 +81,8 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     // 默认主题流程：find-or-create 同名主题 → 追加一行 → 标记 recorded
     final item = widget.data.result.items[i];
     final topicId =
-        await PriceCompareStore.instance.findOrCreateTopic(proposed);
-    await PriceCompareStore.instance.appendRow(
+        await PriceCompareRepository.instance.findOrCreateTopic(proposed);
+    await PriceCompareRepository.instance.appendRow(
       topicId,
       row: _rowFromItem(item),
       fallbackTitle: proposed,
@@ -118,7 +118,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
           currentId: oldId,
           onNew: () => Navigator.pop(sheetCtx, '__new__'),
           onDelete: (id) async {
-            await PriceCompareStore.instance.deleteTopic(id);
+            await PriceCompareRepository.instance.deleteTopic(id);
             if (!sheetCtx.mounted) return;
             Navigator.pop(sheetCtx, '__deleted__:$id');
           },
@@ -130,7 +130,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     if (picked == '__new__') {
       // 新建：用旧标题（或 default_topic）
       final title = oldTitle.isNotEmpty ? oldTitle : '新主题';
-      final id = await PriceCompareStore.instance.createEmptyTopic(title: title);
+      final id = await PriceCompareRepository.instance.createEmptyTopic(title: title);
       setState(() {
         _recordedTopicIds[i] = id;
         _topicTitles[i] = title;
@@ -161,7 +161,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
         currentId: null,
         onNew: () => Navigator.pop(sheetCtx, '__new__'),
         onDelete: (id) async {
-          await PriceCompareStore.instance.deleteTopic(id);
+          await PriceCompareRepository.instance.deleteTopic(id);
           if (!sheetCtx.mounted) return;
           Navigator.pop(sheetCtx, '__deleted__:$id');
         },
@@ -169,7 +169,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     );
     if (!mounted || picked == null) return;
     if (picked == '__new__') {
-      final id = await PriceCompareStore.instance.createEmptyTopic();
+      final id = await PriceCompareRepository.instance.createEmptyTopic();
       setState(() {
         _recordedTopicIds[i] = id;
         _topicTitles[i] = '新主题';
@@ -194,7 +194,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
   List<PriceTopicSummary> _summariesCache = const [];
 
   Future<void> _refreshSummariesCache() async {
-    final list = await PriceCompareStore.instance.listSummaries();
+    final list = await PriceCompareRepository.instance.listSummaries();
     if (!mounted) return;
     setState(() => _summariesCache = list);
   }
