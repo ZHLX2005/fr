@@ -36,6 +36,7 @@ import 'demos/surround_game_demo.dart';
 import 'demos/surround_game_lua_demo.dart';
 import 'demos/reversi_demo.dart' show registerReversiLuaDemo;
 import 'demos/jungle_chess_demo.dart';
+import 'demos/kvcli_todo_demo.dart' show registerKvcliTodoDemo;
 import 'demos/reaction_test_demo.dart';
 import 'demos/metronome_demo.dart';
 import 'demos/team_card_lua_demo.dart' show registerTeamCardLuaDemo;
@@ -78,6 +79,7 @@ void registerAllDemos() {
   registerSurroundGameDemo();
   registerReversiLuaDemo();
   registerJungleChessDemo();
+  registerKvcliTodoDemo();
   registerStackCardDemo();
   registerNotionImageHostDemo();
   registerReactionTestDemo();
