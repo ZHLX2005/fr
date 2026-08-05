@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// 单条小票条目（资源/数量/单价/备注）。
 /// 单价由后端 LLM 直接给，前端不做除法，避免歧义。
 class LineItem {
@@ -5,12 +7,15 @@ class LineItem {
   final double quantity;
   final double unitPrice;
   final String note;
+  /// 该商品所属分类，由 LLM 推断（满足"每行默认主题 AI 生成"需求）。
+  final String defaultTopic;
 
   const LineItem({
     required this.resource,
     required this.quantity,
     required this.unitPrice,
     required this.note,
+    this.defaultTopic = '',
   });
 }
 
@@ -28,6 +33,52 @@ class ReceiptResult {
     required this.items,
     required this.recommendedTopic,
   });
+
+  /// 从 flex 接口返回的 content（可能裹在 ```json 代码块里）解析。
+  /// 解析失败抛 [FormatException]，调用方需 catch。
+  factory ReceiptResult.fromFlexContent(String content) {
+    final jsonStr = _stripCodeFence(content);
+    final Map<String, dynamic> json;
+    try {
+      json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      throw FormatException('flex content 非合法 JSON: $e\n---\n$jsonStr');
+    }
+
+    final itemsRaw = json['items'] as List? ?? [];
+    final items = itemsRaw.map((e) {
+      final m = e as Map<String, dynamic>;
+      return LineItem(
+        resource: (m['name'] as String?) ?? '',
+        quantity: (m['quantity'] as num?)?.toDouble() ?? 0,
+        unitPrice: (m['unit_price'] as num?)?.toDouble() ?? 0,
+        note: (m['note'] as String?) ?? '',
+        defaultTopic: (m['default_topic'] as String?) ?? '',
+      );
+    }).toList();
+
+    return ReceiptResult(
+      storeName: (json['store_name'] as String?) ?? '',
+      purchasedAt: _parseTime(json['purchased_at'] as String?) ?? DateTime.now(),
+      recommendedTopic: (json['recommended_topic'] as String?) ?? '',
+      items: items,
+    );
+  }
+
+  /// 剥掉 ```json ... ``` 代码块包裹；没有代码块则原样返回。
+  static String _stripCodeFence(String content) {
+    final fenced = RegExp(r'```(?:json)?\s*(\{.*\})\s*```', dotAll: true)
+        .firstMatch(content);
+    if (fenced != null) return fenced.group(1)!.trim();
+    final plain = RegExp(r'\{.*\}', dotAll: true).firstMatch(content);
+    return plain != null ? plain.group(0)!.trim() : content.trim();
+  }
+
+  static DateTime? _parseTime(String? s) {
+    if (s == null || s.isEmpty) return null;
+    return DateTime.tryParse(s) ??
+        DateTime.tryParse(s.replaceAll(' ', 'T'));
+  }
 }
 
 /// 单行在交互卡里的状态。

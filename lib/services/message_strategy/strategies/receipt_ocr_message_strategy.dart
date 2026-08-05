@@ -271,7 +271,8 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     final item = widget.data.result.items[i];
     final status = _statuses[i];
     final itemText =
-        '${item.resource} ×${_fmt(item.quantity)}  ¥${item.unitPrice.toStringAsFixed(2)} (${item.note})';
+        '${item.resource} ×${_fmt(item.quantity)}  ¥${item.unitPrice.toStringAsFixed(2)}';
+    final note = item.note;
 
     switch (status) {
       case ReceiptLineStatus.pending:
@@ -281,7 +282,27 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Text(itemText, style: theme.textTheme.bodyMedium),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(itemText, style: theme.textTheme.bodyMedium),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _topicChip(
+                          theme,
+                          label: item.defaultTopic,
+                          isAi: true,
+                        ),
+                        if (note.isNotEmpty)
+                          _topicChip(theme, label: note, isAi: false),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(width: 8),
               _EmphasisIconButton(
@@ -357,6 +378,26 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
   String _fmt(double v) {
     if (v == v.roundToDouble()) return v.toInt().toString();
     return v.toString();
+  }
+
+  /// 行内小标签：[isAi]=true 是 LLM 推断的 default_topic（primary 色边框强调），
+  /// false 是备注（中性灰）。
+  Widget _topicChip(ThemeData theme,
+      {required String label, required bool isAi}) {
+    if (label.isEmpty) return const SizedBox.shrink();
+    final color = isAi ? theme.colorScheme.primary : theme.colorScheme.outline;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
+      ),
+      child: Text(
+        isAi ? 'AI · $label' : label,
+        style: theme.textTheme.labelSmall?.copyWith(color: color),
+      ),
+    );
   }
 }
 

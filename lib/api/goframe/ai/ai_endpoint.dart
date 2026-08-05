@@ -42,6 +42,42 @@ class AiEndpoint {
         },
         fromJson: (json) => ChatResponse.fromJson(json),
       );
+
+  /// 灵活对话（flex）—— 支持 DB 模板（[template]）、自定义提示词（[customPrompt]）
+  /// 与图片输入（[images]）。小票 OCR 等场景通过 `template: 'receipt_ocr'`
+  /// 引用 DB 里的唯一可信源提示词。
+  ///
+  /// 对应后端 `POST /api/v1/ai/chat/flex`。
+  /// ⚠️ [baseUrl] → JSON key `baseURL`（全大写 URL，同 [chat]）。
+  /// ⚠️ apiKey 在请求体里自带鉴权，后端 flex 中间件不强制 JWT。
+  /// [images] 元素形如 `{'base64': 'data:image/jpeg;base64,...', 'detail': 'high'}`。
+  Future<ApiResponse<FlexChatResponse>> flexChat({
+    required String apiKey,
+    required String prompt,
+    String? model,
+    String? baseUrl,
+    String? type,
+    String template = '',
+    String customPrompt = '',
+    List<Map<String, dynamic>>? images,
+    int? maxTokens,
+  }) =>
+      _client.request<FlexChatResponse>(
+        method: 'POST',
+        path: '/api/v1/ai/chat/flex',
+        body: {
+          'apiKey': apiKey,
+          'prompt': prompt,
+          if (model != null && model.isNotEmpty) 'model': model,
+          if (baseUrl != null && baseUrl.isNotEmpty) 'baseURL': baseUrl,
+          if (type != null && type.isNotEmpty) 'type': type,
+          'template': template,
+          'customPrompt': customPrompt,
+          'images': ?images,
+          'maxTokens': ?maxTokens,
+        },
+        fromJson: (json) => FlexChatResponse.fromJson(json),
+      );
 }
 
 /// 通用对话响应。
@@ -53,4 +89,31 @@ class ChatResponse {
 
   factory ChatResponse.fromJson(Map<String, dynamic> json) =>
       ChatResponse(content: json['content'] as String? ?? '');
+}
+
+/// flex 对话响应。
+class FlexChatResponse {
+  /// AI 的回复内容（小票 OCR 场景下是 JSON 串，可能裹在 ```json 代码块里）。
+  final String content;
+  /// 实际命中的模板名（builtin 或 DB name）。
+  final String template;
+  /// 实际使用的模型名。
+  final String model;
+  /// 携带的图片数。
+  final int imageCount;
+
+  const FlexChatResponse({
+    required this.content,
+    required this.template,
+    required this.model,
+    required this.imageCount,
+  });
+
+  factory FlexChatResponse.fromJson(Map<String, dynamic> json) =>
+      FlexChatResponse(
+        content: json['content'] as String? ?? '',
+        template: json['template'] as String? ?? '',
+        model: json['model'] as String? ?? '',
+        imageCount: json['imageCount'] as int? ?? 0,
+      );
 }
