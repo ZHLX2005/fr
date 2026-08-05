@@ -42,35 +42,152 @@ class _ReceiptOcrContent extends StatefulWidget {
 
 class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
   late final List<ReceiptLineStatus> _statuses;
-  late final List<String?> _recordedTopics; // 行 i 记入的主题名
+  /// 行 i 已记入到的主题 ID（Hive box 的 key）。null = 未记入 / 待修改。
+  late final List<String?> _recordedTopicIds;
+  /// 行 i 当前显示的主题标题（首次 = item.defaultTopic；改主题后会变）。
+  late final List<String> _topicTitles;
 
   @override
   void initState() {
     super.initState();
-    final n = widget.data.result.items.length;
+    final items = widget.data.result.items;
+    final n = items.length;
     _statuses = List<ReceiptLineStatus>.filled(n, ReceiptLineStatus.pending);
-    _recordedTopics = List<String?>.filled(n, null);
+    _recordedTopicIds = List<String?>.filled(n, null);
+    // 初始显示主题：优先 LLM 推断的 default_topic，否则暂用 recommendedTopic，最后兜底 '默认'
+    _topicTitles = List<String>.generate(n, (i) {
+      final t = items[i].defaultTopic;
+      if (t.isNotEmpty) return t;
+      final r = widget.data.result.recommendedTopic;
+      return r.isNotEmpty ? r : '默认';
+    });
   }
 
+  /// ✓ 记入 —— 优先按默认主题（default_topic）落库，无 default_topic 时才弹选择器。
+  /// 后端 LLM 已给主题就是为了省心智；用户主动改主题才弹 PickerSheet。
   Future<void> _onTapRecord(int i) async {
     if (_statuses[i] != ReceiptLineStatus.pending) return;
-    final ctx = context;
-    var summaries = await _loadTopicSummaries();
-    if (!ctx.mounted) return;
+    final proposed = _topicTitles[i];
+
+    // 缺省主题：弹 picker 让用户选
+    if (proposed.isEmpty || proposed == '默认') {
+      await _showPickerAndRecord(i);
+      return;
+    }
+
+    // 默认主题流程：find-or-create 同名主题 → 落库 → 标记 recorded
+    final box = await _openBox();
+    final topicId = await _findOrCreateTopic(box, proposed);
+    if (!mounted) return;
+    setState(() {
+      _statuses[i] = ReceiptLineStatus.recorded;
+      _recordedTopicIds[i] = topicId;
+    });
+  }
+
+  /// 找同名主题；不存在则新建一个同名主题。
+  /// 后端 LLM 给的 default_topic 名称就是用户的心智主题，这里直接落库即可。
+  Future<String> _findOrCreateTopic(
+      Box<dynamic> box, String title) async {
+    for (final k in box.keys) {
+      if (k == kPriceCompareLastTopicIdKey) continue;
+      final v = box.get(k);
+      if (v is Map && v['id'] is String) {
+        final t = (v['title'] as String?) ?? '';
+        if (t == title) return v['id'] as String;
+      }
+    }
+    final id = 't${DateTime.now().microsecondsSinceEpoch}_${title.hashCode}';
+    await box.put(id, {
+      'id': id,
+      'title': title,
+      'rows': [],
+      'createdAt': DateTime.now().millisecondsSinceEpoch,
+      'updatedAt': DateTime.now().millisecondsSinceEpoch,
+    });
+    return id;
+  }
+
+  /// 用户主动改主题（点击芯片触发）—— 弹 PickerSheet。
+  Future<void> _changeTopic(int i) async {
+    if (!mounted) return;
+    final wasRecorded = _statuses[i] == ReceiptLineStatus.recorded;
+    final oldId = _recordedTopicIds[i];
+    final oldTitle = _topicTitles[i];
+
     final picked = await showModalBottomSheet<String>(
-      context: ctx,
+      context: context,
       showDragHandle: true,
-      builder: (sheetCtx) => PriceTopicPickerSheet(
-        summaries: summaries,
-        currentId: null,
-        onNew: () { Navigator.pop(sheetCtx, '__new__'); },
-        onDelete: (id) => _handleDeleteTopic(id, sheetCtx),
-      ),
+      builder: (sheetCtx) {
+        final summaries = _summariesSync();
+        return PriceTopicPickerSheet(
+          summaries: summaries,
+          currentId: oldId,
+          onNew: () => Navigator.pop(sheetCtx, '__new__'),
+          onDelete: (id) async {
+            final box = await _openBox();
+            await box.delete(id);
+            if (!sheetCtx.mounted) return;
+            Navigator.pop(sheetCtx, '__deleted__:$id');
+          },
+        );
+      },
     );
     if (!mounted) return;
     if (picked == null) return;
     if (picked == '__new__') {
-      // 新建主题 = 立刻建一个空主题 + 返回其 ID，并记入当前行
+      // 新建：用旧标题（或 default_topic）
+      final title = oldTitle.isNotEmpty ? oldTitle : '新主题';
+      final box = await _openBox();
+      final id = 't${DateTime.now().microsecondsSinceEpoch}';
+      await box.put(id, {
+        'id': id,
+        'title': title,
+        'rows': [],
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      });
+      setState(() {
+        _recordedTopicIds[i] = id;
+        _topicTitles[i] = title;
+        _statuses[i] = ReceiptLineStatus.recorded;
+      });
+      return;
+    }
+    if (picked.startsWith('__deleted__:')) return;
+    final summaries = _summariesSync();
+    final s = summaries.firstWhere(
+      (e) => e.id == picked,
+      orElse: () => const PriceTopicSummary(
+          id: '', title: '未命名主题', rowCount: 0, createdAt: null),
+    );
+    setState(() {
+      _recordedTopicIds[i] = s.id;
+      _topicTitles[i] = s.title.isEmpty ? '未命名主题' : s.title;
+      if (!wasRecorded) _statuses[i] = ReceiptLineStatus.recorded;
+    });
+  }
+
+  /// 兜底流程：原本的 PickerSheet 选主题（仅在 default_topic 为空时使用）
+  Future<void> _showPickerAndRecord(int i) async {
+    final summaries = _summariesSync();
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) => PriceTopicPickerSheet(
+        summaries: summaries,
+        currentId: null,
+        onNew: () => Navigator.pop(sheetCtx, '__new__'),
+        onDelete: (id) async {
+          final box = await _openBox();
+          await box.delete(id);
+          if (!sheetCtx.mounted) return;
+          Navigator.pop(sheetCtx, '__deleted__:$id');
+        },
+      ),
+    );
+    if (!mounted || picked == null) return;
+    if (picked == '__new__') {
       final box = await _openBox();
       final id = 't${DateTime.now().microsecondsSinceEpoch}';
       await box.put(id, {
@@ -80,29 +197,30 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
         'createdAt': DateTime.now().millisecondsSinceEpoch,
         'updatedAt': DateTime.now().millisecondsSinceEpoch,
       });
-      _setRecorded(i, '新主题');
+      setState(() {
+        _recordedTopicIds[i] = id;
+        _topicTitles[i] = '新主题';
+        _statuses[i] = ReceiptLineStatus.recorded;
+      });
       return;
     }
-    if (picked.startsWith('__deleted__:')) return; // 删了就忽略
-    summaries = await _loadTopicSummaries();
+    if (picked.startsWith('__deleted__:')) return;
     final s = summaries.firstWhere(
       (e) => e.id == picked,
       orElse: () => const PriceTopicSummary(
           id: '', title: '未命名主题', rowCount: 0, createdAt: null),
     );
-    _setRecorded(i, s.title.isEmpty ? '未命名主题' : s.title);
+    setState(() {
+      _recordedTopicIds[i] = s.id;
+      _topicTitles[i] = s.title.isEmpty ? '未命名主题' : s.title;
+      _statuses[i] = ReceiptLineStatus.recorded;
+    });
   }
 
-  Future<Box<dynamic>> _openBox() async {
-    if (!Hive.isBoxOpen(kPriceCompareBoxName)) {
-      await Hive.initFlutter();
-      await Hive.openBox(kPriceCompareBoxName);
-    }
-    return Hive.box(kPriceCompareBoxName);
-  }
-
-  Future<List<PriceTopicSummary>> _loadTopicSummaries() async {
-    final box = await _openBox();
+  /// 同步版摘要（用于 PickerSheet 弹窗）。从已打开的 box 直接读。
+  List<PriceTopicSummary> _summariesSync() {
+    if (!Hive.isBoxOpen(kPriceCompareBoxName)) return const [];
+    final box = Hive.box(kPriceCompareBoxName);
     final out = <PriceTopicSummary>[];
     for (final k in box.keys) {
       if (k == kPriceCompareLastTopicIdKey) continue;
@@ -127,23 +245,17 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     return out;
   }
 
-  Future<void> _handleDeleteTopic(String id, BuildContext sheetCtx) async {
-    final box = await _openBox();
-    await box.delete(id);
-    if (!sheetCtx.mounted) return;
-    Navigator.pop(sheetCtx, '__deleted__:$id');
+  Future<Box<dynamic>> _openBox() async {
+    if (!Hive.isBoxOpen(kPriceCompareBoxName)) {
+      await Hive.initFlutter();
+      await Hive.openBox(kPriceCompareBoxName);
+    }
+    return Hive.box(kPriceCompareBoxName);
   }
 
   void _onTapReject(int i) {
     if (_statuses[i] != ReceiptLineStatus.pending) return;
     setState(() => _statuses[i] = ReceiptLineStatus.rejected);
-  }
-
-  void _setRecorded(int i, String topicTitle) {
-    setState(() {
-      _statuses[i] = ReceiptLineStatus.recorded;
-      _recordedTopics[i] = topicTitle;
-    });
   }
 
   int get _recordedCount =>
@@ -292,10 +404,16 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        _topicChip(
-                          theme,
-                          label: item.defaultTopic,
-                          isAi: true,
+                        // 主题芯片（点击改主题）。pending 行默认按 _topicTitles 显示，
+                        // 后端 default_topic 已在 initState 装入。
+                        InkWell(
+                          borderRadius: BorderRadius.circular(6),
+                          onTap: () => _changeTopic(i),
+                          child: _topicChip(
+                            theme,
+                            label: _topicTitles[i],
+                            isAi: true,
+                          ),
                         ),
                         if (note.isNotEmpty)
                           _topicChip(theme, label: note, isAi: false),
@@ -307,7 +425,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
               const SizedBox(width: 8),
               _EmphasisIconButton(
                 icon: Icons.check,
-                tooltip: '记入比价',
+                tooltip: '按此主题记入',
                 color: theme.colorScheme.primary,
                 onPressed: () => _onTapRecord(i),
               ),
@@ -322,7 +440,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
           ),
         );
       case ReceiptLineStatus.recorded:
-        final topic = _recordedTopics[i] ?? '主题';
+        final topic = _topicTitles[i];
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Container(
@@ -346,6 +464,13 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
                     style: theme.textTheme.bodySmall,
                     overflow: TextOverflow.ellipsis,
                   ),
+                ),
+                // 改主题入口（边框强调 IconButton）
+                _EmphasisIconButton(
+                  icon: Icons.edit_outlined,
+                  tooltip: '改主题',
+                  color: theme.colorScheme.primary,
+                  onPressed: () => _changeTopic(i),
                 ),
               ],
             ),
