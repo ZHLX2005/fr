@@ -34,71 +34,29 @@
 
 ## 2. 设计
 
-### 2.1 标记接口
+### 2.1 目录结构（你确认的方案）
 
-```dart
-/// 持久化仓库标记接口。
-///
-/// 类似 Dart 社区惯用的「abstract class as tag」模式（参考 ChangeNotifier、
-/// Listenable）。无方法体，纯声明。
-///
-/// 通过 `implements HiveRepository` 标识一个类是「按 boxName 可寻的持久化
-/// 仓库」。未来想统一遍历/注册时用得到。
-abstract class HiveRepository {
-  /// box 名称（用于元数据查找 / 反射注册）。
-  String get boxName;
-}
+```
+lib/core/storage/
+├── box_descriptor.dart            ← 已有
+├── storage_registry.dart          ← 已有
+├── storage_manager.dart           ← 已有（纯查询代理）
+├── storage_exporter.dart          ← 已有
+├── storage_importer.dart          ← 已有
+├── hive_type_ids.dart             ← 已有（typeId 唯一真相源）
+└── hive/                          ← 新增（所有 Hive 仓库实现 + 接口都在这）
+    ├── hive_repository.dart       ← 标记接口
+    ├── hive_store.dart            ← 共享 Hive 初始化
+    ├── body_record_repository.dart
+    ├── timetable_repository.dart
+    ├── calendar_repository.dart
+    └── price_compare_repository.dart
 ```
 
-**关键**：不强制实现 CRUD（保持轻量）。子类只需要声明 `boxName` + 加标记。
-
-### 2.2 共享初始化
-
-```dart
-/// 统一管理 Hive 初始化 + box 句柄缓存。
-/// 所有 Repository 都通过它打开 box，避免重复 initFlutter / openBox。
-class HiveStore {
-  HiveStore._();
-  static final HiveStore instance = HiveStore._();
-  bool _initialized = false;
-  final Map<String, Box<dynamic>> _boxes = {};
-
-  Future<void> init() async {
-    if (_initialized) return;
-    await Hive.initFlutter();
-    _initialized = true;
-  }
-
-  Future<Box<dynamic>> openUntyped(String name) async {
-    await init();
-    return _boxes.putIfAbsent(name, () => Hive.box(name));
-  }
-
-  Future<void> closeAll() async { ... }
-}
-```
-
-### 2.3 改名 + 标记 + 切换的 4 域
-
-| 当前 | 改为 | 加标记 | 单例模式 |
-|---|---|---|---|
-| `BodyRecordRepo` (全局变量 `bodyRecordRepo`) | `BodyRecordRepository` + `bodyRecordRepository` | `implements HiveRepository` | **沿用全局变量**（最小改动） |
-| `HiveTimetableRepository` | `TimetableHiveRepository` 或保持 `HiveTimetableRepository`？ | `implements HiveRepository` | 保持实例 + `init()` |
-| `CalendarHive` | `CalendarRepository` | `implements HiveRepository` | **实例 + `init()`**（替代静态方法） |
-| `PriceCompareStore` | `PriceCompareRepository` | `implements HiveRepository` | 保持 `instance` 单例 |
-
-**改名决策**：
-
-- `BodyRecordRepo` → `BodyRecordRepository` + `bodyRecordRepository`（全局变量名 +1 后缀）
-- `HiveTimetableRepository` → **保持**（已有抽象基类 `TimetableRepository`，重命名会牵涉更广）
-- `CalendarHive` → `CalendarRepository`（实例 + init）+ 删除 `CalendarHive.events/people/viewState` 静态 getter，改为 `calendarRepository.events` getter
-- `PriceCompareStore` → `PriceCompareRepository`（保留 `instance` 单例）
-
-**核心折衷**：保留 `HiveTimetableRepository` 名字（它已经有 `TimetableRepository` 抽象基类，是重型的合理设计），其他 3 个对齐。
-
-### 2.4 `HiveRepository` 标记接口放在哪里
-
-`lib/core/storage/hive_repository.dart`，与 `HiveStore` 同包（共享层）。
+**原则**：
+- `hive/` 下**扁平**：`hive_repository.dart`（接口）+ `hive_store.dart`（工具）+ 4 个域的 `*_repository.dart`（实现）
+- 业务模型（`BodyRecord`、`PriceTopic` 等）仍在各自域目录，不动
+- UI 层从 `core/storage/hive/` import repo（如 `package:xiaodouzi_fr/core/storage/hive/body_record_repository.dart`）
 
 ---
 
@@ -107,12 +65,13 @@ class HiveStore {
 ### 文件改动一览
 
 **新建**：
-- `lib/core/storage/hive_repository.dart`（标记接口 + `HiveStore` 单例）
+- `lib/core/storage/hive/hive_repository.dart`（标记接口）
+- `lib/core/storage/hive/hive_store.dart`（共享初始化）
 
-**重命名**：
-- `lib/core/body/models/body_record_repo.dart` → `body_record_repository.dart`，类 `BodyRecordRepo` → `BodyRecordRepository`
-- `lib/lab/demos/calendar/data/calendar_hive.dart` → `calendar_repository.dart`，类 `CalendarHive` → `CalendarRepository`
-- `lib/lab/demos/price_compare/price_compare_store.dart` → `price_compare_repository.dart`，类 `PriceCompareStore` → `PriceCompareRepository`
+**重命名 + 移动**：
+- `lib/core/body/models/body_record_repo.dart` → `lib/core/storage/hive/body_record_repository.dart`，类 `BodyRecordRepo` → `BodyRecordRepository`
+- `lib/lab/demos/calendar/data/calendar_hive.dart` → `lib/core/storage/hive/calendar_repository.dart`，类 `CalendarHive` → `CalendarRepository`
+- `lib/lab/demos/price_compare/price_compare_store.dart` → `lib/core/storage/hive/price_compare_repository.dart`，类 `PriceCompareStore` → `PriceCompareRepository`
 
 **修改**：
 - 所有调用方更新 import + 类名
