@@ -633,7 +633,14 @@ class _ActionButton extends StatelessWidget {
         icon: Icon(icon, size: 20),
         label: Text(label),
         style: OutlinedButton.styleFrom(
-          foregroundColor: isPrimary ? Colors.white : const Color(0xFF111111),
+          // primary = 暗底白字（主操作）；secondary = 描边透明底。
+          // 若 primary 只给白字不给暗底，落在白色面板上整块「全白」。
+          backgroundColor:
+              isPrimary ? const Color(0xFF111111) : Colors.transparent,
+          foregroundColor:
+              isPrimary ? Colors.white : const Color(0xFF111111),
+          disabledBackgroundColor:
+              isPrimary ? const Color(0xFFE8E8E5) : Colors.transparent,
           disabledForegroundColor: const Color(0xFF9A9A96),
           side: BorderSide(
             color: (isPrimary
