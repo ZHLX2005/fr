@@ -16,7 +16,7 @@ import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 import 'engine.dart';
 import 'board.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
-    show RelayV3Exception;
+    show RelayV3Exception, WSCloseEvent;
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
 
@@ -254,6 +254,9 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
 /// 暖红色（错误提示，避免纯红）
 const Color _warnColor = Color(0xFFB33A1F);
 
+/// 断线重连连续失败的判定次数（join 失败按 0.5s·2^n 退避重试）
+const int kMaxRecoverAttempts = 5;
+
 class OnlineGamePage extends StatefulWidget {
   const OnlineGamePage({
     super.key,
@@ -281,17 +284,27 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   bool _bustDeclared = false; // 防止 LOSE 重发
   DateTime? _lastSyncAt; // SYNC 节流
 
+  // 断线恢复态：WS 断开 → 终止本地游戏（暂停）→ rejoin 重连 → 恢复
+  StreamSubscription<WSCloseEvent>? _closeSub;
+  bool _disconnected = false; // WS 断开中
+  bool _recoverFailed = false; // 重连连续失败 → 提示离开
+  int _recoverAttempts = 0;
+  Timer? _recoverTimer;
+
   @override
   void initState() {
     super.initState();
     _room = TetrisRoom(widget.handle);
     _snap = widget.handle.latest;
     _sub = widget.handle.snapshots.listen(_onSnapshot);
+    _closeSub = widget.handle.closeEvents.listen(_onDisconnect);
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _closeSub?.cancel();
+    _recoverTimer?.cancel();
     _gravityTimer?.cancel();
     _repeatTimer?.cancel();
     _engine?.dispose();
@@ -301,6 +314,27 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
     setState(() => _snap = s);
+
+    // 断线恢复：自己重新出现在 players（rejoin 成功 / WS 重连拿到新鲜快照）
+    // → 结束断开态，恢复本地游戏并重报 state（断连期间 states 可能被清）。
+    if (_disconnected) {
+      if (TetrisRoom.players(s)[_room.deviceId] == null) {
+        return; // 还没恢复（自己尚未回到房间），等下一次快照
+      }
+      _recoverTimer?.cancel();
+      _recoverTimer = null;
+      _recoverAttempts = 0;
+      setState(() {
+        _disconnected = false;
+        _recoverFailed = false;
+      });
+      if (s.state == 'playing') {
+        _ensureEngine();
+        _lastSyncAt = null; // 强制重报，把当前棋盘重新填回 states
+        _syncNow();
+        _scheduleGravity();
+      }
+    }
 
     final phase = s.state;
     if (phase == 'playing') {
@@ -317,6 +351,45 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (_ackedLocally && phase != 'lobby' && phase != 'ready') {
       _ackedLocally = false;
     }
+  }
+
+  /// WS 断开：终止本地游戏（暂停重力/输入、保留棋盘与分数），
+  /// 并尝试重连，避免盲玩导致双方脱节。
+  void _onDisconnect(WSCloseEvent event) {
+    if (!mounted || _disconnected) return;
+    _gravityTimer?.cancel();
+    _gravityTimer = null;
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+    setState(() {
+      _disconnected = true;
+      _recoverFailed = false;
+    });
+    _recoverAttempts = 0;
+    _recover();
+  }
+
+  /// 重连：rejoin 重新注册 sub + 连 WS。join 失败（瞬时断网）指数退避重试，
+  /// 连续 [kMaxRecoverAttempts] 次仍失败 → 提示离开。
+  Future<void> _recover() async {
+    if (!mounted || !_disconnected) return;
+    _recoverAttempts++;
+    final ok = await widget.handle.rejoin();
+    if (!mounted) return;
+    if (ok) {
+      // join 成功：sub 已重新注册，WS 由 rejoin 内部重连；
+      // 恢复由 _onSnapshot（收到新鲜快照且自己回到 players）完成。
+      return;
+    }
+    if (_recoverAttempts >= kMaxRecoverAttempts) {
+      setState(() => _recoverFailed = true);
+      return;
+    }
+    _recoverTimer?.cancel();
+    _recoverTimer = Timer(
+      Duration(milliseconds: 500 * (1 << _recoverAttempts)),
+      _recover,
+    );
   }
 
   void _ensureEngine() {
@@ -377,13 +450,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       return;
     }
     _lastSyncAt = now;
+    // 断连瞬间可能失败：吞掉，避免未处理异步异常
     _room.syncState(
       board: eng.boardSnapshot(),
       score: eng.score,
       lines: eng.lines,
       pieceIndex: eng.pieceIndex,
       alive: eng.alive,
-    );
+    ).catchError((_) {});
   }
 
   void _declareBust() {
@@ -392,7 +466,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _gravityTimer?.cancel();
     _repeatTimer?.cancel();
     final eng = _engine;
-    _room.bust(eng?.score ?? 0);
+    _room.bust(eng?.score ?? 0).catchError((_) {});
   }
 
   // ── 网络动作 ──
@@ -407,8 +481,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     }
   }
 
-  Future<void> _start() async => _room.start();
-  Future<void> _reset() async => _room.reset();
+  Future<void> _start() async {
+    try {
+      await _room.start();
+    } catch (_) {
+      // 断连瞬间失败：由恢复层接管
+    }
+  }
+
+  Future<void> _reset() async {
+    try {
+      await _room.reset();
+    } catch (_) {
+      // 断连瞬间失败：由恢复层接管
+    }
+  }
 
   // ── 本地操作（即时，不走网络）──
 
@@ -454,12 +541,68 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   @override
   Widget build(BuildContext context) {
     final phase = _snap?.state;
+    final Widget content;
     // lobby 与 ready 共用同一张卡片，只切换底部按钮区（三态原地切换）
     if (phase == null || phase == 'lobby' || phase == 'ready') {
-      return _buildLobby();
+      content = _buildLobby();
+    } else if (phase == 'ended') {
+      content = _buildFinished();
+    } else {
+      content = _buildPlaying();
     }
-    if (phase == 'ended') return _buildFinished();
-    return _buildPlaying();
+    if (!_disconnected) return content;
+    // 断线恢复层：终止本地游戏后盖在任意阶段上，恢复后自动消失
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        content,
+        ColoredBox(
+          color: Colors.black54,
+          child: Center(
+            child: _recoverFailed
+                ? _buildRecoverFailed()
+                : const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 12),
+                      Text(
+                        '连接断开，正在重连…',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 重连连续失败：给出离开入口，避免无限转圈。
+  Widget _buildRecoverFailed() {
+    final theme = BoardTheme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          '连接恢复失败',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton(
+          onPressed: widget.onLeave,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.btnText,
+            side: BorderSide(color: theme.btnText.withValues(alpha: 0.4)),
+          ),
+          child: const Text('离开房间'),
+        ),
+      ],
+    );
   }
 
   Widget _buildLobby() {
