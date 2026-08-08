@@ -45,42 +45,50 @@ kv 清单页面支持：查询我的工作空间、切换当前激活的工作�
 
 既有调用方（`cloud_storage_sync.dart` 走 `KvOps` 接口）不传即行为不变——**向后兼容**。
 
-### 3. demo 状态与注入（改 `lib/lab/demos/kvcli_todo_demo.dart`）
+### 3. 激活工作空间 ref 存储（新文件 `lib/lab/demos/kvcli_todo/active_group_provider.dart`）
 
-- 状态：`int _activeGroupId = 0`；`List<KvGroup> _groups = const []`。
-- `initState` 里从 SharedPreferences 读激活组（key 常量见下），失败回落 0。
-- `_loadAll()` 并行拉：`groupEndpoint.list()` → `_groups`；`_readTasks(open)`、`_readTasks(done)`、`_readTopics()` —— 三个读都带当前 `groupId`。
+- `StateNotifierProvider<ActiveGroupNotifier, int>`，值 = 激活 groupId（**0 = 服务端默认组**）。
+- `ActiveGroupNotifier extends StateNotifier<int>`：
+  - `load()`：从 SharedPreferences 读 `kvtodo-default-group`，失败回落 0。
+  - `set(int id)`：`state = id` + 持久化到 `kvtodo-default-group`（失败忽略）。
+- 持久化 key 常量放 `const_kvcli_todo.dart`：`prefActiveGroup = 'kvtodo-default-group'`。
+- provider 注册位置：`active_group_provider.dart` 文件内（demo 专属状态，不进全局 `api_providers.dart`）。
+
+### 3b. demo 注入（改 `lib/lab/demos/kvcli_todo_demo.dart`）
+
+- `_KvcliTodoDemoPage` 改 `ConsumerStatefulWidget`（持有 `ref`）。
+- 状态：`List<KvGroup> _groups = const []`；激活组来自 `ref.watch(activeGroupProvider)`（build 里取 label 用，操作时 `ref.read`）。
+- `_loadAll()` 先 `await ref.read(activeGroupProvider.notifier).load()`（确保已载入），再并行拉：`groupEndpoint.list()` → `_groups`；`_readTasks(open)`、`_readTasks(done)`、`_readTopics()` —— 三个读都带当前 groupId。
   - groups 拉取失败：不阻塞，`_groups` 保持空，AppBar 回落「工作空间」，toast 提示。
-- 所有写操作统一传 `groupId: _activeGroupId == 0 ? null : _activeGroupId`：
-  - `_add` / `_markDone` / `_editTask` / `_deleteTask` / `_cloneTask` / `_clearDoneToCold` / `_clearAll` / `_addTopic` / `_deleteTopic`。
-  - 集中：在 `_readTasks`/`_saveTasks`/`_saveTopics`/`_writeKey` 内部传，避免散落。
+- **groupId 三元注入**：所有 KV 接口统一 `groupId: gid == 0 ? null : gid`（`gid = ref.read(activeGroupProvider)`；**不为空才 set**，后端回落默认组）：
+  - 集中在 `_readTasks`/`_readTopics`/`_writeKey`/`_saveTasks`/`_saveTopics` + `_clearAll`/`_clearDoneToCold` 的 delete 调用内部传，避免散落。
 
 ### 4. 常量（改 `lib/lab/demos/kvcli_todo/const_kvcli_todo.dart`）
 
 ```dart
 /// 激活工作空间持久化 key（SharedPreferences，int；0=服务端默认组）
-static const String prefActiveGroup = 'kvcli_todo_active_group';
+static const String prefActiveGroup = 'kvtodo-default-group';
 ```
 
 ### 5. UI（AppBar 入口）
 
 - AppBar 标题改 `Row`：`Text('KV 清单')` + 间距 + 工作空间 chip：
-  - 显示逻辑：`_activeGroupId == 0` → 「工作空间 · 默认」；`>0` → 在 `_groups` 按 id 找名，找到显示「工作空间 · <name>」，找不到「工作空间 · #<id>」；`_groups` 空且 >0 → 「工作空间 · #<id>」。
+  - 显示逻辑（`gid = ref.watch(activeGroupProvider)`）：`gid == 0` → 「工作空间 · 默认」；`>0` → 在 `_groups` 按 id 找名，找到显示「工作空间 · <name>」，找不到「工作空间 · #<id>」；`_groups` 空且 >0 → 「工作空间 · #<id>」。
   - chip 带 `arrow_drop_down` 图标，`onTap → _openWorkspaceSheet()`。
-- `_openWorkspaceSheet()` → `showModalBottomSheet`：
+- `_openWorkspaceSheet()` → `showModalBottomSheet<int>`：
   - 第一行固定「默认组（服务端）」（id=0），激活时 ◉ 高亮。
   - 之后每项 `_groups` 的 group：`name` + `myRole` 标签；激活 ◉ / 未激活 ○。
-  - 点击行 → `prefs.setInt(prefActiveGroup, id)` → `setState(_activeGroupId = id)` → `_loadAll()`（该组数据立即可见）。
+  - 点击行 → `ref.read(activeGroupProvider.notifier).set(id)` → `_loadAll()`（该组数据立即可见）。
   - 空态：`_groups` 为空只显示「默认组（服务端）」一行。
-  - 切换失败（prefs 写失败）：toast，不改变当前状态。
+  - 持久化失败：不阻断切换，toast 提示。
 
 ## 数据流
 
 ```
-初始化: prefs.read(prefActiveGroup) → _activeGroupId
-        _loadAll(): GET /groups + GET kv(open/done/topics, groupId=_activeGroupId)
-选空间: sheet 选中 id → prefs.write → setState(_activeGroupId) → _loadAll()
-写操作: 全部带 groupId → 落在该组命名空间（与 kvcli 注入语义一致）
+初始化: notifier.load() 读 prefs 'kvtodo-default-group' → ref 值
+        _loadAll(): GET /groups + GET kv(open/done/topics, groupId = gid==0?null:gid)
+选空间: sheet 选中 id → notifier.set(id)（prefs 写 + state）→ _loadAll()
+写操作: 全部 groupId: gid==0?null:gid → 落在该组命名空间（与 kvcli 注入语义一致）
 ```
 
 ## 错误处理
