@@ -16,9 +16,10 @@ class KvEndpoint implements KvOps {
   KvEndpoint(this._client);
 
   @override
-  Future<ApiResponse<KvItem?>> get(String key) => _client.request<KvItem>(
+  Future<ApiResponse<KvItem?>> get(String key, {int? groupId}) =>
+      _client.request<KvItem>(
         method: 'GET',
-        path: '/api/v1/kv/$key',
+        path: '/api/v1/kv/$key${_gidQuery(groupId, hasQuery: false)}',
         fromJson: (json) => KvItem.fromJson(json),
       );
 
@@ -27,26 +28,46 @@ class KvEndpoint implements KvOps {
     required String key,
     required String value,
     int? ttl,
-  }) =>
+    int? groupId,
+  }) {
+    final includeGid = groupId != null && groupId > 0;
+    return _client.request<void>(
+      method: 'POST',
+      path: '/api/v1/kv',
+      body: {
+        'key': key,
+        'value': value,
+        'ttl': ?ttl,
+        if (includeGid) 'groupId': groupId,
+      },
+    );
+  }
+
+  @override
+  Future<ApiResponse<void>> delete(String key, {int? groupId}) =>
       _client.request<void>(
-        method: 'POST',
-        path: '/api/v1/kv',
-        body: {'key': key, 'value': value, if (ttl != null) 'ttl': ttl},
-      );
-
-  @override
-  Future<ApiResponse<void>> delete(String key) => _client.request<void>(
         method: 'DELETE',
-        path: '/api/v1/kv/$key',
+        path: '/api/v1/kv/$key${_gidQuery(groupId, hasQuery: false)}',
       );
 
   @override
-  Future<ApiResponse<KvListResult>> list({int limit = 50, int offset = 0}) =>
+  Future<ApiResponse<KvListResult>> list({
+    int limit = 50,
+    int offset = 0,
+    int? groupId,
+  }) =>
       _client.request<KvListResult>(
         method: 'GET',
-        path: '/api/v1/kv?limit=$limit&offset=$offset',
+        path:
+            '/api/v1/kv?limit=$limit&offset=$offset${_gidQuery(groupId, hasQuery: true)}',
         fromJson: (json) => KvListResult.fromJson(json),
       );
+
+  /// groupId 有效(>0)时拼 query：已有 query 用 `&`，否则 `?`。
+  String _gidQuery(int? groupId, {required bool hasQuery}) {
+    if (groupId == null || groupId <= 0) return '';
+    return '${hasQuery ? '&' : '?'}groupId=$groupId';
+  }
 }
 
 class KvItem {

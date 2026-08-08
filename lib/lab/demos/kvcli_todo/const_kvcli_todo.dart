@@ -19,6 +19,9 @@ class KvCliTodoConst {
   /// 冷数据 key 前缀（已完成清理归档；app 只写不查）
   static const String keyDoneColdPrefix = 'todo:done:cold:';
 
+  /// 激活工作空间持久化 key（SharedPreferences，int；0=服务端默认组）
+  static const String prefActiveGroup = 'kvtodo-default-group';
+
   /// 按日期分片的冷数据 key，避免同前缀被覆盖。
   static String coldKeyFor(DateTime d) {
     String two(int n) => n.toString().padLeft(2, '0');

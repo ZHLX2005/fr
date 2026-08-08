@@ -4,6 +4,7 @@ import '../api_client.dart';
 import '../token/token_storage.dart';
 import '../token/token_manager.dart';
 import '../goframe/kv/kv_endpoint.dart';
+import '../goframe/group/group_endpoint.dart';
 import '../goframe/file/file_endpoint.dart';
 import '../goframe/download/download_controller.dart';
 import '../goframe/download/apk_endpoint.dart';
@@ -37,6 +38,10 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 final kvEndpointProvider = Provider<KvEndpoint>((ref) {
   return KvEndpoint(ref.watch(apiClientProvider));
+});
+
+final groupEndpointProvider = Provider<GroupEndpoint>((ref) {
+  return GroupEndpoint(ref.watch(apiClientProvider));
 });
 
 final fileEndpointProvider = Provider<FileEndpoint>((ref) {
