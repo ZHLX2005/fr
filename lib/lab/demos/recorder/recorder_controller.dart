@@ -255,6 +255,8 @@ class RecorderController extends ChangeNotifier {
     _lastSavedPath = null;
     _lastFileSize = 0;
     _elapsed = Duration.zero;
+    // 同步 tickNotifier,理由同 commitSave。
+    _tickNotifier.value = _elapsed;
     _state = RecorderState.idle;
     _stopAmplitude();
     _safeNotify();
@@ -274,6 +276,9 @@ class RecorderController extends ChangeNotifier {
     _lastSavedPath = null;
     _lastFileSize = 0;
     _elapsed = Duration.zero;
+    // tickNotifier 必须同步写零:ElapsedDisplay 只订阅 tickListenable,
+    // 不订阅 ChangeNotifier,这里必须主动推一次零。
+    _tickNotifier.value = _elapsed;
     _state = RecorderState.idle;
     _stopAmplitude();
     _safeNotify();
