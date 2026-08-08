@@ -10,6 +10,41 @@ import '../../widgets/springy_banner.dart';
 import '../../widgets/bounded_bouncing_scroll_physics.dart';
 import 'character_profile_page.dart';
 
+/// App 级 banner 路径缓存。
+///
+/// 为何需要：首页传送带切换（main.dart）会让 ProfilePage 的 State 销毁重建，
+/// 新 State 的 `_bannerPath` 要异步读 SharedPreferences，期间露出占位渐变 =
+/// 切换闪屏。这里在 app 启动时预热一次，State 建建时同步可取，消除占位帧。
+class HomeBannerCache {
+  HomeBannerCache._();
+
+  static const String key = 'home_banner_path';
+
+  static String? path;
+  static bool ready = false;
+
+  /// 启动时调一次（幂等）。从 SharedPreferences 读 banner 路径填入 [path]。
+  static Future<void> warmUp() async {
+    if (ready) return;
+    final prefs = await SharedPreferences.getInstance();
+    path = prefs.getString(key);
+    ready = true;
+  }
+
+  /// 用户设置/更换 banner 后调，同步更新缓存。
+  static void refresh(String? newPath) {
+    path = newPath;
+    ready = true;
+  }
+
+  /// 测试专用：重置缓存。
+  @visibleForTesting
+  static void resetForTest() {
+    path = null;
+    ready = false;
+  }
+}
+
 // 首页
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -85,19 +120,19 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadBanner();
-  }
-
-  Future<void> _loadBanner() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _bannerPath = prefs.getString(_bannerKey);
-    });
+    // 同步取预热值（消除切换 State 重建的占位帧）；预热未完成则等其完成再刷新。
+    _bannerPath = HomeBannerCache.path;
+    if (!HomeBannerCache.ready) {
+      HomeBannerCache.warmUp().then((_) {
+        if (mounted) setState(() => _bannerPath = HomeBannerCache.path);
+      });
+    }
   }
 
   Future<void> _saveBanner(String path) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_bannerKey, path);
+    HomeBannerCache.refresh(path);
   }
 
   Future<void> _openCropPage() async {
@@ -116,6 +151,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _removeBanner() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_bannerKey);
+    HomeBannerCache.refresh(null);
     setState(() {
       _bannerPath = null;
     });

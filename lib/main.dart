@@ -199,6 +199,8 @@ class _MainScreenState extends State<MainScreen>
   @override
   void initState() {
     super.initState();
+    // 预热 banner 路径，消除首页切换时 ProfilePage State 重建的占位帧（fr #3）
+    HomeBannerCache.warmUp();
     _ctrl = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
