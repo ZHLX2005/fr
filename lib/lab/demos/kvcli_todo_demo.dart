@@ -99,6 +99,9 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   bool _loading = true;
   int _tab = 0; // 0 = 待办，1 = 已完成
 
+  /// 写操作前的 refetch 期间为 true。避免并发点击叠加二次 refetch。
+  bool _refreshing = false;
+
   /// 激活组注入 KV 的三元值：0 → null（后端回落默认组），>0 → 原值。
   int? get _gid {
     final gid = ref.read(activeGroupProvider);
@@ -186,9 +189,35 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     }
   }
 
+  /// 写操作前的 refetch：把本地 _open / _done / _topics 替换为 server 最新值。
+  /// 本地优先丢弃策略：本次操作将在 server 最新基础上叠加后再写回。
+  /// 接受毫秒级竞态放弃（用户明确）。
+  Future<void> _refreshLatest() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      final open = await _readTasks(KvCliTodoConst.keyOpen);
+      final done = await _readTasks(KvCliTodoConst.keyDone);
+      final topics = await _readTopics();
+      if (!mounted) return;
+      setState(() {
+        _open = open;
+        _done = done;
+        _topics = topics;
+      });
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   // ── 操作层 ───────────────────────────────────────────────────────────
 
   Future<void> _add() async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
     final topic = _topicCtrl.text.trim();
     final text = _textCtrl.text.trim();
     if (topic.isEmpty || text.isEmpty) {
@@ -227,6 +256,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   Future<void> _markDone(KvTask task) async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
+    if (!mounted) return;
     final note = await showKvDoneResultDialog(context, task);
     if (note == null) return; // 用户取消
 
@@ -251,6 +286,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   Future<void> _editTask(KvTask task, {required bool isDone}) async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
+    if (!mounted) return;
     final r = await showKvTaskEditDialog(context, task: task, isDone: isDone);
     if (r == null) return;
     final updated = task.edited(topic: r.topic, text: r.text, note: r.note);
@@ -272,6 +313,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   Future<void> _deleteTask(KvTask task, {required bool isDone}) async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
+    if (!mounted) return;
     final ok = await showKvTaskDeleteConfirm(context, task);
     if (!ok) return;
     try {
@@ -293,6 +340,11 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
 
   /// 克隆已完成任务回待办：新 id、保留 topic/text，重新走待办流程。
   Future<void> _cloneTask(KvTask task) async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
     var maxId = 0;
     for (final t in _open) {
       if (t.id > maxId) maxId = t.id;
@@ -317,6 +369,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
 
   /// 把全部已完成归档到冷数据 key（按日期分片，app 只写不查），再清空已完成。
   Future<void> _clearDoneToCold() async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
+    if (!mounted) return;
     final ok = await showKvClearDoneConfirm(context, _done.length);
     if (!ok) return;
     final coldKey = KvCliTodoConst.coldKeyFor(DateTime.now());
@@ -338,6 +396,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   Future<bool> _addTopic() async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return false;
+    }
+    await _refreshLatest();
+    if (!mounted) return false;
     final name = await showKvAddTopicDialog(
       context,
       initial: _topicCtrl.text.trim(),
@@ -360,6 +424,11 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   Future<bool> _deleteTopic(String topic) async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return false;
+    }
+    await _refreshLatest();
     final next = _topics.where((t) => t != topic).toList();
     try {
       await _saveTopics(next);
@@ -373,6 +442,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   Future<void> _clearAll() async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
+    if (!mounted) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
