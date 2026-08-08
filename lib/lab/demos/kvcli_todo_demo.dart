@@ -570,6 +570,31 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     await _loadAll();
   }
 
+  /// AppBar actions 第 1 位：工作空间切换按钮。
+  /// 形态：IconButton + tooltip + 限宽组名，避免 chip + 文字塞进窄屏 title 行导致挤压交错。
+  Widget _buildWorkspaceAction(ColorScheme scheme, int gid) {
+    final name = _groupLabel(gid);
+    return IconButton(
+      tooltip: '工作空间：$name（点击切换）',
+      onPressed: _loading ? null : _openWorkspaceSheet,
+      icon: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.workspaces_outlined, size: 18, color: scheme.primary),
+          const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 72),
+            child: Text(
+              name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: scheme.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _toast(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -584,47 +609,10 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('KV 清单'),
-            const SizedBox(width: 10),
-            InkWell(
-              onTap: _openWorkspaceSheet,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: scheme.primary.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.workspaces_outlined,
-                        size: 14, color: scheme.primary),
-                    const SizedBox(width: 4),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 140),
-                      child: Text(
-                        '工作空间 · ${_groupLabel(gid)}',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: scheme.primary),
-                      ),
-                    ),
-                    Icon(Icons.arrow_drop_down,
-                        size: 16, color: scheme.primary),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+        title: const Text('KV 清单'),
         backgroundColor: scheme.inversePrimary,
         actions: [
+          _buildWorkspaceAction(scheme, gid),
           IconButton(
             tooltip: '刷新',
             icon: const Icon(Icons.refresh),
