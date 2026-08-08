@@ -185,14 +185,21 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
       createdAt: DateTime.now().toIso8601String(),
     );
     final next = [..._open, task];
+    // 主题不在快捷列表 → 一并写入 todo:topics（两把 key 一起写，失败整单放弃）
+    final addTopic = !_topics.contains(topic);
+    final nextTopics = addTopic ? [..._topics, topic] : _topics;
     try {
       await _saveTasks(KvCliTodoConst.keyOpen, next);
+      if (addTopic) await _saveTopics(nextTopics);
     } catch (e) {
       _toast('提交失败：${_errMsg(e)}');
       return;
     }
     if (!mounted) return;
-    setState(() => _open = next);
+    setState(() {
+      _open = next;
+      if (addTopic) _topics = nextTopics;
+    });
     _textCtrl.clear();
     _textFocus.requestFocus();
   }
