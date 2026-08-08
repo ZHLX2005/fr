@@ -477,6 +477,99 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     );
   }
 
+  /// 激活组显示名：0→默认；命中 _groups 用其 name；找不到→#id。
+  String _groupLabel(int gid) {
+    if (gid == 0) return '默认';
+    for (final g in _groups) {
+      if (g.id == gid) return g.name;
+    }
+    return '#$gid';
+  }
+
+  Future<void> _openWorkspaceSheet() async {
+    final gid = ref.read(activeGroupProvider);
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        final scheme = Theme.of(sheetCtx).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('工作空间',
+                    style: Theme.of(sheetCtx).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      _workspaceTile(
+                        sheetCtx,
+                        scheme,
+                        id: 0,
+                        name: '默认组（服务端）',
+                        role: '',
+                        active: gid == 0,
+                      ),
+                      for (final grp in _groups)
+                        _workspaceTile(
+                          sheetCtx,
+                          scheme,
+                          id: grp.id,
+                          name: grp.name,
+                          role: grp.myRole,
+                          active: gid == grp.id,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (selected == null || selected == gid) return;
+    await _setActiveGroup(selected);
+  }
+
+  Widget _workspaceTile(
+    BuildContext ctx,
+    ColorScheme scheme, {
+    required int id,
+    required String name,
+    required String role,
+    required bool active,
+  }) {
+    return ListTile(
+      dense: true,
+      leading: Icon(
+        active ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        size: 18,
+        color: active ? scheme.primary : scheme.outline,
+      ),
+      title: Text(name),
+      subtitle: role.isNotEmpty
+          ? Text(role, style: TextStyle(fontSize: 11, color: scheme.outline))
+          : null,
+      trailing: active
+          ? Text('当前',
+              style: TextStyle(fontSize: 11, color: scheme.primary))
+          : null,
+      onTap: () => Navigator.pop(ctx, id),
+    );
+  }
+
+  Future<void> _setActiveGroup(int id) async {
+    await ref.read(activeGroupProvider.notifier).set(id);
+    if (!mounted) return;
+    await _loadAll();
+  }
+
   void _toast(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -487,10 +580,49 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final gid = ref.watch(activeGroupProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('KV 清单'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('KV 清单'),
+            const SizedBox(width: 10),
+            InkWell(
+              onTap: _openWorkspaceSheet,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: scheme.primary.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.workspaces_outlined,
+                        size: 14, color: scheme.primary),
+                    const SizedBox(width: 4),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 140),
+                      child: Text(
+                        '工作空间 · ${_groupLabel(gid)}',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: scheme.primary),
+                      ),
+                    ),
+                    Icon(Icons.arrow_drop_down,
+                        size: 16, color: scheme.primary),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: scheme.inversePrimary,
         actions: [
           IconButton(
