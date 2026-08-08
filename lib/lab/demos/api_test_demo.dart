@@ -69,7 +69,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   }
 
   Future<void> _downloadApkWithBrowser() async {
-    const url = 'http://47.110.80.47:8988/api/v1/file/fr_latest_apk';
+    const url = 'http://47.110.80.47:8988/files/by-key/fr_latest_apk';
     final uri = Uri.parse(url);
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -403,7 +403,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             ),
                             SizedBox(height: 4),
                             SelectableText(
-                              'http://47.110.80.47:8988/api/v1/file/fr_latest_apk',
+                              'http://47.110.80.47:8988/files/by-key/fr_latest_apk',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.blue,
@@ -412,7 +412,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             ),
                             SizedBox(height: 4),
                             Text(
-                              'Key: fr_latest_apk (覆盖更新) | TTL: 30天',
+                              'Key: fr_latest_apk (覆盖更新) | 永不过期',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey,

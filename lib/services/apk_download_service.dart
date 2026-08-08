@@ -164,7 +164,7 @@ Future<void> _runDownload(
   _BgController ctrl,
 ) async {
   const fileKey = 'fr_latest_apk';
-  const url = 'http://47.110.80.47:8988/api/v1/file/$fileKey';
+  const url = 'http://47.110.80.47:8988/files/by-key/$fileKey';
 
   try {
     final dir = await getApplicationDocumentsDirectory();

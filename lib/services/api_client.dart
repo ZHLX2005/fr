@@ -70,7 +70,7 @@ class ApiService {
   // 下载APK（通过key）
   static Future<http.Response?> downloadApk() async {
     try {
-      final uri = Uri.parse('$baseUrl/api/v1/file/fr_latest_apk');
+      final uri = Uri.parse('$baseUrl/files/by-key/fr_latest_apk');
       return await http.get(uri);
     } catch (e) {
       return null;
@@ -90,7 +90,7 @@ class ApiService {
     }
 
     const fileKey = 'fr_latest_apk';
-    final url = '$baseUrl/api/v1/file/$fileKey';
+    final url = '$baseUrl/files/by-key/$fileKey';
 
     try {
       final dir = await getApplicationDocumentsDirectory();

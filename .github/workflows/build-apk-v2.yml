@@ -112,16 +112,19 @@ jobs:
           APK_FILE=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
           if [ -n "$APK_FILE" ]; then
             echo "Uploading $APK_FILE to file server..."
-            # v2 上传用独立 key，避免覆盖 v1 的 fr_latest_apk
+            # v2 上传用独立 key，避免覆盖 v1 的 fr_latest_apk（新 file 接口 by-key 覆盖更新，
+            # 服务端软删旧行，/files/by-key/{key} 永远指向最新）
             UPLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
             DOWNLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
-            RESPONSE=$(curl -s -X POST "http://47.110.80.47:8988/api/v1/upload/${UPLOAD_KEY}" \
+            RESPONSE=$(curl -s -X POST "http://47.110.80.47:8988/api/v1/files" \
               -F "file=@$APK_FILE" \
-              -F "ttl=0")
+              -F "key=${UPLOAD_KEY}" \
+              -F "accessLevel=public" \
+              -F "expireSeconds=0")
             echo "Upload response: $RESPONSE"
-            if echo "$RESPONSE" | grep -q '"code":0'; then
+            if echo "$RESPONSE" | grep -Eq '"code":[[:space:]]*0'; then
               echo "APK uploaded successfully"
-              echo "download_url=http://47.110.80.47:8988/api/v1/file/${DOWNLOAD_KEY}" >> $GITHUB_ENV
+              echo "download_url=http://47.110.80.47:8988/files/by-key/${DOWNLOAD_KEY}" >> $GITHUB_ENV
             else
               echo "APK uploaded failed, but continuing..."
             fi
