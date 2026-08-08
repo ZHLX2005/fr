@@ -8,6 +8,7 @@ import '../../../../native/home_widget/clock_widget_data.dart';
 import '../../../../native/home_widget/clock_widget_service.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
+import '../../metronome/sample_loader.dart';
 import 'beat_coordinator.dart';
 
 /// 极简时钟Provider
@@ -32,6 +33,9 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     // 走 BeatCoordinator.requestOwnership 之前，stream 已经 init 过，不会出现
     // "service 还没 ready 但有人 play/pause 了"的 race。
     MetronomeService.instance.ensureReady();
+    // 冷启动即还原用户声音槽到共享 FFI 单例，这样不先进 metronome 页、
+    // 直进 clock→beat 也能听到木鱼（修 beat 默认声 bug，fr #2）。
+    SampleLoader.restoreAtStartup();
     // 启动即加载数据并同步到桌面小组件
     // 之前要等 ClockDemo 页打开才 loadClocks，导致冷启动时 widget 看到的是空状态
     loadClocks();

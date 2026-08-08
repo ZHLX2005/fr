@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ffi_bindings.dart';
 
@@ -81,9 +82,54 @@ class SampleLoader {
     return MetronomeFFI.loadSample(level, absolutePath);
   }
 
+  // ==================== 启动期声音还原（修 beat 冷启动默认声 bug, fr #2）====================
+
+  /// 各 accent 槽的默认 soundId：weak=合成, medium=合成, accent=木鱼。
+  /// 为何 accent 默认木鱼：clock 的 beat 强拍落在 accent 槽，冷启动直进
+  /// clock→beat 必须有木鱼（fr #2），即使用户从没进过 metronome 配置。
+  static const List<int> _slotDefaults = [0, 0, 1];
+
+  /// 某槽的默认 soundId（0=合成, 1=木鱼）。
+  static int slotDefault(int level) =>
+      level >= 0 && level < _slotDefaults.length ? _slotDefaults[level] : 0;
+
+  /// 结合用户 SharedPreferences 存值与默认，得到该槽应使用的 soundId。
+  /// saved=null（没存过）→ 用默认；saved!=null → 尊重用户显式选择。
+  static int resolveSoundId(int? saved, int level) =>
+      saved ?? slotDefault(level);
+
+  static const String _slotKeyPrefix = 'metronome_slot_';
+
+  /// App 启动时调一次（幂等）。把用户在 metronome 页配过的声音槽还原到
+  /// 共享 FFI 单例，等价于"自动进过一次 metronome"，冷启动直进 clock→beat
+  /// 也能听到正确音色。accent 槽默认木鱼，无需用户配置。
+  static Future<void> restoreAtStartup() async {
+    if (_startupRestored) return;
+    _startupRestored = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (var level = 0; level < 3; level++) {
+        final saved = prefs.getInt('$_slotKeyPrefix$level');
+        final soundId = resolveSoundId(saved, level);
+        if (soundId == 1) {
+          final path = await materializeAsset('assets/audio/woodfish.wav');
+          MetronomeFFI.loadSample(level, path);
+        } else {
+          MetronomeFFI.clearSample(level);
+        }
+      }
+    } catch (_) {
+      // 失败回退：允许下次重试（如进入 metronome 页时 _restoreSoundSlots）。
+      _startupRestored = false;
+    }
+  }
+
+  static bool _startupRestored = false;
+
   /// Test-only: reset the cache and mount flag so tests get a clean slate.
   static void resetForTest() {
     _extractedCache.clear();
     _defaultsMounted = false;
+    _startupRestored = false;
   }
 }
