@@ -182,3 +182,149 @@ Future<String?> showKvAddTopicDialog(
   ctrl.dispose();
   return result;
 }
+
+/// 确认删除快捷 topic，返回是否确认。
+Future<bool> showKvTopicDeleteConfirm(BuildContext context, String topic) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('删除快捷 topic？'),
+      content: Text(topic, maxLines: 2, overflow: TextOverflow.ellipsis),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        OutlinedButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          style: EmphasisButton.dangerEmphasis(context),
+          child: const Text('删除'),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// 快捷 topic 管理弹层：顶部「+ 新增」，列表每行一个删除（44px 热区 + 确认）。
+Future<void> showKvTopicManagerSheet(
+  BuildContext context, {
+  required List<String> topics,
+  required Future<bool> Function() onAdd,
+  required Future<bool> Function(String) onDelete,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => _KvTopicManagerSheet(
+      topics: topics,
+      onAdd: onAdd,
+      onDelete: onDelete,
+    ),
+  );
+}
+
+class _KvTopicManagerSheet extends StatefulWidget {
+  const _KvTopicManagerSheet({
+    required this.topics,
+    required this.onAdd,
+    required this.onDelete,
+  });
+
+  final List<String> topics;
+  final Future<bool> Function() onAdd;
+  final Future<bool> Function(String) onDelete;
+
+  @override
+  State<_KvTopicManagerSheet> createState() => _KvTopicManagerSheetState();
+}
+
+class _KvTopicManagerSheetState extends State<_KvTopicManagerSheet> {
+  late final List<String> _topics = List.of(widget.topics);
+
+  Future<void> _add() async {
+    final name = await showKvAddTopicDialog(context);
+    if (name == null || name.isEmpty) return;
+    final ok = await widget.onAdd();
+    if (!ok || !mounted) return;
+    setState(() => _topics.add(name));
+  }
+
+  Future<void> _delete(String topic) async {
+    final ok = await showKvTopicDeleteConfirm(context, topic);
+    if (!ok) return;
+    final applied = await widget.onDelete(topic);
+    if (!applied || !mounted) return;
+    setState(() => _topics.remove(topic));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '快捷 topic',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Spacer(),
+                OutlinedButton.icon(
+                  onPressed: _add,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('新增'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: _topics.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        '暂无快捷 topic',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: scheme.outline),
+                      ),
+                    )
+                  : ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final t in _topics)
+                          ListTile(
+                            dense: true,
+                            leading: Icon(
+                              Icons.tag,
+                              size: 18,
+                              color: scheme.primary,
+                            ),
+                            title: Text(t),
+                            trailing: IconButton(
+                              tooltip: '删除',
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: scheme.error,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
+                              ),
+                              onPressed: () => _delete(t),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

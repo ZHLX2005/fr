@@ -50,18 +50,16 @@ class KvTabChip extends StatelessWidget {
   }
 }
 
-/// 快捷 topic chip：点击回填主题框，✕ 删除（持久化到 KV）。
+/// 快捷 topic chip：点击回填主题框。删除集中在管理弹层，chip 不带 ✕。
 class KvTopicChip extends StatelessWidget {
   const KvTopicChip({
     super.key,
     required this.label,
     this.onTap,
-    this.onDelete,
   });
 
   final String label;
   final VoidCallback? onTap;
-  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +68,7 @@ class KvTopicChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: EdgeInsets.only(left: 10, right: onDelete != null ? 4 : 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: accent.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(16),
@@ -79,74 +77,13 @@ class KvTopicChip extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: accent,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (onDelete != null) ...[
-              const SizedBox(width: 2),
-              InkWell(
-                onTap: onDelete,
-                borderRadius: BorderRadius.circular(10),
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: Icon(
-                    Icons.close,
-                    size: 12,
-                    color: accent.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 添加快捷 topic 的入口 chip（+）
-class KvAddTopicChip extends StatelessWidget {
-  const KvAddTopicChip({
-    super.key,
-    required this.onTap,
-  });
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.5),
-            width: 1,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: accent,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add, size: 12, color: accent),
-            const SizedBox(width: 2),
-            Text(
-              '快捷',
-              style: TextStyle(color: accent, fontSize: 12),
-            ),
-          ],
         ),
       ),
     );

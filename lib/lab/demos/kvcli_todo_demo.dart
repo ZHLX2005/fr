@@ -262,37 +262,39 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     }
   }
 
-  Future<void> _addTopic() async {
+  Future<bool> _addTopic() async {
     final name = await showKvAddTopicDialog(
       context,
       initial: _topicCtrl.text.trim(),
     );
-    if (name == null || name.isEmpty) return;
+    if (name == null || name.isEmpty) return false;
     if (_topics.contains(name)) {
       _toast('快捷 topic「$name」已存在');
-      return;
+      return false;
     }
     final next = [..._topics, name];
     try {
       await _saveTopics(next);
     } catch (e) {
       _toast('添加失败：${_errMsg(e)}');
-      return;
+      return false;
     }
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => _topics = next);
+    return true;
   }
 
-  Future<void> _deleteTopic(String topic) async {
+  Future<bool> _deleteTopic(String topic) async {
     final next = _topics.where((t) => t != topic).toList();
     try {
       await _saveTopics(next);
     } catch (e) {
       _toast('删除失败：${_errMsg(e)}');
-      return;
+      return false;
     }
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => _topics = next);
+    return true;
   }
 
   Future<void> _clearAll() async {
@@ -333,6 +335,71 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     _topicCtrl.text = topic;
     _topicCtrl.selection = TextSelection.collapsed(offset: topic.length);
     _textFocus.requestFocus();
+  }
+
+  // 独立快捷 topic 区块：标题 + ⚙ 管理；chip 横向滚动、点击回填
+  Widget _buildQuickTopicsSection(ColorScheme scheme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '快捷 topic',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.outline,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: '管理',
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                visualDensity: VisualDensity.compact,
+                onPressed: _openTopicManager,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (_topics.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Text(
+                '暂无快捷 topic，提交任务时自动收集',
+                style: TextStyle(fontSize: 11, color: scheme.outline),
+              ),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final t in _topics)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: KvTopicChip(
+                        label: t,
+                        onTap: () => _applyTopicChip(t),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openTopicManager() async {
+    await showKvTopicManagerSheet(
+      context,
+      topics: _topics,
+      onAdd: _addTopic,
+      onDelete: _deleteTopic,
+    );
   }
 
   void _toast(String msg) {
@@ -390,6 +457,8 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
               children: [
                 _buildComposer(scheme),
                 const Divider(height: 1),
+                _buildQuickTopicsSection(scheme),
+                const Divider(height: 1),
                 Expanded(child: _buildList()),
               ],
             ),
@@ -425,23 +494,6 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
                 child: const Text('+'),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                for (final t in _topics)
-                  KvTopicChip(
-                    label: t,
-                    onTap: () => _applyTopicChip(t),
-                    onDelete: () => _deleteTopic(t),
-                  ),
-                KvAddTopicChip(onTap: _addTopic),
-              ],
-            ),
           ),
           const SizedBox(height: 8),
           TextField(
