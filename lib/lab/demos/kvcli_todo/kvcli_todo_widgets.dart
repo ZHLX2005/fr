@@ -99,6 +99,7 @@ class KvTaskCard extends StatelessWidget {
     this.onDone,
     this.onEdit,
     this.onDelete,
+    this.onClone,
   });
 
   final KvTask task;
@@ -106,6 +107,7 @@ class KvTaskCard extends StatelessWidget {
   final VoidCallback? onDone;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onClone;
 
   @override
   Widget build(BuildContext context) {
@@ -186,6 +188,11 @@ class KvTaskCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    _IconAction(
+                      icon: Icons.content_copy_outlined,
+                      tooltip: '克隆',
+                      onTap: onClone,
+                    ),
                     _IconAction(
                       icon: Icons.edit_outlined,
                       tooltip: '编辑',

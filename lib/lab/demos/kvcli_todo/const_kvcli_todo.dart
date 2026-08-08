@@ -15,4 +15,13 @@ class KvCliTodoConst {
 
   /// 快捷 topic（tag）快照 key（String[] JSON）
   static const String keyTopics = 'todo:topics';
+
+  /// 冷数据 key 前缀（已完成清理归档；app 只写不查）
+  static const String keyDoneColdPrefix = 'todo:done:cold:';
+
+  /// 按日期分片的冷数据 key，避免同前缀被覆盖。
+  static String coldKeyFor(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '$keyDoneColdPrefix${d.year}-${two(d.month)}-${two(d.day)}';
+  }
 }

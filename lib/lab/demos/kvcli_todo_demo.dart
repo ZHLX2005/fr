@@ -269,6 +269,52 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     }
   }
 
+  /// 克隆已完成任务回待办：新 id、保留 topic/text，重新走待办流程。
+  Future<void> _cloneTask(KvTask task) async {
+    var maxId = 0;
+    for (final t in _open) {
+      if (t.id > maxId) maxId = t.id;
+    }
+    final cloned = KvTask(
+      id: maxId + 1,
+      topic: task.topic,
+      text: task.text,
+      createdAt: DateTime.now().toIso8601String(),
+    );
+    final next = [..._open, cloned];
+    try {
+      await _saveTasks(KvCliTodoConst.keyOpen, next);
+    } catch (e) {
+      _toast('克隆失败：${_errMsg(e)}');
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _open = next);
+    _toast('已克隆回待办：#${cloned.id}');
+  }
+
+  /// 把全部已完成归档到冷数据 key（按日期分片，app 只写不查），再清空已完成。
+  Future<void> _clearDoneToCold() async {
+    final ok = await showKvClearDoneConfirm(context, _done.length);
+    if (!ok) return;
+    final coldKey = KvCliTodoConst.coldKeyFor(DateTime.now());
+    try {
+      // 同一天多次清理 → 合并到同一冷数据 key
+      final existing = await _readTasks(coldKey);
+      final merged = [...existing, ..._done];
+      await _writeKey(
+        coldKey,
+        jsonEncode(merged.map((t) => t.toJson()).toList()),
+      );
+      await widget.kv.delete(KvCliTodoConst.keyDone);
+    } catch (e) {
+      _toast('清理失败：${_errMsg(e)}');
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _done = const []);
+  }
+
   Future<bool> _addTopic() async {
     final name = await showKvAddTopicDialog(
       context,
@@ -534,19 +580,47 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
         ),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-      itemCount: list.length,
-      itemBuilder: (context, i) {
-        final task = list[i];
-        return KvTaskCard(
-          task: task,
-          isOpen: isOpen,
-          onDone: isOpen ? () => _markDone(task) : null,
-          onEdit: () => _editTask(task, isDone: !isOpen),
-          onDelete: () => _deleteTask(task, isDone: !isOpen),
-        );
-      },
+    return Column(
+      children: [
+        if (!isOpen) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(
+              children: [
+                Text(
+                  '已完成 ${_done.length} 条',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _clearDoneToCold,
+                  style: EmphasisButton.dangerEmphasis(context),
+                  icon: const Icon(Icons.archive_outlined, size: 16),
+                  label: const Text('清理到冷数据'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+            itemCount: list.length,
+            itemBuilder: (context, i) {
+              final task = list[i];
+              return KvTaskCard(
+                task: task,
+                isOpen: isOpen,
+                onDone: isOpen ? () => _markDone(task) : null,
+                onEdit: () => _editTask(task, isDone: !isOpen),
+                onDelete: () => _deleteTask(task, isDone: !isOpen),
+                onClone: isOpen ? null : () => _cloneTask(task),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

@@ -328,3 +328,28 @@ class _KvTopicManagerSheetState extends State<_KvTopicManagerSheet> {
     );
   }
 }
+
+/// 确认把全部已完成归档到冷数据，返回是否确认。
+Future<bool> showKvClearDoneConfirm(BuildContext context, int count) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('清理已完成？'),
+      content: Text(
+        '将 $count 条已完成任务归档到冷数据 key（按日期分片，app 不再查询），并清空已完成列表。',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        OutlinedButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          style: EmphasisButton.dangerEmphasis(context),
+          child: const Text('归档'),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
