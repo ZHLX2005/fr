@@ -356,8 +356,9 @@ class _TimetableSettingsPageState
               if (picked == null) return;
               final monday = findNearestMondayOnOrBefore(picked);
               final iso = monday.toIso8601String().split('T')[0];
+              // 只回填，不自动保存——与点卡片走 WeekCalculatorDialog 路径一致，
+              // 避免整页被 pop、未保存的滑块改动被静默提交
               setState(() => _startDateController.text = iso);
-              _save();
             },
             style: zenButton(
               foreground: ZenColors.sage,

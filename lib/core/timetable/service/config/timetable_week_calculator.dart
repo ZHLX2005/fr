@@ -30,7 +30,12 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 2, vsync: this);
+    // Tab 内容用 _tab.index 条件渲染 → 必须监听 controller 触发 rebuild，
+    // 否则切 Tab 只动指示器、下方内容不跟随（"弹窗切换无效"）。
+    _tab = TabController(length: 2, vsync: this)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
   }
 
   void _calculate() {
@@ -77,22 +82,19 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(color: Colors.black26),
-        ),
-        Center(
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(6),
-            color: ZenColors.surface,
-            child: Container(
-              width: 320,
-              padding: const EdgeInsets.all(16),
-              decoration: zenCard(),
-              child: Column(
+    // 遮罩由 showDialog 的 barrier 承担；外层 Material 透明只裁圆角，
+    // 底色/描边/圆角交给 zenCard()，避免双层 Material 重复描边导致圆角缺口。
+    return Center(
+      child: Material(
+        elevation: 8,
+        color: Colors.transparent,
+        clipBehavior: Clip.antiAlias,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.all(16),
+          decoration: zenCard(),
+          child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -102,7 +104,7 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
                       const Icon(Icons.calendar_month, color: ZenColors.sage, size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        '起始日期',
+                        '设置起始日期',
                         style: ZenText.title.copyWith(fontSize: 16),
                       ),
                       const Spacer(),
@@ -238,8 +240,6 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
               ),
             ),
           ),
-        ),
-      ],
     );
   }
 }

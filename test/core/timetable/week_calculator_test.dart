@@ -1,6 +1,7 @@
 // 课表起始日期工具测试 —— 验证 findNearestMondayOnOrBefore
 // Dart DateTime.weekday: 1=Mon, 2=Tue, ... 7=Sun
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/timetable/service/config/timetable_week_calculator.dart';
 
@@ -54,5 +55,18 @@ void main() {
       expect(findNearestMondayOnOrBefore(DateTime(2026, 8, 31)),
           DateTime(2026, 8, 31));
     });
+  });
+
+  testWidgets('WeekCalculatorDialog Tab 切换内容跟随', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: WeekCalculatorDialog())),
+    );
+    // 初始在「周数推算」Tab
+    expect(find.text('输入当前是第几周，推算出起始日期（周一）'), findsOneWidget);
+    // 切到「选日期」Tab，内容应立即切换
+    await tester.tap(find.text('选日期'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择任意一天，自动回退到当天或之前的最近周一。'),
+        findsOneWidget);
   });
 }
