@@ -403,6 +403,30 @@ class RoomHandle {
     _ws = null;
   }
 
+  /// 断线恢复：先重新 join（HTTP 把被 on_leave 移出后的 sub 重新注册回房间，
+  /// 配合稳定 device_id 被服务端识别为同一玩家），再重连 WS。
+  /// 返回 join 是否成功；WS 是否真正连上由 snapshots / closeEvents 流告知。
+  ///
+  /// 适用场景：WS 断开超过服务端 grace 窗口（5s）后，服务端已执行 on_leave
+  /// 并把该 device 移出 room.Subs —— 此时纯 WS 重连会收到 "device not
+  /// registered via /join" 而失败，必须先重新 join 才能继续上传 action。
+  Future<bool> rejoin() async {
+    if (_disposed) return false;
+    try {
+      await transport._join(
+        code: code,
+        deviceId: transport.deviceId,
+        alias: transport.alias,
+      );
+    } catch (_) {
+      return false; // 房间不存在 / 已过期
+    }
+    // 清掉半开连接与 transport 侧待重连定时器，避免与 connect 并发
+    await disconnectWS();
+    await connect();
+    return true;
+  }
+
   /// 释放资源
   Future<void> dispose() async {
     if (_disposed) return; // 幂等
@@ -568,7 +592,7 @@ class RelayV3Transport {
   }) =>
       _join(code: code, deviceId: deviceId, alias: alias);
 
-  @visibleForTesting
+  /// 内部 join：把 device 注册为房间订阅者并触发 on_join。
   Future<Snapshot> _join({
     required String code,
     required String deviceId,
@@ -601,7 +625,7 @@ class RelayV3Transport {
         expectVersion: expectVersion, sourceDeviceId: sourceDeviceId,
       );
 
-  @visibleForTesting
+  /// 内部 applyAction：提交动作并返回最新快照。
   Future<Snapshot> _applyAction({
     required String code,
     required String type,
@@ -634,7 +658,7 @@ class RelayV3Transport {
   Future<void> testLeave({required String code, required String deviceId}) =>
       _leave(code: code, deviceId: deviceId);
 
-  @visibleForTesting
+  /// 内部 leave：注销订阅并触发 on_leave。
   Future<void> _leave({required String code, required String deviceId}) async {
     final resp = await _http.post(
       _u('/api/v3/relay/rooms/$code/leave'),

@@ -9,6 +9,12 @@ class LineItem {
   final String note;
   /// 该商品所属分类，由 LLM 推断（满足"每行默认主题 AI 生成"需求）。
   final String defaultTopic;
+  /// 该行在交互卡里的记录状态（持久化，重进页面恢复，不随页面重建丢失）。
+  final ReceiptLineStatus status;
+  /// 已记入的主题 ID（Hive box key）；''=未记入。
+  final String recordedTopicId;
+  /// 已记入/改主题后显示的主题标题；''=未记入。
+  final String recordedTopicTitle;
 
   const LineItem({
     required this.resource,
@@ -16,7 +22,39 @@ class LineItem {
     required this.unitPrice,
     required this.note,
     this.defaultTopic = '',
+    this.status = ReceiptLineStatus.pending,
+    this.recordedTopicId = '',
+    this.recordedTopicTitle = '',
   });
+
+  Map<String, dynamic> toJson() => {
+        'resource': resource,
+        'quantity': quantity,
+        'unitPrice': unitPrice,
+        'note': note,
+        'defaultTopic': defaultTopic,
+        'status': status.name,
+        'recordedTopicId': recordedTopicId,
+        'recordedTopicTitle': recordedTopicTitle,
+      };
+
+  static LineItem fromJson(Map<String, dynamic> m) => LineItem(
+        resource: (m['resource'] as String?) ?? '',
+        quantity: (m['quantity'] as num?)?.toDouble() ?? 0,
+        unitPrice: (m['unitPrice'] as num?)?.toDouble() ?? 0,
+        note: (m['note'] as String?) ?? '',
+        defaultTopic: (m['defaultTopic'] as String?) ?? '',
+        status: _statusFrom(m['status']),
+        recordedTopicId: (m['recordedTopicId'] as String?) ?? '',
+        recordedTopicTitle: (m['recordedTopicTitle'] as String?) ?? '',
+      );
+
+  static ReceiptLineStatus _statusFrom(Object? s) {
+    for (final v in ReceiptLineStatus.values) {
+      if (v.name == s) return v;
+    }
+    return ReceiptLineStatus.pending; // 旧数据无 status → 按 pending
+  }
 }
 
 /// 整张小票识别结果。

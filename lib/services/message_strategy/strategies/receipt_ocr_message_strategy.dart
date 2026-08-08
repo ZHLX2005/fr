@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/ai_chat/receipt_ocr/receipt_ocr_history_store.dart';
 import '../../../core/ai_chat/receipt_ocr/receipt_ocr_models.dart';
 import '../../../core/schema/schema.dart';
 import '../../../core/storage/hive/price_compare_repository.dart';
@@ -52,16 +53,50 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     super.initState();
     final items = widget.data.result.items;
     final n = items.length;
-    _statuses = List<ReceiptLineStatus>.filled(n, ReceiptLineStatus.pending);
-    _recordedTopicIds = List<String?>.filled(n, null);
-    // 初始显示主题：优先 LLM 推断的 default_topic，否则暂用 recommendedTopic，最后兜底 '默认'
+    // 从历史持久化的行状态恢复（recorded/rejected 不随页面重建丢失）
+    _statuses = List<ReceiptLineStatus>.generate(n, (i) => items[i].status);
+    // 恢复记入的主题 id（改主题时 PickerSheet 高亮当前选择）
+    _recordedTopicIds = List<String?>.generate(n, (i) {
+      final id = items[i].recordedTopicId;
+      return id.isEmpty ? null : id;
+    });
+    // 初始显示主题：优先已记入的主题标题（重进恢复），再 default_topic，
+    // 其次 recommendedTopic，最后兜底 '默认'
     _topicTitles = List<String>.generate(n, (i) {
+      final recorded = items[i].recordedTopicTitle;
+      if (recorded.isNotEmpty) return recorded;
       final t = items[i].defaultTopic;
       if (t.isNotEmpty) return t;
       final r = widget.data.result.recommendedTopic;
       return r.isNotEmpty ? r : '默认';
     });
     _refreshSummariesCache();
+  }
+
+  /// 由当前行状态组装 LineItem 列表（含 status/记入主题），供持久化。
+  List<LineItem> _currentItems() {
+    final items = widget.data.result.items;
+    return List.generate(items.length, (i) {
+      final it = items[i];
+      final recorded = _statuses[i] == ReceiptLineStatus.recorded;
+      return LineItem(
+        resource: it.resource,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        note: it.note,
+        defaultTopic: it.defaultTopic,
+        status: _statuses[i],
+        recordedTopicId: recorded ? (_recordedTopicIds[i] ?? '') : '',
+        recordedTopicTitle: recorded ? _topicTitles[i] : '',
+      );
+    });
+  }
+
+  /// 把行状态回写 OCR 历史（prefs）。mock 数据（无 historyId）跳过。
+  Future<void> _persistStatuses() async {
+    final id = widget.data.historyId;
+    if (id == null || id.isEmpty) return;
+    await ReceiptOcrHistoryStore.updateItems(id, _currentItems());
   }
 
   /// ✓ 记入 —— 优先按默认主题（default_topic）落库，无 default_topic 时才弹选择器。
@@ -92,6 +127,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       _statuses[i] = ReceiptLineStatus.recorded;
       _recordedTopicIds[i] = topicId;
     });
+    await _persistStatuses();
   }
 
   /// 把后端 item 映射成比价器的 PriceRow。
@@ -143,6 +179,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
         _topicTitles[i] = title;
         _statuses[i] = ReceiptLineStatus.recorded;
       });
+      await _persistStatuses();
       return;
     }
     if (picked.startsWith('__deleted__:')) return;
@@ -163,6 +200,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       _topicTitles[i] = s.title.isEmpty ? '未命名主题' : s.title;
       if (!wasRecorded) _statuses[i] = ReceiptLineStatus.recorded;
     });
+    await _persistStatuses();
   }
 
   /// 兜底流程：原本的 PickerSheet 选主题（仅在 default_topic 为空时使用）
@@ -195,6 +233,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
         _topicTitles[i] = '新主题';
         _statuses[i] = ReceiptLineStatus.recorded;
       });
+      await _persistStatuses();
       return;
     }
     if (picked.startsWith('__deleted__:')) return;
@@ -215,6 +254,7 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
       _topicTitles[i] = s.title.isEmpty ? '未命名主题' : s.title;
       _statuses[i] = ReceiptLineStatus.recorded;
     });
+    await _persistStatuses();
   }
 
   /// 缓存的摘要列表。PickerSheet 是同步构造，必须用缓存而不是 async。
@@ -226,9 +266,10 @@ class _ReceiptOcrContentState extends State<_ReceiptOcrContent> {
     setState(() => _summariesCache = list);
   }
 
-  void _onTapReject(int i) {
+  Future<void> _onTapReject(int i) async {
     if (_statuses[i] != ReceiptLineStatus.pending) return;
     setState(() => _statuses[i] = ReceiptLineStatus.rejected);
+    await _persistStatuses();
   }
 
   int get _recordedCount =>

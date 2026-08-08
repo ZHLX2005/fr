@@ -40,15 +40,7 @@ class ReceiptOcrHistory {
         'storeName': r.storeName,
         'purchasedAt': r.purchasedAt.toIso8601String(),
         'recommendedTopic': r.recommendedTopic,
-        'items': r.items
-            .map((i) => {
-                  'resource': i.resource,
-                  'quantity': i.quantity,
-                  'unitPrice': i.unitPrice,
-                  'note': i.note,
-                  'defaultTopic': i.defaultTopic,
-                })
-            .toList(),
+        'items': r.items.map((i) => i.toJson()).toList(),
       };
 
   static ReceiptResult _resultFromJson(Map<String, dynamic> json) =>
@@ -59,16 +51,7 @@ class ReceiptOcrHistory {
                 DateTime.now(),
         recommendedTopic: (json['recommendedTopic'] as String?) ?? '',
         items: ((json['items'] as List?) ?? const [])
-            .map((e) {
-              final m = e as Map<String, dynamic>;
-              return LineItem(
-                resource: (m['resource'] as String?) ?? '',
-                quantity: (m['quantity'] as num?)?.toDouble() ?? 0,
-                unitPrice: (m['unitPrice'] as num?)?.toDouble() ?? 0,
-                note: (m['note'] as String?) ?? '',
-                defaultTopic: (m['defaultTopic'] as String?) ?? '',
-              );
-            })
+            .map((e) => LineItem.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 

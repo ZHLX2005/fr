@@ -1,10 +1,14 @@
 // kvcli todo 行为模拟 — 调真实 GoFrame 后端的 /api/v1/kv 端点，
-// 与 `lab/kvcli` CLI 端共享同一份存储（key: todo:open / todo:done）。
+// 与 `lab/kvcli` CLI 端共享同一份存储。
 //
 // 真实链路：
-//   - set  : POST /api/v1/kv  body={key,value,tags,visibility,ttl}  value 为 Task[] JSON
-//   - get  : GET  /api/v1/kv/{key}                                解析 KvItem.value
-//   - 找不到 key 时视为空数组（与 kvcli internal/todo/todo.go load 行为一致）
+//   - set   : POST   /api/v1/kv  body={key,value,ttl}
+//   - get   : GET    /api/v1/kv/{key}   解析 KvItem.value
+//   - delete: DELETE /api/v1/kv/{key}
+//
+// KV 只提供快照存储：task 完整 CRUD、tag(topic) 仅添加+删除、prompt 不做。
+// 三把 key：todo:open / todo:done（Task[] JSON）、todo:topics（String[] JSON）。
+// 无单条更新 API，所有写操作 = 读整把 key → 改数组 → 整把覆盖写回。
 //
 // 视觉骨架走 styles-skill → border-emphasis-style：
 //   - 装饰元素统一主题色；操作按钮撞色编码语义
@@ -19,53 +23,10 @@ import '../../api/goframe/kv/kv_endpoint.dart';
 import '../../api/providers/api_providers.dart';
 import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
-
-// ── 数据模型 ──────────────────────────────────────────────────────────────
-
-class _Task {
-  const _Task({
-    required this.id,
-    required this.topic,
-    required this.text,
-    required this.createdAt,
-    this.doneAt = '',
-    this.note = '',
-  });
-
-  final int id;
-  final String topic;
-  final String text;
-  final String createdAt;
-  final String doneAt;
-  final String note;
-
-  _Task copyWith({String doneAt = '', String note = ''}) => _Task(
-        id: id,
-        topic: topic,
-        text: text,
-        createdAt: createdAt,
-        doneAt: doneAt,
-        note: note,
-      );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'topic': topic,
-        'text': text,
-        'createdAt': createdAt,
-        'doneAt': doneAt,
-        'note': note,
-      };
-
-  static _Task fromJson(Map<String, dynamic> j) => _Task(
-        id: (j['id'] as num).toInt(),
-        topic: j['topic'] as String? ?? '',
-        text: j['text'] as String? ?? '',
-        createdAt: j['createdAt'] as String? ?? '',
-        doneAt: j['doneAt'] as String? ?? '',
-        note: j['note'] as String? ?? '',
-      );
-}
+import 'kvcli_todo/const_kvcli_todo.dart';
+import 'kvcli_todo/kvcli_todo_dialogs.dart';
+import 'kvcli_todo/kvcli_todo_models.dart';
+import 'kvcli_todo/kvcli_todo_widgets.dart';
 
 // ── 错误处理辅助 ──────────────────────────────────────────────────────────
 
@@ -122,15 +83,13 @@ class _KvcliTodoDemoPage extends StatefulWidget {
 }
 
 class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
-  static const String _kOpen = 'todo:open';
-  static const String _kDone = 'todo:done';
-
   final _topicCtrl = TextEditingController();
   final _textCtrl = TextEditingController();
   final _textFocus = FocusNode();
 
-  List<_Task> _open = const [];
-  List<_Task> _done = const [];
+  List<KvTask> _open = const [];
+  List<KvTask> _done = const [];
+  List<String> _topics = const [];
   bool _loading = true;
   int _tab = 0; // 0 = 待办，1 = 已完成
 
@@ -150,39 +109,52 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
 
   // ── 网络层 ───────────────────────────────────────────────────────────
 
-  Future<List<_Task>> _readKey(String key) async {
+  Future<List<KvTask>> _readTasks(String key) async {
     final res = await widget.kv.get(key);
     // key 不存在 / 后端返回失败：当作空数组
-    if (!res.isSuccess || res.data == null) return const <_Task>[];
+    if (!res.isSuccess || res.data == null) return const <KvTask>[];
+    return KvTask.parseList(res.data!.value);
+  }
+
+  Future<List<String>> _readTopics() async {
+    final res = await widget.kv.get(KvCliTodoConst.keyTopics);
+    if (!res.isSuccess || res.data == null) return const <String>[];
     final raw = res.data!.value.trim();
-    if (raw.isEmpty) return const <_Task>[];
+    if (raw.isEmpty) return const <String>[];
     try {
-      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-      return list.map(_Task.fromJson).toList();
+      final list = (jsonDecode(raw) as List).cast<String>();
+      return list.where((s) => s.trim().isNotEmpty).toList();
     } catch (_) {
       // 解析失败不阻塞 UI，留 debugPrint 排查
-      debugPrint('kvcli_todo: parse $key failed, fallback to []');
-      return const <_Task>[];
+      debugPrint('kvcli_todo: parse topics failed, fallback to []');
+      return const <String>[];
     }
   }
 
-  Future<void> _writeKey(String key, List<_Task> tasks) async {
-    final raw = jsonEncode(tasks.map((t) => t.toJson()).toList());
-    final res = await widget.kv.set(key: key, value: raw, ttl: 0);
+  Future<void> _writeKey(String key, String value) async {
+    final res = await widget.kv.set(key: key, value: value, ttl: 0);
     if (!res.isSuccess) {
       throw Exception('写 $key 失败: code=${res.code} ${res.message}');
     }
   }
 
+  Future<void> _saveTasks(String key, List<KvTask> tasks) =>
+      _writeKey(key, jsonEncode(tasks.map((t) => t.toJson()).toList()));
+
+  Future<void> _saveTopics(List<String> topics) =>
+      _writeKey(KvCliTodoConst.keyTopics, jsonEncode(topics));
+
   Future<void> _loadAll() async {
     setState(() => _loading = true);
     try {
-      final open = await _readKey(_kOpen);
-      final done = await _readKey(_kDone);
+      final open = await _readTasks(KvCliTodoConst.keyOpen);
+      final done = await _readTasks(KvCliTodoConst.keyDone);
+      final topics = await _readTopics();
       if (!mounted) return;
       setState(() {
         _open = open;
         _done = done;
+        _topics = topics;
         _loading = false;
       });
     } catch (e) {
@@ -190,20 +162,6 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
       setState(() => _loading = false);
       _toast('读取失败：${_errMsg(e)}');
     }
-  }
-
-  // 主题去重 + 按出现频次倒序，取前 8 个作为 Chip 行
-  List<String> _recentTopics() {
-    final counter = <String, int>{};
-    for (final t in _open) {
-      counter[t.topic] = (counter[t.topic] ?? 0) + 1;
-    }
-    for (final t in _done) {
-      counter[t.topic] = (counter[t.topic] ?? 0) + 1;
-    }
-    final list = counter.entries.where((e) => e.key.trim().isNotEmpty).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return list.take(8).map((e) => e.key).toList();
   }
 
   // ── 操作层 ───────────────────────────────────────────────────────────
@@ -220,7 +178,7 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     for (final t in _open) {
       if (t.id > maxId) maxId = t.id;
     }
-    final task = _Task(
+    final task = KvTask(
       id: maxId + 1,
       topic: topic,
       text: text,
@@ -228,7 +186,7 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     );
     final next = [..._open, task];
     try {
-      await _writeKey(_kOpen, next);
+      await _saveTasks(KvCliTodoConst.keyOpen, next);
     } catch (e) {
       _toast('提交失败：${_errMsg(e)}');
       return;
@@ -239,8 +197,8 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     _textFocus.requestFocus();
   }
 
-  Future<void> _markDone(_Task task) async {
-    final note = await _promptDoneResult(task);
+  Future<void> _markDone(KvTask task) async {
+    final note = await showKvDoneResultDialog(context, task);
     if (note == null) return; // 用户取消
 
     final completed = task.copyWith(
@@ -250,8 +208,8 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     final open = _open.where((t) => t.id != task.id).toList();
     final done = [..._done, completed];
     try {
-      await _writeKey(_kOpen, open);
-      await _writeKey(_kDone, done);
+      await _saveTasks(KvCliTodoConst.keyOpen, open);
+      await _saveTasks(KvCliTodoConst.keyDone, done);
     } catch (e) {
       _toast('标记完成失败：${_errMsg(e)}');
       return;
@@ -263,36 +221,78 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     });
   }
 
-  Future<String?> _promptDoneResult(_Task task) async {
-    final ctrl = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('完成 #${task.id}：${task.text}'),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '完成结果（可选）',
-            border: OutlineInputBorder(),
-            hintText: '留空直接提交',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('标记完成'),
-          ),
-        ],
-      ),
+  Future<void> _editTask(KvTask task, {required bool isDone}) async {
+    final r = await showKvTaskEditDialog(context, task: task, isDone: isDone);
+    if (r == null) return;
+    final updated = task.edited(topic: r.topic, text: r.text, note: r.note);
+    try {
+      if (isDone) {
+        final done = _done.map((t) => t.id == task.id ? updated : t).toList();
+        await _saveTasks(KvCliTodoConst.keyDone, done);
+        if (!mounted) return;
+        setState(() => _done = done);
+      } else {
+        final open = _open.map((t) => t.id == task.id ? updated : t).toList();
+        await _saveTasks(KvCliTodoConst.keyOpen, open);
+        if (!mounted) return;
+        setState(() => _open = open);
+      }
+    } catch (e) {
+      _toast('保存失败：${_errMsg(e)}');
+    }
+  }
+
+  Future<void> _deleteTask(KvTask task, {required bool isDone}) async {
+    final ok = await showKvTaskDeleteConfirm(context, task);
+    if (!ok) return;
+    try {
+      if (isDone) {
+        final done = _done.where((t) => t.id != task.id).toList();
+        await _saveTasks(KvCliTodoConst.keyDone, done);
+        if (!mounted) return;
+        setState(() => _done = done);
+      } else {
+        final open = _open.where((t) => t.id != task.id).toList();
+        await _saveTasks(KvCliTodoConst.keyOpen, open);
+        if (!mounted) return;
+        setState(() => _open = open);
+      }
+    } catch (e) {
+      _toast('删除失败：${_errMsg(e)}');
+    }
+  }
+
+  Future<void> _addTopic() async {
+    final name = await showKvAddTopicDialog(
+      context,
+      initial: _topicCtrl.text.trim(),
     );
-    ctrl.dispose();
-    return result;
+    if (name == null || name.isEmpty) return;
+    if (_topics.contains(name)) {
+      _toast('快捷 topic「$name」已存在');
+      return;
+    }
+    final next = [..._topics, name];
+    try {
+      await _saveTopics(next);
+    } catch (e) {
+      _toast('添加失败：${_errMsg(e)}');
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _topics = next);
+  }
+
+  Future<void> _deleteTopic(String topic) async {
+    final next = _topics.where((t) => t != topic).toList();
+    try {
+      await _saveTopics(next);
+    } catch (e) {
+      _toast('删除失败：${_errMsg(e)}');
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _topics = next);
   }
 
   Future<void> _clearAll() async {
@@ -316,8 +316,8 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     );
     if (ok != true) return;
     try {
-      await widget.kv.delete(_kOpen);
-      await widget.kv.delete(_kDone);
+      await widget.kv.delete(KvCliTodoConst.keyOpen);
+      await widget.kv.delete(KvCliTodoConst.keyDone);
     } catch (e) {
       _toast('清空失败：${_errMsg(e)}');
       return;
@@ -345,7 +345,6 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final recent = _recentTopics();
 
     return Scaffold(
       appBar: AppBar(
@@ -369,13 +368,13 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: Row(
               children: [
-                _TabChip(
+                KvTabChip(
                   label: '待办 (${_open.length})',
                   selected: _tab == 0,
                   onTap: () => setState(() => _tab = 0),
                 ),
                 const SizedBox(width: 8),
-                _TabChip(
+                KvTabChip(
                   label: '已完成 (${_done.length})',
                   selected: _tab == 1,
                   onTap: () => setState(() => _tab = 1),
@@ -389,7 +388,7 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildComposer(scheme, recent),
+                _buildComposer(scheme),
                 const Divider(height: 1),
                 Expanded(child: _buildList()),
               ],
@@ -397,7 +396,7 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     );
   }
 
-  Widget _buildComposer(ColorScheme scheme, List<String> recent) {
+  Widget _buildComposer(ColorScheme scheme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       child: Column(
@@ -427,23 +426,23 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
               ),
             ],
           ),
-          if (recent.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  for (final t in recent)
-                    _TopicChip(
-                      label: t,
-                      onTap: () => _applyTopicChip(t),
-                    ),
-                ],
-              ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final t in _topics)
+                  KvTopicChip(
+                    label: t,
+                    onTap: () => _applyTopicChip(t),
+                    onDelete: () => _deleteTopic(t),
+                  ),
+                KvAddTopicChip(onTap: _addTopic),
+              ],
             ),
-          ],
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _textCtrl,
@@ -464,12 +463,13 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
 
   Widget _buildList() {
     final list = _tab == 0 ? _open : _done;
+    final isOpen = _tab == 0;
     if (list.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            _tab == 0 ? '暂无待办任务' : '暂无已完成任务',
+            isOpen ? '暂无待办任务' : '暂无已完成任务',
             style: TextStyle(color: Colors.grey.shade600),
           ),
         ),
@@ -478,191 +478,16 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       itemCount: list.length,
-      itemBuilder: (context, i) => _TaskCard(
-        task: list[i],
-        isOpen: _tab == 0,
-        onDone: _tab == 0 ? () => _markDone(list[i]) : null,
-      ),
-    );
-  }
-}
-
-// ── 子组件 ────────────────────────────────────────────────────────────────
-
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final accent = selected ? scheme.primary : scheme.outline;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: selected ? 0.12 : 0.06),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: accent.withValues(alpha: selected ? 0.5 : 0.3),
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: accent,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopicChip extends StatelessWidget {
-  const _TopicChip({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.35),
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: accent,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TaskCard extends StatelessWidget {
-  const _TaskCard({
-    required this.task,
-    required this.isOpen,
-    this.onDone,
-  });
-
-  final _Task task;
-  final bool isOpen;
-  final VoidCallback? onDone;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        '#${task.id}',
-                        style: TextStyle(
-                          color: scheme.outline,
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: scheme.primary.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          task.topic,
-                          style: TextStyle(
-                            color: scheme.primary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    task.text,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isOpen
-                        ? '创建于 ${task.createdAt}'
-                        : '完成于 ${task.doneAt}',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 11,
-                    ),
-                  ),
-                  if (!isOpen && task.note.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'note: ${task.note}',
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (onDone != null)
-              OutlinedButton.icon(
-                onPressed: onDone,
-                style: EmphasisButton.borderEmphasis(
-                  context,
-                  color: Colors.blue,
-                ),
-                icon: const Icon(Icons.check, size: 16),
-                label: const Text('完成'),
-              ),
-          ],
-        ),
-      ),
+      itemBuilder: (context, i) {
+        final task = list[i];
+        return KvTaskCard(
+          task: task,
+          isOpen: isOpen,
+          onDone: isOpen ? () => _markDone(task) : null,
+          onEdit: () => _editTask(task, isDone: !isOpen),
+          onDelete: () => _deleteTask(task, isDone: !isOpen),
+        );
+      },
     );
   }
 }

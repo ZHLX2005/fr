@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'receipt_ocr_history.dart';
+import 'receipt_ocr_models.dart';
 
 /// 小票 OCR 历史记录存储。
 ///
@@ -86,6 +87,29 @@ class ReceiptOcrHistoryStore {
     final dir = await _imageDir();
     final f = File('${dir.path}/${hit.imageFileName}');
     if (await f.exists()) await f.delete();
+  }
+
+  /// 更新某条历史的行状态（记录/拒绝 + 记入主题），回写 prefs。
+  /// 找不到 id（历史被清空）时静默跳过。图片文件不动。
+  static Future<void> updateItems(String id, List<LineItem> items) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = await load();
+    final idx = list.indexWhere((h) => h.id == id);
+    if (idx < 0) return;
+    final old = list[idx];
+    final updated = ReceiptOcrHistory(
+      id: old.id,
+      createdAt: old.createdAt,
+      imageFileName: old.imageFileName,
+      result: ReceiptResult(
+        storeName: old.result.storeName,
+        purchasedAt: old.result.purchasedAt,
+        recommendedTopic: old.result.recommendedTopic,
+        items: items,
+      ),
+    );
+    list[idx] = updated;
+    await prefs.setString(_prefsKey, ReceiptOcrHistory.encodeList(list));
   }
 
   static Future<Directory> _imageDir() async {

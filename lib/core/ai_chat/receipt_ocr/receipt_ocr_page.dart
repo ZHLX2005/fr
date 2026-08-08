@@ -82,7 +82,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
       entries.add(_ChatEntry(
         id: '${h.id}-a',
         isUser: false,
-        card: ReceiptOcrMessageData(result: h.result),
+        card: ReceiptOcrMessageData(result: h.result, historyId: h.id),
       ));
     }
     setState(() {
@@ -186,7 +186,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
           _entries[lastIdx] = _ChatEntry(
             id: '${history.id}-a',
             isUser: false,
-            card: ReceiptOcrMessageData(result: result),
+            card: ReceiptOcrMessageData(result: result, historyId: history.id),
           );
         }
         _busy = false;
