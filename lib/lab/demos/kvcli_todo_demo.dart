@@ -20,9 +20,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/goframe/kv/kv_endpoint.dart';
+import '../../api/goframe/group/group_endpoint.dart';
 import '../../api/providers/api_providers.dart';
 import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
+import 'kvcli_todo/active_group_provider.dart';
 import 'kvcli_todo/const_kvcli_todo.dart';
 import 'kvcli_todo/kvcli_todo_dialogs.dart';
 import 'kvcli_todo/kvcli_todo_models.dart';
@@ -54,18 +56,20 @@ class KvcliTodoDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    // ConsumerWidget：让 Riverpod 注入 KvEndpoint + 触发 rebuild
+    // ConsumerWidget：让 Riverpod 注入 KvEndpoint + GroupEndpoint + 触发 rebuild
     return Consumer(
       builder: (context, ref, _) {
         final KvEndpoint kv;
+        final GroupEndpoint groups;
         try {
           kv = ref.watch(kvEndpointProvider);
+          groups = ref.watch(groupEndpointProvider);
         } catch (e) {
           return Scaffold(
             body: Center(child: Text('KV 端点初始化失败：${_errMsg(e)}')),
           );
         }
-        return _KvcliTodoDemoPage(kv: kv);
+        return _KvcliTodoDemoPage(kv: kv, groups: groups);
       },
     );
   }
@@ -73,16 +77,17 @@ class KvcliTodoDemo extends DemoPage {
 
 // ── 主页面 ────────────────────────────────────────────────────────────────
 
-class _KvcliTodoDemoPage extends StatefulWidget {
-  const _KvcliTodoDemoPage({required this.kv});
+class _KvcliTodoDemoPage extends ConsumerStatefulWidget {
+  const _KvcliTodoDemoPage({required this.kv, required this.groups});
 
   final KvEndpoint kv;
+  final GroupEndpoint groups;
 
   @override
-  State<_KvcliTodoDemoPage> createState() => _KvcliTodoDemoPageState();
+  ConsumerState<_KvcliTodoDemoPage> createState() => _KvcliTodoDemoPageState();
 }
 
-class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
+class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   final _topicCtrl = TextEditingController();
   final _textCtrl = TextEditingController();
   final _textFocus = FocusNode();
@@ -90,8 +95,15 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
   List<KvTask> _open = const [];
   List<KvTask> _done = const [];
   List<String> _topics = const [];
+  List<KvGroup> _groups = const [];
   bool _loading = true;
   int _tab = 0; // 0 = 待办，1 = 已完成
+
+  /// 激活组注入 KV 的三元值：0 → null（后端回落默认组），>0 → 原值。
+  int? get _gid {
+    final gid = ref.read(activeGroupProvider);
+    return gid == 0 ? null : gid;
+  }
 
   @override
   void initState() {
@@ -110,14 +122,14 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
   // ── 网络层 ───────────────────────────────────────────────────────────
 
   Future<List<KvTask>> _readTasks(String key) async {
-    final res = await widget.kv.get(key);
+    final res = await widget.kv.get(key, groupId: _gid);
     // key 不存在 / 后端返回失败：当作空数组
     if (!res.isSuccess || res.data == null) return const <KvTask>[];
     return KvTask.parseList(res.data!.value);
   }
 
   Future<List<String>> _readTopics() async {
-    final res = await widget.kv.get(KvCliTodoConst.keyTopics);
+    final res = await widget.kv.get(KvCliTodoConst.keyTopics, groupId: _gid);
     if (!res.isSuccess || res.data == null) return const <String>[];
     final raw = res.data!.value.trim();
     if (raw.isEmpty) return const <String>[];
@@ -132,7 +144,12 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
   }
 
   Future<void> _writeKey(String key, String value) async {
-    final res = await widget.kv.set(key: key, value: value, ttl: 0);
+    final res = await widget.kv.set(
+      key: key,
+      value: value,
+      ttl: 0,
+      groupId: _gid,
+    );
     if (!res.isSuccess) {
       throw Exception('写 $key 失败: code=${res.code} ${res.message}');
     }
@@ -146,12 +163,17 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
 
   Future<void> _loadAll() async {
     setState(() => _loading = true);
+    await ref.read(activeGroupProvider.notifier).load(); // 确保激活组已载入
     try {
+      final groupRes = await widget.groups.list();
       final open = await _readTasks(KvCliTodoConst.keyOpen);
       final done = await _readTasks(KvCliTodoConst.keyDone);
       final topics = await _readTopics();
       if (!mounted) return;
       setState(() {
+        _groups = (groupRes.isSuccess && groupRes.data != null)
+            ? groupRes.data!
+            : const [];
         _open = open;
         _done = done;
         _topics = topics;
@@ -306,7 +328,7 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
         coldKey,
         jsonEncode(merged.map((t) => t.toJson()).toList()),
       );
-      await widget.kv.delete(KvCliTodoConst.keyDone);
+      await widget.kv.delete(KvCliTodoConst.keyDone, groupId: _gid);
     } catch (e) {
       _toast('清理失败：${_errMsg(e)}');
       return;
@@ -371,8 +393,8 @@ class _KvcliTodoDemoPageState extends State<_KvcliTodoDemoPage> {
     );
     if (ok != true) return;
     try {
-      await widget.kv.delete(KvCliTodoConst.keyOpen);
-      await widget.kv.delete(KvCliTodoConst.keyDone);
+      await widget.kv.delete(KvCliTodoConst.keyOpen, groupId: _gid);
+      await widget.kv.delete(KvCliTodoConst.keyDone, groupId: _gid);
     } catch (e) {
       _toast('清空失败：${_errMsg(e)}');
       return;
