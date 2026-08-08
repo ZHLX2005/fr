@@ -50,20 +50,20 @@ class DashboardTab extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: _StatTile(label: 'Today', value: formatDuration(todaySeconds))),
+                  Expanded(child: _StatTile(label: '今天', value: formatDuration(todaySeconds))),
                   const SizedBox(width: 12),
-                  Expanded(child: _StatTile(label: 'Clocks done', value: '$clocksDone')),
+                  Expanded(child: _StatTile(label: '完成时钟', value: '$clocksDone')),
                   const SizedBox(width: 12),
-                  Expanded(child: _StatTile(label: 'Tracks done', value: '$tracksDone')),
+                  Expanded(child: _StatTile(label: '完成编排', value: '$tracksDone')),
                 ],
               ),
               const SizedBox(height: 24),
-              const Text('Recent', style: ZenText.label),
+              const Text('最近', style: ZenText.label),
               const SizedBox(height: 8),
               if (recent.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Text('No records yet.', style: ZenText.label),
+                  child: Text('暂无记录。', style: ZenText.label),
                 )
               else
                 ...recent.map((r) => Container(
@@ -84,7 +84,7 @@ class DashboardTab extends StatelessWidget {
                               children: [
                                 Text(r.title, style: ZenText.body),
                                 Text(
-                                  '${MaterialLocalizations.of(context).formatShortDate(r.startTime)} · actual ${formatDuration(r.durationSeconds)}',
+                                  '${MaterialLocalizations.of(context).formatShortDate(r.startTime)} · 实际 ${formatDuration(r.durationSeconds)}',
                                   style: ZenText.monoDigitSmall,
                                 ),
                               ],

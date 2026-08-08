@@ -94,14 +94,14 @@ class _ClocksTabState extends State<ClocksTab> {
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
-                child: Text('Records', style: ZenText.label),
+                child: Text('记录', style: ZenText.label),
               ),
             ),
             if (provider.records.isEmpty)
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
-                  child: Text('No records yet.', style: ZenText.label),
+                  child: Text('暂无记录。', style: ZenText.label),
                 ),
               )
             else
@@ -128,8 +128,8 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return ZenEmptyState(
       icon: Icons.timer_outlined,
-      message: 'No clocks yet',
-      actionLabel: 'Add clock',
+      message: '暂无时钟',
+      actionLabel: '添加时钟',
       onAction: onAdd,
     );
   }
@@ -217,7 +217,7 @@ class _ClockCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     (() {
-                      final modeLabel = clock.beatPattern == '1/4' ? '1beat' : '2beat';
+                      final modeLabel = clock.beatPattern == '1/4' ? '单拍' : '双拍';
                       return '${clock.bpm}bpm · $modeLabel';
                     })(),
                     style: ZenText.monoDigitSmall,
@@ -252,8 +252,8 @@ class _ClockCard extends StatelessWidget {
   void _confirmDelete(BuildContext context, LabClockProvider p) {
     ZenConfirmDialog.show(
       context: context,
-      title: 'Delete clock',
-      message: 'Delete "${clock.title}"?',
+      title: '删除时钟',
+      message: '删除"${clock.title}"？',
       onConfirm: () => p.deleteClock(clock.id),
     );
   }
@@ -380,7 +380,7 @@ class _RecordTileState extends State<_RecordTile> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     ZenSwipeAction(
-                      label: 'Delete',
+                      label: '删除',
                       icon: Icons.delete_outline,
                       color: ZenColors.mutedRed,
                       // Round both left corners so it tucks under the card's
@@ -391,11 +391,18 @@ class _RecordTileState extends State<_RecordTile> {
                           _offsetX = 0;
                           _isExpanded = false;
                         });
+                        if (!record.canDelete) {
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(const SnackBar(
+                                content: Text('运行中或暂停的记录不可删除，请先完成')));
+                          return;
+                        }
                         p.deleteRecord(record.id);
                       },
                     ),
                     ZenSwipeAction(
-                      label: 'Create',
+                      label: '新建',
                       icon: Icons.add,
                       color: ZenColors.sage,
                       leftRounded: false,
@@ -434,17 +441,18 @@ class _RecordTileState extends State<_RecordTile> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Rename record'),
+        backgroundColor: ZenColors.surface,
+        title: const Text('重命名记录'),
         content: TextField(controller: ctl, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消', style: TextStyle(color: ZenColors.secondary))),
           TextButton(
             onPressed: () {
               final v = ctl.text.trim();
               if (v.isNotEmpty) p.updateRecordTitle(record.id, v);
               Navigator.pop(ctx);
             },
-            child: const Text('Save'),
+            child: const Text('保存', style: TextStyle(color: ZenColors.sage)),
           ),
         ],
       ),

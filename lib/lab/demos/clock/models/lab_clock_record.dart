@@ -14,6 +14,9 @@ class LabClockRecord {
   final bool completed;
   final int? accumulatedSeconds;
 
+  /// 只有已完成的记录允许删除；运行中/暂停/提前结算未完成的都禁止（fr #1）。
+  bool get canDelete => completed;
+
   LabClockRecord({
     required this.id,
     required this.clockId,

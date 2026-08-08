@@ -12,7 +12,7 @@ import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 class ClockDemo extends DemoPage {
   @override
-  String get title => 'Clock';
+  String get title => '时钟';
   @override
   String get slug => 'clock';
   @override
@@ -78,7 +78,7 @@ class _ClockShellState extends State<_ClockShell> {
     super.dispose();
   }
 
-  String get _title => const ['Clocks', 'Tracks', 'Dashboard'][_index];
+  String get _title => const ['时钟', '编排', '仪表盘'][_index];
 
   List<Widget> get _appBarActions {
     return [
@@ -86,13 +86,13 @@ class _ClockShellState extends State<_ClockShell> {
       // 点这个按钮直接把 clock+track 的 SharedPreferences 全清了。
       // 所有 tab 都保留，因为卡死时 Clocks tab 本身可能都进不去。
       IconButton(
-        tooltip: 'Wipe all clock data',
+        tooltip: '清空所有时钟数据',
         icon: const Icon(Icons.delete_forever_outlined),
         onPressed: _confirmWipeAll,
       ),
       if (_index == 1)
         IconButton(
-          tooltip: 'Track records',
+          tooltip: '编排记录',
           icon: const Icon(Icons.history),
           onPressed: () {
             // push 出来的新 route 不在 ClockDemo 的 ChangeNotifierProvider 树里，
@@ -119,18 +119,18 @@ class _ClockShellState extends State<_ClockShell> {
     final trackP = context.read<LabTrackProvider>();
     final ok = await ZenConfirmDialog.show(
       context: context,
-      title: 'Wipe all clock data?',
+      title: '清空所有时钟数据？',
       message:
-          '这会清空所有 clock、track、记录及节拍配置（包括旧版残留数据）。\n'
+          '这会清空所有时钟、编排、记录及节拍配置（包括旧版残留数据）。\n'
           '用于修复旧版本导致的卡死问题。\n\n'
           '此操作不可撤销。',
-      confirmLabel: 'Wipe',
+      confirmLabel: '清空',
       onConfirm: () async {
         await clockP.wipeAllData();
         await trackP.wipeAllData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('All clock data wiped.')),
+            const SnackBar(content: Text('已清空所有时钟数据。')),
           );
         }
       },
@@ -186,7 +186,7 @@ class _ClockShellState extends State<_ClockShell> {
                 onPressed: _onFabPressed,
                 style: EmphasisButton.borderEmphasis(
                   context,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: ZenColors.sage,
                 ),
                 child: const Icon(Icons.add),
               )
@@ -200,17 +200,17 @@ class _ClockShellState extends State<_ClockShell> {
             NavigationDestination(
               icon: Icon(Icons.access_time_outlined),
               selectedIcon: Icon(Icons.access_time),
-              label: 'Clocks',
+              label: '时钟',
             ),
             NavigationDestination(
               icon: Icon(Icons.queue_music_outlined),
               selectedIcon: Icon(Icons.queue_music),
-              label: 'Tracks',
+              label: '编排',
             ),
             NavigationDestination(
               icon: Icon(Icons.dashboard_outlined),
               selectedIcon: Icon(Icons.dashboard),
-              label: 'Dashboard',
+              label: '仪表盘',
             ),
           ],
         ),

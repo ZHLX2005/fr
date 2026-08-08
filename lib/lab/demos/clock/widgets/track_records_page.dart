@@ -14,14 +14,14 @@ class TrackRecordsPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: ZenColors.bg,
         elevation: 0,
-        title: const Text('Track records', style: ZenText.title),
+        title: const Text('编排记录', style: ZenText.title),
         actions: [
           Consumer<LabTrackProvider>(
             builder: (context, p, _) => p.records.isEmpty
                 ? const SizedBox.shrink()
                 : TextButton(
                     onPressed: () => _confirmClear(context, p),
-                    child: const Text('Clear', style: TextStyle(color: ZenColors.mutedRed)),
+                    child: const Text('清空', style: TextStyle(color: ZenColors.mutedRed)),
                   ),
           ),
         ],
@@ -29,7 +29,7 @@ class TrackRecordsPage extends StatelessWidget {
       body: Consumer<LabTrackProvider>(
         builder: (context, p, _) {
           if (p.records.isEmpty) {
-            return const Center(child: Text('No track records yet', style: ZenText.label));
+            return const Center(child: Text('暂无编排记录', style: ZenText.label));
           }
           return ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -44,10 +44,10 @@ class TrackRecordsPage extends StatelessWidget {
   void _confirmClear(BuildContext context, LabTrackProvider p) {
     ZenConfirmDialog.show(
       context: context,
-      title: 'Clear track records',
-      message: 'Clear all track records? This cannot be undone.',
+      title: '清空编排记录',
+      message: '清空所有编排记录？此操作不可撤销。',
       onConfirm: p.clearRecords,
-      confirmLabel: 'Clear',
+      confirmLabel: '清空',
     );
   }
 }
@@ -90,15 +90,24 @@ class _TrackRecordTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(record.customTitle ?? record.trackTitle, style: ZenText.body),
-                  Text('$dateStr · planned ${formatDuration(record.totalDurationSeconds)} · actual ${formatDuration(p.getRecordLiveDuration(record))}',
+                  Text('$dateStr · 计划 ${formatDuration(record.totalDurationSeconds)} · 实际 ${formatDuration(p.getRecordLiveDuration(record))}',
                       style: ZenText.monoDigitSmall),
                 ],
               ),
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, color: ZenColors.mutedRed),
-              onPressed: () => p.deleteRecord(record.id),
-              tooltip: 'Delete',
+              onPressed: () {
+                if (!record.canDelete) {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(const SnackBar(
+                        content: Text('运行中或暂停的记录不可删除，请先完成')));
+                  return;
+                }
+                p.deleteRecord(record.id);
+              },
+              tooltip: '删除',
             ),
           ],
         ),
@@ -111,17 +120,18 @@ class _TrackRecordTile extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Rename record'),
+        backgroundColor: ZenColors.surface,
+        title: const Text('重命名记录'),
         content: TextField(controller: ctl, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消', style: TextStyle(color: ZenColors.secondary))),
           TextButton(
             onPressed: () {
               final v = ctl.text.trim();
               if (v.isNotEmpty) p.updateRecordTitle(record.id, v);
               Navigator.pop(ctx);
             },
-            child: const Text('Save'),
+            child: const Text('保存', style: TextStyle(color: ZenColors.sage)),
           ),
         ],
       ),

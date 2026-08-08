@@ -425,12 +425,14 @@ class ZenConfirmDialog {
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ZenColors.surface,
         title: Text(title),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(cancelLabel),
+            child: Text(cancelLabel,
+                style: const TextStyle(color: ZenColors.secondary)),
           ),
           TextButton(
             onPressed: () {

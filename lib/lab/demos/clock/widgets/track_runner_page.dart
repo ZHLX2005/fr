@@ -49,7 +49,7 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
           (t) => t.id == widget.trackId,
           orElse: () => LabTrack(
             id: widget.trackId,
-            title: 'Track',
+            title: '编排',
             createdAt: DateTime.now(),
             segments: const [],
           ),
@@ -58,7 +58,7 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
           return Scaffold(
             backgroundColor: ZenColors.bg,
             appBar: AppBar(backgroundColor: ZenColors.bg, elevation: 0),
-            body: const Center(child: Text('Empty track', style: ZenText.body)),
+            body: const Center(child: Text('空编排', style: ZenText.body)),
           );
         }
         final idx = p.currentSegmentIndex.clamp(0, track.segments.length - 1);
@@ -84,7 +84,7 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Segment ${idx + 1} of ${track.segments.length}', style: ZenText.label),
+                Text('第 ${idx + 1} 段（共 ${track.segments.length} 段）', style: ZenText.label),
                 const SizedBox(height: 16),
                 Text(seg.snapshotTitle, style: ZenText.title, textAlign: TextAlign.center),
                 const SizedBox(height: 8),
@@ -97,32 +97,32 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _ProgressBar(progress: segProgress.clamp(0.0, 1.0), label: 'Segment'),
+                _ProgressBar(progress: segProgress.clamp(0.0, 1.0), label: '段'),
                 const SizedBox(height: 8),
-                _ProgressBar(progress: totalProgress.clamp(0.0, 1.0), label: 'Track'),
+                _ProgressBar(progress: totalProgress.clamp(0.0, 1.0), label: '编排'),
                 const SizedBox(height: 24),
                 if (hasBeat) _BeatDotRow(active: !isPaused, count: 4),
                 const Spacer(),
-                Text('Total remaining: ${formatTime(totalRem)}', style: ZenText.monoDigitSmall, textAlign: TextAlign.center),
+                Text('剩余总时长：${formatTime(totalRem)}', style: ZenText.monoDigitSmall, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _RunnerButton(
                       icon: isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                      label: isPaused ? 'Resume' : 'Pause',
+                      label: isPaused ? '继续' : '暂停',
                       onTap: () => isPaused
                           ? p.startTrack(widget.trackId)
                           : p.pauseTrack(),
                     ),
                     _RunnerButton(
                       icon: Icons.skip_next_rounded,
-                      label: 'Skip',
+                      label: '跳过',
                       onTap: () => p.skipSegment(),
                     ),
                     _RunnerButton(
                       icon: Icons.stop_rounded,
-                      label: 'Stop',
+                      label: '停止',
                       onTap: () async {
                         // 熄灭 ticker 的自动 pop，避免 300ms 退出动画期间二次 pop
                         // → 内层 Navigator 被弹空 → 白屏整页退出

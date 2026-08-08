@@ -116,10 +116,10 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
   /// Human-readable preview line.
   String get _preview {
     final bpm = _computedBpm;
-    if (bpm == null) return 'Enter rounds and duration';
+    if (bpm == null) return '输入轮数和时长';
     final secondsPerBeat = (_durationSeconds / (_rounds * _beatsPerRound)).toStringAsFixed(1);
-    final rhythm = _mode == '1beat' ? 'all strong' : 'strong-weak';
-    return '$_rounds rounds · $bpm BPM · ${secondsPerBeat}s/beat · $rhythm';
+    final rhythm = _mode == '1beat' ? '全强拍' : '强-弱拍';
+    return '$_rounds 轮 · $bpm BPM · $secondsPerBeat秒/拍 · $rhythm';
   }
 
   @override
@@ -138,13 +138,13 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
             ))),
             const SizedBox(height: 16),
             Row(children: [
-              Expanded(child: Text(widget.existing == null ? 'Add clock' : 'Edit clock', style: ZenText.title)),
+              Expanded(child: Text(widget.existing == null ? '添加时钟' : '编辑时钟', style: ZenText.title)),
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close),
                 iconSize: 24,
                 color: ZenColors.ink,
-                tooltip: 'Cancel',
+                tooltip: '取消',
               ),
             ]),
             const SizedBox(height: 20),
@@ -152,7 +152,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
               controller: _titleCtl,
               style: ZenText.body,
               decoration: const InputDecoration(
-                labelText: 'Title',
+                labelText: '标题',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -162,12 +162,12 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
               style: ZenText.body,
               maxLines: 2,
               decoration: const InputDecoration(
-                labelText: 'Description',
+                labelText: '描述',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
-            const Text('Duration', style: ZenText.label),
+            const Text('时长', style: ZenText.label),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -180,7 +180,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
               ],
             ),
             const SizedBox(height: 16),
-            const Text('Color', style: ZenText.label),
+            const Text('颜色', style: ZenText.label),
             const SizedBox(height: 8),
             Wrap(
               spacing: 12,
@@ -203,7 +203,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
             const SizedBox(height: 20),
             // Beat section: rounds + mode → auto-computed bpm/pattern.
             Row(children: [
-              const Expanded(child: Text('Beat', style: ZenText.label)),
+              const Expanded(child: Text('节拍', style: ZenText.label)),
               Switch(
                 value: _beatEnabled,
                 activeThumbColor: ZenColors.sage,
@@ -218,20 +218,20 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                 keyboardType: TextInputType.number,
                 style: ZenText.body,
                 decoration: const InputDecoration(
-                  labelText: 'Total rounds',
+                  labelText: '总轮数',
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
               // Mode toggle: 1beat (all strong) vs 2beat (strong-weak).
-              const Text('Mode', style: ZenText.label),
+              const Text('模式', style: ZenText.label),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(
                   child: _ModeChip(
-                    label: '1 beat / round',
-                    sub: 'all strong (inhale)',
+                    label: '每轮 1 拍',
+                    sub: '全强拍（吸气）',
                     selected: _mode == '1beat',
                     onTap: () => setState(() => _mode = '1beat'),
                   ),
@@ -239,8 +239,8 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ModeChip(
-                    label: '2 beats / round',
-                    sub: 'strong-weak (inhale-exhale)',
+                    label: '每轮 2 拍',
+                    sub: '强-弱拍（吸-呼）',
                     selected: _mode == '2beat',
                     onTap: () => setState(() => _mode = '2beat'),
                   ),
@@ -264,7 +264,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
               child: OutlinedButton(
                 onPressed: () {
                   Navigator.pop(context, ClockEditorResult(
-                    title: _titleCtl.text.isEmpty ? 'New clock' : _titleCtl.text,
+                    title: _titleCtl.text.isEmpty ? '新时钟' : _titleCtl.text,
                     description: _descCtl.text,
                     durationSeconds: _durationSeconds,
                     color: _color,
@@ -273,7 +273,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                   ));
                 },
                 style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
-                child: Text(widget.existing == null ? 'Add' : 'Save'),
+                child: Text(widget.existing == null ? '添加' : '保存'),
               ),
             ),
           ],

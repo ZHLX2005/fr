@@ -16,6 +16,9 @@ class LabTrackRecord {
   final int segmentIndex;            // last fully completed segment
   final List<int> perSegmentSeconds; // actual elapsed per segment
 
+  /// 只有已完成的记录允许删除；运行中/暂停/提前结算未完成的都禁止（fr #1）。
+  bool get canDelete => completed;
+
   LabTrackRecord({
     required this.id,
     required this.trackId,

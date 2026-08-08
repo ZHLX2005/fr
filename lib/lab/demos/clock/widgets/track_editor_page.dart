@@ -99,14 +99,14 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
   @override
   Widget build(BuildContext context) {
     return zenPageScaffold(
-      title: widget.existing == null ? 'New track' : 'Edit track',
+      title: widget.existing == null ? '新建编排' : '编辑编排',
       actions: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: OutlinedButton(
             onPressed: _segments.isEmpty ? null : _save,
             style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
-            child: const Text('Save'),
+            child: const Text('保存'),
           ),
         ),
       ],
@@ -117,7 +117,7 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
             controller: _titleCtl,
             style: ZenText.body,
             decoration: const InputDecoration(
-              labelText: 'Title',
+              labelText: '标题',
               border: OutlineInputBorder(),
             ),
           ),
@@ -127,17 +127,17 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
             style: ZenText.body,
             maxLines: 2,
             decoration: const InputDecoration(
-              labelText: 'Description',
+              labelText: '描述',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 20),
-          const Text('Source', style: ZenText.label),
+          const Text('来源', style: ZenText.label),
           const SizedBox(height: 8),
           Consumer<LabClockProvider>(
             builder: (context, provider, _) {
               if (provider.clocks.isEmpty) {
-                return const Text('No clocks — add some first.', style: ZenText.label);
+                return const Text('暂无时钟——先添加一个。', style: ZenText.label);
               }
               return SizedBox(
                 height: 84,
@@ -180,14 +180,14 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
             },
           ),
           const SizedBox(height: 20),
-          const Text('Sequence', style: ZenText.label),
+          const Text('序列', style: ZenText.label),
           const SizedBox(height: 8),
           if (_segments.isEmpty)
             Container(
               padding: const EdgeInsets.all(24),
               decoration: zenDottedZone(),
               child: const Center(
-                child: Text('Tap a clock above to add to the track', style: ZenText.label),
+                child: Text('点上方时钟加入编排', style: ZenText.label),
               ),
             )
           else
@@ -223,17 +223,17 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                     IconButton(
                       onPressed: i == 0 ? null : () => _moveUp(i),
                       icon: const Icon(Icons.keyboard_arrow_up, size: 20),
-                      tooltip: 'Move up',
+                      tooltip: '上移',
                     ),
                     IconButton(
                       onPressed: i == _segments.length - 1 ? null : () => _moveDown(i),
                       icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-                      tooltip: 'Move down',
+                      tooltip: '下移',
                     ),
                     IconButton(
                       onPressed: () => _removeSegment(i),
                       icon: const Icon(Icons.close, size: 20, color: ZenColors.mutedRed),
-                      tooltip: 'Remove',
+                      tooltip: '移除',
                     ),
                   ],
                 ),
@@ -241,7 +241,7 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
             }),
           const SizedBox(height: 16),
           ZenSection(
-            title: 'Total',
+            title: '合计',
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text(formatDuration(_totalSeconds),
                 style: ZenText.monoDigit.copyWith(fontSize: 20)),

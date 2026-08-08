@@ -43,7 +43,7 @@ class _TracksTabState extends State<TracksTab> {
         if (tp.tracks.isEmpty) {
           return const ZenEmptyState(
             icon: Icons.queue_music_outlined,
-            message: 'No tracks yet',
+            message: '暂无编排',
           );
         }
         return ListView.builder(
@@ -85,7 +85,7 @@ class _TrackCard extends StatelessWidget {
         children: [
           Text(track.title, style: ZenText.body.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text('${track.segments.length} segments · ${formatDuration(totalSeconds)}',
+          Text('${track.segments.length} 段 · ${formatDuration(totalSeconds)}',
               style: ZenText.monoDigitSmall),
           if (track.description.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -108,7 +108,7 @@ class _TrackCard extends StatelessWidget {
                         }
                       : null,
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text('Run'),
+                  label: const Text('开始'),
                   style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
                 ),
               ),
@@ -120,13 +120,13 @@ class _TrackCard extends StatelessWidget {
                   await tp.updateTrack(result);
                 },
                 style: zenButton(),
-                child: const Text('Edit'),
+                child: const Text('编辑'),
               ),
               const SizedBox(width: 4),
               IconButton(
                 onPressed: () => _confirmDelete(context, tp),
                 icon: const Icon(Icons.delete_outline, color: ZenColors.mutedRed),
-                tooltip: 'Delete',
+                tooltip: '删除',
               ),
             ],
           ),
@@ -138,8 +138,8 @@ class _TrackCard extends StatelessWidget {
   void _confirmDelete(BuildContext context, LabTrackProvider tp) {
     ZenConfirmDialog.show(
       context: context,
-      title: 'Delete track',
-      message: 'Delete "${track.title}"?',
+      title: '删除编排',
+      message: '删除"${track.title}"？',
       onConfirm: () => tp.deleteTrack(track.id),
     );
   }
