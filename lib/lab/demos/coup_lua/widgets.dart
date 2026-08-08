@@ -29,6 +29,7 @@ import 'engine.dart'
         roleLabel,
         roleFromWire;
 
+import 'package:xiaodouzi_fr/core/game_audio/dealing_cards_sound.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show RelayV3Exception, RoomHandle, Snapshot, RelayV3Transport;
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
@@ -280,6 +281,7 @@ class OnlineGamePage extends StatefulWidget {
 class _OnlineGamePageState extends State<OnlineGamePage> {
   StreamSubscription<Snapshot>? _sub;
   Snapshot? _snap;
+  Snapshot? _prevSnap; // 上一帧快照，用于检测 DEAL/REVEAL 事件
   late final CoupRoom _room;
 
   @override
@@ -289,6 +291,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _snap = widget.handle.latest;
     _sub = widget.handle.snapshots.listen((s) {
       if (!mounted) return;
+      _onSnapshot(s);
       setState(() => _snap = s);
     });
   }
@@ -506,6 +509,42 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   // ── playing：动作 + 角色卡 + 响应面板 ──
+
+  void _onSnapshot(Snapshot s) {
+    final prev = _prevSnap;
+    _prevSnap = s;
+    if (prev == null) return;
+
+    // 1) DEAL：state ready → playing
+    if (prev.state == 'ready' && s.state == 'playing') {
+      final players = _room.players(s);
+      final n = players.values.where((p) => !p.spectator).length;
+      final total = n * 2;
+      for (var i = 0; i < total; i++) {
+        // ignore: discard_futures
+        DealingCardsSound.play();
+      }
+      return;
+    }
+
+    // 2) REVEAL：phase==reveal 且某玩家 card1/card2 槽内容发生变化（之前非 null → 新值）
+    if (_room.phase(s) == CoupPhase.reveal) {
+      final cur = _room.players(s);
+      final prevPlayers = _room.players(prev);
+      cur.forEach((did, p) {
+        final pp = prevPlayers[did];
+        if (pp == null) return;
+        if (pp.card1 != null && pp.card1 != p.card1) {
+          // ignore: discard_futures
+          DealingCardsSound.play();
+        }
+        if (pp.card2 != null && pp.card2 != p.card2) {
+          // ignore: discard_futures
+          DealingCardsSound.play();
+        }
+      });
+    }
+  }
 
   Widget _buildPlaying(BoardThemeData theme) {
     final snap = _snap!;

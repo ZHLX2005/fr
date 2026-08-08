@@ -4,6 +4,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:xiaodouzi_fr/core/game_audio/dealing_cards_sound.dart';
+
 import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 
 import 'constants.dart';
@@ -610,6 +612,13 @@ class _PlayingViewState extends State<PlayingView> {
     return ready[widget.handle.transport.deviceId] == true;
   }
 
+  /// 发牌：先起翻牌音效（fire-and-forget），再走引擎 DEAL。
+  Future<void> _onDeal() async {
+    // ignore: discard_futures
+    DealingCardsSound.play();
+    await _engine.deal();
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = _snap;
@@ -638,7 +647,7 @@ class _PlayingViewState extends State<PlayingView> {
       busy: _busy,
       onAck: _amSpectator ? null : _engine.ack,
       onUnack: _amSpectator ? null : _engine.unack,
-      onDeal: _engine.deal,
+      onDeal: _onDeal,
       onReset: _engine.reset,
       onMoveZone: _amSpectator
           ? () => _engine.sit(zone: 'player')
