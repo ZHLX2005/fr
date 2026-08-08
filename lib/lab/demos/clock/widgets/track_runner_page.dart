@@ -25,6 +25,7 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
       final p = context.read<LabTrackProvider>();
       if (p.activeTrackId == null && !_autoPopped) {
         _autoPopped = true;
+        _ticker?.cancel();
         Future.microtask(() {
           if (mounted) Navigator.of(context).pop();
         });
@@ -123,6 +124,10 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
                       icon: Icons.stop_rounded,
                       label: 'Stop',
                       onTap: () async {
+                        // 熄灭 ticker 的自动 pop，避免 300ms 退出动画期间二次 pop
+                        // → 内层 Navigator 被弹空 → 白屏整页退出
+                        _ticker?.cancel();
+                        _autoPopped = true;
                         final nav = Navigator.of(context);
                         await p.stopTrack();
                         if (mounted) nav.pop();

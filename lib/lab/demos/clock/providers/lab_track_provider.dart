@@ -49,6 +49,8 @@ class LabTrackProvider with ChangeNotifier {
   int get totalRemaining {
     final t = activeTrack;
     if (t == null) return 0;
+    // _advanceSegment 越界后到 _completeTrack 置空之间的间隙，index 可能 == length
+    if (_currentSegmentIndex >= t.segments.length) return 0;
     int sum = 0;
     for (var i = _currentSegmentIndex; i < t.segments.length; i++) {
       sum += t.segments[i].snapshotDurationSeconds;
@@ -229,10 +231,11 @@ class LabTrackProvider with ChangeNotifier {
         completed: true,
         accumulatedSeconds: totalConsumed,
       );
-      await _saveRecords();
     }
+    // 先置空 + 停 timer，消除 await 间隙里 activeTrackId!=null 且 index 越界的不一致态
     _activeTrackId = null;
     _timer?.cancel();
+    await _saveRecords();
     notifyListeners();
   }
 
@@ -255,10 +258,15 @@ class LabTrackProvider with ChangeNotifier {
       (r) => r.trackId == _activeTrackId && r.endTime == null,
     );
     if (recIdx != -1) {
-      _records[recIdx] = _records[recIdx].copyWith(
+      final rec = _records[recIdx];
+      // 结算实际已消耗秒数（不再写死 0）
+      final consumed = rec.perSegmentSeconds
+          .take(rec.segmentIndex + 1)
+          .fold(0, (a, b) => a + b);
+      _records[recIdx] = rec.copyWith(
         endTime: DateTime.now(),
         completed: false,
-        accumulatedSeconds: 0,
+        accumulatedSeconds: consumed,
       );
       await _saveRecords();
     }
