@@ -379,10 +379,25 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  /// 删除时钟
+  /// 删除时钟（先结算名下未完成的在飞记录，避免删 clock 丢时长）
   Future<void> deleteClock(String id) async {
+    final now = DateTime.now();
+    var needSaveRecords = false;
+    _records = _records.map((r) {
+      if (r.clockId == id && !r.completed && r.endTime == null) {
+        needSaveRecords = true;
+        final live = getRecordLiveDuration(r); // 删前先算，此时 clock 还在
+        return r.copyWith(
+          endTime: now,
+          completed: false,
+          accumulatedSeconds: live,
+        );
+      }
+      return r;
+    }).toList();
     _clocks.removeWhere((c) => c.id == id);
     await _saveClocks();
+    if (needSaveRecords) await _saveRecords();
     _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
   }
@@ -525,8 +540,8 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       // 时钟存在：计算当前已消耗时间（无论是否暂停）
       return (record.durationSeconds) - clock.remainingSeconds;
     }
-    // 时钟不存在且未完成：返回0
-    return 0;
+    // 时钟不存在且未完成：用已累计秒数兜底（不再恒 0）
+    return record.accumulatedSeconds ?? 0;
   }
 
   @override

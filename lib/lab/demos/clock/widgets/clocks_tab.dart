@@ -64,29 +64,33 @@ class _ClocksTabState extends State<ClocksTab> {
   Widget build(BuildContext context) {
     return Consumer<LabClockProvider>(
       builder: (context, provider, _) {
-        if (provider.clocks.isEmpty) {
-          return _EmptyState(
-            onAdd: () => _openEditor(context),
-          );
-        }
+        // 空状态进 sliver，Records 区恒渲染——clocks 为空不能吞掉历史记录
         return CustomScrollView(
           slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              sliver: SliverGrid(
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 0.85,
+            if (provider.clocks.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                  child: _EmptyState(onAdd: () => _openEditor(context)),
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => _ClockCard(clock: provider.clocks[i]),
-                  childCount: provider.clocks.length,
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                sliver: SliverGrid(
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.85,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) => _ClockCard(clock: provider.clocks[i]),
+                    childCount: provider.clocks.length,
+                  ),
                 ),
               ),
-            ),
             const SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
