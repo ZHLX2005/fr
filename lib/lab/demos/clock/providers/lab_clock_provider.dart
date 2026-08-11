@@ -9,6 +9,7 @@ import '../../../../native/home_widget/clock_widget_service.dart';
 import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 import '../../metronome/sample_loader.dart';
+import '../services/clock_alert_sound.dart';
 import 'beat_coordinator.dart';
 
 /// 极简时钟Provider
@@ -103,8 +104,13 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
               clock.remainingSeconds;
           final elapsed = DateTime.now().difference(clock.startTime!).inSeconds;
           final newRemaining = baseSeconds - elapsed;
+          // 上一帧剩余 >0 → 当前 <=0：归零瞬间触发一次提醒音（fr #3）
+          final prevRemaining = clock.remainingSeconds;
 
           if (newRemaining != clock.remainingSeconds) {
+            if (crossedZero(prevRemaining, newRemaining)) {
+              ClockAlertSound.instance.play();
+            }
             _clocks[i] = clock.copyWith(remainingSeconds: newRemaining);
             changed = true;
           }
@@ -498,6 +504,10 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     if (!owner.startsWith('clock:')) return null;
     return owner.substring('clock:'.length);
   }
+
+  /// 归零检测纯函数：上一帧 >0 且 当前 <=0 → 触发一次提醒音。
+  /// 只在该瞬间返回 true，避免剩余时间为负时每秒重复触发。fr #3。
+  static bool crossedZero(int prev, int current) => prev > 0 && current <= 0;
 
   /// 释放当前 clock 对节拍器的占用。Clock 页面退出时调。
   ///
