@@ -65,7 +65,12 @@ class DayCell extends StatelessWidget {
                 children: [
                   Text(
                     '${date.day}',
-                    style: AppText.title(color: numberColor).copyWith(fontSize: 17),
+                    // 直接用默认字体（不套 Cormorant 等特殊衬线），与全 app 一致。
+                    style: TextStyle(
+                      color: numberColor,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   if (inCurrentMonth)
                     Padding(

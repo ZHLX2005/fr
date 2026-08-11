@@ -22,7 +22,15 @@ class AnnualReportPage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Text('${cal.viewYear} 年度报表', style: AppText.display()),
+            Text(
+              '${cal.viewYear} 年度报表',
+              style: TextStyle(
+                color: PaperPalette.ink,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
+            ),
             const SizedBox(height: 8),
             Text('共 ${birthdays.length} 个生日', style: AppText.body()),
             const SizedBox(height: 24),
@@ -42,7 +50,15 @@ class AnnualReportPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$m 月', style: AppText.title()),
+                    Text(
+                      '$m 月',
+                      style: TextStyle(
+                        color: PaperPalette.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
                     if (mEvents.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),

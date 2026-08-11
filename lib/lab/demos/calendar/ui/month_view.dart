@@ -36,7 +36,12 @@ class MonthView extends StatelessWidget {
                     onTap: p.jumpToday,
                     child: Text(
                       '${p.viewYear}年${p.viewMonth}月',
-                      style: AppText.title(),
+                      style: TextStyle(
+                        color: PaperPalette.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
                     ),
                   ),
                 ),

@@ -41,7 +41,15 @@ class YearView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$m 月', style: AppText.title()),
+                Text(
+                  '$m 月',
+                  style: TextStyle(
+                    color: PaperPalette.ink,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+                ),
                 const Spacer(),
                 Text('$events 个事件', style: AppText.caption()),
               ],
