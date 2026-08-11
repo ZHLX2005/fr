@@ -61,7 +61,7 @@ class _TrackRecordTile extends StatelessWidget {
     final p = context.read<LabTrackProvider>();
     final isCompleted = record.completed;
     final color = isCompleted ? ZenColors.sage : ZenColors.mutedRed;
-    final dateStr = MaterialLocalizations.of(context).formatShortDate(record.startTime);
+    final dateStr = formatRecordDate(record.startTime);
 
     return InkWell(
       onLongPress: () => _rename(context, p),

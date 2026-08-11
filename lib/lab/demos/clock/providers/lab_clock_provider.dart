@@ -17,6 +17,12 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   List<LabClockRecord> _records = [];
   static const String _storageKey = 'lab_clocks_v2';
   static const String _recordsKey = 'lab_clock_records_v2';
+
+  /// record→新建 clock 的默认色 —— 编辑器色板首色陶土（非原蓝色 #2196F3），fr #1。
+  static const String kDefaultClockColor = '#D4644B';
+
+  /// 颜色为空 → 主题默认陶土色；否则原样（不覆盖用户选择）。
+  static String resolveColor(String? color) => color ?? kDefaultClockColor;
   Timer? _timer;
   final Set<String> _silencedClocks = {};
 
@@ -128,7 +134,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       remainingSeconds: clock.remainingSeconds,
       durationSeconds: clock.durationSeconds ?? 0,
       isRunning: clock.isRunning,
-      color: clock.color ?? '#2196F3',
+      color: resolveColor(clock.color),
       // 把 startTime / startRemainingSeconds 透传给 widget，
       // 让原生侧能基于 startTime 实时算 remaining，避免 Flutter 死掉后时间冻结
       startTime: clock.startTime,
@@ -228,7 +234,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       durationSeconds: durationSeconds,
       isRunning: false,
       remainingSeconds: durationSeconds ?? 0,
-      color: color ?? '#2196F3',
+      color: resolveColor(color),
     );
     _clocks.insert(0, clock);
     await _saveClocks();

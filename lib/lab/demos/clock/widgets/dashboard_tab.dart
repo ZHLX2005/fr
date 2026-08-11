@@ -84,7 +84,7 @@ class DashboardTab extends StatelessWidget {
                               children: [
                                 Text(r.title, style: ZenText.body),
                                 Text(
-                                  '${MaterialLocalizations.of(context).formatShortDate(r.startTime)} · 实际 ${formatDuration(r.durationSeconds)}',
+                                  '${formatRecordDate(r.startTime)} · 实际 ${formatDuration(r.durationSeconds)}',
                                   style: ZenText.monoDigitSmall,
                                 ),
                               ],

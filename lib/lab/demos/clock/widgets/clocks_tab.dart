@@ -142,7 +142,7 @@ class _ClockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.read<LabClockProvider>();
-    final baseColor = Color(int.parse(clock.color?.replaceFirst('#', '0xFF') ?? '0xFF2196F3'));
+    final baseColor = Color(int.parse(clock.color?.replaceFirst('#', '0xFF') ?? '0xFFD4644B'));
     final remaining = clock.remainingSeconds;
     final hasBeat = clock.bpm != null;
     final silenced = p.isClockSilenced(clock.id);
@@ -279,7 +279,7 @@ class _RecordTileState extends State<_RecordTile> {
     final record = widget.record;
     final isCompleted = record.completed;
     final color = isCompleted ? ZenColors.sage : ZenColors.mutedRed;
-    final dateStr = MaterialLocalizations.of(context).formatShortDate(record.startTime);
+    final dateStr = formatRecordDate(record.startTime);
 
     // The card content (slides left on swipe). No margin here — the outer
     // Padding provides horizontal insets so the action buttons behind it align
