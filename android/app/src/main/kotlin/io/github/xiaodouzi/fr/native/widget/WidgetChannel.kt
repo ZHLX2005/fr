@@ -38,6 +38,10 @@ class WidgetChannel(messenger: BinaryMessenger) {
                     onNavigateToRecorder?.invoke(autostart)
                     result.success(null)
                 }
+                "navigateToClockWidgetToggle" -> {
+                    onNavigateToClockWidgetToggle?.invoke()
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -55,6 +59,9 @@ class WidgetChannel(messenger: BinaryMessenger) {
     /// 录音机页面跳转回调，[autostart] = true 表示从桌面 widget 进入，
     /// 期望自动开始录音。
     var onNavigateToRecorder: ((Boolean) -> Unit)? = null
+
+    /// 时钟 toggle 按钮跳转回调（桌面 widget → app 内 toggle 最新 clock）。
+    var onNavigateToClockWidgetToggle: (() -> Unit)? = null
 
     fun notifyNavigateToLab() {
         channel.invokeMethod("navigateToLab", null)
@@ -78,5 +85,9 @@ class WidgetChannel(messenger: BinaryMessenger) {
 
     fun notifyNavigateToRecorder(autostart: Boolean) {
         channel.invokeMethod("navigateToRecorder", autostart)
+    }
+
+    fun notifyNavigateToClockWidgetToggle() {
+        channel.invokeMethod("navigateToClockWidgetToggle", null)
     }
 }

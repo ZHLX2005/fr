@@ -236,7 +236,14 @@ class MainActivity : FlutterActivity() {
                 uriStr == "fr://calendar" || uri.path == "/calendar" -> {
                     widgetChannel.notifyNavigateToCalendar()
                 }
-                uriStr == "fr://clock" || uriStr == "fr://lab/demo/clock" ||
+                // 更具体的 toggle 分支必须放 fr://clock 之前：clock 分支是 prefix
+                // 匹配，若不前置会被 startsWith("fr://clock") 吞掉（fr #1）。
+                uriStr.startsWith("fr://clock/widget-toggle") -> {
+                    widgetChannel.notifyNavigateToClockWidgetToggle()
+                }
+                // prefix（而非 ==）：widget 发的是 fr://clock/widget-toggle 等子路径，
+                // 精确 == 会 miss → 深链失效（fr #1 教训，与 notion/recorder 一致）。
+                uriStr.startsWith("fr://clock") || uriStr.startsWith("fr://lab/demo/clock") ||
                     uri.path == "/lab/demo/clock" -> {
                     widgetChannel.notifyNavigateToClock()
                 }

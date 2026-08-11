@@ -316,6 +316,7 @@ class _MainScreenState extends State<MainScreen>
 ///   navigateToTimetable        → fr://timetable
 ///   navigateToNotionImage      → fr://notion/image-host?autocapture=<bool>
 ///   navigateToRecorder         → fr://lab/demo/recorder?autostart=<bool>
+///   navigateToClockWidgetToggle→ fr://clock/widget-toggle
 class FrMethodChannelTranslator {
   FrMethodChannelTranslator._();
 
@@ -332,6 +333,7 @@ class FrMethodChannelTranslator {
         'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
       'navigateToRecorder' =>
         'fr://lab/demo/recorder?autostart=${(call.arguments as bool?) ?? true}',
+      'navigateToClockWidgetToggle' => 'fr://clock/widget-toggle',
       _ => null,
     };
   }
