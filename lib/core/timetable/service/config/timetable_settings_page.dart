@@ -392,43 +392,6 @@ class _TimetableSettingsPageState
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        // 直接入口：选任意日期 → 自动回退到最近周一
-        SizedBox(
-          height: 40,
-          child: OutlinedButton.icon(
-            onPressed: () async {
-              final current = DateTime.tryParse(_startDateController.text);
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: current ?? DateTime.now(),
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2035),
-                helpText: '选择开学日期或之前的任意一天',
-              );
-              if (picked == null) return;
-              final monday = findNearestMondayOnOrBefore(picked);
-              final iso = monday.toIso8601String().split('T')[0];
-              // 只回填，不自动保存——与点卡片走 WeekCalculatorDialog 路径一致，
-              // 避免整页被 pop、未保存的滑块改动被静默提交
-              setState(() => _startDateController.text = iso);
-            },
-            style: zenButton(
-              foreground: ZenColors.sage,
-              border: ZenColors.hair,
-            ).copyWith(
-              minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
-              padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 12),
-              ),
-            ),
-            icon: const Icon(Icons.calendar_today, size: 16, color: ZenColors.sage),
-            label: Text(
-              '选日期（自动对齐到最近周一）',
-              style: ZenText.button.copyWith(color: ZenColors.sage),
-            ),
-          ),
-        ),
       ],
     );
   }
