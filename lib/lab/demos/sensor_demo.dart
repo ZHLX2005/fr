@@ -146,20 +146,27 @@ class _SensorPageState extends State<_SensorPage>
 
   @override
   Widget build(BuildContext context) {
+    // 统一规范：所有主题色走 Material colorScheme 单系统（BoardTheme 是棋盘
+    // 游戏主题、未注入 ThemeData，不参与统一规范）。
+    //
+    // 两层 elevation（Material 规范 + 项目统一约定）：
+    //   - surface（base）: scaffold / tab 选中 / 卡片内部 inset
+    //   - surfaceContainerHighest + outline（elevated panel）: 卡片 / tab 容器
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: cs.surface,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTabBar(),
+            _buildTabBar(cs),
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildAccelerometerTab(),
-                  _buildGyroscopeTab(),
-                  _buildMagnetometerTab(),
-                  _buildUserAccelerometerTab(),
+                  _buildAccelerometerTab(cs),
+                  _buildGyroscopeTab(cs),
+                  _buildMagnetometerTab(cs),
+                  _buildUserAccelerometerTab(cs),
                 ],
               ),
             ),
@@ -169,22 +176,24 @@ class _SensorPageState extends State<_SensorPage>
     );
   }
 
-  Widget _buildTabBar() {
+  Widget _buildTabBar(ColorScheme cs) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(12),
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outline, width: 1),
       ),
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
-          color: const Color(0xFF0A84FF),
-          borderRadius: BorderRadius.circular(8),
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: cs.outline, width: 1.4),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        labelColor: Colors.white,
-        unselectedLabelColor: const Color(0xFF8E8E93),
+        labelColor: cs.onSurface,
+        unselectedLabelColor: cs.onSurfaceVariant,
         dividerColor: Colors.transparent,
         tabs: const [
           Tab(text: 'ACC'),
@@ -196,45 +205,47 @@ class _SensorPageState extends State<_SensorPage>
     );
   }
 
-  Widget _buildAccelerometerTab() {
+  Widget _buildAccelerometerTab(ColorScheme cs) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSensorInfo(
+            cs,
             '加速度计 (Accelerometer)',
             '含重力影响，单位 m/s²',
             _accelAvailable,
           ),
           const SizedBox(height: 16),
-          _buildWaveChart('X', _accelHistoryX, Colors.red),
-          _buildWaveChart('Y', _accelHistoryY, Colors.green),
-          _buildWaveChart('Z', _accelHistoryZ, Colors.blue),
+          _buildWaveChart(cs, 'X', _accelHistoryX, Colors.red),
+          _buildWaveChart(cs, 'Y', _accelHistoryY, Colors.green),
+          _buildWaveChart(cs, 'Z', _accelHistoryZ, Colors.blue),
           const SizedBox(height: 16),
-          _buildValueCard('X', _accelX),
-          _buildValueCard('Y', _accelY),
-          _buildValueCard('Z', _accelZ),
+          _buildValueCard(cs, 'X', _accelX),
+          _buildValueCard(cs, 'Y', _accelY),
+          _buildValueCard(cs, 'Z', _accelZ),
           const SizedBox(height: 12),
-          _buildMagnitudeCard(),
+          _buildMagnitudeCard(cs),
         ],
       ),
     );
   }
 
-  Widget _buildGyroscopeTab() {
+  Widget _buildGyroscopeTab(ColorScheme cs) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSensorInfo('陀螺仪 (Gyroscope)', '角速度，单位 rad/s', _gyroAvailable),
+          _buildSensorInfo(cs, '陀螺仪 (Gyroscope)', '角速度，单位 rad/s', _gyroAvailable),
           const SizedBox(height: 16),
-          _buildValueCard('X', _gyroX, precision: 4),
-          _buildValueCard('Y', _gyroY, precision: 4),
-          _buildValueCard('Z', _gyroZ, precision: 4),
+          _buildValueCard(cs, 'X', _gyroX, precision: 4),
+          _buildValueCard(cs, 'Y', _gyroY, precision: 4),
+          _buildValueCard(cs, 'Z', _gyroZ, precision: 4),
           const SizedBox(height: 16),
           _buildDescriptionCard(
+            cs,
             '典型值参考',
             '静止: ≈ 0\n缓慢旋转: 0.1 - 0.5\n快速旋转: 1.0 - 5.0',
           ),
@@ -243,19 +254,20 @@ class _SensorPageState extends State<_SensorPage>
     );
   }
 
-  Widget _buildMagnetometerTab() {
+  Widget _buildMagnetometerTab(ColorScheme cs) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSensorInfo('磁力计 (Magnetometer)', '磁场强度，单位 μT', _magAvailable),
+          _buildSensorInfo(cs, '磁力计 (Magnetometer)', '磁场强度，单位 μT', _magAvailable),
           const SizedBox(height: 16),
-          _buildValueCard('X', _magX),
-          _buildValueCard('Y', _magY),
-          _buildValueCard('Z', _magZ),
+          _buildValueCard(cs, 'X', _magX),
+          _buildValueCard(cs, 'Y', _magY),
+          _buildValueCard(cs, 'Z', _magZ),
           const SizedBox(height: 16),
           _buildDescriptionCard(
+            cs,
             '典型值参考',
             '地球磁场水平分量: 20-40 μT\n地磁总场强: 40-60 μT\n手机附近磁场扰动: > 100 μT',
           ),
@@ -264,23 +276,25 @@ class _SensorPageState extends State<_SensorPage>
     );
   }
 
-  Widget _buildUserAccelerometerTab() {
+  Widget _buildUserAccelerometerTab(ColorScheme cs) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSensorInfo(
+            cs,
             '用户加速度 (User Accelerometer)',
             '去除重力后的加速度，单位 m/s²',
             true,
           ),
           const SizedBox(height: 16),
-          _buildValueCard('X', _userAccelX),
-          _buildValueCard('Y', _userAccelY),
-          _buildValueCard('Z', _userAccelZ),
+          _buildValueCard(cs, 'X', _userAccelX),
+          _buildValueCard(cs, 'Y', _userAccelY),
+          _buildValueCard(cs, 'Z', _userAccelZ),
           const SizedBox(height: 16),
           _buildDescriptionCard(
+            cs,
             '说明',
             '去除了重力加速度分量\n通常用于检测手势、摇晃等用户动作\n静止时理论上接近 (0, 0, 0)',
           ),
@@ -289,12 +303,18 @@ class _SensorPageState extends State<_SensorPage>
     );
   }
 
-  Widget _buildSensorInfo(String title, String subtitle, bool available) {
+  Widget _buildSensorInfo(
+    ColorScheme cs,
+    String title,
+    String subtitle,
+    bool available,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(12),
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cs.outline, width: 1),
       ),
       child: Row(
         children: [
@@ -311,8 +331,8 @@ class _SensorPageState extends State<_SensorPage>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -320,8 +340,8 @@ class _SensorPageState extends State<_SensorPage>
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF8E8E93),
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
                     fontSize: 13,
                   ),
                 ),
@@ -331,10 +351,9 @@ class _SensorPageState extends State<_SensorPage>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: available
-                  ? const Color(0xFF30D158).withValues(alpha: 0.2)
-                  : const Color(0xFFFF453A).withValues(alpha: 0.2),
+              color: cs.surface,
               borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: cs.outline, width: 1),
             ),
             child: Text(
               available ? '可用' : '不可用',
@@ -352,21 +371,26 @@ class _SensorPageState extends State<_SensorPage>
     );
   }
 
-  Widget _buildValueCard(String axis, double value, {int precision = 2}) {
+  Widget _buildValueCard(
+    ColorScheme cs,
+    String axis,
+    double value, {
+    int precision = 2,
+  }) {
     final isPositive = value >= 0;
     final absValue = value.abs();
     final color = axis == 'X'
         ? Colors.red
         : axis == 'Y'
-        ? Colors.green
-        : Colors.blue;
+            ? Colors.green
+            : Colors.blue;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(10),
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -375,8 +399,9 @@ class _SensorPageState extends State<_SensorPage>
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: cs.outline, width: 1),
             ),
             child: Center(
               child: Text(
@@ -396,8 +421,8 @@ class _SensorPageState extends State<_SensorPage>
               children: [
                 Text(
                   '${isPositive ? '+' : '-'}${absValue.toStringAsFixed(precision)}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: cs.onSurface,
                     fontSize: 24,
                     fontWeight: FontWeight.w600,
                     fontFeatures: [FontFeature.tabularFigures()],
@@ -411,7 +436,7 @@ class _SensorPageState extends State<_SensorPage>
     );
   }
 
-  Widget _buildMagnitudeCard() {
+  Widget _buildMagnitudeCard(ColorScheme cs) {
     final magnitude = _accelX * _accelX + _accelY * _accelY + _accelZ * _accelZ;
     final sqrtMag = magnitude > 0 ? _sqrtApprox(magnitude) : 0.0;
     // 静止时约等于重力加速度 9.8
@@ -420,23 +445,21 @@ class _SensorPageState extends State<_SensorPage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF0A84FF).withValues(alpha: 0.3),
-        ),
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cs.outline, width: 1),
       ),
       child: Column(
         children: [
-          const Text(
+          Text(
             '向量模长 (|a|)',
-            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
           ),
           const SizedBox(height: 4),
           Text(
             sqrtMag.toStringAsFixed(3),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: cs.onSurface,
               fontSize: 32,
               fontWeight: FontWeight.bold,
               fontFeatures: [FontFeature.tabularFigures()],
@@ -445,20 +468,26 @@ class _SensorPageState extends State<_SensorPage>
           const SizedBox(height: 4),
           Text(
             '与重力加速度偏差: ${deviation.toStringAsFixed(3)} m/s²',
-            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWaveChart(String label, List<double> history, Color color) {
+  Widget _buildWaveChart(
+    ColorScheme cs,
+    String label,
+    List<double> history,
+    Color color,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(10),
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cs.outline, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -469,8 +498,9 @@ class _SensorPageState extends State<_SensorPage>
                 width: 12,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: color,
+                  color: cs.surface,
                   borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: cs.outline, width: 1),
                 ),
               ),
               const SizedBox(width: 8),
@@ -485,8 +515,8 @@ class _SensorPageState extends State<_SensorPage>
               const Spacer(),
               Text(
                 history.isNotEmpty ? history.last.toStringAsFixed(2) : '0.00',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: cs.onSurface,
                   fontSize: 13,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),
@@ -506,20 +536,25 @@ class _SensorPageState extends State<_SensorPage>
     );
   }
 
-  Widget _buildDescriptionCard(String title, String content) {
+  Widget _buildDescriptionCard(
+    ColorScheme cs,
+    String title,
+    String content,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C2E),
-        borderRadius: BorderRadius.circular(12),
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cs.outline, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF0A84FF),
+            style: TextStyle(
+              color: cs.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -527,8 +562,8 @@ class _SensorPageState extends State<_SensorPage>
           const SizedBox(height: 8),
           Text(
             content,
-            style: const TextStyle(
-              color: Color(0xFF8E8E93),
+            style: TextStyle(
+              color: cs.onSurfaceVariant,
               fontSize: 13,
               height: 1.5,
             ),

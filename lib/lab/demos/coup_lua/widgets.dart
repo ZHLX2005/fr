@@ -282,6 +282,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   StreamSubscription<Snapshot>? _sub;
   Snapshot? _snap;
   Snapshot? _prevSnap; // 上一帧快照，用于检测 DEAL/REVEAL 事件
+  String? _lastExPlayer; // 上一帧的 ex_player，用于检测 EXCHANGE 进入事件
   late final CoupRoom _room;
 
   @override
@@ -544,6 +545,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         }
       });
     }
+
+    // 3) EXCHANGE：换牌阶段刚开始（ex_player 从 null 变成某个 did）→ 换牌反馈音
+    final curEx = _room.exchangePlayer(s);
+    if (curEx != null && curEx != _lastExPlayer) {
+      // ignore: discard_futures
+      DealingCardsSound.play();
+    }
+    _lastExPlayer = curEx;
   }
 
   Widget _buildPlaying(BoardThemeData theme) {
@@ -1104,6 +1113,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         a == CoupAction.coup) {
       target = await _pickTarget();
       if (target == null) return;
+      // 选中目标 → 设计交互反馈音（与 id=18 模式一致，fire-and-forget）
+      // ignore: discard_futures
+      DealingCardsSound.play();
     }
     await _room.act(a, target: target);
   }
