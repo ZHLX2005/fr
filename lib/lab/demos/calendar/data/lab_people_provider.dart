@@ -10,7 +10,11 @@ class LabPeopleProvider with ChangeNotifier {
   final _uuid = const Uuid();
 
   List<Person> _people = [];
+  bool _ready = false;
   List<Person> get people => List.unmodifiable(_people);
+
+  /// 数据是否已加载完成（Hive init + 人员加载）。未完成时视图渲染 loading 占位。
+  bool get ready => _ready;
 
   LabPeopleProvider() {
     _init();
@@ -19,6 +23,7 @@ class LabPeopleProvider with ChangeNotifier {
   Future<void> _init() async {
     await CalendarRepository.instance.init();
     _people = _repo.load();
+    _ready = true;
     notifyListeners();
   }
 

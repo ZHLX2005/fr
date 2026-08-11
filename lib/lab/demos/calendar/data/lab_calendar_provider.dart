@@ -22,10 +22,14 @@ class LabCalendarProvider with ChangeNotifier {
   List<Event> _events = [];
   int _viewYear = DateTime.now().year;
   int _viewMonth = DateTime.now().month;
+  bool _ready = false;
 
   List<Event> get events => List.unmodifiable(_events);
   int get viewYear => _viewYear;
   int get viewMonth => _viewMonth;
+
+  /// 数据是否已加载完成（Hive init + 全量加载）。未完成时视图渲染 loading 占位。
+  bool get ready => _ready;
 
   LabCalendarProvider() {
     _init();
@@ -35,6 +39,8 @@ class LabCalendarProvider with ChangeNotifier {
     await CalendarRepository.instance.init();
     _loadAll();
     _scheduleMidnightRefresh();
+    _ready = true;
+    notifyListeners();
   }
 
   Future<void> setView(int year, int month) async {

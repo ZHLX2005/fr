@@ -98,8 +98,10 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cal = context.read<LabCalendarProvider>();
-    final people = context.read<LabPeopleProvider>();
+    // watch：provider 的 _init 完成（ready 置位）时 notifyListeners → 本 build 重建，
+    // 从 loading 切到真实 PageView。
+    final cal = context.watch<LabCalendarProvider>();
+    final people = context.watch<LabPeopleProvider>();
     return Scaffold(
       backgroundColor: PaperPalette.bg,
       appBar: AppBar(
@@ -129,7 +131,11 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
           const SizedBox(width: 12),
         ],
       ),
-      body: PageView(
+      body: (!cal.ready || !people.ready)
+          ? const Center(
+              child: CircularProgressIndicator(color: PaperPalette.inkMuted),
+            )
+          : PageView(
         controller: _page,
         onPageChanged: (i) => setState(() => _index = i),
         children: [
