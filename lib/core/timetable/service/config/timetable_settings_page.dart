@@ -46,24 +46,21 @@ class _TimetableSettingsPageState
   Future<void> _save() async {
     final store = ref.read(TimetableStore.provider.notifier);
 
-    // 用户输入任意日期 → 自动回退到该日期之前的最近周一
+    // 通用模式原样保存；学校模式回退到最近周一（fr #2）
     final rawStart = _startDateController.text.trim();
-    DateTime? parsed;
-    try {
-      parsed = DateTime.parse(rawStart);
-    } catch (_) {}
-    final mondayStart = parsed != null
-        ? findNearestMondayOnOrBefore(parsed).toIso8601String().split('T')[0]
-        : rawStart;
-    if (mondayStart != rawStart) {
-      _startDateController.text = mondayStart;
+    final startDateIso = resolveStartDateIso(
+      rawStart,
+      isSchoolMode: _isSchoolMode,
+    );
+    if (startDateIso != rawStart) {
+      _startDateController.text = startDateIso;
     }
 
     // 学校模式下强制 daysPerCycle = 7
     final daysToSave = _isSchoolMode ? 7 : _daysPerCycle;
 
     final error = await store.updateConfig(
-      startDateIso: mondayStart,
+      startDateIso: startDateIso,
       cycleCount: _cycleCount,
       daysPerCycle: daysToSave,
       slotsPerDay: _slotsPerDay,
@@ -78,7 +75,7 @@ class _TimetableSettingsPageState
     } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('设置已保存（起始日期 $mondayStart）')));
+      ).showSnackBar(SnackBar(content: Text('设置已保存（起始日期 $startDateIso）')));
       Navigator.pop(context);
     }
   }
@@ -297,9 +294,65 @@ class _TimetableSettingsPageState
   }
 
   // ──── 子组件：日期字段 ────
-  // 点字段 → 打开 WeekCalculatorDialog（周数推算 / 选日期回退）
-  // 右侧按钮 → 直接弹系统日期选择器，自动回退到最近周一
+  // 通用模式：单个简单日期选择；学校模式：周数推算/自动对齐周一（fr #2）
   Widget _buildDateField() {
+    if (!_isSchoolMode) {
+      return _buildGeneralDateField();
+    }
+    return _buildSchoolDateField();
+  }
+
+  /// 通用模式：只一个日期入口，点按弹系统日期选择器，选哪天存哪天。
+  Widget _buildGeneralDateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () async {
+            final current = DateTime.tryParse(_startDateController.text);
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: current ?? DateTime.now(),
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2035),
+              helpText: '选择开始日期',
+            );
+            if (picked == null) return;
+            final iso = picked.toIso8601String().split('T')[0];
+            setState(() => _startDateController.text = iso);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: zenCard(),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('起始日期', style: ZenText.label),
+                      const SizedBox(height: 2),
+                      Text(
+                        _startDateController.text,
+                        style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 学校模式：原「周数推算 / 选日期自动对齐周一」双入口逻辑。
+  Widget _buildSchoolDateField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -325,7 +378,7 @@ class _TimetableSettingsPageState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_isSchoolMode ? '起始日期（周一）' : '起始日期', style: ZenText.label),
+                      Text('起始日期（周一）', style: ZenText.label),
                       const SizedBox(height: 2),
                       Text(
                         _startDateController.text,

@@ -12,6 +12,20 @@ DateTime findNearestMondayOnOrBefore(DateTime date) {
   return DateTime(date.year, date.month, date.day - back);
 }
 
+/// 解析起始日期：
+/// - 通用模式（isSchoolMode=false）：任意日期原样保存，不回退周一（fr #2）；
+/// - 学校模式：回退到该日期之前的最近周一；
+/// - 解析失败：原样返回。
+String resolveStartDateIso(String rawStart, {required bool isSchoolMode}) {
+  DateTime? parsed;
+  try {
+    parsed = DateTime.parse(rawStart);
+  } catch (_) {}
+  if (parsed == null) return rawStart;
+  final resolved = isSchoolMode ? findNearestMondayOnOrBefore(parsed) : parsed;
+  return resolved.toIso8601String().split('T')[0];
+}
+
 /// 周数推算 / 日期回退到周一 的弹窗。Zen 主题。
 class WeekCalculatorDialog extends StatefulWidget {
   const WeekCalculatorDialog({super.key});
