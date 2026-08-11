@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 等待开始：沙漏（"等待"语义，区别于已暂停的双竖条）。fillColor 占位，Kotlin 用 setColorInt 覆盖状态色 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 上下两个三角在中心(12,12)相交，构成沙漏 -->
+    <path
+        android:fillColor="#FF666666"
+        android:pathData="M5,3 L19,3 L12,12 Z M5,21 L19,21 L12,12 Z" />
+</vector>

@@ -77,7 +77,7 @@ class ClockWidgetProvider : AppWidgetProvider() {
             val style = when {
                 isOvertime -> StatusStyle("已超时", R.drawable.widget_ic_overtime, R.drawable.status_pill_overtime, 0xFFE64A19.toInt())
                 isRunning -> StatusStyle("进行中", R.drawable.widget_ic_running, R.drawable.status_pill_running, 0xFF4CAF50.toInt())
-                isPausedAtStart -> StatusStyle("等待开始", R.drawable.widget_ic_paused, R.drawable.status_pill_paused, 0xFF9E9E9E.toInt())
+                isPausedAtStart -> StatusStyle("等待开始", R.drawable.widget_ic_idle, R.drawable.status_pill_idle, 0xFF9E9E9E.toInt())
                 else -> StatusStyle("已暂停", R.drawable.widget_ic_paused, R.drawable.status_pill_paused, 0xFF757575.toInt())
             }
 
@@ -135,8 +135,8 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 )
                 setOnClickPendingIntent(R.id.widget_toggle_btn, togglePi)
 
-                // toggle 按钮图标按状态切换：运行中显示暂停图标，否则显示播放图标
-                val toggleIconRes = if (isRunning) R.drawable.widget_ic_paused else R.drawable.widget_ic_running
+                // toggle 按钮图标按状态切换：运行中→暂停图标，否则→播放图标（点击即开始/继续）
+                val toggleIconRes = if (isRunning) R.drawable.widget_ic_paused else R.drawable.widget_ic_play
                 setImageViewResource(R.id.widget_toggle_btn, toggleIconRes)
                 setColorInt(R.id.widget_toggle_btn, "setColorFilter", style.color, style.color)
             }

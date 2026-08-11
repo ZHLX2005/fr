@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- toggle 按钮的圆形底：让按钮有可视边界 + 命中区（48dp 圆即点击范围）。
+     中性浅灰底，图标在 Kotlin 侧按状态着色覆盖。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#14888888" />
+    <stroke
+        android:width="1dp"
+        android:color="#33888888" />
+</shape>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 播放三角 ▶：toggle 按钮在 等待开始/已暂停 状态显示（点击即开始/继续）。
+     替代原借用 widget_ic_running(太阳) 的"play"语义。fillColor 占位，Kotlin 覆盖状态色 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF666666"
+        android:pathData="M8,5 L8,19 L19,12 Z" />
+</vector>

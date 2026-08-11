@@ -1,31 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 三段 vertical 布局：刷新图标(顶) / 内容(中, weight=1) / toggle 按钮(底带)。
+     原来用 FrameLayout 把按钮压在内容上 → 图标/文字重叠；改三段后按钮有专属底带，
+     且按钮带圆形背景(widget_btn_circle)，可视化点击范围。minHeight 提到 150dp 容纳。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@drawable/widget_background">
 
-    <!-- 右上角状态图标：兼做刷新按钮（点击触发 ACTION_REFRESH，原生侧基于
-         startTimeMs 立即重算最新时间，不依赖 Flutter 进程）。
-         图标与着色由 Kotlin updateAppWidget 按状态动态设置。 -->
-    <ImageView
-        android:id="@+id/widget_icon"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:layout_gravity="top|end"
-        android:layout_margin="8dp"
-        android:padding="8dp"
-        android:scaleType="fitCenter"
-        android:src="@drawable/widget_ic_paused"
-        android:contentDescription="刷新时钟" />
+    <!-- 顶部：刷新图标，右对齐，独占一行（不与时间文字重叠） -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <ImageView
+            android:id="@+id/widget_icon"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="end"
+            android:layout_margin="8dp"
+            android:padding="6dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_ic_paused"
+            android:contentDescription="刷新时钟" />
+    </FrameLayout>
 
-    <!-- 主内容区域 -->
+    <!-- 中部：标题 / 时间 / 状态 pill，weight=1 居中 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:orientation="vertical"
         android:gravity="center"
-        android:padding="16dp">
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="4dp">
 
         <!-- 标题 -->
         <TextView
@@ -48,7 +56,7 @@
             android:textStyle="bold"
             android:textColor="#202124"
             android:fontFamily="monospace"
-            android:layout_marginTop="4dp" />
+            android:layout_marginTop="2dp" />
 
         <!-- 状态 pill：浅 tint 底 + 同色描边 + 同色字（背景/字色随状态由 Kotlin 切换） -->
         <TextView
@@ -61,22 +69,26 @@
             android:background="@drawable/status_pill_running"
             android:paddingHorizontal="10dp"
             android:paddingVertical="3dp"
-            android:layout_marginTop="10dp" />
+            android:layout_marginTop="8dp" />
 
     </LinearLayout>
 
-    <!-- 新增：toggle 按钮层（单一 ImageButton，点击进 app toggle 最新 clock）。
-         图标/着色由 Kotlin updateAppWidget 按状态动态切换（运行中→暂停图标，
-         否则→播放图标）。RemoteViews 支持 ImageButton + setOnClickPendingIntent。 -->
-    <ImageButton
-        android:id="@+id/widget_toggle_btn"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="12dp"
-        android:scaleType="fitCenter"
-        android:background="@android:color/transparent"
-        android:src="@drawable/widget_ic_running"
-        android:contentDescription="开始/暂停时钟" />
+    <!-- 底部：toggle 按钮底带（圆形背景 = 可视点击范围），居中 -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="12dp"
+        android:paddingTop="4dp">
+        <ImageButton
+            android:id="@+id/widget_toggle_btn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center_horizontal"
+            android:scaleType="centerInside"
+            android:padding="12dp"
+            android:background="@drawable/widget_btn_circle"
+            android:src="@drawable/widget_ic_play"
+            android:contentDescription="开始/暂停时钟" />
+    </FrameLayout>
 
-</FrameLayout>
+</LinearLayout>
