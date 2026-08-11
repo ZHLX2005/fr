@@ -12,6 +12,9 @@ import '../../metronome/sample_loader.dart';
 import '../services/clock_alert_sound.dart';
 import 'beat_coordinator.dart';
 
+/// 桌面 widget toggle 决策结果（fr #5）
+enum ToggleAction { none, start, pause }
+
 /// 极简时钟Provider
 class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   List<LabClock> _clocks = [];
@@ -338,6 +341,31 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     _syncToWidget(); // 同步到桌面小组件
     BeatCoordinator.releaseOwnership('clock:$id');
     notifyListeners();
+  }
+
+  /// 纯函数：根据最新的 clock（列表首项）状态决定应执行「开始」还是「暂停」。
+  /// - isRunning → true：pause
+  /// - 否则（等待开始 / 已暂停）：start
+  /// - list 为空 → null（无操作）
+  /// 供 toggleLatestClock() 与单测使用。fr #5。
+  static ToggleAction resolveToggle(LabClock? latest) {
+    if (latest == null) return ToggleAction.none;
+    return latest.isRunning ? ToggleAction.pause : ToggleAction.start;
+  }
+
+  /// Toggle 最新的 clock（_clocks.first）：
+  /// - 无 clock → 无操作
+  /// - 运行中 → pauseCountdown
+  /// - 等待开始或已暂停（!isRunning） → startCountdown
+  /// 桌面小组件 toggle 按钮专用入口（fr #5）。
+  Future<void> toggleLatestClock() async {
+    if (_clocks.isEmpty) return;
+    final clock = _clocks.first;
+    if (clock.isRunning) {
+      await pauseCountdown(clock.id);
+    } else {
+      await startCountdown(clock.id);
+    }
   }
 
   /// 重置 - 直接记录当前显示的时间作为实际时间

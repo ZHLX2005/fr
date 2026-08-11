@@ -73,9 +73,11 @@ class ClockWidgetProvider : AppWidgetProvider() {
             // tint/描边在 drawable 里，这里只下发本色。图标用 vector（去 emoji）。
             data class StatusStyle(val text: String, val iconRes: Int, val pillRes: Int, val color: Int)
 
+            val isPausedAtStart = widgetData.getString("clock_is_paused_at_start", "0") == "1"
             val style = when {
                 isOvertime -> StatusStyle("已超时", R.drawable.widget_ic_overtime, R.drawable.status_pill_overtime, 0xFFE64A19.toInt())
                 isRunning -> StatusStyle("进行中", R.drawable.widget_ic_running, R.drawable.status_pill_running, 0xFF4CAF50.toInt())
+                isPausedAtStart -> StatusStyle("等待开始", R.drawable.widget_ic_paused, R.drawable.status_pill_paused, 0xFF9E9E9E.toInt())
                 else -> StatusStyle("已暂停", R.drawable.widget_ic_paused, R.drawable.status_pill_paused, 0xFF757575.toInt())
             }
 
@@ -117,6 +119,26 @@ class ClockWidgetProvider : AppWidgetProvider() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
                 setOnClickPendingIntent(R.id.widget_icon, refreshPi)
+
+                // 新增：toggle 按钮 PendingIntent → fr://clock/widget-toggle
+                // requestCode 用 appWidgetId + 1000 避开主体 (0) 与刷新图标 (appWidgetId)
+                val toggleIntent = Intent(context, MainActivity::class.java).apply {
+                    action = Intent.ACTION_VIEW
+                    data = android.net.Uri.parse("fr://clock/widget-toggle")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val togglePi = PendingIntent.getActivity(
+                    context,
+                    appWidgetId + 1000,
+                    toggleIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                setOnClickPendingIntent(R.id.widget_toggle_btn, togglePi)
+
+                // toggle 按钮图标按状态切换：运行中显示暂停图标，否则显示播放图标
+                val toggleIconRes = if (isRunning) R.drawable.widget_ic_paused else R.drawable.widget_ic_running
+                setImageViewResource(R.id.widget_toggle_btn, toggleIconRes)
+                setColorInt(R.id.widget_toggle_btn, "setColorFilter", style.color, style.color)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)

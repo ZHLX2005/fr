@@ -10,6 +10,60 @@ import 'clock/widgets/dashboard_tab.dart';
 import 'clock/widgets/track_records_page.dart';
 import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
+/// 桌面 widget toggle 入口 — 若当前页不是 ClockDemoPage(冷启动/正在别的页),
+/// 则标记一次 pending toggle,等 ClockDemoPage mount 时再触发。
+final ValueNotifier<bool> _pendingWidgetToggle = ValueNotifier(false);
+
+/// 标志:widget 点击后是否需要自动 toggle 最新的 clock。
+/// `true` 时 ClockDemoPage 第一次 mount → 自动调 toggleLatestClock。
+bool get clockWidgetTogglePending => _pendingWidgetToggle.value;
+
+/// 由桌面 widget click → MainActivity handleIntent → fr://clock/widget-toggle
+/// 路由 → ClockWidgetToggleHandler.build 时调用。
+void markClockWidgetTogglePending() {
+  _pendingWidgetToggle.value = true;
+}
+
+/// ClockDemoPage mount 后由 state 调一次,消费 pending flag
+/// 并实际 toggle 最新 clock（fr #5）。
+@visibleForTesting
+Future<void> consumeClockWidgetToggle(LabClockProvider provider) async {
+  if (!_pendingWidgetToggle.value) return;
+  _pendingWidgetToggle.value = false;
+  await provider.toggleLatestClock();
+}
+
+/// ClockDemo 页面包装 —— 由 ClockDemo.buildPage 返回。
+/// 用于消费桌面 widget toggle pending flag(类似 RecorderDemoPage 的 autostart)。
+class ClockDemoPage extends StatefulWidget {
+  const ClockDemoPage({super.key});
+
+  @override
+  State<ClockDemoPage> createState() => _ClockDemoPageState();
+}
+
+class _ClockDemoPageState extends State<ClockDemoPage> {
+  bool _widgetToggleConsumed = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_widgetToggleConsumed && clockWidgetTogglePending) {
+      _widgetToggleConsumed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final provider = context.read<LabClockProvider>();
+        await consumeClockWidgetToggle(provider);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 委托给原有 _ClockShell(它内部已包含 LabClockProvider 树)。
+    return const _ClockShell();
+  }
+}
+
 class ClockDemo extends DemoPage {
   @override
   String get title => '时钟';
@@ -33,7 +87,7 @@ class ClockDemo extends DemoPage {
     // isn't wired at app root, so it's still created here.
     return ChangeNotifierProvider(
       create: (_) => LabTrackProvider()..loadTracks(),
-      child: const _ClockShell(),
+      child: const ClockDemoPage(),
     );
   }
 }

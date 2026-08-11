@@ -65,4 +65,18 @@
 
     </LinearLayout>
 
+    <!-- 新增：toggle 按钮层（单一 ImageButton，点击进 app toggle 最新 clock）。
+         图标/着色由 Kotlin updateAppWidget 按状态动态切换（运行中→暂停图标，
+         否则→播放图标）。RemoteViews 支持 ImageButton + setOnClickPendingIntent。 -->
+    <ImageButton
+        android:id="@+id/widget_toggle_btn"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="12dp"
+        android:scaleType="fitCenter"
+        android:background="@android:color/transparent"
+        android:src="@drawable/widget_ic_running"
+        android:contentDescription="开始/暂停时钟" />
+
 </FrameLayout>

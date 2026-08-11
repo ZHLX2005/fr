@@ -29,6 +29,10 @@ class ClockWidgetData {
   /// 启动时刻的剩余秒数（配合 startTimeMs 用于实时计算）
   final int startRemainingSeconds;
 
+  /// 是否「等待开始」语义：未运行 + remainingSeconds == durationSeconds。
+  /// native 用此区分「新建未启动」 vs「中途暂停」，文案/颜色不同。
+  final bool isPausedAtStart;
+
   const ClockWidgetData({
     required this.title,
     required this.remainingSeconds,
@@ -39,6 +43,7 @@ class ClockWidgetData {
     required this.isOvertime,
     required this.startTimeMs,
     required this.startRemainingSeconds,
+    required this.isPausedAtStart,
   });
 
   /// 从 LabClock 转换
@@ -52,6 +57,7 @@ class ClockWidgetData {
     int? startRemainingSeconds,
   }) {
     final isOvertime = remainingSeconds < 0;
+    final isPausedAtStart = !isRunning && remainingSeconds == durationSeconds;
     final absSeconds = remainingSeconds.abs();
     final h = absSeconds ~/ 3600;
     final m = (absSeconds % 3600) ~/ 60;
@@ -69,6 +75,7 @@ class ClockWidgetData {
       isOvertime: isOvertime,
       startTimeMs: startTime?.millisecondsSinceEpoch ?? 0,
       startRemainingSeconds: startRemainingSeconds ?? remainingSeconds,
+      isPausedAtStart: isPausedAtStart,
     );
   }
 
@@ -83,6 +90,7 @@ class ClockWidgetData {
     isOvertime: false,
     startTimeMs: 0,
     startRemainingSeconds: 0,
+    isPausedAtStart: false,
   );
 
   /// 转换为 Map 用于存储
@@ -97,6 +105,7 @@ class ClockWidgetData {
       'isOvertime': isOvertime ? 1 : 0,
       'startTimeMs': startTimeMs,
       'startRemainingSeconds': startRemainingSeconds,
+      'isPausedAtStart': isPausedAtStart ? 1 : 0,
     };
   }
 }

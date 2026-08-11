@@ -22,6 +22,7 @@ class ClockWidgetService {
   static const String _keyStartTimeMs = 'clock_start_time_ms';
   static const String _keyStartRemainingSeconds =
       'clock_start_remaining_seconds';
+  static const String _keyIsPausedAtStart = 'clock_is_paused_at_start';
 
   // 并发更新去重：高频 tick 中若上一次还没写完，直接跳过新的请求避免堆积
   static bool _isUpdating = false;
@@ -54,6 +55,10 @@ class ClockWidgetService {
         HomeWidget.saveWidgetData(
           _keyStartRemainingSeconds,
           data.startRemainingSeconds.toString(),
+        ),
+        HomeWidget.saveWidgetData(
+          _keyIsPausedAtStart,
+          data.isPausedAtStart ? '1' : '0',
         ),
       ]);
 
