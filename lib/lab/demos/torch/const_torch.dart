@@ -1,18 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// 手电筒模块常量
+/// 手电筒模块常量 — 仅动画时长与亮度参数。
+///
+/// UI 颜色（背景/边框/按钮/文本）已迁移到 `BoardTheme.of(context)` token，
+/// 这里**不**再持有任何 hex；护眼颜色预设是功能（灯色选择），不是 UI 主题，
+/// 因此保留在 [EyeProtectionColors] 中。
 class TorchConst {
   TorchConst._();
-
-  // 颜色
-  static const Color backgroundDark = Color(0xFF1C1C1E);
-  static const Color cardDark = Color(0xFF2C2C2E);
-  static const Color borderDark = Color(0xFF48484A);
-  static const Color textSecondary = Color(0xFF8E8E93);
-  static const Color accentBlue = Color(0xFF0A84FF);
-  static const Color accentGreen = Color(0xFF30D158);
-  static const Color accentRed = Color(0xFFFF453A);
-  static const Color accentYellow = Color(0xFFFFD60A);
 
   // 动画
   static const Duration modeSwitchDuration = Duration(milliseconds: 200);
