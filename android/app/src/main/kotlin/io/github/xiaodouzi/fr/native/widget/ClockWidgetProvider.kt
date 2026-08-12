@@ -77,7 +77,7 @@ class ClockWidgetProvider : AppWidgetProvider() {
             val style = when {
                 isOvertime -> StatusStyle("已超时", R.drawable.widget_ic_overtime, R.drawable.status_pill_overtime, 0xFFE64A19.toInt())
                 isRunning -> StatusStyle("进行中", R.drawable.widget_ic_running, R.drawable.status_pill_running, 0xFF4CAF50.toInt())
-                isPausedAtStart -> StatusStyle("等待开始", R.drawable.widget_ic_idle, R.drawable.status_pill_idle, 0xFF9E9E9E.toInt())
+                isPausedAtStart -> StatusStyle("等待开始", R.drawable.widget_ic_idle, R.drawable.status_pill_idle, 0xFF2196F3.toInt())
                 else -> StatusStyle("已暂停", R.drawable.widget_ic_paused, R.drawable.status_pill_paused, 0xFF757575.toInt())
             }
 

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 等待开始 pill：比 已暂停(status_pill_paused) 更浅的灰 tint + 更淡描边，视觉区分 -->
+<!-- 等待开始 pill：蓝色 tint 底 + 蓝描边（与 进行中绿/已暂停灰 区分） -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#149E9E9E" />
+    <solid android:color="#1F2196F3" />
     <stroke
         android:width="1dp"
-        android:color="#559E9E9E" />
+        android:color="#802196F3" />
     <corners android:radius="12dp" />
 </shape>
