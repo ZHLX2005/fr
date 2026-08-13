@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import '../../../services/ai_chat/agent_chat_provider.dart';
 import '../../../services/ai_chat/ai_chat_models.dart';
-import '../../../widgets/markdown_renderer_widget.dart';
+import '../../../services/message_strategy/data/data.dart';
+import '../../../services/message_strategy/factory/factory.dart';
 import '../ai_chat_settings_page.dart';
 
 /// Agent 聊天页面 - 事件记录 Agent
@@ -402,7 +404,10 @@ class _MessageBubble extends StatelessWidget {
                     color: isMe ? Colors.white : theme.colorScheme.onSurface,
                   ),
                 )
-              : MarkdownRendererWidget(data: message.content),
+              : GetIt.instance<MessageWidgetFactory>().create(
+                  context,
+                  AutoTextMessageData(message.content),
+                ),
         ),
       ),
     );

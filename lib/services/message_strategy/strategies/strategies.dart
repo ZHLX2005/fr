@@ -1,4 +1,5 @@
 export 'text_message_strategy.dart';
+export 'autotext_message_strategy.dart';
 export 'text_link_message_strategy.dart';
 export 'markdown_message_strategy.dart';
 export 'html_message_strategy.dart';
