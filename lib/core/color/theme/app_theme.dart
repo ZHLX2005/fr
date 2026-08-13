@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../color_utils.dart';
+
 /// 应用主题模式枚举
 enum AppThemeMode {
   /// 浅色模式（默认蓝色主题）
@@ -839,8 +841,11 @@ class AppTheme {
     );
   }
 
-  /// 根据模式获取主题数据
-  static ThemeData getThemeData(AppThemeMode mode) {
+  /// 全局饱和度系数：0.85 表示饱和度降低约 15%。
+  static const double kSaturationFactor = 0.85;
+
+  /// 未经降饱和的原始主题（仅供测试与内部使用）。
+  static ThemeData _rawThemeData(AppThemeMode mode) {
     switch (mode) {
       case AppThemeMode.light:
         return createLightTheme();
@@ -857,6 +862,139 @@ class AppTheme {
       case AppThemeMode.purple:
         return createPurpleTheme();
     }
+  }
+
+  /// 降饱和前的原始 primary（测试用）。
+  static Color rawPrimaryOf(AppThemeMode mode) =>
+      _rawThemeData(mode).colorScheme.primary;
+
+  /// 根据模式获取主题数据（已统一降饱和）
+  static ThemeData getThemeData(AppThemeMode mode) {
+    return _desaturateTheme(_rawThemeData(mode));
+  }
+
+  static Color _d(Color c) =>
+      ColorUtils.desaturate(c, factor: kSaturationFactor);
+
+  /// 从主题中读取渐变起始色（测试用；无渐变扩展时返回 null）。
+  static Color? gradientStartOf(ThemeData theme) {
+    for (final ext in theme.extensions.values) {
+      if (ext is _PinkThemeColors) return ext.gradientStart;
+      if (ext is _GreenThemeColors) return ext.gradientStart;
+      if (ext is _OrangeThemeColors) return ext.gradientStart;
+      if (ext is _RoseThemeColors) return ext.gradientStart;
+      if (ext is _PurpleThemeColors) return ext.gradientStart;
+    }
+    return null;
+  }
+
+  /// 从主题中读取渐变结束色（测试用；无渐变扩展时返回 null）。
+  static Color? gradientEndOf(ThemeData theme) {
+    for (final ext in theme.extensions.values) {
+      if (ext is _PinkThemeColors) return ext.gradientEnd;
+      if (ext is _GreenThemeColors) return ext.gradientEnd;
+      if (ext is _OrangeThemeColors) return ext.gradientEnd;
+      if (ext is _RoseThemeColors) return ext.gradientEnd;
+      if (ext is _PurpleThemeColors) return ext.gradientEnd;
+    }
+    return null;
+  }
+
+  /// 降饱和前的渐变起始色（测试用）。
+  static Color? rawGradientStartOf(AppThemeMode mode) =>
+      gradientStartOf(_rawThemeData(mode));
+
+  /// 降饱和前的渐变结束色（测试用）。
+  static Color? rawGradientEndOf(AppThemeMode mode) =>
+      gradientEndOf(_rawThemeData(mode));
+
+  static Iterable<ThemeExtension<dynamic>> _desaturateExtensions(
+      ThemeData theme) {
+    return theme.extensions.values.map((ext) {
+      if (ext is _PinkThemeColors) {
+        return _PinkThemeColors(
+          gradientStart: _d(ext.gradientStart),
+          gradientEnd: _d(ext.gradientEnd),
+        );
+      }
+      if (ext is _GreenThemeColors) {
+        return _GreenThemeColors(
+          gradientStart: _d(ext.gradientStart),
+          gradientEnd: _d(ext.gradientEnd),
+        );
+      }
+      if (ext is _OrangeThemeColors) {
+        return _OrangeThemeColors(
+          gradientStart: _d(ext.gradientStart),
+          gradientEnd: _d(ext.gradientEnd),
+        );
+      }
+      if (ext is _RoseThemeColors) {
+        return _RoseThemeColors(
+          gradientStart: _d(ext.gradientStart),
+          gradientEnd: _d(ext.gradientEnd),
+        );
+      }
+      if (ext is _PurpleThemeColors) {
+        return _PurpleThemeColors(
+          gradientStart: _d(ext.gradientStart),
+          gradientEnd: _d(ext.gradientEnd),
+        );
+      }
+      return ext;
+    });
+  }
+
+  /// 对彩色角色统一降饱和。
+  ///
+  /// 刻意不动 surface / background / onSurface / outline 等中性色：
+  /// 暖白奶油底色 #FFF8F0 的 HSL 饱和度接近 1.0（因为 L≈0.97），
+  /// 乘以 0.85 会把刻意的暖白洗成惨白。
+  static ThemeData _desaturateTheme(ThemeData theme) {
+    final s = theme.colorScheme;
+    final scheme = s.copyWith(
+      primary: _d(s.primary),
+      primaryContainer: _d(s.primaryContainer),
+      onPrimaryContainer: _d(s.onPrimaryContainer),
+      secondary: _d(s.secondary),
+      secondaryContainer: _d(s.secondaryContainer),
+      onSecondaryContainer: _d(s.onSecondaryContainer),
+      tertiary: _d(s.tertiary),
+      tertiaryContainer: _d(s.tertiaryContainer),
+      onTertiaryContainer: _d(s.onTertiaryContainer),
+      error: _d(s.error),
+      errorContainer: _d(s.errorContainer),
+      onErrorContainer: _d(s.onErrorContainer),
+      surfaceTint: _d(s.surfaceTint),
+    );
+
+    return theme.copyWith(
+      colorScheme: scheme,
+      extensions: _desaturateExtensions(theme),
+      appBarTheme: theme.appBarTheme.copyWith(
+        surfaceTintColor: scheme.primary,
+      ),
+      floatingActionButtonTheme:
+          theme.floatingActionButtonTheme.copyWith(
+        backgroundColor: scheme.primary,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: (theme.elevatedButtonTheme.style ?? const ButtonStyle())
+            .copyWith(
+          backgroundColor: WidgetStatePropertyAll(scheme.primary),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: (theme.filledButtonTheme.style ?? const ButtonStyle())
+            .copyWith(
+          backgroundColor: WidgetStatePropertyAll(scheme.primary),
+        ),
+      ),
+      bottomNavigationBarTheme:
+          theme.bottomNavigationBarTheme.copyWith(
+        selectedItemColor: scheme.primary,
+      ),
+    );
   }
 
   /// 创建主题预览颜色（用于预览卡片）

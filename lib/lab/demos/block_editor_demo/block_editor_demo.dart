@@ -167,24 +167,8 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
       builder: (context, _) {
         final blocks = _editorState.blocks;
         final selectedId = _editorState.selectedId;
-        final colorScheme = Theme.of(context).colorScheme;
 
-        return ScrollbarTheme(
-          data: ScrollbarThemeData(
-            thumbVisibility: WidgetStateProperty.all(true),
-            thickness: WidgetStateProperty.all(8),
-            radius: const Radius.circular(4),
-            thumbColor: WidgetStateColor.resolveWith((states) {
-              if (states.contains(WidgetState.dragged)) {
-                return colorScheme.primary.withValues(alpha: 0.95);
-              }
-              if (states.contains(WidgetState.hovered)) {
-                return colorScheme.primary.withValues(alpha: 0.85);
-              }
-              return colorScheme.primary.withValues(alpha: 0.6);
-            }),
-          ),
-          child: Scaffold(
+        return Scaffold(
           appBar: AppBar(
             title: const Text('块编辑器'),
             actions: [
@@ -222,7 +206,6 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
               ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
               : Scrollbar(
                   controller: _scrollController,
-                  thumbVisibility: true,
                   child: ReorderableListView.builder(
                     scrollController: _scrollController,
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -251,7 +234,6 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                     },
                   ),
                 ),
-        ),
         );
       },
     );
