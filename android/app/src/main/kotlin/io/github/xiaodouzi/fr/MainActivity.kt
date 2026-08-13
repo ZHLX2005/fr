@@ -215,6 +215,10 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        // 分享 Intent 的 data 为 null，必须先按 action 分发，否则会被下面的
+        // data URI 分支静默跳过（ACTION_SEND/ACTION_SEND_MULTIPLE）。
+        handleShareIntent(intent)
+
         intent?.data?.let { uri ->
             val uriStr = uri.toString()
             // 解析 fr://notionimg?autocapture=1 或 fr://notionimg 两种 URI
@@ -254,6 +258,32 @@ class MainActivity : FlutterActivity() {
                     widgetChannel.notifyNavigateToLab()
                 }
             }
+        }
+    }
+
+    private fun handleShareIntent(intent: Intent?) {
+        val action = intent?.action ?: return
+        if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) return
+
+        // EXTRA_TEXT：文本/链接分享
+        val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+
+        // EXTRA_STREAM / clipData：文件分享（content:// URI，系统已临时授权读权限）
+        val uris = mutableListOf<String>()
+        if (action == Intent.ACTION_SEND_MULTIPLE) {
+            intent.clipData?.let { clip ->
+                for (i in 0 until clip.itemCount) {
+                    clip.getItemAt(i).uri?.let { uris.add(it.toString()) }
+                }
+            }
+        } else {
+            intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)?.let {
+                uris.add(it.toString())
+            }
+        }
+
+        if (!text.isNullOrEmpty() || uris.isNotEmpty()) {
+            widgetChannel.notifyShareReceived(text, uris)
         }
     }
 

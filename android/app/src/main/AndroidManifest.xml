@@ -129,6 +129,24 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="fr" />
             </intent-filter>
+
+            <!-- 接收文本分享（其他 app 分享文本/链接 → FR） -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <!-- 接收文件分享（图片/视频/音频/文件，单发或批量） -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="application/*" />
+            </intent-filter>
         </activity>
 
         <!-- 音量衰减快捷方式中转Activity（透明无UI） -->

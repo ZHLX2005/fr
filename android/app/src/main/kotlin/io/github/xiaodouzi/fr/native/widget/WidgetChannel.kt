@@ -90,4 +90,13 @@ class WidgetChannel(messenger: BinaryMessenger) {
     fun notifyNavigateToClockWidgetToggle() {
         channel.invokeMethod("navigateToClockWidgetToggle", null)
     }
+
+    /// 通知 Flutter 收到外部分享（其他 app 分享文本/文件到 FR）。
+    /// [text] 分享文本（可为 null），[fileUris] 分享文件 content:// URI 列表。
+    fun notifyShareReceived(text: String?, fileUris: List<String>) {
+        channel.invokeMethod(
+            "shareReceived",
+            mapOf("text" to text, "files" to fileUris),
+        )
+    }
 }

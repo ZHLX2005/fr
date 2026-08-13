@@ -19,6 +19,7 @@ import 'core/storage/hive/body_record_repository.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
+import 'core/share_receive/share_receive_store.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
 void main() async {
@@ -317,6 +318,7 @@ class _MainScreenState extends State<MainScreen>
 ///   navigateToNotionImage      → fr://notion/image-host?autocapture=<bool>
 ///   navigateToRecorder         → fr://lab/demo/recorder?autostart=<bool>
 ///   navigateToClockWidgetToggle→ fr://clock/widget-toggle
+///   shareReceived              → fr://share/receive（载荷存 ShareReceiveStore.pending）
 class FrMethodChannelTranslator {
   FrMethodChannelTranslator._();
 
@@ -334,8 +336,21 @@ class FrMethodChannelTranslator {
       'navigateToRecorder' =>
         'fr://lab/demo/recorder?autostart=${(call.arguments as bool?) ?? true}',
       'navigateToClockWidgetToggle' => 'fr://clock/widget-toggle',
+      'shareReceived' => _translateShareReceived(call.arguments),
       _ => null,
     };
+  }
+
+  /// 分享接收：原生传 `{text: String?, files: List<String>}`，
+  /// 载荷经 URL 不便传输（文本长/含特殊字符），存入
+  /// [ShareReceiveStore.pending] 供 handler 页面消费，URL 仅作导航信号。
+  static String? _translateShareReceived(Object? arguments) {
+    final map = (arguments as Map?)?.cast<String, dynamic>() ?? const {};
+    ShareReceiveStore.pending = ShareReceiveData(
+      text: map['text'] as String?,
+      fileUris: (map['files'] as List?)?.cast<String>() ?? const [],
+    );
+    return 'fr://share/receive';
   }
 }
 

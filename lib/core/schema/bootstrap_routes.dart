@@ -8,6 +8,7 @@ import 'handlers/notion_create_page_handler.dart';
 import 'handlers/timetable_handler.dart';
 import 'handlers/recorder_handler.dart';
 import 'handlers/clock_widget_toggle_handler.dart';
+import 'handlers/share_receive_handler.dart';
 
 /// 集中注册所有 fr:// 路由
 ///
@@ -26,5 +27,6 @@ void registerAllFrRoutes() {
     FrRoute('notion/image-host', handler: const NotionImageHostHandler()),
     FrRoute('notion/create-page', handler: const NotionCreatePageHandler()),
     FrRoute('timetable', handler: const TimetableHandler()),
+    FrRoute('share/receive', handler: const ShareReceiveHandler()),
   ]);
 }
