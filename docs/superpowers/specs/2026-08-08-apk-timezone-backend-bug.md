@@ -2,6 +2,7 @@
 
 > 状态:仅诊断,**前端代码逻辑自洽**;真实根因在后端。
 > 配套 todo: kvcli topic=fr, id=3, "apk 下载,显示的时间会变大八个小时,自己调用后端接口测试一下,如果不是后端问题就是前端自己加了 8 小时"
+> 2026-08-14 复测: kvcli topic=fr id=21, 已用 .tool/apk-timezone-probe 脚本实测复现,结论不变(详见文末「2026-08-14 复测」)。
 
 ## 关键证据
 
@@ -95,3 +96,27 @@ GoFrame 默认 handler 写 Last-Modified 头时直接 Format(time.Now()),
 ## 本仓库改动
 
 **0 文件改动**。诊断 + 现场证据全部在本 spec。
+
+---
+
+## 2026-08-14 复测(todo #21)
+
+用 `.tool/apk-timezone-probe/scripts/probe_apk_time.py`(tool-isolation 规范,stdlib 仅 http.client/email.utils)实测 3 次,`GET /files/by-key/fr_latest_apk` + `Range: bytes=0-0`:
+
+```
+status: 206 Partial Content
+Date:         Fri, 14 Aug 2026 16:47:15 GMT   ← 客户端本机 UTC 16:47:14,偏差 0.0h,Date 自洽
+Last-Modified: Fri, 14 Aug 2026 19:53:47 GMT   ← 比 Date 晚 3.11h = 未来时间,HTTP 语义不可能
+Content-Range: bytes 0-0/57242231
+Etag: "bc44c4f638f4a5b94127eb40e2495633"
+```
+
+**铁证逻辑**:Last-Modified 表示资源最后修改时刻,**必须早于或等于 Date(响应生成时刻)**。本次 Last-Modified 晚于 Date 3.11h,是未来时间,唯一解释 = 后端把非 UTC 的本地/其他来源时间戳直接 Format 成 `"GMT"` 标签写入响应头。8-08 抓包差 8h、本次差 3.11h,偏移随服务器状态变化 → 无法用固定 ±8h 启发式,必须修后端源头。
+
+复跑命令:
+
+```bash
+cd .tool/apk-timezone-probe && uv run python3 scripts/probe_apk_time.py --times 3
+```
+
+结论不变:**后端 file 静态接口的 Last-Modified 头错误,前端 0 改动**。
