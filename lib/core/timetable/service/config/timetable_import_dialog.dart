@@ -39,6 +39,18 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
 
     final store = ref.read(TimetableStore.provider.notifier);
 
+    // 应用 config 段（行列数/开始日期/模式/左侧指示）
+    final cfg = _preview!.config;
+    if (cfg != null) {
+      await store.updateConfig(
+        startDateIso: cfg.startDateIso,
+        cycleCount: cfg.cycleCount,
+        daysPerCycle: cfg.daysPerCycle,
+        slotsPerDay: cfg.slotsPerDay,
+        isSchoolMode: cfg.isSchoolMode,
+      );
+    }
+
     // 按 cellKey 分组，减少存储操作
     final grouped = <String, List<CourseItem>>{};
     for (final course in _preview!.courses) {

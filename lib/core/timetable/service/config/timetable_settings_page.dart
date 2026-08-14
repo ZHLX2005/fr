@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'sicau_import_dialog.dart';
+import 'timetable_anime_import_dialog.dart';
 import 'timetable_import_dialog.dart';
 import 'timetable_week_calculator.dart';
 import '../../../../widgets/theme/zen_theme.dart';
@@ -25,6 +26,11 @@ class _TimetableSettingsPageState
   late int _daysPerCycle;
   late int _slotsPerDay;
   late bool _isSchoolMode;
+  late int _leftLabelMode;
+  late double _leftWidth;
+  late int _slotDurationMin;
+  late List<String> _slotLabels;
+  late List<String> _slotStartTimes;
 
   @override
   void initState() {
@@ -35,6 +41,37 @@ class _TimetableSettingsPageState
     _daysPerCycle = config.daysPerCycle;
     _slotsPerDay = config.slotsPerDay;
     _isSchoolMode = config.isSchoolMode;
+    _leftLabelMode = config.leftLabelMode;
+    _leftWidth = config.leftWidth;
+    _slotDurationMin = config.slotDurationMin;
+    _slotLabels = List<String>.from(config.slotLabels ?? const []);
+    _slotStartTimes = List<String>.from(config.slotStartTimes ?? const []);
+    _ensureSlotLists();
+  }
+
+  /// 保持标签/时间列表长度与 slotsPerDay 对齐（缺位补空串）
+  void _ensureSlotLists() {
+    if (_slotLabels.length != _slotsPerDay) {
+      _slotLabels = List.generate(
+        _slotsPerDay,
+        (i) => i < _slotLabels.length ? _slotLabels[i] : '',
+      );
+    }
+    if (_slotStartTimes.length != _slotsPerDay) {
+      _slotStartTimes = List.generate(
+        _slotsPerDay,
+        (i) => i < _slotStartTimes.length ? _slotStartTimes[i] : '',
+      );
+    }
+  }
+
+  /// 去掉列表尾部的空串（保存时 null 语义：无数据）
+  List<String>? _trimmedOrNull(List<String> list) {
+    final trimmed = List<String>.from(list);
+    while (trimmed.isNotEmpty && trimmed.last.trim().isEmpty) {
+      trimmed.removeLast();
+    }
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   @override
@@ -59,12 +96,18 @@ class _TimetableSettingsPageState
     // 学校模式下强制 daysPerCycle = 7
     final daysToSave = _isSchoolMode ? 7 : _daysPerCycle;
 
+    _ensureSlotLists();
     final error = await store.updateConfig(
       startDateIso: startDateIso,
       cycleCount: _cycleCount,
       daysPerCycle: daysToSave,
       slotsPerDay: _slotsPerDay,
       isSchoolMode: _isSchoolMode,
+      leftLabelMode: _leftLabelMode,
+      leftWidth: _leftWidth,
+      slotDurationMin: _slotDurationMin,
+      slotLabels: _trimmedOrNull(_slotLabels),
+      slotStartTimes: _trimmedOrNull(_slotStartTimes),
     );
 
     if (!mounted) return;
@@ -101,6 +144,18 @@ class _TimetableSettingsPageState
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('已从教务系统导入 $count 门课程')));
+    }
+  }
+
+  Future<void> _openAnimeImport() async {
+    final count = await showDialog<int>(
+      context: context,
+      builder: (_) => const TimetableAnimeImportDialog(),
+    );
+    if (count != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已导入 $count 部新番更新时间')));
     }
   }
 
@@ -230,18 +285,88 @@ class _TimetableSettingsPageState
             ),
           ),
           const SizedBox(height: 12),
-          // ── 学校模式：导入 / 导出 / 清空 ──
-          if (_isSchoolMode)
-            ZenSection(
-              title: '课程管理',
-              child: Column(
-                children: [
-                  _ZenActionButton(
-                    icon: Icons.upload_file,
-                    label: '批量导入课程',
-                    onPressed: _openImport,
+          // ── 显示控制：左侧指示 / 宽度 / 时间与自定义文字 ──
+          ZenSection(
+            title: '显示控制',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('左侧指示', style: ZenText.label),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ZenSegmentButton(
+                        label: '序号',
+                        selected: _leftLabelMode == 0,
+                        onTap: () => setState(() => _leftLabelMode = 0),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ZenSegmentButton(
+                        label: '时间段',
+                        selected: _leftLabelMode == 1,
+                        onTap: () => setState(() => _leftLabelMode = 1),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ZenSegmentButton(
+                        label: '自定义',
+                        selected: _leftLabelMode == 2,
+                        onTap: () => setState(() => _leftLabelMode = 2),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _ZenConfigSlider(
+                  label: '左侧宽度 (px)',
+                  value: _leftWidth,
+                  min: 44,
+                  max: 110,
+                  divisions: 33,
+                  onChanged: (v) => setState(() => _leftWidth = v.roundToDouble()),
+                ),
+                if (_leftLabelMode == 1) ...[
+                  const SizedBox(height: 4),
+                  _ZenConfigSlider(
+                    label: '每节时长 (分钟)',
+                    value: _slotDurationMin.toDouble(),
+                    min: 15,
+                    max: 120,
+                    divisions: 21,
+                    onChanged: (v) =>
+                        setState(() => _slotDurationMin = v.round()),
                   ),
                   const SizedBox(height: 8),
+                  Text('每节开始时间（HH:mm，自动计算结束）', style: ZenText.label),
+                  const SizedBox(height: 8),
+                  _buildTimeFields(),
+                ],
+                if (_leftLabelMode == 2) ...[
+                  const SizedBox(height: 8),
+                  Text('每节自定义文字（留空回退序号）', style: ZenText.label),
+                  const SizedBox(height: 8),
+                  _buildLabelFields(),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ── 课程管理：导入 / 导出 / 清空（全模式可用；SICAU 仅学校模式）──
+          ZenSection(
+            title: '课程管理',
+            child: Column(
+              children: [
+                _ZenActionButton(
+                  icon: Icons.upload_file,
+                  label: '批量导入课程',
+                  onPressed: _openImport,
+                ),
+                const SizedBox(height: 8),
+                if (_isSchoolMode) ...[
                   _ZenActionButton(
                     icon: Icons.school,
                     label: 'SICAU 课表导入',
@@ -249,22 +374,30 @@ class _TimetableSettingsPageState
                     secondary: true,
                   ),
                   const SizedBox(height: 8),
-                  _ZenActionButton(
-                    icon: Icons.download,
-                    label: '导出 DSL',
-                    onPressed: _exportDsl,
-                    secondary: true,
-                  ),
-                  const SizedBox(height: 8),
-                  _ZenActionButton(
-                    icon: Icons.delete_outline,
-                    label: '清空所有课程',
-                    onPressed: _clearAll,
-                    danger: true,
-                  ),
                 ],
-              ),
+                _ZenActionButton(
+                  icon: Icons.movie_outlined,
+                  label: '新番更新时间导入',
+                  onPressed: _openAnimeImport,
+                  secondary: true,
+                ),
+                const SizedBox(height: 8),
+                _ZenActionButton(
+                  icon: Icons.download,
+                  label: '导出 DSL',
+                  onPressed: _exportDsl,
+                  secondary: true,
+                ),
+                const SizedBox(height: 8),
+                _ZenActionButton(
+                  icon: Icons.delete_outline,
+                  label: '清空所有课程',
+                  onPressed: _clearAll,
+                  danger: true,
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -392,6 +525,109 @@ class _TimetableSettingsPageState
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  /// 时间段模式：每节开始时间输入（HH:mm）
+  Widget _buildTimeFields() {
+    _ensureSlotLists();
+    return Column(
+      children: [
+        for (int i = 0; i < _slotsPerDay; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 72,
+                  child: Text(
+                    '第${i + 1}节',
+                    style: ZenText.body.copyWith(
+                      color: ZenColors.secondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: TextEditingController(text: _slotStartTimes[i]),
+                    keyboardType: TextInputType.datetime,
+                    onChanged: (v) {
+                      _slotStartTimes[i] = v.trim();
+                    },
+                    decoration: InputDecoration(
+                      hintText: '08:00',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: ZenColors.hair),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: ZenColors.hair),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// 自定义模式：每节自定义文字输入（留空回退序号）
+  Widget _buildLabelFields() {
+    _ensureSlotLists();
+    return Column(
+      children: [
+        for (int i = 0; i < _slotsPerDay; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 72,
+                  child: Text(
+                    '第${i + 1}节',
+                    style: ZenText.body.copyWith(
+                      color: ZenColors.secondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: TextEditingController(text: _slotLabels[i]),
+                    onChanged: (v) {
+                      _slotLabels[i] = v.trim();
+                    },
+                    decoration: InputDecoration(
+                      hintText: '如: 上午 / 09:00 更新',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: ZenColors.hair),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: ZenColors.hair),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

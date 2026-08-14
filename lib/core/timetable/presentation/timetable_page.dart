@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/timetable_repository.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';
 import 'timetable_cell.dart';
@@ -48,6 +49,24 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   /// 生成单元格唯一键
   String _cellKey(int cycleIndex, int dayOfCycle, int slotIndex) {
     return '$cycleIndex-$dayOfCycle-$slotIndex';
+  }
+
+  /// 打开空间选择面板（仿 kv 清单头部工作空间选择）
+  Future<void> _openSpaceSheet() async {
+    final store = ref.read(TimetableStore.provider.notifier);
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => _SpaceSheet(
+        store: store,
+        activeId: store.activeSpaceId,
+      ),
+    );
+    if (selected != null) {
+      // 空间名等变化，刷新列表 provider
+      ref.invalidate(TimetableStore.spacesProvider);
+      if (mounted) setState(() {});
+    }
   }
 
   /// 选择背景图
@@ -117,6 +136,17 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final config = ref.watch(TimetableStore.configProvider);
+    final spacesAsync = ref.watch(TimetableStore.spacesProvider);
+    final activeId = ref.read(TimetableStore.provider.notifier).activeSpaceId;
+    final activeSpaceName =
+        spacesAsync.valueOrNull?.firstWhere(
+          (s) => s.id == activeId,
+          orElse: () => const TimetableSpaceInfo(
+            id: TimetableRepository.defaultSpaceId,
+            name: '默认课表',
+          ),
+        ).name ??
+        (activeId == TimetableRepository.defaultSpaceId ? '默认课表' : activeId);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -136,6 +166,12 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
           ),
         ),
         actions: [
+          // 头部空间选择（仿 kv 清单工作空间选择模式）
+          IconButton(
+            icon: const Icon(Icons.workspaces_outlined),
+            tooltip: '工作空间: $activeSpaceName（点击切换）',
+            onPressed: _openSpaceSheet,
+          ),
           IconButton(
             icon: const Icon(Icons.image_outlined),
             onPressed: _pickBackgroundImage,
@@ -341,7 +377,11 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               child: Row(
                 children: [
                   // 时间列
-                  _SlotLabel(slotIndex: slotIndex, height: rowHeight),
+                  _SlotLabel(
+                    slotIndex: slotIndex,
+                    height: rowHeight,
+                    config: config,
+                  ),
                   // 课程网格列
                   ...List.generate(config.daysPerCycle, (dayOfCycle) {
                     final course = cycleGrid[dayOfCycle][slotIndex];
@@ -484,19 +524,245 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 }
 
+/// 空间选择底部面板：单选切换 + 新建/重命名/删除（default 不可删）
+class _SpaceSheet extends StatefulWidget {
+  final TimetableStore store;
+  final String activeId;
+
+  const _SpaceSheet({required this.store, required this.activeId});
+
+  @override
+  State<_SpaceSheet> createState() => _SpaceSheetState();
+}
+
+class _SpaceSheetState extends State<_SpaceSheet> {
+  late List<TimetableSpaceInfo> _spaces;
+  late String _activeId;
+
+  @override
+  void initState() {
+    super.initState();
+    _spaces = [];
+    _activeId = widget.activeId;
+    _reload();
+  }
+
+  Future<void> _reload() async {
+    final spaces = await widget.store.listSpaces();
+    if (mounted) setState(() => _spaces = spaces);
+  }
+
+  Future<void> _createSpace() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('新建空间'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '空间名称，如: 新番目录 / 日程安排',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    await widget.store.createSpace(name);
+    _activeId = widget.store.activeSpaceId;
+    await _reload();
+  }
+
+  Future<void> _renameSpace(TimetableSpaceInfo space) async {
+    final controller = TextEditingController(text: space.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重命名空间'),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty || name == space.name) return;
+    await widget.store.renameSpace(space.id, name);
+    await _reload();
+  }
+
+  Future<void> _deleteSpace(TimetableSpaceInfo space) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除空间'),
+        content: Text('确定删除「${space.name}」吗？该空间下的课表数据将一并删除，不可恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await widget.store.deleteSpace(space.id);
+    _activeId = widget.store.activeSpaceId;
+    await _reload();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Row(
+              children: [
+                Text(
+                  '工作空间',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${_spaces.length} 个',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final space in _spaces)
+                  ListTile(
+                    dense: true,
+                    leading: Icon(
+                      space.id == _activeId
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      size: 20,
+                      color: space.id == _activeId
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                    title: Text(
+                      space.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: space.isDefault
+                        ? const Text('默认空间（历史数据）')
+                        : null,
+                    trailing: space.isDefault
+                        ? (_activeId == space.id
+                              ? const Text('当前')
+                              : null)
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (space.id == _activeId)
+                                const Text('当前'),
+                              PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  if (value == 'rename') {
+                                    _renameSpace(space);
+                                  } else if (value == 'delete') {
+                                    _deleteSpace(space);
+                                  }
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'rename',
+                                    child: Text('重命名'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text(
+                                      '删除',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                    onTap: () {
+                      if (space.id != _activeId) {
+                        widget.store.setActiveSpace(space.id);
+                      }
+                      Navigator.pop(context, space.id);
+                    },
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            dense: true,
+            leading: Icon(
+              Icons.add,
+              size: 20,
+              color: theme.colorScheme.primary,
+            ),
+            title: const Text('新建空间'),
+            onTap: _createSpace,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 左侧节数标签组件
+///
+/// 按 config.leftLabelMode 渲染三种模式：
+/// 0=节次序号 / 1=时间段(开始-结束) / 2=自定义文字；宽度取 config.leftWidth。
 class _SlotLabel extends StatelessWidget {
-  const _SlotLabel({required this.slotIndex, required this.height});
+  const _SlotLabel({
+    required this.slotIndex,
+    required this.height,
+    required this.config,
+  });
 
   final int slotIndex;
   final double height;
+  final TimetableConfig config;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Container(
-      width: 64,
+      width: config.leftWidth,
       height: height - 8,
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
@@ -506,11 +772,13 @@ class _SlotLabel extends StatelessWidget {
       ),
       child: Center(
         child: Text(
-          '${slotIndex + 1}',
-          style: theme.textTheme.titleMedium?.copyWith(
+          config.slotLabel(slotIndex),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleSmall?.copyWith(
             color: TimetableColors.textPrimary,
             fontWeight: FontWeight.w700,
             height: 1.2,
+            fontSize: config.leftLabelMode == 0 ? 16 : 11,
           ),
         ),
       ),

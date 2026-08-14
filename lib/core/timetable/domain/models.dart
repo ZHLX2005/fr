@@ -12,6 +12,11 @@ class TimetableConfig {
     this.updatedAt,
     this.backgroundImagePath,
     this.isSchoolMode = false,
+    this.leftLabelMode = 0,
+    this.slotLabels,
+    this.slotStartTimes,
+    this.slotDurationMin = 45,
+    this.leftWidth = 64,
   });
 
   /// ISO 8601 日期字符串 (YYYY-MM-DD)
@@ -34,6 +39,41 @@ class TimetableConfig {
   /// 学校模式（约束：固定7天，周一起始）
   final bool isSchoolMode;
 
+  /// 左侧指示模式: 0=节次序号, 1=时间段(需 slotStartTimes), 2=自定义文字(需 slotLabels)
+  final int leftLabelMode;
+
+  /// 每节自定义文字 (leftLabelMode=2 时使用，长度可与 slotsPerDay 不同，越界回退序号)
+  final List<String>? slotLabels;
+
+  /// 每节开始时间 "HH:mm" (leftLabelMode=1 时使用)
+  final List<String>? slotStartTimes;
+
+  /// 每节时长(分钟)，默认 45（leftLabelMode=1 时计算结束时间）
+  final int slotDurationMin;
+
+  /// 左侧指示宽度 px，默认 64
+  final double leftWidth;
+
+  /// 取指定节次的左侧指示文字（按 leftLabelMode 路由，越界/空值回退节次序号）
+  String slotLabel(int slotIndex) {
+    switch (leftLabelMode) {
+      case 1:
+        final start = slotIndex < (slotStartTimes?.length ?? 0)
+            ? slotStartTimes![slotIndex]
+            : '';
+        if (start.isEmpty) return '${slotIndex + 1}';
+        final end = TimetableMappers.addMinutes(start, slotDurationMin);
+        return '$start\n$end';
+      case 2:
+        final label = slotIndex < (slotLabels?.length ?? 0)
+            ? slotLabels![slotIndex]
+            : '';
+        return label.isEmpty ? '${slotIndex + 1}' : label;
+      default:
+        return '${slotIndex + 1}';
+    }
+  }
+
   TimetableConfig copyWith({
     String? startDateIso,
     int? cycleCount,
@@ -44,6 +84,13 @@ class TimetableConfig {
     String? backgroundImagePath,
     bool clearBackgroundImage = false,
     bool? isSchoolMode,
+    int? leftLabelMode,
+    List<String>? slotLabels,
+    bool clearSlotLabels = false,
+    List<String>? slotStartTimes,
+    bool clearSlotStartTimes = false,
+    int? slotDurationMin,
+    double? leftWidth,
   }) {
     return TimetableConfig(
       startDateIso: startDateIso ?? this.startDateIso,
@@ -56,6 +103,15 @@ class TimetableConfig {
           ? null
           : (backgroundImagePath ?? this.backgroundImagePath),
       isSchoolMode: isSchoolMode ?? this.isSchoolMode,
+      leftLabelMode: leftLabelMode ?? this.leftLabelMode,
+      slotLabels: clearSlotLabels
+          ? null
+          : (slotLabels ?? this.slotLabels),
+      slotStartTimes: clearSlotStartTimes
+          ? null
+          : (slotStartTimes ?? this.slotStartTimes),
+      slotDurationMin: slotDurationMin ?? this.slotDurationMin,
+      leftWidth: leftWidth ?? this.leftWidth,
     );
   }
 
@@ -214,5 +270,17 @@ class TimetableMappers {
   static String getWeekdayName(int dayOfCycle) {
     const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     return weekdays[dayOfCycle % 7];
+  }
+
+  /// "HH:mm" + 分钟 → "HH:mm"（跨小时自动进位，跨天回绕 24h）
+  static String addMinutes(String hhmm, int minutes) {
+    final parts = hhmm.split(':');
+    if (parts.length != 2) return hhmm;
+    final h = int.tryParse(parts[0]) ?? 0;
+    final m = int.tryParse(parts[1]) ?? 0;
+    final total = h * 60 + m + minutes;
+    final nh = (total ~/ 60) % 24;
+    final nm = total % 60;
+    return '${nh.toString().padLeft(2, '0')}:${nm.toString().padLeft(2, '0')}';
   }
 }

@@ -5,7 +5,14 @@ class DslParseResult {
   final List<CourseItem> courses;
   final List<String> errors;
 
-  const DslParseResult({required this.courses, required this.errors});
+  /// 可选的 config 段（`config: ...` 行解析出的配置；不存在为 null）
+  final TimetableConfig? config;
+
+  const DslParseResult({
+    required this.courses,
+    required this.errors,
+    this.config,
+  });
 }
 
 /// 解析 DSL 文本
@@ -13,6 +20,16 @@ class DslParseResult {
 /// DSL 格式:
 /// ```
 /// # 注释行跳过
+/// # 可选 config 段（表达行数/列数/开始时间等配置，必须在课程行之前）:
+/// config: days=7 slots=5 cycles=16 start=2026-08-15 mode=school left=1 duration=45
+/// #   days    每周期天数(列数, 1-7)
+/// #   slots   每天节数(行数, 1-6)
+/// #   cycles  周期总数(1-32)
+/// #   start   开始日期 YYYY-MM-DD
+/// #   mode    school(周一对齐/7天固定) | general(通用)
+/// #   left    左侧指示模式: 0=序号 | 1=时间段 | 2=自定义
+/// #   duration 每节时长分钟(时间段模式计算结束时间用)
+///
 /// # 格式: 课程名 @ 星期(1-7) 节次 [w周次] [位置] [教师]
 /// # 周次可选，不写表示所有周期都显示
 /// # 节次: 单节 "3" 或范围 "1-4"
@@ -27,13 +44,27 @@ class DslParseResult {
 DslParseResult parseDsl(String input, {int defaultSlotCount = 6}) {
   final courses = <CourseItem>[];
   final errors = <String>[];
+  TimetableConfig? config;
   final now = DateTime.now().millisecondsSinceEpoch;
+  // config 段的 slots 优先约束后续课程行的节次范围
+  var slotCount = defaultSlotCount;
 
   for (final rawLine in input.split('\n')) {
     final line = rawLine.trim();
     if (line.isEmpty || line.startsWith('#')) continue;
 
-    final result = _parseLine(line, defaultSlotCount, now, courses.length);
+    if (line.startsWith('config:')) {
+      final cfg = _parseConfigLine(line, now);
+      if (cfg != null) {
+        config = cfg;
+        slotCount = cfg.slotsPerDay;
+      } else {
+        errors.add('config 段格式无效: $line');
+      }
+      continue;
+    }
+
+    final result = _parseLine(line, slotCount, now, courses.length);
     if (result.error != null) {
       errors.add(result.error!);
     } else if (result.multipleItems != null) {
@@ -43,7 +74,47 @@ DslParseResult parseDsl(String input, {int defaultSlotCount = 6}) {
     }
   }
 
-  return DslParseResult(courses: courses, errors: errors);
+  return DslParseResult(courses: courses, errors: errors, config: config);
+}
+
+/// 解析 config 段：`config: days=7 slots=5 cycles=16 start=2026-08-15 mode=school left=1 duration=45`
+///
+/// 只取合法字段，非法值回退默认；解析失败（非 k=v 结构）返回 null。
+TimetableConfig? _parseConfigLine(String line, int now) {
+  final body = line.substring('config:'.length).trim();
+  if (body.isEmpty) return null;
+
+  final kv = <String, String>{};
+  for (final pair in body.split(RegExp(r'\s+'))) {
+    if (pair.isEmpty) continue;
+    final eq = pair.indexOf('=');
+    if (eq == -1) return null;
+    kv[pair.substring(0, eq)] = pair.substring(eq + 1);
+  }
+
+  final defaults = TimetableConfig.defaultConfig;
+  return TimetableConfig(
+    startDateIso: kv['start'] ?? defaults.startDateIso,
+    cycleCount:
+        (int.tryParse(kv['cycles'] ?? '') ?? defaults.cycleCount).clamp(
+          TimetableConfig.minCycles,
+          TimetableConfig.maxCycles,
+        ),
+    daysPerCycle:
+        (int.tryParse(kv['days'] ?? '') ?? defaults.daysPerCycle).clamp(
+          TimetableConfig.minDaysPerCycle,
+          TimetableConfig.maxDaysPerCycle,
+        ),
+    slotsPerDay:
+        (int.tryParse(kv['slots'] ?? '') ?? defaults.slotsPerDay).clamp(
+          TimetableConfig.minSlotsPerDay,
+          TimetableConfig.maxSlotsPerDay,
+        ),
+    isSchoolMode: kv['mode'] == 'school',
+    leftLabelMode: (int.tryParse(kv['left'] ?? '') ?? 0).clamp(0, 2),
+    slotDurationMin: int.tryParse(kv['duration'] ?? '') ?? 45,
+    updatedAt: now,
+  );
 }
 
 _DslLineResult _parseLine(String line, int defaultSlotCount, int now, int index) {

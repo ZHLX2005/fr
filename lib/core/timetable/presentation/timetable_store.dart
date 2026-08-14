@@ -172,9 +172,25 @@ class TimetableStore extends StateNotifier<TimetableState> {
     }
   }
 
-  /// 导出所有课程为 DSL 文本
+  /// 导出所有课程为 DSL 文本（含 config 头部段，可完整还原行列/开始时间配置）
   String exportToDsl() {
     final buffer = StringBuffer();
+    final cfg = state.config;
+
+    // config 段：表达行数/列数/开始时间/模式/左侧指示
+    buffer.writeln(
+      'config: days=${cfg.daysPerCycle} slots=${cfg.slotsPerDay} '
+      'cycles=${cfg.cycleCount} start=${cfg.startDateIso} '
+      'mode=${cfg.isSchoolMode ? 'school' : 'general'} '
+      'left=${cfg.leftLabelMode} duration=${cfg.slotDurationMin}',
+    );
+    if (cfg.leftLabelMode == 2 && (cfg.slotLabels?.isNotEmpty ?? false)) {
+      buffer.writeln('# 左侧自定义: ${cfg.slotLabels!.join(' / ')}');
+    }
+    if (cfg.leftLabelMode == 1 && (cfg.slotStartTimes?.isNotEmpty ?? false)) {
+      buffer.writeln('# 开始时间: ${cfg.slotStartTimes!.join(',')}');
+    }
+    buffer.writeln('');
 
     for (final courseList in state.items.values) {
       for (final item in courseList) {
@@ -208,6 +224,13 @@ class TimetableStore extends StateNotifier<TimetableState> {
     int? daysPerCycle,
     int? slotsPerDay,
     bool? isSchoolMode,
+    int? leftLabelMode,
+    double? leftWidth,
+    int? slotDurationMin,
+    List<String>? slotLabels,
+    bool clearSlotLabels = false,
+    List<String>? slotStartTimes,
+    bool clearSlotStartTimes = false,
   }) async {
     final oldConfig = state.config;
 
@@ -262,6 +285,13 @@ class TimetableStore extends StateNotifier<TimetableState> {
       daysPerCycle: newDaysPerCycle,
       slotsPerDay: newSlotsPerDay,
       isSchoolMode: isSchoolMode,
+      leftLabelMode: leftLabelMode,
+      leftWidth: leftWidth,
+      slotDurationMin: slotDurationMin,
+      slotLabels: slotLabels,
+      clearSlotLabels: clearSlotLabels,
+      slotStartTimes: slotStartTimes,
+      clearSlotStartTimes: clearSlotStartTimes,
     );
 
     // 保存配置
@@ -297,6 +327,37 @@ class TimetableStore extends StateNotifier<TimetableState> {
   /// 即使主 app 进程被杀，下次系统 30 分钟周期或用户点刷新时仍能显示。
   void _syncToWidget() {
     _syncer.sync(config: state.config, items: state.items);
+  }
+
+  /// 当前激活空间 id（default = 旧 box）
+  String get activeSpaceId => _repo.activeSpaceId;
+
+  /// 列出全部空间（含 default）
+  Future<List<TimetableSpaceInfo>> listSpaces() => _repo.listSpaces();
+
+  /// 切换激活空间并重新加载该空间数据
+  Future<void> setActiveSpace(String spaceId) async {
+    if (spaceId == _repo.activeSpaceId) return;
+    await _repo.setActiveSpace(spaceId);
+    await hydrate();
+  }
+
+  /// 新建空间并切换过去
+  Future<String> createSpace(String name) async {
+    final spaceId = await _repo.createSpace(name);
+    await _repo.setActiveSpace(spaceId);
+    await hydrate();
+    return spaceId;
+  }
+
+  /// 重命名空间
+  Future<void> renameSpace(String spaceId, String name) =>
+      _repo.renameSpace(spaceId, name);
+
+  /// 删除空间（default 不可删；删除激活空间自动回退 default 并重载）
+  Future<void> deleteSpace(String spaceId) async {
+    await _repo.deleteSpace(spaceId);
+    await hydrate();
   }
 
   /// Repository Provider
@@ -432,6 +493,14 @@ class TimetableStore extends StateNotifier<TimetableState> {
     }
 
     return summaries;
+  });
+
+  /// 空间列表 Provider（切换空间后需 invalidate 刷新）
+  static final spacesProvider = FutureProvider<List<TimetableSpaceInfo>>((
+    ref,
+  ) async {
+    final repo = ref.watch(repoProvider);
+    return repo.listSpaces();
   });
 
   /// 别名
