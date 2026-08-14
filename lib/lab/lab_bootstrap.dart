@@ -45,6 +45,7 @@ import 'demos/gomoku_lua_demo.dart' show registerGomokuLuaDemo;
 import 'demos/tetris_lua_demo.dart' show registerTetrisLuaDemo;
 import 'demos/coup_lua_demo.dart' show registerCoupLuaDemo;
 import 'demos/recorder/recorder_demo.dart' show registerRecorderDemo;
+import 'demos/relation_calc/relation_calc_demo.dart' show registerRelationCalcDemo;
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -90,6 +91,7 @@ void registerAllDemos() {
   registerTetrisLuaDemo();
   registerCoupLuaDemo();
   registerRecorderDemo();
+  registerRelationCalcDemo();
 }
 
 // 初始化 Lab 模块
