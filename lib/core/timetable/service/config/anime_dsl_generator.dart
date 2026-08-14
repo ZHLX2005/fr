@@ -32,6 +32,60 @@ class AnimeSeriesInput {
   });
 }
 
+/// 可编辑的剧模型（排期编辑页内部状态）。
+///
+/// 字段完全使用"剧的语言"：剧名/开播日期(或当前期数反推)/星期/播出时间/
+/// 总期数/每集时长 —— 不暴露行/列/周期/slot 等程序概念，配置由程序自动计算。
+class AnimeSeriesDraft {
+  String title;
+  String startDateIso;
+  int weekday;
+  String time;
+  int episodes;
+  int durationMin;
+
+  AnimeSeriesDraft({
+    required this.title,
+    required this.startDateIso,
+    this.weekday = 1,
+    required this.time,
+    this.episodes = 13,
+    this.durationMin = 45,
+  });
+
+  AnimeSeriesInput toInput() => AnimeSeriesInput(
+    title: title,
+    startDateIso: startDateIso,
+    weekday: weekday,
+    time: time,
+    episodes: episodes,
+    durationMin: durationMin,
+  );
+
+  factory AnimeSeriesDraft.fromInput(AnimeSeriesInput i) => AnimeSeriesDraft(
+    title: i.title,
+    startDateIso: i.startDateIso,
+    weekday: i.weekday,
+    time: i.time,
+    episodes: i.episodes,
+    durationMin: i.durationMin,
+  );
+}
+
+/// 反推开始日期：当前第 [currentEpisode] 期、播出星期 [weekday]，
+/// 从"今天往前最近的该星期"再回推 (期数-1) 周。
+/// 返回 YYYY-MM-DD；[weekday] 1=周一 … 7=周日。
+String backfillStartDate(int currentEpisode, int weekday) {
+  final today = DateTime.now();
+  var daysBack = today.weekday - weekday; // DateTime.weekday 1=周一
+  if (daysBack < 0) daysBack += 7;
+  final anchor = today.subtract(Duration(days: daysBack));
+  final start = anchor.subtract(Duration(days: (currentEpisode - 1) * 7));
+  return '${start.year.toString().padLeft(4, '0')}-'
+      '${start.month.toString().padLeft(2, '0')}-'
+      '${start.day.toString().padLeft(2, '0')}';
+}
+
 /// 追剧 DSL 生成结果
 class AnimeDslResult {
   final TimetableConfig config;
