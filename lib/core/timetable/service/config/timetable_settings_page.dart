@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
+import 'anime_dsl_generator.dart';
 import 'sicau_import_dialog.dart';
 import 'timetable_anime_import_dialog.dart';
 import 'timetable_import_dialog.dart';
@@ -26,11 +27,13 @@ class _TimetableSettingsPageState
   late int _daysPerCycle;
   late int _slotsPerDay;
   late bool _isSchoolMode;
+  late bool _isAnimeMode;
   late int _leftLabelMode;
   late double _leftWidth;
   late int _slotDurationMin;
   late List<String> _slotLabels;
   late List<String> _slotStartTimes;
+  final List<_AnimeInputRow> _animeRows = [];
 
   @override
   void initState() {
@@ -41,12 +44,14 @@ class _TimetableSettingsPageState
     _daysPerCycle = config.daysPerCycle;
     _slotsPerDay = config.slotsPerDay;
     _isSchoolMode = config.isSchoolMode;
+    _isAnimeMode = config.isAnimeMode;
     _leftLabelMode = config.leftLabelMode;
     _leftWidth = config.leftWidth;
     _slotDurationMin = config.slotDurationMin;
     _slotLabels = List<String>.from(config.slotLabels ?? const []);
     _slotStartTimes = List<String>.from(config.slotStartTimes ?? const []);
     _ensureSlotLists();
+    _animeRows.add(_AnimeInputRow());
   }
 
   /// 保持标签/时间列表长度与 slotsPerDay 对齐（缺位补空串）
@@ -77,6 +82,9 @@ class _TimetableSettingsPageState
   @override
   void dispose() {
     _startDateController.dispose();
+    for (final row in _animeRows) {
+      row.dispose();
+    }
     super.dispose();
   }
 
@@ -103,6 +111,7 @@ class _TimetableSettingsPageState
       daysPerCycle: daysToSave,
       slotsPerDay: _slotsPerDay,
       isSchoolMode: _isSchoolMode,
+      isAnimeMode: _isAnimeMode,
       leftLabelMode: _leftLabelMode,
       leftWidth: _leftWidth,
       slotDurationMin: _slotDurationMin,
@@ -232,159 +241,128 @@ class _TimetableSettingsPageState
                     style: ZenText.label.copyWith(fontSize: 12),
                   ),
                 ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // ── 起始日期 ──
-          ZenSection(
-            title: '起始日期',
-            child: _buildDateField(),
-          ),
-          const SizedBox(height: 12),
-          // ── 周期配置 ──
-          ZenSection(
-            title: '周期配置',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ZenConfigSlider(
-                  label: '周期数',
-                  value: _cycleCount.toDouble(),
-                  min: TimetableConfig.minCycles.toDouble(),
-                  max: TimetableConfig.maxCycles.toDouble(),
-                  divisions:
-                      TimetableConfig.maxCycles - TimetableConfig.minCycles,
-                  onChanged: (v) => setState(() => _cycleCount = v.round()),
-                ),
-                if (_isSchoolMode)
-                  _ZenFixedLabel(
-                    label: '每周期天数',
-                    value: '7天（固定）',
-                  )
-                else
-                  _ZenConfigSlider(
-                    label: '每周期天数 (1-7)',
-                    value: _daysPerCycle.toDouble(),
-                    min: TimetableConfig.minDaysPerCycle.toDouble(),
-                    max: TimetableConfig.maxDaysPerCycle.toDouble(),
-                    divisions: TimetableConfig.maxDaysPerCycle -
-                        TimetableConfig.minDaysPerCycle,
-                    onChanged: (v) => setState(() => _daysPerCycle = v.round()),
+                if (_isAnimeMode) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '追剧模式：输入剧的开始日期/星期/播出时间/期数，自动计算行列与周期',
+                    style: ZenText.label.copyWith(fontSize: 12),
                   ),
-                _ZenConfigSlider(
-                  label: '每天节数 (1-6)',
-                  value: _slotsPerDay.toDouble(),
-                  min: TimetableConfig.minSlotsPerDay.toDouble(),
-                  max: TimetableConfig.maxSlotsPerDay.toDouble(),
-                  divisions: TimetableConfig.maxSlotsPerDay -
-                      TimetableConfig.minSlotsPerDay,
-                  onChanged: (v) => setState(() => _slotsPerDay = v.round()),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // ── 显示控制：左侧指示 / 宽度 / 时间与自定义文字 ──
-          ZenSection(
-            title: '显示控制',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('左侧指示', style: ZenText.label),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ZenSegmentButton(
-                        label: '序号',
-                        selected: _leftLabelMode == 0,
-                        onTap: () => setState(() => _leftLabelMode = 0),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _ZenSegmentButton(
-                        label: '时间段',
-                        selected: _leftLabelMode == 1,
-                        onTap: () => setState(() => _leftLabelMode = 1),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _ZenSegmentButton(
-                        label: '自定义',
-                        selected: _leftLabelMode == 2,
-                        onTap: () => setState(() => _leftLabelMode = 2),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _ZenConfigSlider(
-                  label: '左侧宽度 (px)',
-                  value: _leftWidth,
-                  min: 44,
-                  max: 110,
-                  divisions: 33,
-                  onChanged: (v) => setState(() => _leftWidth = v.roundToDouble()),
-                ),
-                if (_leftLabelMode == 1) ...[
-                  const SizedBox(height: 4),
-                  _ZenConfigSlider(
-                    label: '每节时长 (分钟)',
-                    value: _slotDurationMin.toDouble(),
-                    min: 15,
-                    max: 120,
-                    divisions: 21,
-                    onChanged: (v) =>
-                        setState(() => _slotDurationMin = v.round()),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('每节开始时间（HH:mm，自动计算结束）', style: ZenText.label),
-                  const SizedBox(height: 8),
-                  _buildTimeFields(),
-                ],
-                if (_leftLabelMode == 2) ...[
-                  const SizedBox(height: 8),
-                  Text('每节自定义文字（留空回退序号）', style: ZenText.label),
-                  const SizedBox(height: 8),
-                  _buildLabelFields(),
                 ],
               ],
             ),
           ),
           const SizedBox(height: 12),
-          // ── 课程管理：导入 / 导出 / 清空（全模式可用；SICAU 仅学校模式）──
-          ZenSection(
-            title: '课程管理',
-            child: Column(
-              children: [
-                _ZenActionButton(
-                  icon: Icons.upload_file,
-                  label: '批量导入课程',
-                  onPressed: _openImport,
-                ),
-                const SizedBox(height: 8),
-                if (_isSchoolMode) ...[
+          if (_isAnimeMode) ...[
+            // ── 追剧/番模式：剧输入 → 自动生成 DSL ──
+            ZenSection(
+              title: '追剧 / 番模式',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ..._animeRows.asMap().entries.map(
+                    (e) => _buildAnimeRow(e.key, e.value),
+                  ),
+                  const SizedBox(height: 8),
                   _ZenActionButton(
-                    icon: Icons.school,
-                    label: 'SICAU 课表导入',
-                    onPressed: _openSicauImport,
+                    icon: Icons.add,
+                    label: '添加一部剧',
+                    onPressed: () => setState(() => _animeRows.add(_AnimeInputRow())),
                     secondary: true,
                   ),
+                  const SizedBox(height: 12),
+                  _ZenActionButton(
+                    icon: Icons.auto_awesome,
+                    label: '生成追剧 DSL',
+                    onPressed: _generateAnimeDsl,
+                  ),
                   const SizedBox(height: 8),
+                  Text(
+                    '自动对齐周一，按播出时间分组为竖直 cell，周期数由最长覆盖自动膨胀/收缩',
+                    style: ZenText.label.copyWith(fontSize: 11),
+                  ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ] else ...[
+            // ── 起始日期 ──
+            ZenSection(
+              title: '起始日期',
+              child: _buildDateField(),
+            ),
+            const SizedBox(height: 12),
+            // ── 周期配置 ──
+            ZenSection(
+              title: '周期配置',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ZenConfigSlider(
+                    label: '周期数',
+                    value: _cycleCount.toDouble(),
+                    min: TimetableConfig.minCycles.toDouble(),
+                    max: TimetableConfig.maxCycles.toDouble(),
+                    divisions:
+                        TimetableConfig.maxCycles - TimetableConfig.minCycles,
+                    onChanged: (v) => setState(() => _cycleCount = v.round()),
+                  ),
+                  if (_isSchoolMode)
+                    _ZenFixedLabel(
+                      label: '每周期天数',
+                      value: '7天（固定）',
+                    )
+                  else
+                    _ZenConfigSlider(
+                      label: '每周期天数 (1-7)',
+                      value: _daysPerCycle.toDouble(),
+                      min: TimetableConfig.minDaysPerCycle.toDouble(),
+                      max: TimetableConfig.maxDaysPerCycle.toDouble(),
+                      divisions: TimetableConfig.maxDaysPerCycle -
+                          TimetableConfig.minDaysPerCycle,
+                      onChanged: (v) => setState(() => _daysPerCycle = v.round()),
+                    ),
+                  _ZenConfigSlider(
+                    label: '每天节数 (1-6)',
+                    value: _slotsPerDay.toDouble(),
+                    min: TimetableConfig.minSlotsPerDay.toDouble(),
+                    max: TimetableConfig.maxSlotsPerDay.toDouble(),
+                    divisions: TimetableConfig.maxSlotsPerDay -
+                        TimetableConfig.minSlotsPerDay,
+                    onChanged: (v) => setState(() => _slotsPerDay = v.round()),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // ── 高级功能：左侧指示 / DSL 导入导出 / 清空 ──
+          ZenSection(
+            title: '高级功能',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: Text(
+                    '左侧指示显示控制',
+                    style: ZenText.body.copyWith(fontWeight: FontWeight.w500),
+                  ),
+                  childrenPadding: const EdgeInsets.only(top: 8),
+                  children: [
+                    _buildAdvancedControls(),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 _ZenActionButton(
-                  icon: Icons.movie_outlined,
-                  label: '新番更新时间导入',
-                  onPressed: _openAnimeImport,
+                  icon: Icons.upload_file,
+                  label: '导入 DSL（含配置）',
+                  onPressed: _openImport,
                   secondary: true,
                 ),
                 const SizedBox(height: 8),
                 _ZenActionButton(
                   icon: Icons.download,
-                  label: '导出 DSL',
+                  label: '导出 DSL（含配置）',
                   onPressed: _exportDsl,
                   secondary: true,
                 ),
@@ -398,6 +376,47 @@ class _TimetableSettingsPageState
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          // ── 第一层数据来源（模式预设）：学校模式保留 SICAU 导入 ──
+          if (_isSchoolMode) ...[
+            ZenSection(
+              title: '数据来源',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ZenActionButton(
+                    icon: Icons.school,
+                    label: 'SICAU 课表导入',
+                    onPressed: _openSicauImport,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '更多导入 / 导出入口在下方「高级功能」',
+                    style: ZenText.label.copyWith(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_isAnimeMode) ...[
+            // 追剧模式：Bangumi 新番作为另一个数据源预设
+            ZenSection(
+              title: '数据来源',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ZenActionButton(
+                    icon: Icons.movie_outlined,
+                    label: '从 Bangumi 拉取新番列表',
+                    onPressed: _openAnimeImport,
+                    secondary: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
         ],
       ),
     );
@@ -410,20 +429,373 @@ class _TimetableSettingsPageState
         Expanded(
           child: _ZenSegmentButton(
             label: '学校模式',
-            selected: _isSchoolMode,
-            onTap: () => setState(() => _isSchoolMode = true),
+            selected: _isSchoolMode && !_isAnimeMode,
+            onTap: () => setState(() {
+              _isSchoolMode = true;
+              _isAnimeMode = false;
+            }),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: _ZenSegmentButton(
             label: '通用模式',
-            selected: !_isSchoolMode,
-            onTap: () => setState(() => _isSchoolMode = false),
+            selected: !_isSchoolMode && !_isAnimeMode,
+            onTap: () => setState(() {
+              _isSchoolMode = false;
+              _isAnimeMode = false;
+            }),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ZenSegmentButton(
+            label: '追剧模式',
+            selected: _isAnimeMode,
+            onTap: () => setState(() {
+              _isAnimeMode = true;
+              _isSchoolMode = false;
+            }),
           ),
         ),
       ],
     );
+  }
+
+  /// 高级功能：左侧指示显示控制（模式/宽度/时长/时间/自定义文字）
+  Widget _buildAdvancedControls() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('左侧指示', style: ZenText.label),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _ZenSegmentButton(
+                label: '序号',
+                selected: _leftLabelMode == 0,
+                onTap: () => setState(() => _leftLabelMode = 0),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ZenSegmentButton(
+                label: '时间段',
+                selected: _leftLabelMode == 1,
+                onTap: () => setState(() => _leftLabelMode = 1),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ZenSegmentButton(
+                label: '自定义',
+                selected: _leftLabelMode == 2,
+                onTap: () => setState(() => _leftLabelMode = 2),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _ZenConfigSlider(
+          label: '左侧宽度 (px)',
+          value: _leftWidth,
+          min: 44,
+          max: 110,
+          divisions: 33,
+          onChanged: (v) => setState(() => _leftWidth = v.roundToDouble()),
+        ),
+        if (_leftLabelMode == 1) ...[
+          const SizedBox(height: 4),
+          _ZenConfigSlider(
+            label: '每节时长 (分钟)',
+            value: _slotDurationMin.toDouble(),
+            min: 15,
+            max: 120,
+            divisions: 21,
+            onChanged: (v) => setState(() => _slotDurationMin = v.round()),
+          ),
+          const SizedBox(height: 8),
+          Text('每节开始时间（HH:mm，自动计算结束）', style: ZenText.label),
+          const SizedBox(height: 8),
+          _buildTimeFields(),
+        ],
+        if (_leftLabelMode == 2) ...[
+          const SizedBox(height: 8),
+          Text('每节自定义文字（留空回退序号）', style: ZenText.label),
+          const SizedBox(height: 8),
+          _buildLabelFields(),
+        ],
+      ],
+    );
+  }
+
+  // ──── 追剧模式：剧输入行 ────
+  Widget _buildAnimeRow(int index, _AnimeInputRow row) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: zenCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: row.titleCtrl,
+                  decoration: const InputDecoration(
+                    hintText: '剧名',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => setState(() => _animeRows.removeAt(index)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: InkWell(
+                  onTap: () async {
+                    final current = DateTime.tryParse(row.startDateCtrl.text);
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: current ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      helpText: '开始日期',
+                    );
+                    if (picked == null) return;
+                    setState(() {
+                      row.startDateCtrl.text =
+                          picked.toIso8601String().split('T')[0];
+                    });
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: '开始日期',
+                      isDense: true,
+                    ),
+                    child: Text(
+                      row.startDateCtrl.text.isEmpty
+                          ? '选择日期'
+                          : row.startDateCtrl.text,
+                      style: ZenText.body,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<int>(
+                  initialValue: row.weekday,
+                  isDense: true,
+                  decoration: const InputDecoration(labelText: '星期'),
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('周一')),
+                    DropdownMenuItem(value: 2, child: Text('周二')),
+                    DropdownMenuItem(value: 3, child: Text('周三')),
+                    DropdownMenuItem(value: 4, child: Text('周四')),
+                    DropdownMenuItem(value: 5, child: Text('周五')),
+                    DropdownMenuItem(value: 6, child: Text('周六')),
+                    DropdownMenuItem(value: 7, child: Text('周日')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => row.weekday = v);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: row.timeCtrl,
+                  keyboardType: TextInputType.datetime,
+                  decoration: const InputDecoration(
+                    labelText: '播出时间 HH:mm',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: row.episodesCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '总期数',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: row.durationCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '每期分钟',
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 追剧模式：收集输入 → 生成 DSL → 预览 → 应用
+  Future<void> _generateAnimeDsl() async {
+    final inputs = <AnimeSeriesInput>[];
+    final errors = <String>[];
+    for (var i = 0; i < _animeRows.length; i++) {
+      final row = _animeRows[i];
+      final title = row.titleCtrl.text.trim();
+      final start = row.startDateCtrl.text.trim();
+      final time = row.timeCtrl.text.trim();
+      final episodes = int.tryParse(row.episodesCtrl.text.trim());
+      final duration = int.tryParse(row.durationCtrl.text.trim());
+      if (title.isEmpty || start.isEmpty || time.isEmpty) {
+        errors.add('第 ${i + 1} 部：剧名/开始日期/播出时间 必填');
+        continue;
+      }
+      if (DateTime.tryParse(start) == null) {
+        errors.add('第 ${i + 1} 部：开始日期无效 $start');
+        continue;
+      }
+      if (!RegExp(r'^\d{1,2}:\d{2}$').hasMatch(time)) {
+        errors.add('第 ${i + 1} 部：播出时间应为 HH:mm');
+        continue;
+      }
+      if (episodes == null || episodes < 1) {
+        errors.add('第 ${i + 1} 部：期数应为正整数');
+        continue;
+      }
+      inputs.add(
+        AnimeSeriesInput(
+          title: title,
+          startDateIso: start,
+          weekday: row.weekday,
+          time: time,
+          episodes: episodes,
+          durationMin: duration ?? 45,
+        ),
+      );
+    }
+    if (errors.isNotEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errors.join('\n'))));
+      return;
+    }
+    if (inputs.isEmpty) return;
+
+    final result = buildAnimeDsl(inputs);
+    if (!mounted) return;
+
+    // 预览 DSL + 应用
+    final apply = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('追剧 DSL 预览'),
+        content: SizedBox(
+          width: 340,
+          height: 320,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '起始 ${result.config.startDateIso} · '
+                '${result.config.daysPerCycle} 天 · '
+                '${result.config.slotsPerDay} 行 · '
+                '${result.config.cycleCount} 周',
+                style: ZenText.label,
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: ZenColors.sage.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: ZenColors.hair),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      result.dsl,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('应用'),
+          ),
+        ],
+      ),
+    );
+    if (apply != true) return;
+
+    final store = ref.read(TimetableStore.provider.notifier);
+    await store.updateConfig(
+      startDateIso: result.config.startDateIso,
+      cycleCount: result.config.cycleCount,
+      daysPerCycle: result.config.daysPerCycle,
+      slotsPerDay: result.config.slotsPerDay,
+      isSchoolMode: false,
+      isAnimeMode: true,
+      leftLabelMode: 1,
+      slotStartTimes: result.config.slotStartTimes,
+      slotDurationMin: result.config.slotDurationMin,
+    );
+    await store.clearAllItems();
+    final grouped = <String, List<CourseItem>>{};
+    for (final course in result.items) {
+      grouped.putIfAbsent(course.cellKey, () => []).add(course);
+    }
+    for (final entry in grouped.entries) {
+      await store.upsertItems(entry.key, entry.value);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '已应用追剧课表：${result.items.length} 部剧 · '
+            '${result.config.cycleCount} 周',
+          ),
+        ),
+      );
+      Navigator.pop(context);
+    }
   }
 
   // ──── 子组件：日期字段 ────
@@ -634,6 +1006,24 @@ class _TimetableSettingsPageState
 }
 
 // ──────────────────── Zen 风格子组件 ────────────────────
+
+/// 追剧模式单行输入状态
+class _AnimeInputRow {
+  final TextEditingController titleCtrl = TextEditingController();
+  final TextEditingController startDateCtrl = TextEditingController();
+  final TextEditingController timeCtrl = TextEditingController();
+  final TextEditingController episodesCtrl = TextEditingController();
+  final TextEditingController durationCtrl = TextEditingController();
+  int weekday = 1;
+
+  void dispose() {
+    titleCtrl.dispose();
+    startDateCtrl.dispose();
+    timeCtrl.dispose();
+    episodesCtrl.dispose();
+    durationCtrl.dispose();
+  }
+}
 
 class _ZenSegmentButton extends StatelessWidget {
   final String label;

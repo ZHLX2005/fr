@@ -226,14 +226,49 @@ List<int>? _parseSlotRange(String slotStr, int maxSlot) {
   }
 }
 
-/// 解析周次列表 "w1,3,5" -> [0, 2, 4] (cycleIndex 0-based)
+/// 解析周次 "w1,3,5" -> [0, 2, 4] 或范围 "w2-16" -> [1..15] (cycleIndex 0-based)。
+/// 支持离散列表与连续范围混用，如 "w1-3,5"。
 List<int>? _parseCycleList(String part) {
   final numStr = part.substring(1); // 去掉 'w' 前缀
   final indices = <int>[];
   for (final s in numStr.split(',')) {
-    final n = int.tryParse(s.trim());
-    if (n == null || n < 1) return null;
-    indices.add(n - 1); // 转为 0-based
+    final token = s.trim();
+    if (token.isEmpty) return null;
+    final dash = token.indexOf('-');
+    if (dash != -1) {
+      // 范围 "2-16"
+      final start = int.tryParse(token.substring(0, dash));
+      final end = int.tryParse(token.substring(dash + 1));
+      if (start == null || end == null || start < 1 || end < start) {
+        return null;
+      }
+      indices.addAll(List.generate(end - start + 1, (i) => start - 1 + i));
+    } else {
+      final n = int.tryParse(token);
+      if (n == null || n < 1) return null;
+      indices.add(n - 1); // 转为 0-based
+    }
   }
   return indices.isEmpty ? null : indices;
+}
+
+/// 把 cycleIndex 列表序列化为 DSL 周次文本（连续范围压缩为 a-b）。
+/// 输入为空/全量时返回空串（调用方按"全部周期"语义处理）。
+String formatCycleList(List<int> indices) {
+  if (indices.isEmpty) return '';
+  final sorted = List<int>.from(indices)..sort();
+  final parts = <String>[];
+  var start = sorted.first;
+  var prev = start;
+  for (final i in sorted.skip(1)) {
+    if (i == prev + 1) {
+      prev = i;
+      continue;
+    }
+    parts.add(start == prev ? '${start + 1}' : '${start + 1}-${prev + 1}');
+    start = i;
+    prev = i;
+  }
+  parts.add(start == prev ? '${start + 1}' : '${start + 1}-${prev + 1}');
+  return parts.join(',');
 }

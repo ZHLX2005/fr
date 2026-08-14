@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/timetable_repository.dart';
 import '../domain/models.dart';
+import '../service/config/timetable_dsl_parser.dart';
 import '../../../native/home_widget/timetable_widget_syncer.dart';
 
 /// 课表系统状态
@@ -200,7 +201,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
         final slotStr = slotStart == slotEnd ? '$slotStart' : '$slotStart-$slotEnd';
 
         final weeks = item.visibleInCycles != null && item.visibleInCycles!.isNotEmpty
-            ? 'w${item.visibleInCycles!.map((i) => i + 1).join(",")}'
+            ? 'w${formatCycleList(item.visibleInCycles!)}'
             : '';
 
         final location = item.location ?? '';
@@ -224,6 +225,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     int? daysPerCycle,
     int? slotsPerDay,
     bool? isSchoolMode,
+    bool? isAnimeMode,
     int? leftLabelMode,
     double? leftWidth,
     int? slotDurationMin,
@@ -285,6 +287,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
       daysPerCycle: newDaysPerCycle,
       slotsPerDay: newSlotsPerDay,
       isSchoolMode: isSchoolMode,
+      isAnimeMode: isAnimeMode,
       leftLabelMode: leftLabelMode,
       leftWidth: leftWidth,
       slotDurationMin: slotDurationMin,

@@ -12,6 +12,7 @@ class TimetableConfig {
     this.updatedAt,
     this.backgroundImagePath,
     this.isSchoolMode = false,
+    this.isAnimeMode = false,
     this.leftLabelMode = 0,
     this.slotLabels,
     this.slotStartTimes,
@@ -38,6 +39,9 @@ class TimetableConfig {
 
   /// 学校模式（约束：固定7天，周一起始）
   final bool isSchoolMode;
+
+  /// 追剧/番模式（与学校/通用平级的独立模式；行列周期由追剧 DSL 自动计算）
+  final bool isAnimeMode;
 
   /// 左侧指示模式: 0=节次序号, 1=时间段(需 slotStartTimes), 2=自定义文字(需 slotLabels)
   final int leftLabelMode;
@@ -84,6 +88,7 @@ class TimetableConfig {
     String? backgroundImagePath,
     bool clearBackgroundImage = false,
     bool? isSchoolMode,
+    bool? isAnimeMode,
     int? leftLabelMode,
     List<String>? slotLabels,
     bool clearSlotLabels = false,
@@ -103,6 +108,7 @@ class TimetableConfig {
           ? null
           : (backgroundImagePath ?? this.backgroundImagePath),
       isSchoolMode: isSchoolMode ?? this.isSchoolMode,
+      isAnimeMode: isAnimeMode ?? this.isAnimeMode,
       leftLabelMode: leftLabelMode ?? this.leftLabelMode,
       slotLabels: clearSlotLabels
           ? null
