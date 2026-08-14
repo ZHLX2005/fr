@@ -8,6 +8,36 @@ String _iso(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}';
 
 void main() {
+  group('AnimeSeriesDraft 序列化往返', () {
+    test('toJson/fromJson 保持全部字段与 id', () {
+      final draft = AnimeSeriesDraft(
+        id: 'anime_123',
+        title: '剧A',
+        startDateIso: '2026-08-10',
+        weekday: 6,
+        time: '11:00',
+        episodes: 10,
+        durationMin: 60,
+      );
+      final restored = AnimeSeriesDraft.fromJson(draft.toJson());
+      expect(restored.id, 'anime_123');
+      expect(restored.title, '剧A');
+      expect(restored.startDateIso, '2026-08-10');
+      expect(restored.weekday, 6);
+      expect(restored.time, '11:00');
+      expect(restored.episodes, 10);
+      expect(restored.durationMin, 60);
+    });
+
+    test('缺字段回退默认值', () {
+      final restored = AnimeSeriesDraft.fromJson(const {});
+      expect(restored.title, '');
+      expect(restored.weekday, 1);
+      expect(restored.episodes, 13);
+      expect(restored.durationMin, 45);
+    });
+  });
+
   group('backfillStartDate 反推开始日期', () {
     final today = DateTime.now();
 

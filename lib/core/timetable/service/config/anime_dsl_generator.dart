@@ -32,11 +32,13 @@ class AnimeSeriesInput {
   });
 }
 
-/// 可编辑的剧模型（排期编辑页内部状态）。
+/// 可编辑的剧模型（追剧模式 SSOT，持久化于空间 record 的 animeSeries 字段）。
 ///
 /// 字段完全使用"剧的语言"：剧名/开播日期(或当前期数反推)/星期/播出时间/
-/// 总期数/每集时长 —— 不暴露行/列/周期/slot 等程序概念，配置由程序自动计算。
+/// 总期数/每集时长 —— 不暴露行/列/周期/slot 等程序概念。
+/// DSL 由剧模型自动派生（buildAnimeDsl），剧变更 → 自动重算并应用。
 class AnimeSeriesDraft {
+  final String id;
   String title;
   String startDateIso;
   int weekday;
@@ -45,13 +47,14 @@ class AnimeSeriesDraft {
   int durationMin;
 
   AnimeSeriesDraft({
+    String? id,
     required this.title,
     required this.startDateIso,
     this.weekday = 1,
     required this.time,
     this.episodes = 13,
     this.durationMin = 45,
-  });
+  }) : id = id ?? 'anime_${DateTime.now().microsecondsSinceEpoch}';
 
   AnimeSeriesInput toInput() => AnimeSeriesInput(
     title: title,
@@ -70,6 +73,27 @@ class AnimeSeriesDraft {
     episodes: i.episodes,
     durationMin: i.durationMin,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'startDateIso': startDateIso,
+    'weekday': weekday,
+    'time': time,
+    'episodes': episodes,
+    'durationMin': durationMin,
+  };
+
+  factory AnimeSeriesDraft.fromJson(Map<String, dynamic> json) =>
+      AnimeSeriesDraft(
+        id: json['id'] as String?,
+        title: json['title'] as String? ?? '',
+        startDateIso: json['startDateIso'] as String? ?? '',
+        weekday: json['weekday'] as int? ?? 1,
+        time: json['time'] as String? ?? '',
+        episodes: json['episodes'] as int? ?? 13,
+        durationMin: json['durationMin'] as int? ?? 45,
+      );
 }
 
 /// 反推开始日期：当前第 [currentEpisode] 期、播出星期 [weekday]，

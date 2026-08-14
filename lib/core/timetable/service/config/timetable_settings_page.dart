@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
-import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
 import 'anime_source_adapter.dart';
-import 'timetable_anime_editor_page.dart';
 import 'sicau_import_dialog.dart';
+import 'timetable_advanced_settings_page.dart';
+import 'timetable_anime_editor_page.dart';
 import 'timetable_anime_import_dialog.dart';
-import 'timetable_import_dialog.dart';
-import 'timetable_week_calculator.dart';
 import '../../../../widgets/theme/zen_theme.dart';
 
-/// 课表设置页 —— 沿用 Zen 设计系统组件（zenCard/ZenSection/zenButton）。
-/// 课表主页面（timetable_page）使用 TimetableColors 自己的配色保持稳定，不动。
+/// 课表设置页 —— 第一层：模式选择 + 数据来源预设。
+///
+/// 非常用数字配置（周期数/天数/节数/起始日期/左侧指示/DSL 管理）已拆到
+/// [TimetableAdvancedSettingsPage] 独立页面，入口在本页底部。
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
 
@@ -24,121 +23,28 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
 
 class _TimetableSettingsPageState
     extends ConsumerState<TimetableSettingsPage> {
-  late final TextEditingController _startDateController;
-  late int _cycleCount;
-  late int _daysPerCycle;
-  late int _slotsPerDay;
   late bool _isSchoolMode;
   late bool _isAnimeMode;
-  late int _leftLabelMode;
-  late double _leftWidth;
-  late int _slotDurationMin;
-  late List<String> _slotLabels;
-  late List<String> _slotStartTimes;
 
   @override
   void initState() {
     super.initState();
     final config = ref.read(TimetableStore.provider).config;
-    _startDateController = TextEditingController(text: config.startDateIso);
-    _cycleCount = config.cycleCount;
-    _daysPerCycle = config.daysPerCycle;
-    _slotsPerDay = config.slotsPerDay;
     _isSchoolMode = config.isSchoolMode;
     _isAnimeMode = config.isAnimeMode;
-    _leftLabelMode = config.leftLabelMode;
-    _leftWidth = config.leftWidth;
-    _slotDurationMin = config.slotDurationMin;
-    _slotLabels = List<String>.from(config.slotLabels ?? const []);
-    _slotStartTimes = List<String>.from(config.slotStartTimes ?? const []);
-    _ensureSlotLists();
-  }
-
-  /// 保持标签/时间列表长度与 slotsPerDay 对齐（缺位补空串）
-  void _ensureSlotLists() {
-    if (_slotLabels.length != _slotsPerDay) {
-      _slotLabels = List.generate(
-        _slotsPerDay,
-        (i) => i < _slotLabels.length ? _slotLabels[i] : '',
-      );
-    }
-    if (_slotStartTimes.length != _slotsPerDay) {
-      _slotStartTimes = List.generate(
-        _slotsPerDay,
-        (i) => i < _slotStartTimes.length ? _slotStartTimes[i] : '',
-      );
-    }
-  }
-
-  /// 去掉列表尾部的空串（保存时 null 语义：无数据）
-  List<String>? _trimmedOrNull(List<String> list) {
-    final trimmed = List<String>.from(list);
-    while (trimmed.isNotEmpty && trimmed.last.trim().isEmpty) {
-      trimmed.removeLast();
-    }
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  @override
-  void dispose() {
-    _startDateController.dispose();
-    super.dispose();
   }
 
   Future<void> _save() async {
     final store = ref.read(TimetableStore.provider.notifier);
-
-    // 通用模式原样保存；学校模式回退到最近周一（fr #2）
-    final rawStart = _startDateController.text.trim();
-    final startDateIso = resolveStartDateIso(
-      rawStart,
-      isSchoolMode: _isSchoolMode,
-    );
-    if (startDateIso != rawStart) {
-      _startDateController.text = startDateIso;
-    }
-
-    // 学校模式下强制 daysPerCycle = 7
-    final daysToSave = _isSchoolMode ? 7 : _daysPerCycle;
-
-    _ensureSlotLists();
-    final error = await store.updateConfig(
-      startDateIso: startDateIso,
-      cycleCount: _cycleCount,
-      daysPerCycle: daysToSave,
-      slotsPerDay: _slotsPerDay,
+    await store.updateConfig(
       isSchoolMode: _isSchoolMode,
       isAnimeMode: _isAnimeMode,
-      leftLabelMode: _leftLabelMode,
-      leftWidth: _leftWidth,
-      slotDurationMin: _slotDurationMin,
-      slotLabels: _trimmedOrNull(_slotLabels),
-      slotStartTimes: _trimmedOrNull(_slotStartTimes),
     );
-
     if (!mounted) return;
-    if (error != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('设置已保存（起始日期 $startDateIso）')));
-      Navigator.pop(context);
-    }
-  }
-
-  Future<void> _openImport() async {
-    final count = await showDialog<int>(
-      context: context,
-      builder: (_) => const TimetableImportDialog(),
-    );
-    if (count != null && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已导入 $count 门课程')));
-    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('模式已保存')));
+    Navigator.pop(context);
   }
 
   Future<void> _openSicauImport() async {
@@ -153,7 +59,7 @@ class _TimetableSettingsPageState
     }
   }
 
-  /// 打开垂直排期编辑页（纯剧语言配置，自动重算 DSL）
+  /// 打开垂直排期编辑页（剧模型 CRUD，自动派生 DSL）
   Future<void> _openAnimeEditor() async {
     await Navigator.push(
       context,
@@ -161,76 +67,44 @@ class _TimetableSettingsPageState
     );
   }
 
-  /// 从开放 API 导入番剧 → 填充草稿后直接进入排期编辑
+  /// 从开放 API 导入番剧 → 追加进剧模型（不覆盖）
   Future<void> _openAnimeImport() async {
     final drafts = await showDialog<List<AnimeDraft>>(
       context: context,
       builder: (_) => const TimetableAnimeImportDialog(),
     );
     if (drafts == null || drafts.isEmpty || !mounted) return;
-    final initial = drafts
-        .map(
-          (d) => AnimeSeriesDraft(
-            title: d.title,
-            startDateIso: d.startDateIso ?? '',
-            weekday: d.weekday ?? 1,
-            time: d.time ?? '',
-            episodes: d.episodes ?? 13,
-          ),
-        )
-        .toList();
+    final store = ref.read(TimetableStore.provider.notifier);
+    await store.importAnimeSeries(
+      drafts
+          .map(
+            (d) => AnimeSeriesDraft(
+              title: d.title,
+              startDateIso: d.startDateIso ?? '',
+              weekday: d.weekday ?? 1,
+              time: d.time ?? '',
+              episodes: d.episodes ?? 13,
+            ),
+          )
+          .toList(),
+    );
     if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '已导入 ${drafts.length} 部剧（请在排期编辑中补全播出时间）',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAdvanced() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TimetableAnimeEditorPage(initialSeries: initial),
+        builder: (_) => const TimetableAdvancedSettingsPage(),
       ),
     );
-  }
-
-  Future<void> _exportDsl() async {
-    final dsl = ref.read(TimetableStore.provider.notifier).exportToDsl();
-    if (dsl.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('暂无课程可导出')));
-      return;
-    }
-    await Clipboard.setData(ClipboardData(text: dsl));
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('DSL 已复制到剪贴板')));
-    }
-  }
-
-  Future<void> _clearAll() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('清空确认'),
-        content: const Text('确定要清空所有课程吗？此操作不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: ZenColors.mutedRed),
-            child: const Text('清空'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await ref.read(TimetableStore.provider.notifier).clearAllItems();
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('已清空所有课程')));
-      }
-    }
   }
 
   @override
@@ -247,199 +121,115 @@ class _TimetableSettingsPageState
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── 模式选择 ──
+          // ── 模式选择（第一层）──
           ZenSection(
             title: '课表模式',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildModeSelector(),
-                if (_isSchoolMode) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    '学校模式：周一为起始日期，7天固定，支持批量导入',
-                    style: ZenText.label.copyWith(fontSize: 12),
-                  ),
-                ],
-                if (_isAnimeMode) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    '追剧模式：输入剧的开始日期/星期/播出时间/期数，自动计算行列与周期',
-                    style: ZenText.label.copyWith(fontSize: 12),
-                  ),
-                ],
+                const SizedBox(height: 8),
+                Text(
+                  _isAnimeMode
+                      ? '追剧模式：剧模型驱动，行列周期自动计算'
+                      : (_isSchoolMode
+                            ? '学校模式：周一为起始日期，7天固定'
+                            : '通用模式：自由配置，默认一周7天·每天5节·20周期'),
+                  style: ZenText.label.copyWith(fontSize: 12),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          if (_isAnimeMode) ...[
-            // ── 追剧/番模式：垂直排期编辑（纯剧语言配置，自动重算 DSL）──
-            ZenSection(
-              title: '追剧 / 番模式',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ZenActionButton(
-                    icon: Icons.schedule,
-                    label: '打开排期编辑（垂直时间轴）',
-                    onPressed: _openAnimeEditor,
-                  ),
-                  const SizedBox(height: 8),
-                  _ZenActionButton(
-                    icon: Icons.movie_outlined,
-                    label: '从开放 API 导入番剧',
-                    onPressed: _openAnimeImport,
-                    secondary: true,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '输入剧名/开播日期(或当前第几期)/星期/播出时间/总集数即可，'
-                    '行列周期自动计算',
-                    style: ZenText.label.copyWith(fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ] else ...[
-            // ── 起始日期 ──
-            ZenSection(
-              title: '起始日期',
-              child: _buildDateField(),
-            ),
-            const SizedBox(height: 12),
-            // ── 周期配置 ──
-            ZenSection(
-              title: '周期配置',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ZenConfigSlider(
-                    label: '周期数',
-                    value: _cycleCount.toDouble(),
-                    min: TimetableConfig.minCycles.toDouble(),
-                    max: TimetableConfig.maxCycles.toDouble(),
-                    divisions:
-                        TimetableConfig.maxCycles - TimetableConfig.minCycles,
-                    onChanged: (v) => setState(() => _cycleCount = v.round()),
-                  ),
-                  if (_isSchoolMode)
-                    _ZenFixedLabel(
-                      label: '每周期天数',
-                      value: '7天（固定）',
-                    )
-                  else
-                    _ZenConfigSlider(
-                      label: '每周期天数 (1-7)',
-                      value: _daysPerCycle.toDouble(),
-                      min: TimetableConfig.minDaysPerCycle.toDouble(),
-                      max: TimetableConfig.maxDaysPerCycle.toDouble(),
-                      divisions: TimetableConfig.maxDaysPerCycle -
-                          TimetableConfig.minDaysPerCycle,
-                      onChanged: (v) => setState(() => _daysPerCycle = v.round()),
-                    ),
-                  _ZenConfigSlider(
-                    label: '每天节数 (1-6)',
-                    value: _slotsPerDay.toDouble(),
-                    min: TimetableConfig.minSlotsPerDay.toDouble(),
-                    max: TimetableConfig.maxSlotsPerDay.toDouble(),
-                    divisions: TimetableConfig.maxSlotsPerDay -
-                        TimetableConfig.minSlotsPerDay,
-                    onChanged: (v) => setState(() => _slotsPerDay = v.round()),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          // ── 高级功能：左侧指示 / DSL 导入导出 / 清空 ──
+          // ── 数据来源（第一层预设）──
+          _buildDataSourceSection(),
+          const SizedBox(height: 12),
+          // ── 高级设置入口（独立页面承载非常用配置）──
           ZenSection(
-            title: '高级功能',
+            title: '高级设置',
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  title: Text(
-                    '左侧指示显示控制',
-                    style: ZenText.body.copyWith(fontWeight: FontWeight.w500),
-                  ),
-                  childrenPadding: const EdgeInsets.only(top: 8),
-                  children: [
-                    _buildAdvancedControls(),
-                  ],
-                ),
-                const SizedBox(height: 4),
                 _ZenActionButton(
-                  icon: Icons.upload_file,
-                  label: '导入 DSL（含配置）',
-                  onPressed: _openImport,
-                  secondary: true,
-                ),
-                const SizedBox(height: 8),
-                _ZenActionButton(
-                  icon: Icons.download,
-                  label: '导出 DSL（含配置）',
-                  onPressed: _exportDsl,
-                  secondary: true,
-                ),
-                const SizedBox(height: 8),
-                _ZenActionButton(
-                  icon: Icons.delete_outline,
-                  label: '清空所有课程',
-                  onPressed: _clearAll,
-                  danger: true,
+                  icon: Icons.tune,
+                  label: '打开高级设置（周期/日期/左侧指示/DSL）',
+                  onPressed: _openAdvanced,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          // ── 第一层数据来源（模式预设）：学校模式保留 SICAU 导入 ──
-          if (_isSchoolMode) ...[
-            ZenSection(
-              title: '数据来源',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ZenActionButton(
-                    icon: Icons.school,
-                    label: 'SICAU 课表导入',
-                    onPressed: _openSicauImport,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '更多导入 / 导出入口在下方「高级功能」',
-                    style: ZenText.label.copyWith(fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (_isAnimeMode) ...[
-            // 追剧模式：Bangumi 新番作为另一个数据源预设
-            ZenSection(
-              title: '数据来源',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ZenActionButton(
-                    icon: Icons.movie_outlined,
-                    label: '从 Bangumi 拉取新番列表',
-                    onPressed: _openAnimeImport,
-                    secondary: true,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
         ],
       ),
     );
   }
 
-  // ──── 子组件：模式选择 ────
+  Widget _buildDataSourceSection() {
+    if (_isAnimeMode) {
+      // 追剧模式：排期编辑（主）+ API 导入（辅助）
+      return ZenSection(
+        title: '数据来源',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ZenActionButton(
+              icon: Icons.schedule,
+              label: '打开排期编辑（剧模型 CRUD）',
+              onPressed: _openAnimeEditor,
+            ),
+            const SizedBox(height: 8),
+            _ZenActionButton(
+              icon: Icons.movie_outlined,
+              label: '从开放 API 导入番剧',
+              onPressed: _openAnimeImport,
+              secondary: true,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '剧变更后自动重算课表，无需手动生成 DSL',
+              style: ZenText.label.copyWith(fontSize: 11),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_isSchoolMode) {
+      // 学校模式：只保留 SICAU 导入
+      return ZenSection(
+        title: '数据来源',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ZenActionButton(
+              icon: Icons.school,
+              label: 'SICAU 课表导入',
+              onPressed: _openSicauImport,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '其他导入 / 导出入口在「高级设置」',
+              style: ZenText.label.copyWith(fontSize: 11),
+            ),
+          ],
+        ),
+      );
+    }
+    // 通用模式：无预设，提示走高级设置 DSL 导入
+    return ZenSection(
+      title: '数据来源',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ZenActionButton(
+            icon: Icons.edit_note,
+            label: '通用模式：在高级设置导入 DSL',
+            onPressed: _openAdvanced,
+            secondary: true,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildModeSelector() {
     return Row(
       children: [
@@ -475,280 +265,6 @@ class _TimetableSettingsPageState
             }),
           ),
         ),
-      ],
-    );
-  }
-
-  /// 高级功能：左侧指示显示控制（模式/宽度/时长/时间/自定义文字）
-  Widget _buildAdvancedControls() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('左侧指示', style: ZenText.label),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _ZenSegmentButton(
-                label: '序号',
-                selected: _leftLabelMode == 0,
-                onTap: () => setState(() => _leftLabelMode = 0),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ZenSegmentButton(
-                label: '时间段',
-                selected: _leftLabelMode == 1,
-                onTap: () => setState(() => _leftLabelMode = 1),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ZenSegmentButton(
-                label: '自定义',
-                selected: _leftLabelMode == 2,
-                onTap: () => setState(() => _leftLabelMode = 2),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _ZenConfigSlider(
-          label: '左侧宽度 (px)',
-          value: _leftWidth,
-          min: 44,
-          max: 110,
-          divisions: 33,
-          onChanged: (v) => setState(() => _leftWidth = v.roundToDouble()),
-        ),
-        if (_leftLabelMode == 1) ...[
-          const SizedBox(height: 4),
-          _ZenConfigSlider(
-            label: '每节时长 (分钟)',
-            value: _slotDurationMin.toDouble(),
-            min: 15,
-            max: 120,
-            divisions: 21,
-            onChanged: (v) => setState(() => _slotDurationMin = v.round()),
-          ),
-          const SizedBox(height: 8),
-          Text('每节开始时间（HH:mm，自动计算结束）', style: ZenText.label),
-          const SizedBox(height: 8),
-          _buildTimeFields(),
-        ],
-        if (_leftLabelMode == 2) ...[
-          const SizedBox(height: 8),
-          Text('每节自定义文字（留空回退序号）', style: ZenText.label),
-          const SizedBox(height: 8),
-          _buildLabelFields(),
-        ],
-      ],
-    );
-  }
-
-  // ──── 子组件：日期字段 ────
-  // 通用模式：单个简单日期选择；学校模式：周数推算/自动对齐周一（fr #2）
-  Widget _buildDateField() {
-    if (!_isSchoolMode) {
-      return _buildGeneralDateField();
-    }
-    return _buildSchoolDateField();
-  }
-
-  /// 通用模式：只一个日期入口，点按弹系统日期选择器，选哪天存哪天。
-  Widget _buildGeneralDateField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: () async {
-            final current = DateTime.tryParse(_startDateController.text);
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: current ?? DateTime.now(),
-              firstDate: DateTime(2020),
-              lastDate: DateTime(2035),
-              helpText: '选择开始日期',
-            );
-            if (picked == null) return;
-            final iso = picked.toIso8601String().split('T')[0];
-            setState(() => _startDateController.text = iso);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: zenCard(),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('起始日期', style: ZenText.label),
-                      const SizedBox(height: 2),
-                      Text(
-                        _startDateController.text,
-                        style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 学校模式：原「周数推算 / 选日期自动对齐周一」双入口逻辑。
-  Widget _buildSchoolDateField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: () async {
-            final date = await showDialog<String>(
-              context: context,
-              builder: (_) => const WeekCalculatorDialog(),
-            );
-            if (date != null) {
-              setState(() => _startDateController.text = date);
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: zenCard(),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('起始日期（周一）', style: ZenText.label),
-                      const SizedBox(height: 2),
-                      Text(
-                        _startDateController.text,
-                        style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 时间段模式：每节开始时间输入（HH:mm）
-  Widget _buildTimeFields() {
-    _ensureSlotLists();
-    return Column(
-      children: [
-        for (int i = 0; i < _slotsPerDay; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 72,
-                  child: Text(
-                    '第${i + 1}节',
-                    style: ZenText.body.copyWith(
-                      color: ZenColors.secondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: TextEditingController(text: _slotStartTimes[i]),
-                    keyboardType: TextInputType.datetime,
-                    onChanged: (v) {
-                      _slotStartTimes[i] = v.trim();
-                    },
-                    decoration: InputDecoration(
-                      hintText: '08:00',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: ZenColors.hair),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: ZenColors.hair),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// 自定义模式：每节自定义文字输入（留空回退序号）
-  Widget _buildLabelFields() {
-    _ensureSlotLists();
-    return Column(
-      children: [
-        for (int i = 0; i < _slotsPerDay; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 72,
-                  child: Text(
-                    '第${i + 1}节',
-                    style: ZenText.body.copyWith(
-                      color: ZenColors.secondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: TextEditingController(text: _slotLabels[i]),
-                    onChanged: (v) {
-                      _slotLabels[i] = v.trim();
-                    },
-                    decoration: InputDecoration(
-                      hintText: '如: 上午 / 09:00 更新',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: ZenColors.hair),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: ZenColors.hair),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }
@@ -796,122 +312,22 @@ class _ZenSegmentButton extends StatelessWidget {
   }
 }
 
-class _ZenConfigSlider extends StatelessWidget {
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  const _ZenConfigSlider({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: ZenText.body.copyWith(fontWeight: FontWeight.w500)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: ZenColors.sage.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                value.round().toString(),
-                style: ZenText.body.copyWith(
-                  color: ZenColors.sage,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: ZenColors.sage,
-            inactiveTrackColor: ZenColors.hair,
-            thumbColor: ZenColors.sage,
-            overlayColor: ZenColors.sage.withValues(alpha: 0.2),
-          ),
-          child: Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ZenFixedLabel extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _ZenFixedLabel({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: ZenText.body.copyWith(fontWeight: FontWeight.w500)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: ZenColors.sage.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              value,
-              style: ZenText.body.copyWith(
-                color: ZenColors.sage,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ZenActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
-  final bool danger;
   final bool secondary;
 
   const _ZenActionButton({
     required this.icon,
     required this.label,
     required this.onPressed,
-    this.danger = false,
     this.secondary = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = danger
-        ? ZenColors.mutedRed
-        : (secondary ? ZenColors.secondary : ZenColors.sage);
+    final color = secondary ? ZenColors.secondary : ZenColors.sage;
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(

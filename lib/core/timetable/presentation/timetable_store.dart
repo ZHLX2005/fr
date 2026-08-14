@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/timetable_repository.dart';
 import '../domain/models.dart';
+import '../service/config/anime_dsl_generator.dart';
 import '../service/config/timetable_dsl_parser.dart';
 import '../../../native/home_widget/timetable_widget_syncer.dart';
 
@@ -9,6 +10,7 @@ class TimetableState {
   const TimetableState({
     required this.config,
     required this.items,
+    this.animeSeries = const [],
     this.isLoading = false,
   });
 
@@ -16,16 +18,20 @@ class TimetableState {
   /// 按 cellKey 索引，每个 key 对应该时间段的所有课程列表
   /// cellKey = 'd${dayOfCycle}_s$slotIndex'
   final Map<String, List<CourseItem>> items;
+  /// 追剧模式剧模型列表（SSOT：DSL 由它自动派生）
+  final List<AnimeSeriesDraft> animeSeries;
   final bool isLoading;
 
   TimetableState copyWith({
     TimetableConfig? config,
     Map<String, List<CourseItem>>? items,
+    List<AnimeSeriesDraft>? animeSeries,
     bool? isLoading,
   }) {
     return TimetableState(
       config: config ?? this.config,
       items: items ?? this.items,
+      animeSeries: animeSeries ?? this.animeSeries,
       isLoading: isLoading ?? this.isLoading,
     );
   }
@@ -57,8 +63,14 @@ class TimetableStore extends StateNotifier<TimetableState> {
     try {
       final config = await _repo.loadConfig();
       final itemsMap = await _repo.loadItems();
+      final animeSeries = await _repo.loadAnimeSeries();
 
-      state = TimetableState(config: config, items: itemsMap, isLoading: false);
+      state = TimetableState(
+        config: config,
+        items: itemsMap,
+        animeSeries: animeSeries,
+        isLoading: false,
+      );
       _syncToWidget();
     } catch (e) {
       state = TimetableState(
@@ -361,6 +373,75 @@ class TimetableStore extends StateNotifier<TimetableState> {
   Future<void> deleteSpace(String spaceId) async {
     await _repo.deleteSpace(spaceId);
     await hydrate();
+  }
+
+  // ---------- 追剧剧模型（SSOT：CRUD 后自动派生 DSL 并应用） ----------
+
+  /// 由剧模型自动派生 DSL 并应用到 config/items（全自动，无手动覆盖）。
+  /// 剧列表为空时不派生（保留当前课表）。
+  Future<void> _autoApplyAnimeDsl() async {
+    final series = state.animeSeries;
+    if (series.isEmpty) return;
+    final result = buildAnimeDsl(
+      series.map((s) => s.toInput()).toList(growable: false),
+    );
+    await updateConfig(
+      startDateIso: result.config.startDateIso,
+      cycleCount: result.config.cycleCount,
+      daysPerCycle: result.config.daysPerCycle,
+      slotsPerDay: result.config.slotsPerDay,
+      isSchoolMode: false,
+      isAnimeMode: true,
+      leftLabelMode: 1,
+      slotStartTimes: result.config.slotStartTimes,
+      slotDurationMin: result.config.slotDurationMin,
+    );
+    await clearAllItems();
+    final grouped = <String, List<CourseItem>>{};
+    for (final course in result.items) {
+      grouped.putIfAbsent(course.cellKey, () => []).add(course);
+    }
+    for (final entry in grouped.entries) {
+      await upsertItems(entry.key, entry.value);
+    }
+  }
+
+  /// 新增一部剧（自动派生 DSL）
+  Future<void> addAnimeSeries(AnimeSeriesDraft draft) async {
+    final next = List<AnimeSeriesDraft>.from(state.animeSeries)..add(draft);
+    state = state.copyWith(animeSeries: next);
+    await _repo.saveAnimeSeries(next);
+    await _autoApplyAnimeDsl();
+  }
+
+  /// 更新一部剧（按 id 替换；自动派生 DSL）
+  Future<void> updateAnimeSeries(AnimeSeriesDraft draft) async {
+    final next = List<AnimeSeriesDraft>.from(state.animeSeries);
+    final idx = next.indexWhere((s) => s.id == draft.id);
+    if (idx < 0) return;
+    next[idx] = draft;
+    state = state.copyWith(animeSeries: next);
+    await _repo.saveAnimeSeries(next);
+    await _autoApplyAnimeDsl();
+  }
+
+  /// 删除一部剧（自动派生 DSL）
+  Future<void> deleteAnimeSeries(String id) async {
+    final next = List<AnimeSeriesDraft>.from(state.animeSeries)
+      ..removeWhere((s) => s.id == id);
+    state = state.copyWith(animeSeries: next);
+    await _repo.saveAnimeSeries(next);
+    await _autoApplyAnimeDsl();
+  }
+
+  /// 批量导入剧（追加，不覆盖已有；自动派生 DSL）
+  Future<void> importAnimeSeries(List<AnimeSeriesDraft> drafts) async {
+    if (drafts.isEmpty) return;
+    final next = List<AnimeSeriesDraft>.from(state.animeSeries)
+      ..addAll(drafts);
+    state = state.copyWith(animeSeries: next);
+    await _repo.saveAnimeSeries(next);
+    await _autoApplyAnimeDsl();
   }
 
   /// Repository Provider

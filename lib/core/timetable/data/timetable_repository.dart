@@ -1,4 +1,5 @@
 import '../domain/models.dart';
+import '../service/config/anime_dsl_generator.dart';
 
 /// 课表空间元信息（多空间列表条目）
 class TimetableSpaceInfo {
@@ -36,6 +37,12 @@ abstract class TimetableRepository {
 
   /// 清空所有课程（当前激活空间）
   Future<void> clearItems();
+
+  /// 加载追剧剧模型列表（当前激活空间；空列表 = 无剧）
+  Future<List<AnimeSeriesDraft>> loadAnimeSeries();
+
+  /// 保存追剧剧模型列表（当前激活空间，整体覆盖写）
+  Future<void> saveAnimeSeries(List<AnimeSeriesDraft> series);
 
   /// 当前激活空间 id（default = 旧 box）
   String get activeSpaceId;

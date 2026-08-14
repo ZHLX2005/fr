@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import '../../presentation/timetable_colors.dart';
 import 'anime_dsl_generator.dart';
 import '../../../../../widgets/theme/zen_theme.dart';
 
-/// 追剧排期编辑页 —— 垂直时间轴视角。
+/// 追剧排期编辑页 —— 垂直时间轴视角，剧模型 CRUD。
 ///
-/// 完全使用"剧的语言"配置（剧名/开播日期或当前期数反推/星期/播出时间/
-/// 总期数/每集时长），不暴露行/列/周期/slot 概念；
-/// 每次变更自动重算 DSL 摘要，确认后生成稳定 DSL 应用。
+/// 剧模型是 SSOT（存储于空间 record）：增删改剧后由 store 自动派生 DSL
+/// 并应用到课表（无需手动生成/预览/覆盖）。本页提供只读的 DSL 预览。
 class TimetableAnimeEditorPage extends ConsumerStatefulWidget {
-  /// 初始剧列表（可空，来自 API 导入或空开始）
-  final List<AnimeSeriesDraft> initialSeries;
-
-  const TimetableAnimeEditorPage({super.key, this.initialSeries = const []});
+  const TimetableAnimeEditorPage({super.key});
 
   @override
   ConsumerState<TimetableAnimeEditorPage> createState() =>
@@ -24,37 +19,8 @@ class TimetableAnimeEditorPage extends ConsumerStatefulWidget {
 
 class _TimetableAnimeEditorPageState
     extends ConsumerState<TimetableAnimeEditorPage> {
-  late final List<AnimeSeriesDraft> _series;
-
-  @override
-  void initState() {
-    super.initState();
-    _series = [
-      for (final s in widget.initialSeries)
-        AnimeSeriesDraft(
-          title: s.title,
-          startDateIso: s.startDateIso,
-          weekday: s.weekday,
-          time: s.time,
-          episodes: s.episodes,
-          durationMin: s.durationMin,
-        ),
-    ];
-  }
-
-  /// 自动重算摘要（纯展示，让用户看到程序自动算出的结果）
-  (int, String) _recalcSummary() {
-    if (_series.isEmpty) return (0, '');
-    final result = buildAnimeDsl(
-      _series.map((d) => d.toInput()).toList(growable: false),
-    );
-    return (
-      result.config.cycleCount,
-      '起始 ${result.config.startDateIso}（周一） · '
-      '每天 ${result.config.slotsPerDay} 行 · '
-      '共 ${result.config.cycleCount} 周',
-    );
-  }
+  List<AnimeSeriesDraft> get _series =>
+      ref.watch(TimetableStore.provider).animeSeries;
 
   Future<void> _addSeries() async {
     final draft = await showDialog<AnimeSeriesDraft>(
@@ -62,60 +28,61 @@ class _TimetableAnimeEditorPageState
       builder: (_) => const _AnimeEditDialog(),
     );
     if (draft != null) {
-      setState(() => _series.add(draft));
+      await ref.read(TimetableStore.provider.notifier).addAnimeSeries(draft);
     }
   }
 
-  Future<void> _editSeries(int index) async {
+  Future<void> _editSeries(AnimeSeriesDraft target) async {
     final draft = await showDialog<AnimeSeriesDraft>(
       context: context,
-      builder: (_) => _AnimeEditDialog(initial: _series[index]),
+      builder: (_) => _AnimeEditDialog(initial: target),
     );
     if (draft != null) {
-      setState(() => _series[index] = draft);
+      await ref.read(TimetableStore.provider.notifier).updateAnimeSeries(draft);
     }
   }
 
-  Future<void> _apply() async {
-    if (_series.isEmpty) {
+  Future<void> _deleteSeries(AnimeSeriesDraft target) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除剧'),
+        content: Text('确定删除「${target.title}」吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: ZenColors.mutedRed),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ref.read(TimetableStore.provider.notifier).deleteAnimeSeries(target.id);
+    }
+  }
+
+  /// 只读 DSL 预览（当前剧模型派生的结果）
+  Future<void> _previewDsl() async {
+    final series = _series;
+    if (series.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('还没有剧，先添加一部吧')));
       return;
     }
-    // 校验
-    final errors = <String>[];
-    for (var i = 0; i < _series.length; i++) {
-      final s = _series[i];
-      if (s.title.trim().isEmpty) {
-        errors.add('第 ${i + 1} 部：剧名不能为空');
-      }
-      if (DateTime.tryParse(s.startDateIso) == null) {
-        errors.add('第 ${i + 1} 部：开始日期无效');
-      }
-      if (!RegExp(r'^\d{1,2}:\d{2}$').hasMatch(s.time.trim())) {
-        errors.add('第 ${i + 1} 部：播出时间应为 HH:mm');
-      }
-      if (s.episodes < 1) {
-        errors.add('第 ${i + 1} 部：总期数应为正整数');
-      }
-    }
-    if (errors.isNotEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(errors.join('\n'))));
-      return;
-    }
-
     final result = buildAnimeDsl(
-      _series.map((d) => d.toInput()).toList(growable: false),
+      series.map((s) => s.toInput()).toList(growable: false),
     );
     if (!mounted) return;
-
-    final apply = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('生成追剧 DSL'),
+        title: const Text('当前追剧 DSL'),
         content: SizedBox(
           width: 340,
           height: 320,
@@ -125,7 +92,7 @@ class _TimetableAnimeEditorPageState
               Text(
                 '起始 ${result.config.startDateIso} · '
                 '每天 ${result.config.slotsPerDay} 行 · '
-                '共 ${result.config.cycleCount} 周',
+                '共 ${result.config.cycleCount} 周 · 已自动应用',
                 style: ZenText.label,
               ),
               const SizedBox(height: 8),
@@ -155,57 +122,29 @@ class _TimetableAnimeEditorPageState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('应用'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('关闭'),
           ),
         ],
       ),
     );
-    if (apply != true) return;
-
-    final store = ref.read(TimetableStore.provider.notifier);
-    await store.updateConfig(
-      startDateIso: result.config.startDateIso,
-      cycleCount: result.config.cycleCount,
-      daysPerCycle: result.config.daysPerCycle,
-      slotsPerDay: result.config.slotsPerDay,
-      isSchoolMode: false,
-      isAnimeMode: true,
-      leftLabelMode: 1,
-      slotStartTimes: result.config.slotStartTimes,
-      slotDurationMin: result.config.slotDurationMin,
-    );
-    await store.clearAllItems();
-    final grouped = <String, List<CourseItem>>{};
-    for (final course in result.items) {
-      grouped.putIfAbsent(course.cellKey, () => []).add(course);
-    }
-    for (final entry in grouped.entries) {
-      await store.upsertItems(entry.key, entry.value);
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '已应用追剧课表：${result.items.length} 部剧 · '
-            '${result.config.cycleCount} 周',
-          ),
-        ),
-      );
-      Navigator.pop(context);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final (cycles, summary) = _recalcSummary();
-    final sorted = List<AnimeSeriesDraft>.from(_series)
+    final series = _series;
+    final sorted = List<AnimeSeriesDraft>.from(series)
       ..sort((a, b) => a.time.compareTo(b.time));
+    final summary = series.isEmpty
+        ? ''
+        : () {
+            final r = buildAnimeDsl(
+              series.map((s) => s.toInput()).toList(growable: false),
+            );
+            return '起始 ${r.config.startDateIso}（周一） · '
+                '每天 ${r.config.slotsPerDay} 行 · '
+                '共 ${r.config.cycleCount} 周';
+          }();
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -213,15 +152,15 @@ class _TimetableAnimeEditorPageState
         title: const Text('追剧排期'),
         actions: [
           TextButton.icon(
-            onPressed: _apply,
-            icon: const Icon(Icons.auto_awesome, size: 18),
-            label: const Text('生成 DSL'),
+            onPressed: _previewDsl,
+            icon: const Icon(Icons.visibility_outlined, size: 18),
+            label: const Text('查看 DSL'),
           ),
         ],
       ),
       body: Column(
         children: [
-          // 自动重算摘要条
+          // 自动派生摘要条（剧变更即时自动应用，这里只展示结果）
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -229,16 +168,16 @@ class _TimetableAnimeEditorPageState
             child: Row(
               children: [
                 Icon(
-                  Icons.calculate_outlined,
+                  Icons.auto_awesome,
                   size: 16,
                   color: ZenColors.sage,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _series.isEmpty
-                        ? '添加剧后自动计算排期'
-                        : '自动计算：$summary · ${_series.length} 部剧',
+                    series.isEmpty
+                        ? '添加剧后自动计算并应用排期'
+                        : '已自动应用：$summary · ${series.length} 部剧',
                     style: ZenText.body.copyWith(
                       color: ZenColors.sage,
                       fontSize: 13,
@@ -250,7 +189,6 @@ class _TimetableAnimeEditorPageState
             ),
           ),
           const Divider(height: 1),
-          // 垂直时间轴：按播出时间排列
           Expanded(
             child: sorted.isEmpty
                 ? _EmptyHint(onAdd: _addSeries)
@@ -262,8 +200,8 @@ class _TimetableAnimeEditorPageState
                       final s = sorted[index];
                       return _SeriesTile(
                         draft: s,
-                        onEdit: () => _editSeries(_series.indexOf(s)),
-                        onDelete: () => setState(() => _series.remove(s)),
+                        onEdit: () => _editSeries(s),
+                        onDelete: () => _deleteSeries(s),
                       );
                     },
                   ),
@@ -313,7 +251,6 @@ class _SeriesTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              // 垂直轴：播出时间
               Container(
                 width: 68,
                 padding: const EdgeInsets.symmetric(vertical: 6),
@@ -396,7 +333,7 @@ class _EmptyHint extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '还没有剧\n添加后会自动计算排期（起始日期/每天行数/总周数）',
+            '还没有剧\n添加后会自动计算并应用排期（起始日期/每天行数/总周数）',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(
@@ -515,6 +452,7 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
       return null;
     }
     return AnimeSeriesDraft(
+      id: widget.initial?.id,
       title: title,
       startDateIso: startDateIso,
       weekday: _weekday,
@@ -543,7 +481,6 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                 ),
               ),
               const SizedBox(height: 10),
-              // 开播日期：直接选 / 当前期数反推
               Row(
                 children: [
                   Expanded(

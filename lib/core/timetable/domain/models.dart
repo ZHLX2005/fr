@@ -146,10 +146,10 @@ class TimetableConfig {
     return !now.isBefore(startDate) && !now.isAfter(endDate);
   }
 
-  /// 默认配置
+  /// 默认配置（课表模式：一周7天 / 每天5节 / 20个周期）
   static const TimetableConfig defaultConfig = TimetableConfig(
     startDateIso: '2025-01-01',
-    cycleCount: 16,
+    cycleCount: 20,
     daysPerCycle: 7,
     slotsPerDay: 5,
     isSchoolMode: true,

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../timetable/data/timetable_repository.dart';
 import '../../timetable/domain/models.dart';
+import '../../timetable/service/config/anime_dsl_generator.dart';
 import '../box_descriptor.dart';
 import '../storage_registry.dart';
 import 'hive_repository.dart';
@@ -20,6 +21,7 @@ class HiveTimetableRepository extends TimetableRepository
   static const String _configBoxName = 'timetable_config';
   static const String _itemsBoxName = 'timetable_items';
   static const String _spacesBoxName = 'timetable_spaces';
+  static const String _animeSeriesBoxName = 'timetable_anime_series';
   static const String _activeSpaceKey = 'timetable-active-space';
 
   @override
@@ -28,6 +30,7 @@ class HiveTimetableRepository extends TimetableRepository
   late Box _configBox;
   late Box _itemsBox;
   late Box _spacesBox;
+  late Box _animeSeriesBox;
 
   String _activeSpaceId = TimetableRepository.defaultSpaceId;
 
@@ -39,6 +42,7 @@ class HiveTimetableRepository extends TimetableRepository
       _configBox = await HiveStore.instance.openUntyped(_configBoxName);
       _itemsBox = await HiveStore.instance.openUntyped(_itemsBoxName);
       _spacesBox = await HiveStore.instance.openUntyped(_spacesBoxName);
+      _animeSeriesBox = await HiveStore.instance.openUntyped(_animeSeriesBoxName);
       final prefs = await SharedPreferences.getInstance();
       _activeSpaceId =
           prefs.getString(_activeSpaceKey) ??
@@ -113,6 +117,24 @@ class HiveTimetableRepository extends TimetableRepository
         },
       ));
     }
+    if (!StorageRegistry.has(_animeSeriesBoxName)) {
+      StorageRegistry.register(BoxDescriptor(
+        name: _animeSeriesBoxName,
+        displayName: '追剧剧集',
+        openUntyped: () => HiveStore.instance.openUntyped(_animeSeriesBoxName),
+        formatValue: (v) {
+          if (v is! List) return v.toString();
+          final titles = v
+              .whereType<Map>()
+              .map((m) => m['title'])
+              .whereType<String>()
+              .where((t) => t.isNotEmpty)
+              .toList();
+          final head = titles.isEmpty ? '（无剧）' : titles.first;
+          return '${v.length} 部 · $head${titles.length > 1 ? ' 等' : ''}';
+        },
+      ));
+    }
   }
 
   /// 检查是否已初始化
@@ -167,6 +189,7 @@ class HiveTimetableRepository extends TimetableRepository
       'name': name,
       'config': _configToJson(TimetableConfig.defaultConfig),
       'items': <String, dynamic>{},
+      'animeSeries': <dynamic>[],
       'createdAt': DateTime.now().millisecondsSinceEpoch,
     });
     debugPrint('HiveTimetableRepository: 创建空间 $spaceId ($name)');
@@ -402,7 +425,43 @@ class HiveTimetableRepository extends TimetableRepository
       'name': _activeSpaceId,
       'config': _configToJson(TimetableConfig.defaultConfig),
       'items': <String, dynamic>{},
+      'animeSeries': <dynamic>[],
     };
+  }
+
+  @override
+  Future<List<AnimeSeriesDraft>> loadAnimeSeries() async {
+    if (!_isInitialized) return [];
+    List<dynamic>? raw;
+    if (_isDefaultActive) {
+      raw = _animeSeriesBox.get('series') as List?;
+    } else {
+      final record = _spaceRecord(_activeSpaceId);
+      final json = record?['animeSeries'];
+      if (json is List) raw = json;
+    }
+    if (raw == null) return [];
+    return raw
+        .whereType<Map>()
+        .map((m) => AnimeSeriesDraft.fromJson(
+              m.map((k, v) => MapEntry(k.toString(), v)),
+            ))
+        .toList();
+  }
+
+  @override
+  Future<void> saveAnimeSeries(List<AnimeSeriesDraft> series) async {
+    if (!_isInitialized) return;
+    final json = series.map((s) => s.toJson()).toList();
+    if (_isDefaultActive) {
+      await _animeSeriesBox.put('series', json);
+      return;
+    }
+    final record = _spaceRecord(_activeSpaceId) ?? _emptySpaceRecord();
+    await _writeSpaceRecord(
+      _activeSpaceId,
+      {...record, 'animeSeries': json},
+    );
   }
 
   Map<String, dynamic> _configToJson(TimetableConfig config) {
