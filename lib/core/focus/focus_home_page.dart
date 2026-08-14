@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/focus_provider.dart';
 import 'focus_timer_page.dart';
-import 'focus_stats_page.dart';
 import '../timetable/timetable.dart';
 import 'time_tools/const_time_pages.dart';
 import '../../lab/lab_container.dart';
@@ -72,17 +71,6 @@ class FocusHomePage extends StatelessWidget {
             final grid = <_ToolItem>[
               for (final m in registryMetas)
                 _ToolItem.registry(m.slug),
-              _ToolItem.internal(
-                label: '数据统计',
-                icon: Icons.bar_chart_outlined,
-                color: const Color(0xFF8B9DC3),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const FocusStatsPage(),
-                  ),
-                ),
-              ),
               _ToolItem.internal(
                 label: '时间课表',
                 icon: Icons.calendar_month_outlined,

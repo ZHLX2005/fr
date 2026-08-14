@@ -52,44 +52,12 @@ class FocusProvider extends ChangeNotifier {
   /// 今日总学时（分钟）
   int getTodayMinutes() => _sumMinutesOn(DateTime.now());
 
-  /// 本周总学时（分钟）
-  int getWeekMinutes() {
-    final now = DateTime.now();
-    final weekStart = DateTime(now.year, now.month, now.day - (now.weekday - 1));
-    return _sessions
-        .where((s) => !s.startTime.isBefore(weekStart))
-        .fold<int>(0, (sum, s) => sum + s.durationMinutes);
-  }
-
-  /// 最近 7 天热力图
-  List<Map<String, dynamic>> getHeatmapData() {
-    final data = <Map<String, dynamic>>[];
-    final now = DateTime.now();
-    for (int i = 6; i >= 0; i--) {
-      final date = DateTime(now.year, now.month, now.day - i);
-      data.add({
-        'date': date,
-        'minutes': _sumMinutesOn(date),
-        'level': _heatmapLevel(_sumMinutesOn(date)),
-      });
-    }
-    return data;
-  }
-
   int _sumMinutesOn(DateTime date) => _sessions
       .where((s) =>
           s.startTime.year == date.year &&
           s.startTime.month == date.month &&
           s.startTime.day == date.day)
       .fold<int>(0, (sum, s) => sum + s.durationMinutes);
-
-  int _heatmapLevel(int minutes) {
-    if (minutes == 0) return 0;
-    if (minutes < 30) return 1;
-    if (minutes < 60) return 2;
-    if (minutes < 120) return 3;
-    return 4;
-  }
 
   Future<void> clearAll() async {
     _sessions = [];

@@ -40,13 +40,6 @@ void main() {
         mode: FocusMode.freeTime,
       ));
       expect(fp.getTodayMinutes(), 30);
-      expect(fp.getWeekMinutes(), greaterThanOrEqualTo(30));
-    });
-
-    test('getHeatmapData 返回 7 天数据', () {
-      final data = fp.getHeatmapData();
-      expect(data.length, 7);
-      expect(data.every((d) => d.containsKey('minutes')), isTrue);
     });
 
     test('clearAll 清空 sessions', () async {
