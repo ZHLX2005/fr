@@ -1,8 +1,39 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/timetable/service/config/anime_dsl_generator.dart';
+import 'package:xiaodouzi_fr/core/timetable/service/config/timetable_settings_page.dart'
+    show backfillStartDate;
 import 'package:xiaodouzi_fr/core/timetable/service/config/timetable_dsl_parser.dart';
 
+String _iso(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
 void main() {
+  group('backfillStartDate 反推开始日期', () {
+    final today = DateTime.now();
+
+    test('当前第1期 = 今天往前最近的该星期', () {
+      final result = backfillStartDate(1, today.weekday);
+      expect(result, _iso(today));
+    });
+
+    test('当前第3期 = 最近播出日 - 14 天', () {
+      final expectDate = today.subtract(const Duration(days: 14));
+      final result = backfillStartDate(3, today.weekday);
+      expect(result, _iso(expectDate));
+    });
+
+    test('星期早于今天：最近播出日是本周该星期', () {
+      // 目标星期 = 今天的星期 - 1（若今天周一则回绕到周日）
+      final targetWeekday = today.weekday == 1 ? 7 : today.weekday - 1;
+      final result = backfillStartDate(1, targetWeekday);
+      // 最近 targetWeekday：若 target 星期在昨天之前，就是本周的；否则上周
+      final expectDate = today.subtract(Duration(days: today.weekday - targetWeekday));
+      expect(result, _iso(expectDate));
+    });
+  });
+
   group('DSL 周次范围语法', () {
     test('w2-16 范围解析', () {
       final result = parseDsl('剧b @ 6 2 w2-16 23:00 更新');

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
+import 'anime_source_adapter.dart';
 import 'sicau_import_dialog.dart';
 import 'timetable_anime_import_dialog.dart';
 import 'timetable_import_dialog.dart';
@@ -157,15 +158,27 @@ class _TimetableSettingsPageState
   }
 
   Future<void> _openAnimeImport() async {
-    final count = await showDialog<int>(
+    final drafts = await showDialog<List<AnimeDraft>>(
       context: context,
       builder: (_) => const TimetableAnimeImportDialog(),
     );
-    if (count != null && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已导入 $count 部新番更新时间')));
-    }
+    if (drafts == null || drafts.isEmpty || !mounted) return;
+    setState(() {
+      // 填充为剧行：期数默认按季番 13（可在行内修改）；播出时间由用户补
+      _animeRows.addAll(
+        drafts.map(
+          (d) => _AnimeInputRow()
+            ..titleCtrl.text = d.title
+            ..startDateCtrl.text = d.startDateIso ?? ''
+            ..weekday = d.weekday ?? 1
+            ..timeCtrl.text = d.time ?? ''
+            ..episodesCtrl.text = d.episodes?.toString() ?? '13',
+        ),
+      );
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已添加 ${drafts.length} 部，请补全播出时间后生成 DSL')),
+    );
   }
 
   Future<void> _exportDsl() async {
@@ -530,7 +543,7 @@ class _TimetableSettingsPageState
     );
   }
 
-  // ──── 追剧模式：剧输入行 ────
+  // ──── 追剧模式：剧输入行（垂直编排 + 反推开始日期）────
   Widget _buildAnimeRow(int index, _AnimeInputRow row) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -541,6 +554,26 @@ class _TimetableSettingsPageState
         children: [
           Row(
             children: [
+              // 垂直轴标签：播出时间（排序依据）
+              Container(
+                width: 64,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: ZenColors.sage.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: ZenColors.hair),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  row.timeCtrl.text.trim().isEmpty ? '--:--' : row.timeCtrl.text.trim(),
+                  style: ZenText.body.copyWith(
+                    color: ZenColors.sage,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   controller: row.titleCtrl,
@@ -550,7 +583,30 @@ class _TimetableSettingsPageState
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
+              // 垂直编排：上移 / 下移
+              IconButton(
+                icon: const Icon(Icons.arrow_upward, size: 16),
+                visualDensity: VisualDensity.compact,
+                tooltip: '上移（时间组提前）',
+                onPressed: index > 0
+                    ? () => setState(() {
+                          final r = _animeRows.removeAt(index);
+                          _animeRows.insert(index - 1, r);
+                        })
+                    : null,
+              ),
+              IconButton(
+                icon: const Icon(Icons.arrow_downward, size: 16),
+                visualDensity: VisualDensity.compact,
+                tooltip: '下移（时间组延后）',
+                onPressed: index < _animeRows.length - 1
+                    ? () => setState(() {
+                          final r = _animeRows.removeAt(index);
+                          _animeRows.insert(index + 1, r);
+                        })
+                    : null,
+              ),
               IconButton(
                 icon: const Icon(Icons.close, size: 18),
                 visualDensity: VisualDensity.compact,
@@ -561,38 +617,52 @@ class _TimetableSettingsPageState
           const SizedBox(height: 6),
           Row(
             children: [
-              Expanded(
-                flex: 3,
-                child: InkWell(
-                  onTap: () async {
-                    final current = DateTime.tryParse(row.startDateCtrl.text);
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: current ?? DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2035),
-                      helpText: '开始日期',
-                    );
-                    if (picked == null) return;
-                    setState(() {
-                      row.startDateCtrl.text =
-                          picked.toIso8601String().split('T')[0];
-                    });
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: '开始日期',
-                      isDense: true,
+              // 开始日期 / 反推切换
+              if (!row.useBackfill)
+                Expanded(
+                  flex: 3,
+                  child: InkWell(
+                    onTap: () async {
+                      final current = DateTime.tryParse(row.startDateCtrl.text);
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: current ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2035),
+                        helpText: '开始日期',
+                      );
+                      if (picked == null) return;
+                      setState(() {
+                        row.startDateCtrl.text =
+                            picked.toIso8601String().split('T')[0];
+                      });
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: '开始日期',
+                        isDense: true,
+                      ),
+                      child: Text(
+                        row.startDateCtrl.text.isEmpty
+                            ? '选择日期'
+                            : row.startDateCtrl.text,
+                        style: ZenText.body,
+                      ),
                     ),
-                    child: Text(
-                      row.startDateCtrl.text.isEmpty
-                          ? '选择日期'
-                          : row.startDateCtrl.text,
-                      style: ZenText.body,
+                  ),
+                )
+              else
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: row.currentEpisodeCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '当前第几期（反推开始日期）',
+                      isDense: true,
                     ),
                   ),
                 ),
-              ),
               const SizedBox(width: 8),
               Expanded(
                 flex: 2,
@@ -651,6 +721,52 @@ class _TimetableSettingsPageState
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // 反推 / 直接日期 切换 + 反推计算按钮
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: () => setState(() {
+                  row.useBackfill = !row.useBackfill;
+                  if (!row.useBackfill) {
+                    row.currentEpisodeCtrl.clear();
+                  }
+                }),
+                icon: Icon(
+                  row.useBackfill ? Icons.edit_calendar : Icons.calculate,
+                  size: 16,
+                ),
+                label: Text(
+                  row.useBackfill ? '改用直接选日期' : '用「当前第几期」反推',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              if (row.useBackfill)
+                TextButton.icon(
+                  onPressed: () {
+                    final ep = int.tryParse(row.currentEpisodeCtrl.text.trim());
+                    if (ep == null || ep < 1) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('请输入当前期数（正整数）')),
+                      );
+                      return;
+                    }
+                    setState(() {
+                      row.startDateCtrl.text =
+                          backfillStartDate(ep, row.weekday);
+                    });
+                  },
+                  icon: const Icon(Icons.auto_fix_high, size: 16),
+                  label: const Text('反推并填入', style: TextStyle(fontSize: 12)),
+                ),
+              const Spacer(),
+              if (row.startDateCtrl.text.isNotEmpty && row.useBackfill)
+                Text(
+                  '开始: ${row.startDateCtrl.text}',
+                  style: ZenText.label.copyWith(fontSize: 11),
+                ),
             ],
           ),
         ],
@@ -1014,7 +1130,9 @@ class _AnimeInputRow {
   final TextEditingController timeCtrl = TextEditingController();
   final TextEditingController episodesCtrl = TextEditingController();
   final TextEditingController durationCtrl = TextEditingController();
+  final TextEditingController currentEpisodeCtrl = TextEditingController();
   int weekday = 1;
+  bool useBackfill = false;
 
   void dispose() {
     titleCtrl.dispose();
@@ -1022,7 +1140,22 @@ class _AnimeInputRow {
     timeCtrl.dispose();
     episodesCtrl.dispose();
     durationCtrl.dispose();
+    currentEpisodeCtrl.dispose();
   }
+}
+
+/// 反推开始日期：当前第 [currentEpisode] 期、播出星期 [weekday]，
+/// 从"今天往前最近的该星期"再回推 (期数-1) 周。
+/// 返回 YYYY-MM-DD；[weekday] 1=周一 … 7=周日。
+String backfillStartDate(int currentEpisode, int weekday) {
+  final today = DateTime.now();
+  var daysBack = today.weekday - weekday; // DateTime.weekday 1=周一
+  if (daysBack < 0) daysBack += 7;
+  final anchor = today.subtract(Duration(days: daysBack));
+  final start = anchor.subtract(Duration(days: (currentEpisode - 1) * 7));
+  return '${start.year.toString().padLeft(4, '0')}-'
+      '${start.month.toString().padLeft(2, '0')}-'
+      '${start.day.toString().padLeft(2, '0')}';
 }
 
 class _ZenSegmentButton extends StatelessWidget {
