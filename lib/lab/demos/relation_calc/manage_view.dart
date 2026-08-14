@@ -169,10 +169,19 @@ class _ManageViewState extends State<ManageView> {
       );
       return;
     }
-    String fromId = existing?.fromId ?? entities.first.id;
-    String termId = existing?.termId ?? terms.first.id;
-    String toId = existing?.toId ??
-        (entities.length > 1 ? entities[1].id : entities.first.id);
+    // 悬空引用防御：编辑时若 existing 引用的实体/关系词已不存在
+    // （如脏数据 / 外部变更），回退到列表默认值，避免 Dropdown assert。
+    bool hasEntity(String id) => entities.any((e) => e.id == id);
+    bool hasTerm(String id) => terms.any((t) => t.id == id);
+    String fromId = (existing != null && hasEntity(existing.fromId))
+        ? existing.fromId
+        : entities.first.id;
+    String termId = (existing != null && hasTerm(existing.termId))
+        ? existing.termId
+        : terms.first.id;
+    String toId = (existing != null && hasEntity(existing.toId))
+        ? existing.toId
+        : (entities.length > 1 ? entities[1].id : entities.first.id);
 
     final saved = await showDialog<bool>(
       context: context,
