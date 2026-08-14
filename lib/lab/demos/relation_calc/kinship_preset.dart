@@ -79,6 +79,54 @@ final List<RelationEntity> kKinshipEntities = [
   RelationEntity(id: 'e_sister_in_law_young', name: '弟媳', note: '弟弟的妻子'),
   RelationEntity(id: 'e_brother_in_law_sis', name: '姐夫', note: '姐姐的丈夫'),
   RelationEntity(id: 'e_brother_in_law_young', name: '妹夫', note: '妹妹的丈夫'),
+  // 祖父辈旁系（伯/叔/姑/舅/姨 公婆辈；同名不同源拆多个 id，note 区分）
+  RelationEntity(id: 'e_bo_gong', name: '伯公', note: '爷爷的哥哥'),
+  RelationEntity(id: 'e_shu_gong', name: '叔公', note: '爷爷的弟弟'),
+  RelationEntity(id: 'e_gu_po_pat', name: '姑婆', note: '爷爷的姐妹'),
+  RelationEntity(id: 'e_jiu_gong_pat', name: '舅公', note: '奶奶的兄弟'),
+  RelationEntity(id: 'e_yi_po_pat', name: '姨婆', note: '奶奶的姐妹'),
+  RelationEntity(id: 'e_jiu_gong_mat_u', name: '舅公', note: '外公的兄弟'),
+  RelationEntity(id: 'e_gu_po_mat', name: '姑婆', note: '外公的姐妹'),
+  RelationEntity(id: 'e_jiu_gong_mat_a', name: '舅公', note: '外婆的兄弟'),
+  RelationEntity(id: 'e_yi_po_mat', name: '姨婆', note: '外婆的姐妹'),
+  // 父母辈堂表（爸爸/妈妈的堂表兄弟姐妹）
+  RelationEntity(id: 'e_tang_bo', name: '堂伯', note: '爸爸的堂兄'),
+  RelationEntity(id: 'e_tang_shu', name: '堂叔', note: '爸爸的堂弟'),
+  RelationEntity(id: 'e_tang_gu', name: '堂姑', note: '爸爸的堂姐妹'),
+  RelationEntity(id: 'e_biao_shu', name: '表叔', note: '爸爸的表兄弟'),
+  RelationEntity(id: 'e_biao_gu', name: '表姑', note: '爸爸的表姐妹'),
+  RelationEntity(id: 'e_tang_jiu', name: '堂舅', note: '妈妈的堂兄弟'),
+  RelationEntity(id: 'e_tang_yi', name: '堂姨', note: '妈妈的堂姐妹'),
+  RelationEntity(id: 'e_biao_jiu', name: '表舅', note: '妈妈的表兄弟'),
+  RelationEntity(id: 'e_biao_yi', name: '表姨', note: '妈妈的表姐妹'),
+  // 同辈的堂/表侄辈
+  RelationEntity(id: 'e_tang_zhi', name: '堂侄', note: '堂兄弟的儿子'),
+  RelationEntity(id: 'e_tang_zhi_nv', name: '堂侄女', note: '堂兄弟的女儿'),
+  RelationEntity(id: 'e_biao_zhi', name: '表侄', note: '表兄弟的儿子'),
+  RelationEntity(id: 'e_biao_zhi_nv', name: '表侄女', note: '表兄弟的女儿'),
+  // 配偶方兄弟姊妹（姻亲）
+  RelationEntity(id: 'e_aunt_wife_old', name: '姨姐', note: '妻子的姐姐（大姨子）'),
+  RelationEntity(id: 'e_aunt_wife_young', name: '姨妹', note: '妻子的妹妹（小姨子）'),
+  RelationEntity(id: 'e_brother_wife_old', name: '大舅子', note: '妻子的哥哥（内兄）'),
+  RelationEntity(id: 'e_brother_wife_young', name: '小舅子', note: '妻子的弟弟（内弟）'),
+  RelationEntity(id: 'e_brother_hus_old', name: '大伯子', note: '丈夫的哥哥'),
+  RelationEntity(id: 'e_brother_hus_young', name: '小叔子', note: '丈夫的弟弟'),
+  RelationEntity(id: 'e_sister_hus_old', name: '大姑子', note: '丈夫的姐姐'),
+  RelationEntity(id: 'e_sister_hus_young', name: '小姑子', note: '丈夫的妹妹'),
+  // 二级姻亲
+  RelationEntity(id: 'e_lianjin', name: '连襟', note: '妻子的姐妹的丈夫'),
+  RelationEntity(id: 'e_zhouli', name: '妯娌', note: '丈夫的兄弟的妻子'),
+  RelationEntity(id: 'e_nei_zhi', name: '内侄', note: '妻子的兄弟的儿子'),
+  RelationEntity(id: 'e_nei_zhi_nv', name: '内侄女', note: '妻子的兄弟的女儿'),
+  // 堂/表亲的配偶
+  RelationEntity(id: 'e_tang_sao', name: '堂嫂', note: '堂哥的妻子'),
+  RelationEntity(id: 'e_tang_di_xi', name: '堂弟媳', note: '堂弟的妻子'),
+  RelationEntity(id: 'e_tang_jie_fu', name: '堂姐夫', note: '堂姐的丈夫'),
+  RelationEntity(id: 'e_tang_mei_fu', name: '堂妹夫', note: '堂妹的丈夫'),
+  RelationEntity(id: 'e_biao_sao', name: '表嫂', note: '表哥的妻子'),
+  RelationEntity(id: 'e_biao_di_xi', name: '表弟媳', note: '表弟的妻子'),
+  RelationEntity(id: 'e_biao_jie_fu', name: '表姐夫', note: '表姐的丈夫'),
+  RelationEntity(id: 'e_biao_mei_fu', name: '表妹夫', note: '表妹的丈夫'),
 ];
 
 // ---------------------------------------------------------------------
@@ -188,6 +236,62 @@ final List<RelationRule> kKinshipRulesInLaw = [
   RelationRule(id: 'r_daughter_husband', fromId: 'e_daughter', termId: 't_husband', toId: 'e_son_in_law'),
 ];
 
+/// 配偶方兄弟姊妹（妻子的姐姐=姨姐、丈夫的哥哥=大伯子…）。
+final List<RelationRule> kKinshipRulesSpouseSibling = [
+  // 妻子的兄弟姊妹
+  RelationRule(id: 'r_wife_es', fromId: 'e_wife', termId: 't_elder_sister', toId: 'e_aunt_wife_old'),
+  RelationRule(id: 'r_wife_ys', fromId: 'e_wife', termId: 't_younger_sister', toId: 'e_aunt_wife_young'),
+  RelationRule(id: 'r_wife_eb', fromId: 'e_wife', termId: 't_elder_brother', toId: 'e_brother_wife_old'),
+  RelationRule(id: 'r_wife_yb', fromId: 'e_wife', termId: 't_younger_brother', toId: 'e_brother_wife_young'),
+  // 丈夫的兄弟姊妹
+  RelationRule(id: 'r_husband_eb', fromId: 'e_husband', termId: 't_elder_brother', toId: 'e_brother_hus_old'),
+  RelationRule(id: 'r_husband_yb', fromId: 'e_husband', termId: 't_younger_brother', toId: 'e_brother_hus_young'),
+  RelationRule(id: 'r_husband_es', fromId: 'e_husband', termId: 't_elder_sister', toId: 'e_sister_hus_old'),
+  RelationRule(id: 'r_husband_ys', fromId: 'e_husband', termId: 't_younger_sister', toId: 'e_sister_hus_young'),
+];
+
+/// 二级姻亲（连襟/妯娌/内侄 + 配偶方兄弟姊妹的子女）。
+final List<RelationRule> kKinshipRulesInLawSecond = [
+  // 连襟：妻子的姐妹的丈夫
+  RelationRule(id: 'r_aunt_wife_old_husband', fromId: 'e_aunt_wife_old', termId: 't_husband', toId: 'e_lianjin'),
+  RelationRule(id: 'r_aunt_wife_young_husband', fromId: 'e_aunt_wife_young', termId: 't_husband', toId: 'e_lianjin'),
+  // 妯娌：丈夫的兄弟的妻子
+  RelationRule(id: 'r_brother_hus_old_wife', fromId: 'e_brother_hus_old', termId: 't_wife', toId: 'e_zhouli'),
+  RelationRule(id: 'r_brother_hus_young_wife', fromId: 'e_brother_hus_young', termId: 't_wife', toId: 'e_zhouli'),
+  // 内侄：妻子的兄弟的儿子
+  RelationRule(id: 'r_brother_wife_old_son', fromId: 'e_brother_wife_old', termId: 't_son', toId: 'e_nei_zhi'),
+  RelationRule(id: 'r_brother_wife_old_daughter', fromId: 'e_brother_wife_old', termId: 't_daughter', toId: 'e_nei_zhi_nv'),
+  RelationRule(id: 'r_brother_wife_young_son', fromId: 'e_brother_wife_young', termId: 't_son', toId: 'e_nei_zhi'),
+  RelationRule(id: 'r_brother_wife_young_daughter', fromId: 'e_brother_wife_young', termId: 't_daughter', toId: 'e_nei_zhi_nv'),
+  // 妻子的姐妹的子女 = 外甥/外甥女
+  RelationRule(id: 'r_aunt_wife_old_son', fromId: 'e_aunt_wife_old', termId: 't_son', toId: 'e_nephew_sis'),
+  RelationRule(id: 'r_aunt_wife_old_daughter', fromId: 'e_aunt_wife_old', termId: 't_daughter', toId: 'e_niece_sis'),
+  RelationRule(id: 'r_aunt_wife_young_son', fromId: 'e_aunt_wife_young', termId: 't_son', toId: 'e_nephew_sis'),
+  RelationRule(id: 'r_aunt_wife_young_daughter', fromId: 'e_aunt_wife_young', termId: 't_daughter', toId: 'e_niece_sis'),
+  // 丈夫的姐妹的子女 = 外甥/外甥女
+  RelationRule(id: 'r_sister_hus_old_son', fromId: 'e_sister_hus_old', termId: 't_son', toId: 'e_nephew_sis'),
+  RelationRule(id: 'r_sister_hus_old_daughter', fromId: 'e_sister_hus_old', termId: 't_daughter', toId: 'e_niece_sis'),
+  RelationRule(id: 'r_sister_hus_young_son', fromId: 'e_sister_hus_young', termId: 't_son', toId: 'e_nephew_sis'),
+  RelationRule(id: 'r_sister_hus_young_daughter', fromId: 'e_sister_hus_young', termId: 't_daughter', toId: 'e_niece_sis'),
+  // 丈夫的兄弟的子女 = 侄子/侄女
+  RelationRule(id: 'r_brother_hus_old_son', fromId: 'e_brother_hus_old', termId: 't_son', toId: 'e_nephew_br'),
+  RelationRule(id: 'r_brother_hus_old_daughter', fromId: 'e_brother_hus_old', termId: 't_daughter', toId: 'e_niece_br'),
+  RelationRule(id: 'r_brother_hus_young_son', fromId: 'e_brother_hus_young', termId: 't_son', toId: 'e_nephew_br'),
+  RelationRule(id: 'r_brother_hus_young_daughter', fromId: 'e_brother_hus_young', termId: 't_daughter', toId: 'e_niece_br'),
+];
+
+/// 堂/表亲的配偶。
+final List<RelationRule> kKinshipRulesTangBiaoSpouse = [
+  RelationRule(id: 'r_tang_ge_wife', fromId: 'e_cousin_tang_old', termId: 't_wife', toId: 'e_tang_sao'),
+  RelationRule(id: 'r_tang_di_wife', fromId: 'e_cousin_tang_young', termId: 't_wife', toId: 'e_tang_di_xi'),
+  RelationRule(id: 'r_tang_jie_husband', fromId: 'e_cousin_tang_sis_old', termId: 't_husband', toId: 'e_tang_jie_fu'),
+  RelationRule(id: 'r_tang_mei_husband', fromId: 'e_cousin_tang_sis_young', termId: 't_husband', toId: 'e_tang_mei_fu'),
+  RelationRule(id: 'r_biao_ge_wife', fromId: 'e_cousin_biao_old', termId: 't_wife', toId: 'e_biao_sao'),
+  RelationRule(id: 'r_biao_di_wife', fromId: 'e_cousin_biao_young', termId: 't_wife', toId: 'e_biao_di_xi'),
+  RelationRule(id: 'r_biao_jie_husband', fromId: 'e_cousin_biao_sis_old', termId: 't_husband', toId: 'e_biao_jie_fu'),
+  RelationRule(id: 'r_biao_mei_husband', fromId: 'e_cousin_biao_sis_young', termId: 't_husband', toId: 'e_biao_mei_fu'),
+];
+
 /// 旁系长辈 → 堂/表亲。
 final List<RelationRule> kKinshipRulesCousin = [
   RelationRule(id: 'r_uncle_old_son', fromId: 'e_uncle_old', termId: 't_son', toId: 'e_cousin_tang_old'),
@@ -211,6 +315,97 @@ final List<RelationRule> kKinshipRulesElderBack = [
   RelationRule(id: 'r_aunt_maternal_mother', fromId: 'e_aunt_maternal_old', termId: 't_mother', toId: 'e_wai_grandmother'),
 ];
 
+/// 祖父辈旁系：爷爷/奶奶/外公/外婆 的兄弟姊妹。
+/// 同名不同源拆多个 id：舅公(奶奶系) 儿子=表叔，舅公(外公系) 儿子=堂舅，
+/// 舅公(外婆系) 儿子=表舅 —— 图模型一条边只能一个终点，必须拆实体。
+final List<RelationRule> kKinshipRulesGrandSibling = [
+  // 爷爷的兄弟姊妹
+  RelationRule(id: 'r_gf_eb', fromId: 'e_grandfather', termId: 't_elder_brother', toId: 'e_bo_gong'),
+  RelationRule(id: 'r_gf_yb', fromId: 'e_grandfather', termId: 't_younger_brother', toId: 'e_shu_gong'),
+  RelationRule(id: 'r_gf_es', fromId: 'e_grandfather', termId: 't_elder_sister', toId: 'e_gu_po_pat'),
+  RelationRule(id: 'r_gf_ys', fromId: 'e_grandfather', termId: 't_younger_sister', toId: 'e_gu_po_pat'),
+  // 奶奶的兄弟姊妹
+  RelationRule(id: 'r_gm_eb', fromId: 'e_grandmother', termId: 't_elder_brother', toId: 'e_jiu_gong_pat'),
+  RelationRule(id: 'r_gm_yb', fromId: 'e_grandmother', termId: 't_younger_brother', toId: 'e_jiu_gong_pat'),
+  RelationRule(id: 'r_gm_es', fromId: 'e_grandmother', termId: 't_elder_sister', toId: 'e_yi_po_pat'),
+  RelationRule(id: 'r_gm_ys', fromId: 'e_grandmother', termId: 't_younger_sister', toId: 'e_yi_po_pat'),
+  // 外公的兄弟姊妹
+  RelationRule(id: 'r_wgf_eb', fromId: 'e_wai_grandfather', termId: 't_elder_brother', toId: 'e_jiu_gong_mat_u'),
+  RelationRule(id: 'r_wgf_yb', fromId: 'e_wai_grandfather', termId: 't_younger_brother', toId: 'e_jiu_gong_mat_u'),
+  RelationRule(id: 'r_wgf_es', fromId: 'e_wai_grandfather', termId: 't_elder_sister', toId: 'e_gu_po_mat'),
+  RelationRule(id: 'r_wgf_ys', fromId: 'e_wai_grandfather', termId: 't_younger_sister', toId: 'e_gu_po_mat'),
+  // 外婆的兄弟姊妹
+  RelationRule(id: 'r_wgm_eb', fromId: 'e_wai_grandmother', termId: 't_elder_brother', toId: 'e_jiu_gong_mat_a'),
+  RelationRule(id: 'r_wgm_yb', fromId: 'e_wai_grandmother', termId: 't_younger_brother', toId: 'e_jiu_gong_mat_a'),
+  RelationRule(id: 'r_wgm_es', fromId: 'e_wai_grandmother', termId: 't_elder_sister', toId: 'e_yi_po_mat'),
+  RelationRule(id: 'r_wgm_ys', fromId: 'e_wai_grandmother', termId: 't_younger_sister', toId: 'e_yi_po_mat'),
+];
+
+/// 祖父辈旁系 → 父母辈堂表（伯公的儿子=堂伯、舅公(外公系)的儿子=堂舅…）。
+final List<RelationRule> kKinshipRulesGrandSiblingDown = [
+  // 伯公/叔公/姑婆(爷爷系) 的子女 → 爸爸的堂/表兄弟姊妹
+  RelationRule(id: 'r_bo_gong_son', fromId: 'e_bo_gong', termId: 't_son', toId: 'e_tang_bo'),
+  RelationRule(id: 'r_bo_gong_daughter', fromId: 'e_bo_gong', termId: 't_daughter', toId: 'e_tang_gu'),
+  RelationRule(id: 'r_shu_gong_son', fromId: 'e_shu_gong', termId: 't_son', toId: 'e_tang_shu'),
+  RelationRule(id: 'r_shu_gong_daughter', fromId: 'e_shu_gong', termId: 't_daughter', toId: 'e_tang_gu'),
+  RelationRule(id: 'r_gu_po_pat_son', fromId: 'e_gu_po_pat', termId: 't_son', toId: 'e_biao_shu'),
+  RelationRule(id: 'r_gu_po_pat_daughter', fromId: 'e_gu_po_pat', termId: 't_daughter', toId: 'e_biao_gu'),
+  // 舅公/姨婆(奶奶系) 的子女 → 爸爸的表兄弟姊妹
+  RelationRule(id: 'r_jiu_gong_pat_son', fromId: 'e_jiu_gong_pat', termId: 't_son', toId: 'e_biao_shu'),
+  RelationRule(id: 'r_jiu_gong_pat_daughter', fromId: 'e_jiu_gong_pat', termId: 't_daughter', toId: 'e_biao_gu'),
+  RelationRule(id: 'r_yi_po_pat_son', fromId: 'e_yi_po_pat', termId: 't_son', toId: 'e_biao_shu'),
+  RelationRule(id: 'r_yi_po_pat_daughter', fromId: 'e_yi_po_pat', termId: 't_daughter', toId: 'e_biao_gu'),
+  // 舅公(外公系) 的子女 → 妈妈的堂兄弟姊妹
+  RelationRule(id: 'r_jiu_gong_mat_u_son', fromId: 'e_jiu_gong_mat_u', termId: 't_son', toId: 'e_tang_jiu'),
+  RelationRule(id: 'r_jiu_gong_mat_u_daughter', fromId: 'e_jiu_gong_mat_u', termId: 't_daughter', toId: 'e_tang_yi'),
+  // 姑婆(外公系) 的子女 → 妈妈的表兄弟姊妹
+  RelationRule(id: 'r_gu_po_mat_son', fromId: 'e_gu_po_mat', termId: 't_son', toId: 'e_biao_jiu'),
+  RelationRule(id: 'r_gu_po_mat_daughter', fromId: 'e_gu_po_mat', termId: 't_daughter', toId: 'e_biao_yi'),
+  // 舅公/姨婆(外婆系) 的子女 → 妈妈的表兄弟姊妹
+  RelationRule(id: 'r_jiu_gong_mat_a_son', fromId: 'e_jiu_gong_mat_a', termId: 't_son', toId: 'e_biao_jiu'),
+  RelationRule(id: 'r_jiu_gong_mat_a_daughter', fromId: 'e_jiu_gong_mat_a', termId: 't_daughter', toId: 'e_biao_yi'),
+  RelationRule(id: 'r_yi_po_mat_son', fromId: 'e_yi_po_mat', termId: 't_son', toId: 'e_biao_jiu'),
+  RelationRule(id: 'r_yi_po_mat_daughter', fromId: 'e_yi_po_mat', termId: 't_daughter', toId: 'e_biao_yi'),
+];
+
+/// 父母辈堂表 → 同辈（堂伯的儿子=堂哥、堂舅的女儿=表姐…）。
+final List<RelationRule> kKinshipRulesTangBiaoDown = [
+  // 爸爸的堂兄弟姊妹 → 堂亲同辈
+  RelationRule(id: 'r_tang_bo_son', fromId: 'e_tang_bo', termId: 't_son', toId: 'e_cousin_tang_old'),
+  RelationRule(id: 'r_tang_bo_daughter', fromId: 'e_tang_bo', termId: 't_daughter', toId: 'e_cousin_tang_sis_old'),
+  RelationRule(id: 'r_tang_shu_son', fromId: 'e_tang_shu', termId: 't_son', toId: 'e_cousin_tang_young'),
+  RelationRule(id: 'r_tang_shu_daughter', fromId: 'e_tang_shu', termId: 't_daughter', toId: 'e_cousin_tang_sis_young'),
+  RelationRule(id: 'r_tang_gu_son', fromId: 'e_tang_gu', termId: 't_son', toId: 'e_cousin_biao_old'),
+  RelationRule(id: 'r_tang_gu_daughter', fromId: 'e_tang_gu', termId: 't_daughter', toId: 'e_cousin_biao_sis_old'),
+  // 爸爸的表兄弟姊妹 → 表亲同辈
+  RelationRule(id: 'r_biao_shu_son', fromId: 'e_biao_shu', termId: 't_son', toId: 'e_cousin_biao_old'),
+  RelationRule(id: 'r_biao_shu_daughter', fromId: 'e_biao_shu', termId: 't_daughter', toId: 'e_cousin_biao_sis_old'),
+  RelationRule(id: 'r_biao_gu_son', fromId: 'e_biao_gu', termId: 't_son', toId: 'e_cousin_biao_young'),
+  RelationRule(id: 'r_biao_gu_daughter', fromId: 'e_biao_gu', termId: 't_daughter', toId: 'e_cousin_biao_sis_young'),
+  // 妈妈的堂兄弟姊妹 → 表亲同辈
+  RelationRule(id: 'r_tang_jiu_son', fromId: 'e_tang_jiu', termId: 't_son', toId: 'e_cousin_biao_old'),
+  RelationRule(id: 'r_tang_jiu_daughter', fromId: 'e_tang_jiu', termId: 't_daughter', toId: 'e_cousin_biao_sis_old'),
+  RelationRule(id: 'r_tang_yi_son', fromId: 'e_tang_yi', termId: 't_son', toId: 'e_cousin_biao_young'),
+  RelationRule(id: 'r_tang_yi_daughter', fromId: 'e_tang_yi', termId: 't_daughter', toId: 'e_cousin_biao_sis_young'),
+  // 妈妈的表兄弟姊妹 → 表亲同辈
+  RelationRule(id: 'r_biao_jiu_son', fromId: 'e_biao_jiu', termId: 't_son', toId: 'e_cousin_biao_young'),
+  RelationRule(id: 'r_biao_jiu_daughter', fromId: 'e_biao_jiu', termId: 't_daughter', toId: 'e_cousin_biao_sis_young'),
+  RelationRule(id: 'r_biao_yi_son', fromId: 'e_biao_yi', termId: 't_son', toId: 'e_cousin_biao_young'),
+  RelationRule(id: 'r_biao_yi_daughter', fromId: 'e_biao_yi', termId: 't_daughter', toId: 'e_cousin_biao_sis_young'),
+];
+
+/// 同辈 → 堂/表侄辈（堂哥的儿子=堂侄、表哥的女儿=表侄女…）。
+final List<RelationRule> kKinshipRulesTangBiaoNephew = [
+  RelationRule(id: 'r_tang_ge_son', fromId: 'e_cousin_tang_old', termId: 't_son', toId: 'e_tang_zhi'),
+  RelationRule(id: 'r_tang_ge_daughter', fromId: 'e_cousin_tang_old', termId: 't_daughter', toId: 'e_tang_zhi_nv'),
+  RelationRule(id: 'r_tang_di_son', fromId: 'e_cousin_tang_young', termId: 't_son', toId: 'e_tang_zhi'),
+  RelationRule(id: 'r_tang_di_daughter', fromId: 'e_cousin_tang_young', termId: 't_daughter', toId: 'e_tang_zhi_nv'),
+  RelationRule(id: 'r_biao_ge_son', fromId: 'e_cousin_biao_old', termId: 't_son', toId: 'e_biao_zhi'),
+  RelationRule(id: 'r_biao_ge_daughter', fromId: 'e_cousin_biao_old', termId: 't_daughter', toId: 'e_biao_zhi_nv'),
+  RelationRule(id: 'r_biao_di_son', fromId: 'e_cousin_biao_young', termId: 't_son', toId: 'e_biao_zhi'),
+  RelationRule(id: 'r_biao_di_daughter', fromId: 'e_cousin_biao_young', termId: 't_daughter', toId: 'e_biao_zhi_nv'),
+];
+
 /// 内置亲戚关系预设。
 RelationGraphData kinshipPresetData() => RelationGraphData(
       entities: kKinshipEntities,
@@ -223,7 +418,14 @@ RelationGraphData kinshipPresetData() => RelationGraphData(
         ...kKinshipRulesSiblingDown,
         ...kKinshipRulesDown,
         ...kKinshipRulesInLaw,
+        ...kKinshipRulesSpouseSibling,
+        ...kKinshipRulesInLawSecond,
         ...kKinshipRulesCousin,
+        ...kKinshipRulesTangBiaoSpouse,
         ...kKinshipRulesElderBack,
+        ...kKinshipRulesGrandSibling,
+        ...kKinshipRulesGrandSiblingDown,
+        ...kKinshipRulesTangBiaoDown,
+        ...kKinshipRulesTangBiaoNephew,
       ],
     );

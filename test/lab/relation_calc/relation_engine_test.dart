@@ -61,6 +61,96 @@ void main() {
       expect(r.finalEntity!.name, '外甥女');
     });
 
+    test('深链：妈妈的爸爸的弟弟的儿子 = 堂舅（母系）', () {
+      final r = engine.resolve(
+        me.id,
+        [tid('妈妈'), tid('爸爸'), tid('弟弟'), tid('儿子')],
+      );
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '堂舅');
+    });
+
+    test('深链：妈妈的爸爸的弟弟的儿子的女儿 = 表姐（同辈）', () {
+      final r = engine.resolve(
+        me.id,
+        [tid('妈妈'), tid('爸爸'), tid('弟弟'), tid('儿子'), tid('女儿')],
+      );
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '表姐');
+    });
+
+    test('深链：爷爷的弟弟的儿子 = 堂叔', () {
+      final r = engine.resolve(
+        me.id,
+        [tid('爸爸'), tid('爸爸'), tid('弟弟'), tid('儿子')],
+      );
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '堂叔');
+    });
+
+    test('深链：从妈妈出发 外公的弟弟的儿子 = 堂舅', () {
+      final r = engine.resolve(
+        eid('妈妈'),
+        [tid('爸爸'), tid('弟弟'), tid('儿子')],
+      );
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '堂舅');
+    });
+
+    test('姻亲：妻子的姐姐 = 姨姐', () {
+      final r = engine.resolve(me.id, [tid('妻子'), tid('姐姐')]);
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '姨姐');
+    });
+
+    test('姻亲：妻子的哥哥 = 大舅子', () {
+      final r = engine.resolve(me.id, [tid('妻子'), tid('哥哥')]);
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '大舅子');
+    });
+
+    test('姻亲：丈夫的弟弟 = 小叔子', () {
+      final r = engine.resolve(me.id, [tid('丈夫'), tid('弟弟')]);
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '小叔子');
+    });
+
+    test('姻亲深链：妻子的姐姐的丈夫 = 连襟', () {
+      final r = engine.resolve(
+        me.id,
+        [tid('妻子'), tid('姐姐'), tid('丈夫')],
+      );
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '连襟');
+    });
+
+    test('姻亲深链：丈夫的哥哥的妻子 = 妯娌', () {
+      final r = engine.resolve(
+        me.id,
+        [tid('丈夫'), tid('哥哥'), tid('妻子')],
+      );
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '妯娌');
+    });
+
+    test('姻亲：妻子的兄弟的女儿 = 内侄女', () {
+      final r = engine.resolve(me.id, [tid('妻子'), tid('弟弟'), tid('女儿')]);
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '内侄女');
+    });
+
+    test('堂哥的妻子 = 堂嫂', () {
+      final r = engine.resolve(eid('堂哥'), [tid('妻子')]);
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '堂嫂');
+    });
+
+    test('表姐的丈夫 = 表姐夫', () {
+      final r = engine.resolve(eid('表姐'), [tid('丈夫')]);
+      expect(r.success, isTrue);
+      expect(r.finalEntity!.name, '表姐夫');
+    });
+
     test('空链：success=true 且停在起点', () {
       final r = engine.resolve(me.id, []);
       expect(r.success, isTrue);
