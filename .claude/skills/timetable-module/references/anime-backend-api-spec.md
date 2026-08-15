@@ -114,10 +114,11 @@ GET {BASE_URL}/api/v1/anime/season?season=SUMMER&year=2026&weekday=3
 | items[].titleNative    | string?  | 日文原名，调试/辅助匹配用                                     |
 | items[].startDateIso   | string?  | `YYYY-MM-DD`，JST                                           |
 | items[].weekday        | int?     | 1-7（1=周一）。**不是 Bangumi 的 0=周日**，后端负责换算 |
-| items[].time           | string?  | `HH:mm`，JST 自然日                                         |
+| items[].time           | string?  | `HH:mm`，JST 自然日。**完结剧为 null**（finished=true）  |
 | items[].episodes       | int?     | > 0                                                           |
 | items[].durationMin    | int?     | > 0                                                           |
 | items[].sourceUrl      | string?  | 合法 URL                                                      |
+| items[].finished       | bool     | **契约外新增**（2026-08-15 追加）。True = 季已完结/剧已停播，对应 yuc 网格 `<p class=imgtext2>完结</p>`（即 past season 查询）。前端可用作"已完结"标识。|
 | items[].matchedSources | string[] | 命中了哪些上游（运维排查用，客户端忽略）                      |
 
 ### 3.4 错误响应
