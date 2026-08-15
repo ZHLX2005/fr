@@ -46,7 +46,8 @@ abstract class AnimeSourceAdapter {
 ```
 
 - `AnimeDraft`：title/startDateIso/weekday/time/episodes/sourceUrl，**可缺省**（Bangumi 不给具体时刻 → time=null，用户在排期页补）
-- 导入对话框自动出现来源下拉；已实测：B站(404)/Jikan(504) 不可用，Bangumi `/calendar` 为主源
+- 已登记来源：`BangumiCalendarAdapter`（/calendar，中文名为主，无 time/episodes）+ `AniListSeasonAdapter`（GraphQL 当季 TV，airingAt+9h 换算 JST 补 time、episodes 齐全，无中文名）。已实测不可用：B站(404)/Jikan(504)
+- 导入对话框自动出现来源下拉；空 time 导入为 `time=''`，生成器为每部独立扩容 cell（输入顺序在前，标签回退序号），用户补时间后自动归并
 - **水平泛化方向**：AnimeDraft → PeriodicEventDraft（直播/比赛/日程/影视更新），适配器跨领域复用
 
 ## 排期编辑页（timetable_anime_editor_page.dart）
