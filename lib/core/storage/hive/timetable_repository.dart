@@ -480,6 +480,7 @@ class HiveTimetableRepository extends TimetableRepository
       'slotStartTimes': config.slotStartTimes,
       'slotDurationMin': config.slotDurationMin,
       'leftWidth': config.leftWidth,
+      'slotsPerPage': config.slotsPerPage,
     };
   }
 
@@ -506,6 +507,7 @@ class HiveTimetableRepository extends TimetableRepository
       slotStartTimes: (map['slotStartTimes'] as List?)?.cast<String>(),
       slotDurationMin: map['slotDurationMin'] as int? ?? 45,
       leftWidth: (map['leftWidth'] as num?)?.toDouble() ?? 64,
+      slotsPerPage: map['slotsPerPage'] as int? ?? 6,
     );
   }
 

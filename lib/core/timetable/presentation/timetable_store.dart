@@ -245,6 +245,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     bool clearSlotLabels = false,
     List<String>? slotStartTimes,
     bool clearSlotStartTimes = false,
+    int? slotsPerPage,
   }) async {
     final oldConfig = state.config;
 
@@ -307,6 +308,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
       clearSlotLabels: clearSlotLabels,
       slotStartTimes: slotStartTimes,
       clearSlotStartTimes: clearSlotStartTimes,
+      slotsPerPage: slotsPerPage,
     );
 
     // 保存配置

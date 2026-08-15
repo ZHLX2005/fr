@@ -364,9 +364,13 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 计算每行高度：总高度平均分配
+        // 行高按「一页视口行数」计算（fr 28：追剧模式每部剧独占 slot，
+        // slotsPerDay 可远超一屏；slotsPerDay 不满一页时仍平铺占满）
         final totalHeight = constraints.maxHeight;
-        final rowHeight = totalHeight / config.slotsPerDay;
+        final rowsPerPage = config.slotsPerPage < config.slotsPerDay
+            ? config.slotsPerPage
+            : config.slotsPerDay;
+        final rowHeight = totalHeight / rowsPerPage;
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 8),

@@ -23,6 +23,7 @@ class _TimetableAdvancedSettingsPageState
   late int _cycleCount;
   late int _daysPerCycle;
   late int _slotsPerDay;
+  late int _slotsPerPage;
   late int _leftLabelMode;
   late double _leftWidth;
   late int _slotDurationMin;
@@ -36,6 +37,7 @@ class _TimetableAdvancedSettingsPageState
     _cycleCount = config.cycleCount;
     _daysPerCycle = config.daysPerCycle;
     _slotsPerDay = config.slotsPerDay;
+    _slotsPerPage = config.slotsPerPage;
     _leftLabelMode = config.leftLabelMode;
     _leftWidth = config.leftWidth;
     _slotDurationMin = config.slotDurationMin;
@@ -84,6 +86,7 @@ class _TimetableAdvancedSettingsPageState
       cycleCount: _cycleCount,
       daysPerCycle: daysToSave,
       slotsPerDay: _slotsPerDay,
+      slotsPerPage: _slotsPerPage,
       leftLabelMode: _leftLabelMode,
       leftWidth: _leftWidth,
       slotDurationMin: _slotDurationMin,
@@ -205,14 +208,36 @@ class _TimetableAdvancedSettingsPageState
                         TimetableConfig.minDaysPerCycle,
                     onChanged: (v) => setState(() => _daysPerCycle = v.round()),
                   ),
+                // 学校/通用模式手动上限 6；追剧模式每剧独占 slot 允许到 64（fr 28）
+                Builder(builder: (context) {
+                  final isAnime = ref
+                      .read(TimetableStore.provider)
+                      .config
+                      .isAnimeMode;
+                  final slotMax = isAnime
+                      ? TimetableConfig.maxSlotsPerDay
+                      : TimetableConfig.maxManualSlotsPerDay;
+                  return _ZenConfigSlider(
+                    label: '每天节数 (1-$slotMax)',
+                    value: _slotsPerDay.toDouble(),
+                    min: TimetableConfig.minSlotsPerDay.toDouble(),
+                    max: slotMax.toDouble(),
+                    divisions: slotMax - TimetableConfig.minSlotsPerDay,
+                    onChanged: (v) {
+                      setState(() => _slotsPerDay = v.round());
+                      _ensureSlotLists();
+                    },
+                  );
+                }),
                 _ZenConfigSlider(
-                  label: '每天节数 (1-6)',
-                  value: _slotsPerDay.toDouble(),
-                  min: TimetableConfig.minSlotsPerDay.toDouble(),
-                  max: TimetableConfig.maxSlotsPerDay.toDouble(),
-                  divisions: TimetableConfig.maxSlotsPerDay -
-                      TimetableConfig.minSlotsPerDay,
-                  onChanged: (v) => setState(() => _slotsPerDay = v.round()),
+                  label: '每页显示行数 '
+                      '(${TimetableConfig.minSlotsPerPage}-${TimetableConfig.maxSlotsPerPage}，超出滚动)',
+                  value: _slotsPerPage.toDouble(),
+                  min: TimetableConfig.minSlotsPerPage.toDouble(),
+                  max: TimetableConfig.maxSlotsPerPage.toDouble(),
+                  divisions: TimetableConfig.maxSlotsPerPage -
+                      TimetableConfig.minSlotsPerPage,
+                  onChanged: (v) => setState(() => _slotsPerPage = v.round()),
                 ),
               ],
             ),

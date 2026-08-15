@@ -18,6 +18,7 @@ class TimetableConfig {
     this.slotStartTimes,
     this.slotDurationMin = 45,
     this.leftWidth = 64,
+    this.slotsPerPage = 6,
   });
 
   /// ISO 8601 日期字符串 (YYYY-MM-DD)
@@ -29,8 +30,12 @@ class TimetableConfig {
   /// 每周期天数 (1-7)
   final int daysPerCycle;
 
-  /// 每天节数 (1-6)
+  /// 每天节数 (1-6；追剧模式每部剧独占 slot，上限 [maxSlotsPerDay])
   final int slotsPerDay;
+
+  /// 一页视口显示的行数（行高=视口高度/该值；slotsPerDay 超出时网格纵向滚动，
+  /// 追剧模式高 slot 场景用；默认 6）
+  final int slotsPerPage;
   final String id;
   final int? updatedAt;
 
@@ -96,6 +101,7 @@ class TimetableConfig {
     bool clearSlotStartTimes = false,
     int? slotDurationMin,
     double? leftWidth,
+    int? slotsPerPage,
   }) {
     return TimetableConfig(
       startDateIso: startDateIso ?? this.startDateIso,
@@ -118,6 +124,10 @@ class TimetableConfig {
           : (slotStartTimes ?? this.slotStartTimes),
       slotDurationMin: slotDurationMin ?? this.slotDurationMin,
       leftWidth: leftWidth ?? this.leftWidth,
+      slotsPerPage: (slotsPerPage ?? this.slotsPerPage).clamp(
+        minSlotsPerPage,
+        maxSlotsPerPage,
+      ),
     );
   }
 
@@ -157,11 +167,16 @@ class TimetableConfig {
 
   /// 约束
   static const int maxDaysPerCycle = 7;
-  static const int maxSlotsPerDay = 6;
+  static const int maxSlotsPerDay = 64;
   static const int maxCycles = 32;
   static const int minDaysPerCycle = 1;
   static const int minSlotsPerDay = 1;
   static const int minCycles = 1;
+  static const int minSlotsPerPage = 1;
+  static const int maxSlotsPerPage = 16;
+
+  /// 学校/通用模式手动调节数值上限（追剧模式独占 slot 后允许到 maxSlotsPerDay）
+  static const int maxManualSlotsPerDay = 6;
 }
 
 /// 课程项目（排课最小单元）
