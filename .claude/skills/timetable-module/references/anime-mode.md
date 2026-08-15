@@ -26,7 +26,9 @@
 ## 生成器（anime_dsl_generator.dart，纯函数可测）
 
 `buildAnimeDsl(List<AnimeSeriesInput>) → {config, items, dsl}`（fr 28 简化 + 鲁棒化）：
-1. **每部剧独立占一个 slot**（不再按时段堆叠避免视觉覆盖）：分桶 key = (weekday, time)；同一 time 落在不同星期的剧分属不同桶（不会同 cell 堆叠）→ 标签保持纯净不加后缀；真正撞到同一 (星期, 时刻) 的多部剧按输入顺序在 slot 标签上加 "(1)", "(2)" 后缀；独有 (weekday, time) 不带后缀；未补 time 的剧每部独占空标签 slot，输入顺序在前
+1. **每部剧独立占一个 slot**（不再按时段堆叠避免视觉覆盖）。左侧顺序（fr 28 调整）：
+   - **未补时间的剧排最前**，每部独占空标签 slot（渲染回退序号 1,2,3...），按输入顺序
+   - **有时间剧按开始时间（HH:mm）升序排在后面**；同时刻冲突的多部剧（桶内按 weekday 升序、再按输入顺序）**全部加 "(1)" "(2)" 后缀**保证相邻行可区分；独有时刻保持纯净
 2. 起始日期 = 所有合法 startDateIso 中最早那天对齐周一；全部为空/非法时回退本周一（修复 Slime 等 startDateIso=null 触发的 `DateTime.parse` 崩溃）
 3. 每部剧 dayOfCycle 优先由 startDateIso 推算（weekday 字段冗余但保留兼容）；weekOffset = (start - anchor_monday).inDays ~/ 7；空 startDate 时 weekOffset=0
 4. cycleCount = 最长覆盖（自动膨胀/收缩，无需手动配置周期）

@@ -381,7 +381,8 @@ class TimetableStore extends StateNotifier<TimetableState> {
 
   /// 由剧模型自动派生 DSL 并应用到 config/items（全自动，无手动覆盖）。
   /// 剧列表为空时不派生（保留当前课表）。
-  Future<void> _autoApplyAnimeDsl() async {
+  /// 也供 UI 主动触发（fr 28：DSL 预览"刷新"按钮）。
+  Future<void> autoApplyAnimeDsl() async {
     final series = state.animeSeries;
     if (series.isEmpty) return;
     final result = buildAnimeDsl(
@@ -412,7 +413,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     final next = List<AnimeSeriesDraft>.from(state.animeSeries)..add(draft);
     state = state.copyWith(animeSeries: next);
     await _repo.saveAnimeSeries(next);
-    await _autoApplyAnimeDsl();
+    await autoApplyAnimeDsl();
   }
 
   /// 更新一部剧（按 id 替换；自动派生 DSL）
@@ -423,7 +424,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     next[idx] = draft;
     state = state.copyWith(animeSeries: next);
     await _repo.saveAnimeSeries(next);
-    await _autoApplyAnimeDsl();
+    await autoApplyAnimeDsl();
   }
 
   /// 删除一部剧（自动派生 DSL）
@@ -432,7 +433,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
       ..removeWhere((s) => s.id == id);
     state = state.copyWith(animeSeries: next);
     await _repo.saveAnimeSeries(next);
-    await _autoApplyAnimeDsl();
+    await autoApplyAnimeDsl();
   }
 
   /// 批量导入剧（追加，不覆盖已有；自动派生 DSL）
@@ -442,7 +443,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
       ..addAll(drafts);
     state = state.copyWith(animeSeries: next);
     await _repo.saveAnimeSeries(next);
-    await _autoApplyAnimeDsl();
+    await autoApplyAnimeDsl();
   }
 
   /// Repository Provider

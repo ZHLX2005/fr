@@ -69,7 +69,9 @@ class _TimetableAnimeEditorPageState
     }
   }
 
-  /// 只读 DSL 预览（当前剧模型派生的结果）
+  /// 只读 DSL 预览（当前剧模型派生的结果）。支持主动刷新（fr 28）：
+  /// 点击刷新会用最新生成器规则重跑 _autoApplyAnimeDsl 并就地更新预览
+  /// （解决持久化的 slotLabels 与当前代码规则不一致的展示问题）。
   Future<void> _previewDsl() async {
     final series = _series;
     if (series.isEmpty) {
@@ -78,70 +80,13 @@ class _TimetableAnimeEditorPageState
       ).showSnackBar(const SnackBar(content: Text('还没有剧，先添加一部吧')));
       return;
     }
-    final result = buildAnimeDsl(
+    final initialResult = buildAnimeDsl(
       series.map((s) => s.toInput()).toList(growable: false),
     );
     if (!mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: ZenColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: ZenColors.hair),
-        ),
-        child: Container(
-          width: 360,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('当前追剧 DSL', style: ZenText.title),
-              const SizedBox(height: 8),
-              Text(
-                '起始 ${result.config.startDateIso} · '
-                '每天 ${result.config.slotsPerDay} 行 · '
-                '共 ${result.config.cycleCount} 周 · 已自动应用',
-                style: ZenText.label,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(maxHeight: 320),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: ZenColors.sage.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: ZenColors.hair),
-                ),
-                child: SingleChildScrollView(
-                  child: Text(
-                    result.dsl,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      height: 1.5,
-                      color: ZenColors.ink,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(
-                    '关闭',
-                    style: ZenText.button.copyWith(color: ZenColors.secondary),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (_) => _DslPreviewDialog(initial: initialResult),
     );
   }
 
@@ -596,6 +541,129 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// DSL 预览对话框（fr 28）：带「刷新」按钮，主动用最新生成器规则重派生，
+/// 解决旧版持久化 slotLabels 与当前代码不一致的展示问题
+class _DslPreviewDialog extends ConsumerStatefulWidget {
+  final AnimeDslResult initial;
+
+  const _DslPreviewDialog({required this.initial});
+
+  @override
+  ConsumerState<_DslPreviewDialog> createState() => _DslPreviewDialogState();
+}
+
+class _DslPreviewDialogState extends ConsumerState<_DslPreviewDialog> {
+  late AnimeDslResult _result;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _result = widget.initial;
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _refreshing = true);
+    // 触发 store 重派生（会重写 config.slotLabels + items）
+    await ref.read(TimetableStore.provider.notifier).autoApplyAnimeDsl();
+    // 从最新状态再算一份用于就地展示
+    final series =
+        ref.read(TimetableStore.provider).animeSeries;
+    if (series.isNotEmpty) {
+      final fresh = buildAnimeDsl(
+        series.map((s) => s.toInput()).toList(growable: false),
+      );
+      if (mounted) setState(() => _result = fresh);
+    }
+    if (mounted) setState(() => _refreshing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = _result;
+    return Dialog(
+      backgroundColor: ZenColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: ZenColors.hair),
+      ),
+      child: Container(
+        width: 360,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('当前追剧 DSL', style: ZenText.title),
+            const SizedBox(height: 8),
+            Text(
+              '起始 ${r.config.startDateIso} · '
+              '每天 ${r.config.slotsPerDay} 行 · '
+              '共 ${r.config.cycleCount} 周 · 已自动应用',
+              style: ZenText.label,
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxHeight: 320),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: ZenColors.sage.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: ZenColors.hair),
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  r.dsl,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    height: 1.5,
+                    color: ZenColors.ink,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: _refreshing ? null : _refresh,
+                  icon: _refreshing
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: ZenColors.sage,
+                          ),
+                        )
+                      : const Icon(Icons.refresh,
+                          size: 16, color: ZenColors.sage),
+                  label: Text(
+                    '刷新',
+                    style: ZenText.button.copyWith(color: ZenColors.sage),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    '关闭',
+                    style: ZenText.button
+                        .copyWith(color: ZenColors.secondary),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

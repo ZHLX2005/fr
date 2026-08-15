@@ -170,25 +170,25 @@ void main() {
       expect(b.visibleInCycles, List.generate(15, (i) => 1 + i));
     });
 
-    test('相同 (weekday, time) 各自独立 cell + (N) 后缀；同 time 跨天纯净（fr 28）', () {
+    test('有时间的剧按开始时间升序；同时刻冲突全部 (N) 后缀（fr 28）', () {
       final result = buildAnimeDsl([
         AnimeSeriesInput(
           title: '剧a',
           startDateIso: '2026-08-10', // 周一
           weekday: 1,
-          time: '20:00',
+          time: '22:00',
           episodes: 3,
         ),
         AnimeSeriesInput(
           title: '剧b',
           startDateIso: '2026-08-12', // 周三
           weekday: 3,
-          time: '20:00', // 同 time 但跨天 → 不加后缀
+          time: '20:00', // 同时刻（跨天）→ 冲突
           episodes: 3,
         ),
         AnimeSeriesInput(
           title: '剧c',
-          startDateIso: '2026-08-10', // 周一（与 a 同 (weekday,time)）
+          startDateIso: '2026-08-10', // 周一（与 b 同时刻，weekday 更小排前）
           weekday: 1,
           time: '20:00',
           episodes: 3,
@@ -197,24 +197,21 @@ void main() {
           title: '剧d',
           startDateIso: '2026-08-15', // 周六
           weekday: 6,
-          time: '22:00', // 独有 → 纯净
+          time: '23:00', // 独有 → 纯净
           episodes: 3,
         ),
       ]);
-      // 4 部独立 cell：周一 20:00 两部加 (1)(2)；周三 20:00 纯净；周六 22:00 纯净
+      // 左侧顺序：20:00 桶（桶内按 weekday 升序：c 周一在前、b 周三在后）
+      // 全部带 (1)(2) → 22:00 纯净（剧a）→ 23:00 纯净（剧d）
       expect(result.config.slotsPerDay, 4);
       expect(
         result.config.slotLabels,
-        ['20:00 (1)', '20:00 (2)', '20:00', '22:00'],
+        ['20:00 (1)', '20:00 (2)', '22:00', '23:00'],
       );
-      expect(result.items.map((i) => i.slotIndex).toSet(), {0, 1, 2, 3});
-      // 剧c (Mon 20:00 后缀 (2)) 应落在与 剧a 相同的 dayOfCycle=0
-      final a = result.items.firstWhere((i) => i.title == '剧a');
+      // 剧c(Mon 20:00) weekday 更小 → 排在 剧b(Wed 20:00) 之前
+      final b = result.items.firstWhere((i) => i.title == '剧b');
       final c = result.items.firstWhere((i) => i.title == '剧c');
-      expect(a.dayOfCycle, 0);
-      expect(c.dayOfCycle, 0);
-      expect(a.slotIndex, 0);
-      expect(c.slotIndex, 1);
+      expect(c.slotIndex, lessThan(b.slotIndex));
     });
 
     test('startDateIso 缺失不崩溃（fr 28 Slime bug 修复）：用 weekday 兜底', () {

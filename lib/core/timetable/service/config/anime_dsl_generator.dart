@@ -151,11 +151,13 @@ class AnimeDslResult {
 /// 根据剧列表自动生成稳定的课表配置 + 课程 + DSL 文本。
 ///
 /// 算法（纯函数，无 I/O；fr 28 简化 + 鲁棒化）：
-/// 1. 每部剧独立占一个 slot（不再按时段堆叠），slot 标签只显示开始时间；
-///    分桶 key = (weekday, time) —— 同一 time 但落在不同星期的剧分属不同桶
-///    （不会同 cell 堆叠）→ 标签保持纯净不加后缀；
-///    真正撞到同一 (星期, 时刻) 的多部剧按出现顺序在标签上加 "(1)", "(2)"
-///    等后缀避免视觉覆盖；未补时间的剧每部独占空标签 slot，输入顺序在前
+/// 1. 每部剧独立占一个 slot（不再按时段堆叠），slot 标签只显示开始时间。
+///    左侧顺序（fr 28 调整）：
+///    a. 未补时间的剧排最前，每部独占空标签 slot（渲染回退序号 1,2,3...），
+///       按输入顺序；
+///    b. 有时间的剧按开始时间（HH:mm）升序排在后面；同一时刻的多部剧
+///       （按 weekday 升序、再按输入顺序）视为冲突，标签全部加
+///       "(1)", "(2)" 后缀保证相邻行可区分；独有时刻保持纯净
 /// 2. 起始日期 = 所有合法 startDateIso 中最早那天对齐周一；
 ///    全部为空/非法时回退到本周一（修复 fr 28 之前
 ///    `DateTime.parse(null/'')` 抛异常导致 schedule 全空的崩溃）
@@ -168,32 +170,33 @@ class AnimeDslResult {
 AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
   final now = DateTime.now().millisecondsSinceEpoch;
 
-  // 1. Slot 分配：每部剧一个 slot；time 重复的按出现顺序加 "(N)" 后缀
+  // 1. Slot 分配：每部剧一个 slot；左侧顺序 = 无时间(序号) → 开始时间升序
   final slotLabels = <String>[];
   final groupIndexOf = <String, int>{};
 
-  // 未补时间的剧：每部独立 slot（在前），label 留空 → 渲染回退节次序号
+  // a. 未补时间的剧：每部独立 slot（在最前），label 留空 → 渲染回退序号 1,2,3
   for (var i = 0; i < series.length; i++) {
     if (series[i].time.isEmpty) {
       groupIndexOf['untimed_$i'] = slotLabels.length;
       slotLabels.add('');
     }
   }
-  // 有时间的剧：按 (weekday, time) 分桶 —— 同一 time 但落在不同星期
-  // 不会同 cell 堆叠（不同列），无需 (N) 后缀；只有真正落在同一 (星期, 时刻)
-  // 才加 "(1)", "(2)" 后缀保证显示完整
-  final buckets = <String, List<int>>{};
+  // b. 有时间的剧：按 time 分桶；桶间按开始时间升序，桶内按 weekday 升序
+  //    （再按输入顺序稳定排序）；桶内多于 1 部 = 冲突 → 全部加 "(N)" 后缀
+  final timeBuckets = <String, List<int>>{};
   for (var i = 0; i < series.length; i++) {
     if (series[i].time.isNotEmpty) {
-      final wd = series[i].weekday.clamp(1, 7);
-      final key = '$wd|${series[i].time}';
-      buckets.putIfAbsent(key, () => []).add(i);
+      timeBuckets.putIfAbsent(series[i].time, () => []).add(i);
     }
   }
-  final sortedKeys = buckets.keys.toList()..sort();
-  for (final k in sortedKeys) {
-    final indices = buckets[k]!;
-    final t = k.substring(k.indexOf('|') + 1);
+  final sortedTimes = timeBuckets.keys.toList()..sort();
+  for (final t in sortedTimes) {
+    final indices = timeBuckets[t]!
+      ..sort((a, b) {
+        final wd = series[a].weekday.clamp(1, 7)
+            .compareTo(series[b].weekday.clamp(1, 7));
+        return wd != 0 ? wd : a.compareTo(b); // 同 weekday 按输入顺序
+      });
     final withSuffix = indices.length > 1;
     for (var n = 0; n < indices.length; n++) {
       final i = indices[n];
