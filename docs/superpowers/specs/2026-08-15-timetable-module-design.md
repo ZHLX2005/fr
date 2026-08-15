@@ -15,6 +15,8 @@
 
 - 模式切换 = 换一个 DSL 生成器；DSL 导出/导入 = 完整配置迁移载体
 - 新增模式 = 新增一个"DSL 生成器 + 设置页入口"，**不碰渲染层**
+- **追剧模式增强（fr 27）**：剧模型是 SSOT，DSL 由模型自动派生——
+  剧 CRUD 变更即自动重算并应用，无手动生成/预览/覆盖；API 导入=追加进模型
 
 ## 2. 分层结构
 
@@ -32,19 +34,21 @@ lib/core/timetable/
 │   ├── cycle_visibility_selector.dart  # 周期可见性
 │   └── timetable_colors.dart           # 莫兰迪配色（与系统主题隔离）
 ├── service/config/
-│   ├── timetable_settings_page.dart    # 设置页（模式三选/数据来源/高级功能）
+│   ├── timetable_settings_page.dart    # 主设置页（第一层：模式三选/数据来源/高级入口）
+│   ├── timetable_advanced_settings_page.dart # ★ 高级设置独立页（周期/日期/左侧/DSL管理）
 │   ├── timetable_dsl_parser.dart       # DSL 解析（config 段 + 课程行 + w 范围）
 │   ├── timetable_import_dialog.dart    # DSL 导入（自动应用 config 段）
 │   ├── timetable_week_calculator.dart  # 周一对齐/周数推算
 │   ├── sicau_import_dialog.dart        # 学校模式数据源（教务）
-│   ├── anime_dsl_generator.dart        # 追剧生成器（纯函数）+ 反推开始日期
+│   ├── anime_dsl_generator.dart        # 追剧生成器（纯函数）+ AnimeSeriesDraft 剧模型 + 反推
 │   ├── anime_source_adapter.dart       # ★ 开放 API 适配层
 │   ├── timetable_anime_import_dialog.dart # 番剧来源导入对话框
-│   └── timetable_anime_editor_page.dart  # ★ 垂直排期编辑页（纯剧语言）
+│   └── timetable_anime_editor_page.dart  # ★ 垂直排期编辑页（剧模型 CRUD，DSL 只读预览）
 └── DSL_FORMAT.md                       # DSL 格式规范（与代码同步维护）
 ```
 
-存储实现不在模块内：`lib/core/storage/hive/timetable_repository.dart`（Hive + 多空间）。
+存储实现不在模块内：`lib/core/storage/hive/timetable_repository.dart`
+（Hive + 多空间 + `timetable_anime_series` box）。
 
 ## 3. 数据模型
 
@@ -52,7 +56,7 @@ lib/core/timetable/
 
 | 字段 | 说明 |
 |---|---|
-| startDateIso / cycleCount / daysPerCycle / slotsPerDay | 网格基础 |
+| startDateIso / cycleCount / daysPerCycle / slotsPerDay | 网格基础（默认 7天/5节/20周期） |
 | isSchoolMode / isAnimeMode | 模式标志（互斥，settings 三选一） |
 | leftLabelMode | 0=序号 1=时间段 2=自定义 |
 | slotLabels / slotStartTimes / slotDurationMin / leftWidth | 左侧指示显示配置 |
@@ -85,22 +89,29 @@ config: days=7 slots=5 cycles=16 start=2026-08-15 mode=anime left=1 duration=45
 
 ```
 box timetable_config / timetable_items   ← default 空间（旧数据，直读不改）
-box timetable_spaces                     ← 新空间: key=spaceId → {name, config, items}
+box timetable_anime_series               ← default 空间追剧剧模型（key='series'）
+box timetable_spaces                     ← 新空间: key=spaceId → {name, config, items, animeSeries}
 SharedPreferences: timetable-active-space ← 激活空间 id
 ```
 
 - `default` 空间永远映射旧 box → 既有数据零迁移
-- repo 接口：listSpaces/createSpace/renameSpace/deleteSpace/setActiveSpace + 按激活空间路由的 load/save
-- store：spacesProvider（FutureProvider）+ setActiveSpace(→re-hydrate)
-- 三个 box 均注册 StorageRegistry（存储分析面板可见）
+- repo 接口：listSpaces/createSpace/renameSpace/deleteSpace/setActiveSpace +
+  按激活空间路由的 load/save + loadAnimeSeries/saveAnimeSeries（剧模型）
+- store：spacesProvider（FutureProvider）+ setActiveSpace(→re-hydrate) + 剧 CRUD（自动派生 DSL）
+- 四个 box 均注册 StorageRegistry（存储分析面板可见）
 
 ## 6. 模式系统（= DSL 生成器预设）
 
 | 模式 | 数据来源（第一层） | 生成器 | 配置入口 |
 |---|---|---|---|
 | 学校 | SICAU 教务导入 | 服务端 DSL → parseDsl | 设置页数据来源区 |
-| 通用 | 手填/DSL 导入 | 手动 | 起始日期/周期配置区 |
-| 追剧/番 | Bangumi API / 手工 | `buildAnimeDsl`（纯函数） | ★ 垂直排期编辑页 |
+| 通用 | 手填/DSL 导入 | 手动 | 高级设置页 |
+| 追剧/番 | Bangumi API / 手工 | `buildAnimeDsl`（纯函数） | ★ 垂直排期编辑页（剧模型 CRUD） |
+
+**剧模型 SSOT（fr 27）**：追剧模式的唯一数据源 = `AnimeSeriesDraft[]`（存储于
+`timetable_anime_series` box / 空间 record 的 animeSeries 字段）。剧 CRUD
+（add/update/delete/import 追加）→ store 自动 `buildAnimeDsl` 派生 config+课程并应用，
+**无手动生成/预览/覆盖**；排期编辑页只读展示派生 DSL。
 
 追剧生成算法（anime_dsl_generator.dart，纯函数可测）：
 1. 播出时间分组 → 竖直 cell（slotIndex）
@@ -142,9 +153,10 @@ abstract class AnimeSourceAdapter {
 
 - 同 cell 多课程 + visibleInCycles 周期过滤 = 换课/追剧期数的基础
 - 模式互斥三选（isSchoolMode/isAnimeMode）
-- 追剧应用流程：updateConfig（含 leftLabelMode=1 + slotStartTimes）→ clearAllItems → 按 cellKey upsert
+- 追剧自动派生流程（store._autoApplyAnimeDsl）：updateConfig（含 leftLabelMode=1 + slotStartTimes）→ clearAllItems → 按 cellKey upsert；剧变更即触发
 - DSL 回灌闭环（生成 → 解析 → 还原一致，单测保证）
 - 反推开始日期：`backfillStartDate(当前期数, 星期)` 从最近播出日回推 (期数-1) 周
+- 剧模型序列化往返（AnimeSeriesDraft toJson/fromJson，缺字段回退默认）
 
 ## 9. 测试
 
