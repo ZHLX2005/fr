@@ -169,28 +169,127 @@ void main() {
       expect(b.visibleInCycles, List.generate(15, (i) => 1 + i));
     });
 
-    test('相同播出时间归同一 cell', () {
+    test('相同 (weekday, time) 各自独立 cell + (N) 后缀；同 time 跨天纯净（fr 28）', () {
       final result = buildAnimeDsl([
         AnimeSeriesInput(
           title: '剧a',
-          startDateIso: '2026-08-10',
+          startDateIso: '2026-08-10', // 周一
           weekday: 1,
           time: '20:00',
           episodes: 3,
         ),
         AnimeSeriesInput(
           title: '剧b',
-          startDateIso: '2026-08-10',
-          weekday: 3, // 不同星期
+          startDateIso: '2026-08-12', // 周三
+          weekday: 3,
+          time: '20:00', // 同 time 但跨天 → 不加后缀
+          episodes: 3,
+        ),
+        AnimeSeriesInput(
+          title: '剧c',
+          startDateIso: '2026-08-10', // 周一（与 a 同 (weekday,time)）
+          weekday: 1,
           time: '20:00',
           episodes: 3,
         ),
+        AnimeSeriesInput(
+          title: '剧d',
+          startDateIso: '2026-08-15', // 周六
+          weekday: 6,
+          time: '22:00', // 独有 → 纯净
+          episodes: 3,
+        ),
+      ]);
+      // 4 部独立 cell：周一 20:00 两部加 (1)(2)；周三 20:00 纯净；周六 22:00 纯净
+      expect(result.config.slotsPerDay, 4);
+      expect(
+        result.config.slotStartTimes,
+        ['20:00 (1)', '20:00 (2)', '20:00', '22:00'],
+      );
+      expect(result.items.map((i) => i.slotIndex).toSet(), {0, 1, 2, 3});
+      // 剧c (Mon 20:00 后缀 (2)) 应落在与 剧a 相同的 dayOfCycle=0
+      final a = result.items.firstWhere((i) => i.title == '剧a');
+      final c = result.items.firstWhere((i) => i.title == '剧c');
+      expect(a.dayOfCycle, 0);
+      expect(c.dayOfCycle, 0);
+      expect(a.slotIndex, 0);
+      expect(c.slotIndex, 1);
+    });
+
+    test('startDateIso 缺失不崩溃（fr 28 Slime bug 修复）：用 weekday 兜底', () {
+      // 史莱姆第4期 Part.1：后端返回 weekday=5, time='23:00', ep=24, startDateIso=null
+      // 旧版 DateTime.parse('') 抛 FormatException → schedule 全空不可见
+      final result = buildAnimeDsl([
+        AnimeSeriesInput(
+          title: '关于我转生变成 史莱姆这档事 第4期 Part.1',
+          startDateIso: '',
+          weekday: 5,
+          time: '23:00',
+          episodes: 24,
+        ),
+      ]);
+      // 不应抛异常，且生成有效 DSL
+      expect(result.config.slotsPerDay, 1);
+      expect(result.config.slotStartTimes, ['23:00']);
+      expect(result.items, hasLength(1));
+      expect(result.items.first.dayOfCycle, 4); // weekday=5 → Fri → index 4
+      expect(result.items.first.visibleInCycles, List.generate(24, (i) => i));
+      // anchor 默认为本周一
+      final expectedMonday = _iso(DateTime.now().subtract(
+          Duration(days: DateTime.now().weekday - 1)));
+      expect(result.config.startDateIso, expectedMonday);
+    });
+
+    test('全部剧 startDateIso 缺失：anchor 取今天，所有剧 weekOffset=0', () {
+      final result = buildAnimeDsl([
+        AnimeSeriesInput(
+          title: '剧a',
+          startDateIso: '',
+          weekday: 2,
+          time: '22:00',
+          episodes: 12,
+        ),
+        AnimeSeriesInput(
+          title: '剧b',
+          startDateIso: '',
+          weekday: 6,
+          time: '23:00',
+          episodes: 12,
+        ),
+      ]);
+      expect(result.items.every((i) => i.visibleInCycles!.first == 0), isTrue);
+      expect(result.config.cycleCount, 12);
+    });
+
+    test('非法 startDateIso（无法 parse）回退到本周一，不崩溃', () {
+      final result = buildAnimeDsl([
+        AnimeSeriesInput(
+          title: '剧a',
+          startDateIso: 'not-a-date',
+          weekday: 1,
+          time: '22:00',
+          episodes: 2,
+        ),
       ]);
       expect(result.config.slotsPerDay, 1);
-      expect(
-        result.items.map((i) => i.slotIndex).toSet(),
-        {0},
-      );
+      // anchor 回退到本周一
+      final expectedMonday = _iso(DateTime.now().subtract(
+          Duration(days: DateTime.now().weekday - 1)));
+      expect(result.config.startDateIso, expectedMonday);
+    });
+
+    test('startDateIso 合法时 dayOfCycle 由日期推算（不依赖 weekday 字段）', () {
+      // 8/12 = 周三 → dayOfCycle=2，即使 weekday 字段写错成 7（周日）也不影响
+      final result = buildAnimeDsl([
+        AnimeSeriesInput(
+          title: '剧a',
+          startDateIso: '2026-08-12',
+          weekday: 7, // 故意写错
+          time: '22:00',
+          episodes: 2,
+        ),
+      ]);
+      expect(result.items.first.dayOfCycle, 2); // 周三
     });
 
     test('无时间的剧独立扩容 cell，按输入顺序排在有时间各组之前', () {
