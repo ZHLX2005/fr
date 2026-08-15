@@ -18,7 +18,8 @@
 
 ## 数据模型
 
-- `AnimeSeriesDraft`（anime_dsl_generator.dart）：id + title/startDateIso/weekday(1-7)/time(HH:mm)/episodes/durationMin，`toJson/fromJson` 完整序列化（缺字段回退默认：weekday=1, episodes=13, durationMin=45）
+- `AnimeSeriesDraft`（anime_dsl_generator.dart）：id + title/startDateIso(选填)/weekday(1-7)/time(HH:mm)/episodes(**选填**)/durationMin，`toJson/fromJson` 完整序列化（缺字段回退：weekday=1, durationMin=45；episodes 缺省为 null）
+- **episodes=null = 长期番（年番）**：`visibleInCycles=null` 填满所有周期，**不参与周期数计算**；周期数由有界剧决定，全无界/存在无界时用 `fallbackCycles`（store 自动派生传当前 config.cycleCount）
 - 存储：`timetable_anime_series` box（default 空间，key='series'）/ 空间 record 的 `animeSeries` 字段（新空间）；已注册 StorageRegistry（面板名「追剧剧集」）
 - repo 接口：`loadAnimeSeries()` / `saveAnimeSeries(List<AnimeSeriesDraft>)`（按激活空间路由）
 - store：`state.animeSeries` + `addAnimeSeries` / `updateAnimeSeries`(按 id 替换) / `deleteAnimeSeries` / `importAnimeSeries`(追加)；每个 CRUD → 保存 → `_autoApplyAnimeDsl()`（剧列表为空时不派生）

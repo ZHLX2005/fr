@@ -242,8 +242,8 @@ class _SeriesTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '周${_weekdayNames[draft.weekday - 1]} · '
-                      '${draft.episodes} 期 · '
-                      '${draft.startDateIso} 开播',
+                      '${draft.episodes == null ? '长期更新' : '${draft.episodes} 期'} · '
+                      '${draft.startDateIso.isEmpty ? '长期番' : '${draft.startDateIso} 开播'}',
                       style: ZenText.label.copyWith(fontSize: 11),
                     ),
                   ],
@@ -318,7 +318,7 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
     _titleCtrl = TextEditingController(text: i?.title ?? '');
     _dateCtrl = TextEditingController(text: i?.startDateIso ?? '');
     _timeCtrl = TextEditingController(text: i?.time ?? '');
-    _episodesCtrl = TextEditingController(text: i?.episodes.toString() ?? '13');
+    _episodesCtrl = TextEditingController(text: i?.episodes?.toString() ?? '');
     _currentEpisodeCtrl = TextEditingController();
     _weekday = i?.weekday ?? 1;
   }
@@ -369,16 +369,24 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
     final startDateIso = _dateCtrl.text.trim();
     // 时间自动对齐（fr #25）："22" → "22:00"、"2230" → "22:30"
     final time = normalizeAnimeTimeInput(_timeCtrl.text);
-    final episodes = int.tryParse(_episodesCtrl.text.trim());
-    if (title.isEmpty || startDateIso.isEmpty || time == null) {
+    // 总集数选填：留空 = 长期番（年番），填满所有周期
+    final episodesRaw = _episodesCtrl.text.trim();
+    final episodes = episodesRaw.isEmpty ? null : int.tryParse(episodesRaw);
+    if (title.isEmpty || time == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('剧名、开播日期、播出时间必填')),
+        const SnackBar(content: Text('剧名、播出时间必填（开播日期/总集数可选）')),
       );
       return null;
     }
-    if (DateTime.tryParse(startDateIso) == null) {
+    if (startDateIso.isNotEmpty && DateTime.tryParse(startDateIso) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('开播日期无效')),
+      );
+      return null;
+    }
+    if (episodesRaw.isNotEmpty && (episodes == null || episodes < 1)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('总集数应为正整数（留空 = 长期更新）')),
       );
       return null;
     }
@@ -390,7 +398,7 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
       startDateIso: startDateIso,
       weekday: _weekday,
       time: time,
-      episodes: (episodes ?? 13).clamp(1, 999),
+      episodes: episodes,
       // 每集分钟已从录入中丢弃（fr 28），沿用初始值或默认 45
       durationMin: widget.initial?.durationMin ?? 45,
     );
@@ -510,7 +518,7 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                 controller: _episodesCtrl,
                 keyboardType: TextInputType.number,
                 style: ZenText.body,
-                decoration: _zenInputDecoration('总集数'),
+                decoration: _zenInputDecoration('总集数（留空=长期更新）'),
               ),
               const SizedBox(height: 14),
               Row(

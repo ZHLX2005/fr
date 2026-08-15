@@ -11,10 +11,11 @@ import 'timetable_week_calculator.dart';
 import '../../../../widgets/theme/zen_theme.dart';
 import '../../../../widgets/theme/zen_date_picker.dart';
 
-/// 课表设置页 —— 第一层：模式选择 + 数据来源预设。
+/// 课表设置页 —— 第一层：模式选择 + 起始日期 UX + 数据来源预设。
 ///
-/// 非常用数字配置（周期数/天数/节数/起始日期/左侧指示/DSL 管理）已拆到
-/// [TimetableAdvancedSettingsPage] 独立页面，入口在本页底部。
+/// 起始日期是课表模式的 UX 自动化（通用直接选/学校周数推算自动对齐周一），
+/// 保留在第一层；非常用数字配置（周期数/天数/节数/左侧指示/DSL 管理）在
+/// [TimetableAdvancedSettingsPage] 独立页面。
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
 
@@ -105,7 +106,7 @@ class _TimetableSettingsPageState
               startDateIso: d.startDateIso ?? '',
               weekday: d.weekday ?? 1,
               time: d.time ?? '',
-              episodes: d.episodes ?? 13,
+              episodes: d.episodes, // 可空：缺省=长期更新填满
             ),
           )
           .toList(),

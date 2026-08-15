@@ -387,6 +387,7 @@ class TimetableStore extends StateNotifier<TimetableState> {
     if (series.isEmpty) return;
     final result = buildAnimeDsl(
       series.map((s) => s.toInput()).toList(growable: false),
+      fallbackCycles: state.config.cycleCount,
     );
     await updateConfig(
       startDateIso: result.config.startDateIso,

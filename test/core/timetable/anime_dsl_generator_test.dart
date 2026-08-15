@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaodouzi_fr/core/timetable/domain/models.dart';
 import 'package:xiaodouzi_fr/core/timetable/service/config/anime_dsl_generator.dart';
 import 'package:xiaodouzi_fr/core/timetable/service/config/timetable_dsl_parser.dart';
 
@@ -33,8 +34,16 @@ void main() {
       final restored = AnimeSeriesDraft.fromJson(const {});
       expect(restored.title, '');
       expect(restored.weekday, 1);
-      expect(restored.episodes, 13);
+      expect(restored.episodes, isNull); // 选填：null = 长期更新
       expect(restored.durationMin, 45);
+    });
+
+    test('episodes 可空且序列化保留 null（长期番）', () {
+      final draft = AnimeSeriesDraft(title: '海贼王', time: '09:30');
+      expect(draft.episodes, isNull);
+      final restored = AnimeSeriesDraft.fromJson(draft.toJson());
+      expect(restored.episodes, isNull);
+      expect(restored.title, '海贼王');
     });
   });
 
@@ -391,6 +400,71 @@ void main() {
       expect(parsed.courses, hasLength(1));
       expect(parsed.courses.first.title, '剧a');
       expect(parsed.courses.first.visibleInCycles, [0, 1, 2, 3, 4]);
+    });
+
+    test('无界剧（episodes=null）：填满所有周期，不撑开周期数', () {
+      // 海贼王式年番：只填时间+星期，无开始日期/期数
+      final result = buildAnimeDsl([
+        AnimeSeriesInput(
+          title: '海贼王',
+          weekday: 6,
+          time: '09:30',
+        ),
+      ]);
+      expect(result.items, hasLength(1));
+      expect(result.items.first.visibleInCycles, isNull); // 填满
+      expect(result.items.first.location, contains('长期'));
+      // 不撑周期数：全无界 → fallbackCycles
+      expect(result.config.cycleCount, TimetableConfig.defaultConfig.cycleCount);
+      expect(result.dsl, isNot(contains(' w'))); // 无 w 段
+    });
+
+    test('无界剧与有界剧混排：周期数由有界剧决定，至少覆盖 fallback', () {
+      final result = buildAnimeDsl(
+        [
+          AnimeSeriesInput(
+            title: '年番A',
+            weekday: 1,
+            time: '09:00',
+          ),
+          AnimeSeriesInput(
+            title: '季番B',
+            startDateIso: '2026-08-10',
+            weekday: 1,
+            time: '22:00',
+            episodes: 3,
+          ),
+        ],
+        fallbackCycles: 20,
+      );
+      // 有界剧 3 期 → 周期数至少 3，无界剧要求至少 20 → 取 20
+      expect(result.config.cycleCount, 20);
+      final a = result.items.firstWhere((i) => i.title == '年番A');
+      final b = result.items.firstWhere((i) => i.title == '季番B');
+      expect(a.visibleInCycles, isNull);
+      expect(b.visibleInCycles, [0, 1, 2]);
+    });
+
+    test('无界剧不把周期数撑过有界剧覆盖（fallback 之上）', () {
+      final result = buildAnimeDsl(
+        [
+          AnimeSeriesInput(
+            title: '季番C',
+            startDateIso: '2026-08-10',
+            weekday: 1,
+            time: '22:00',
+            episodes: 30, // 覆盖 30 周
+          ),
+          AnimeSeriesInput(
+            title: '年番D',
+            weekday: 1,
+            time: '09:00',
+          ),
+        ],
+        fallbackCycles: 20,
+      );
+      // 有界剧覆盖 30 > fallback 20 → 周期数 30（无界剧不额外撑大）
+      expect(result.config.cycleCount, 30);
     });
   });
 }

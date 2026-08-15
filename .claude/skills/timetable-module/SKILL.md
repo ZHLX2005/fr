@@ -30,22 +30,25 @@ description: 时间课表模块设计与扩展指南。当用户要求扩展时�
 lib/core/timetable/
 ├── domain/models.dart                # TimetableConfig(显示配置全字段)/CourseItem(visibleInCycles 核心)
 │                                     #   默认配置: 7天/5节/20周期; isSchoolMode/isAnimeMode 互斥
+│                                     #   maxSlotsPerDay=64(fr28 高 slots: 追剧每部剧独占 slot)
 ├── data/timetable_repository.dart    # 抽象接口(多空间方法族 + loadAnimeSeries/saveAnimeSeries)
 ├── presentation/
 │   ├── timetable_store.dart          # Riverpod SSOT + 空间切换 + 剧模型CRUD(自动派生DSL) + exportToDsl
-│   ├── timetable_page.dart           # 主页面(头部空间选择器/_SlotLabel 三模式)
+│   ├── timetable_page.dart           # 主页面(头部空间选择器/_SlotLabel 三模式/每页行数视口纵向滚动)
 │   ├── cell_actions/                 # ★ cell 操作策略模式(fr 28)
-│   │   ├── cell_action_manager.dart  #   CellActionManager 路由 + Strategy抽象 + Context/Target
+│   │   ├── cell_action_manager.dart  #   CellActionManager.strategyFor 路由 + CellActionStrategy 抽象
+│   │   │                             #   + CellActionContext/CellTarget
 │   │   ├── school_cell_actions.dart  #   课表模式: 课程编辑对话框(课程名/地点/老师)
 │   │   └── anime_cell_actions.dart   #   追剧模式: 剧模型编辑 + 覆盖风险引导
 │   ├── timetable_cell.dart           # 单元格(同 cell 多课程 + 周期过滤)
 │   └── timetable_colors.dart
 ├── service/config/
-│   ├── timetable_settings_page.dart  # 主设置页(第一层: 模式三选 + 数据来源 + 高级入口)
-│   ├── timetable_advanced_settings_page.dart # ★ 高级设置独立页(周期/日期/左侧指示/DSL管理)
+│   ├── timetable_settings_page.dart  # 主设置页(第一层: 模式三选 + 起始日期 UX + 数据来源 + 高级入口)
+│   ├── timetable_advanced_settings_page.dart # ★ 高级设置独立页(周期/左侧指示/DSL管理)
 │   ├── timetable_dsl_parser.dart     # DSL 解析(config 段 + w 范围)
 │   ├── anime_dsl_generator.dart      # 追剧生成器(纯函数) + AnimeSeriesDraft(剧模型) + 反推
-│   ├── anime_source_adapter.dart     # ★ 适配层(AnimeDraft + kAnimeSourceAdapters 登记)
+│   ├── anime_source_adapter.dart     # ★ 适配层(AnimeDraft + kAnimeSourceAdapters 登记
+│   │                                 #   含 Bangumi/AniList/SelfHostedAnimeAdapter)
 │   ├── timetable_anime_import_dialog.dart  # 番剧来源导入(追加进剧模型)
 │   └── timetable_anime_editor_page.dart   # ★ 垂直排期编辑页(剧模型 CRUD, DSL 只读预览)
 └── DSL_FORMAT.md
@@ -90,6 +93,9 @@ lib/core/timetable/
 | DSL 回灌闭环（生成→解析一致） | generator + parser | 导入导出失真 |
 | default 空间=旧 box 直读 | repo 路由 | 迁移风险/数据丢失 |
 | 剧模型是唯一 SSOT（非 DSL 快照） | store.animeSeries | 剧变更丢失/覆盖 |
+| cell 编辑按模式路由（cell_actions 策略） | CellActionManager.strategyFor | 追剧直接编辑课程会被自动派生覆盖 |
+| 高 slots 底层支持（maxSlotsPerDay=64） | models/TimetableConfig | 追剧每部剧独占 slot 溢出 |
+| 每页行数视口 + 网格纵向滚动 | timetable_page rowsPerPage | 高 slots 下首屏行不可达 |
 
 ## 错误案例
 
@@ -102,6 +108,7 @@ lib/core/timetable/
 | test/ 新增测试不 git add -f | 测试没提交 | test/ 被 .gitignore 忽略，需 -f |
 | DSL 只导出课程不带 config 段 | 配置丢失 | exportToDsl 始终携带 config 段 |
 | 常用配置堆进主设置页 | 设置页膨胀 | 非常用数字配置进高级设置独立页 |
+| 把起始日期塞进高级设置页 | 课表 UX 断链（用户要求回移第一层） | 起始日期是课表模式 UX 自动化（通用直选/学校对齐周一），永远留在主设置页 |
 
 ## 验证
 

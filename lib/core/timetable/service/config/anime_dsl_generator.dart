@@ -17,8 +17,8 @@ class AnimeSeriesInput {
   /// 当天播出时间 "HH:mm"（空字符串表示未补，每部独占一个空标签 slot）
   final String time;
 
-  /// 总期数（>=1）
-  final int episodes;
+  /// 总期数（选填：null = 长期番，填满所有周期，不参与周期数计算）
+  final int? episodes;
 
   /// 每期时长（分钟），默认 45；同时间组的剧取第一个非默认值
   final int durationMin;
@@ -28,9 +28,12 @@ class AnimeSeriesInput {
     this.startDateIso = '',
     this.weekday = 1,
     this.time = '',
-    this.episodes = 13,
+    this.episodes,
     this.durationMin = 45,
   });
+
+  /// 有界（有明确期数）与否：null = 无限期填满
+  bool get isBounded => episodes != null;
 }
 
 /// 可编辑的剧模型（追剧模式 SSOT，持久化于空间 record 的 animeSeries 字段）。
@@ -47,7 +50,7 @@ class AnimeSeriesDraft {
   String startDateIso;
   int weekday;
   String time;
-  int episodes;
+  int? episodes;
   int durationMin;
 
   AnimeSeriesDraft({
@@ -56,7 +59,7 @@ class AnimeSeriesDraft {
     this.startDateIso = '',
     this.weekday = 1,
     this.time = '',
-    this.episodes = 13,
+    this.episodes,
     this.durationMin = 45,
   }) : id = id ?? 'anime_${DateTime.now().microsecondsSinceEpoch}';
 
@@ -95,7 +98,7 @@ class AnimeSeriesDraft {
         startDateIso: json['startDateIso'] as String? ?? '',
         weekday: json['weekday'] as int? ?? 1,
         time: json['time'] as String? ?? '',
-        episodes: json['episodes'] as int? ?? 13,
+        episodes: json['episodes'] as int?,
         durationMin: json['durationMin'] as int? ?? 45,
       );
 }
@@ -164,10 +167,16 @@ class AnimeDslResult {
 /// 3. 每部剧的 dayOfCycle 优先由 startDateIso 推算（weekday 字段冗余但保留
 ///    兼容），weekOffset = (start - anchor_monday).inDays ~/ 7；
 ///    startDateIso 为空时 weekOffset=0，dayOfCycle 用 weekday 兜底
-/// 4. visibleInCycles = [weekOffset .. weekOffset+episodes-1]
-/// 5. 周期总数 = 最长覆盖
+/// 4. 期数（episodes）：
+///    - 有值 → visibleInCycles = [weekOffset .. weekOffset+episodes-1]，**撑开周期数**
+///    - null（长期番/无限期）→ visibleInCycles = null 填满所有周期，
+///      **不参与周期数计算**（周期数由有界剧决定，全无界时用 fallbackCycles）
+/// 5. 周期总数 = 最长覆盖（仅有界剧）；存在无界剧时至少 = max(覆盖, fallbackCycles)
 /// 6. 输出 DSL 文本（config 段 + 课程行 w 范围），可回灌 parseDsl 还原
-AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
+AnimeDslResult buildAnimeDsl(
+  List<AnimeSeriesInput> series, {
+  int fallbackCycles = 20,
+}) {
   final now = DateTime.now().millisecondsSinceEpoch;
 
   // 1. Slot 分配：每部剧一个 slot；左侧顺序 = 无时间(序号) → 开始时间升序
@@ -229,8 +238,10 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
       '${monday.day.toString().padLeft(2, '0')}';
 
   // 3+4+5. 每部剧落位 + 周期总数
+  // 无界剧（episodes==null，年番/长期番）填满所有周期，不撑开周期数
   final items = <CourseItem>[];
   var maxCycles = 1;
+  var hasUnbounded = false;
   for (var idx = 0; idx < series.length; idx++) {
     final s = series[idx];
 
@@ -253,9 +264,13 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
       dayOfCycle = (s.weekday - 1).clamp(0, 6);
     }
 
-    final cycles = List.generate(s.episodes, (i) => weekOffset + i);
-    final endCycle = weekOffset + s.episodes;
-    if (endCycle > maxCycles) maxCycles = endCycle;
+    final unbounded = s.episodes == null;
+    if (unbounded) {
+      hasUnbounded = true;
+    } else {
+      final endCycle = weekOffset + s.episodes!;
+      if (endCycle > maxCycles) maxCycles = endCycle;
+    }
 
     final group = s.time.isEmpty
         ? groupIndexOf['untimed_$idx']!
@@ -267,22 +282,28 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
       slotIndex: group,
       title: s.title,
       location: s.time.isEmpty
-          ? '时间待补 · ${s.episodes}期'
-          : '${s.time} 更新 · ${s.episodes}期',
+          ? (unbounded ? '时间待补 · 长期更新' : '时间待补 · ${s.episodes}期')
+          : (unbounded ? '${s.time} 更新 · 长期' : '${s.time} 更新 · ${s.episodes}期'),
       colorSeed: (s.title.hashCode.abs() % 1000),
       version: 1,
-      visibleInCycles: cycles,
+      visibleInCycles: unbounded ? null : [for (var i = 0; i < s.episodes!; i++) weekOffset + i],
       createdAt: now,
       updatedAt: now,
     ));
   }
+
+  // 无界剧不撑周期数：周期数由有界剧决定；存在无界剧时至少覆盖
+  // fallbackCycles（即"填满当前课表周期"），全无界 = fallbackCycles
+  final cycleCount = hasUnbounded
+      ? (maxCycles > fallbackCycles ? maxCycles : fallbackCycles)
+      : maxCycles;
 
   // config：左侧用「自定义标签」模型（leftLabelMode=2 + slotLabels），
   // 每个 slot 标签就是该剧的开始时间标识（HH:mm / HH:mm (N)），
   // 不走时间段模型（mode=1 需要 slotStartTimes+duration 拼开始/结束）
   final config = TimetableConfig(
     startDateIso: startDateIso,
-    cycleCount: maxCycles,
+    cycleCount: cycleCount,
     daysPerCycle: 7,
     slotsPerDay: slotCount,
     isSchoolMode: false,
@@ -294,16 +315,20 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
   // DSL 文本（config 段 + 课程行 w 范围）
   final buffer = StringBuffer();
   buffer.writeln(
-    'config: days=7 slots=$slotCount cycles=$maxCycles '
+    'config: days=7 slots=$slotCount cycles=$cycleCount '
     'start=$startDateIso mode=anime left=2',
   );
-  buffer.writeln('# 追剧模式自动生成：${series.length} 部剧 · 起始 $startDateIso · 共 $maxCycles 周');
+  buffer.writeln('# 追剧模式自动生成：${series.length} 部剧 · 起始 $startDateIso · 共 $cycleCount 周');
   buffer.writeln('');
   for (final item in items) {
     final weekday = item.dayOfCycle + 1;
     final slot = item.slotIndex + 1;
-    final weeks = formatCycleList(item.visibleInCycles ?? const []);
-    buffer.writeln('${item.title} @ $weekday $slot w$weeks ${item.location}');
+    final weeks = item.visibleInCycles == null
+        ? ''
+        : 'w${formatCycleList(item.visibleInCycles!)}';
+    buffer.writeln(
+      '${item.title} @ $weekday $slot${weeks.isEmpty ? '' : ' $weeks'} ${item.location}',
+    );
   }
 
   return AnimeDslResult(

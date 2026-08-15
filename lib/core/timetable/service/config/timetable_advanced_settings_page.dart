@@ -8,8 +8,8 @@ import '../../../../../widgets/theme/zen_theme.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
 ///
-/// 从主设置页拆出：起始日期 / 周期配置 / 左侧指示显示控制 / DSL 导入导出 / 清空。
-/// 主设置页只保留「模式选择 + 数据来源」第一层。
+/// 从主设置页拆出：周期配置 / 左侧指示显示控制 / DSL 导入导出 / 清空。
+/// 起始日期属课表模式 UX 自动化，保留在主设置页第一层。
 class TimetableAdvancedSettingsPage extends ConsumerStatefulWidget {
   const TimetableAdvancedSettingsPage({super.key});
 
