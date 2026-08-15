@@ -78,8 +78,9 @@ class _TimetableAnimeImportDialogState
         Center(
           child: Material(
             elevation: 4,
-            borderRadius: BorderRadius.circular(8),
             color: ZenColors.surface,
+            // Material 断言禁止 shape 与 borderRadius 同时传（fr 28 修复崩溃）；
+            // 圆角由 shape 自带
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
               side: const BorderSide(color: ZenColors.hair),
