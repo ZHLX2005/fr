@@ -110,6 +110,27 @@ String backfillStartDate(int currentEpisode, int weekday) {
       '${start.day.toString().padLeft(2, '0')}';
 }
 
+/// 播出时间输入自动对齐（fr #25）：
+/// 很多时候不需要精确到分钟——"22" → "22:00"，"9" → "09:00"，
+/// "2230" → "22:30"，原有 "22:30" / "9:5" 形态同样归一为 "HH:mm"。
+/// 规则：取纯数字；1-2 位 = 小时（分钟补 00）；3-4 位 = 前段小时后段分钟。
+/// 空或非法（小时>23 / 分钟>59 / 数字超 4 位）返回 null，由调用方提示。
+String? normalizeAnimeTimeInput(String raw) {
+  final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+  if (digits.isEmpty || digits.length > 4) return null;
+  final int h;
+  final int m;
+  if (digits.length <= 2) {
+    h = int.parse(digits);
+    m = 0;
+  } else {
+    h = int.parse(digits.substring(0, digits.length - 2));
+    m = int.parse(digits.substring(digits.length - 2));
+  }
+  if (h > 23 || m > 59) return null;
+  return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+}
+
 /// 追剧 DSL 生成结果
 class AnimeDslResult {
   final TimetableConfig config;

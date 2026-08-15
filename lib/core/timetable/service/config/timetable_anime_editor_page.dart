@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/timetable_store.dart';
-import '../../presentation/timetable_colors.dart';
 import 'anime_dsl_generator.dart';
 import '../../../../../widgets/theme/zen_theme.dart';
+import '../../../../../widgets/theme/zen_date_picker.dart';
 
-/// 追剧排期编辑页 —— 垂直时间轴视角，剧模型 CRUD。
+/// 追剧排期编辑页 —— 垂直时间轴视角，剧模型 CRUD（全 zen 主题，fr #26）。
 ///
 /// 剧模型是 SSOT（存储于空间 record）：增删改剧后由 store 自动派生 DSL
 /// 并应用到课表（无需手动生成/预览/覆盖）。本页提供只读的 DSL 预览。
@@ -43,26 +43,17 @@ class _TimetableAnimeEditorPageState
   }
 
   Future<void> _deleteSeries(AnimeSeriesDraft target) async {
-    final ok = await showDialog<bool>(
+    final ok = await ZenConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除剧'),
-        content: Text('确定删除「${target.title}」吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: ZenColors.mutedRed),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+      title: '删除剧',
+      message: '确定删除「${target.title}」吗？',
+      confirmLabel: '删除',
+      onConfirm: () {},
     );
     if (ok == true) {
-      await ref.read(TimetableStore.provider.notifier).deleteAnimeSeries(target.id);
+      await ref
+          .read(TimetableStore.provider.notifier)
+          .deleteAnimeSeries(target.id);
     }
   }
 
@@ -81,14 +72,21 @@ class _TimetableAnimeEditorPageState
     if (!mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('当前追剧 DSL'),
-        content: SizedBox(
-          width: 340,
-          height: 320,
+      builder: (ctx) => Dialog(
+        backgroundColor: ZenColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: ZenColors.hair),
+        ),
+        child: Container(
+          width: 360,
+          padding: const EdgeInsets.all(16),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text('当前追剧 DSL', style: ZenText.title),
+              const SizedBox(height: 8),
               Text(
                 '起始 ${result.config.startDateIso} · '
                 '每天 ${result.config.slotsPerDay} 行 · '
@@ -96,36 +94,41 @@ class _TimetableAnimeEditorPageState
                 style: ZenText.label,
               ),
               const SizedBox(height: 8),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: ZenColors.sage.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: ZenColors.hair),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Text(
-                      result.dsl,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                        height: 1.5,
-                      ),
+              Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxHeight: 320),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: ZenColors.sage.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: ZenColors.hair),
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    result.dsl,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      height: 1.5,
+                      color: ZenColors.ink,
                     ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(
+                    '关闭',
+                    style: ZenText.button.copyWith(color: ZenColors.secondary),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('关闭'),
-          ),
-        ],
       ),
     );
   }
@@ -146,17 +149,25 @@ class _TimetableAnimeEditorPageState
                 '共 ${r.config.cycleCount} 周';
           }();
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('追剧排期'),
-        actions: [
-          TextButton.icon(
-            onPressed: _previewDsl,
-            icon: const Icon(Icons.visibility_outlined, size: 18),
-            label: const Text('查看 DSL'),
+    return zenPageScaffold(
+      title: '追剧排期',
+      actions: [
+        TextButton.icon(
+          onPressed: _previewDsl,
+          icon: const Icon(Icons.visibility_outlined,
+              size: 18, color: ZenColors.sage),
+          label: Text(
+            '查看 DSL',
+            style: ZenText.button.copyWith(color: ZenColors.sage, fontSize: 14),
           ),
-        ],
+        ),
+      ],
+      fab: FloatingActionButton.extended(
+        onPressed: _addSeries,
+        backgroundColor: ZenColors.sage,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('添加剧'),
       ),
       body: Column(
         children: [
@@ -167,7 +178,7 @@ class _TimetableAnimeEditorPageState
             color: ZenColors.sage.withValues(alpha: 0.08),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.auto_awesome,
                   size: 16,
                   color: ZenColors.sage,
@@ -188,10 +199,15 @@ class _TimetableAnimeEditorPageState
               ],
             ),
           ),
-          const Divider(height: 1),
+          const Divider(height: 1, color: ZenColors.hair),
           Expanded(
             child: sorted.isEmpty
-                ? _EmptyHint(onAdd: _addSeries)
+                ? ZenEmptyState(
+                    icon: Icons.movie_filter_outlined,
+                    message: '还没有剧\n添加后自动计算并应用排期（起始日期/行数/周数）',
+                    actionLabel: '添加第一部剧',
+                    onAction: _addSeries,
+                  )
                 : ListView.separated(
                     padding: const EdgeInsets.all(12),
                     itemCount: sorted.length,
@@ -207,13 +223,6 @@ class _TimetableAnimeEditorPageState
                   ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addSeries,
-        backgroundColor: ZenColors.sage,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('添加剧'),
       ),
     );
   }
@@ -235,18 +244,13 @@ class _SeriesTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final title = draft.title.trim().isEmpty ? '（未命名剧）' : draft.title.trim();
 
     return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: TimetableColors.border, width: 1),
-        borderRadius: BorderRadius.circular(12),
-        color: theme.colorScheme.surface,
-      ),
+      decoration: zenCard(),
       child: InkWell(
         onTap: onEdit,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
@@ -276,9 +280,7 @@ class _SeriesTile extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -286,21 +288,21 @@ class _SeriesTile extends StatelessWidget {
                       '${draft.episodes} 期 · '
                       '每期 ${draft.durationMin} 分钟 · '
                       '${draft.startDateIso} 开播',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: TimetableColors.textSecondary,
-                      ),
+                      style: ZenText.label.copyWith(fontSize: 11),
                     ),
                   ],
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 18),
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: ZenColors.secondary),
                 visualDensity: VisualDensity.compact,
                 tooltip: '编辑',
                 onPressed: onEdit,
               ),
               IconButton(
-                icon: const Icon(Icons.close, size: 18),
+                icon: const Icon(Icons.close,
+                    size: 18, color: ZenColors.mutedRed),
                 visualDensity: VisualDensity.compact,
                 tooltip: '删除',
                 onPressed: onDelete,
@@ -313,47 +315,28 @@ class _SeriesTile extends StatelessWidget {
   }
 }
 
-class _EmptyHint extends StatelessWidget {
-  final VoidCallback onAdd;
-
-  const _EmptyHint({required this.onAdd});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.movie_filter_outlined,
-            size: 48,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '还没有剧\n添加后会自动计算并应用排期（起始日期/每天行数/总周数）',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add),
-            label: const Text('添加第一部剧'),
-          ),
-        ],
+/// zen 风格输入框装饰 —— 编辑弹窗内统一使用
+InputDecoration _zenInputDecoration(String label) => InputDecoration(
+      labelText: label,
+      isDense: true,
+      labelStyle: ZenText.label,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: ZenColors.hair),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: ZenColors.hair),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: ZenColors.sage),
       ),
     );
-  }
-}
 
-/// 剧编辑对话框 —— 字段全部是"剧的语言"，无任何课表概念
+/// 剧编辑对话框 —— 字段全部是"剧的语言"，无任何课表概念（全 zen 主题）
 class _AnimeEditDialog extends StatefulWidget {
   final AnimeSeriesDraft? initial;
 
@@ -401,12 +384,12 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
 
   Future<void> _pickDate() async {
     final current = DateTime.tryParse(_dateCtrl.text);
-    final picked = await showDatePicker(
+    final picked = await showZenDatePicker(
       context: context,
       initialDate: current ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
-      helpText: '开播日期',
+      title: '开播日期',
     );
     if (picked == null) return;
     setState(() {
@@ -430,10 +413,11 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
   AnimeSeriesDraft? _submit() {
     final title = _titleCtrl.text.trim();
     final startDateIso = _dateCtrl.text.trim();
-    final time = _timeCtrl.text.trim();
+    // 时间自动对齐（fr #25）："22" → "22:00"、"2230" → "22:30"
+    final time = normalizeAnimeTimeInput(_timeCtrl.text);
     final episodes = int.tryParse(_episodesCtrl.text.trim());
     final duration = int.tryParse(_durationCtrl.text.trim());
-    if (title.isEmpty || startDateIso.isEmpty || time.isEmpty) {
+    if (title.isEmpty || startDateIso.isEmpty || time == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('剧名、开播日期、播出时间必填')),
       );
@@ -445,12 +429,8 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
       );
       return null;
     }
-    if (!RegExp(r'^\d{1,2}:\d{2}$').hasMatch(time)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('播出时间应为 HH:mm')),
-      );
-      return null;
-    }
+    // 对齐结果回填输入框，让用户看到最终生效的时间
+    _timeCtrl.text = time;
     return AnimeSeriesDraft(
       id: widget.initial?.id,
       title: title,
@@ -464,21 +444,30 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.initial == null ? '添加剧' : '编辑剧'),
-      content: SizedBox(
-        width: 320,
+    return Dialog(
+      backgroundColor: ZenColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: ZenColors.hair),
+      ),
+      child: Container(
+        width: 340,
+        padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(
+                widget.initial == null ? '添加剧' : '编辑剧',
+                style: ZenText.title,
+              ),
+              const SizedBox(height: 12),
               TextField(
                 controller: _titleCtrl,
                 autofocus: widget.initial == null,
-                decoration: const InputDecoration(
-                  labelText: '剧名（番名）',
-                  isDense: true,
-                ),
+                style: ZenText.body,
+                decoration: _zenInputDecoration('剧名（番名）'),
               ),
               const SizedBox(height: 10),
               Row(
@@ -488,22 +477,22 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                         ? TextField(
                             controller: _currentEpisodeCtrl,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: '当前第几期',
-                              isDense: true,
-                            ),
+                            style: ZenText.body,
+                            decoration:
+                                _zenInputDecoration('当前第几期'),
                           )
                         : InkWell(
                             onTap: _pickDate,
+                            borderRadius: BorderRadius.circular(6),
                             child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: '开播日期',
-                                isDense: true,
-                              ),
+                              decoration: _zenInputDecoration('开播日期'),
                               child: Text(
                                 _dateCtrl.text.isEmpty
                                     ? '选择日期'
                                     : _dateCtrl.text,
+                                style: _dateCtrl.text.isEmpty
+                                    ? ZenText.label
+                                    : ZenText.body,
                               ),
                             ),
                           ),
@@ -515,12 +504,14 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                     }),
                     child: Text(
                       _useBackfill ? '直接选日期' : '当前第N期反推',
-                      style: const TextStyle(fontSize: 12),
+                      style: ZenText.button
+                          .copyWith(color: ZenColors.sage, fontSize: 12),
                     ),
                   ),
                   if (_useBackfill)
                     IconButton(
-                      icon: const Icon(Icons.auto_fix_high, size: 18),
+                      icon: const Icon(Icons.auto_fix_high,
+                          size: 18, color: ZenColors.sage),
                       tooltip: '反推并填入',
                       onPressed: _backfill,
                     ),
@@ -533,7 +524,8 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                     child: DropdownButtonFormField<int>(
                       initialValue: _weekday,
                       isDense: true,
-                      decoration: const InputDecoration(labelText: '星期几'),
+                      style: ZenText.body.copyWith(fontSize: 14),
+                      decoration: _zenInputDecoration('星期几'),
                       items: const [
                         DropdownMenuItem(value: 1, child: Text('周一')),
                         DropdownMenuItem(value: 2, child: Text('周二')),
@@ -553,10 +545,8 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                     child: TextField(
                       controller: _timeCtrl,
                       keyboardType: TextInputType.datetime,
-                      decoration: const InputDecoration(
-                        labelText: '几点播出 HH:mm',
-                        isDense: true,
-                      ),
+                      style: ZenText.body,
+                      decoration: _zenInputDecoration('几点播出（22→22:00）'),
                     ),
                   ),
                 ],
@@ -568,10 +558,8 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                     child: TextField(
                       controller: _episodesCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: '总集数',
-                        isDense: true,
-                      ),
+                      style: ZenText.body,
+                      decoration: _zenInputDecoration('总集数'),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -579,9 +567,34 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                     child: TextField(
                       controller: _durationCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: '每集分钟',
-                        isDense: true,
+                      style: ZenText.body,
+                      decoration: _zenInputDecoration('每集分钟'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      '取消',
+                      style: ZenText.button.copyWith(color: ZenColors.secondary),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () {
+                      final draft = _submit();
+                      if (draft != null) Navigator.pop(context, draft);
+                    },
+                    child: Text(
+                      '保存',
+                      style: ZenText.button.copyWith(
+                        color: ZenColors.sage,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -591,19 +604,6 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        TextButton(
-          onPressed: () {
-            final draft = _submit();
-            if (draft != null) Navigator.pop(context, draft);
-          },
-          child: const Text('保存'),
-        ),
-      ],
     );
   }
 }

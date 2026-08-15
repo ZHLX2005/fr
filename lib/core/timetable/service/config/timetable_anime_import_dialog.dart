@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'anime_source_adapter.dart';
-import '../../presentation/timetable_colors.dart';
-import '../../../design/emphasis_button.dart';
+import '../../../../../widgets/theme/zen_theme.dart';
 
-/// 番剧开放 API 来源导入对话框
+/// 番剧开放 API 来源导入对话框（全 zen 主题，fr #26）
 ///
 /// 通过 [kAnimeSourceAdapters] 选择来源 → 拉取番剧列表 → 勾选 →
 /// 返回选中草稿（List[AnimeDraft]），由设置页追剧区填充为剧行。
@@ -62,8 +61,6 @@ class _TimetableAnimeImportDialogState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Stack(
       children: [
         GestureDetector(
@@ -72,22 +69,26 @@ class _TimetableAnimeImportDialogState
         ),
         Center(
           child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(20),
-            color: theme.colorScheme.surface,
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            color: ZenColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: ZenColors.hair),
+            ),
             child: Container(
               width: 360,
               height: 500,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: TimetableColors.border, width: 1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: ZenColors.hair, width: 1),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Header
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
                     child: Row(
                       children: [
                         Container(
@@ -97,23 +98,18 @@ class _TimetableAnimeImportDialogState
                           ),
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: theme.colorScheme.outline,
+                              color: ZenColors.hair,
                               width: 1,
                             ),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Row(
+                          child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.movie_outlined, size: 16),
-                              const SizedBox(width: 6),
-                              Text(
-                                '番剧导入',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: TimetableColors.textPrimary,
-                                ),
-                              ),
+                              Icon(Icons.movie_outlined,
+                                  size: 16, color: ZenColors.sage),
+                              SizedBox(width: 6),
+                              Text('番剧导入', style: ZenText.title),
                             ],
                           ),
                         ),
@@ -123,11 +119,14 @@ class _TimetableAnimeImportDialogState
                           value: _adapter.id,
                           isDense: true,
                           underline: const SizedBox.shrink(),
+                          style: ZenText.body.copyWith(fontSize: 13),
                           items: [
                             for (final a in kAnimeSourceAdapters)
                               DropdownMenuItem(
                                 value: a.id,
-                                child: Text(a.label, style: const TextStyle(fontSize: 13)),
+                                child: Text(a.label,
+                                    style:
+                                        ZenText.body.copyWith(fontSize: 13)),
                               ),
                           ],
                           onChanged: (id) {
@@ -140,16 +139,17 @@ class _TimetableAnimeImportDialogState
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(Icons.close,
+                              size: 20, color: ZenColors.secondary),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
                   ),
-                  const Divider(height: 1),
+                  const Divider(height: 1, color: ZenColors.hair),
                   // 内容
-                  Expanded(child: _buildBody(theme)),
-                  const Divider(height: 1),
+                  Expanded(child: _buildBody()),
+                  const Divider(height: 1, color: ZenColors.hair),
                   // 底部操作
                   Padding(
                     padding: const EdgeInsets.all(12),
@@ -160,14 +160,16 @@ class _TimetableAnimeImportDialogState
                             _selectedCount > 0
                                 ? '已选 $_selectedCount 部'
                                 : '勾选要追踪的番剧（缺播出时间可在下一步补）',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: TimetableColors.textSecondary,
-                            ),
+                            style: ZenText.label.copyWith(fontSize: 12),
                           ),
                         ),
                         TextButton(
                           onPressed: _loading ? null : _fetch,
-                          child: const Text('刷新'),
+                          child: Text(
+                            '刷新',
+                            style: ZenText.button.copyWith(
+                                color: ZenColors.secondary, fontSize: 14),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -176,12 +178,16 @@ class _TimetableAnimeImportDialogState
                             onPressed: _selectedCount > 0 && !_loading
                                 ? _doConfirm
                                 : null,
-                            style: EmphasisButton.borderEmphasis(
-                              context,
-                              color: TimetableColors.accent,
+                            style: zenButton(
+                              foreground: ZenColors.sage,
+                              border: ZenColors.sage.withValues(alpha: 0.5),
                             ),
                             child: Text(
-                              _selectedCount > 0 ? '添加 $_selectedCount 部' : '添加',
+                              _selectedCount > 0
+                                  ? '添加 $_selectedCount 部'
+                                  : '添加',
+                              style: ZenText.button
+                                  .copyWith(color: ZenColors.sage),
                             ),
                           ),
                         ),
@@ -204,9 +210,14 @@ class _TimetableAnimeImportDialogState
     Navigator.pop(context, selected);
   }
 
-  Widget _buildBody(ThemeData theme) {
+  Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      return const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: ZenColors.sage,
+        ),
+      );
     }
     if (_error != null) {
       return Center(
@@ -215,28 +226,35 @@ class _TimetableAnimeImportDialogState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.cloud_off,
                 size: 40,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                color: ZenColors.secondary,
               ),
               const SizedBox(height: 12),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: TimetableColors.textSecondary,
-                ),
+                style: ZenText.label.copyWith(fontSize: 12),
               ),
               const SizedBox(height: 12),
-              OutlinedButton(onPressed: _fetch, child: const Text('重试')),
+              OutlinedButton(
+                onPressed: _fetch,
+                style: zenButton(
+                  foreground: ZenColors.sage,
+                  border: ZenColors.sage.withValues(alpha: 0.5),
+                ),
+                child: const Text('重试'),
+              ),
             ],
           ),
         ),
       );
     }
     if (_drafts.isEmpty) {
-      return const Center(child: Text('该来源暂无数据'));
+      return Center(
+        child: Text('该来源暂无数据', style: ZenText.label),
+      );
     }
 
     return ListView.builder(
@@ -248,6 +266,8 @@ class _TimetableAnimeImportDialogState
         final isSelected = _selectedKeys.contains(key);
         return CheckboxListTile(
           dense: true,
+          activeColor: ZenColors.sage,
+          checkColor: Colors.white,
           value: isSelected,
           onChanged: (checked) {
             setState(() {
@@ -262,7 +282,8 @@ class _TimetableAnimeImportDialogState
             draft.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: ZenText.body.copyWith(
+              fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -273,9 +294,7 @@ class _TimetableAnimeImportDialogState
               if (draft.time != null) draft.time!,
               if (draft.episodes != null) '${draft.episodes}期',
             ].join(' · '),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: TimetableColors.textTertiary,
-            ),
+            style: ZenText.label.copyWith(fontSize: 11),
           ),
         );
       },

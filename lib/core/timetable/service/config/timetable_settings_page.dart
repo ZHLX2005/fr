@@ -9,6 +9,7 @@ import 'timetable_anime_editor_page.dart';
 import 'timetable_anime_import_dialog.dart';
 import 'timetable_week_calculator.dart';
 import '../../../../widgets/theme/zen_theme.dart';
+import '../../../../widgets/theme/zen_date_picker.dart';
 
 /// 课表设置页 —— 第一层：模式选择 + 数据来源预设。
 ///
@@ -303,12 +304,12 @@ class _TimetableSettingsPageState
       borderRadius: BorderRadius.circular(6),
       onTap: () async {
         final current = DateTime.tryParse(_startDateController.text);
-        final picked = await showDatePicker(
+        final picked = await showZenDatePicker(
           context: context,
           initialDate: current ?? DateTime.now(),
           firstDate: DateTime(2020),
           lastDate: DateTime(2035),
-          helpText: '选择开始日期',
+          title: '选择开始日期',
         );
         if (picked == null) return;
         final iso = picked.toIso8601String().split('T')[0];

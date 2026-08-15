@@ -38,8 +38,7 @@ void main() {
     });
   });
 
-  group('backfillStartDate 反推开始日期', () {
-    final today = DateTime.now();
+  group('backfillStartDate 反推开始日期', () {    final today = DateTime.now();
 
     test('当前第1期 = 今天往前最近的该星期', () {
       final result = backfillStartDate(1, today.weekday);
@@ -59,6 +58,30 @@ void main() {
       // 最近 targetWeekday：若 target 星期在昨天之前，就是本周的；否则上周
       final expectDate = today.subtract(Duration(days: today.weekday - targetWeekday));
       expect(result, _iso(expectDate));
+    });
+  });
+
+  group('normalizeAnimeTimeInput 时间自动对齐', () {
+    test('2位数字补整点：22 → 22:00，9 → 09:00', () {
+      expect(normalizeAnimeTimeInput('22'), '22:00');
+      expect(normalizeAnimeTimeInput('9'), '09:00');
+    });
+    test('3-4位数字拆时分：2230 → 22:30，930 → 09:30', () {
+      expect(normalizeAnimeTimeInput('2230'), '22:30');
+      expect(normalizeAnimeTimeInput('930'), '09:30');
+    });
+    test('原有 HH:mm 形态归一：22:30 / 09:05', () {
+      expect(normalizeAnimeTimeInput('22:30'), '22:30');
+      expect(normalizeAnimeTimeInput('09:05'), '09:05');
+      expect(normalizeAnimeTimeInput('0:00'), '00:00');
+    });
+    test('非法输入返回 null', () {
+      expect(normalizeAnimeTimeInput(''), isNull);
+      expect(normalizeAnimeTimeInput(':'), isNull);
+      expect(normalizeAnimeTimeInput('24'), isNull); // 小时越界
+      expect(normalizeAnimeTimeInput('2260'), isNull); // 分钟越界
+      expect(normalizeAnimeTimeInput('12345'), isNull); // 超4位
+      expect(normalizeAnimeTimeInput('9:5'), isNull); // 数字部分95=非法小时
     });
   });
 
