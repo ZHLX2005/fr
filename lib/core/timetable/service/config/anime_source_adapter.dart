@@ -1,9 +1,8 @@
-/// 追剧模式 —— 开放 API 来源适配层
+/// 追剧模式 —— 番剧来源适配层
 ///
-/// 每个来源实现 [AnimeSourceAdapter]，拉取"番剧 + 播出日期时间"草稿，
-/// 供设置页追剧区快速导入（填充剧行后再生成 DSL）。
-/// 来源：Bangumi 公开日历（当季，中文译名为主）+ AniList 当季新番
-/// （补齐具体播出时刻 JST 与总集数，Bangumi 不提供的字段）。
+/// 当前唯一来源：自建聚合后端（详见 references/anime-backend-api-spec.md）。
+/// 接口聚合 Bangumi 中文名 + AniList 精确时刻 + MAL 兜底，返回字段齐全的番剧列表。
+/// 客户端只透传字段，不再做时区换算与合并。
 library;
 
 import 'dart:convert';
@@ -37,6 +36,30 @@ class AnimeDraft {
   });
 }
 
+/// 番剧季度（与后端枚举对齐；按日本电视台季度口径：冬 1 月 / 春 4 月 / 夏 7 月 / 秋 10 月）
+enum AnimeSeason {
+  winter('WINTER', '冬'),
+  spring('SPRING', '春'),
+  summer('SUMMER', '夏'),
+  fall('FALL', '秋');
+
+  final String code;
+  final String label;
+  const AnimeSeason(this.code, this.label);
+
+  /// 自然月 → 季度（与 AniList 季度切分一致）
+  static AnimeSeason fromMonth(int month) {
+    if (month <= 3) return AnimeSeason.winter;
+    if (month <= 6) return AnimeSeason.spring;
+    if (month <= 9) return AnimeSeason.summer;
+    return AnimeSeason.fall;
+  }
+}
+
+/// 当前季度（按服务器本地月份判；与后端默认语义一致）
+AnimeSeason currentAnimeSeason() =>
+    AnimeSeason.fromMonth(DateTime.now().month);
+
 /// 番剧来源适配器抽象
 abstract class AnimeSourceAdapter {
   /// 来源唯一 id
@@ -45,200 +68,85 @@ abstract class AnimeSourceAdapter {
   /// 来源展示名
   String get label;
 
-  /// 拉取当前可导入的番剧列表
-  Future<List<AnimeDraft>> fetch();
+  /// 拉取指定季度的番剧列表
+  Future<List<AnimeDraft>> fetchSeason(AnimeSeason season, int year);
 }
 
-/// Bangumi 公开日历适配器
+/// 自建聚合后端新番适配器（fr 28）
 ///
-/// GET https://api.bgm.tv/calendar → 按星期分组的当季新番。
-/// 提供开播日期(air_date)与星期(air_weekday)；具体播出时刻与期数
-/// API 不直接提供，返回 null 由用户在剧行补齐。
-class BangumiCalendarAdapter implements AnimeSourceAdapter {
-  static const _apiUrl = 'https://api.bgm.tv/calendar';
+/// GET {BASE_URL}/api/v1/anime/season?season=...&year=... → 指定季度 TV 番剧列表。
+/// 后端已完成 Bangumi 中文名 + AniList 时刻 + 总集数的合并，并按 JST 自然日
+/// 输出 weekday(1-7) 与 time(HH:mm)。客户端只做字段透传，缺字段降级为 null。
+class SelfHostedAnimeAdapter implements AnimeSourceAdapter {
+  static const _baseUrl = 'http://47.110.80.47:81';
+  static const _apiPath = '/api/v1/anime/season';
 
   @override
-  String get id => 'bangumi-calendar';
+  String get id => 'selfhosted-season';
 
   @override
-  String get label => 'Bangumi 当季新番';
+  String get label => '自建新番表';
 
   @override
-  Future<List<AnimeDraft>> fetch() async {
+  Future<List<AnimeDraft>> fetchSeason(AnimeSeason season, int year) async {
+    final uri = Uri.parse('$_baseUrl$_apiPath').replace(queryParameters: {
+      'season': season.code,
+      'year': '$year',
+    });
     final response = await http.get(
-      Uri.parse(_apiUrl),
+      uri,
       headers: {
-        'User-Agent': 'xiaodouzi-fr/1.0 (timetable anime adapter)',
         'Accept': 'application/json',
+        'User-Agent': 'xiaodouzi-fr/1.0 (timetable anime adapter)',
       },
     ).timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw Exception('HTTP ${response.statusCode}');
     }
-    final data = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
-
-    final drafts = <AnimeDraft>[];
-    for (int i = 0; i < data.length; i++) {
-      final day = data[i] as Map<String, dynamic>;
-      final itemsJson = day['items'] as List<dynamic>? ?? [];
-      for (final raw in itemsJson) {
-        final m = raw as Map<String, dynamic>;
-        final airWeekday = (m['air_weekday'] as int?) ?? (i + 1) % 7;
-        drafts.add(
-          AnimeDraft(
-            title: _displayName(m),
-            startDateIso: m['air_date'] as String?,
-            weekday: airWeekday == 0 ? 7 : airWeekday, // 0=周日 → 7
-            time: null,
-            episodes: null,
-            sourceUrl: m['url'] as String?,
-          ),
-        );
-      }
-    }
-    return drafts;
+    final data =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final items = (data['items'] as List<dynamic>? ?? const [])
+        .cast<Map<String, dynamic>>();
+    return items
+        .map(_toDraft)
+        .whereType<AnimeDraft>()
+        .toList(growable: false);
   }
 
-  static String _displayName(Map<String, dynamic> m) {
-    final cn = m['name_cn'] as String?;
-    if (cn != null && cn.isNotEmpty) return cn;
-    return m['name'] as String? ?? '未知动画';
-  }
-}
-
-/// AniList 当季新番适配器
-///
-/// POST https://graphql.anilist.co → 当前季 TV 番剧列表。
-/// 相比 Bangumi 日历，能补齐 [AnimeDraft.time]（由 nextAiringEpisode.airingAt
-/// 时间戳换算 JST 播出时刻）与 [AnimeDraft.episodes]（总集数）。
-/// 无中文名，标题优先日文原名（native），缺失回退罗马音（romaji）。
-class AniListSeasonAdapter implements AnimeSourceAdapter {
-  static const _apiUrl = 'https://graphql.anilist.co';
-
-  /// 单季 TV 番约 50~100 部，翻页上限 3 页防御性兜底
-  static const _perPage = 50;
-  static const _maxPages = 3;
-
-  static const _query = r'''
-query($season: MediaSeason, $year: Int, $page: Int) {
-  Page(perPage: 50, page: $page) {
-    media(season: $season, seasonYear: $year, type: ANIME, format: TV, sort: START_DATE) {
-      title { romaji native }
-      episodes
-      startDate { year month day }
-      nextAiringEpisode { airingAt }
-      siteUrl
-    }
-  }
-}
-''';
-
-  @override
-  String get id => 'anilist-season';
-
-  @override
-  String get label => 'AniList 当季新番';
-
-  @override
-  Future<List<AnimeDraft>> fetch() async {
-    final now = DateTime.now();
-    final season = _seasonOf(now.month);
-    final year = now.year;
-
-    final drafts = <AnimeDraft>[];
-    for (var page = 1; page <= _maxPages; page++) {
-      final response = await http
-          .post(
-            Uri.parse(_apiUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: jsonEncode({
-              'query': _query,
-              'variables': {
-                'season': season,
-                'year': year,
-                'page': page,
-              },
-            }),
-          )
-          .timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) {
-        throw Exception('HTTP ${response.statusCode}');
-      }
-      final data =
-          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-      final mediaList = ((data['Page']
-                  as Map<String, dynamic>?)?['media']
-              as List<dynamic>? ??
-          [])
-          .cast<Map<String, dynamic>>();
-      drafts.addAll(mediaList.map(_toDraft).whereType<AnimeDraft>());
-      if (mediaList.length < _perPage) break; // 已到最后一页
-    }
-    return drafts;
-  }
-
-  /// 月 → AniList 季度名（1-3 冬 / 4-6 春 / 7-9 夏 / 10-12 秋）
-  static String _seasonOf(int month) {
-    if (month <= 3) return 'WINTER';
-    if (month <= 6) return 'SPRING';
-    if (month <= 9) return 'SUMMER';
-    return 'FALL';
-  }
-
-  /// 单条 media → AnimeDraft；缺 startDate 的条目返回 null 跳过
+  /// 单条 item → AnimeDraft；title 为空或非 Map 的条目返回 null 跳过
   static AnimeDraft? _toDraft(Map<String, dynamic> m) {
-    final titleMap = m['title'] as Map<String, dynamic>?;
-    final native = titleMap?['native'] as String?;
-    final romaji = titleMap?['romaji'] as String?;
-    final title = (native != null && native.isNotEmpty)
-        ? native
-        : (romaji != null && romaji.isNotEmpty)
-            ? romaji
+    final title = m['title'] as String?;
+    if (title == null || title.isEmpty) return null;
+
+    final weekdayRaw = m['weekday'] as int?;
+    final weekday =
+        (weekdayRaw != null && weekdayRaw >= 1 && weekdayRaw <= 7)
+            ? weekdayRaw
             : null;
-    if (title == null) return null;
 
-    final start = m['startDate'] as Map<String, dynamic>?;
-    final year = start?['year'] as int?;
-    if (year == null) return null;
-    final month = (start?['month'] as int?) ?? 1;
-    final day = (start?['day'] as int?) ?? 1;
-    final startDate = DateTime.utc(year, month, day);
-    final startDateIso =
-        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
-
-    // nextAiringEpisode.airingAt 是 UTC 时间戳；日本无夏令时，+9h 换算 JST
-    // 即得到该周固定播出时刻（HH:mm）与星期。
-    String? time;
-    int? weekday;
-    final airingAt =
-        (m['nextAiringEpisode'] as Map<String, dynamic>?)?['airingAt'] as int?;
-    if (airingAt != null) {
-      final jst = DateTime.fromMillisecondsSinceEpoch(
-        airingAt * 1000,
-        isUtc: true,
-      ).add(const Duration(hours: 9));
-      time =
-          '${jst.hour.toString().padLeft(2, '0')}:${jst.minute.toString().padLeft(2, '0')}';
-      weekday = jst.weekday; // Dart 1=周一..7=周日，与草稿语义一致
-    }
-    weekday ??= startDate.weekday;
+    final timeRaw = m['time'] as String?;
+    final time = _normalizeTime(timeRaw);
 
     return AnimeDraft(
       title: title,
-      startDateIso: startDateIso,
+      startDateIso: m['startDateIso'] as String?,
       weekday: weekday,
       time: time,
       episodes: m['episodes'] as int?,
-      sourceUrl: m['siteUrl'] as String?,
+      sourceUrl: m['sourceUrl'] as String?,
     );
+  }
+
+  /// 后端契约 `HH:mm` JST 自然日；非空且格式合法才透传，否则置 null 由用户补
+  static String? _normalizeTime(String? raw) {
+    if (raw == null) return null;
+    final m = RegExp(r'^([01]\d|2[0-3]):([0-5]\d)$').firstMatch(raw);
+    if (m == null) return null;
+    return '${m.group(1)}:${m.group(2)}';
   }
 }
 
-/// 已注册来源（新增来源在此登记即可出现在导入入口）
+/// 已注册来源（单一自建后端）
 final List<AnimeSourceAdapter> kAnimeSourceAdapters = [
-  BangumiCalendarAdapter(),
-  AniListSeasonAdapter(),
+  SelfHostedAnimeAdapter(),
 ];

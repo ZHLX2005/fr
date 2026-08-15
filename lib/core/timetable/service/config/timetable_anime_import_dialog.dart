@@ -20,8 +20,16 @@ class _TimetableAnimeImportDialogState
   bool _loading = false;
   String? _error;
   AnimeSourceAdapter _adapter = kAnimeSourceAdapters.first;
+  AnimeSeason _season = currentAnimeSeason();
+  late int _year = DateTime.now().year;
   List<AnimeDraft> _drafts = [];
   final Set<String> _selectedKeys = {};
+
+  /// 年份选择范围：当前年 ± 2（追剧场景不需要更早/更远）
+  static List<int> get _yearOptions {
+    final now = DateTime.now().year;
+    return [now + 1, now, now - 1, now - 2];
+  }
 
   @override
   void initState() {
@@ -40,7 +48,7 @@ class _TimetableAnimeImportDialogState
       _selectedKeys.clear();
     });
     try {
-      final drafts = await _adapter.fetch();
+      final drafts = await _adapter.fetchSeason(_season, _year);
       if (mounted) {
         setState(() {
           _drafts = drafts;
@@ -142,6 +150,60 @@ class _TimetableAnimeImportDialogState
                           icon: const Icon(Icons.close,
                               size: 20, color: ZenColors.secondary),
                           onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: ZenColors.hair),
+                  // 季节 / 年份 选择（fr 28 扩展）
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Row(
+                      children: [
+                        Text('季节', style: ZenText.label.copyWith(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        DropdownButton<AnimeSeason>(
+                          value: _season,
+                          isDense: true,
+                          underline: const SizedBox.shrink(),
+                          style: ZenText.body.copyWith(fontSize: 13),
+                          items: [
+                            for (final s in AnimeSeason.values)
+                              DropdownMenuItem(
+                                value: s,
+                                child: Text('${s.label}季',
+                                    style:
+                                        ZenText.body.copyWith(fontSize: 13)),
+                              ),
+                          ],
+                          onChanged: (s) {
+                            if (s == null || s == _season) return;
+                            setState(() => _season = s);
+                            _fetch();
+                          },
+                        ),
+                        const SizedBox(width: 16),
+                        Text('年份', style: ZenText.label.copyWith(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        DropdownButton<int>(
+                          value: _year,
+                          isDense: true,
+                          underline: const SizedBox.shrink(),
+                          style: ZenText.body.copyWith(fontSize: 13),
+                          items: [
+                            for (final y in _yearOptions)
+                              DropdownMenuItem(
+                                value: y,
+                                child: Text('$y',
+                                    style:
+                                        ZenText.body.copyWith(fontSize: 13)),
+                              ),
+                          ],
+                          onChanged: (y) {
+                            if (y == null || y == _year) return;
+                            setState(() => _year = y);
+                            _fetch();
+                          },
                         ),
                       ],
                     ),

@@ -42,12 +42,12 @@ abstract class AnimeSourceAdapter {
   String get label;   // 展示名
   Future<List<AnimeDraft>> fetch();
 }
-// 登记: kAnimeSourceAdapters = [BangumiCalendarAdapter(), 新Adapter()];
+// 登记: kAnimeSourceAdapters = [SelfHostedAnimeAdapter()];
 ```
 
-- `AnimeDraft`：title/startDateIso/weekday/time/episodes/sourceUrl，**可缺省**（Bangumi 不给具体时刻 → time=null，用户在排期页补）
-- 已登记来源：`BangumiCalendarAdapter`（/calendar，中文名为主，无 time/episodes）+ `AniListSeasonAdapter`（GraphQL 当季 TV，airingAt+9h 换算 JST 补 time、episodes 齐全，无中文名）。已实测不可用：B站(404)/Jikan(504)
-- 导入对话框自动出现来源下拉；空 time 导入为 `time=''`，生成器为每部独立扩容 cell（输入顺序在前，标签回退序号），用户补时间后自动归并
+- `AnimeDraft`：title/startDateIso/weekday/time/episodes/sourceUrl，**可缺省**（后端字段已尽量补齐，缺字段时用户在排期页补）
+- 已登记来源：`SelfHostedAnimeAdapter`（自建聚合后端，详见 [anime-backend-api-spec](anime-backend-api-spec.md)）。后端已完成 Bangumi 中文名 + AniList `airingAt` 精确时刻 + MAL `broadcast` 兜底 + 完播剧时刻补齐。原先的 `BangumiCalendarAdapter` / `AniListSeasonAdapter` 已在 fr 28 移除（公开来源不稳定性 + 字段不全，已被自建后端替代）
+- 导入对话框来源下拉仅剩「自建新番表」一项；空 time 导入为 `time=null`，生成器为每部独立扩容 cell（输入顺序在前，标签回退序号），用户补时间后自动归并
 - **水平泛化方向**：AnimeDraft → PeriodicEventDraft（直播/比赛/日程/影视更新），适配器跨领域复用
 
 ## 排期编辑页（timetable_anime_editor_page.dart）

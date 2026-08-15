@@ -104,3 +104,4 @@ lib/core/timetable/
 | ref | 何时读取 | 路径 |
 |---|---|---|
 | [[anime-mode]] | 扩展/修改追剧模式（剧模型/适配层/排期编辑器/生成器/反推）时 | references/anime-mode.md |
+| [[anime-backend-api-spec]] | 自建新番后端 API 的契约/联调/新增 SelfHostedAnimeAdapter 时 | references/anime-backend-api-spec.md |
