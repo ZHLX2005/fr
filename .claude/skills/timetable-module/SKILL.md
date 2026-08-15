@@ -34,6 +34,10 @@ lib/core/timetable/
 ├── presentation/
 │   ├── timetable_store.dart          # Riverpod SSOT + 空间切换 + 剧模型CRUD(自动派生DSL) + exportToDsl
 │   ├── timetable_page.dart           # 主页面(头部空间选择器/_SlotLabel 三模式)
+│   ├── cell_actions/                 # ★ cell 操作策略模式(fr 28)
+│   │   ├── cell_action_manager.dart  #   CellActionManager 路由 + Strategy抽象 + Context/Target
+│   │   ├── school_cell_actions.dart  #   课表模式: 课程编辑对话框(课程名/地点/老师)
+│   │   └── anime_cell_actions.dart   #   追剧模式: 剧模型编辑 + 覆盖风险引导
 │   ├── timetable_cell.dart           # 单元格(同 cell 多课程 + 周期过滤)
 │   └── timetable_colors.dart
 ├── service/config/
@@ -53,6 +57,12 @@ lib/core/timetable/
 
 ### E1 新增数据源适配器（最常用，水平适配器方向）
 → 见 [[anime-mode]] 适配层节（AnimeSourceAdapter 接口 + kAnimeSourceAdapters 登记 + PeriodicEventDraft 泛化方向）
+
+### E1b 新增模式的 cell 编辑 UI（cell_actions 策略模式，fr 28）
+
+1. `cell_actions/` 新增 `XxxCellStrategy implements CellActionStrategy`（openEditor 实现该模式的编辑 UI 与数据通路）
+2. `CellActionManager.strategyFor` 登记模式分支
+3. timetable_page **零改动**（只调 `_cellActions.openEditor`）；新触发（长按菜单等）通过 CellTarget 扩展
 
 ### E2 新增模式（与学校/通用/追剧平级）
 1. `TimetableConfig` 加模式标志字段 + repo save/load 各一行 + settings 模式选择器四选
