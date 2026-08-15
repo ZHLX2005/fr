@@ -5,6 +5,18 @@ import 'anime_dsl_generator.dart';
 import '../../../../../widgets/theme/zen_theme.dart';
 import '../../../../../widgets/theme/zen_date_picker.dart';
 
+/// 供课表页复用（fr 28）：追剧模式 cell 点击 → 打开剧模型编辑对话框。
+/// 课程由剧模型自动派生，编辑课程本身会被覆盖，统一走剧编辑。
+Future<AnimeSeriesDraft?> showAnimeSeriesEditDialog(
+  BuildContext context, {
+  AnimeSeriesDraft? initial,
+}) {
+  return showDialog<AnimeSeriesDraft>(
+    context: context,
+    builder: (_) => _AnimeEditDialog(initial: initial),
+  );
+}
+
 /// 追剧排期编辑页 —— 垂直时间轴视角，剧模型 CRUD（全 zen 主题，fr #26）。
 ///
 /// 剧模型是 SSOT（存储于空间 record）：增删改剧后由 store 自动派生 DSL

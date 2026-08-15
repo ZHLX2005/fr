@@ -8,6 +8,8 @@ import 'timetable_cell.dart';
 import 'timetable_editor_dialog.dart';
 import 'timetable_colors.dart';
 import '../service/config/timetable_settings_page.dart';
+import '../service/config/timetable_anime_editor_page.dart';
+import '../service/config/anime_dsl_generator.dart';
 import '../../../widgets/image_picker_widget.dart';
 
 /// 简洁日历风格课表页面
@@ -498,6 +500,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 
   /// 打开编辑器（居中对话框）
+  ///
+  /// 按模式路由（fr 28）：课表模式 → 课程编辑器（课程名/地点/老师）；
+  /// 追剧模式 → 剧模型编辑（课程由剧模型自动派生，直接编课程会被覆盖）。
   void _openEditor(
     int cycleIndex,
     int dayOfCycle,
@@ -505,6 +510,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     String cellKey, {
     CourseItem? focusCourse,
   }) {
+    if (ref.read(TimetableStore.configProvider).isAnimeMode) {
+      _openAnimeSeriesEditor(focusCourse);
+      return;
+    }
     // 从 store 获取该 cellKey 的所有课程
     final courses = ref.read(TimetableStore.cellProvider(cellKey));
 
@@ -525,6 +534,65 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         onClose: () => Navigator.pop(context),
       ),
     );
+  }
+
+  /// 追剧模式：cell 编辑路由到剧模型编辑。
+  /// 匹配到剧 → 剧编辑对话框；空 cell/匹配不到 → 提示走排期页
+  /// （直接创建/编辑课程会被下次剧变更的自动派生覆盖）。
+  Future<void> _openAnimeSeriesEditor(CourseItem? focusCourse) async {
+    final state = ref.read(TimetableStore.provider);
+    final store = ref.read(TimetableStore.provider.notifier);
+
+    // 按 title 匹配剧模型（CourseItem.title 即剧名）
+    AnimeSeriesDraft? target;
+    final title = focusCourse?.title;
+    if (title != null) {
+      for (final s in state.animeSeries) {
+        if (s.title == title) {
+          target = s;
+          break;
+        }
+      }
+    }
+
+    setState(() => _selectedCellKey = null);
+
+    if (target != null) {
+      final draft = await showAnimeSeriesEditDialog(context, initial: target);
+      if (draft != null) {
+        await store.updateAnimeSeries(draft);
+      }
+      return;
+    }
+
+    // 空 cell：不提供直接编辑（会被覆盖），引导去排期页
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('追剧模式'),
+        content: const Text(
+          '课程由剧模型自动派生，直接编辑会被覆盖。\n请到追剧排期页添加或修改剧。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('去排期页'),
+          ),
+        ],
+      ),
+    );
+    if (go == true && mounted) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const TimetableAnimeEditorPage(),
+        ),
+      );
+    }
   }
 }
 
