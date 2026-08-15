@@ -7,6 +7,7 @@ import 'sicau_import_dialog.dart';
 import 'timetable_advanced_settings_page.dart';
 import 'timetable_anime_editor_page.dart';
 import 'timetable_anime_import_dialog.dart';
+import 'timetable_week_calculator.dart';
 import '../../../../widgets/theme/zen_theme.dart';
 
 /// 课表设置页 —— 第一层：模式选择 + 数据来源预设。
@@ -25,6 +26,7 @@ class _TimetableSettingsPageState
     extends ConsumerState<TimetableSettingsPage> {
   late bool _isSchoolMode;
   late bool _isAnimeMode;
+  late final TextEditingController _startDateController;
 
   @override
   void initState() {
@@ -32,18 +34,37 @@ class _TimetableSettingsPageState
     final config = ref.read(TimetableStore.provider).config;
     _isSchoolMode = config.isSchoolMode;
     _isAnimeMode = config.isAnimeMode;
+    _startDateController = TextEditingController(text: config.startDateIso);
+  }
+
+  @override
+  void dispose() {
+    _startDateController.dispose();
+    super.dispose();
   }
 
   Future<void> _save() async {
     final store = ref.read(TimetableStore.provider.notifier);
+
+    // 课表模式 UX 自动化：通用原样保存；学校模式回退到最近周一（fr #2）
+    final rawStart = _startDateController.text.trim();
+    final startDateIso = resolveStartDateIso(
+      rawStart,
+      isSchoolMode: _isSchoolMode,
+    );
+    if (startDateIso != rawStart) {
+      _startDateController.text = startDateIso;
+    }
+
     await store.updateConfig(
+      startDateIso: startDateIso,
       isSchoolMode: _isSchoolMode,
       isAnimeMode: _isAnimeMode,
     );
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('模式已保存')));
+    ).showSnackBar(SnackBar(content: Text('设置已保存（起始日期 $startDateIso）')));
     Navigator.pop(context);
   }
 
@@ -141,6 +162,14 @@ class _TimetableSettingsPageState
             ),
           ),
           const SizedBox(height: 12),
+          // ── 起始日期（课表模式 UX 自动化，不在高级设置内）──
+          if (!_isAnimeMode) ...[
+            ZenSection(
+              title: '起始日期',
+              child: _buildDateField(),
+            ),
+            const SizedBox(height: 12),
+          ],
           // ── 数据来源（第一层预设）──
           _buildDataSourceSection(),
           const SizedBox(height: 12),
@@ -226,6 +255,88 @@ class _TimetableSettingsPageState
             secondary: true,
           ),
         ],
+      ),
+    );
+  }
+
+  /// 起始日期：通用模式单日期选择（原样保存）；学校模式周数推算/自动对齐周一
+  Widget _buildDateField() {
+    if (_isSchoolMode) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () async {
+          final date = await showDialog<String>(
+            context: context,
+            builder: (_) => const WeekCalculatorDialog(),
+          );
+          if (date != null) {
+            setState(() => _startDateController.text = date);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: zenCard(),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('起始日期（周一，周数推算自动对齐）', style: ZenText.label),
+                    const SizedBox(height: 2),
+                    Text(
+                      _startDateController.text,
+                      style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
+            ],
+          ),
+        ),
+      );
+    }
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: () async {
+        final current = DateTime.tryParse(_startDateController.text);
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: current ?? DateTime.now(),
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2035),
+          helpText: '选择开始日期',
+        );
+        if (picked == null) return;
+        final iso = picked.toIso8601String().split('T')[0];
+        setState(() => _startDateController.text = iso);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: zenCard(),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('起始日期', style: ZenText.label),
+                  const SizedBox(height: 2),
+                  Text(
+                    _startDateController.text,
+                    style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
+          ],
+        ),
       ),
     );
   }

@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'timetable_import_dialog.dart';
-import 'timetable_week_calculator.dart';
 import '../../../../../widgets/theme/zen_theme.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
@@ -21,7 +20,6 @@ class TimetableAdvancedSettingsPage extends ConsumerStatefulWidget {
 
 class _TimetableAdvancedSettingsPageState
     extends ConsumerState<TimetableAdvancedSettingsPage> {
-  late final TextEditingController _startDateController;
   late int _cycleCount;
   late int _daysPerCycle;
   late int _slotsPerDay;
@@ -35,7 +33,6 @@ class _TimetableAdvancedSettingsPageState
   void initState() {
     super.initState();
     final config = ref.read(TimetableStore.provider).config;
-    _startDateController = TextEditingController(text: config.startDateIso);
     _cycleCount = config.cycleCount;
     _daysPerCycle = config.daysPerCycle;
     _slotsPerDay = config.slotsPerDay;
@@ -72,7 +69,6 @@ class _TimetableAdvancedSettingsPageState
 
   @override
   void dispose() {
-    _startDateController.dispose();
     super.dispose();
   }
 
@@ -80,22 +76,11 @@ class _TimetableAdvancedSettingsPageState
     final store = ref.read(TimetableStore.provider.notifier);
     final config = ref.read(TimetableStore.provider).config;
 
-    // 通用模式原样保存；学校模式回退到最近周一（fr #2）
-    final rawStart = _startDateController.text.trim();
-    final startDateIso = resolveStartDateIso(
-      rawStart,
-      isSchoolMode: config.isSchoolMode,
-    );
-    if (startDateIso != rawStart) {
-      _startDateController.text = startDateIso;
-    }
-
     // 学校模式下强制 daysPerCycle = 7
     final daysToSave = config.isSchoolMode ? 7 : _daysPerCycle;
 
     _ensureSlotLists();
     final error = await store.updateConfig(
-      startDateIso: startDateIso,
       cycleCount: _cycleCount,
       daysPerCycle: daysToSave,
       slotsPerDay: _slotsPerDay,
@@ -114,7 +99,7 @@ class _TimetableAdvancedSettingsPageState
     } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('高级设置已保存（起始日期 $startDateIso）')));
+      ).showSnackBar(const SnackBar(content: Text('高级设置已保存')));
       Navigator.pop(context);
     }
   }
@@ -193,14 +178,6 @@ class _TimetableAdvancedSettingsPageState
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── 起始日期 ──
-          ZenSection(
-            title: '起始日期',
-            child: isSchoolMode
-                ? _buildSchoolDateField()
-                : _buildGeneralDateField(),
-          ),
-          const SizedBox(height: 12),
           // ── 周期配置（非常用数字配置）──
           ZenSection(
             title: '周期配置',
@@ -342,90 +319,7 @@ class _TimetableAdvancedSettingsPageState
     );
   }
 
-  /// 通用模式：单个日期入口
-  Widget _buildGeneralDateField() {
-    return InkWell(
-      borderRadius: BorderRadius.circular(6),
-      onTap: () async {
-        final current = DateTime.tryParse(_startDateController.text);
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: current ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2035),
-          helpText: '选择开始日期',
-        );
-        if (picked == null) return;
-        final iso = picked.toIso8601String().split('T')[0];
-        setState(() => _startDateController.text = iso);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: zenCard(),
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('起始日期', style: ZenText.label),
-                  const SizedBox(height: 2),
-                  Text(
-                    _startDateController.text,
-                    style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 学校模式：周数推算 / 选日期自动对齐周一
-  Widget _buildSchoolDateField() {
-    return InkWell(
-      borderRadius: BorderRadius.circular(6),
-      onTap: () async {
-        final date = await showDialog<String>(
-          context: context,
-          builder: (_) => const WeekCalculatorDialog(),
-        );
-        if (date != null) {
-          setState(() => _startDateController.text = date);
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: zenCard(),
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('起始日期（周一）', style: ZenText.label),
-                  const SizedBox(height: 2),
-                  Text(
-                    _startDateController.text,
-                    style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
+  /// 时间段模式：每节开始时间输入（HH:mm）
   Widget _buildTimeFields() {
     _ensureSlotLists();
     return Column(
