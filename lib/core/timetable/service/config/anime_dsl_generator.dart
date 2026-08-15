@@ -228,7 +228,6 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
   // 3+4+5. 每部剧落位 + 周期总数
   final items = <CourseItem>[];
   var maxCycles = 1;
-  var duration = series.isEmpty ? 45 : series.first.durationMin;
   for (var idx = 0; idx < series.length; idx++) {
     final s = series[idx];
 
@@ -258,7 +257,6 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
     final group = s.time.isEmpty
         ? groupIndexOf['untimed_$idx']!
         : groupIndexOf['timed_$idx']!;
-    if (s.durationMin != 45 && duration == 45) duration = s.durationMin;
 
     items.add(CourseItem(
       id: 'anime_${s.title}_${group}_$now',
@@ -276,7 +274,9 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
     ));
   }
 
-  // config
+  // config：左侧用「自定义标签」模型（leftLabelMode=2 + slotLabels），
+  // 每个 slot 标签就是该剧的开始时间标识（HH:mm / HH:mm (N)），
+  // 不走时间段模型（mode=1 需要 slotStartTimes+duration 拼开始/结束）
   final config = TimetableConfig(
     startDateIso: startDateIso,
     cycleCount: maxCycles,
@@ -284,16 +284,15 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
     slotsPerDay: slotCount,
     isSchoolMode: false,
     isAnimeMode: true,
-    leftLabelMode: 1,
-    slotStartTimes: slotLabels,
-    slotDurationMin: duration,
+    leftLabelMode: 2,
+    slotLabels: slotLabels,
   );
 
   // DSL 文本（config 段 + 课程行 w 范围）
   final buffer = StringBuffer();
   buffer.writeln(
     'config: days=7 slots=$slotCount cycles=$maxCycles '
-    'start=$startDateIso mode=anime left=1 duration=$duration',
+    'start=$startDateIso mode=anime left=2',
   );
   buffer.writeln('# 追剧模式自动生成：${series.length} 部剧 · 起始 $startDateIso · 共 $maxCycles 周');
   buffer.writeln('');

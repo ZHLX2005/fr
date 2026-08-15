@@ -30,7 +30,7 @@
 2. 起始日期 = 所有合法 startDateIso 中最早那天对齐周一；全部为空/非法时回退本周一（修复 Slime 等 startDateIso=null 触发的 `DateTime.parse` 崩溃）
 3. 每部剧 dayOfCycle 优先由 startDateIso 推算（weekday 字段冗余但保留兼容）；weekOffset = (start - anchor_monday).inDays ~/ 7；空 startDate 时 weekOffset=0
 4. cycleCount = 最长覆盖（自动膨胀/收缩，无需手动配置周期）
-5. 输出 config（daysPerCycle=7 / leftLabelMode=1 / slotStartTimes / slotDurationMin）+ items + DSL 文本（可回灌 parseDsl 还原，有单测闭环）
+5. 输出 config（daysPerCycle=7 / **leftLabelMode=2 + slotLabels**：左侧 cell 为自定义标签模型，标签=开始时间标识，不走时间段模型拼结束时间；fr 28）+ items + DSL 文本（可回灌 parseDsl 还原，有单测闭环）
 
 `backfillStartDate(currentEpisode, weekday)`：当前第 N 期 → 从最近播出日回推 (N-1) 周（反推开播日期）。
 
@@ -60,7 +60,7 @@ abstract class AnimeSourceAdapter {
 ## 高级设置与剧模式的关系
 
 - 剧模式的行列周期全部自动派生，**不需要**高级设置页的周期/日期配置（高级设置只服务学校/通用）
-- 追剧模式下高级设置仍可调左侧指示显示控制（leftLabelMode 已由生成器设为时间段模式，可在高级设置微调宽度）
+- 追剧模式下高级设置仍可调左侧指示显示控制（leftLabelMode 已由生成器设为自定义标签模式，标签=开始时间；可在高级设置微调宽度）
 
 ## 追剧专项错误案例
 

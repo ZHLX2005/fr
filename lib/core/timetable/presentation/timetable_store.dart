@@ -392,9 +392,8 @@ class TimetableStore extends StateNotifier<TimetableState> {
       slotsPerDay: result.config.slotsPerDay,
       isSchoolMode: false,
       isAnimeMode: true,
-      leftLabelMode: 1,
-      slotStartTimes: result.config.slotStartTimes,
-      slotDurationMin: result.config.slotDurationMin,
+      leftLabelMode: 2, // 自定义左侧 cell：标签=开始时间标识（fr 28）
+      slotLabels: result.config.slotLabels,
     );
     await clearAllItems();
     final grouped = <String, List<CourseItem>>{};

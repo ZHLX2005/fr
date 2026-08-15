@@ -128,9 +128,10 @@ void main() {
       expect(result.config.slotsPerDay, 1);
       expect(result.config.cycleCount, 10);
       expect(result.config.isAnimeMode, true);
-      expect(result.config.leftLabelMode, 1);
-      expect(result.config.slotStartTimes, ['11:00']);
-      expect(result.config.slotDurationMin, 60);
+      // 左侧 cell = 自定义标签模型（非时间段模型），标签即开始时间（fr 28）
+      expect(result.config.leftLabelMode, 2);
+      expect(result.config.slotLabels, ['11:00']);
+      expect(result.config.slotStartTimes, isNull);
       expect(result.config.startDateIso, '2026-08-10'); // 对齐周一
       expect(result.items, hasLength(1));
       expect(result.items.first.dayOfCycle, 5); // 周六
@@ -157,7 +158,7 @@ void main() {
         ),
       ]);
       expect(result.config.slotsPerDay, 2); // 竖直两个 cell
-      expect(result.config.slotStartTimes, ['11:00', '23:00']);
+      expect(result.config.slotLabels, ['11:00', '23:00']);
       expect(result.config.cycleCount, 16); // 2+15-1 = 16 周
       expect(result.items, hasLength(2));
       // 时间组：a → slot0, b → slot1
@@ -203,7 +204,7 @@ void main() {
       // 4 部独立 cell：周一 20:00 两部加 (1)(2)；周三 20:00 纯净；周六 22:00 纯净
       expect(result.config.slotsPerDay, 4);
       expect(
-        result.config.slotStartTimes,
+        result.config.slotLabels,
         ['20:00 (1)', '20:00 (2)', '20:00', '22:00'],
       );
       expect(result.items.map((i) => i.slotIndex).toSet(), {0, 1, 2, 3});
@@ -230,7 +231,7 @@ void main() {
       ]);
       // 不应抛异常，且生成有效 DSL
       expect(result.config.slotsPerDay, 1);
-      expect(result.config.slotStartTimes, ['23:00']);
+      expect(result.config.slotLabels, ['23:00']);
       expect(result.items, hasLength(1));
       expect(result.items.first.dayOfCycle, 4); // weekday=5 → Fri → index 4
       expect(result.items.first.visibleInCycles, List.generate(24, (i) => i));
@@ -333,8 +334,8 @@ void main() {
       expect(b.slotIndex, 1);
       expect(c.slotIndex, 2);
       expect(d.slotIndex, 3); // 有时间的排最后
-      // 未补时间组 slotStartTimes 留空 → 渲染回退节次序号 1/2/3
-      expect(result.config.slotStartTimes, ['', '', '', '22:00']);
+      // 未补时间组 slotLabels 留空 → 渲染回退节次序号 1/2/3
+      expect(result.config.slotLabels, ['', '', '', '22:00']);
       expect(a.location, contains('时间待补'));
       expect(d.location, contains('22:00'));
     });
@@ -358,7 +359,7 @@ void main() {
       ]);
       expect(result.config.slotsPerDay, 2);
       expect(result.items.map((i) => i.slotIndex).toSet(), {0, 1});
-      expect(result.config.slotStartTimes, ['', '']);
+      expect(result.config.slotLabels, ['', '']);
     });
 
     test('早于周一的开始日期也回退到周一（跨周安全）', () {
