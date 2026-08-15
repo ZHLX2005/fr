@@ -126,24 +126,35 @@ class AnimeDslResult {
 /// 根据剧列表自动生成稳定的课表配置 + 课程 + DSL 文本。
 ///
 /// 算法（纯函数，无 I/O）：
-/// 1. 播出时间分组：相同 "HH:mm" 归为同一竖直 cell（slot），按时间升序编号
+/// 1. 时间分组：相同 "HH:mm" 归为同一竖直 cell（slot），按时间升序编号；
+///    未补时间的剧（time 为空，多来自 API 导入）每部独立扩容一个 cell，
+///    按输入顺序编号排在有时间各组之前，避免同 cell 堆叠不可读
 /// 2. 起始日期 = 最早开播日期所在周的周一（自动对齐周一）
 /// 3. 每部剧按开始周落位：visibleInCycles = [开始周 .. 开始周+期数-1]
 /// 4. 周期总数 = 所有剧覆盖的最大周数（自动膨胀/收缩，无需手动配置）
-/// 5. 一周 7 天；左侧指示 = 时间段模式（slotStartTimes 来自各时间组）
+/// 5. 一周 7 天；左侧指示 = 时间段模式（slotStartTimes 来自各时间组，
+///    空 time 组留空 → 渲染回退为节次序号）
 /// 6. 输出 DSL 文本（config 段 + 课程行 w 范围），可回灌 parseDsl 还原
 AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
   final now = DateTime.now().millisecondsSinceEpoch;
 
-  // 1. 时间分组（按 "HH:mm" 升序）
-  final times = <String>{};
+  // 1. 时间分组：未补时间的剧独立成组（输入顺序在前），
+  //    有时间的按 "HH:mm" 去重升序在后
+  final timeSet = <String>{};
   for (final s in series) {
-    times.add(s.time);
+    if (s.time.isNotEmpty) timeSet.add(s.time);
   }
-  final sortedTimes = times.toList()..sort();
-  final groupIndexOf = <String, int>{
-    for (var i = 0; i < sortedTimes.length; i++) sortedTimes[i]: i,
-  };
+  final sortedTimes = timeSet.toList()..sort();
+  final groupIndexOf = <String, int>{};
+  // 未补时间的剧：以输入序号为 key，各占一组
+  for (var i = 0; i < series.length; i++) {
+    if (series[i].time.isEmpty) groupIndexOf['untimed_$i'] = groupIndexOf.length;
+  }
+  // 有时间的剧：按时间归组
+  for (final t in sortedTimes) {
+    groupIndexOf[t] = groupIndexOf.length;
+  }
+  final slotCount = groupIndexOf.length;
 
   // 2. 起始日期对齐周一
   final earliestStart = series
@@ -158,9 +169,10 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
   // 3+4. 每部剧落位 + 周期总数
   final items = <CourseItem>[];
   var maxCycles = 1;
-  final startTimes = List<String>.filled(sortedTimes.length, '');
+  final startTimes = List<String>.filled(slotCount, '');
   var duration = series.isEmpty ? 45 : series.first.durationMin;
-  for (final s in series) {
+  for (var idx = 0; idx < series.length; idx++) {
+    final s = series[idx];
     final start = DateTime.parse(s.startDateIso);
     final dayOffset = start.difference(monday).inDays;
     final weekOffset = dayOffset < 0 ? 0 : dayOffset ~/ 7;
@@ -171,7 +183,9 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
     final endCycle = weekOffset + s.episodes;
     if (endCycle > maxCycles) maxCycles = endCycle;
 
-    final group = groupIndexOf[s.time]!;
+    final group = s.time.isEmpty
+        ? groupIndexOf['untimed_$idx']!
+        : groupIndexOf[s.time]!;
     if (startTimes[group].isEmpty) startTimes[group] = s.time;
     if (s.durationMin != 45 && duration == 45) duration = s.durationMin;
 
@@ -180,7 +194,9 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
       dayOfCycle: s.weekday - 1,
       slotIndex: group,
       title: s.title,
-      location: '${s.time} 更新 · ${s.episodes}期',
+      location: s.time.isEmpty
+          ? '时间待补 · ${s.episodes}期'
+          : '${s.time} 更新 · ${s.episodes}期',
       colorSeed: (s.title.hashCode.abs() % 1000),
       version: 1,
       visibleInCycles: cycles,
@@ -194,7 +210,7 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
     startDateIso: startDateIso,
     cycleCount: maxCycles,
     daysPerCycle: 7,
-    slotsPerDay: sortedTimes.length,
+    slotsPerDay: slotCount,
     isSchoolMode: false,
     isAnimeMode: true,
     leftLabelMode: 1,
@@ -205,7 +221,7 @@ AnimeDslResult buildAnimeDsl(List<AnimeSeriesInput> series) {
   // DSL 文本（config 段 + 课程行 w 范围）
   final buffer = StringBuffer();
   buffer.writeln(
-    'config: days=7 slots=${sortedTimes.length} cycles=$maxCycles '
+    'config: days=7 slots=$slotCount cycles=$maxCycles '
     'start=$startDateIso mode=anime left=1 duration=$duration',
   );
   buffer.writeln('# 追剧模式自动生成：${series.length} 部剧 · 起始 $startDateIso · 共 $maxCycles 周');

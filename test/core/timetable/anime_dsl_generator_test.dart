@@ -170,6 +170,75 @@ void main() {
       );
     });
 
+    test('无时间的剧独立扩容 cell，按输入顺序排在有时间各组之前', () {
+      // API 导入的 A/B/C 无时间 + 自定义 D 有时间 → 共 4 个 slot
+      final result = buildAnimeDsl([
+        AnimeSeriesInput(
+          title: 'A',
+          startDateIso: '2026-08-10',
+          weekday: 1,
+          time: '', // 未补时间
+          episodes: 12,
+        ),
+        AnimeSeriesInput(
+          title: 'B',
+          startDateIso: '2026-08-10',
+          weekday: 1,
+          time: '',
+          episodes: 12,
+        ),
+        AnimeSeriesInput(
+          title: 'C',
+          startDateIso: '2026-08-10',
+          weekday: 1,
+          time: '',
+          episodes: 12,
+        ),
+        AnimeSeriesInput(
+          title: 'D',
+          startDateIso: '2026-08-10',
+          weekday: 1,
+          time: '22:00',
+          episodes: 12,
+        ),
+      ]);
+      expect(result.config.slotsPerDay, 4);
+      final a = result.items.firstWhere((i) => i.title == 'A');
+      final b = result.items.firstWhere((i) => i.title == 'B');
+      final c = result.items.firstWhere((i) => i.title == 'C');
+      final d = result.items.firstWhere((i) => i.title == 'D');
+      expect(a.slotIndex, 0); // 输入顺序 1,2,3
+      expect(b.slotIndex, 1);
+      expect(c.slotIndex, 2);
+      expect(d.slotIndex, 3); // 有时间的排最后
+      // 未补时间组 slotStartTimes 留空 → 渲染回退节次序号 1/2/3
+      expect(result.config.slotStartTimes, ['', '', '', '22:00']);
+      expect(a.location, contains('时间待补'));
+      expect(d.location, contains('22:00'));
+    });
+
+    test('全部无时间：每部独立 cell 且标签全空回退序号', () {
+      final result = buildAnimeDsl([
+        AnimeSeriesInput(
+          title: 'A',
+          startDateIso: '2026-08-10',
+          weekday: 2,
+          time: '',
+          episodes: 10,
+        ),
+        AnimeSeriesInput(
+          title: 'B',
+          startDateIso: '2026-08-10',
+          weekday: 5,
+          time: '',
+          episodes: 10,
+        ),
+      ]);
+      expect(result.config.slotsPerDay, 2);
+      expect(result.items.map((i) => i.slotIndex).toSet(), {0, 1});
+      expect(result.config.slotStartTimes, ['', '']);
+    });
+
     test('早于周一的开始日期也回退到周一（跨周安全）', () {
       final result = buildAnimeDsl([
         AnimeSeriesInput(
