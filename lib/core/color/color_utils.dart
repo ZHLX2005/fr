@@ -40,4 +40,14 @@ class ColorUtils {
       blend((a.b * 255).round(), (b.b * 255).round()),
     );
   }
+
+  /// 降低颜色饱和度（HSL 层），保留色相、明度与 alpha。
+  ///
+  /// [factor] 为饱和度乘数，会被 clamp 到 0.0..1.0。
+  /// 0.85 表示饱和度降低约 15%。
+  static Color desaturate(Color c, {double factor = 0.85}) {
+    final f = factor.clamp(0.0, 1.0);
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withSaturation((hsl.saturation * f).clamp(0.0, 1.0)).toColor();
+  }
 }
