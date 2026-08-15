@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../fr_route_handler.dart';
 import '../../../lab/demos/recorder/recorder_page.dart'
     show RecorderDemoPage;
-import '../../../lab/demos/recorder/recorder_demo.dart'
+import '../../../lab/demos/recorder_demo.dart'
     show markRecorderAutoStart;
 
 /// fr://lab/demo/recorder?autostart={true|false} → 录音机 Demo

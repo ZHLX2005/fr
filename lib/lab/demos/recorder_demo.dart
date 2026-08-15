@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../lab_container.dart';
-import 'recorder_page.dart';
+import '../lab_container.dart';
+import 'recorder/recorder_page.dart';
 
 // re-export 控制器常量供 widget 入口 / handler 引用,
 // 避免 handler / page 重复写 enum。
-export 'const_recorder.dart' show RecorderState, RecorderPermissionStatus;
-export 'recorder_page.dart' show recorderPageKey, markRecorderAutoStart, recorderAutoStartPending;
+export 'recorder/const_recorder.dart' show RecorderState, RecorderPermissionStatus;
+export 'recorder/recorder_page.dart' show recorderPageKey, markRecorderAutoStart, recorderAutoStartPending;
 // RecorderController 不在 export 列表 —— 避免 handler 引入 controller 拖入
 // 整个录音栈(权限/文件系统),handler 只关心 key + autostart flag。
 

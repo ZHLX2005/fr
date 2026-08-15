@@ -5,15 +5,15 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/theme/zen_theme.dart';
-import '../../lab_container.dart';
-import 'calc_view.dart';
-import 'const_relation_calc.dart';
-import 'kinship_preset.dart';
-import 'manage_view.dart';
-import 'preset_view.dart';
-import 'relation_calc_models.dart';
-import 'relation_calc_store.dart';
+import '../../widgets/theme/zen_theme.dart';
+import '../lab_container.dart';
+import 'relation_calc/calc_view.dart';
+import 'relation_calc/const_relation_calc.dart';
+import 'relation_calc/kinship_preset.dart';
+import 'relation_calc/manage_view.dart';
+import 'relation_calc/preset_view.dart';
+import 'relation_calc/relation_calc_models.dart';
+import 'relation_calc/relation_calc_store.dart';
 
 /// Demo 注册。
 class RelationCalcDemo extends DemoPage {
@@ -27,7 +27,11 @@ class RelationCalcDemo extends DemoPage {
   String get description => RelationCalcConsts.demoDescription;
 
   @override
+  bool get preferFullScreen => true;
+
+  @override
   Widget buildPage(BuildContext context) => const RelationCalcPage();
+
 }
 
 void registerRelationCalcDemo() {
