@@ -335,12 +335,6 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                         ? BoxDecoration(
                             color: TimetableColors.sage.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border(
-                              top: BorderSide(
-                                color: TimetableColors.sage,
-                                width: 3,
-                              ),
-                            ),
                           )
                         : null,
                     alignment: Alignment.center,
