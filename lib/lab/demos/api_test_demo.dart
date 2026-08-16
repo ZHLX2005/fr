@@ -142,6 +142,28 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
+  /// 切换自动下载开关
+  Future<void> _toggleAutoDownload(bool enabled) async {
+    await _apkManager.setAutoDownloadEnabled(enabled);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            enabled
+                ? '已开启自动下载：启动 App 时自动检查新版本'
+                : '已关闭自动下载',
+          ),
+        ),
+      );
+    }
+  }
+
+  /// 把 APK 上传时间格式化成"YYYY-MM-DD HH:MM"短串。空值返回占位符。
+  String _fmtTime(String? s) {
+    if (s == null || s.isEmpty) return '—';
+    return s.length >= 16 ? s.substring(0, 16) : s;
+  }
+
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
@@ -283,6 +305,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                         ),
                         const SizedBox(height: 16),
                       ],
+                      // 自动下载设置 + 版本槽位
+                      _buildAutoDownloadCard(apkState),
+                      const SizedBox(height: 16),
                       // 状态信息
                       if (apkState.statusMessage != null) ...[
                         Container(
@@ -462,6 +487,137 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           ),
         );
       },
+    );
+  }
+
+  /// 自动下载设置卡：Switch 切换开关 + 显示"已记录的最新上传时间"和"已见过的版本"
+  Widget _buildAutoDownloadCard(ApkDownloadState apkState) {
+    final isOn = apkState.autoDownloadOnUpdate;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isOn
+            ? Colors.teal.withValues(alpha: 0.08)
+            : Colors.grey.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isOn
+              ? Colors.teal.withValues(alpha: 0.45)
+              : Colors.grey.withValues(alpha: 0.30),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 顶部：Switch + 标题 + 说明
+          Row(
+            children: [
+              Icon(
+                isOn ? Icons.bolt : Icons.power_settings_new,
+                size: 20,
+                color: isOn ? Colors.teal : Colors.grey[600],
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '自动下载新版本',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+              ),
+              Switch(
+                value: isOn,
+                onChanged: apkState.isDownloading || apkState.isPaused
+                    ? null
+                    : _toggleAutoDownload,
+                activeThumbColor: Colors.teal,
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Text(
+              isOn
+                  ? '下次启动 App 时自动检查，发现新版本立即下载'
+                  : '关闭后只在手动点击"检查更新"时触发',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // 槽位：服务器最新上传时间（已记录）
+          Row(
+            children: [
+              const Icon(Icons.schedule, size: 14, color: Colors.grey),
+              const SizedBox(width: 6),
+              const Text(
+                '服务器最新版本',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: Colors.blue.withValues(alpha: 0.35),
+                      width: 1),
+                ),
+                child: Text(
+                  _fmtTime(apkState.apkUpdateTime),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 槽位：已下载/已见过的版本时间
+          Row(
+            children: [
+              const Icon(Icons.history, size: 14, color: Colors.grey),
+              const SizedBox(width: 6),
+              const Text(
+                '本地已处理版本',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: apkState.lastSeenUploadTime != null
+                      ? Colors.green.withValues(alpha: 0.10)
+                      : Colors.grey.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: apkState.lastSeenUploadTime != null
+                        ? Colors.green.withValues(alpha: 0.35)
+                        : Colors.grey.withValues(alpha: 0.35),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  apkState.lastSeenUploadTime != null
+                      ? _fmtTime(apkState.lastSeenUploadTime)
+                      : '尚未下载',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: apkState.lastSeenUploadTime != null
+                        ? Colors.green[700]
+                        : Colors.grey[600],
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

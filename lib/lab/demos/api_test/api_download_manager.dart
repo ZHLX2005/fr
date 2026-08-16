@@ -19,6 +19,14 @@ class ApkDownloadState {
   final String? downloadedPath;
   final int? downloadedSize;
 
+  /// 是否启用"自动下载新版本"（持久化到 SharedPreferences）
+  final bool autoDownloadOnUpdate;
+
+  /// 最近一次"已成功下载/已见过"的服务器上传时间（UTC ISO 串）。
+  /// 与 [apkUpdateTime] 的区别：apkUpdateTime 是服务器最新值（每次 checkUpdate 刷新），
+  /// lastSeenUploadTime 是"已经处理过"的值，用于判断是否需要再次触发自动下载。
+  final String? lastSeenUploadTime;
+
   const ApkDownloadState({
     this.isCheckingUpdate = false,
     this.isDownloading = false,
@@ -31,6 +39,8 @@ class ApkDownloadState {
     this.apkUpdateTime,
     this.downloadedPath,
     this.downloadedSize,
+    this.autoDownloadOnUpdate = false,
+    this.lastSeenUploadTime,
   });
 
   /// 是否处于"忙碌"状态（下载中或暂停中），用于在 UI 上保留进度条
@@ -48,6 +58,8 @@ class ApkDownloadState {
     String? apkUpdateTime,
     String? downloadedPath,
     int? downloadedSize,
+    bool? autoDownloadOnUpdate,
+    String? lastSeenUploadTime,
   }) {
     return ApkDownloadState(
       isCheckingUpdate: isCheckingUpdate ?? this.isCheckingUpdate,
@@ -61,6 +73,8 @@ class ApkDownloadState {
       apkUpdateTime: apkUpdateTime ?? this.apkUpdateTime,
       downloadedPath: downloadedPath ?? this.downloadedPath,
       downloadedSize: downloadedSize ?? this.downloadedSize,
+      autoDownloadOnUpdate: autoDownloadOnUpdate ?? this.autoDownloadOnUpdate,
+      lastSeenUploadTime: lastSeenUploadTime ?? this.lastSeenUploadTime,
     );
   }
 }
@@ -87,6 +101,13 @@ class ApkDownloadManager {
   static const _kApkMetadataKey = 'apk_metadata';
   static const _kApkUpdateTimeKey = 'apk_update_time';
   static const _kApkPausedTotalKey = 'apk_paused_total_bytes';
+
+  /// 自动下载开关：true → 应用启动时自动 checkUpdate，发现新版本自动下载
+  static const _kAutoDownloadEnabledKey = 'apk_auto_download_enabled';
+
+  /// 已成功下载/已见过的服务器上传时间（UTC ISO 串）。用于和下次 checkUpdate
+  /// 的 apkUpdateTime 比较，若不同则触发自动下载。
+  static const _kLastSeenUploadTimeKey = 'apk_last_seen_upload_time';
 
   /// 是否使用 Android Foreground Service 后台下载
   bool _useBgMode() => Platform.isAndroid;
@@ -132,6 +153,7 @@ class ApkDownloadManager {
           final size = (data['size'] as num?)?.toInt();
           if (path != null && size != null) {
             _saveDownloadedApk(path, size);
+            _markLatestVersionSeen();
             state.value = state.value.copyWith(
               isDownloading: false,
               isPaused: false,
@@ -179,6 +201,8 @@ class ApkDownloadManager {
       apkMetadata: prefs.getString(_kApkMetadataKey),
       // 持久化的是 UTC 串，读回时同样要转本地时区，否则重启后仍差 8 小时。
       apkUpdateTime: _formatLocalTime(prefs.getString(_kApkUpdateTimeKey)),
+      autoDownloadOnUpdate: prefs.getBool(_kAutoDownloadEnabledKey) ?? false,
+      lastSeenUploadTime: prefs.getString(_kLastSeenUploadTimeKey),
     );
 
     // Android + 临时文件存在 → 检测后台服务是否正在运行
@@ -238,6 +262,11 @@ class ApkDownloadManager {
   }
 
   /// 检查 APK 更新
+  ///
+  /// 额外职责：若 [ApkDownloadState.autoDownloadOnUpdate] = true 且服务器
+  /// uploadTime 与 [ApkDownloadState.lastSeenUploadTime] 不同，会自动调用
+  /// [startDownload] 启动下载，无需用户手动操作。下载完成后由
+  /// `_markLatestVersionSeen()` 记录已见版本。
   Future<void> checkUpdate() async {
     state.value = state.value.copyWith(
       isCheckingUpdate: true,
@@ -265,12 +294,72 @@ class ApkDownloadManager {
         apkUpdateTime: timeStr.isNotEmpty ? timeStr : updateTime,
         statusMessage: status,
       );
+
+      // 自动下载：开关开启 + 还没有下载过这个版本 + 当前没有正在进行的下载
+      final s = state.value;
+      final shouldAuto = s.autoDownloadOnUpdate &&
+          updateTime != null &&
+          updateTime.isNotEmpty &&
+          updateTime != s.lastSeenUploadTime &&
+          !s.isDownloading &&
+          !s.isPaused &&
+          s.downloadedPath == null;
+      if (shouldAuto) {
+        // 不 await：让 UI 立即恢复，避免阻塞 checkUpdate 的状态更新
+        unawaited(startDownload());
+      }
     } else {
       state.value = state.value.copyWith(
         isCheckingUpdate: false,
         statusMessage: '未找到APK或服务器错误',
       );
     }
+  }
+
+  /// 应用启动时调用：若开关开启，与上次"已见版本"对比，发现新版本自动下载。
+  ///
+  /// 不阻塞 main() — fire-and-forget。结果通过 [ApkDownloadState] 暴露，
+  /// UI（Lab → API 测试页面）能看到"下载中"等状态。
+  Future<void> autoCheckAndDownloadOnStartup() async {
+    // 先确保状态已加载（lastSeenUploadTime / autoDownloadOnUpdate 已 hydrate）
+    if (!state.value.autoDownloadOnUpdate) return;
+    // 如果已经有"正在进行的下载"或"已下载完成"的 APK，不必重复触发
+    if (state.value.isDownloading ||
+        state.value.isPaused ||
+        state.value.downloadedPath != null) {
+      return;
+    }
+    try {
+      await checkUpdate();
+    } catch (_) {
+      // 静默失败 — 启动期检查不应阻塞或弹错
+    }
+  }
+
+  /// 设置自动下载开关（持久化）
+  Future<void> setAutoDownloadEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kAutoDownloadEnabledKey, enabled);
+    state.value = state.value.copyWith(autoDownloadOnUpdate: enabled);
+  }
+
+  /// 把当前服务器 uploadTime 标记为"已见过"。
+  /// - bgService 'completed' 回调中调用（成功路径）
+  /// - 原生下载成功后调用（成功路径）
+  /// 不在 checkUpdate 中调用：checkUpdate 只是发现版本，下载成功才是真正"处理过"
+  Future<void> _markLatestVersionSeen() async {
+    final uploadTime = state.value.apkUpdateTime;
+    // 注意：state.apkUpdateTime 已经是本地化字符串，不能直接当 key 使用，
+    // 所以用 SharedPreferences 里持久化的 UTC 串（_kApkUpdateTimeKey）。
+    final prefs = await SharedPreferences.getInstance();
+    final utc = prefs.getString(_kApkUpdateTimeKey);
+    if (utc == null || utc.isEmpty) return;
+    await prefs.setString(_kLastSeenUploadTimeKey, utc);
+    state.value = state.value.copyWith(
+      lastSeenUploadTime: _formatLocalTime(utc),
+    );
+    // uploadTime 仅用于抑制 lint
+    assert(uploadTime != null);
   }
 
   /// 开始/继续下载 APK
@@ -346,6 +435,7 @@ class ApkDownloadManager {
         if (await file.exists()) {
           final size = await file.length();
           await _saveDownloadedApk(filePath, size);
+          await _markLatestVersionSeen();
           final prefs = await SharedPreferences.getInstance();
           await prefs.remove(_kApkPausedTotalKey);
           state.value = state.value.copyWith(

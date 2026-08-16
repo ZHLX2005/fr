@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
@@ -22,6 +23,7 @@ import 'core/note/note_root_scope.dart';
 import 'core/share_receive/share_receive_store.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
+import 'lab/demos/api_test/api_download_manager.dart';
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +31,10 @@ void main() async {
 
   // 初始化 APK 后台下载服务（Android Foreground Service）
   await ApkDownloadService().initialize();
+
+  // APK 自动下载生命周期：先 hydrate 状态（lastSeenUploadTime / autoDownloadEnabled）
+  // 再触发启动期检查；开关关闭时静默返回，不影响冷启动。
+  unawaited(_runApkAutoDownloadOnStartup());
 
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();
@@ -65,6 +71,25 @@ void main() async {
       ),
     ),
   );
+}
+
+/// APK 自动下载启动期检查（fire-and-forget，不阻塞 main）
+///
+/// 流程：
+/// 1) ApkDownloadManager().loadSavedState() — 从 SharedPreferences 读取
+///    lastSeenUploadTime / autoDownloadOnUpdate
+/// 2) autoCheckAndDownloadOnStartup() — 开关开启时调 checkUpdate()，
+///    与 lastSeenUploadTime 比对；不同则自动调 startDownload()。
+///
+/// 失败被 catch（无网/服务器异常都不应阻塞启动）。
+Future<void> _runApkAutoDownloadOnStartup() async {
+  try {
+    final mgr = ApkDownloadManager();
+    await mgr.loadSavedState();
+    await mgr.autoCheckAndDownloadOnStartup();
+  } catch (_) {
+    // 启动期检查静默失败，不抛、不日志阻塞
+  }
 }
 
 
