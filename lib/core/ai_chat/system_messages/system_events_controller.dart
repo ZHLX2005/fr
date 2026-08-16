@@ -24,10 +24,23 @@ class SystemEventsController extends ChangeNotifier {
 
   final List<SystemEventMessageData> _events = [];
 
+  /// 用户"最后已读"事件下标（含）。当用户在消息页打开时调用
+  /// [markAllRead]，未读徽章从 [_events.length - lastReadIndex] 计算。
+  /// 0 表示一条都没读过。
+  int _lastReadIndex = 0;
+
   /// 只读视图
   List<SystemEventMessageData> get events => List.unmodifiable(_events);
   bool get isEmpty => _events.isEmpty;
   int get length => _events.length;
+
+  /// 未读事件数 = 总数 - 已读下标。
+  /// 注意：append 时如果旧的 _lastReadIndex 已经被消费过，保留即可
+  /// （即用户"读到"之前的状态对新事件仍然有效）。
+  int get unreadCount {
+    final delta = _events.length - _lastReadIndex;
+    return delta < 0 ? 0 : delta;
+  }
 
   /// 把本地 DateTime 格式化成 "YYYY-MM-DDTHH:MM" 短串。
   String _formatTime(DateTime t) {
@@ -53,15 +66,27 @@ class SystemEventsController extends ChangeNotifier {
         );
     _events.add(entry);
     if (_events.length > _kMaxEvents) {
-      _events.removeRange(0, _events.length - _kMaxEvents);
+      // FIFO 截断最早的事件；如果截断点跨越了 _lastReadIndex，
+      // 把 _lastReadIndex 同步前移，保持"未读数"语义一致。
+      final drop = _events.length - _kMaxEvents;
+      _events.removeRange(0, drop);
+      _lastReadIndex = (_lastReadIndex - drop).clamp(0, _events.length);
     }
+    notifyListeners();
+  }
+
+  /// 用户进入消息页阅读完毕 → 调用此方法清零未读徽章。
+  void markAllRead() {
+    if (_lastReadIndex == _events.length) return;
+    _lastReadIndex = _events.length;
     notifyListeners();
   }
 
   /// 清空全部事件。
   void clear() {
-    if (_events.isEmpty) return;
+    if (_events.isEmpty && _lastReadIndex == 0) return;
     _events.clear();
+    _lastReadIndex = 0;
     notifyListeners();
   }
 

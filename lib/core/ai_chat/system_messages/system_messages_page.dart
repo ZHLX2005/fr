@@ -1,21 +1,37 @@
 // 系统消息独立页 —— 提供 fr:// 路由直达入口。
-// 主要挂在 AI 聊天设置页的第 4 个 Tab 里；保留独立页便于从其它路径
+// 主要挂在 AI 助手页的第 4 项"小助手"；保留独立页便于从其它路径
 // （桌面 widget / 通知中心）直接跳进来。
+//
+// 进入页面后调用 markAllRead() 清零未读徽章，让 HomePage 上的红点消失。
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'system_messages_panel.dart';
 import 'system_events_controller.dart';
 
-class SystemMessagesPage extends StatelessWidget {
+class SystemMessagesPage extends StatefulWidget {
   const SystemMessagesPage({super.key});
+
+  @override
+  State<SystemMessagesPage> createState() => _SystemMessagesPageState();
+}
+
+class _SystemMessagesPageState extends State<SystemMessagesPage> {
+  @override
+  void initState() {
+    super.initState();
+    // 进入即视为"已读"，清零 HomePage 红点
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      GetIt.instance<SystemEventsController>().markAllRead();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = GetIt.instance<SystemEventsController>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('系统消息'),
+        title: const Text('小助手 · 系统消息'),
         centerTitle: true,
         actions: [
           ListenableBuilder(

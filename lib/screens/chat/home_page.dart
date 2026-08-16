@@ -64,7 +64,7 @@ final List<AssistantEntry> _entries = [
     badgeBuilder: (context) => ListenableBuilder(
       listenable: SystemEventsController(),
       builder: (context, _) {
-        final n = SystemEventsController().length;
+        final n = SystemEventsController().unreadCount;
         if (n == 0) return const SizedBox.shrink();
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

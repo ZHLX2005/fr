@@ -659,8 +659,12 @@ class ApkDownloadManager {
         detail: detail,
         time: DateTime.now(),
       );
-    } catch (_) {
-      // GetIt 还没注册时（比如热重载瞬间）静默失败，不影响下载主流程
+      // 调试用：未读徽章逻辑验证。发布构建可在 dart_defines 加 NDEBUG 关闭。
+      // ignore: avoid_print
+      print('[sys-event] $eventType | $title');
+    } catch (e, st) {
+      // 不再静默：记到 debugPrint 便于排查"系统消息没出现"类 bug
+      debugPrint('[sys-event] FAILED to append: $eventType | $e\n$st');
     }
   }
 }
