@@ -26,6 +26,9 @@ class TimetableColors {
   static const Color accent = Color(0xFF6B7280); // 中性灰
   static const Color accentLight = Color(0xFF9CA3AF); // 浅灰
 
+  /// 鼠尾草绿 - "今天"列头高亮 / 主操作强调（与 ZenColors.sage 同色，课表域内复用）
+  static const Color sage = Color(0xFF7A9A7E);
+
   /// 选中状态背景 - 极淡灰色
   static const Color selectedBg = Color(0xFFF3F4F6);
 

@@ -280,6 +280,15 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
 
   /// 天数标题行 - 显示"第1天、第2天..."
   Widget _buildWeekdayHeader(ThemeData theme, TimetableConfig config) {
+    // 计算今天的全局 dayIndex（仅当今天在课表范围内时，列头才打"今天"标）
+    int? todayGlobalIndex;
+    final start = config.startDate;
+    final now = DateTime.now();
+    final todayOffset = now.difference(start).inDays;
+    if (todayOffset >= 0 && todayOffset < config.totalDays) {
+      todayGlobalIndex = todayOffset;
+    }
+
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -318,17 +327,33 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                   dayOfCycle,
                   config.daysPerCycle,
                 );
+                final isToday =
+                    todayGlobalIndex != null && globalDayIndex == todayGlobalIndex;
                 return Expanded(
                   child: Container(
+                    decoration: isToday
+                        ? BoxDecoration(
+                            color: TimetableColors.sage.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border(
+                              top: BorderSide(
+                                color: TimetableColors.sage,
+                                width: 3,
+                              ),
+                            ),
+                          )
+                        : null,
                     alignment: Alignment.center,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          '第${dayOfCycle + 1}天',
+                          isToday ? '今天' : '第${dayOfCycle + 1}天',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: TimetableColors.textPrimary,
-                            fontWeight: FontWeight.w600,
+                            color: isToday
+                                ? TimetableColors.sage
+                                : TimetableColors.textPrimary,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         Text(
@@ -337,8 +362,11 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                             globalDayIndex,
                           ),
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: TimetableColors.textTertiary,
+                            color: isToday
+                                ? TimetableColors.sage
+                                : TimetableColors.textTertiary,
                             fontSize: 10,
+                            fontWeight: isToday ? FontWeight.w600 : null,
                           ),
                         ),
                       ],
