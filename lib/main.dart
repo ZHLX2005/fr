@@ -20,6 +20,7 @@ import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
 import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
+import 'app_lifecycle/crash_log_startup_hook.dart';
 import 'app_lifecycle/main_screen.dart';
 
 void main() async {
@@ -33,6 +34,9 @@ void main() async {
   // APK 自动下载生命周期：先 hydrate 状态（lastSeenUploadTime / autoDownloadEnabled）
   // 再触发启动期检查；开关关闭时静默返回，不影响冷启动。
   unawaited(runApkAutoDownloadOnStartup());
+
+  // 崩溃日志摄入：启动时一次性把原生侧累积的 crash 日志导入系统消息面板。
+  unawaited(runCrashLogIntakeOnStartup());
 
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();

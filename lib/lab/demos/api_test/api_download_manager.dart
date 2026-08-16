@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/ai_chat/system_messages/system_events_controller.dart';
 import '../../../services/api_client.dart';
 import '../../../services/apk_download_service.dart';
 
@@ -162,6 +163,12 @@ class ApkDownloadManager {
               downloadedPath: path,
               downloadedSize: size,
             );
+            _emitSystemEvent(
+              eventType: 'auto_apk_download_completed',
+              title: 'APK 自动下载完成',
+              detail:
+                  '文件大小：${_formatFileSize(size)}\n路径：${path.split('/').last}',
+            );
           }
           _bgService.stopService();
           break;
@@ -170,6 +177,11 @@ class ApkDownloadManager {
             isDownloading: false,
             isPaused: false,
             statusMessage: '下载出错: ${data['message'] ?? ""}',
+          );
+          _emitSystemEvent(
+            eventType: 'auto_apk_download_failed',
+            title: '后台下载失败',
+            detail: '${data['message'] ?? "未知错误"}',
           );
           _bgService.stopService();
           break;
@@ -202,7 +214,9 @@ class ApkDownloadManager {
       // 持久化的是 UTC 串，读回时同样要转本地时区，否则重启后仍差 8 小时。
       apkUpdateTime: _formatLocalTime(prefs.getString(_kApkUpdateTimeKey)),
       autoDownloadOnUpdate: prefs.getBool(_kAutoDownloadEnabledKey) ?? false,
-      lastSeenUploadTime: prefs.getString(_kLastSeenUploadTimeKey),
+      // 与 apkUpdateTime 同源：SP 存 UTC 串，读回必须转本地，否则重启后差 8h
+      lastSeenUploadTime:
+          _formatLocalTime(prefs.getString(_kLastSeenUploadTimeKey)),
     );
 
     // Android + 临时文件存在 → 检测后台服务是否正在运行
@@ -305,14 +319,36 @@ class ApkDownloadManager {
           !s.isPaused &&
           s.downloadedPath == null;
       if (shouldAuto) {
+        _emitSystemEvent(
+          eventType: 'auto_apk_download_started',
+          title: '检测到新版本，启动自动下载',
+          detail: '服务器上传时间：${_formatLocalTime(updateTime)}',
+        );
         // 不 await：让 UI 立即恢复，避免阻塞 checkUpdate 的状态更新
         unawaited(startDownload());
+      } else if (s.autoDownloadOnUpdate &&
+          updateTime != null &&
+          updateTime == s.lastSeenUploadTime) {
+        // 开关开启但版本号没变 → 显式记录一条"已是最新"，避免用户怀疑自动
+        // 检查没工作（每次启动都看到这条就不会以为是 bug）
+        _emitSystemEvent(
+          eventType: 'auto_apk_check_no_update',
+          title: '已是最新版本',
+          detail: '上次下载版本：${_formatLocalTime(updateTime)}',
+        );
       }
     } else {
       state.value = state.value.copyWith(
         isCheckingUpdate: false,
         statusMessage: '未找到APK或服务器错误',
       );
+      if (state.value.autoDownloadOnUpdate) {
+        _emitSystemEvent(
+          eventType: 'auto_apk_download_failed',
+          title: '检查更新失败',
+          detail: '服务器未返回 APK 元数据',
+        );
+      }
     }
   }
 
@@ -329,10 +365,19 @@ class ApkDownloadManager {
         state.value.downloadedPath != null) {
       return;
     }
+    _emitSystemEvent(
+      eventType: 'auto_apk_check_started',
+      title: '启动期自动检查 APK 更新',
+      detail: '开关已开启，正在请求服务器元数据…',
+    );
     try {
       await checkUpdate();
-    } catch (_) {
-      // 静默失败 — 启动期检查不应阻塞或弹错
+    } catch (e) {
+      _emitSystemEvent(
+        eventType: 'auto_apk_download_failed',
+        title: '启动期检查失败',
+        detail: '$e',
+      );
     }
   }
 
@@ -445,6 +490,13 @@ class ApkDownloadManager {
             downloadedPath: filePath,
             downloadedSize: size,
           );
+          if (state.value.autoDownloadOnUpdate) {
+            _emitSystemEvent(
+              eventType: 'auto_apk_download_completed',
+              title: 'APK 自动下载完成',
+              detail: '文件大小：${_formatFileSize(size)}',
+            );
+          }
         } else {
           state.value = state.value.copyWith(
             statusMessage: '文件访问出错，请重新下载',
@@ -465,6 +517,13 @@ class ApkDownloadManager {
         isDownloading: false,
         isPaused: false,
       );
+      if (state.value.autoDownloadOnUpdate) {
+        _emitSystemEvent(
+          eventType: 'auto_apk_download_failed',
+          title: '下载异常',
+          detail: '$e',
+        );
+      }
     } finally {
       _downloadController = null;
     }
@@ -585,5 +644,23 @@ class ApkDownloadManager {
     if (utc == null) return utcTime;
     final local = utc.toLocal().toIso8601String();
     return local.length >= 16 ? local.substring(0, 16) : local;
+  }
+
+  /// 统一事件发射：减少重复样板。任何后台事件都走这里。
+  void _emitSystemEvent({
+    required String eventType,
+    required String title,
+    String? detail,
+  }) {
+    try {
+      SystemEventsController().append(
+        eventType: eventType,
+        title: title,
+        detail: detail,
+        time: DateTime.now(),
+      );
+    } catch (_) {
+      // GetIt 还没注册时（比如热重载瞬间）静默失败，不影响下载主流程
+    }
   }
 }
