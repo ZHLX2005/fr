@@ -44,9 +44,14 @@ lib/core/timetable/
 │   └── timetable_colors.dart
 ├── service/config/
 │   ├── timetable_settings_page.dart  # 主设置页(第一层: 模式三选 + 起始日期 UX + 数据来源 + 高级入口)
-│   ├── timetable_advanced_settings_page.dart # ★ 高级设置独立页(周期/左侧指示/DSL管理)
+│   ├── timetable_advanced_settings_page.dart # 高级设置独立页(周期策略驱动/左侧指示/显示视口/DSL管理)
+│   ├── advanced/                     # ★ 三模式策略分离(fr 30)
+│   │   ├── cycle_config_strategy.dart #  CycleConfigStrategy 抽象 + 课表(天数固定7)/通用(全可调)/
+│   │   │                               #  番剧(模型派生关手动) 三策略 + cycleStrategyFor 路由
+│   │   └── shared/zen_controls.dart   #  ZenSegmentButton/ZenConfigSlider/ZenFixedLabel/ZenActionButton
 │   ├── timetable_dsl_parser.dart     # DSL 解析(config 段 + w 范围)
 │   ├── anime_dsl_generator.dart      # 追剧生成器(纯函数) + AnimeSeriesDraft(剧模型) + 反推
+│   │                                 #   episodes=null=长期番填满, 不撑周期数(fallbackCycles)
 │   ├── anime_source_adapter.dart     # ★ 适配层(AnimeDraft + kAnimeSourceAdapters 登记
 │   │                                 #   含 Bangumi/AniList/SelfHostedAnimeAdapter)
 │   ├── timetable_anime_import_dialog.dart  # 番剧来源导入(追加进剧模型)
@@ -66,6 +71,14 @@ lib/core/timetable/
 1. `cell_actions/` 新增 `XxxCellStrategy implements CellActionStrategy`（openEditor 实现该模式的编辑 UI 与数据通路）
 2. `CellActionManager.strategyFor` 登记模式分支
 3. timetable_page **零改动**（只调 `_cellActions.openEditor`）；新触发（长按菜单等）通过 CellTarget 扩展
+
+### E1c 新增模式的高级设置周期配置（cycle_config_strategy，fr 30）
+
+1. `advanced/cycle_config_strategy.dart` 新增 `XxxCycleStrategy extends CycleConfigStrategy`
+   （声明 fixedDaysPerCycle / maxSlotsPerDay / allowsManualConfig / hint）
+2. `cycleStrategyFor(config)` 登记模式分支
+3. 高级设置页 **零模式分支**（周期配置区由策略 buildCycleSection 驱动，_save 用 resolveDaysPerCycle）
+4. 模式级配置 UI 控件共用 `advanced/shared/zen_controls.dart`
 
 ### E2 新增模式（与学校/通用/追剧平级）
 1. `TimetableConfig` 加模式标志字段 + repo save/load 各一行 + settings 模式选择器四选
@@ -88,14 +101,16 @@ lib/core/timetable/
 |---|---|---|
 | 同 cell 多课程 + visibleInCycles 周期过滤 | cell 渲染/cycleGridProvider | 换课/追剧期数失效 |
 | 模式互斥三选 | settings isSchoolMode/isAnimeMode | 模式串扰 |
-| 追剧自动派生顺序：updateConfig → clearAllItems → upsertItems | store._autoApplyAnimeDsl | 越界课程被删/新旧混存 |
+| 追剧自动派生顺序：updateConfig → clearAllItems → upsertItems | store.autoApplyAnimeDsl | 越界课程被删/新旧混存 |
 | config 段必须在课程行前 | parser 单遍扫描 | slots 约束失效 |
 | DSL 回灌闭环（生成→解析一致） | generator + parser | 导入导出失真 |
 | default 空间=旧 box 直读 | repo 路由 | 迁移风险/数据丢失 |
 | 剧模型是唯一 SSOT（非 DSL 快照） | store.animeSeries | 剧变更丢失/覆盖 |
 | cell 编辑按模式路由（cell_actions 策略） | CellActionManager.strategyFor | 追剧直接编辑课程会被自动派生覆盖 |
 | 高 slots 底层支持（maxSlotsPerDay=64） | models/TimetableConfig | 追剧每部剧独占 slot 溢出 |
-| 每页行数视口 + 网格纵向滚动 | timetable_page rowsPerPage | 高 slots 下首屏行不可达 |
+| 每页行数视口 + 网格纵向滚动 | timetable_page rowsPerPage/slotsPerPage | 高 slots 下首屏行不可达 |
+| 周期配置三模式策略（通用天数可调/课表固定7/番剧派生） | advanced/cycle_config_strategy | 通用模式天数被锁 7 天 / 番剧手动配置与模型派生冲突 |
+| 长期番不撑周期数（episodes=null → visibleInCycles=null + fallbackCycles） | buildAnimeDsl | 年番把课表周期撑爆 |
 
 ## 错误案例
 
@@ -109,6 +124,8 @@ lib/core/timetable/
 | DSL 只导出课程不带 config 段 | 配置丢失 | exportToDsl 始终携带 config 段 |
 | 常用配置堆进主设置页 | 设置页膨胀 | 非常用数字配置进高级设置独立页 |
 | 把起始日期塞进高级设置页 | 课表 UX 断链（用户要求回移第一层） | 起始日期是课表模式 UX 自动化（通用直选/学校对齐周一），永远留在主设置页 |
+| 用 if(isSchoolMode) 分支控制周期配置可调性 | 通用模式天数被锁 7 天 | 三模式策略分离（cycle_config_strategy），页面零分支 |
+| 用 PowerShell Set-Content 改写含中文的 dart 文件 | 中文注释/文案乱码（编码破坏） | 大段替换用 edit 工具；必须脚本改时用 UTF8 读 + 无 BOM UTF8 写 |
 
 ## 验证
 

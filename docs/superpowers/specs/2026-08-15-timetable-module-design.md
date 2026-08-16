@@ -34,8 +34,11 @@ lib/core/timetable/
 │   ├── cycle_visibility_selector.dart  # 周期可见性
 │   └── timetable_colors.dart           # 莫兰迪配色（与系统主题隔离）
 ├── service/config/
-│   ├── timetable_settings_page.dart    # 主设置页（第一层：模式三选/数据来源/高级入口）
-│   ├── timetable_advanced_settings_page.dart # ★ 高级设置独立页（周期/日期/左侧/DSL管理）
+│   ├── timetable_settings_page.dart    # 主设置页（第一层：模式三选/起始日期 UX/数据来源/高级入口）
+│   ├── timetable_advanced_settings_page.dart # ★ 高级设置独立页（周期策略驱动/左侧/显示视口/DSL管理）
+│   ├── advanced/                       # ★ 三模式策略分离（fr 30）
+│   │   ├── cycle_config_strategy.dart  #   课表(天数固定7)/通用(天数可调1-7)/番剧(模型派生关手动)
+│   │   └── shared/zen_controls.dart    #   Zen 共享控件（SegmentButton/ConfigSlider/FixedLabel/ActionButton）
 │   ├── timetable_dsl_parser.dart       # DSL 解析（config 段 + 课程行 + w 范围）
 │   ├── timetable_import_dialog.dart    # DSL 导入（自动应用 config 段）
 │   ├── timetable_week_calculator.dart  # 周一对齐/周数推算
@@ -135,6 +138,20 @@ abstract class AnimeSourceAdapter {
 新来源只需实现 fetch()（AnimeDraft: title/startDateIso/weekday/time/episodes/sourceUrl，可缺省）。
 导入对话框自动出现来源下拉。**水平扩展方向**：AnimeDraft 泛化为 PeriodicEventDraft
 （周期性事件：直播/比赛/日程/课程表/影视更新时间），适配器跨领域复用。
+
+### E1c 高级设置周期配置策略（fr 30）
+
+三模式周期配置平级策略（`advanced/cycle_config_strategy.dart`，仿 CellActionManager 模式）：
+
+| 策略 | fixedDaysPerCycle | allowsManualConfig | maxSlotsPerDay |
+|---|---|---|---|
+| SchoolCycleStrategy（课表） | 7（固定） | true | 6 |
+| GeneralCycleStrategy（通用） | null（1-7 可调） | true | 6 |
+| AnimeCycleStrategy（番剧） | 7 | false（剧模型派生，显示 hint） | 64 |
+
+- 页面零模式分支：`cycleStrategyFor(config)` 路由 → `buildCycleSection` 驱动 UI，`resolveDaysPerCycle` 决定保存值
+- 模式级配置 UI 共用 `advanced/shared/zen_controls.dart`（ZenSegmentButton/ZenConfigSlider/ZenFixedLabel/ZenActionButton）
+- 教训：此前 `if(isSchoolMode)` 硬编码分支把通用模式天数锁 7 天
 
 ### E2 新增模式
 1. `TimetableConfig` 加模式标志字段（+ repo save/load 一行 + settings 四选一按钮）
