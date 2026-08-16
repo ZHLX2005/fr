@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'timetable_import_dialog.dart';
+import 'advanced/cycle_config_strategy.dart';
+import 'advanced/shared/zen_controls.dart';
 import '../../../../../widgets/theme/zen_theme.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
@@ -78,8 +80,9 @@ class _TimetableAdvancedSettingsPageState
     final store = ref.read(TimetableStore.provider.notifier);
     final config = ref.read(TimetableStore.provider).config;
 
-    // 学校模式下强制 daysPerCycle = 7
-    final daysToSave = config.isSchoolMode ? 7 : _daysPerCycle;
+    // 周期配置策略决定实际生效的天数（课表固定 7 / 通用用用户值 / 番剧不落盘）
+    final strategy = cycleStrategyFor(config);
+    final daysToSave = strategy.resolveDaysPerCycle(_daysPerCycle);
 
     _ensureSlotLists();
     final error = await store.updateConfig(
@@ -167,7 +170,8 @@ class _TimetableAdvancedSettingsPageState
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(TimetableStore.configProvider);
-    final isSchoolMode = config.isSchoolMode;
+    // 周期配置策略：课表/通用/番剧 三模式平级路由（fr 30），页面零模式分支
+    final cycleStrategy = cycleStrategyFor(config);
 
     return zenPageScaffold(
       title: '高级设置',
@@ -181,65 +185,36 @@ class _TimetableAdvancedSettingsPageState
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── 周期配置（非常用数字配置）──
+          // ── 周期配置（3 模式策略驱动：课表固定7天/通用全可调/番剧自动派生）──
           ZenSection(
             title: '周期配置',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ZenConfigSlider(
-                  label: '周期数',
-                  value: _cycleCount.toDouble(),
-                  min: TimetableConfig.minCycles.toDouble(),
-                  max: TimetableConfig.maxCycles.toDouble(),
-                  divisions:
-                      TimetableConfig.maxCycles - TimetableConfig.minCycles,
-                  onChanged: (v) => setState(() => _cycleCount = v.round()),
-                ),
-                if (isSchoolMode)
-                  _ZenFixedLabel(label: '每周期天数', value: '7天（固定）')
-                else
-                  _ZenConfigSlider(
-                    label: '每周期天数 (1-7)',
-                    value: _daysPerCycle.toDouble(),
-                    min: TimetableConfig.minDaysPerCycle.toDouble(),
-                    max: TimetableConfig.maxDaysPerCycle.toDouble(),
-                    divisions: TimetableConfig.maxDaysPerCycle -
-                        TimetableConfig.minDaysPerCycle,
-                    onChanged: (v) => setState(() => _daysPerCycle = v.round()),
-                  ),
-                // 学校/通用模式手动上限 6；追剧模式每剧独占 slot 允许到 64（fr 28）
-                Builder(builder: (context) {
-                  final isAnime = ref
-                      .read(TimetableStore.provider)
-                      .config
-                      .isAnimeMode;
-                  final slotMax = isAnime
-                      ? TimetableConfig.maxSlotsPerDay
-                      : TimetableConfig.maxManualSlotsPerDay;
-                  return _ZenConfigSlider(
-                    label: '每天节数 (1-$slotMax)',
-                    value: _slotsPerDay.toDouble(),
-                    min: TimetableConfig.minSlotsPerDay.toDouble(),
-                    max: slotMax.toDouble(),
-                    divisions: slotMax - TimetableConfig.minSlotsPerDay,
-                    onChanged: (v) {
-                      setState(() => _slotsPerDay = v.round());
-                      _ensureSlotLists();
-                    },
-                  );
-                }),
-                _ZenConfigSlider(
-                  label: '每页显示行数 '
-                      '(${TimetableConfig.minSlotsPerPage}-${TimetableConfig.maxSlotsPerPage}，超出滚动)',
-                  value: _slotsPerPage.toDouble(),
-                  min: TimetableConfig.minSlotsPerPage.toDouble(),
-                  max: TimetableConfig.maxSlotsPerPage.toDouble(),
-                  divisions: TimetableConfig.maxSlotsPerPage -
-                      TimetableConfig.minSlotsPerPage,
-                  onChanged: (v) => setState(() => _slotsPerPage = v.round()),
-                ),
-              ],
+            child: cycleStrategy.buildCycleSection(
+              cycleCount: _cycleCount,
+              daysPerCycle: _daysPerCycle,
+              slotsPerDay: _slotsPerDay,
+              onCycleCountChanged: (v) => setState(() => _cycleCount = v),
+              onDaysPerCycleChanged: (v) => setState(() => _daysPerCycle = v),
+              onSlotsPerDayChanged: (v) {
+                setState(() => _slotsPerDay = v);
+                _ensureSlotLists();
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ── 每页显示行数（全模式通用：行数超出则纵向滚动）──
+          ZenSection(
+            title: '显示视口',
+            child: ZenConfigSlider(
+              label: '每页显示行数 '
+                  '(${TimetableConfig.minSlotsPerPage}-${TimetableConfig.maxSlotsPerPage}，超出滚动)',
+              value: _slotsPerPage.toDouble(),
+              min: TimetableConfig.minSlotsPerPage.toDouble(),
+              max: TimetableConfig.maxSlotsPerPage.toDouble(),
+              divisions: TimetableConfig.maxSlotsPerPage -
+                  TimetableConfig.minSlotsPerPage,
+              onChanged: (v) {
+                setState(() => _slotsPerPage = v.round());
+              },
             ),
           ),
           const SizedBox(height: 12),
@@ -252,7 +227,7 @@ class _TimetableAdvancedSettingsPageState
                 Row(
                   children: [
                     Expanded(
-                      child: _ZenSegmentButton(
+                      child: ZenSegmentButton(
                         label: '序号',
                         selected: _leftLabelMode == 0,
                         onTap: () => setState(() => _leftLabelMode = 0),
@@ -260,7 +235,7 @@ class _TimetableAdvancedSettingsPageState
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _ZenSegmentButton(
+                      child: ZenSegmentButton(
                         label: '时间段',
                         selected: _leftLabelMode == 1,
                         onTap: () => setState(() => _leftLabelMode = 1),
@@ -268,7 +243,7 @@ class _TimetableAdvancedSettingsPageState
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _ZenSegmentButton(
+                      child: ZenSegmentButton(
                         label: '自定义',
                         selected: _leftLabelMode == 2,
                         onTap: () => setState(() => _leftLabelMode = 2),
@@ -277,7 +252,7 @@ class _TimetableAdvancedSettingsPageState
                   ],
                 ),
                 const SizedBox(height: 8),
-                _ZenConfigSlider(
+                ZenConfigSlider(
                   label: '左侧宽度 (px)',
                   value: _leftWidth,
                   min: 44,
@@ -288,7 +263,7 @@ class _TimetableAdvancedSettingsPageState
                 ),
                 if (_leftLabelMode == 1) ...[
                   const SizedBox(height: 4),
-                  _ZenConfigSlider(
+                  ZenConfigSlider(
                     label: '每节时长 (分钟)',
                     value: _slotDurationMin.toDouble(),
                     min: 15,
@@ -317,20 +292,20 @@ class _TimetableAdvancedSettingsPageState
             title: 'DSL 管理',
             child: Column(
               children: [
-                _ZenActionButton(
+                ZenActionButton(
                   icon: Icons.upload_file,
                   label: '导入 DSL（含配置）',
                   onPressed: _openImport,
                 ),
                 const SizedBox(height: 8),
-                _ZenActionButton(
+                ZenActionButton(
                   icon: Icons.download,
                   label: '导出 DSL（含配置）',
                   onPressed: _exportDsl,
                   secondary: true,
                 ),
                 const SizedBox(height: 8),
-                _ZenActionButton(
+                ZenActionButton(
                   icon: Icons.delete_outline,
                   label: '清空所有课程',
                   onPressed: _clearAll,
@@ -439,179 +414,6 @@ class _TimetableAdvancedSettingsPageState
             ),
           ),
       ],
-    );
-  }
-}
-
-// ──────────────────── Zen 风格子组件 ────────────────────
-
-class _ZenSegmentButton extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ZenSegmentButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? ZenColors.sage.withValues(alpha: 0.1) : Colors.transparent,
-          border: Border.all(
-            color: selected ? ZenColors.sage : ZenColors.hair,
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? ZenColors.sage : ZenColors.secondary,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ZenConfigSlider extends StatelessWidget {
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  const _ZenConfigSlider({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: ZenText.body.copyWith(fontWeight: FontWeight.w500)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: ZenColors.sage.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                value.round().toString(),
-                style: ZenText.body.copyWith(
-                  color: ZenColors.sage,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: ZenColors.sage,
-            inactiveTrackColor: ZenColors.hair,
-            thumbColor: ZenColors.sage,
-            overlayColor: ZenColors.sage.withValues(alpha: 0.2),
-          ),
-          child: Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ZenFixedLabel extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _ZenFixedLabel({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: ZenText.body.copyWith(fontWeight: FontWeight.w500)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: ZenColors.sage.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              value,
-              style: ZenText.body.copyWith(
-                color: ZenColors.sage,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ZenActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-  final bool danger;
-  final bool secondary;
-
-  const _ZenActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.danger = false,
-    this.secondary = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = danger
-        ? ZenColors.mutedRed
-        : (secondary ? ZenColors.secondary : ZenColors.sage);
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        style: zenButton(
-          foreground: color,
-          border: color.withValues(alpha: 0.5),
-        ),
-        icon: Icon(icon, size: 18),
-        label: Text(label, style: ZenText.button.copyWith(color: color)),
-      ),
     );
   }
 }
