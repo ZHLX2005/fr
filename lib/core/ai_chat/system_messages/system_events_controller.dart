@@ -110,3 +110,44 @@ void registerSystemEventsController() {
     );
   }
 }
+
+/// 公共工具 —— 外部模块快速往"小助手"IM 面板追加一条消息。
+///
+/// 推荐用法：任意后台事件回调、Service 回调、错误处理路径都可以
+/// 一行调用，无需 import Controller 内部细节。
+///
+/// 调用约定：
+///   - 不抛异常：GetIt 未注册 / Controller 内部错误都被 catch 并打 debugPrint
+///   - 不阻塞调用方：append 是 O(1)，可放心在主流程同步调用
+///   - eventType 是稳定字符串字面量（如 'auto_apk_download_started'），
+///     用于策略 widget 的图标/配色 switch。新增类型只需在
+///     SystemEventMessageWidgetStrategy._iconAndColor 加分支。
+///
+/// 示例：
+/// ```dart
+/// emitSystemMessage(
+///   eventType: 'auto_apk_download_started',
+///   title: '检测到 APK 新版本',
+///   detail: '服务器时间：$time',
+/// );
+/// ```
+void emitSystemMessage({
+  required String eventType,
+  required String title,
+  String? detail,
+  DateTime? time,
+}) {
+  try {
+    SystemEventsController().append(
+      eventType: eventType,
+      title: title,
+      detail: detail,
+      time: time,
+    );
+    // 调试日志：排查"消息没出现"类 bug 时可直接看 logcat。
+    // ignore: avoid_print
+    print('[sys-event] $eventType | $title');
+  } catch (e, st) {
+    debugPrint('[sys-event] FAILED: $eventType | $e\n$st');
+  }
+}
