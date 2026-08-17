@@ -41,10 +41,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     super.initState();
     // 先 hydrate 状态（从 SP 读取已下载路径/开关/上次版本）
     _apkManager.loadSavedState().then((_) {
-      // 若开关已开启，触发一次自动检查（与冷启动钩子互为安全网：
-      // 两者都会执行，checkUpdate 内部幂等，不会重复下载）
+      // 开关开启 → 节流检查（15min 内不重复请求）。
+      // 是否下载由 checkUpdate.shouldAuto 单点决定。
       if (_apkManager.state.value.autoDownloadOnUpdate) {
-        _apkManager.checkUpdate();
+        _apkManager.maybeAutoCheck();
       }
     });
   }

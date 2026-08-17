@@ -372,22 +372,33 @@ class ApkDownloadManager {
     }
   }
 
-  /// 应用启动时调用：若开关开启，与上次"已见版本"对比，发现新版本自动下载。
+  /// 自动检查入口 —— 冷启动、App 回前台、进入 Demo 页时统一调用。
   ///
-  /// 不阻塞 main() — fire-and-forget。结果通过 [ApkDownloadState] 暴露，
-  /// UI（Lab → API 测试页面）能看到"下载中"等状态。
-  Future<void> autoCheckAndDownloadOnStartup() async {
-    // 先确保状态已加载（lastSeenUploadTime / autoDownloadOnUpdate 已 hydrate）
+  /// 业界标准 auto-check 模式（本项目实现）：
+  /// 1. 双触发点：main() 冷启动 + WidgetsBindingObserver.resumed 回前台
+  /// 2. 节流：[_kAutoCheckMinInterval] 内不重复发请求（防频繁切前后台打爆服务器）
+  /// 3. 单点决策：**是否下载只由 [checkUpdate] 内部的 shouldAuto 决定**，
+  ///    本方法不做版本判断——之前入口层重复判断 downloadedPath 导致
+  ///    有旧 APK 时永远不触发 checkUpdate 的 bug 就是这么来的。
+  /// 4. fire-and-forget + 静默失败：异常只发系统消息，不抛给调用方
+  DateTime _lastAutoCheckAt = DateTime.fromMillisecondsSinceEpoch(0);
+  static const _kAutoCheckMinInterval = Duration(minutes: 15);
+
+  Future<void> maybeAutoCheck({bool force = false}) async {
     if (!state.value.autoDownloadOnUpdate) return;
-    // 如果已经有"正在进行的下载"或"已下载完成"的 APK，不必重复触发
-    if (state.value.isDownloading ||
-        state.value.isPaused ||
-        state.value.downloadedPath != null) {
+    // 节流：force=true（冷启动/手动开关）跳过
+    final now = DateTime.now();
+    if (!force && now.difference(_lastAutoCheckAt) < _kAutoCheckMinInterval) {
       return;
     }
+    _lastAutoCheckAt = now;
+    // 并发保护：正在下载/暂停中不做检查（暂停中的 temp 文件走 Range 续传，
+    // 换版本会拼接出损坏 APK）
+    if (state.value.isDownloading || state.value.isPaused) return;
+
     _emitSystemEvent(
       eventType: 'auto_apk_check_started',
-      title: '启动期自动检查 APK 更新',
+      title: '自动检查 APK 更新',
       detail: '开关已开启，正在请求服务器元数据…',
     );
     try {
@@ -395,11 +406,15 @@ class ApkDownloadManager {
     } catch (e) {
       _emitSystemEvent(
         eventType: 'auto_apk_download_failed',
-        title: '启动期检查失败',
+        title: '自动检查失败',
         detail: '$e',
       );
     }
   }
+
+  /// 兼容旧启动钩子的入口（apk_startup_hook.dart 调用）。
+  /// 冷启动时 throttle 一定是过期的（单例新建），等价 force=true。
+  Future<void> autoCheckAndDownloadOnStartup() => maybeAutoCheck(force: true);
 
   /// 设置自动下载开关（持久化）。
   ///

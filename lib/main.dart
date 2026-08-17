@@ -18,6 +18,7 @@ import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
+import 'lab/demos/api_test/api_download_manager.dart';
 import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
@@ -105,7 +106,12 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {}
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 标准双触发点之一：App 回前台时自动检查 APK 更新（内部有 15min 节流）
+    if (state == AppLifecycleState.resumed) {
+      unawaited(ApkDownloadManager().maybeAutoCheck());
+    }
+  }
 
   /// 桌面 widget MethodChannel 回调 — 翻译走 `FrMethodChannelTranslator`
   /// (lib/app_lifecycle/fr_method_channel_translator.dart),
