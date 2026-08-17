@@ -7,17 +7,26 @@
 //   2) autoCheckAndDownloadOnStartup() — 开关开启时调 checkUpdate()，
 //      与 lastSeenUploadTime 比对；不同则自动调 startDownload()。
 //
-// 失败被 catch（无网/服务器异常都不应阻塞启动）。
+// 调试日志：每步都有 print，便于定位"自动检查没生效"类问题。
 
+import 'package:flutter/foundation.dart';
 import '../lab/demos/api_test/api_download_manager.dart';
 
 /// APK 自动下载启动期检查（fire-and-forget，不阻塞 main）
 Future<void> runApkAutoDownloadOnStartup() async {
   try {
     final mgr = ApkDownloadManager();
+    // ignore: avoid_print
+    print('[apk-auto] 1/3 loadSavedState begin');
     await mgr.loadSavedState();
+    final enabled = mgr.state.value.autoDownloadOnUpdate;
+    // ignore: avoid_print
+    print('[apk-auto] 2/3 loadSavedState done, autoDownloadOnUpdate=$enabled');
     await mgr.autoCheckAndDownloadOnStartup();
-  } catch (_) {
-    // 启动期检查静默失败，不抛、不日志阻塞
+    // ignore: avoid_print
+    print('[apk-auto] 3/3 autoCheckAndDownloadOnStartup done');
+  } catch (e, st) {
+    // 不再静默：记录到 debugPrint 便于排查
+    debugPrint('[apk-auto] startup hook FAILED: $e\n$st');
   }
 }

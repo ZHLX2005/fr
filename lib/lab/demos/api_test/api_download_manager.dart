@@ -381,11 +381,24 @@ class ApkDownloadManager {
     }
   }
 
-  /// 设置自动下载开关（持久化）
+  /// 设置自动下载开关（持久化）。
+  ///
+  /// 若用户在当前会话开启开关，立即触发一次 checkUpdate（无需等到下次冷启动）。
+  /// checkUpdate 内部的 shouldAuto 逻辑会自动判断是否需要启动下载。
   Future<void> setAutoDownloadEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kAutoDownloadEnabledKey, enabled);
     state.value = state.value.copyWith(autoDownloadOnUpdate: enabled);
+
+    // 立即触发一次检查，不等下次冷启动
+    if (enabled) {
+      emitSystemMessage(
+        eventType: 'auto_apk_check_started',
+        title: '已开启自动下载',
+        detail: '正在检查服务器是否有新版本…',
+      );
+      unawaited(checkUpdate());
+    }
   }
 
   /// 把当前服务器 uploadTime 标记为"已见过"。
