@@ -28,6 +28,12 @@ class LabCalendarProvider with ChangeNotifier {
   int get viewYear => _viewYear;
   int get viewMonth => _viewMonth;
 
+  /// 是否正显示当前月（用于头部"今天"按钮的可见性判定）
+  bool get isOnCurrentMonth {
+    final n = DateTime.now();
+    return _viewYear == n.year && _viewMonth == n.month;
+  }
+
   /// 数据是否已加载完成（Hive init + 全量加载）。未完成时视图渲染 loading 占位。
   bool get ready => _ready;
 

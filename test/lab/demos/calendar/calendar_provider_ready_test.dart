@@ -51,4 +51,15 @@ void main() {
     expect(cal.ready, isTrue);
     expect(people.ready, isTrue);
   });
+
+  test('isOnCurrentMonth 与 viewYear/viewMonth 同步', () async {
+    final cal = LabCalendarProvider();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(cal.ready, isTrue);
+    expect(cal.isOnCurrentMonth, isTrue); // 初始就是当月
+    await cal.setView(2000, 1);
+    expect(cal.isOnCurrentMonth, isFalse);
+    await cal.jumpToday();
+    expect(cal.isOnCurrentMonth, isTrue);
+  });
 }
