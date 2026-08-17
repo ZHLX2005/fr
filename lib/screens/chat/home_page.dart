@@ -91,33 +91,36 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 20),
+            // 标题区：紧凑
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(
                 'AI 助手',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            // 列表：无边框设计，仅靠细分隔线隐式划界
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 itemCount: _entries.length,
-                separatorBuilder: (context, index) => const Divider(
+                // 分隔线：从图标右侧开始（22 icon + 14 gap + 16 padding = 52），
+                // 细淡色，高度极小，视觉上只是一道隐约的线
+                separatorBuilder: (context, index) => Divider(
                   height: 1,
-                  indent: 84,
+                  thickness: 0.5,
+                  indent: 52,
                   endIndent: 16,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
                 ),
                 itemBuilder: (context, index) =>
                     _AssistantTile(entry: _entries[index]),
@@ -130,8 +133,8 @@ class HomePage extends StatelessWidget {
   }
 }
 
-/// IM 风格功能条目：最左圆形头像图标、中间主题+简介、最右进入箭头。
-/// 可选徽章（如未读数）显示在头像右上角。
+/// IM 风格功能条目：紧凑无边框，图标 + 标题/副标题 + 箭头，靠左侧对齐。
+/// 高度 ~52px（原来的 60%），4 条 items 在同屏内不溢出。
 class _AssistantTile extends StatelessWidget {
   final AssistantEntry entry;
 
@@ -141,46 +144,73 @@ class _AssistantTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = entry.color(context);
     final badge = entry.badgeBuilder?.call(context);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: color.withValues(alpha: 0.1),
-            child: Icon(entry.icon, size: 28, color: color),
+    final theme = Theme.of(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: entry.builder),
+          );
+        },
+        // 左对齐：去掉 ListTile 默认的大水平 padding
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              // 左侧图标：无圆形容器，纯色图标 + badge
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(entry.icon, size: 22, color: color),
+                  if (badge != null)
+                    Positioned(
+                      right: -8,
+                      top: -6,
+                      child: badge,
+                    ),
+                ],
+              ),
+              const SizedBox(width: 14),
+              // 中间：标题 + 副标题（垂直对齐，标题加粗，副标题浅色小字）
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      entry.title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        fontSize: 12,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 右侧箭头：弱化，用 opacity 控制
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+              ),
+            ],
           ),
-          if (badge != null)
-            Positioned(
-              right: -4,
-              top: -4,
-              child: badge,
-            ),
-        ],
-      ),
-      title: Text(
-        entry.title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-      ),
-      subtitle: Text(
-        entry.subtitle,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
         ),
       ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-      ),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: entry.builder),
-        );
-      },
     );
   }
 }
