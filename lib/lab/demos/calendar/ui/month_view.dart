@@ -32,17 +32,50 @@ class MonthView extends StatelessWidget {
               ),
               Expanded(
                 child: Center(
-                  child: GestureDetector(
-                    onTap: p.jumpToday,
-                    child: Text(
-                      '${p.viewYear}年${p.viewMonth}月',
-                      style: TextStyle(
-                        color: PaperPalette.ink,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap: p.jumpToday,
+                        child: Text(
+                          '${p.viewYear}年${p.viewMonth}月',
+                          style: const TextStyle(
+                            color: PaperPalette.ink,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            height: 1.25,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (!p.isOnCurrentMonth) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: p.jumpToday,
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: PaperPalette.today,
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text(
+                              '今天',
+                              style: TextStyle(
+                                color: PaperPalette.today,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
