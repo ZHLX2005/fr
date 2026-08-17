@@ -313,6 +313,8 @@ class ApkDownloadManager {
       // 注意：updateTime 是服务器返回的原始 UTC 串（如 "2026-08-16T14:29:40.000Z"），
       // state.lastSeenUploadTime 是转过本地时区的显示用串，格式不同无法直接比较。
       // 所以从 SP 读原始 UTC 串做版本比对。
+      // 不再检查 downloadedPath == null：若用户已有旧版 APK 但服务器有新版本，
+      // 仍应自动下载（旧版会被覆盖）。
       final rawLastSeenUtc = prefs.getString(_kLastSeenUploadTimeKey) ?? '';
       final s = state.value;
       final shouldAuto = s.autoDownloadOnUpdate &&
@@ -320,8 +322,13 @@ class ApkDownloadManager {
           updateTime.isNotEmpty &&
           updateTime != rawLastSeenUtc &&
           !s.isDownloading &&
-          !s.isPaused &&
-          s.downloadedPath == null;
+          !s.isPaused;
+      // ignore: avoid_print
+      print(
+        '[apk-auto] shouldAuto=$shouldAuto | server=$updateTime | '
+        'lastSeen=$rawLastSeenUtc | isDownloading=${s.isDownloading} | '
+        'isPaused=${s.isPaused} | downloadedPath=${s.downloadedPath != null ? "YES" : "NO"}',
+      );
       if (shouldAuto) {
         _emitSystemEvent(
           eventType: 'auto_apk_download_started',
@@ -333,12 +340,21 @@ class ApkDownloadManager {
       } else if (s.autoDownloadOnUpdate &&
           updateTime != null &&
           updateTime == rawLastSeenUtc) {
-        // 开关开启但版本号没变 → 显式记录一条"已是最新"，避免用户怀疑自动
-        // 检查没工作（每次启动都看到这条就不会以为是 bug）
+        // 开关开启但版本号没变 → 显式记录一条"已是最新"
         _emitSystemEvent(
           eventType: 'auto_apk_check_no_update',
           title: '已是最新版本',
           detail: '上次下载版本：${_formatLocalTime(updateTime)}',
+        );
+      } else if (s.autoDownloadOnUpdate) {
+        // 开关开启、版本不一致、但不满足 shouldAuto（如正在暂停中）
+        // 记录一条信息，避免用户以为自动检查没工作
+        _emitSystemEvent(
+          eventType: 'auto_apk_check_started',
+          title: '检查完成，暂未触发下载',
+          detail:
+              'server=$updateTime\nlastSeen=$rawLastSeenUtc\n'
+              'isDownloading=${s.isDownloading} isPaused=${s.isPaused}',
         );
       }
     } else {
