@@ -1,6 +1,7 @@
 import 'package:hive/hive.dart';
 
 import '../../../../core/storage/hive_type_ids.dart';
+import '../data/calendar_config.dart';
 import '../domain/event.dart';
 import '../domain/recurrence.dart';
 
@@ -39,13 +40,14 @@ class EventAdapter extends TypeAdapter<Event> {
       lunarAnchorYear: fields[13] as int?,
       createdAt: fields[14] as DateTime,
       isLeap: (fields[15] as bool?) ?? false,
+      groupId: (fields[16] as String?) ?? CalendarGroup.defaultGroupId,
     );
   }
 
   @override
   void write(BinaryWriter writer, Event obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(17)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -77,6 +79,8 @@ class EventAdapter extends TypeAdapter<Event> {
       ..writeByte(14)
       ..write(obj.createdAt)
       ..writeByte(15)
-      ..write(obj.isLeap);
+      ..write(obj.isLeap)
+      ..writeByte(16)
+      ..write(obj.groupId);
   }
 }

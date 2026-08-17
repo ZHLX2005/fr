@@ -1,6 +1,7 @@
 import 'package:hive/hive.dart';
 
 import '../../../../core/storage/hive_type_ids.dart';
+import '../data/calendar_config.dart';
 import '../domain/person.dart';
 
 /// Person 类型的 Hive TypeAdapter（手写）
@@ -26,13 +27,14 @@ class PersonAdapter extends TypeAdapter<Person> {
       avatarEmoji: fields[3] as String?,
       note: fields[4] as String?,
       createdAt: fields[5] as DateTime,
+      groupId: (fields[6] as String?) ?? CalendarGroup.defaultGroupId,
     );
   }
 
   @override
   void write(BinaryWriter writer, Person obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,6 +46,8 @@ class PersonAdapter extends TypeAdapter<Person> {
       ..writeByte(4)
       ..write(obj.note)
       ..writeByte(5)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(6)
+      ..write(obj.groupId);
   }
 }

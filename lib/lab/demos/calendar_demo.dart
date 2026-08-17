@@ -14,6 +14,7 @@ import 'calendar/ui/widgets/pill_segmented.dart';
 import 'calendar/ui/year_view.dart';
 import '../../core/theme/paper_palette.dart';
 import '../../core/theme/typography.dart';
+import 'service/config/calendar_settings_page.dart';
 
 /// 日历待办 Demo（v2 进化版）
 ///
@@ -126,6 +127,17 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
                 setState(() => _index = i);
                 _page.jumpToPage(i);
               },
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: '日历设置（group / DSL）',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const CalendarSettingsPage(),
+                fullscreenDialog: true,
+              ),
             ),
           ),
           const SizedBox(width: 12),
