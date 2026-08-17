@@ -310,11 +310,15 @@ class ApkDownloadManager {
       );
 
       // 自动下载：开关开启 + 还没有下载过这个版本 + 当前没有正在进行的下载
+      // 注意：updateTime 是服务器返回的原始 UTC 串（如 "2026-08-16T14:29:40.000Z"），
+      // state.lastSeenUploadTime 是转过本地时区的显示用串，格式不同无法直接比较。
+      // 所以从 SP 读原始 UTC 串做版本比对。
+      final rawLastSeenUtc = prefs.getString(_kLastSeenUploadTimeKey) ?? '';
       final s = state.value;
       final shouldAuto = s.autoDownloadOnUpdate &&
           updateTime != null &&
           updateTime.isNotEmpty &&
-          updateTime != s.lastSeenUploadTime &&
+          updateTime != rawLastSeenUtc &&
           !s.isDownloading &&
           !s.isPaused &&
           s.downloadedPath == null;
@@ -328,7 +332,7 @@ class ApkDownloadManager {
         unawaited(startDownload());
       } else if (s.autoDownloadOnUpdate &&
           updateTime != null &&
-          updateTime == s.lastSeenUploadTime) {
+          updateTime == rawLastSeenUtc) {
         // 开关开启但版本号没变 → 显式记录一条"已是最新"，避免用户怀疑自动
         // 检查没工作（每次启动都看到这条就不会以为是 bug）
         _emitSystemEvent(
