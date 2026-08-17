@@ -21,71 +21,13 @@ class MonthView extends StatelessWidget {
     final p = context.watch<LabCalendarProvider>();
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left_rounded),
-                color: PaperPalette.ink,
-                onPressed: p.prevMonth,
-              ),
-              Expanded(
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GestureDetector(
-                        onTap: p.jumpToday,
-                        child: Text(
-                          '${p.viewYear}年${p.viewMonth}月',
-                          style: const TextStyle(
-                            color: PaperPalette.ink,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
-                      if (!p.isOnCurrentMonth) ...[
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: p.jumpToday,
-                          behavior: HitTestBehavior.opaque,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: PaperPalette.today,
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: const Text(
-                              '今天',
-                              style: TextStyle(
-                                color: PaperPalette.today,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right_rounded),
-                color: PaperPalette.ink,
-                onPressed: p.nextMonth,
-              ),
-            ],
-          ),
+        MonthHeader(
+          year: p.viewYear,
+          month: p.viewMonth,
+          isOnCurrentMonth: p.isOnCurrentMonth,
+          onPrev: p.prevMonth,
+          onNext: p.nextMonth,
+          onJumpToday: p.jumpToday,
         ),
         const _WeekdayHeader(),
         const SizedBox(height: 8),
@@ -98,6 +40,98 @@ class MonthView extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 月视图头部：年月标题（点击跳今天）+ 前后翻页箭头 + 条件"今天"药丸。
+/// 抽出为独立 widget：一是避免 MonthView 内嵌逻辑难以测试，二是让
+/// "非当前月时显示药丸"的 UI 可被 widget 测试覆盖（无 LunarLabel/GoogleFonts）。
+class MonthHeader extends StatelessWidget {
+  final int year;
+  final int month;
+  final bool isOnCurrentMonth;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+  final VoidCallback? onJumpToday;
+
+  const MonthHeader({
+    super.key,
+    required this.year,
+    required this.month,
+    required this.isOnCurrentMonth,
+    this.onPrev,
+    this.onNext,
+    this.onJumpToday,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded),
+            color: PaperPalette.ink,
+            onPressed: onPrev,
+          ),
+          Expanded(
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: onJumpToday,
+                    child: Text(
+                      '$year年$month月',
+                      style: const TextStyle(
+                        color: PaperPalette.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  if (!isOnCurrentMonth) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: onJumpToday,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: PaperPalette.today,
+                            width: 1,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          '今天',
+                          style: TextStyle(
+                            color: PaperPalette.today,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right_rounded),
+            color: PaperPalette.ink,
+            onPressed: onNext,
+          ),
+        ],
+      ),
     );
   }
 }
