@@ -11,12 +11,14 @@ import 'person_chip.dart';
 /// - 当天：朱砂红数字 + 1px 朱砂外圈（不填充，去塑料感）
 /// - 周末/邻月：墨黑/雾墨
 /// - 农历小字 + 头像堆叠 + +N
+/// - 事件彩色小圆点（eventDotColors，来自 Event.colorTag，多色横排贴底）
 class DayCell extends StatelessWidget {
   final DateTime date;
   final bool inCurrentMonth;
   final bool isToday;
   final List<Event> events;
   final List<Person> people; // 关联人（取自 provider）
+  final List<Color> eventDotColors; // 当天事件的 colorTag 去重色点
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
@@ -27,6 +29,7 @@ class DayCell extends StatelessWidget {
     required this.isToday,
     required this.events,
     this.people = const [],
+    this.eventDotColors = const [],
     this.onTap,
     this.onLongPress,
   });
@@ -111,6 +114,29 @@ class DayCell extends StatelessWidget {
                     ),
                     if (overflow > 0)
                       Text('+$overflow', style: AppText.caption()),
+                  ],
+                ),
+              ),
+            // 事件彩色小圆点（多色横排，贴底部中线；仅当有 eventDotColors）
+            if (eventDotColors.isNotEmpty)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (final c in eventDotColors) ...[
+                      Container(
+                        width: 4,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                    ],
                   ],
                 ),
               ),
