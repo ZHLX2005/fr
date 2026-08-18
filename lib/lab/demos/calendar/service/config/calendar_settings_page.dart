@@ -256,14 +256,13 @@ class _CalendarSettingsPageState
     );
     if (ok != true) return;
     final cal = LabCalendarProvider.current!;
-    final activeId = cal.activeGroupId;
-    cal.allEvents.removeWhere((e) => e.groupId == activeId);
-    await cal._saveAll();
+    await cal.clearActiveGroupItems();
     if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('已清空')));
     }
+  }
   }
 }
 
