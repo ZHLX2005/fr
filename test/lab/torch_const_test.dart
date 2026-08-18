@@ -15,6 +15,12 @@ void main() {
     });
   });
 
-  // EyeProtectionColors 已迁移至 GameColorsStrategy（context.gameColors.protectPresets）
-  // 旧类已删除，护眼色预设通过主题策略通道访问，此处不再测试旧 API。
+  group('EyeProtectionColors — 护眼色预设保留', () {
+    test('10 个预设颜色与名称对齐', () {
+      expect(EyeProtectionColors.presets.length, 10);
+      expect(EyeProtectionColors.presetNames.length, 10);
+      expect(EyeProtectionColors.presets[0], EyeProtectionColors.warmYellow);
+      expect(EyeProtectionColors.presetNames[0], '护眼黄');
+    });
+  });
 }

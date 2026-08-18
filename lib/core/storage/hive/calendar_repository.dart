@@ -1,5 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../lab/demos/calendar/data/calendar_config.dart';
 import '../../../lab/demos/calendar/data/event_adapter.dart';
 import '../../../lab/demos/calendar/data/person_adapter.dart';
 import '../../../lab/demos/calendar/domain/event.dart';
@@ -14,6 +16,8 @@ class CalendarRepository implements HiveRepository {
   static const eventsBoxName = 'calendarEvents';
   static const peopleBoxName = 'calendarPeople';
   static const viewStateBoxName = 'calendarViewState';
+  static const groupsBoxName = 'calendarGroups';
+  static const _activeGroupKey = 'calendar-active-group';
 
   CalendarRepository._();
   static final CalendarRepository instance = CalendarRepository._();
@@ -36,6 +40,7 @@ class CalendarRepository implements HiveRepository {
       typeId: HiveTypeIds.calendarPerson,
     );
     await HiveStore.instance.openUntyped(viewStateBoxName);
+    await HiveStore.instance.openUntyped(groupsBoxName);
     _registerToStorageRegistry();
     _initialized = true;
   }
@@ -43,6 +48,62 @@ class CalendarRepository implements HiveRepository {
   Box<Event> get events => Hive.box<Event>(eventsBoxName);
   Box<Person> get people => Hive.box<Person>(peopleBoxName);
   Box<dynamic> get viewState => Hive.box(viewStateBoxName);
+  Box<dynamic> get groups => Hive.box(groupsBoxName);
+
+  // ──── group 管理（仿 timetable 多空间）──────
+
+  /// 加载所有 group（default 永远存在）
+  Future<List<CalendarGroup>> loadGroups() async {
+    final list = <CalendarGroup>[const CalendarGroup(
+      id: CalendarGroup.defaultGroupId,
+      name: '默认日历',
+      createdAt: 0,
+    )];
+    for (final key in groups.keys) {
+      final v = groups.get(key);
+      if (v is Map) {
+        list.add(CalendarGroup.fromJson(v.map((k, e) => MapEntry(k.toString(), e))));
+      }
+    }
+    return list;
+  }
+
+  /// 保存（新建或更新）一个 group
+  Future<void> saveGroup(CalendarGroup group) async {
+    if (group.id == CalendarGroup.defaultGroupId) {
+      // default 组不可写（不可改 id/name）
+      return;
+    }
+    await groups.put(group.id, group.toJson());
+  }
+
+  /// 删除一个 group（default 不可删）
+  Future<void> deleteGroup(String id) async {
+    if (id == CalendarGroup.defaultGroupId) return;
+    await groups.delete(id);
+    // 若删除的是当前激活组，回退 default
+    final activeId = await getActiveGroupId();
+    if (activeId == id) {
+      await setActiveGroup(CalendarGroup.defaultGroupId);
+    }
+  }
+
+  /// 读取当前激活 group id（默认 'default'）
+  Future<String> getActiveGroupId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getString(_activeGroupKey);
+    if (id == null) return CalendarGroup.defaultGroupId;
+    // 校验 group 存在
+    if (id == CalendarGroup.defaultGroupId) return id;
+    if (groups.containsKey(id)) return id;
+    return CalendarGroup.defaultGroupId;
+  }
+
+  /// 切换激活 group
+  Future<void> setActiveGroup(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_activeGroupKey, id);
+  }
 
   void _registerToStorageRegistry() {
     if (!StorageRegistry.has(eventsBoxName)) {
@@ -98,6 +159,18 @@ class CalendarRepository implements HiveRepository {
         displayName: '日历视图状态',
         openUntyped: () => HiveStore.instance.openUntyped(viewStateBoxName),
         formatValue: (v) => v.toString(),
+      ));
+    }
+    if (!StorageRegistry.has(groupsBoxName)) {
+      StorageRegistry.register(BoxDescriptor(
+        name: groupsBoxName,
+        displayName: '日历空间',
+        openUntyped: () => HiveStore.instance.openUntyped(groupsBoxName),
+        formatValue: (v) {
+          if (v is! Map) return v.toString();
+          final name = v['name']?.toString() ?? '未命名';
+          return name;
+        },
       ));
     }
   }

@@ -2,13 +2,12 @@
 // 从 price_compare_demo.dart 抽出，让主文件保持在 400 行以下
 
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
 
 import 'price_compare_models.dart';
 
 /// 顶部：图标 + 主题输入框 + 创建时间副标题 + 切换按钮
 class PriceCompareHeader extends StatelessWidget {
-  PriceCompareHeader({
+  const PriceCompareHeader({
     super.key,
     required this.titleController,
     required this.createdAt,
@@ -23,10 +22,10 @@ class PriceCompareHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = context.colors.scheme;
+    final scheme = Theme.of(context).colorScheme;
     final primary = scheme.primary;
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       decoration: BoxDecoration(
         color: primary.withValues(alpha: 0.06),
         border: Border(
@@ -37,7 +36,7 @@ class PriceCompareHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(Icons.receipt_long_rounded, color: primary),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,7 +85,7 @@ class PriceCompareHeader extends StatelessWidget {
 
 /// 底部：汇总提示 + border-emphasis 风格的"新增一行"按钮
 class PriceCompareFooter extends StatelessWidget {
-  PriceCompareFooter({
+  const PriceCompareFooter({
     super.key,
     required this.validCount,
     required this.minPrice,
@@ -99,7 +98,7 @@ class PriceCompareFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = context.colors.scheme;
+    final scheme = Theme.of(context).colorScheme;
     final primary = scheme.primary;
     final String hint;
     if (validCount == 0 || minPrice == null) {
@@ -110,7 +109,7 @@ class PriceCompareFooter extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
           border: Border(
@@ -138,9 +137,9 @@ class PriceCompareFooter extends StatelessWidget {
                 onPressed: onAddRow,
                 style: TextButton.styleFrom(
                   foregroundColor: primary,
-                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                 ),
-                icon: Icon(Icons.add_rounded, size: 20),
+                icon: const Icon(Icons.add_rounded, size: 20),
                 label: const Text('新增一行'),
               ),
             ),

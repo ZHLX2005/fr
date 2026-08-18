@@ -66,7 +66,7 @@ class NativeControllerPage extends StatelessWidget {
             icon: Icons.notifications_active,
             title: '本地通知',
             description: '测试推送通知功能，支持即时通知和权限管理',
-            color: Theme.of(context).colorScheme.tertiary,
+            color: Colors.orange,
             onTap: () {
               Navigator.push(
                 context,
@@ -84,7 +84,7 @@ class NativeControllerPage extends StatelessWidget {
             icon: Icons.perm_media,
             title: '原生媒体',
             description: '测试相机、图库、麦克风等原生媒体功能',
-            color: Theme.of(context).colorScheme.tertiary,
+            color: Colors.purple,
             onTap: () {
               Navigator.push(
                 context,
@@ -102,7 +102,7 @@ class NativeControllerPage extends StatelessWidget {
             icon: Icons.phone_android,
             title: '系统功能',
             description: '测试应用使用时长查询、震动等系统功能',
-            color: Theme.of(context).colorScheme.tertiary,
+            color: Colors.teal,
             onTap: () {
               Navigator.push(
                 context,
@@ -132,12 +132,12 @@ class NativeControllerPage extends StatelessWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.settings_applications,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.blue,
                           size: 24,
                         ),
                       ),
@@ -171,7 +171,7 @@ class NativeControllerPage extends StatelessWidget {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () => _openAppSettings(context),
-                      icon: Icon(Icons.open_in_new),
+                      icon: const Icon(Icons.open_in_new),
                       label: const Text('打开权限设置'),
                       style: EmphasisButton.borderEmphasis(
                         context,
@@ -184,22 +184,22 @@ class NativeControllerPage extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.tertiary.withOpacity(0.1),
+                        color: Colors.orange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.info_outline,
                             size: 16,
-                            color: Theme.of(context).colorScheme.tertiary,
+                            color: Colors.orange,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               '权限设置仅在移动端可用',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.tertiary,
+                                color: Colors.orange,
                               ),
                             ),
                           ),

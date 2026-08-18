@@ -30,7 +30,7 @@ class WordCardContent extends StatelessWidget {
           width: availableWidth,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(24),
           ),
           child: Column(
@@ -43,10 +43,10 @@ class WordCardContent extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   word.text,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: Color(0xFF1A1A2E),
                     letterSpacing: 1.2,
                   ),
                   maxLines: 1,
@@ -60,7 +60,7 @@ class WordCardContent extends StatelessWidget {
                 word.phonetic,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: Colors.grey.shade600,
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -71,14 +71,14 @@ class WordCardContent extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   word.definition,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
-                    color: Theme.of(context).colorScheme.surface,
+                    color: Color(0xFF2D2D44),
                     height: 1.5,
                   ),
                 ),
@@ -91,9 +91,9 @@ class WordCardContent extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Theme.of(context).colorScheme.primary),
+                    border: Border.all(color: Colors.blue.shade100),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +102,7 @@ class WordCardContent extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.format_quote,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Colors.blue.shade400,
                             size: 16,
                           ),
                           const SizedBox(width: 4),
@@ -110,7 +110,7 @@ class WordCardContent extends StatelessWidget {
                             '例句',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).colorScheme.primary,
+                              color: Colors.blue.shade600,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -121,7 +121,7 @@ class WordCardContent extends StatelessWidget {
                         word.example,
                         style: TextStyle(
                           fontSize: 15,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.blue.shade900,
                           fontStyle: FontStyle.italic,
                           height: 1.5,
                         ),
@@ -137,13 +137,13 @@ class WordCardContent extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.swipe, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 14),
+                    Icon(Icons.swipe, color: Colors.grey.shade400, size: 14),
                     const SizedBox(width: 4),
                     Text(
                       '上滑查看详情',
                       style: TextStyle(
                         fontSize: 11,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: Colors.grey.shade400,
                       ),
                     ),
                   ],

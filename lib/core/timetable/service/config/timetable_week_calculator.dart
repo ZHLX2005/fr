@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../../widgets/context_colors.dart';
 import 'package:flutter/services.dart';
 import '../../../../widgets/theme/zen_theme.dart';
 
@@ -98,17 +97,17 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
   @override
   Widget build(BuildContext context) {
     // 遮罩由 showDialog 的 barrier 承担；外层 Material 透明只裁圆角，
-    // 底色/描边/圆角交给 zenCardTheme(context)，避免双层 Material 重复描边导致圆角缺口。
+    // 底色/描边/圆角交给 zenCard()，避免双层 Material 重复描边导致圆角缺口。
     return Center(
       child: Material(
         elevation: 8,
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+        color: Colors.transparent,
         clipBehavior: Clip.antiAlias,
         borderRadius: BorderRadius.circular(6),
         child: Container(
           width: 320,
           padding: const EdgeInsets.all(16),
-          decoration: zenCardTheme(context),
+          decoration: zenCard(),
           child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -116,40 +115,40 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
                   // Header
                   Row(
                     children: [
-                      Icon(Icons.calendar_month, color: context.colors.accent, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.calendar_month, color: ZenColors.sage, size: 20),
+                      const SizedBox(width: 8),
                       Text(
                         '设置起始日期',
                         style: ZenText.title.copyWith(fontSize: 16),
                       ),
-                      Spacer(),
+                      const Spacer(),
                       InkWell(
                         onTap: () => Navigator.pop(context),
-                        child: Icon(Icons.close, color: context.colors.textMuted, size: 22),
+                        child: const Icon(Icons.close, color: ZenColors.secondary, size: 22),
                       ),
                     ],
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   // TabBar
                   Container(
                     decoration: BoxDecoration(
-                      color: context.colors.surface,
+                      color: ZenColors.bg,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: TabBar(
                       controller: _tab,
-                      labelColor: context.colors.accent,
-                      unselectedLabelColor: context.colors.textMuted,
+                      labelColor: ZenColors.sage,
+                      unselectedLabelColor: ZenColors.secondary,
                       indicator: BoxDecoration(
-                        color: context.colors.surface,
+                        color: ZenColors.surface,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: context.colors.outline),
+                        border: Border.all(color: ZenColors.hair),
                       ),
                       indicatorSize: TabBarIndicatorSize.tab,
-                      labelStyle: TextStyle(
+                      labelStyle: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w600,
                       ),
-                      unselectedLabelStyle: TextStyle(
+                      unselectedLabelStyle: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w500,
                       ),
                       tabs: const [
@@ -158,14 +157,14 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
                       ],
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   // Tab 1：输入周数
                   if (_tab.index == 0) ...[
                     Text(
                       '输入当前是第几周，推算出起始日期（周一）',
                       style: ZenText.label.copyWith(fontSize: 12),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _controller,
                       keyboardType: TextInputType.number,
@@ -174,26 +173,26 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
                         hintText: '例如：10',
-                        hintStyle: ZenText.label.copyWith(fontSize: 14, color: context.colors.outline),
+                        hintStyle: ZenText.label.copyWith(fontSize: 14, color: ZenColors.hair),
                         filled: true,
-                        fillColor: context.colors.surface,
+                        fillColor: ZenColors.bg,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: context.colors.outline),
+                          borderSide: BorderSide(color: ZenColors.hair),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: context.colors.outline),
+                          borderSide: BorderSide(color: ZenColors.hair),
                         ),
                       ),
                       onSubmitted: (_) => _calculate(),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: _calculate,
-                        style: zenButton(foreground: context.colors.accent, border: context.colors.outline),
+                        style: zenButton(foreground: ZenColors.sage, border: ZenColors.hair),
                         child: const Text('计算起始日期'),
                       ),
                     ),
@@ -203,53 +202,53 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
                       '选择任意一天，自动回退到当天或之前的最近周一。',
                       style: ZenText.label.copyWith(fontSize: 12),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: _pickDateAndCompute,
-                        style: zenButton(foreground: context.colors.accent, border: context.colors.outline),
-                        icon: Icon(Icons.calendar_today, size: 18),
+                        style: zenButton(foreground: ZenColors.sage, border: ZenColors.hair),
+                        icon: const Icon(Icons.calendar_today, size: 18),
                         label: const Text('选择日期'),
                       ),
                     ),
                   ],
                   // 结果
                   if (_resultDate != null) ...[
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: context.colors.accent.withValues(alpha: 0.08),
+                        color: ZenColors.sage.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: context.colors.accent.withValues(alpha: 0.4)),
+                        border: Border.all(color: ZenColors.sage.withValues(alpha: 0.4)),
                       ),
                       child: Column(
                         children: [
                           Text('起始日期（周一）', style: ZenText.label),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
                             _resultDate!,
                             style: ZenText.monoDigitSmall.copyWith(
-                              color: context.colors.accent, fontSize: 18, fontWeight: FontWeight.w700),
+                              color: ZenColors.sage, fontSize: 18, fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(context, _resultDate),
-                        style: zenButton(foreground: context.colors.accent, border: context.colors.outline),
-                        child: Text('应用此日期'),
+                        style: zenButton(foreground: ZenColors.sage, border: ZenColors.hair),
+                        child: const Text('应用此日期'),
                       ),
                     ),
                   ],
                   if (_error != null) ...[
-                    SizedBox(height: 12),
-                    Text(_error!, style: TextStyle(color: context.colors.danger, fontSize: 12)),
+                    const SizedBox(height: 12),
+                    Text(_error!, style: TextStyle(color: ZenColors.mutedRed, fontSize: 12)),
                   ],
                 ],
               ),

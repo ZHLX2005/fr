@@ -98,14 +98,14 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
     void go(String url) => FrNavigator.handle(context, url);
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Text('可访问路由总览', style: theme.textTheme.titleMedium),
-                Spacer(),
+                const Spacer(),
                 Text(
                   '${demos.length + 8} 条',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -114,14 +114,14 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 ),
               ],
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               '点击 chip 直接跳转测试（底部导航栏会被覆盖是已知行为）',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.outline,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             _routeSectionLabel(theme, '静态路由'),
             Wrap(
               spacing: 8,
@@ -144,7 +144,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                       ))
                   .toList(),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             _routeSectionLabel(theme, '核心页面 lab/core/*'),
             Wrap(
               spacing: 8,
@@ -165,7 +165,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                   })
                   .toList(),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             _routeSectionLabel(
               theme,
               'Demo lab/demo/{slug}（${demos.length} 个）',
@@ -177,7 +177,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                   .map((entry) {
                     final url = 'fr://lab/demo/${entry.key}';
                     return ActionChip(
-                      avatar: Icon(Icons.apps, size: 14),
+                      avatar: const Icon(Icons.apps, size: 14),
                       label: Text(entry.value.title),
                       tooltip: url,
                       onPressed: () => go(url),
@@ -193,7 +193,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
 
   Widget _routeSectionLabel(ThemeData theme, String text) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Text(
         text,
         style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
@@ -212,34 +212,34 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
         backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 路由总览：所有可访问的 fr:// 路由，点击即测
             _buildRouteOverview(context, theme, allDemos),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // 说明卡片
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('使用说明', style: theme.textTheme.titleMedium),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     const Text(
                       '在文本中使用 [显示文字](fr://lab/demo/{slug}) 格式创建可点击链接。\n'
                       '支持的 Demo:',
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: allDemos.take(6).map((entry) {
                         return ActionChip(
-                          avatar: Icon(Icons.apps, size: 16),
+                          avatar: const Icon(Icons.apps, size: 16),
                           label: Text(entry.value.title),
                           onPressed: () => _insertDemoLink(
                             entry.key,
@@ -252,19 +252,19 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // 输入区域
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Text('输入文本', style: theme.textTheme.titleMedium),
-                        Spacer(),
+                        const Spacer(),
                         Row(
                           children: [
                             const Text('自动识别'),
@@ -276,7 +276,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: _inputController,
                       maxLines: 4,
@@ -290,20 +290,20 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // 预览区域
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('预览效果', style: theme.textTheme.titleMedium),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
-                      padding: EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
@@ -326,17 +326,17 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // 协议格式说明
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('协议格式', style: theme.textTheme.titleMedium),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     _buildFormatRow(
                       context,
                       '[文字](fr://lab/demo/{slug})',
@@ -353,23 +353,23 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // 快速插入
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('快速插入', style: theme.textTheme.titleMedium),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: allDemos.map((entry) {
                         return ActionChip(
-                          avatar: Icon(Icons.apps, size: 16),
+                          avatar: const Icon(Icons.apps, size: 16),
                           label: Text(entry.value.title),
                           onPressed: () => _insertDemoLink(
                             entry.key,
@@ -409,12 +409,12 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
   Widget _buildFormatRow(BuildContext context, String format, String desc) {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(4),
@@ -427,7 +427,7 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
               ),
             ),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(child: Text(desc, style: theme.textTheme.bodySmall)),
         ],
       ),

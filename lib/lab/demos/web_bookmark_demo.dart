@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../../widgets/context_colors.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -120,11 +119,11 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     final items = controller.items;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
-        title: Text('Web Bookmarks'),
-        backgroundColor: Theme.of(context).colorScheme.onSurface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        title: const Text('Web Bookmarks'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         elevation: 0,
         actions: [
           IconButton(
@@ -144,20 +143,20 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
         },
         behavior: HitTestBehavior.translucent,
         child: items.isEmpty
-            ? Center(
+            ? const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.bookmark_border, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
                     SizedBox(height: 16),
                     Text(
                       'No Bookmarks',
-                      style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
                     SizedBox(height: 8),
                     Text(
                       'Tap + to add bookmarks',
-                      style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -166,8 +165,8 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        child: Icon(Icons.add, color: Theme.of(context).colorScheme.onSurface),
+        backgroundColor: const Color(0xFF007AFF),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -205,7 +204,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
         return GridView.builder(
           key: widget.gridViewKey,
           controller: widget.scrollController,
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
             mainAxisSpacing: 16,
@@ -255,7 +254,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: Text('Settings'),
+            title: const Text('Settings'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,7 +281,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     Navigator.pop(context);
                   },
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   'Edit Mode Delay: ${controller.editModeDelayMs}ms',
                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -298,9 +297,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     setState(() {});
                   },
                 ),
-                Text(
+                const Text(
                   'Long press duration before entering edit mode',
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
@@ -321,7 +320,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     final titleController = TextEditingController();
     final urlController = TextEditingController();
     String selectedIconName = 'public';
-    Color selectedColor = Theme.of(context).colorScheme.primary;
+    Color selectedColor = Colors.blue;
     bool isFetchingIcon = false;
     String? fetchedIconUrl;
     bool saveIconLocally = true;
@@ -463,7 +462,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     ),
                     autofocus: true,
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: urlController,
                     decoration: const InputDecoration(
@@ -471,7 +470,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -483,18 +482,18 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                                   setState,
                                 ),
                           icon: isFetchingIcon
-                              ? SizedBox(
+                              ? const SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : Icon(Icons.refresh),
-                          label: Text('Auto Icon'),
+                              : const Icon(Icons.refresh),
+                          label: const Text('Auto Icon'),
                           style: EmphasisButton.borderEmphasis(
                             context,
-                            color: context.colors.accent,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ),
@@ -502,7 +501,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                   ),
                   // Icon 预览区域
                   if (fetchedIconUrl != null) ...[
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Container(
@@ -511,7 +510,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                           decoration: BoxDecoration(
                             color: selectedColor.withAlpha(51),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Theme.of(context).colorScheme.outline),
+                            border: Border.all(color: Colors.grey[300]!),
                           ),
                           child: Image.network(
                             fetchedIconUrl!,
@@ -525,21 +524,21 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             ),
                           ),
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 fetchedIconUrl!,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 11,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Colors.grey,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              SizedBox(height: 4),
+                              const SizedBox(height: 4),
                               Row(
                                 children: [
                                   const Text(
@@ -561,9 +560,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                       ],
                     ),
                   ],
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   const Text('Select Icon:', style: TextStyle(fontSize: 14)),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -583,12 +582,12 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? selectedColor.withAlpha(51)
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Colors.grey[100],
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: isSelected
                                   ? selectedColor
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  : Colors.grey[300]!,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
@@ -596,16 +595,16 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             icon,
                             color: isSelected
                                 ? selectedColor
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Colors.grey[600],
                             size: 24,
                           ),
                         ),
                       );
                     }).toList(),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   const Text('Select Color:', style: TextStyle(fontSize: 14)),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -621,15 +620,15 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: isSelected
-                                  ? Theme.of(context).colorScheme.onSurface
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ? Colors.black
+                                  : Colors.grey[300]!,
                               width: isSelected ? 3 : 1,
                             ),
                           ),
                           child: isSelected
-                              ? Icon(
+                              ? const Icon(
                                   Icons.check,
-                                  color: Theme.of(context).colorScheme.onSurface,
+                                  color: Colors.white,
                                   size: 20,
                                 )
                               : null,
@@ -643,12 +642,12 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Cancel'),
+                child: const Text('Cancel'),
               ),
               OutlinedButton(
                 style: EmphasisButton.borderEmphasis(
                   context,
-                  color: context.colors.accent,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 onPressed: () async {
                   final title = titleController.text.trim();
@@ -792,7 +791,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: urlController,
                     decoration: const InputDecoration(
@@ -800,21 +799,21 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // Icon 类型选择
                   const Text(
                     'Icon Source',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   _IconTypeSelector(
                     selectedType: selectedIconType,
                     onTypeChanged: (type) =>
                         setState(() => selectedIconType = type),
                   ),
 
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // 根据类型显示不同输入
                   _buildIconInputSection(
@@ -853,7 +852,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                   if (selectedIconType != BookmarkIconType.icon &&
                       iconUrl != null &&
                       iconUrl!.isNotEmpty) ...[
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     _buildIconPreview(
                       iconUrl!,
                       selectedIconType,
@@ -862,12 +861,12 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     ),
                   ],
 
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // Material Icon 选择
                   if (selectedIconType == BookmarkIconType.icon) ...[
                     const Text('Select Icon', style: TextStyle(fontSize: 14)),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -884,12 +883,12 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? selectedColor.withAlpha(51)
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  : Colors.grey[100],
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: isSelected
                                     ? selectedColor
-                                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                                    : Colors.grey[300]!,
                                 width: isSelected ? 2 : 1,
                               ),
                             ),
@@ -897,7 +896,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                               icon,
                               color: isSelected
                                   ? selectedColor
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  : Colors.grey[600],
                               size: 24,
                             ),
                           ),
@@ -906,9 +905,9 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     ),
                   ],
 
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   const Text('Select Color:', style: TextStyle(fontSize: 14)),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -924,15 +923,15 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: isSelected
-                                  ? Theme.of(context).colorScheme.onSurface
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ? Colors.black
+                                  : Colors.grey[300]!,
                               width: isSelected ? 3 : 1,
                             ),
                           ),
                           child: isSelected
-                              ? Icon(
+                              ? const Icon(
                                   Icons.check,
-                                  color: Theme.of(context).colorScheme.onSurface,
+                                  color: Colors.white,
                                   size: 20,
                                 )
                               : null,
@@ -940,7 +939,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                       );
                     }).toList(),
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -948,7 +947,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                         Navigator.pop(context);
                         _showDeleteConfirmation(context, controller, item.id);
                       },
-                      icon: Icon(Icons.delete, size: 18),
+                      icon: const Icon(Icons.delete, size: 18),
                       label: const Text('Delete Bookmark'),
                       style: EmphasisButton.dangerEmphasis(context),
                     ),
@@ -1028,18 +1027,18 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
               ),
               onChanged: onIconUrlChanged,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: isFetchingIcon ? null : onAutoFetch,
                 icon: isFetchingIcon
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Icon(Icons.cloud_download),
+                    : const Icon(Icons.cloud_download),
                 label: const Text('Auto Fetch from Page URL'),
               ),
             ),
@@ -1058,7 +1057,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
               ),
               onChanged: onIconUrlChanged,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -1076,19 +1075,19 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                         }
                       },
                 icon: isFetchingIcon
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Icon(Icons.download),
+                    : const Icon(Icons.download),
                 label: const Text('Download & Save'),
               ),
             ),
           ],
         );
       default:
-        return SizedBox.shrink();
+        return const SizedBox.shrink();
     }
   }
 
@@ -1105,12 +1104,11 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
         decoration: BoxDecoration(
           color: color.withAlpha(51),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).colorScheme.outline),
+          border: Border.all(color: Colors.grey[300]!),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: _buildBookmarkIconWidget(
-            context,
             SingleBookmark(
               id: '',
               name: '',
@@ -1199,8 +1197,8 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('确认删除'),
-        content: Text('确定要删除这个书签吗？'),
+        title: const Text('确认删除'),
+        content: const Text('确定要删除这个书签吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1215,7 +1213,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                 context,
               ).showSnackBar(const SnackBar(content: Text('已删除')));
             },
-            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1237,7 +1235,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
             onTap: () => onTypeChanged(BookmarkIconType.icon),
           ),
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
         Expanded(
           child: _IconTypeOption(
             icon: Icons.link,
@@ -1246,7 +1244,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
             onTap: () => onTypeChanged(BookmarkIconType.network),
           ),
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
         Expanded(
           child: _IconTypeOption(
             icon: Icons.folder_open,
@@ -1260,7 +1258,6 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
   }
 
   static const List<Color> _availableColors = [
-    // 主题豁免：iOS 系统调色板（书签颜色选择器预设），业务数据色
     Color(0xFF007AFF),
     Color(0xFF34C759),
     Color(0xFFFF9500),
@@ -1293,14 +1290,14 @@ class _IconTypeOption extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? Theme.of(context).colorScheme.primary.withAlpha(26)
-              : Theme.of(context).colorScheme.onSurfaceVariant,
+              ? const Color(0xFF007AFF).withAlpha(26)
+              : Colors.grey[100],
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
+            color: isSelected ? const Color(0xFF007AFF) : Colors.grey[300]!,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1309,15 +1306,15 @@ class _IconTypeOption extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
+              color: isSelected ? const Color(0xFF007AFF) : Colors.grey[600],
               size: 24,
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: isSelected ? const Color(0xFF007AFF) : Colors.grey[600],
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -1349,11 +1346,11 @@ class _BookmarkCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.onSurface,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.onSurface.withAlpha(20),
+                color: Colors.black.withAlpha(20),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -1376,17 +1373,17 @@ class _BookmarkCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: _buildBookmarkIconWidget(context, bookmark),
+                child: _buildBookmarkIconWidget(bookmark),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   bookmark.name,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: Color(0xFF333333),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1402,7 +1399,7 @@ class _BookmarkCard extends StatelessWidget {
 }
 
 /// Helper function to build icon widget
-Widget _buildBookmarkIconWidget(BuildContext context, SingleBookmark bookmark) {
+Widget _buildBookmarkIconWidget(SingleBookmark bookmark) {
   switch (bookmark.iconType) {
     case BookmarkIconType.local:
       return ClipRRect(
@@ -1413,7 +1410,7 @@ Widget _buildBookmarkIconWidget(BuildContext context, SingleBookmark bookmark) {
           height: 52,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) =>
-              Icon(bookmark.icon, color: Theme.of(context).colorScheme.onSurface, size: 28),
+              Icon(bookmark.icon, color: Colors.white, size: 28),
         ),
       );
     case BookmarkIconType.network:
@@ -1425,11 +1422,11 @@ Widget _buildBookmarkIconWidget(BuildContext context, SingleBookmark bookmark) {
           height: 52,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) =>
-              Icon(bookmark.icon, color: Theme.of(context).colorScheme.onSurface, size: 28),
+              Icon(bookmark.icon, color: Colors.white, size: 28),
         ),
       );
     default:
-      return Icon(bookmark.icon, color: Theme.of(context).colorScheme.onSurface, size: 28);
+      return Icon(bookmark.icon, color: Colors.white, size: 28);
   }
 }
 
@@ -1558,15 +1555,15 @@ class _WebViewPageState extends State<_WebViewPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.bookmark.name),
-        backgroundColor: Theme.of(context).colorScheme.onSurface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: _goBack,
         ),
         actions: [
-          IconButton(icon: Icon(Icons.refresh), onPressed: _reload),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
         ],
       ),
       body: Stack(
@@ -1579,9 +1576,9 @@ class _WebViewPageState extends State<_WebViewPage> {
               right: 0,
               child: LinearProgressIndicator(
                 value: _loadProgress,
-                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  Theme.of(context).colorScheme.primary,
+                backgroundColor: Colors.grey[200],
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF007AFF),
                 ),
                 minHeight: 2,
               ),

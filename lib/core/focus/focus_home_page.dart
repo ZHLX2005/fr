@@ -18,12 +18,12 @@ class _ToolItem {
     this.slug,
     this.onTap,
   });
-  factory _ToolItem.registry(BuildContext context, String slug) {
+  factory _ToolItem.registry(String slug) {
     final meta = timePageMetaOf(slug);
     return _ToolItem._(
       label: meta.label,
       icon: meta.icon,
-      color: colorFor(context, slug),
+      color: meta.color,
       slug: slug,
     );
   }
@@ -47,9 +47,8 @@ class FocusHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: ZenColors.bg,
       body: SafeArea(
         child: Consumer<FocusProvider>(
           builder: (context, fp, _) {
@@ -71,11 +70,11 @@ class FocusHomePage extends StatelessWidget {
                 .toList();
             final grid = <_ToolItem>[
               for (final m in registryMetas)
-                _ToolItem.registry(context, m.slug),
+                _ToolItem.registry(m.slug),
               _ToolItem.internal(
                 label: '时间课表',
                 icon: Icons.calendar_month_outlined,
-                color: colorScheme.secondary,
+                color: const Color(0xFF6B9DFC),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -90,11 +89,10 @@ class FocusHomePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildGreeting(context, colorScheme),
+                  _buildGreeting(context),
                   const SizedBox(height: 32),
                   _buildTodayCard(
                     context,
-                    colorScheme,
                     fp,
                     onTap: () => _navigateToTimer(context),
                   ),
@@ -138,7 +136,7 @@ class FocusHomePage extends StatelessWidget {
   }
 
   // 问候语 + 今日专注卡（沿用 sage 渐变 + 小时/分钟渲染）。
-  Widget _buildGreeting(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildGreeting(BuildContext context) {
     final hour = DateTime.now().hour;
     final greeting = hour < 6
         ? '夜深了'
@@ -154,7 +152,7 @@ class FocusHomePage extends StatelessWidget {
           '$greeting，',
           style: ZenText.title.copyWith(
             fontWeight: FontWeight.w300,
-            color: colorScheme.onSurfaceVariant,
+            color: ZenColors.secondary,
             fontSize: 26,
           ),
         ),
@@ -164,7 +162,7 @@ class FocusHomePage extends StatelessWidget {
           style: ZenText.body.copyWith(
             fontSize: 20,
             fontWeight: FontWeight.w400,
-            color: colorScheme.onSurface,
+            color: ZenColors.ink,
           ),
         ),
       ],
@@ -173,7 +171,6 @@ class FocusHomePage extends StatelessWidget {
 
   Widget _buildTodayCard(
     BuildContext context,
-    ColorScheme colorScheme,
     FocusProvider focusProvider, {
     required VoidCallback onTap,
   }) {
@@ -190,14 +187,14 @@ class FocusHomePage extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              colorScheme.primary,
-              colorScheme.primary.withValues(alpha: 0.72),
+              ZenColors.sage,
+              ZenColors.sage.withValues(alpha: 0.72),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.25),
+              color: ZenColors.sage.withValues(alpha: 0.25),
               offset: const Offset(0, 8),
               blurRadius: 24,
             ),
@@ -210,7 +207,7 @@ class FocusHomePage extends StatelessWidget {
               '今日专注',
               style: TextStyle(
                 fontSize: 14,
-                color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
             const SizedBox(height: 12),
@@ -221,10 +218,10 @@ class FocusHomePage extends StatelessWidget {
                   hours > 0
                       ? hours.toString()
                       : minutes.toString().padLeft(2, '0'),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 48,
                     fontWeight: FontWeight.w200,
-                    color: colorScheme.onPrimary,
+                    color: Colors.white,
                     height: 1,
                   ),
                 ),
@@ -237,7 +234,7 @@ class FocusHomePage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w300,
-                      color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                     ),
                   ),
                 ),
@@ -248,7 +245,7 @@ class FocusHomePage extends StatelessWidget {
                     '点击开始专注 →',
                     style: TextStyle(
                       fontSize: 12,
-                      color: colorScheme.onPrimary.withValues(alpha: 0.85),
+                      color: Colors.white.withValues(alpha: 0.85),
                     ),
                   ),
                 ),
@@ -278,7 +275,7 @@ class _ToolCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: zenCardTheme(context),
+        decoration: zenCard(),
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

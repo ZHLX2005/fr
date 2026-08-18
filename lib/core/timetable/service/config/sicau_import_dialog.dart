@@ -136,7 +136,7 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
       children: [
         GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.26)),
+          child: Container(color: Colors.black26),
         ),
         Center(
           child: Material(
@@ -147,7 +147,7 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
               width: 340,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: TimetableColors.border(context), width: 1),
+                border: Border.all(color: TimetableColors.border, width: 1),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -181,7 +181,7 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
                                 'SICAU 导入',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: TimetableColors.textPrimary(context),
+                                  color: TimetableColors.textPrimary,
                                 ),
                               ),
                             ],
@@ -189,7 +189,7 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
                         ),
                         const Spacer(),
                         IconButton(
-                          icon: Icon(Icons.close),
+                          icon: const Icon(Icons.close),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
@@ -257,14 +257,14 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.error,
+                              color: Colors.red.shade50,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Theme.of(context).colorScheme.error),
+                              border: Border.all(color: Colors.red.shade200),
                             ),
                             child: Text(
                               _error!,
                               style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
+                                color: Colors.red.shade700,
                                 fontSize: 12,
                               ),
                             ),
@@ -277,7 +277,7 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
                             onPressed: _loading ? null : _doImport,
                             style: EmphasisButton.borderEmphasis(
                               context,
-                              color: TimetableColors.accent(context),
+                              color: TimetableColors.accent,
                             ),
                             icon: _loading
                                 ? SizedBox(
@@ -285,15 +285,15 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: TimetableColors.accent(context),
+                                      color: TimetableColors.accent,
                                     ),
                                   )
-                                : Icon(Icons.download, color: TimetableColors.accent(context)),
+                                : Icon(Icons.download, color: TimetableColors.accent),
                             label: Text(
                               _loading ? '导入中...' : '从教务系统导入',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: TimetableColors.accent(context),
+                                color: TimetableColors.accent,
                               ),
                             ),
                           ),

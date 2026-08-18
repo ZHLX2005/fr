@@ -16,8 +16,7 @@ class ClockColorUtil {
   /// [durationSeconds] 原始倒计时时长
   /// [maxDarkness] 最大变暗程度（0.0 = 不变，1.0 = 纯黑），默认 0.7
   /// [curve] 缓动曲线，控制颜色变化速率
-  static Color getClockColor(
-    BuildContext context, {
+  static Color getClockColor({
     required Color baseColor,
     required int remainingSeconds,
     required int durationSeconds,
@@ -37,15 +36,14 @@ class ClockColorUtil {
     final adjustedRatio = (curve ?? _easeInQuad)(overRatio);
 
     // 混合黑色，模拟颜色变暗
-    return Color.lerp(baseColor, Theme.of(context).colorScheme.onSurface, adjustedRatio * maxDarkness) ??
+    return Color.lerp(baseColor, Colors.black, adjustedRatio * maxDarkness) ??
         baseColor;
   }
 
   /// 获取带透明度的背景色（用于卡片背景）
   ///
   /// 背景色比主色更透明，在超时时也会变暗
-  static Color getBackgroundColor(
-    BuildContext context, {
+  static Color getBackgroundColor({
     required Color baseColor,
     required int remainingSeconds,
     required int durationSeconds,
@@ -53,7 +51,6 @@ class ClockColorUtil {
     double maxDarkness = 0.6,
   }) {
     final mainColor = getClockColor(
-      context,
       baseColor: baseColor,
       remainingSeconds: remainingSeconds,
       durationSeconds: durationSeconds,
@@ -64,8 +61,7 @@ class ClockColorUtil {
   }
 
   /// 获取边框颜色（比主色更透明）
-  static Color getBorderColor(
-    BuildContext context, {
+  static Color getBorderColor({
     required Color baseColor,
     required int remainingSeconds,
     required int durationSeconds,
@@ -73,7 +69,6 @@ class ClockColorUtil {
     double maxDarkness = 0.5,
   }) {
     final mainColor = getClockColor(
-      context,
       baseColor: baseColor,
       remainingSeconds: remainingSeconds,
       durationSeconds: durationSeconds,
@@ -86,14 +81,13 @@ class ClockColorUtil {
   /// 获取进度条颜色（用于显示超时进度）
   ///
   /// 返回一个从绿色到红色的渐变色，表示超时严重程度
-  static Color getProgressColor(
-    BuildContext context, {
+  static Color getProgressColor({
     required int remainingSeconds,
     required int durationSeconds,
   }) {
     if (remainingSeconds >= 0) {
       // 未超时：蓝色
-      return Theme.of(context).colorScheme.primary;
+      return const Color(0xFF007AFF);
     }
 
     final overRatio =
@@ -102,18 +96,18 @@ class ClockColorUtil {
     // 超时：从橙色渐变到红色
     if (overRatio < 0.5) {
       return Color.lerp(
-            Theme.of(context).colorScheme.tertiary,
-            Theme.of(context).colorScheme.error,
+            const Color(0xFFFF9500),
+            const Color(0xFFFF3B30),
             overRatio * 2,
           ) ??
-          Theme.of(context).colorScheme.tertiary;
+          const Color(0xFFFF9500);
     } else {
       return Color.lerp(
-            Theme.of(context).colorScheme.error,
-            Theme.of(context).colorScheme.onSurface,
+            const Color(0xFFFF3B30),
+            const Color(0xFF000000),
             (overRatio - 0.5) * 2,
           ) ??
-          Theme.of(context).colorScheme.error;
+          const Color(0xFFFF3B30);
     }
   }
 

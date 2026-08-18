@@ -12,17 +12,17 @@ class WordDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.onSurface,
+      backgroundColor: const Color(0xFF1a1a2e),
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.surface),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: const Text(
           '单词详情',
-          style: TextStyle(color: Theme.of(context).colorScheme.surface, fontSize: 18),
+          style: TextStyle(color: Colors.white, fontSize: 18),
         ),
         centerTitle: true,
       ),
@@ -36,17 +36,17 @@ class WordDetailPage extends StatelessWidget {
               // 单词主体
               Text(
                 word.text,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 42,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.surface,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 12),
               // 音标
               Text(
                 word.phonetic,
-                style: TextStyle(fontSize: 20, color: Theme.of(context).colorScheme.primary),
+                style: TextStyle(fontSize: 20, color: Colors.blue.shade300),
               ),
               const SizedBox(height: 40),
               // 释义卡片
@@ -54,7 +54,7 @@ class WordDetailPage extends StatelessWidget {
                 title: '释义',
                 content: word.definition,
                 icon: Icons.menu_book_outlined,
-                color: Theme.of(context).colorScheme.primary,
+                color: Colors.blue,
               ),
               const SizedBox(height: 20),
               // 例句卡片
@@ -62,7 +62,7 @@ class WordDetailPage extends StatelessWidget {
                 title: '例句',
                 content: word.example,
                 icon: Icons.format_quote_outlined,
-                color: Theme.of(context).colorScheme.primary,
+                color: Colors.green,
               ),
               const Spacer(),
               // 完成按钮
@@ -94,7 +94,7 @@ class WordDetailPage extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
                   '稍后再说',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 16),
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
                 ),
               ),
             ],
@@ -125,7 +125,7 @@ class _DetailCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        color: Colors.grey.shade900,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
@@ -149,9 +149,9 @@ class _DetailCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             content,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 18,
-              color: Theme.of(context).colorScheme.surface,
+              color: Colors.white,
               height: 1.5,
             ),
           ),

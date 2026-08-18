@@ -89,7 +89,7 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
           Row(
             children: [
               IconButton(
-                icon: Icon(Icons.chevron_left, size: 20),
+                icon: const Icon(Icons.chevron_left, size: 20),
                 onPressed: () {
                   setState(() {
                     currentMonthDate = DateTime(currentMonthDate.year, currentMonthDate.month, 0);
@@ -101,12 +101,12 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
                 child: Center(
                   child: Text(
                     DateFormat('MMMM, yyyy').format(currentMonthDate),
-                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
                   ),
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.chevron_right, size: 20),
+                icon: const Icon(Icons.chevron_right, size: 20),
                 onPressed: () {
                   setState(() {
                     currentMonthDate = DateTime(currentMonthDate.year, currentMonthDate.month + 2, 0);
@@ -164,7 +164,7 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
                   Padding(
                     padding: const EdgeInsets.only(top: 3, bottom: 3),
                     child: Material(
-                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                      color: Colors.transparent,
                       child: Padding(
                         padding: EdgeInsets.only(
                           top: 2,
@@ -177,8 +177,8 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
                             color: startDate != null && endDate != null
                                 ? getIsItStartAndEndDate(date) || getIsInRange(date)
                                     ? colorScheme.primary.withValues(alpha: 0.2)
-                                    : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0)
-                                : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                                    : Colors.transparent
+                                : Colors.transparent,
                             borderRadius: BorderRadius.only(
                               bottomLeft: isStartDateRadius(date) ? const Radius.circular(24.0) : const Radius.circular(0.0),
                               topLeft: isStartDateRadius(date) ? const Radius.circular(24.0) : const Radius.circular(0.0),
@@ -192,7 +192,7 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
                   ),
                   // 日期点击区域
                   Material(
-                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                    color: Colors.transparent,
                     child: InkWell(
                       borderRadius: const BorderRadius.all(Radius.circular(32.0)),
                       onTap: () => onDateClick(date),
@@ -200,10 +200,10 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
                         padding: const EdgeInsets.all(2),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: getIsItStartAndEndDate(date) ? colorScheme.primary : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                            color: getIsItStartAndEndDate(date) ? colorScheme.primary : Colors.transparent,
                             borderRadius: const BorderRadius.all(Radius.circular(32.0)),
                             border: Border.all(
-                              color: getIsItStartAndEndDate(date) ? colorScheme.onPrimary : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                              color: getIsItStartAndEndDate(date) ? colorScheme.onPrimary : Colors.transparent,
                               width: 2,
                             ),
                             boxShadow: getIsItStartAndEndDate(date)
@@ -250,7 +250,7 @@ class _CalendarMessageWidgetState extends State<_CalendarMessageWidget> {
                               ? getIsInRange(date)
                                   ? colorScheme.onPrimary
                                   : colorScheme.primary
-                              : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                              : Colors.transparent,
                           shape: BoxShape.circle,
                         ),
                       ),

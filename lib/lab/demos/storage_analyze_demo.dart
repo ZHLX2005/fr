@@ -1,5 +1,4 @@
 import 'dart:io';
-import '../../widgets/context_colors.dart';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -237,7 +236,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('删除确认'),
+        title: const Text('删除确认'),
         content: Text('确定删除 "$key" ?'),
         actions: [
           TextButton(
@@ -246,7 +245,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -330,9 +329,9 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
   }
 
   Color _getSizeColor(int size) {
-    if (size < 1024) return Theme.of(context).colorScheme.primary;
-    if (size < 10 * 1024) return Theme.of(context).colorScheme.tertiary;
-    return Theme.of(context).colorScheme.error;
+    if (size < 1024) return Colors.green;
+    if (size < 10 * 1024) return Colors.orange;
+    return Colors.red;
   }
 
   @override
@@ -343,7 +342,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
       child: Column(
         children: [
           Container(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: theme.colorScheme.primaryContainer,
             ),
@@ -387,7 +386,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
           ),
           Expanded(
             child: _isLoading
-                ? Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator())
                 : TabBarView(
                     controller: _tabController,
                     children: [
@@ -408,14 +407,14 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     return Column(
       children: [
         Padding(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12),
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
                 onPressed: _loadStorageData,
-                icon: Icon(Icons.refresh, size: 18),
+                icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('刷新'),
                 style: EmphasisButton.borderEmphasis(
                   context,
@@ -431,20 +430,20 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.inbox, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      SizedBox(height: 16),
-                      Text('暂无数据', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text('暂无数据', style: TextStyle(color: Colors.grey[600])),
                     ],
                   ),
                 )
               : ListView(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   children: [
                     ..._storageList.map((info) {
                       final keys = _keyDetails[info.name] ?? [];
                       // 0 key 的 box 卡片不显示，避免冗余
                       if (info.keyCount == 0) {
-                        return SizedBox.shrink();
+                        return const SizedBox.shrink();
                       }
                       return _StorageCard(
                         info: info,
@@ -496,7 +495,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Colors.transparent,
       builder: (context) => _NotePreviewSheet(
         note: note,
         formatSize: _formatSize,
@@ -521,7 +520,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -550,7 +549,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     return Column(
       children: [
         Padding(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               Expanded(
@@ -561,11 +560,11 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
               ),
               OutlinedButton.icon(
                 onPressed: _addPref,
-                icon: Icon(Icons.add, size: 18),
-                label: Text('新增'),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('新增'),
                 style: EmphasisButton.borderEmphasis(
                   context,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.green,
                 ),
               ),
             ],
@@ -577,14 +576,14 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.inbox, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      SizedBox(height: 16),
-                      Text('暂无配置项', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                      Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text('暂无配置项', style: TextStyle(color: Colors.grey[600])),
                     ],
                   ),
                 )
               : ListView.builder(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   itemCount: _prefsList.length,
                   itemBuilder: (context, index) {
                     final entry = _prefsList[index];
@@ -606,9 +605,9 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.folder_open, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            SizedBox(height: 16),
-            Text('暂无多媒体文件', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            Icon(Icons.folder_open, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('暂无多媒体文件', style: TextStyle(color: Colors.grey[600])),
           ],
         ),
       );
@@ -619,8 +618,8 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     return Column(
       children: [
         Container(
-          padding: EdgeInsets.all(12),
-          color: context.colors.scheme.surfaceContainerHighest,
+          padding: const EdgeInsets.all(12),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -631,7 +630,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
         ),
         Expanded(
           child: ListView.builder(
-            padding: EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             itemCount: _mediaFiles.length,
             itemBuilder: (context, index) {
               final file = _mediaFiles[index];
@@ -663,9 +662,9 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        color: Theme.of(context).colorScheme.onSurface,
+        color: Colors.black,
         child: Column(
           children: [
             SafeArea(
@@ -673,11 +672,11 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
+                    icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  Text(file.name, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-                  SizedBox(width: 48),
+                  Text(file.name, style: const TextStyle(color: Colors.white)),
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
@@ -690,13 +689,13 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.broken_image,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+                          color: Colors.white54,
                           size: 64,
                         ),
-                        SizedBox(height: 16),
-                        Text('图片加载失败', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
+                        const SizedBox(height: 16),
+                        Text('图片加载失败', style: TextStyle(color: Colors.white54)),
                       ],
                     );
                   },
@@ -705,27 +704,27 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
             ),
             SafeArea(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     Text(
                       '${file.type} · ${_formatSize(file.size)}',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
+                      style: const TextStyle(color: Colors.white54),
                     ),
                     TextButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
                         _deleteFile(file);
                       },
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.delete,
-                        color: Theme.of(context).colorScheme.error,
+                        color: Colors.redAccent,
                         size: 18,
                       ),
-                      label: Text(
+                      label: const Text(
                         '删除',
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(color: Colors.redAccent),
                       ),
                     ),
                   ],
@@ -746,7 +745,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Colors.transparent,
       builder: (context) => _KeyDetailSheet(
         info: info,
         detail: detail,
@@ -772,7 +771,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -805,7 +804,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -835,7 +834,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('确认清空'),
+        title: const Text('确认清空'),
         content: Text('确定要清空 "${info.displayName}" 的所有数据吗？'),
         actions: [
           TextButton(
@@ -844,7 +843,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('清空', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: const Text('清空', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -882,13 +881,13 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, size: 28, color: context.colors.accent),
-        SizedBox(height: 4),
+        Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: 4),
         Text(
           value,
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
     );
   }
@@ -923,14 +922,14 @@ class _StorageCard extends StatelessWidget {
     final isExpanded = expandedKeys.contains(info.name);
 
     return Card(
-      margin: EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Column(
         children: [
           // 头部
           InkWell(
             onTap: () => onToggleExpand(info.name),
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   Container(
@@ -947,7 +946,7 @@ class _StorageCard extends StatelessWidget {
                       color: theme.colorScheme.primary,
                     ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,11 +955,11 @@ class _StorageCard extends StatelessWidget {
                           info.displayName,
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Row(
                           children: [
                             Container(
-                              padding: EdgeInsets.symmetric(
+                              padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 2,
                               ),
@@ -973,16 +972,16 @@ class _StorageCard extends StatelessWidget {
                                 info.typeLabel,
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Colors.grey[600],
                                 ),
                               ),
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Text(
                               '${info.keyCount} 个键',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Colors.grey[600],
                               ),
                             ),
                           ],
@@ -1000,17 +999,17 @@ class _StorageCard extends StatelessWidget {
                           color: getSizeColor(info.size),
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             isExpanded ? Icons.expand_less : Icons.expand_more,
                             size: 20,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Colors.grey[600],
                           ),
                           IconButton(
-                            icon: Icon(Icons.cleaning_services, size: 20),
+                            icon: const Icon(Icons.cleaning_services, size: 20),
                             onPressed: onClear,
                             tooltip: '清空',
                             padding: EdgeInsets.zero,
@@ -1029,7 +1028,7 @@ class _StorageCard extends StatelessWidget {
           ),
           // 键列表
           if (isExpanded && keys.isNotEmpty) ...[
-            Divider(height: 1),
+            const Divider(height: 1),
             ListView.builder(
               shrinkWrap: true,
               physics: const ClampingScrollPhysics(),
@@ -1072,22 +1071,22 @@ class _KeyListTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
             if (detail.isJson)
               Container(
                 width: 24,
                 height: 24,
-                margin: EdgeInsets.only(right: 8),
+                margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
+                  color: Colors.purple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.data_object,
                   size: 14,
-                  color: Theme.of(context).colorScheme.tertiary,
+                  color: Colors.purple,
                 ),
               ),
             Expanded(
@@ -1103,25 +1102,25 @@ class _KeyListTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     detail.value.length > 40
                         ? '${detail.value.substring(0, 40)}...'
                         : detail.value,
-                    style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
               formatSize(detail.size),
               style: TextStyle(fontSize: 10, color: getSizeColor(detail.size)),
             ),
             IconButton(
-              icon: Icon(Icons.chevron_right, size: 18),
+              icon: const Icon(Icons.chevron_right, size: 18),
               onPressed: onTap,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -1163,17 +1162,17 @@ class _KeyDetailSheet extends StatelessWidget {
           ),
           child: Column(
             children: [
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Container(
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: Colors.grey[400],
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
                     Expanded(
@@ -1187,40 +1186,40 @@ class _KeyDetailSheet extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Row(
                             children: [
                               Text(
                                 info.displayName,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Colors.grey[600],
                                 ),
                               ),
-                              SizedBox(width: 12),
+                              const SizedBox(width: 12),
                               Text(
                                 formatSize(detail.size),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Colors.grey[600],
                                 ),
                               ),
                               if (detail.isJson) ...[
-                                SizedBox(width: 12),
+                                const SizedBox(width: 12),
                                 Container(
-                                  padding: EdgeInsets.symmetric(
+                                  padding: const EdgeInsets.symmetric(
                                     horizontal: 6,
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
+                                    color: Colors.purple.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: Text(
+                                  child: const Text(
                                     'JSON',
                                     style: TextStyle(
                                       fontSize: 10,
-                                      color: Theme.of(context).colorScheme.tertiary,
+                                      color: Colors.purple,
                                     ),
                                   ),
                                 ),
@@ -1231,20 +1230,20 @@ class _KeyDetailSheet extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close),
+                      icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
               ),
-              Divider(height: 1),
+              const Divider(height: 1),
               Expanded(
                 child: SingleChildScrollView(
                   controller: scrollController,
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   child: Container(
                     width: double.infinity,
-                    padding: EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(8),
@@ -1261,16 +1260,16 @@ class _KeyDetailSheet extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
-                  border: Border(top: BorderSide(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  border: Border(top: BorderSide(color: Colors.grey[300]!)),
                 ),
                 child: SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: onDelete,
-                    icon: Icon(Icons.delete),
+                    icon: const Icon(Icons.delete),
                     label: const Text('删除此项'),
                     style: EmphasisButton.dangerEmphasis(context),
                   ),
@@ -1312,40 +1311,40 @@ class _MediaFileCard extends StatelessWidget {
     }
   }
 
-  Color _getColor(BuildContext context) {
+  Color _getColor() {
     switch (file.type) {
       case '图片':
-        return Theme.of(context).colorScheme.primary;
+        return Colors.green;
       case '视频':
-        return Theme.of(context).colorScheme.error;
+        return Colors.red;
       case '音频':
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.orange;
       default:
-        return Theme.of(context).colorScheme.primary;
+        return Colors.blue;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: _getColor(context).withValues(alpha: 0.1),
+                  color: _getColor().withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(_getIcon(), color: _getColor(context)),
+                child: Icon(_getIcon(), color: _getColor()),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1356,10 +1355,10 @@ class _MediaFileCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       file.path,
-                      style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1378,14 +1377,14 @@ class _MediaFileCard extends StatelessWidget {
                   ),
                   Text(
                     file.type,
-                    style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   ),
                 ],
               ),
               IconButton(
                 icon: Icon(
                   Icons.delete_outline,
-                  color: Theme.of(context).colorScheme.error,
+                  color: Colors.red[400],
                   size: 20,
                 ),
                 onPressed: onDelete,
@@ -1421,13 +1420,13 @@ class _NotesGroupCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      margin: EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Column(
         children: [
           InkWell(
             onTap: onToggleExpand,
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   Container(
@@ -1442,7 +1441,7 @@ class _NotesGroupCard extends StatelessWidget {
                       color: theme.colorScheme.primary,
                     ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1451,11 +1450,11 @@ class _NotesGroupCard extends StatelessWidget {
                           '笔记文件',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Row(
                           children: [
                             Container(
-                              padding: EdgeInsets.symmetric(
+                              padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 2,
                               ),
@@ -1467,16 +1466,16 @@ class _NotesGroupCard extends StatelessWidget {
                                 '笔记',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Colors.grey[600],
                                 ),
                               ),
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Text(
                               '${noteSummary.noteCount} 篇',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Colors.grey[600],
                               ),
                             ),
                           ],
@@ -1491,11 +1490,11 @@ class _NotesGroupCard extends StatelessWidget {
                         formatSize(noteSummary.totalSize),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Icon(
                         isExpanded ? Icons.expand_less : Icons.expand_more,
                         size: 20,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: Colors.grey[600],
                       ),
                     ],
                   ),
@@ -1504,7 +1503,7 @@ class _NotesGroupCard extends StatelessWidget {
             ),
           ),
           if (isExpanded) ...[
-            Divider(height: 1),
+            const Divider(height: 1),
             ...notes.map((note) => _NoteListTile(
               note: note,
               formatSize: formatSize,
@@ -1533,21 +1532,21 @@ class _NoteListTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
             Container(
               width: 24,
               height: 24,
-              margin: EdgeInsets.only(right: 8),
+              margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                color: Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.description,
                 size: 14,
-                color: Theme.of(context).colorScheme.primary,
+                color: Colors.blue,
               ),
             ),
             Expanded(
@@ -1563,23 +1562,23 @@ class _NoteListTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     '${note.blockCount} 块',
-                    style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
               formatSize(note.fileSize),
               style: const TextStyle(fontSize: 10),
             ),
             IconButton(
-              icon: Icon(Icons.chevron_right, size: 18),
+              icon: const Icon(Icons.chevron_right, size: 18),
               onPressed: onTap,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -1652,17 +1651,17 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
           ),
           child: Column(
             children: [
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Container(
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: Colors.grey[400],
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
                     Expanded(
@@ -1676,17 +1675,17 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Row(
                             children: [
                               Text(
                                 '${widget.note.blockCount} 块',
-                                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                               ),
-                              SizedBox(width: 12),
+                              const SizedBox(width: 12),
                               Text(
                                 widget.formatSize(widget.note.fileSize),
-                                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                               ),
                             ],
                           ),
@@ -1694,22 +1693,22 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close),
+                      icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
               ),
-              Divider(height: 1),
+              const Divider(height: 1),
               Expanded(
                 child: _isLoading
-                    ? Center(child: CircularProgressIndicator())
+                    ? const Center(child: CircularProgressIndicator())
                     : SingleChildScrollView(
                         controller: scrollController,
-                        padding: EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(16),
                         child: Container(
                           width: double.infinity,
-                          padding: EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(8),
@@ -1726,16 +1725,16 @@ class _NotePreviewSheetState extends State<_NotePreviewSheet> {
                       ),
               ),
               Container(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
-                  border: Border(top: BorderSide(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  border: Border(top: BorderSide(color: Colors.grey[300]!)),
                 ),
                 child: SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: widget.onDelete,
-                    icon: Icon(Icons.delete),
+                    icon: const Icon(Icons.delete),
                     label: const Text('删除笔记'),
                     style: EmphasisButton.dangerEmphasis(context),
                   ),
@@ -1816,10 +1815,10 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      insetPadding: EdgeInsets.all(16),
+      insetPadding: const EdgeInsets.all(16),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 480),
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1828,21 +1827,21 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
               children: [
                 Text(widget.isNew ? '新增配置' : '编辑配置',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Spacer(),
+                const Spacer(),
                 IconButton(
-                  icon: Icon(Icons.close),
+                  icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
-            SizedBox(height: 12),
-            Text('Key', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4),
+            const SizedBox(height: 12),
+            const Text('Key', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
             TextField(
               controller: _keyCtrl,
               decoration: InputDecoration(
                 filled: true,
-                fillColor: context.colors.scheme.surfaceContainerHighest,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -1850,14 +1849,14 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
                 hintText: '配置 key（导出导入都用这个 key）',
               ),
             ),
-            SizedBox(height: 12),
-            Text('类型', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4),
+            const SizedBox(height: 12),
+            const Text('类型', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
             DropdownButtonFormField<String>(
               value: _type,
               decoration: InputDecoration(
                 filled: true,
-                fillColor: context.colors.scheme.surfaceContainerHighest,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -1868,15 +1867,15 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
                   .toList(),
               onChanged: (v) => setState(() => _type = v ?? _type),
             ),
-            SizedBox(height: 12),
-            Text('Value', style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4),
+            const SizedBox(height: 12),
+            const Text('Value', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
             TextField(
               controller: _valCtrl,
               maxLines: null,
               decoration: InputDecoration(
                 filled: true,
-                fillColor: context.colors.scheme.surfaceContainerHighest,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -1884,19 +1883,19 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
                 hintText: _hintFor(_type),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: _outlinedActionStyle(
-                      context.colors.accent,
+                      Theme.of(context).colorScheme.primary,
                     ),
                     child: const Text('取消'),
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
@@ -1910,7 +1909,7 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
                         ),
                       );
                     },
-                    style: _outlinedActionStyle(Theme.of(context).colorScheme.primary),
+                    style: _outlinedActionStyle(Colors.green),
                     child: const Text('保存'),
                   ),
                 ),
@@ -1935,20 +1934,20 @@ class _PrefCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  Color _typeColor(BuildContext context, String type) {
+  Color _typeColor(String type) {
     switch (type) {
       case 'String':
-        return Theme.of(context).colorScheme.primary;
+        return Colors.blue;
       case 'int':
-        return Theme.of(context).colorScheme.primary;
+        return Colors.green;
       case 'double':
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.teal;
       case 'bool':
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.orange;
       case 'List<String>':
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.purple;
       default:
-        return Theme.of(context).colorScheme.onSurfaceVariant;
+        return Colors.grey;
     }
   }
 
@@ -1956,24 +1955,24 @@ class _PrefCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = entry.value.runtimeType.toString();
     return Card(
-      margin: EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: onEdit,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: _typeColor(context, type).withValues(alpha: 0.1),
+                  color: _typeColor(type).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Icons.settings, color: _typeColor(context, type)),
+                child: Icon(Icons.settings, color: _typeColor(type)),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1987,30 +1986,30 @@ class _PrefCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       entry.value?.toString() ?? 'null',
-                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _typeColor(context, type).withValues(alpha: 0.15),
+                  color: _typeColor(type).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   type,
-                  style: TextStyle(fontSize: 10, color: _typeColor(context, type)),
+                  style: TextStyle(fontSize: 10, color: _typeColor(type)),
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 20),
+                icon: Icon(Icons.delete_outline, color: Colors.red[400], size: 20),
                 onPressed: onDelete,
                 tooltip: '删除',
               ),
@@ -2176,7 +2175,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('从 "$name" 恢复'),
-        content: Text(
+        content: const Text(
             '建议先备份当前数据。\n是否同时清空已有数据？'),
         actions: [
           TextButton(
@@ -2185,8 +2184,8 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('清空后导入',
-                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: const Text('清空后导入',
+                style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -2222,7 +2221,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
   /// 导入失败时弹出底部抽屉，逐条列出 [ImportError]（section/key + reason），
   /// 方便用户长按复制 key 后去对应 box 手动恢复。
   Future<void> _showImportErrorSheet(List<ImportError> items) async {
-    final scheme = context.colors.scheme;
+    final scheme = Theme.of(context).colorScheme;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -2244,15 +2243,15 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
               ),
               subtitle: const Text('长按条目可复制 key'),
               trailing: IconButton(
-                icon: Icon(Icons.close),
+                icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(ctx),
               ),
             ),
-            Divider(height: 1),
+            const Divider(height: 1),
             Expanded(
               child: Container(
-                margin: EdgeInsets.all(8),
-                padding: EdgeInsets.all(8),
+                margin: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: scheme.errorContainer,
                   borderRadius: BorderRadius.circular(8),
@@ -2272,7 +2271,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                       ImportErrorSection.notes => 'notes:${e.key}',
                     };
                     return Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -2285,7 +2284,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                             ),
                           ),
                           if (e.reason.isNotEmpty) ...[
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             SelectableText(
                               e.reason,
                               style: TextStyle(
@@ -2321,7 +2320,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -2361,7 +2360,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2378,22 +2377,22 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                 ),
                 child: Icon(Icons.cloud_outlined, color: accent, size: 28),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text('云同步需要登录',
                   style: theme.textTheme.titleMedium),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               TextField(
                 controller: _emailCtrl,
                 decoration: const InputDecoration(labelText: '邮箱'),
                 keyboardType: TextInputType.emailAddress,
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               TextField(
                 controller: _pwdCtrl,
                 decoration: const InputDecoration(labelText: '密码'),
                 obscureText: true,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: _busy ? null : _login,
                 icon: _busy
@@ -2405,7 +2404,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                           color: accent,
                         ),
                       )
-                    : Icon(Icons.login, size: 18),
+                    : const Icon(Icons.login, size: 18),
                 label: const Text('登录'),
                 style: EmphasisButton.borderEmphasis(
                   context,
@@ -2421,20 +2420,20 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
 
   Widget _buildSync() {
     return Padding(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 登录状态指示 —— border-emphasis green
           Row(children: [
             _StatusChip(label: '已登录${_identity == null ? "" : ": $_identity"}'),
-            Spacer(),
+            const Spacer(),
             TextButton(
               onPressed: _busy ? null : _logout,
               child: const Text('退出'),
             ),
           ]),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Row(children: [
             Expanded(
               child: TextField(
@@ -2444,23 +2443,23 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
                 ),
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: _busy ? null : _doBackup,
-              icon: Icon(Icons.cloud_upload_outlined, size: 18),
-              label: Text('备份到云端'),
-              style: EmphasisButton.borderEmphasis(context, color: Theme.of(context).colorScheme.primary),
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: const Text('备份到云端'),
+              style: EmphasisButton.borderEmphasis(context, color: Colors.green),
             ),
           ]),
-          SizedBox(height: 12),
-          Align(
+          const SizedBox(height: 12),
+          const Align(
             alignment: Alignment.centerLeft,
             child: Text('已有备份',
                 style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           Expanded(
             child: _backups.isEmpty
-                ? Center(child: Text('还没有云端备份'))
+                ? const Center(child: Text('还没有云端备份'))
                 : ListView.builder(
                     itemCount: _backups.length,
                     itemBuilder: (_, i) {
@@ -2477,16 +2476,16 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: (_busy || _selected == null) ? null : _doRestore,
-                icon: Icon(Icons.cloud_download_outlined, size: 18),
-                label: Text('从云端恢复'),
-                style: EmphasisButton.borderEmphasis(context, color: Theme.of(context).colorScheme.primary),
+                icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                label: const Text('从云端恢复'),
+                style: EmphasisButton.borderEmphasis(context, color: Colors.blue),
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: (_busy || _selected == null) ? null : _doDelete,
-                icon: Icon(Icons.delete_outline, size: 18),
+                icon: const Icon(Icons.delete_outline, size: 18),
                 label: const Text('删除备份'),
                 style: EmphasisButton.dangerEmphasis(context),
               ),
@@ -2503,7 +2502,7 @@ class _CloudSyncTabState extends ConsumerState<_CloudSyncTab> {
 ButtonStyle _outlinedActionStyle(Color color) => OutlinedButton.styleFrom(
       foregroundColor: color,
       side: BorderSide(color: color.withValues(alpha: 0.5), width: 1.5),
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     );
 
 /// 已登录状态指示 —— border-emphasis green
@@ -2514,18 +2513,18 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+        color: Colors.green.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.check_circle_outline, size: 14, color: Theme.of(context).colorScheme.primary),
-        SizedBox(width: 4),
+        const Icon(Icons.check_circle_outline, size: 14, color: Colors.green),
+        const SizedBox(width: 4),
         Text(label,
-            style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
+            style: const TextStyle(
+                color: Colors.green,
                 fontSize: 12,
                 fontWeight: FontWeight.w500)),
       ]),
@@ -2549,17 +2548,17 @@ class _BackupRow extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Material(
         color: selected
             ? accent.withValues(alpha: 0.08)
-            : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(10),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
@@ -2577,7 +2576,7 @@ class _BackupRow extends StatelessWidget {
                 size: 18,
                 color: selected ? accent : theme.iconTheme.color?.withValues(alpha: 0.5),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(child: Text(name)),
             ]),
           ),

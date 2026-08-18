@@ -1,4 +1,5 @@
 import 'recurrence.dart';
+import '../data/calendar_config.dart';
 
 /// 事件类型
 enum EventType { birthday, anniversary, countdown, holiday, task, custom }
@@ -44,6 +45,9 @@ class Event {
   /// 用于 next_birthday 反推后续年份的对应公历
   final int? lunarAnchorYear;
 
+  /// 所属日历 group（仿 timetable 多空间：default + 自建）
+  final String groupId;
+
   const Event({
     required this.id,
     required this.type,
@@ -61,6 +65,7 @@ class Event {
     this.note,
     this.systemCalendarEventId,
     this.lunarAnchorYear,
+    this.groupId = CalendarGroup.defaultGroupId,
   });
 
   Event copyWith({
@@ -78,6 +83,7 @@ class Event {
     String? note,
     int? systemCalendarEventId,
     int? lunarAnchorYear,
+    String? groupId,
   }) {
     return Event(
       id: id,
@@ -95,6 +101,7 @@ class Event {
       note: note ?? this.note,
       systemCalendarEventId: systemCalendarEventId ?? this.systemCalendarEventId,
       lunarAnchorYear: lunarAnchorYear ?? this.lunarAnchorYear,
+      groupId: groupId ?? this.groupId,
       createdAt: createdAt,
     );
   }
@@ -115,6 +122,7 @@ class Event {
         if (note != null) 'note': note,
         if (systemCalendarEventId != null) 'systemCalendarEventId': systemCalendarEventId,
         if (lunarAnchorYear != null) 'lunarAnchorYear': lunarAnchorYear,
+        if (groupId != CalendarGroup.defaultGroupId) 'groupId': groupId,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -135,5 +143,6 @@ class Event {
         systemCalendarEventId: j['systemCalendarEventId'] as int?,
         lunarAnchorYear: j['lunarAnchorYear'] as int?,
         createdAt: DateTime.parse(j['createdAt'] as String),
+        groupId: j['groupId'] as String? ?? CalendarGroup.defaultGroupId,
       );
 }

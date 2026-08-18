@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../../widgets/context_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -116,8 +115,7 @@ class _MetronomePageState extends State<_MetronomePage> {
   @override
   Widget build(BuildContext context) {
     return zenPageScaffold(
-      context: context,
-  title: '节拍器',
+      title: '节拍器',
       body: SafeArea(
         child: Consumer<MetronomeController>(
           builder: (context, controller, _) {
@@ -125,7 +123,7 @@ class _MetronomePageState extends State<_MetronomePage> {
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth > 500;
                 return SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight - 32,
@@ -149,7 +147,7 @@ class _MetronomePageState extends State<_MetronomePage> {
       children: [
         // 速度标记
         TempoMarking(bpm: controller.bpm),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
 
         // 节拍指示器
         BeatIndicator(
@@ -158,31 +156,31 @@ class _MetronomePageState extends State<_MetronomePage> {
           isPlaying: controller.isPlaying,
           beatPattern: controller.beatPattern,
         ),
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
 
         // BPM 显示与滚轮
         _buildBpmSection(context, controller),
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
 
         // 拍号选择
         _buildTimeSignatureSection(context, controller),
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
 
         // 控制按钮
         _buildControlSection(context, controller),
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
 
         // Tap Tempo
         TapTempoButton(onTap: controller.tap),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
 
         // 重音模式说明
-        _buildAccentLegend(context),
-        SizedBox(height: 16),
+        _buildAccentLegend(),
+        const SizedBox(height: 16),
 
         // 音色配置
         _buildSoundSection(context, controller),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -199,14 +197,14 @@ class _MetronomePageState extends State<_MetronomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               TempoMarking(bpm: controller.bpm),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               BeatIndicator(
                 beatCount: controller.beatPattern.beatsPerMeasure,
                 currentBeatListenable: controller.currentBeatNotifier,
                 isPlaying: controller.isPlaying,
                 beatPattern: controller.beatPattern,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               PendulumAnimation(
                 bpm: controller.bpm,
                 isPlaying: controller.isPlaying,
@@ -215,7 +213,7 @@ class _MetronomePageState extends State<_MetronomePage> {
           ),
         ),
 
-        SizedBox(width: 32),
+        const SizedBox(width: 32),
 
         // 右侧 - 控制面板
         Expanded(
@@ -224,13 +222,13 @@ class _MetronomePageState extends State<_MetronomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildBpmSection(context, controller),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               _buildTimeSignatureSection(context, controller),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               _buildControlSection(context, controller),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               TapTempoButton(onTap: controller.tap),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               _buildSoundSection(context, controller),
             ],
           ),
@@ -253,7 +251,7 @@ class _MetronomePageState extends State<_MetronomePage> {
               icon: Icons.remove,
               onPressed: controller.decrementBpm,
             ),
-            SizedBox(width: 24),
+            const SizedBox(width: 24),
             GestureDetector(
               onTap: () => _showBpmPicker(context, controller),
               child: Column(
@@ -262,7 +260,7 @@ class _MetronomePageState extends State<_MetronomePage> {
                     controller.bpm.toString(),
                     style: ZenText.title.copyWith(
                       fontSize: 64,
-                      color: context.colors.accent,
+                      color: ZenColors.sage,
                     ),
                   ),
                   Text(
@@ -272,22 +270,22 @@ class _MetronomePageState extends State<_MetronomePage> {
                 ],
               ),
             ),
-            SizedBox(width: 24),
+            const SizedBox(width: 24),
             BpmAdjustButton(
               icon: Icons.add,
               onPressed: controller.incrementBpm,
             ),
           ],
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
 
         // BPM 滑块
         SliderTheme(
           data: SliderThemeData(
-            activeTrackColor: context.colors.accent,
-            inactiveTrackColor: context.colors.accent.withValues(alpha: 0.2),
-            thumbColor: context.colors.accent,
-            overlayColor: context.colors.accent.withValues(alpha: 0.1),
+            activeTrackColor: ZenColors.sage,
+            inactiveTrackColor: ZenColors.sage.withValues(alpha: 0.2),
+            thumbColor: ZenColors.sage,
+            overlayColor: ZenColors.sage.withValues(alpha: 0.1),
             trackHeight: 6,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
           ),
@@ -309,17 +307,17 @@ class _MetronomePageState extends State<_MetronomePage> {
             return GestureDetector(
               onTap: () => controller.setBpm(bpm),
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? context.colors.accent
-                      : context.colors.outline,
+                      ? ZenColors.sage
+                      : ZenColors.hair,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   '$bpm',
                   style: TextStyle(
-                    color: isSelected ? Theme.of(context).colorScheme.onSurface : context.colors.text,
+                    color: isSelected ? Colors.white : ZenColors.ink,
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
@@ -341,7 +339,7 @@ class _MetronomePageState extends State<_MetronomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 8),
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             '节拍模式',
             style: ZenText.label,
@@ -366,12 +364,12 @@ class _MetronomePageState extends State<_MetronomePage> {
           onPressed: controller.isPlaying ? () => controller.pause() : null,
           icon: Icon(
             Icons.pause_rounded,
-            color: controller.isPlaying ? context.colors.text : context.colors.outline,
+            color: controller.isPlaying ? ZenColors.ink : ZenColors.hair,
             size: 32,
           ),
         ),
 
-        SizedBox(width: 16),
+        const SizedBox(width: 16),
 
         // 播放/停止按钮
         PlayControlButton(
@@ -379,14 +377,14 @@ class _MetronomePageState extends State<_MetronomePage> {
           onPressed: () => controller.togglePlay(),
         ),
 
-        SizedBox(width: 16),
+        const SizedBox(width: 16),
 
         // 重置 Tap Tempo
         IconButton(
           onPressed: controller.resetTapTempo,
           icon: Icon(
             Icons.refresh_rounded,
-            color: context.colors.text,
+            color: ZenColors.ink,
             size: 32,
           ),
           tooltip: '重置 Tap Tempo',
@@ -403,9 +401,9 @@ class _MetronomePageState extends State<_MetronomePage> {
     const uiToCppSlot = [2, 1, 0]; // accent→slot2, medium→slot1, weak→slot0
 
     final accentColors = [
-      AccentColor.getColor(context, AccentLevel.accent),
-      AccentColor.getColor(context, AccentLevel.medium),
-      AccentColor.getColor(context, AccentLevel.weak),
+      AccentColor.getColor(AccentLevel.accent),
+      AccentColor.getColor(AccentLevel.medium),
+      AccentColor.getColor(AccentLevel.weak),
     ];
     final labels = const ['强拍（重音）', '次强拍', '弱拍'];
 
@@ -415,7 +413,7 @@ class _MetronomePageState extends State<_MetronomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (int displayIdx = 0; displayIdx < 3; displayIdx++) ...[
-            if (displayIdx > 0) SizedBox(height: 8),
+            if (displayIdx > 0) const SizedBox(height: 8),
             Row(
               children: [
                 Container(
@@ -426,21 +424,21 @@ class _MetronomePageState extends State<_MetronomePage> {
                     color: accentColors[displayIdx],
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
                   labels[displayIdx],
                   style: TextStyle(
                     fontSize: 13,
-                    color: context.colors.text,
+                    color: ZenColors.ink,
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 DropdownButton<int>(
                   value: controller.soundForLevel(uiToCppSlot[displayIdx]),
-                  underline: SizedBox(),
+                  underline: const SizedBox(),
                   style: TextStyle(
                     fontSize: 13,
-                    color: context.colors.accent,
+                    color: ZenColors.sage,
                   ),
                   items: _soundIds.asMap().entries.map((e) {
                     return DropdownMenuItem(
@@ -457,12 +455,12 @@ class _MetronomePageState extends State<_MetronomePage> {
               ],
             ),
           ],
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             '选择「木鱼」后该档位使用真实采样，否则使用合成音色。',
             style: TextStyle(
               fontSize: 11,
-              color: context.colors.textMuted,
+              color: ZenColors.secondary,
               height: 1.2,
             ),
           ),
@@ -470,22 +468,22 @@ class _MetronomePageState extends State<_MetronomePage> {
       ),
     );
   }
-  Widget _buildAccentLegend(BuildContext context) {
+  Widget _buildAccentLegend() {
     return ZenSection(
       title: '节拍强度',
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildLegendItem(
-            color: AccentColor.getColor(context, AccentLevel.accent),
+            color: AccentColor.getColor(AccentLevel.accent),
             label: '强拍',
           ),
           _buildLegendItem(
-            color: AccentColor.getColor(context, AccentLevel.medium),
+            color: AccentColor.getColor(AccentLevel.medium),
             label: '次强',
           ),
           _buildLegendItem(
-            color: AccentColor.getColor(context, AccentLevel.weak),
+            color: AccentColor.getColor(AccentLevel.weak),
             label: '弱拍',
           ),
         ],
@@ -505,12 +503,12 @@ class _MetronomePageState extends State<_MetronomePage> {
             color: color,
           ),
         ),
-        SizedBox(width: 4),
+        const SizedBox(width: 4),
         Text(
           label,
           style: TextStyle(
             fontSize: 11,
-            color: context.colors.textMuted,
+            color: ZenColors.secondary,
           ),
         ),
       ],
@@ -521,12 +519,12 @@ class _MetronomePageState extends State<_MetronomePage> {
   void _showBpmPicker(BuildContext context, MetronomeController controller) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: context.colors.surface,
+      backgroundColor: ZenColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -542,11 +540,11 @@ class _MetronomePageState extends State<_MetronomePage> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(ctx),
-                  icon: Icon(Icons.close),
+                  icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             SizedBox(
               height: 200,
               child: BpmWheelPicker(
@@ -556,14 +554,14 @@ class _MetronomePageState extends State<_MetronomePage> {
                 },
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () => Navigator.pop(ctx),
                 style: EmphasisButton.borderEmphasis(
                   context,
-                  color: context.colors.accent,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 child: const Text('确定'),
               ),

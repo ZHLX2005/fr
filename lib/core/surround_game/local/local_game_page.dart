@@ -97,7 +97,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
               _touchController.reset();
               _viewModel.dispatch(const LocalStartPressed());
             },
-            icon: Icon(Icons.play_arrow),
+            icon: const Icon(Icons.play_arrow),
             label: const Text('开始游戏'),
             style: EmphasisButton.borderEmphasis(
               context,
@@ -522,7 +522,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
   void _showResetConfirm(BuildContext context, BoardThemeData theme) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -531,7 +531,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 16,
               offset: const Offset(0, -2),
             ),
@@ -544,7 +544,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
               width: 36, height: 4,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -617,7 +617,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
   void _showExitConfirm(BuildContext context, BoardThemeData theme) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -626,7 +626,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 16,
               offset: const Offset(0, -2),
             ),
@@ -639,7 +639,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
               width: 36, height: 4,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -715,9 +715,9 @@ class _LocalGamePageState extends State<LocalGamePage> {
     final rotated = !isTopPlayer;
     showDialog(
       context: context,
-      barrierColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+      barrierColor: Colors.black54,
       builder: (ctx) => Dialog(
-        backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+        backgroundColor: Colors.transparent,
         child: Transform(
           alignment: Alignment.center,
           transform: rotated
@@ -730,7 +730,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 24,
                   offset: const Offset(0, 8),
                 ),
@@ -812,7 +812,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
     final winLabel = isTopWin ? '上方获胜！' : '下方获胜！';
 
     return Container(
-      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+      color: Colors.black.withValues(alpha: 0.45),
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -822,7 +822,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),

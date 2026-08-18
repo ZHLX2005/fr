@@ -175,18 +175,18 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
           if (_isSelectMode)
             TextButton.icon(
               onPressed: _selectedImages.isEmpty ? null : _showMoveDialog,
-              icon: Icon(Icons.drive_file_move),
+              icon: const Icon(Icons.drive_file_move),
               label: const Text('移动'),
             ),
           if (_isSelectMode)
             TextButton.icon(
               onPressed: _exitSelectMode,
-              icon: Icon(Icons.close),
+              icon: const Icon(Icons.close),
               label: const Text('取消'),
             )
           else
             IconButton(
-              icon: Icon(Icons.check_circle_outline),
+              icon: const Icon(Icons.check_circle_outline),
               onPressed: _enterSelectMode,
               tooltip: '选择图片',
             ),
@@ -218,9 +218,9 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.photo_library_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(Icons.photo_library_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text('需要图库权限'),
+          const Text('需要图库权限'),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: _initGallery,
@@ -245,7 +245,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       ),
       child: Row(
         children: [
-          Icon(Icons.folder_outlined),
+          const Icon(Icons.folder_outlined),
           const SizedBox(width: 8),
           Expanded(
             child: DropdownButton<AssetPathEntity>(
@@ -293,9 +293,9 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.photo_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(Icons.photo_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text('此相册为空', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          Text('此相册为空', style: TextStyle(color: Colors.grey[600])),
         ],
       ),
     );
@@ -341,7 +341,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
                   border: Border.all(
                     color: isSelected
                         ? theme.colorScheme.primary
-                        : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                        : Colors.transparent,
                     width: 2,
                   ),
                 ),
@@ -363,9 +363,9 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
                       color: theme.colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.check,
-                      color: Theme.of(context).colorScheme.surface,
+                      color: Colors.white,
                       size: 16,
                     ),
                   ),
@@ -393,13 +393,13 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
           const Spacer(),
           TextButton.icon(
             onPressed: _selectedImages.isEmpty ? null : _selectAll,
-            icon: Icon(Icons.select_all, size: 18),
+            icon: const Icon(Icons.select_all, size: 18),
             label: const Text('全选'),
           ),
           const SizedBox(width: 8),
           OutlinedButton.icon(
             onPressed: _selectedImages.isEmpty ? null : _showDeleteConfirm,
-            icon: Icon(Icons.delete_outline, size: 18),
+            icon: const Icon(Icons.delete_outline, size: 18),
             label: const Text('删除'),
             style: EmphasisButton.dangerEmphasis(context),
           ),
@@ -759,7 +759,7 @@ class _MoveImageDialogState extends State<_MoveImageDialog> {
     final theme = Theme.of(context);
 
     return AlertDialog(
-      title: Text('移动到...'),
+      title: const Text('移动到...'),
       content: SizedBox(
         width: double.maxFinite,
         child: ListView.builder(
@@ -771,7 +771,7 @@ class _MoveImageDialogState extends State<_MoveImageDialog> {
             final isSelected = _selectedAlbum?.id == album.id;
 
             return ListTile(
-              leading: Icon(Icons.folder),
+              leading: const Icon(Icons.folder),
               title: Text(album.name),
               trailing: Text(
                 isCurrent ? '当前' : '',
@@ -845,7 +845,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
         title: const Text('图片详情'),
         actions: [
           IconButton(
-            icon: Icon(Icons.info_outline),
+            icon: const Icon(Icons.info_outline),
             onPressed: () => _showMetadataSheet(context, theme, image),
           ),
         ],
@@ -957,7 +957,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline),
+                    const Icon(Icons.info_outline),
                     const SizedBox(width: 8),
                     Text('图片元信息', style: theme.textTheme.titleMedium),
                   ],
@@ -1026,7 +1026,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
       children: [
         Text(
           title,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         ...children,
@@ -1044,13 +1044,13 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
             width: 80,
             child: Text(
               label,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: 13),
               overflow: TextOverflow.ellipsis,
               maxLines: 3,
             ),

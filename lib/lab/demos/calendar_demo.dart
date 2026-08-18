@@ -12,7 +12,8 @@ import 'calendar/ui/people_view.dart';
 import 'calendar/ui/week_view.dart';
 import 'calendar/ui/widgets/pill_segmented.dart';
 import 'calendar/ui/year_view.dart';
-import '../../widgets/context_colors.dart';
+import 'calendar/service/config/calendar_settings_page.dart';
+import '../../core/theme/paper_palette.dart';
 import '../../core/theme/typography.dart';
 
 /// 日历待办 Demo（v2 进化版）
@@ -80,7 +81,7 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Colors.transparent,
       builder: (_) => DayDetailSheet(date: date, cal: cal, people: people),
     );
   }
@@ -103,13 +104,13 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
     final cal = context.watch<LabCalendarProvider>();
     final people = context.watch<LabPeopleProvider>();
     return Scaffold(
-      backgroundColor: context.colors.scheme.surfaceContainerHighest,
+      backgroundColor: PaperPalette.bg,
       appBar: AppBar(
-        backgroundColor: context.colors.scheme.surfaceContainerHighest,
+        backgroundColor: PaperPalette.bg,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.home_outlined),
-          color: context.colors.text,
+          icon: const Icon(Icons.home_outlined),
+          color: PaperPalette.ink,
           onPressed: () {
             cal.jumpToday();
             setState(() => _index = 1);
@@ -128,12 +129,23 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
               },
             ),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: '日历设置（group / DSL）',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CalendarSettingsPage(),
+                fullscreenDialog: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
         ],
       ),
       body: (!cal.ready || !people.ready)
-          ? Center(
-              child: CircularProgressIndicator(color: context.colors.textMuted),
+          ? const Center(
+              child: CircularProgressIndicator(color: PaperPalette.inkMuted),
             )
           : PageView(
         controller: _page,

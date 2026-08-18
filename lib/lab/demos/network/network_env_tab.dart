@@ -109,15 +109,15 @@ class _NetworkEnvTabState extends State<NetworkEnvTab>
   Widget build(BuildContext context) {
     super.build(context);
     if (_loading) {
-      return Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Text(
             '加载失败: $_error',
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+            style: const TextStyle(color: Colors.red),
           ),
         ),
       );
@@ -126,20 +126,20 @@ class _NetworkEnvTabState extends State<NetworkEnvTab>
     return RefreshIndicator(
       onRefresh: _loadAll,
       child: ListView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         children: [
           NetworkEnvCards.wifi(context, _wifi),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           NetworkEnvCards.publicIp(context, _publicIp, _refreshPublicIp),
-          SizedBox(height: 12),
-          NetworkEnvCards.httpProbe(context, _httpProbes, _probeTesting, _runHttpProbes),
-          SizedBox(height: 12),
-          NetworkEnvCards.dns(context, _dnsResults, _dnsTesting, _runDnsTests),
-          SizedBox(height: 12),
-          NetworkEnvCards.interfaces(context, _interfaces),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
+          NetworkEnvCards.httpProbe(_httpProbes, _probeTesting, _runHttpProbes),
+          const SizedBox(height: 12),
+          NetworkEnvCards.dns(_dnsResults, _dnsTesting, _runDnsTests),
+          const SizedBox(height: 12),
+          NetworkEnvCards.interfaces(_interfaces),
+          const SizedBox(height: 12),
           NetworkEnvCards.platform(context),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           NetworkEnvCards.ports(context),
         ],
       ),

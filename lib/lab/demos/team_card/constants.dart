@@ -50,15 +50,14 @@ class RoleDef {
       RoleDef(label: j['label'] as String? ?? '', count: (j['count'] as num?)?.toInt() ?? 1);
 }
 
-// ── 角色颜色（全部由 ColorScheme 派生，零硬编码）──
+// ── 角色颜色 ──
 
 Color roleColor(ThemeData theme, String role) {
-  final c = theme.colorScheme;
-  if (role == '卧底' || role == '狼人') return c.error;
-  if (role == '女巫') return c.tertiary;
-  if (role == '预言家') return Color.lerp(c.primary, c.tertiary, 0.5)!;
-  if (role == '猎人' || role == '守卫') return Color.lerp(c.primary, c.tertiary, 0.25)!;
-  return c.primary;
+  if (role == '卧底' || role == '狼人') return theme.colorScheme.error;
+  if (role == '预言家') return Colors.blue;
+  if (role == '女巫') return theme.colorScheme.tertiary;
+  if (role == '猎人' || role == '守卫') return Colors.teal;
+  return theme.colorScheme.primary;
 }
 
 // ── 内置预设 ──
@@ -240,8 +239,19 @@ class SetupState {
   });
 }
 
-// ── 头像颜色：6 种由 context.gameColors.avatarColors 提供 ──
-//
-// 之前这里有 const List<Color> kTeamCardAvatarColors (12 种 iOS 风格色)
-// 已删除（自我豁免硬编码 → 零硬编码）。avatarColors 在 GameColorsStrategy
-// 从 ColorScheme 派生 6 种主色梯度。
+// ── 头像颜色表（复制自 participants_grid.dart 的 kParticipantColors） ──
+
+const List<Color> kTeamCardAvatarColors = [
+  Color(0xFF4F8CF7),
+  Color(0xFF34C759),
+  Color(0xFFFF9500),
+  Color(0xFFAF52DE),
+  Color(0xFF5AC8FA),
+  Color(0xFFFF2D55),
+  Color(0xFF5856D6),
+  Color(0xFF00C7BE),
+  Color(0xFFFFD60A),
+  Color(0xFFFF6B6B),
+  Color(0xFFA2845E),
+  Color(0xFFBF5AF2),
+];

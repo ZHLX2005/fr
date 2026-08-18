@@ -96,8 +96,8 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-                          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.62),
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.62),
                         ],
                       ),
                     ),
@@ -112,7 +112,7 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleLarge?.copyWith(
-                              color: Theme.of(context).colorScheme.surface,
+                              color: Colors.white,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -122,7 +122,7 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+                              color: Colors.white.withValues(alpha: 0.85),
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -228,7 +228,7 @@ class _GameGridCardState extends State<GameGridCard> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
+                color: Colors.black.withValues(alpha: 0.06),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -372,7 +372,7 @@ class _GameFavoriteStarState extends State<GameFavoriteStar> {
           isFav ? Icons.star_rounded : Icons.star_border_rounded,
           key: ValueKey(isFav),
           size: size,
-          color: isFav ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.surface,
+          color: isFav ? const Color(0xFFFFC53D) : Colors.white,
           shadows: const [Shadow(color: Color(0x66000000), blurRadius: 6)],
         ),
       ),
@@ -409,7 +409,7 @@ class GameCategoryChip extends StatelessWidget {
     final fg = selected ? accent : scheme.onSurfaceVariant;
 
     return Material(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
         onTap: onTap,
@@ -477,7 +477,7 @@ class _GlassPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = filled ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.surface;
+    final fg = filled ? Colors.black87 : Colors.white;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: dense ? 7 : 10,
@@ -485,10 +485,10 @@ class _GlassPill extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: filled
-            ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.92)
-            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
+            ? Colors.white.withValues(alpha: 0.92)
+            : Colors.black.withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.28)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

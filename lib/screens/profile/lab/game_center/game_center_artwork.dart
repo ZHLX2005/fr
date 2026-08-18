@@ -58,7 +58,7 @@ class GameArtwork extends StatelessWidget {
           )
         else
           Positioned.fill(
-            child: CustomPaint(painter: _ArtPatternPainter(meta.pattern, scheme: Theme.of(context).colorScheme)),
+            child: CustomPaint(painter: _ArtPatternPainter(meta.pattern)),
           ),
         // 压暗蒙版：让上层白色文字/角标在任何底色上都可读
         Positioned.fill(
@@ -68,8 +68,8 @@ class GameArtwork extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: _hasImage ? 0.28 : 0.06),
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: _hasImage ? 0.55 : 0.30),
+                  Colors.black.withValues(alpha: _hasImage ? 0.28 : 0.06),
+                  Colors.black.withValues(alpha: _hasImage ? 0.55 : 0.30),
                 ],
               ),
             ),
@@ -80,7 +80,7 @@ class GameArtwork extends StatelessWidget {
             child: Icon(
               meta.icon,
               size: iconSize,
-              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+              color: Colors.white.withValues(alpha: 0.92),
             ),
           ),
       ],
@@ -90,10 +90,7 @@ class GameArtwork extends StatelessWidget {
 
 /// 装饰图案画笔。全部用白色低透明度绘制，叠在渐变之上。
 class _ArtPatternPainter extends CustomPainter {
-  _ArtPatternPainter(this.pattern, {required this.scheme});
-
-  /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
-  final ColorScheme scheme;
+  const _ArtPatternPainter(this.pattern);
 
   final GameArtPattern pattern;
 
@@ -114,7 +111,7 @@ class _ArtPatternPainter extends CustomPainter {
   }
 
   void _paintBlob(Canvas canvas, Size size) {
-    final paint = Paint()..color = scheme.surface.withValues(alpha: 0.10);
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.10);
     canvas.drawCircle(
       Offset(size.width * 0.18, size.height * 0.22),
       size.shortestSide * 0.34,
@@ -123,18 +120,18 @@ class _ArtPatternPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(size.width * 0.86, size.height * 0.74),
       size.shortestSide * 0.44,
-      paint..color = scheme.surface.withValues(alpha: 0.07),
+      paint..color = Colors.white.withValues(alpha: 0.07),
     );
     canvas.drawCircle(
       Offset(size.width * 0.72, size.height * 0.14),
       size.shortestSide * 0.16,
-      paint..color = scheme.surface.withValues(alpha: 0.12),
+      paint..color = Colors.white.withValues(alpha: 0.12),
     );
   }
 
   void _paintStripes(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = scheme.surface.withValues(alpha: 0.09)
+      ..color = Colors.white.withValues(alpha: 0.09)
       ..strokeWidth = 10
       ..style = PaintingStyle.stroke;
     const step = 26.0;
@@ -149,7 +146,7 @@ class _ArtPatternPainter extends CustomPainter {
 
   void _paintGrid(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = scheme.surface.withValues(alpha: 0.14)
+      ..color = Colors.white.withValues(alpha: 0.14)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
     const divisions = 6;
@@ -162,7 +159,7 @@ class _ArtPatternPainter extends CustomPainter {
   }
 
   void _paintDots(Canvas canvas, Size size) {
-    final paint = Paint()..color = scheme.surface.withValues(alpha: 0.16);
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.16);
     const cols = 7;
     final rows = math.max(3, (cols * size.height / size.width).round());
     for (int r = 0; r < rows; r++) {
@@ -178,7 +175,7 @@ class _ArtPatternPainter extends CustomPainter {
 
   void _paintWave(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = scheme.surface.withValues(alpha: 0.16)
+      ..color = Colors.white.withValues(alpha: 0.16)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     for (int line = 0; line < 3; line++) {

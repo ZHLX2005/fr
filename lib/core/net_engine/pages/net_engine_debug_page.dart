@@ -14,7 +14,7 @@ class NetEngineDebugPage extends StatelessWidget {
           title: const Text('调试日志'),
           actions: [
             IconButton(
-              icon: Icon(Icons.delete_outline),
+              icon: const Icon(Icons.delete_outline),
               onPressed: () {
                 debugLog.clear();
               },
@@ -70,11 +70,11 @@ class _LogEntryTile extends StatelessWidget {
   Color _getLevelColor(BuildContext context) {
     switch (entry.level) {
       case LogLevel.debug:
-        return Theme.of(context).colorScheme.onSurfaceVariant;
+        return Colors.grey;
       case LogLevel.info:
         return Theme.of(context).colorScheme.primary;
       case LogLevel.warning:
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.orange;
       case LogLevel.error:
         return Theme.of(context).colorScheme.error;
     }
@@ -105,7 +105,7 @@ class _LogEntryTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(entry.levelIcon, style: TextStyle(fontSize: 12)),
+          Text(entry.levelIcon, style: const TextStyle(fontSize: 12)),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -150,15 +150,15 @@ class _StateMachineTab extends StatelessWidget {
         final logs = snapshot.data ?? [];
 
         if (logs.isEmpty) {
-          return Center(
+          return const Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.hub_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Icon(Icons.hub_outlined, size: 64, color: Colors.grey),
                 SizedBox(height: 16),
                 Text('暂无状态转换记录'),
                 SizedBox(height: 8),
-                Text('状态转换会显示在这里', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                Text('状态转换会显示在这里', style: TextStyle(color: Colors.grey)),
               ],
             ),
           );
@@ -182,24 +182,24 @@ class _StateMachineTile extends StatelessWidget {
 
   const _StateMachineTile({required this.entry});
 
-  Color _getServiceColor(BuildContext context, String service) {
+  Color _getServiceColor(String service) {
     switch (service) {
       case 'Localnet':
-        return Theme.of(context).colorScheme.primary;
+        return Colors.blue;
       case 'Discovery':
-        return Theme.of(context).colorScheme.primary;
+        return Colors.green;
       case 'Message':
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.purple;
       case 'Config':
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.orange;
       default:
-        return Theme.of(context).colorScheme.onSurfaceVariant;
+        return Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final serviceColor = _getServiceColor(context, entry.service);
+    final serviceColor = _getServiceColor(entry.service);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -218,7 +218,7 @@ class _StateMachineTile extends StatelessWidget {
             style: TextStyle(
               fontFamily: 'monospace',
               fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              color: Colors.grey.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(width: 12),
@@ -247,12 +247,12 @@ class _StateMachineTile extends StatelessWidget {
                 Row(
                   children: [
                     _StateBadge(state: entry.fromState, isActive: false),
-                    Padding(
+                    const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8),
                       child: Icon(
                         Icons.arrow_forward,
                         size: 16,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: Colors.grey,
                       ),
                     ),
                     _StateBadge(state: entry.toState, isActive: true),
@@ -262,7 +262,7 @@ class _StateMachineTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     entry.note!,
-                    style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ],
@@ -280,32 +280,32 @@ class _StateBadge extends StatelessWidget {
 
   const _StateBadge({required this.state, required this.isActive});
 
-  Color _getStateColor(BuildContext context, String state) {
+  Color _getStateColor(String state) {
     switch (state) {
       case 'INIT':
-        return Theme.of(context).colorScheme.onSurfaceVariant;
+        return Colors.grey;
       case 'LOADING':
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.orange;
       case 'READY':
-        return Theme.of(context).colorScheme.primary;
+        return Colors.green;
       case 'IDLE':
-        return Theme.of(context).colorScheme.onSurfaceVariant;
+        return Colors.grey;
       case 'STARTING':
-        return Theme.of(context).colorScheme.primary;
+        return Colors.blue;
       case 'RUNNING':
-        return Theme.of(context).colorScheme.primary;
+        return Colors.green;
       case 'STOPPING':
-        return Theme.of(context).colorScheme.tertiary;
+        return Colors.orange;
       case 'ERROR':
-        return Theme.of(context).colorScheme.error;
+        return Colors.red;
       default:
-        return Theme.of(context).colorScheme.onSurfaceVariant;
+        return Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _getStateColor(context, state);
+    final color = _getStateColor(state);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

@@ -5,7 +5,6 @@
 // 删除实体/关系词时 store 会联动清理引用它的规则，避免悬空边。
 
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
 
 import '../../../../widgets/theme/zen_theme.dart';
 import 'const_relation_calc.dart';
@@ -44,7 +43,7 @@ class _ManageViewState extends State<ManageView> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: context.colors.surface,
+        backgroundColor: ZenColors.surface,
         title: Text(existing == null
             ? RelationCalcUiText.addEntity
             : RelationCalcUiText.editEntity),
@@ -58,7 +57,7 @@ class _ManageViewState extends State<ManageView> {
                 hintText: '如：爷爷',
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             TextField(
               controller: noteCtrl,
               decoration: InputDecoration(
@@ -72,12 +71,12 @@ class _ManageViewState extends State<ManageView> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(RelationCalcUiText.cancel,
-                style: TextStyle(color: context.colors.textMuted)),
+                style: const TextStyle(color: ZenColors.secondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(RelationCalcUiText.save,
-                style: TextStyle(color: context.colors.accent)),
+                style: const TextStyle(color: ZenColors.sage)),
           ),
         ],
       ),
@@ -112,7 +111,7 @@ class _ManageViewState extends State<ManageView> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: context.colors.surface,
+        backgroundColor: ZenColors.surface,
         title: Text(existing == null
             ? RelationCalcUiText.addTerm
             : RelationCalcUiText.editTerm),
@@ -127,12 +126,12 @@ class _ManageViewState extends State<ManageView> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(RelationCalcUiText.cancel,
-                style: TextStyle(color: context.colors.textMuted)),
+                style: const TextStyle(color: ZenColors.secondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(RelationCalcUiText.save,
-                style: TextStyle(color: context.colors.accent)),
+                style: const TextStyle(color: ZenColors.sage)),
           ),
         ],
       ),
@@ -166,7 +165,7 @@ class _ManageViewState extends State<ManageView> {
     final terms = widget.data.terms;
     if (entities.isEmpty || terms.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('请先添加实体和关系词')),
+        const SnackBar(content: Text('请先添加实体和关系词')),
       );
       return;
     }
@@ -188,7 +187,7 @@ class _ManageViewState extends State<ManageView> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
-          backgroundColor: context.colors.surface,
+          backgroundColor: ZenColors.surface,
           title: Text(RelationCalcUiText.addRule),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -203,7 +202,7 @@ class _ManageViewState extends State<ManageView> {
                 ],
                 onChanged: (v) => setDlg(() => fromId = v ?? fromId),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: termId,
                 decoration: const InputDecoration(
@@ -214,7 +213,7 @@ class _ManageViewState extends State<ManageView> {
                 ],
                 onChanged: (v) => setDlg(() => termId = v ?? termId),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: toId,
                 decoration: const InputDecoration(
@@ -231,12 +230,12 @@ class _ManageViewState extends State<ManageView> {
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(RelationCalcUiText.cancel,
-                  style: TextStyle(color: context.colors.textMuted)),
+                  style: const TextStyle(color: ZenColors.secondary)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(RelationCalcUiText.save,
-                  style: TextStyle(color: context.colors.accent)),
+                  style: const TextStyle(color: ZenColors.sage)),
             ),
           ],
         ),
@@ -290,13 +289,13 @@ class _ManageViewState extends State<ManageView> {
     required VoidCallback onDelete,
   }) {
     return Container(
-      margin: EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: zenCardTheme(context),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: zenCard(),
       child: Row(
         children: [
           leading,
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,20 +305,20 @@ class _ManageViewState extends State<ManageView> {
                   child: title,
                 ),
                 if (subtitle != null) ...[
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   DefaultTextStyle.merge(style: ZenText.label, child: subtitle),
                 ],
               ],
             ),
           ),
           IconButton(
-            icon: Icon(Icons.edit_outlined,
-                size: 18, color: context.colors.textMuted),
+            icon: const Icon(Icons.edit_outlined,
+                size: 18, color: ZenColors.secondary),
             onPressed: onEdit,
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline,
-                size: 18, color: context.colors.danger),
+            icon: const Icon(Icons.delete_outline,
+                size: 18, color: ZenColors.mutedRed),
             onPressed: onDelete,
           ),
         ],
@@ -334,9 +333,9 @@ class _ManageViewState extends State<ManageView> {
       child: Column(
         children: [
           TabBar(
-            labelColor: context.colors.accent,
-            unselectedLabelColor: context.colors.textMuted,
-            indicatorColor: context.colors.accent,
+            labelColor: ZenColors.sage,
+            unselectedLabelColor: ZenColors.secondary,
+            indicatorColor: ZenColors.sage,
             indicatorSize: TabBarIndicatorSize.label,
             tabs: const [
               Tab(text: RelationCalcUiText.entitiesTab),
@@ -367,21 +366,21 @@ class _ManageViewState extends State<ManageView> {
       );
     }
     return ListView(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       children: [
         for (final e in entities)
           _listCard(
-            leading: Icon(Icons.person, color: context.colors.accent, size: 20),
+            leading: const Icon(Icons.person, color: ZenColors.sage, size: 20),
             title: Text(e.name),
             subtitle: e.note.isEmpty ? null : Text(e.note),
             onEdit: () => _editEntity(e),
             onDelete: () => _deleteEntity(e),
           ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Center(
           child: OutlinedButton(
             onPressed: () => _editEntity(null),
-            style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+            style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
             child: const Text('+'),
           ),
         ),
@@ -398,20 +397,20 @@ class _ManageViewState extends State<ManageView> {
       );
     }
     return ListView(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       children: [
         for (final t in terms)
           _listCard(
-            leading: Icon(Icons.merge_type, color: context.colors.accent, size: 20),
+            leading: const Icon(Icons.merge_type, color: ZenColors.sage, size: 20),
             title: Text(t.name),
             onEdit: () => _editTerm(t),
             onDelete: () => _deleteTerm(t),
           ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Center(
           child: OutlinedButton(
             onPressed: () => _editTerm(null),
-            style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+            style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
             child: const Text('+'),
           ),
         ),
@@ -428,22 +427,22 @@ class _ManageViewState extends State<ManageView> {
       );
     }
     return ListView(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       children: [
         for (final r in rules)
           _listCard(
             leading:
-                Icon(Icons.account_tree, color: context.colors.accent, size: 20),
+                const Icon(Icons.account_tree, color: ZenColors.sage, size: 20),
             title: Text(
                 '${_entityName(r.fromId)} 的 ${_termName(r.termId)} = ${_entityName(r.toId)}'),
             onEdit: () => _editRule(r),
             onDelete: () => _deleteRule(r),
           ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Center(
           child: OutlinedButton(
             onPressed: () => _editRule(null),
-            style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+            style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
             child: const Text('+'),
           ),
         ),

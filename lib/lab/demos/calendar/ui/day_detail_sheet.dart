@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 
+import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 import '../data/lab_people_provider.dart';
@@ -19,7 +19,7 @@ class DayDetailSheet extends StatelessWidget {
   final LabCalendarProvider cal;
   final LabPeopleProvider people;
 
-  DayDetailSheet({
+  const DayDetailSheet({
     super.key,
     required this.date,
     required this.cal,
@@ -40,8 +40,8 @@ class DayDetailSheet extends StatelessWidget {
             right: 20,
             top: 16,
           ),
-          decoration: BoxDecoration(
-            color: context.colors.surface,
+          decoration: const BoxDecoration(
+            color: PaperPalette.bgElevated,
             borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
           child: Column(
@@ -58,7 +58,7 @@ class DayDetailSheet extends StatelessWidget {
                           '${date.year}年${date.month}月${date.day}日',
                           style: AppText.title(),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
                           _lunarLabel(date),
                           style: AppText.caption(),
@@ -67,19 +67,19 @@ class DayDetailSheet extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded),
-                    color: context.colors.textMuted,
+                    icon: const Icon(Icons.close_rounded),
+                    color: PaperPalette.inkMuted,
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              SizedBox(height: 8),
-              Divider(height: 1, color: context.colors.outline),
+              const SizedBox(height: 8),
+              const Divider(height: 1, color: PaperPalette.line),
               if (events.isEmpty)
                 Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text('暂无事件',
-                      style: AppText.body(color: context.colors.textMuted)),
+                      style: AppText.body(color: PaperPalette.inkMuted)),
                 )
               else
                 ...events.map(
@@ -92,7 +92,7 @@ class DayDetailSheet extends StatelessWidget {
                         : people.byId(e.personId!)?.name,
                   ),
                 ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               PaperSecondaryButton(
                 icon: Icons.add_rounded,
                 label: '新建事件',
@@ -133,7 +133,7 @@ class _EventRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _hexToColor(event.colorTag.hex);
     return Padding(
-      padding: EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
@@ -148,7 +148,7 @@ class _EventRow extends StatelessWidget {
         ),
         onLongPress: () => _confirmDelete(context),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
@@ -161,13 +161,13 @@ class _EventRow extends StatelessWidget {
                 height: 8,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(event.title, style: AppText.body()),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       [
                         _typeNameOf(event.type),
@@ -180,11 +180,11 @@ class _EventRow extends StatelessWidget {
                 ),
               ),
               if (event.systemCalendarEventId != null)
-                Icon(Icons.cloud_done_outlined,
-                    size: 14, color: context.colors.textMuted),
+                const Icon(Icons.cloud_done_outlined,
+                    size: 14, color: PaperPalette.inkMuted),
               IconButton(
-                icon: Icon(Icons.delete_outline_rounded, size: 18),
-                color: context.colors.textMuted,
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                color: PaperPalette.inkMuted,
                 onPressed: () => _confirmDelete(context),
                 tooltip: '删除',
                 padding: EdgeInsets.zero,
@@ -201,7 +201,7 @@ class _EventRow extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: context.colors.surface,
+        backgroundColor: PaperPalette.bgElevated,
         title: Text('删除事件', style: AppText.title()),
         content: Text(
           '确定要删除"${event.title}"？',
@@ -210,11 +210,11 @@ class _EventRow extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('取消'),
+            child: const Text('取消'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
+            style: TextButton.styleFrom(foregroundColor: PaperPalette.today),
             child: const Text('删除'),
           ),
         ],
@@ -229,7 +229,7 @@ class _EventRow extends StatelessWidget {
   Color _hexToColor(String hex) {
     final s = hex.startsWith('#') ? hex.substring(1) : hex;
     final v = int.tryParse(s, radix: 16) ?? 0;
-    return Color(0xFF000000 | v); // 主题豁免：ColorPicker RGB 位合成，非 UI 颜色
+    return Color(0xFF000000 | v);
   }
 }
 
@@ -338,20 +338,20 @@ class _EventFormSheetState extends State<EventFormSheet> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: context.colors.scheme.surfaceContainerHighest,
+      backgroundColor: PaperPalette.bg,
       appBar: AppBar(
-        backgroundColor: context.colors.scheme.surfaceContainerHighest,
+        backgroundColor: PaperPalette.bg,
         elevation: 0,
         title: Text(widget.existing == null ? '新建事件' : '编辑事件', style: AppText.title()),
       ),
       body: ListView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         children: [
           // 日期 header：同时显示公历与农历
           Container(
-            padding: EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: context.colors.outline, width: 1)),
+            padding: const EdgeInsets.only(bottom: 16),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: PaperPalette.line, width: 1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +360,7 @@ class _EventFormSheetState extends State<EventFormSheet> {
                   '${widget.date.year}年${widget.date.month}月${widget.date.day}日',
                   style: AppText.title(),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(_lunarLabel(widget.date), style: AppText.caption()),
               ],
             ),
@@ -418,16 +418,16 @@ class _EventFormSheetState extends State<EventFormSheet> {
             hint: '可选',
             maxLines: 3,
           ),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
-              foregroundColor: context.colors.accent,
-              backgroundColor: context.colors.surface,
+              foregroundColor: PaperPalette.accent,
+              backgroundColor: PaperPalette.bgElevated,
               side: BorderSide(
-                color: context.colors.accent.withValues(alpha: 0.5),
+                color: PaperPalette.accent.withValues(alpha: 0.5),
                 width: 1.5,
               ),
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -532,36 +532,36 @@ class _PaperField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.only(bottom: 6),
-            child: Text(label, style: AppText.caption(color: context.colors.textMuted)),
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(label, style: AppText.caption(color: PaperPalette.inkMuted)),
           ),
           TextField(
             controller: controller,
             maxLines: maxLines,
-            cursorColor: context.colors.accent,
+            cursorColor: PaperPalette.accent,
             style: AppText.body(),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: AppText.body(color: context.colors.scheme.outlineVariant),
+              hintStyle: AppText.body(color: PaperPalette.inkFaint),
               filled: true,
-              fillColor: context.colors.surface,
-              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              fillColor: PaperPalette.bgElevated,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: context.colors.outline, width: 1),
+                borderSide: const BorderSide(color: PaperPalette.line, width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: context.colors.outline, width: 1),
+                borderSide: const BorderSide(color: PaperPalette.line, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: context.colors.accent, width: 1.5),
+                borderSide: const BorderSide(color: PaperPalette.accent, width: 1.5),
               ),
             ),
           ),

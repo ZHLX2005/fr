@@ -49,10 +49,10 @@ class JunglePlayerPanel extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: kPanelHMargin),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: isCurrent ? tint.withValues(alpha: 0.08) : Theme.of(context).colorScheme.surface,
+        color: isCurrent ? tint.withValues(alpha: 0.08) : kPanelBg,
         borderRadius: BorderRadius.circular(kPanelRadius),
         border: Border.all(
-          color: isCurrent ? tint.withValues(alpha: 0.55) : kPanelBorder(context),
+          color: isCurrent ? tint.withValues(alpha: 0.55) : kPanelBorder,
           width: isCurrent ? 2 : 1,
         ),
         boxShadow: isCurrent
@@ -87,7 +87,7 @@ class JunglePlayerPanel extends StatelessWidget {
               child: Text(
                 playerName(color),
                 style: TextStyle(
-                  color: isCurrent ? tint : kTextNormal(context),
+                  color: isCurrent ? tint : kTextNormal,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -104,7 +104,7 @@ class JunglePlayerPanel extends StatelessWidget {
           _Stat(
             icon: Icons.restaurant_rounded,
             value: capturedCount,
-            tint: kTextMuted(context),
+            tint: kTextMuted,
           ),
           const SizedBox(width: 6),
           _UndoButton(tint: tint, onTap: onUndo),
@@ -194,7 +194,7 @@ class _UndoButton extends StatelessWidget {
       icon: Icon(
         Icons.undo_rounded,
         size: 20,
-        color: enabled ? tint : kTextMuted(context).withValues(alpha: 0.5),
+        color: enabled ? tint : kTextMuted.withValues(alpha: 0.5),
       ),
     );
   }

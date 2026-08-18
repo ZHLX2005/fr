@@ -64,7 +64,7 @@ class _CharacterProfilePageState extends State<CharacterProfilePage> {
         colorScheme.surface,
       ),
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: const Text('人物小谱'),
@@ -159,7 +159,7 @@ class _ProfileDot extends StatelessWidget {
         height: 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: active ? color : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+          color: active ? color : Colors.transparent,
           border: active
               ? null
               : Border.all(
@@ -302,7 +302,7 @@ class _CharacterDetailPanel extends StatelessWidget {
                       return Center(
                         child: CustomPaint(
                           size: Size(size, size),
-                          painter: HexagonRadarPainter(items: hexagonItems, scheme: colorScheme),
+                          painter: HexagonRadarPainter(items: hexagonItems),
                         ),
                       );
                     },
@@ -476,7 +476,7 @@ class _StoryReaderPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
+            color: Colors.black.withValues(alpha: 0.10),
             blurRadius: 22,
             offset: const Offset(0, 14),
           ),
@@ -485,12 +485,12 @@ class _StoryReaderPanel extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: DecoratedBox(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFF7E6CB), // 主题豁免：角色皮肤渐变，业务数据色
+                Color(0xFFF7E6CB),
                 Color(0xFFE9CDA7),
                 Color(0xFFD7AF7E),
               ],
@@ -500,7 +500,7 @@ class _StoryReaderPanel extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.74),
+                color: const Color(0xFFF6EEE1).withValues(alpha: 0.74),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: ClipRRect(

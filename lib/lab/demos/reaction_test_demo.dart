@@ -39,44 +39,38 @@ class _PhaseStyle {
   final String hint;
 }
 
-/// 走主题策略通道：背景/强调色全部从 ColorScheme 派生。
-///   waiting 红=别点 → scheme.error；ready 绿=点击 → scheme.primary；
-///   tooEarly 橙 → scheme.tertiary；idle/result 深底 → scheme.onSurface。
-Map<_Phase, _PhaseStyle> _kPhaseStyles(BuildContext context) {
-  final c = Theme.of(context).colorScheme;
-  return {
-    _Phase.idle: _PhaseStyle(
-      c.onSurface,
-      c.tertiary,
-      '反应力测试',
-      '点击屏幕开始',
-    ),
-    _Phase.waiting: _PhaseStyle(
-      c.error,
-      c.onSurface,
-      '等待绿色…',
-      '不要着急，变绿再点',
-    ),
-    _Phase.ready: _PhaseStyle(
-      c.primary,
-      c.onSurface,
-      '点击！',
-      '越快越好',
-    ),
-    _Phase.tooEarly: _PhaseStyle(
-      c.tertiary,
-      c.onSurface,
-      '太早了！',
-      '还没变绿，点击重试',
-    ),
-    _Phase.result: _PhaseStyle(
-      c.onSurface,
-      c.tertiary,
-      '成绩',
-      '点击再来一次',
-    ),
-  };
-}
+const Map<_Phase, _PhaseStyle> _kPhaseStyles = {
+  _Phase.idle: _PhaseStyle(
+    Color(0xFF1E293B),
+    Color(0xFF38BDF8),
+    '反应力测试',
+    '点击屏幕开始',
+  ),
+  _Phase.waiting: _PhaseStyle(
+    Color(0xFFDC2626),
+    Colors.white,
+    '等待绿色…',
+    '不要着急，变绿再点',
+  ),
+  _Phase.ready: _PhaseStyle(
+    Color(0xFF16A34A),
+    Colors.white,
+    '点击！',
+    '越快越好',
+  ),
+  _Phase.tooEarly: _PhaseStyle(
+    Color(0xFFEA580C),
+    Colors.white,
+    '太早了！',
+    '还没变绿，点击重试',
+  ),
+  _Phase.result: _PhaseStyle(
+    Color(0xFF0F172A),
+    Color(0xFF38BDF8),
+    '成绩',
+    '点击再来一次',
+  ),
+};
 
 class ReactionTestPage extends StatefulWidget {
   const ReactionTestPage({super.key});
@@ -159,7 +153,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
 
   @override
   Widget build(BuildContext context) {
-    final style = _kPhaseStyles(context)[_phase]!;
+    final style = _kPhaseStyles[_phase]!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('反应力测试'),
@@ -167,7 +161,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
           if (_history.isNotEmpty)
             IconButton(
               tooltip: '重置记录',
-              icon: Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh),
               onPressed: _reset,
             ),
         ],
@@ -195,7 +189,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   Widget _buildCenter(_PhaseStyle style) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -204,7 +198,7 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
               size: 72,
               color: style.accent,
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text(
               _phase == _Phase.result && _lastMs != null
                   ? '$_lastMs ms'
@@ -217,14 +211,14 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
                 letterSpacing: 0.5,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
               _phase == _Phase.result && _lastMs != null
                   ? _rating(_lastMs!)
                   : style.hint,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85),
+                color: Colors.white.withValues(alpha: 0.85),
                 fontSize: 16,
               ),
             ),
@@ -237,9 +231,9 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
   Widget _buildStats() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.25),
+        color: Colors.black.withValues(alpha: 0.25),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Row(
@@ -261,17 +255,17 @@ class _ReactionTestPageState extends State<ReactionTestPage> {
       children: [
         Text(
           value == null ? '—' : '$value$unit',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
+          style: const TextStyle(
+            color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+            color: Colors.white.withValues(alpha: 0.6),
             fontSize: 12,
           ),
         ),

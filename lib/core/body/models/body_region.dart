@@ -2,8 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 // ==================== 组织类型 → 颜色映射 ====================
-// 主题豁免：人体组织解剖色（骨/肌/关节/器官 × 浅深两档），是解剖学语义识别色，
-// 不随主题切换 —— 蓝色=骨、红色=肌肉、黄色=关节、绿色=器官是医学标准配色。
 enum TissueType { bone, muscle, joint, organ }
 
 const tissueColors = {

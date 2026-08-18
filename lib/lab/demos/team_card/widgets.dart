@@ -10,7 +10,6 @@ import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 
 import 'constants.dart';
 import 'engine.dart';
-import '../../../widgets/context_game_colors.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Setup Page（房主建房前）
@@ -180,7 +179,7 @@ class _SetupPageState extends State<SetupPage> {
               ),
             ),
             if (existing.isNotEmpty) ...[
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text('已有预设：${existing.join('、')}',
                   style: TextStyle(
                       fontSize: 11, color: Theme.of(ctx).colorScheme.outline)),
@@ -238,7 +237,7 @@ class _SetupPageState extends State<SetupPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (!_loaded) {
-      return Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
     // 匹配当前 playerSlots 的内置 + 用户预设
     final matchedBuiltin =
@@ -246,11 +245,11 @@ class _SetupPageState extends State<SetupPage> {
     final myPresets = _presetLib[_playerSlots] ?? const [];
     final total = _playerSlots + _spectatorSlots;
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
         // ——— 房间容量 ———
         Text('房间容量', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _SlotStepper(
           label: '玩家区',
           icon: Icons.people,
@@ -261,7 +260,7 @@ class _SetupPageState extends State<SetupPage> {
             _persistSetup();
           },
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         _SlotStepper(
           label: '旁观区',
           icon: Icons.remove_red_eye_outlined,
@@ -272,10 +271,10 @@ class _SetupPageState extends State<SetupPage> {
             _persistSetup();
           },
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Center(
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(12),
@@ -287,15 +286,15 @@ class _SetupPageState extends State<SetupPage> {
                     color: theme.colorScheme.onPrimaryContainer)),
           ),
         ),
-        SizedBox(height: 20),
+        const SizedBox(height: 20),
 
         // ——— 身份池 ———
         Row(
           children: [
             Text('身份池', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-            Spacer(),
+            const Spacer(),
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
@@ -318,7 +317,7 @@ class _SetupPageState extends State<SetupPage> {
         ),
         if (_totalRoles != _playerSlots)
           Padding(
-            padding: EdgeInsets.only(top: 4, bottom: 8),
+            padding: const EdgeInsets.only(top: 4, bottom: 8),
             child: Text(
               _totalRoles < _playerSlots
                   ? '至少需要 $_playerSlots 张身份牌（匹配玩家区人数）'
@@ -328,10 +327,10 @@ class _SetupPageState extends State<SetupPage> {
           ),
 
         // ——— 预设区（内置 + 用户命名 + 空态提示） ———
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         Text('快速预设（$_playerSlots 人）',
             style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline)),
-        SizedBox(height: 6),
+        const SizedBox(height: 6),
         if (matchedBuiltin.isEmpty && myPresets.isEmpty)
           Text('当前人数下暂无预设，编辑好后点保存按钮起个名字存起来',
               style: theme.textTheme.bodySmall
@@ -355,7 +354,7 @@ class _SetupPageState extends State<SetupPage> {
                   )),
             ],
           ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         ...rolePool.asMap().entries.map((e) => _RoleRow(
               index: e.key,
               def: e.value,
@@ -373,7 +372,7 @@ class _SetupPageState extends State<SetupPage> {
               },
             )),
         Padding(
-          padding: EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
               Expanded(
@@ -382,7 +381,7 @@ class _SetupPageState extends State<SetupPage> {
                     setState(() => rolePool.add(RoleDef(label: '', count: 1)));
                     _persistSetup();
                   },
-                  icon: Icon(Icons.add, size: 18),
+                  icon: const Icon(Icons.add, size: 18),
                   label: const Text('添加身份'),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: theme.colorScheme.outlineVariant),
@@ -390,10 +389,10 @@ class _SetupPageState extends State<SetupPage> {
                   ),
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: _totalRoles == _playerSlots ? _saveNamedPreset : null,
-                icon: Icon(Icons.save_outlined, size: 16),
+                icon: const Icon(Icons.save_outlined, size: 16),
                 label: const Text('保存预设', style: TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: theme.colorScheme.outlineVariant),
@@ -403,7 +402,7 @@ class _SetupPageState extends State<SetupPage> {
             ],
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         TextField(
           controller: _aliasCtrl,
           decoration: InputDecoration(
@@ -414,17 +413,17 @@ class _SetupPageState extends State<SetupPage> {
         ),
         if (_error != null)
           Padding(
-            padding: EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.only(top: 12),
             child: Text(_error!,
                 style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
           ),
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
         OutlinedButton.icon(
           onPressed: _busy || _totalRoles != _playerSlots ? null : _create,
           icon: _busy
-              ? SizedBox(
+              ? const SizedBox(
                   width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : Icon(Icons.meeting_room),
+              : const Icon(Icons.meeting_room),
           label: Text(_busy ? '创建中…' : '创建房间'),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
@@ -507,44 +506,44 @@ class _JoinPageState extends State<JoinPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ListView(
-      padding: EdgeInsets.fromLTRB(32, 32, 32, 32),
+      padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
       children: [
         Icon(Icons.vpn_key_outlined,
             size: 64, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         Text('加入房间',
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 32),
+        const SizedBox(height: 32),
         TextField(
           controller: _aliasCtrl,
           decoration: InputDecoration(
             labelText: '你的名字',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: Icon(Icons.person_outline),
+            prefixIcon: const Icon(Icons.person_outline),
           ),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         TextField(
           controller: _codeCtrl,
           decoration: InputDecoration(
             labelText: '房间码',
             hintText: '6 位数字',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: Icon(Icons.tag),
+            prefixIcon: const Icon(Icons.tag),
           ),
           keyboardType: TextInputType.number,
           maxLength: 6,
         ),
         if (_error != null)
           Text(_error!, style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: _busy ? null : _join,
           icon: _busy
-              ? SizedBox(
+              ? const SizedBox(
                   width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : Icon(Icons.login),
+              : const Icon(Icons.login),
           label: Text(_busy ? '加入中…' : '加入'),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
@@ -638,7 +637,7 @@ class _PlayingViewState extends State<PlayingView> {
           onLeave: widget.onLeave,
         );
       }
-      return Center(child: Text('已发牌'));
+      return const Center(child: Text('已发牌'));
     }
 
     // lobby / ready
@@ -714,10 +713,10 @@ class LobbyView extends StatelessWidget {
     final canDeal = isHost && allReady;
 
     return ListView(
-      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       children: [
         Center(child: _RoomCodeBadge(code: code, theme: theme)),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -737,13 +736,13 @@ class LobbyView extends StatelessWidget {
                   fontWeight: state == 'ready' ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               LinearProgressIndicator(
                   value: playerSlots == 0 ? 0 : pCount / playerSlots),
             ],
           ),
         ),
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
         // 玩家区卡片
         _LobbyZoneCard(
           title: '参与者',
@@ -756,7 +755,7 @@ class LobbyView extends StatelessWidget {
         ),
         // 旁观区卡片
         if (spectatorSlots > 0) ...[
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           _LobbyZoneCard(
             title: '旁观区',
             icon: Icons.remove_red_eye_outlined,
@@ -767,34 +766,34 @@ class LobbyView extends StatelessWidget {
             readyMap: readyMap,
           ),
         ],
-        SizedBox(height: 24),
+        const SizedBox(height: 24),
         // ——— 操作按钮 ———
         if (onAck != null && onUnack != null) ...[
           if (myReady)
             OutlinedButton.icon(
               onPressed: onUnack,
-              icon: Icon(Icons.cancel_outlined),
-              label: Text('取消准备'),
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('取消准备'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                side: BorderSide(color: Theme.of(context).colorScheme.tertiary, width: 1.5),
-                foregroundColor: Theme.of(context).colorScheme.tertiary,
+                side: const BorderSide(color: Colors.orange, width: 1.5),
+                foregroundColor: Colors.orange,
               ),
             )
           else
             OutlinedButton.icon(
               onPressed: onAck,
-              icon: Icon(Icons.check_circle_outlined),
-              label: Text('准备好了'),
+              icon: const Icon(Icons.check_circle_outlined),
+              label: const Text('准备好了'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
-                foregroundColor: Theme.of(context).colorScheme.primary,
+                side: BorderSide(color: Colors.green.shade400, width: 1.5),
+                foregroundColor: Colors.green.shade600,
               ),
             ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
         ],
         // 换区按钮 — 目标区颜色 + 目标区图标 + 从哪来到哪去
         if (onMoveZone != null && spectatorSlots > 0 && playerSlots > 0) ...[
@@ -805,7 +804,7 @@ class LobbyView extends StatelessWidget {
             final currentLabel = myZone == 'player'
                 ? '当前：玩家'
                 : (myZone == 'spectator' ? '当前：旁观' : '未入座');
-            final tint = goingToPlayer ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.tertiary;
+            final tint = goingToPlayer ? Colors.green.shade600 : Colors.deepPurple.shade400;
             return Material(
               color: tint.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(14),
@@ -813,7 +812,7 @@ class LobbyView extends StatelessWidget {
                 onTap: onMoveZone,
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: tint.withValues(alpha: 0.5), width: 1.5),
@@ -829,7 +828,7 @@ class LobbyView extends StatelessWidget {
                         ),
                         child: Icon(targetIcon, color: tint, size: 20),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,7 +842,7 @@ class LobbyView extends StatelessWidget {
                                 color: tint,
                               ),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
                               currentLabel,
                               style: TextStyle(
@@ -861,7 +860,7 @@ class LobbyView extends StatelessWidget {
               ),
             );
           }),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
         ],
         if (isHost)
           Row(
@@ -886,24 +885,24 @@ class LobbyView extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               OutlinedButton(
                 onPressed: onReset,
                 style: OutlinedButton.styleFrom(
                   shape: const CircleBorder(),
-                  side: BorderSide(color: Theme.of(context).colorScheme.tertiary, width: 1.5),
-                  foregroundColor: Theme.of(context).colorScheme.tertiary,
+                  side: const BorderSide(color: Colors.teal, width: 1.5),
+                  foregroundColor: Colors.teal,
                   minimumSize: const Size(52, 52),
                 ),
-                child: Icon(Icons.refresh),
+                child: const Icon(Icons.refresh),
               ),
             ],
           ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Center(
           child: OutlinedButton.icon(
             onPressed: onLeave,
-            icon: Icon(Icons.exit_to_app),
+            icon: const Icon(Icons.exit_to_app),
             label: const Text('离开房间'),
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: theme.colorScheme.outlineVariant, width: 1),
@@ -932,7 +931,7 @@ class _IdentityCard extends StatelessWidget {
     final color = roleColor(theme, role);
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.95, end: 1),
           duration: const Duration(milliseconds: 400),
@@ -948,7 +947,7 @@ class _IdentityCard extends StatelessWidget {
                 side: BorderSide(color: color.withValues(alpha: 0.3), width: 2),
               ),
               child: Padding(
-                padding: EdgeInsets.fromLTRB(28, 32, 28, 32),
+                padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Container(
                     width: 88,
@@ -959,15 +958,15 @@ class _IdentityCard extends StatelessWidget {
                     ),
                     child: Icon(Icons.style, size: 40, color: color),
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   Text('你的身份',
                       style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.outline, letterSpacing: 2)),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(role,
                       style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold, color: color, letterSpacing: 1)),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Container(
                     height: 3,
                     width: 44,
@@ -976,7 +975,7 @@ class _IdentityCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text('只有你能看到这张卡',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: theme.colorScheme.outline)),
@@ -1014,32 +1013,32 @@ class SpectatorView extends StatelessWidget {
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
             Row(children: [
-              IconButton(icon: Icon(Icons.arrow_back), onPressed: onLeave),
-              SizedBox(width: 4),
+              IconButton(icon: const Icon(Icons.arrow_back), onPressed: onLeave),
+              const SizedBox(width: 4),
               Text('旁观模式 · 所有人身份',
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w600)),
             ]),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
                 '你不在分配名单 — 共 ${zoneMap.values.where((z) => z == 'player').length} 名玩家',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: theme.colorScheme.outline)),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             ...players.entries
                 .where((e) => zoneMap[e.key] == 'player')
                 .map((e) => Card(
                       elevation: 0,
-                      margin: EdgeInsets.only(bottom: 8),
+                      margin: const EdgeInsets.only(bottom: 8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(color: theme.colorScheme.outlineVariant),
                       ),
                       child: Padding(
-                        padding: EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(14),
                         child: Row(children: [
                           Container(
                             width: 32,
@@ -1056,7 +1055,7 @@ class SpectatorView extends StatelessWidget {
                                       color: theme.colorScheme.primary)),
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1064,7 +1063,7 @@ class SpectatorView extends StatelessWidget {
                                 Text(e.value,
                                     style: theme.textTheme.bodyMedium
                                         ?.copyWith(fontWeight: FontWeight.w500)),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
                                   '身份: ${assignments[e.key]?.toString() ?? '?'}',
                                   style: TextStyle(
@@ -1121,7 +1120,7 @@ class _LobbyZoneCard extends StatelessWidget {
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             Row(
@@ -1131,18 +1130,18 @@ class _LobbyZoneCard extends StatelessWidget {
                     size: 14,
                     color: isSpectator
                         ? theme.colorScheme.outline
-                        : Theme.of(context).colorScheme.primary),
-                SizedBox(width: 6),
+                        : Colors.green.shade400),
+                const SizedBox(width: 6),
                 Text(title,
                     style: theme.textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w600)),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Text('${zoneEntries.length}/$slots',
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: theme.colorScheme.outline)),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Wrap(
               spacing: 28,
               runSpacing: 20,
@@ -1150,7 +1149,7 @@ class _LobbyZoneCard extends StatelessWidget {
               children: List.generate(slots, (i) {
                 if (i < zoneEntries.length) {
                   final e = zoneEntries[i];
-                  final color = context.gameColors.avatarColors[i % context.gameColors.avatarColors.length];
+                  final color = kTeamCardAvatarColors[i % kTeamCardAvatarColors.length];
                   final isReady = readyMap[e.key] == true;
                   if (isSpectator) {
                     return _AnimatedSlot(
@@ -1225,7 +1224,7 @@ class _MiniAvatar extends StatelessWidget {
             shape: BoxShape.circle,
             border: Border.all(
               color: isReady
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.9)
+                  ? Colors.green.shade400.withValues(alpha: 0.9)
                   : (isSpectator
                       ? theme.colorScheme.outlineVariant.withValues(alpha: 0.4)
                       : color.withValues(alpha: 0.35)),
@@ -1234,7 +1233,7 @@ class _MiniAvatar extends StatelessWidget {
             boxShadow: isReady
                 ? [
                     BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                      color: Colors.green.shade400.withValues(alpha: 0.25),
                       blurRadius: 10,
                       spreadRadius: 2,
                     )
@@ -1250,17 +1249,17 @@ class _MiniAvatar extends StatelessWidget {
                       style: TextStyle(
                         fontSize: slotSize * 0.4,
                         fontWeight: FontWeight.bold,
-                        color: isReady ? Theme.of(context).colorScheme.primary : color,
+                        color: isReady ? Colors.green.shade400 : color,
                       )),
                 ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(name,
             style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: isReady
-                    ? Theme.of(context).colorScheme.primary
+                    ? Colors.green.shade700
                     : (isSpectator
                         ? theme.colorScheme.onSurface.withValues(alpha: 0.45)
                         : theme.colorScheme.onSurface.withValues(alpha: 0.6)))),
@@ -1268,7 +1267,7 @@ class _MiniAvatar extends StatelessWidget {
             style: TextStyle(
                 fontSize: 9,
                 color: isReady
-                    ? Theme.of(context).colorScheme.primary
+                    ? Colors.green.shade400
                     : (isSpectator
                         ? theme.colorScheme.outline.withValues(alpha: 0.6)
                         : theme.colorScheme.outline))),
@@ -1379,7 +1378,7 @@ class _EmptySlotState extends State<_EmptySlot>
                   size: 20, color: theme.colorScheme.outlineVariant),
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text('等待中',
               style: TextStyle(fontSize: 9, color: theme.colorScheme.outline)),
         ],
@@ -1399,7 +1398,7 @@ class _RoomCodeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
           color: theme.colorScheme.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(30),
@@ -1407,7 +1406,7 @@ class _RoomCodeBadge extends StatelessWidget {
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.tag, size: 16, color: theme.colorScheme.primary),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(code,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -1442,7 +1441,7 @@ class _PresetChip extends StatelessWidget {
             size: 16, color: theme.colorScheme.onPrimaryContainer),
         onPressed: onTap,
         onDeleted: onDelete,
-        deleteIcon: Icon(Icons.close, size: 16),
+        deleteIcon: const Icon(Icons.close, size: 16),
         backgroundColor: theme.colorScheme.primaryContainer,
         side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4)),
       );
@@ -1483,7 +1482,7 @@ class _RoleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
         Container(
           width: 28,
@@ -1500,14 +1499,14 @@ class _RoleRow extends StatelessWidget {
                     color: theme.colorScheme.onPrimaryContainer,
                   ))),
         ),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Expanded(
           child: TextField(
             controller: def.nameCtrl,
             decoration: InputDecoration(
               hintText: '身份名称',
               isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               border: const OutlineInputBorder(),
             ),
             onChanged: (_) {
@@ -1516,7 +1515,7 @@ class _RoleRow extends StatelessWidget {
             },
           ),
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
         _StepperButton(
           icon: Icons.remove,
           onTap: def.count > 1
@@ -1573,10 +1572,10 @@ class _SlotStepper extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 20, color: theme.colorScheme.outline),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Text(label,
             style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-        Spacer(),
+        const Spacer(),
         _StepperButton(
           icon: Icons.remove,
           onTap: value > min ? () => onChanged(value - 1) : null,

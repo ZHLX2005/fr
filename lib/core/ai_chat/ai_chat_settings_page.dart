@@ -85,7 +85,7 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('设置已保存'),
             duration: Duration(seconds: 2),
           ),
@@ -102,18 +102,18 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('AI 聊天设置'),
+        title: const Text('AI 聊天设置'),
         centerTitle: true,
         actions: [
           TextButton.icon(
             onPressed: _isSaving ? null : _saveSettings,
             icon: _isSaving
-                ? SizedBox(
+                ? const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Icon(Icons.check),
+                : const Icon(Icons.check),
             label: Text(_isSaving ? '保存中...' : '保存'),
           ),
         ],
@@ -121,7 +121,7 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
       body: Consumer<AIChatProvider>(
         builder: (context, provider, _) {
           if (provider.isLoadingSettings) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           }
 
           _initControllers(provider);
@@ -132,7 +132,7 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
               // API Key
               TextField(
                 controller: _apiKeyController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'API Key *',
                   hintText: '请输入您的 API Key',
                   border: OutlineInputBorder(),
@@ -140,17 +140,17 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                 ),
                 obscureText: true,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // 模型类型
               DropdownButtonFormField<String>(
                 value: _selectedType,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '模型类型',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.model_training),
                 ),
-                items: [
+                items: const [
                   DropdownMenuItem(value: 'claude', child: Text('Claude')),
                   DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
                   DropdownMenuItem(value: 'gemini', child: Text('Gemini')),
@@ -162,163 +162,166 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
                   }
                 },
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // Model
               TextField(
                 controller: _modelController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '模型名称 (可选)',
                   hintText: '如: claude-3-5-sonnet-20241022',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.psychology),
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // Base URL
               TextField(
                 controller: _baseURLController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '自定义 Base URL (可选)',
                   hintText: '如: https://api.anthropic.com',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.link),
                 ),
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
 
               // 数据库配置标题
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.green[50],
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.storage, color: Theme.of(context).colorScheme.primary),
-                    SizedBox(width: 8),
+                    Icon(Icons.storage, color: Colors.green[700]),
+                    const SizedBox(width: 8),
                     Text(
                       '数据库配置 (Agent)',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Colors.green[700],
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
 
               // 数据库 Host
               TextField(
                 controller: _dbHostController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '数据库 Host',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.dns),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
 
               // 数据库 Port
               TextField(
                 controller: _dbPortController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '端口',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.numbers),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
 
               // 数据库名
               TextField(
                 controller: _dbNameController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '数据库名',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.storage),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
 
               // 数据库用户名
               TextField(
                 controller: _dbUserController,
-                decoration: InputDecoration(
-                  labelText: '数据库用户',
+                decoration: const InputDecoration(
+                  labelText: '数据库用户名',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
 
               // 数据库密码
               TextField(
                 controller: _dbPasswordController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: '数据库密码',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.lock),
                 ),
                 obscureText: true,
               ),
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
 
               // 保存按钮
               OutlinedButton.icon(
                 onPressed: _isSaving ? null : _saveSettings,
                 icon: _isSaving
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.green,
                         ),
                       )
-                    : Icon(Icons.save),
+                    : const Icon(Icons.save),
                 label: Text(_isSaving ? '保存中...' : '保存设置'),
                 style: EmphasisButton.borderEmphasis(
                   context,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.green,
                 ).copyWith(
                   padding: WidgetStatePropertyAll(
                     const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
 
               // 说明
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.blue[50],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+                        Icon(Icons.info_outline, color: Colors.blue),
                         SizedBox(width: 8),
                         Text(
                           '使用说明',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Colors.blue,
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 12),
-                    Text('1. 点击右上角保存或底部按钮保存设置', style: TextStyle(fontSize: 13)),
-                    Text('2. 模型类型默认为 Claude', style: TextStyle(fontSize: 13)),
-                    Text('3. 数据库配置用于 Agent 功能', style: TextStyle(fontSize: 13)),
+                    Text('1. 点击右上角保存或底部按钮保存设置',
+                        style: TextStyle(fontSize: 13)),
+                    Text('2. 模型类型默认为 Claude',
+                        style: TextStyle(fontSize: 13)),
+                    Text('3. 数据库配置用于 Agent 功能',
+                        style: TextStyle(fontSize: 13)),
                     Text(
                       '4. 保存后返回 Agent 页面即可使用',
                       style: TextStyle(fontSize: 13),

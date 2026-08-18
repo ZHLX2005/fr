@@ -106,7 +106,6 @@ class _BodyMapPageState extends State<BodyMapPage> {
                           painter: BodyBlockPainter(
                             regions: widget.regions,
                             highlightedId: _highlighted,
-                            scheme: Theme.of(context).colorScheme,
                           ),
                         ),
                       ),

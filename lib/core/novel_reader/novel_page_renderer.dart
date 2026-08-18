@@ -12,7 +12,6 @@ class NovelPageRenderer {
     required Size size,
     required EdgeInsets padding,
     required TextStyle textStyle,
-    required ColorScheme scheme,
   }) {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -20,11 +19,11 @@ class NovelPageRenderer {
     final borderRadius = BorderRadius.circular(18);
     final rrect = borderRadius.toRRect(bounds);
 
-    final backgroundPaint = Paint()..color = scheme.surface;
+    final backgroundPaint = Paint()..color = const Color(0xFFF9F1E4);
     canvas.drawRRect(rrect, backgroundPaint);
 
     final borderPaint = Paint()
-      ..color = scheme.tertiary
+      ..color = const Color(0xFFD9C4AE)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     canvas.drawRRect(rrect, borderPaint);

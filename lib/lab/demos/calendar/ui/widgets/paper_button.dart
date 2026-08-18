@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../../widgets/context_colors.dart';
 
+import '../../../../../core/theme/paper_palette.dart';
 import '../../../../../core/theme/typography.dart';
 
 /// 纸张风格副操作按钮（边框强调版）
@@ -12,7 +12,7 @@ class PaperSecondaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool dense;
 
-  PaperSecondaryButton({
+  const PaperSecondaryButton({
     super.key,
     required this.label,
     this.icon,
@@ -24,25 +24,25 @@ class PaperSecondaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = icon == null
         ? Text(label, style: AppText.body().copyWith(
-              color: context.colors.accent,
+              color: PaperPalette.accent,
               fontWeight: FontWeight.w600,
             ))
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: context.colors.accent),
-              SizedBox(width: 6),
+              Icon(icon, size: 16, color: PaperPalette.accent),
+              const SizedBox(width: 6),
               Text(label, style: AppText.body().copyWith(
-                color: context.colors.accent,
+                color: PaperPalette.accent,
                 fontWeight: FontWeight.w600,
               )),
             ],
           );
     return Material(
-      color: context.colors.surface,
+      color: PaperPalette.bgElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: context.colors.accent, width: 1.5),
+        side: const BorderSide(color: PaperPalette.accent, width: 1.5),
       ),
       child: InkWell(
         onTap: onPressed,
@@ -50,7 +50,7 @@ class PaperSecondaryButton extends StatelessWidget {
         child: Container(
           height: dense ? 40 : 44,
           alignment: Alignment.center,
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: child,
         ),
       ),
@@ -68,7 +68,7 @@ class PaperPrimaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool dense;
 
-  PaperPrimaryButton({
+  const PaperPrimaryButton({
     super.key,
     required this.label,
     this.icon,
@@ -78,7 +78,7 @@ class PaperPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = context.colors.accent;
+    final accent = PaperPalette.accent;
     final child = icon == null
         ? Text(label, style: AppText.body().copyWith(
               color: accent,
@@ -88,7 +88,7 @@ class PaperPrimaryButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 16, color: accent),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(label, style: AppText.body().copyWith(
                 color: accent,
                 fontWeight: FontWeight.w600,
@@ -96,7 +96,7 @@ class PaperPrimaryButton extends StatelessWidget {
             ],
           );
     return Material(
-      color: context.colors.surface,
+      color: PaperPalette.bgElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: accent.withValues(alpha: 0.5), width: 1.5),
@@ -107,7 +107,7 @@ class PaperPrimaryButton extends StatelessWidget {
         child: Container(
           height: dense ? 40 : 44,
           alignment: Alignment.center,
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: child,
         ),
       ),

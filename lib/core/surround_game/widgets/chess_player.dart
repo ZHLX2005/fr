@@ -184,13 +184,13 @@ class _ChessPlayerState extends State<ChessPlayer>
                   color: widget.color,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.75),
+                    color: Colors.white.withValues(alpha: 0.75),
                     width: 2.5,
                   ),
                   boxShadow: [
                     BoxShadow(
                       // 抬得越高，影子越淡越散
-                      color: Theme.of(context).colorScheme.onSurface
+                      color: Colors.black
                           .withValues(alpha: 0.4 + 0.1 * lift),
                       blurRadius: blur,
                       offset: Offset(0, shadowDy),

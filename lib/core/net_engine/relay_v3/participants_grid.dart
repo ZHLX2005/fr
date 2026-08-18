@@ -14,14 +14,28 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_game_colors.dart';
+/// 默认参与者颜色表
+const kParticipantColors = [
+  Color(0xFF4F8CF7),
+  Color(0xFF34C759),
+  Color(0xFFFF9500),
+  Color(0xFFAF52DE),
+  Color(0xFF5AC8FA),
+  Color(0xFFFF2D55),
+  Color(0xFF5856D6),
+  Color(0xFF00C7BE),
+  Color(0xFFFFD60A),
+  Color(0xFFFF6B6B),
+  Color(0xFFA2845E),
+  Color(0xFFBF5AF2),
+];
 
 /// 参与者圆环卡片
 ///
 /// [capacity] 房间总人数
 /// [participants] 已就绪玩家（deviceId → alias），按 Map 插入顺序显示
 /// [readyMap] 各玩家准备状态（deviceId → true/false），默认全 true
-/// [colors] 颜色表；为 null 时从 `context.gameColors.avatarColors` 取（随主题切换）
+/// [colors] 颜色表，默认 [kParticipantColors]
 /// [slotSize] 圆环直径，默认 66
 /// [spectatorIds] 旁观者 deviceId 集合（房主不参与时标记为'旁观者'）
 class LobbyParticipants extends StatelessWidget {
@@ -31,7 +45,7 @@ class LobbyParticipants extends StatelessWidget {
     required this.participants,
     this.readyMap,
     this.spectatorIds,
-    this.colors,
+    this.colors = kParticipantColors,
     this.slotSize = 66,
   });
 
@@ -39,7 +53,7 @@ class LobbyParticipants extends StatelessWidget {
   final Map<String, String> participants;
   final Map<String, bool>? readyMap;
   final Set<String>? spectatorIds;
-  final List<Color>? colors;
+  final List<Color> colors;
   final double slotSize;
 
   /// 实际参与者数量（排除旁观者）
@@ -57,7 +71,6 @@ class LobbyParticipants extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final palette = colors ?? context.gameColors.avatarColors;
     final allEntries = participants.entries.toList();
     // 按名字排序
     allEntries.sort((a, b) => a.value.compareTo(b.value));
@@ -73,7 +86,7 @@ class LobbyParticipants extends StatelessWidget {
       final delay = i * 60;
       if (i < playerEntries.length) {
         final e = playerEntries[i];
-        final color = palette[i % palette.length];
+        final color = colors[i % colors.length];
         final isReady = readyMap?[e.key] == true;
         playerSlots.add(_AnimatedSlot(
           delay: delay,
@@ -90,14 +103,14 @@ class LobbyParticipants extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isReady
-                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.9)
+                        ? Colors.green.shade400.withValues(alpha: 0.9)
                         : color.withValues(alpha: 0.35),
                     width: isReady ? 3.5 : 2.0,
                     strokeAlign: BorderSide.strokeAlignInside,
                   ),
                   boxShadow: !isReady ? [] : [
                     BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                      color: Colors.green.shade400.withValues(alpha: 0.25),
                       blurRadius: 10,
                       spreadRadius: 2,
                     ),
@@ -109,7 +122,7 @@ class LobbyParticipants extends StatelessWidget {
                     style: TextStyle(
                       fontSize: slotSize * 0.4,
                       fontWeight: FontWeight.bold,
-                      color: isReady ? Theme.of(context).colorScheme.primary : color,
+                      color: isReady ? Colors.green.shade400 : color,
                     ),
                   ),
                 ),
@@ -120,12 +133,12 @@ class LobbyParticipants extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: isReady ? Theme.of(context).colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: isReady ? Colors.green.shade700 : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
               Text(
                 isReady ? '已准备' : '未准备',
-                style: TextStyle(fontSize: 10, color: isReady ? Theme.of(context).colorScheme.primary : theme.colorScheme.outline),
+                style: TextStyle(fontSize: 10, color: isReady ? Colors.green.shade400 : theme.colorScheme.outline),
               ),
             ],
           ),
@@ -153,7 +166,7 @@ class LobbyParticipants extends StatelessWidget {
                   children: [
                     Container(
                       width: 8, height: 8,
-                      decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: Colors.green.shade400, shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 6),
                     Text('参与者',

@@ -155,7 +155,7 @@ class _LabPanelContentState extends State<LabPanelContent> {
                         ),
                         feedbackScaleFactor: 1.0,
                         dragChildBoxDecoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(
+                          color: Colors.black.withValues(
                             alpha: kLabFavoritePressOverlayAlpha,
                           ),
                           borderRadius: BorderRadius.circular(
@@ -305,8 +305,6 @@ class _PanelDeleteZone extends StatelessWidget {
       onAcceptWithDetails: (details) => onAccept(details.data),
       builder: (context, candidateData, rejectedData) {
         final active = isActive || candidateData.isNotEmpty;
-        final errorColor = Theme.of(context).colorScheme.error;
-        final shadowColor = Theme.of(context).colorScheme.errorContainer;
         return AnimatedContainer(
           duration: kLabDeleteAnimDuration,
           curve: Curves.easeOut,
@@ -314,16 +312,16 @@ class _PanelDeleteZone extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: kLabDeleteMinHeight),
           decoration: BoxDecoration(
             color: active
-                ? errorColor
-                : errorColor.withValues(alpha: kLabDeleteIdleAlpha),
+                ? kLabDeleteActiveColor
+                : kLabDeleteIdleColor.withValues(alpha: kLabDeleteIdleAlpha),
             borderRadius: BorderRadius.circular(kLabDeleteRadius),
             border: Border.all(
-              color: Theme.of(context).colorScheme.surface.withValues(alpha: active ? 0.78 : 0.52),
+              color: Colors.white.withValues(alpha: active ? 0.78 : 0.52),
               width: active ? 1.6 : 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: shadowColor.withValues(
+                color: kLabDeleteShadowColor.withValues(
                   alpha: active ? 0.28 : 0.16,
                 ),
                 blurRadius: active ? 24 : 16,
@@ -338,14 +336,14 @@ class _PanelDeleteZone extends StatelessWidget {
             children: [
               Icon(
                 active ? Icons.delete_forever_rounded : Icons.delete_outline,
-                color: Theme.of(context).colorScheme.surface,
+                color: Colors.white,
                 size: active ? 28 : 24,
               ),
               const SizedBox(width: 10),
               Text(
                 active ? '松手移除收藏' : '拖到这里删除',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.surface,
+                  color: Colors.white,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.2,
                 ),
@@ -441,16 +439,16 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
       message: widget.demo.title,
       triggerMode: TooltipTriggerMode.tap,
       child: Material(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+        color: Colors.transparent,
         child: InkWell(
           onTap: widget.onTap,
           onHighlightChanged: _handleHighlightChanged,
           borderRadius: BorderRadius.circular(kLabFavoriteRadius),
-          splashColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-          highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-          hoverColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-          focusColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-          overlayColor: WidgetStatePropertyAll(Theme.of(context).colorScheme.surface.withValues(alpha: 0.0)),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Ink(
             child: Stack(
               fit: StackFit.expand,
@@ -458,7 +456,7 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
                 if (showOverlay)
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(
+                      color: Colors.black.withValues(
                         alpha: kLabFavoritePressOverlayAlpha,
                       ),
                       borderRadius: BorderRadius.circular(kLabFavoriteRadius),

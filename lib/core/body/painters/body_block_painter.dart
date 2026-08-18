@@ -5,11 +5,10 @@ import '../../storage/hive/body_record_repository.dart';
 class BodyBlockPainter extends CustomPainter {
   final List<BlockRegion> regions;
   final String? highlightedId;
-  final ColorScheme scheme;
   static const double refW = 400.0;
   static const double refH = 800.0;
 
-  BodyBlockPainter({required this.regions, this.highlightedId, required this.scheme});
+  BodyBlockPainter({required this.regions, this.highlightedId});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -57,10 +56,10 @@ class BodyBlockPainter extends CustomPainter {
         text: TextSpan(
           text: r.label,
           style: TextStyle(
-            color: scheme.surface,
+            color: Colors.white,
             fontSize: r.w < 40 ? 9 : 11,
             fontWeight: FontWeight.w600,
-            shadows: [Shadow(blurRadius: 2, color: scheme.onSurface.withValues(alpha: 0.54))],
+            shadows: const [Shadow(blurRadius: 2, color: Colors.black54)],
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -81,12 +80,12 @@ class BodyBlockPainter extends CustomPainter {
         final badgeCenter = Offset(badgeX, badgeY);
 
         final badgePaint = Paint()
-          ..color = scheme.error
+          ..color = Colors.redAccent
           ..style = PaintingStyle.fill;
         canvas.drawCircle(badgeCenter, badgeRadius, badgePaint);
 
         final badgeBorder = Paint()
-          ..color = scheme.surface
+          ..color = Colors.white
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2;
         canvas.drawCircle(badgeCenter, badgeRadius, badgeBorder);
@@ -94,8 +93,8 @@ class BodyBlockPainter extends CustomPainter {
         final badgeTp = TextPainter(
           text: TextSpan(
             text: recordCount > 9 ? '9+' : '$recordCount',
-            style: TextStyle(
-              color: scheme.surface,
+            style: const TextStyle(
+              color: Colors.white,
               fontSize: 8,
               fontWeight: FontWeight.bold,
             ),
@@ -111,9 +110,9 @@ class BodyBlockPainter extends CustomPainter {
       // 有子图标记
       if (r.hasChildren) {
         final arrowTp = TextPainter(
-          text: TextSpan(
+          text: const TextSpan(
             text: '▸',
-            style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.70), fontSize: 10),
+            style: TextStyle(color: Colors.white70, fontSize: 10),
           ),
           textDirection: TextDirection.ltr,
         )..layout();

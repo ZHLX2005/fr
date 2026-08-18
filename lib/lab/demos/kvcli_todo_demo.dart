@@ -15,7 +15,6 @@
 //   - 添加 = green / 主操作；完成 = blue / 读取+写入；删除/清空 = red / 危险
 
 import 'dart:convert';
-import '../../widgets/context_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -491,7 +490,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   // 独立快捷 topic 区块：标题 + ⚙ 管理；chip 横向滚动、点击回填
   Widget _buildQuickTopicsSection(ColorScheme scheme) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -505,19 +504,19 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Spacer(),
+              const Spacer(),
               IconButton(
                 tooltip: '管理',
-                icon: Icon(Icons.settings_outlined, size: 18),
+                icon: const Icon(Icons.settings_outlined, size: 18),
                 visualDensity: VisualDensity.compact,
                 onPressed: _openTopicManager,
               ),
             ],
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           if (_topics.isEmpty)
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Text(
                 '暂无快捷 topic，提交任务时自动收集',
                 style: TextStyle(fontSize: 11, color: scheme.outline),
@@ -530,7 +529,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
                 children: [
                   for (final t in _topics)
                     Padding(
-                      padding: EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.only(right: 6),
                       child: KvTopicChip(
                         label: t,
                         onTap: () => _applyTopicChip(t),
@@ -571,14 +570,14 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
         final scheme = Theme.of(sheetCtx).colorScheme;
         return SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text('工作空间',
                     style: Theme.of(sheetCtx).textTheme.titleMedium),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Flexible(
                   child: ListView(
                     shrinkWrap: true,
@@ -657,7 +656,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.workspaces_outlined, size: 18, color: scheme.primary),
-          SizedBox(width: 4),
+          const SizedBox(width: 4),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 72),
             child: Text(
@@ -680,7 +679,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = context.colors.scheme;
+    final scheme = Theme.of(context).colorScheme;
     final gid = ref.watch(activeGroupProvider);
 
     return Scaffold(
@@ -691,19 +690,19 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
           _buildWorkspaceAction(scheme, gid),
           IconButton(
             tooltip: '刷新',
-            icon: Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh),
             onPressed: _loading ? null : _loadAll,
           ),
           IconButton(
             tooltip: '清空两把 key',
-            icon: Icon(Icons.delete_outline),
+            icon: const Icon(Icons.delete_outline),
             onPressed: _open.isEmpty && _done.isEmpty ? null : _clearAll,
           ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Padding(
-            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: Row(
               children: [
                 KvTabChip(
@@ -711,7 +710,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
                   selected: _tab == 0,
                   onTap: () => setState(() => _tab = 0),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 KvTabChip(
                   label: '已完成 (${_done.length})',
                   selected: _tab == 1,
@@ -723,13 +722,13 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
         ),
       ),
       body: _loading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 _buildComposer(scheme),
-                Divider(height: 1),
+                const Divider(height: 1),
                 _buildQuickTopicsSection(scheme),
-                Divider(height: 1),
+                const Divider(height: 1),
                 Expanded(child: _buildList()),
               ],
             ),
@@ -738,7 +737,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
 
   Widget _buildComposer(ColorScheme scheme) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -755,18 +754,18 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
                   ),
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               OutlinedButton(
                 onPressed: _loading ? null : _add,
                 style: EmphasisButton.borderEmphasis(
                   context,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.green,
                 ),
                 child: const Text('+'),
               ),
             ],
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           TextField(
             controller: _textCtrl,
             focusNode: _textFocus,
@@ -790,10 +789,10 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     if (list.isEmpty) {
       return Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Text(
             isOpen ? '暂无待办任务' : '暂无已完成任务',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(color: Colors.grey.shade600),
           ),
         ),
       );
@@ -802,28 +801,28 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
       children: [
         if (!isOpen) ...[
           Padding(
-            padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: Row(
               children: [
                 Text(
                   '已完成 ${_done.length} 条',
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
-                Spacer(),
+                const Spacer(),
                 TextButton.icon(
                   onPressed: _clearDoneToCold,
                   style: EmphasisButton.dangerEmphasis(context),
-                  icon: Icon(Icons.archive_outlined, size: 16),
+                  icon: const Icon(Icons.archive_outlined, size: 16),
                   label: const Text('清理到冷数据'),
                 ),
               ],
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
         ],
         Expanded(
           child: ListView.builder(
-            padding: EdgeInsets.fromLTRB(12, 8, 12, 24),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
             itemCount: list.length,
             itemBuilder: (context, i) {
               final task = list[i];

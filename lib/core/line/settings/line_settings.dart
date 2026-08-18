@@ -27,9 +27,6 @@ class _DemoPainter extends CustomPainter {
   final BackgroundStyle backgroundStyle;
   final double timingScale;
 
-  /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
-  final ColorScheme scheme;
-
   _DemoPainter({
     required this.color,
     required this.radius,
@@ -40,7 +37,6 @@ class _DemoPainter extends CustomPainter {
     this.explodeParticles = const [],
     this.backgroundStyle = BackgroundStyle.none,
     this.timingScale = 1.0,
-    required this.scheme,
   });
 
   @override
@@ -100,7 +96,7 @@ class _DemoPainter extends CustomPainter {
 
     // Perfect 区域（最内层，绿色）
     final perfectPaint = Paint()
-      ..color = scheme.tertiary.withValues(alpha: 0.15);
+      ..color = const Color(0xFF4CAF50).withValues(alpha: 0.15);
     canvas.drawRect(
       Rect.fromLTWH(0, judgeY - perfectHeight, size.width, perfectHeight),
       perfectPaint,
@@ -108,7 +104,7 @@ class _DemoPainter extends CustomPainter {
 
     // Great 区域（黄色）
     final greatPaint = Paint()
-      ..color = scheme.tertiary.withValues(alpha: 0.12);
+      ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.12);
     canvas.drawRect(
       Rect.fromLTWH(
         0,
@@ -121,7 +117,7 @@ class _DemoPainter extends CustomPainter {
 
     // Good 区域（橙色）
     final goodPaint = Paint()
-      ..color = scheme.tertiary.withValues(alpha: 0.10);
+      ..color = const Color(0xFFFF9800).withValues(alpha: 0.10);
     canvas.drawRect(
       Rect.fromLTWH(
         0,
@@ -134,7 +130,7 @@ class _DemoPainter extends CustomPainter {
 
     // Miss 区域（最外层，红色）
     final missPaint = Paint()
-      ..color = scheme.error.withValues(alpha: 0.08);
+      ..color = const Color(0xFFF44336).withValues(alpha: 0.08);
     canvas.drawRect(
       Rect.fromLTWH(
         0,
@@ -442,7 +438,6 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                                     explodeParticles: _explodeParticles,
                                     backgroundStyle: _backgroundStyle,
                                     timingScale: _timingScale,
-                                    scheme: Theme.of(context).colorScheme,
                                   ),
                                 ),
                               ),
@@ -521,7 +516,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
           Container(
             height: 1,
             width: 40,
-            color: isSelected ? widget.primaryColor : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+            color: isSelected ? widget.primaryColor : Colors.transparent,
           ),
         ],
       ),
@@ -720,7 +715,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
           ),
           color: isSelected
               ? widget.primaryColor.withValues(alpha: 0.08)
-              : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+              : Colors.transparent,
         ),
         child: Center(child: icon),
       ),

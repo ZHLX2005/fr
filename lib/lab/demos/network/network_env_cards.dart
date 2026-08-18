@@ -15,9 +15,8 @@ class NetworkEnvCards {
     return NetworkWidgets.infoCard(
       title: 'WiFi 状态',
       icon: Icons.wifi,
-      color: NetworkConst.colorInfo(context),
+      color: NetworkConst.colorInfo,
       trailing: NetworkWidgets.statusPill(
-        context,
         wifi.isConnected ? '在线' : '未连接',
         ok: wifi.isConnected,
         icon: Icons.wifi,
@@ -45,15 +44,15 @@ class NetworkEnvCards {
     return NetworkWidgets.infoCard(
       title: '公网 IP',
       icon: Icons.public,
-      color: Theme.of(context).colorScheme.tertiary,
+      color: Colors.deepPurple,
       trailing: info.loading
-          ? SizedBox(
+          ? const SizedBox(
               width: 18,
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : IconButton(
-              icon: Icon(Icons.refresh, size: 18),
+              icon: const Icon(Icons.refresh, size: 18),
               onPressed: onRefresh,
               tooltip: '刷新公网 IP',
               padding: EdgeInsets.zero,
@@ -78,7 +77,6 @@ class NetworkEnvCards {
   }
 
   static Widget httpProbe(
-    BuildContext context,
     Map<String, ProbeResult> results,
     bool testing,
     VoidCallback onRefresh,
@@ -86,15 +84,15 @@ class NetworkEnvCards {
     return NetworkWidgets.infoCard(
       title: 'HTTP 连通性测试',
       icon: Icons.cloud_done,
-      color: Theme.of(context).colorScheme.tertiary,
+      color: Colors.teal,
       trailing: testing
-          ? SizedBox(
+          ? const SizedBox(
               width: 18,
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : IconButton(
-              icon: Icon(Icons.refresh, size: 18),
+              icon: const Icon(Icons.refresh, size: 18),
               onPressed: onRefresh,
               tooltip: '重新测试',
               padding: EdgeInsets.zero,
@@ -102,50 +100,50 @@ class NetworkEnvCards {
             ),
       children: NetworkConst.httpProbes.map((probe) {
         final r = results[probe.name];
-        return _probeRow(context, label: probe.name, result: r);
+        return _probeRow(label: probe.name, result: r);
       }).toList(),
     );
   }
 
-  static Widget _probeRow(BuildContext context, {required String label, ProbeResult? result}) {
+  static Widget _probeRow({required String label, ProbeResult? result}) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           SizedBox(
             width: 96,
             child: Text(
               label,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           ),
           if (result == null)
-            Text('...', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
+            const Text('...', style: TextStyle(color: Colors.grey))
           else ...[
             Icon(
               result.ok ? Icons.check_circle : Icons.cancel,
               color: result.ok
-                  ? NetworkConst.colorSuccess(context)
-                  : NetworkConst.colorError(context),
+                  ? NetworkConst.colorSuccess
+                  : NetworkConst.colorError,
               size: 16,
             ),
-            SizedBox(width: 6),
+            const SizedBox(width: 6),
             Text(
               result.statusCode > 0 ? '${result.statusCode}' : 'fail',
               style: TextStyle(
                 fontSize: 13,
                 fontFamily: 'monospace',
                 color: result.ok
-                    ? NetworkConst.colorSuccess(context)
-                    : NetworkConst.colorError(context),
+                    ? NetworkConst.colorSuccess
+                    : NetworkConst.colorError,
               ),
             ),
-            Spacer(),
+            const Spacer(),
             Text(
               '${result.ms}ms',
               style: TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Colors.grey.shade600,
                 fontFamily: 'monospace',
               ),
             ),
@@ -156,7 +154,6 @@ class NetworkEnvCards {
   }
 
   static Widget dns(
-    BuildContext context,
     Map<String, DnsResult> results,
     bool testing,
     VoidCallback onRefresh,
@@ -164,15 +161,15 @@ class NetworkEnvCards {
     return NetworkWidgets.infoCard(
       title: 'DNS 解析测试',
       icon: Icons.dns,
-      color: Theme.of(context).colorScheme.tertiary,
+      color: Colors.purple,
       trailing: testing
-          ? SizedBox(
+          ? const SizedBox(
               width: 18,
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : IconButton(
-              icon: Icon(Icons.refresh, size: 18),
+              icon: const Icon(Icons.refresh, size: 18),
               onPressed: onRefresh,
               tooltip: '重新解析',
               padding: EdgeInsets.zero,
@@ -180,35 +177,35 @@ class NetworkEnvCards {
             ),
       children: NetworkConst.dnsTestHosts.map((host) {
         final r = results[host];
-        return _dnsRow(context, host: host, result: r);
+        return _dnsRow(host: host, result: r);
       }).toList(),
     );
   }
 
-  static Widget _dnsRow(BuildContext context, {required String host, DnsResult? result}) {
+  static Widget _dnsRow({required String host, DnsResult? result}) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           SizedBox(
             width: 96,
             child: Text(
               host,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           if (result == null)
-            Text('...', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
+            const Text('...', style: TextStyle(color: Colors.grey))
           else ...[
             Icon(
               result.ok ? Icons.check_circle : Icons.cancel,
               color: result.ok
-                  ? NetworkConst.colorSuccess(context)
-                  : NetworkConst.colorError(context),
+                  ? NetworkConst.colorSuccess
+                  : NetworkConst.colorError,
               size: 16,
             ),
-            SizedBox(width: 6),
+            const SizedBox(width: 6),
             Expanded(
               child: SelectableText(
                 result.ip,
@@ -216,8 +213,8 @@ class NetworkEnvCards {
                   fontSize: 13,
                   fontFamily: 'monospace',
                   color: result.ok
-                      ? NetworkConst.colorSuccess(context)
-                      : NetworkConst.colorError(context),
+                      ? NetworkConst.colorSuccess
+                      : NetworkConst.colorError,
                 ),
               ),
             ),
@@ -225,7 +222,7 @@ class NetworkEnvCards {
               '${result.ms}ms',
               style: TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Colors.grey.shade600,
                 fontFamily: 'monospace',
               ),
             ),
@@ -235,27 +232,27 @@ class NetworkEnvCards {
     );
   }
 
-  static Widget interfaces(BuildContext context, List<NetworkInterface> ifaces) {
+  static Widget interfaces(List<NetworkInterface> ifaces) {
     if (ifaces.isEmpty) {
       return NetworkWidgets.infoCard(
         title: '网卡列表',
         icon: Icons.settings_ethernet,
-        color: Theme.of(context).colorScheme.tertiary,
+        color: Colors.indigo,
         children: const [Text('无可用网卡')],
       );
     }
     return NetworkWidgets.infoCard(
       title: '网卡列表 (${ifaces.length})',
       icon: Icons.settings_ethernet,
-      color: Theme.of(context).colorScheme.tertiary,
-      children: ifaces.map((i) => _interfaceRow(context, i)).toList(),
+      color: Colors.indigo,
+      children: ifaces.map(_interfaceRow).toList(),
     );
   }
 
-  static Widget _interfaceRow(BuildContext context, NetworkInterface iface) {
+  static Widget _interfaceRow(NetworkInterface iface) {
     final isLoopback = iface.name == 'lo' || iface.name == 'loopback';
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -264,9 +261,9 @@ class NetworkEnvCards {
               Icon(
                 isLoopback ? Icons.loop : Icons.cable,
                 size: 16,
-                color: isLoopback ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.primary,
+                color: isLoopback ? Colors.grey : Colors.green,
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
                 iface.name,
                 style: const TextStyle(
@@ -274,23 +271,23 @@ class NetworkEnvCards {
                   fontSize: 13,
                 ),
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Container(
-                padding: EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 6,
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
                   color: isLoopback
-                      ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.2)
-                      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                      ? Colors.grey.withValues(alpha: 0.2)
+                      : Colors.green.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   isLoopback ? 'Loopback' : 'Active',
                   style: TextStyle(
                     fontSize: 10,
-                    color: isLoopback ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.primary,
+                    color: isLoopback ? Colors.grey : Colors.green,
                   ),
                 ),
               ),
@@ -299,7 +296,7 @@ class NetworkEnvCards {
           ...iface.addresses.map((addr) {
             final isIPv4 = addr.type == InternetAddressType.IPv4;
             return Padding(
-              padding: EdgeInsets.only(left: 22, top: 2, bottom: 2),
+              padding: const EdgeInsets.only(left: 22, top: 2, bottom: 2),
               child: Row(
                 children: [
                   SizedBox(
@@ -308,7 +305,7 @@ class NetworkEnvCards {
                       isIPv4 ? 'IPv4' : 'IPv6',
                       style: TextStyle(
                         fontSize: 10,
-                        color: isIPv4 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.tertiary,
+                        color: isIPv4 ? Colors.green : Colors.orange,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -335,7 +332,7 @@ class NetworkEnvCards {
     return NetworkWidgets.infoCard(
       title: '平台信息',
       icon: Icons.computer,
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      color: Colors.brown,
       children: [
         NetworkWidgets.infoRow(context, 'hostname', Platform.localHostname),
         NetworkWidgets.infoRow(

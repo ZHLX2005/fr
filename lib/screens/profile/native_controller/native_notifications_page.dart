@@ -293,7 +293,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: const Color(0xFFF2F3F8),
       body: MediaQuery.removePadding(
         context: context,
         removeTop: true,
@@ -359,12 +359,12 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                             _isInitialized
                                 ? Icons.check_circle
                                 : Icons.error_outline,
-                            color: _isInitialized ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
+                            color: _isInitialized ? Colors.green : Colors.red,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             '通知状态: ${_isInitialized ? "已就绪" : "未初始化"}',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -377,8 +377,8 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                           Platform.isAndroid || Platform.isIOS
                               ? '点击按钮请求通知权限'
                               : 'Web 平台不支持本地通知，请使用真机测试',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          style: const TextStyle(
+                            color: Colors.grey,
                             fontSize: 12,
                             height: 1.5,
                           ),
@@ -390,7 +390,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _requestPermissions,
-                              icon: Icon(Icons.lock_open),
+                              icon: const Icon(Icons.lock_open),
                               label: const Text('请求通知权限'),
                               style: EmphasisButton.borderEmphasis(
                                 context,
@@ -402,7 +402,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _checkPermissionStatus,
-                              icon: Icon(Icons.search),
+                              icon: const Icon(Icons.search),
                               label: const Text('查询当前状态'),
                               style: EmphasisButton.borderEmphasis(
                                 context,
@@ -418,8 +418,8 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: _permissionGranted
-                              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-                              : Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : Colors.orange.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -430,14 +430,14 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                                   : Icons.info_outline,
                               size: 18,
                               color: _permissionGranted
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.tertiary,
+                                  ? Colors.green
+                                  : Colors.orange,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 '权限状态: $_permissionStatusText',
-                                style: TextStyle(fontSize: 13),
+                                style: const TextStyle(fontSize: 13),
                               ),
                             ),
                           ],
@@ -457,9 +457,9 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
-                          Icon(Icons.flash_on, color: Theme.of(context).colorScheme.tertiary),
+                          Icon(Icons.flash_on, color: Colors.orange),
                           SizedBox(width: 8),
                           Text(
                             '即时通知',
@@ -471,9 +471,9 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text(
+                      const Text(
                         '点击后立即显示通知',
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -540,9 +540,9 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
-                          Icon(Icons.settings, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          Icon(Icons.settings, color: Colors.grey),
                           SizedBox(width: 8),
                           Text(
                             '通知管理',
@@ -560,7 +560,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                           onPressed: _isInitialized
                               ? _cancelAllNotifications
                               : null,
-                          icon: Icon(Icons.delete_sweep),
+                          icon: const Icon(Icons.delete_sweep),
                           label: const Text('取消所有通知'),
                           style: EmphasisButton.dangerEmphasis(context),
                         ),
@@ -576,7 +576,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.blue[50],
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -586,7 +586,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                       children: [
                         Icon(
                           Icons.info_outline,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.blue[700],
                           size: 20,
                         ),
                         const SizedBox(width: 8),
@@ -594,7 +594,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                           '使用说明',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Colors.blue[700],
                           ),
                         ),
                       ],
@@ -607,7 +607,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
                       '• 需要真机测试完整功能',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Colors.blue[700],
                         height: 1.5,
                       ),
                     ),

@@ -139,11 +139,6 @@ class BookmarkProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 默认书签。
-  ///
-  /// 主题豁免：这里的 color 是**站点品牌色**，属于持久化用户数据
-  /// （序列化为 `colorValue`，用户可在编辑面板逐条修改），
-  /// 不是随主题切换的 UI 颜色，因此保持硬编码品牌色。
   List<BookmarkItem> _getDefaultBookmarks() {
     return [
       SingleBookmark(
@@ -151,14 +146,14 @@ class BookmarkProvider with ChangeNotifier {
         name: 'Google',
         url: 'https://www.google.com',
         iconName: 'search',
-        color: const Color(0xFF4285F4), // Google 蓝
+        color: const Color(0xFF4285F4),
       ),
       SingleBookmark(
         id: '2',
         name: 'GitHub',
         url: 'https://github.com',
         iconName: 'code',
-        color: const Color(0xFF24292E), // GitHub 黑
+        color: const Color(0xFF24292E),
       ),
       BookmarkFolder(
         id: 'folder_default',
@@ -169,14 +164,14 @@ class BookmarkProvider with ChangeNotifier {
             name: 'Bilibili',
             url: 'https://www.bilibili.com',
             iconName: 'play_circle_filled',
-            color: const Color(0xFF00A1D6), // Bilibili 蓝
+            color: const Color(0xFF00A1D6),
           ),
           SingleBookmark(
             id: '4',
             name: 'YouTube',
             url: 'https://www.youtube.com',
             iconName: 'video_library',
-            color: const Color(0xFFFF0000), // YouTube 红
+            color: const Color(0xFFFF0000),
           ),
         ],
       ),
@@ -185,7 +180,7 @@ class BookmarkProvider with ChangeNotifier {
         name: 'Flutter',
         url: 'https://flutter.dev',
         iconName: 'flutter_dash',
-        color: const Color(0xFF02569B), // Flutter 蓝
+        color: const Color(0xFF02569B),
       ),
     ];
   }

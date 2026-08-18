@@ -1,5 +1,4 @@
 import 'dart:io';
-import '../../../widgets/context_colors.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -150,9 +149,9 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
       builder: (context, child) {
         return Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+            color: Colors.blue.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
           ),
           child: child,
         );
@@ -174,12 +173,12 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
             title: const Text('块编辑器'),
             actions: [
               IconButton(
-                icon: Icon(Icons.settings),
+                icon: const Icon(Icons.settings),
                 tooltip: 'AI 配置',
                 onPressed: _openAiSettings,
               ),
               IconButton(
-                icon: Icon(Icons.menu_open),
+                icon: const Icon(Icons.menu_open),
                 onPressed: () {
                   _scaffoldKey.currentState?.openEndDrawer();
                 },
@@ -204,12 +203,12 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                 ]
               : null,
           body: blocks.isEmpty
-              ? Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
+              ? const Center(child: Text('暂无内容，点击 ☰ 新建笔记'))
               : Scrollbar(
                   controller: _scrollController,
                   child: ReorderableListView.builder(
                     scrollController: _scrollController,
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: blocks.length + 1,
                     onReorder: (oldIndex, newIndex) {
                       if (oldIndex == blocks.length || newIndex == blocks.length) return;
@@ -222,7 +221,7 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                           key: const ValueKey('__add_block__'),
                           onTap: () => _editorState.addBlock(),
                           behavior: HitTestBehavior.translucent,
-                          child: SizedBox(height: 60),
+                          child: const SizedBox(height: 60),
                         );
                       }
                       final block = blocks[index];
@@ -276,15 +275,15 @@ class _AiPendingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = context.colors.scheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: colorScheme.primaryContainer,
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
           children: [
             Icon(Icons.auto_awesome, size: 16, color: colorScheme.onPrimaryContainer),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'AI 修改了 $changeCount 处 — 红色=删除 绿色=新增',
@@ -297,16 +296,16 @@ class _AiPendingBar extends StatelessWidget {
             ),
             TextButton.icon(
               onPressed: onReject,
-              icon: Icon(Icons.close, size: 16),
+              icon: const Icon(Icons.close, size: 16),
               label: const Text('拒绝'),
               style: TextButton.styleFrom(
                 foregroundColor: colorScheme.onPrimaryContainer,
               ),
             ),
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
             OutlinedButton.icon(
               onPressed: onAccept,
-              icon: Icon(Icons.check, size: 16),
+              icon: const Icon(Icons.check, size: 16),
               label: const Text('应用'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: colorScheme.primary,

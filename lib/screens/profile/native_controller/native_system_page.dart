@@ -167,7 +167,7 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
         title: const Text('系统功能测试'),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh),
             onPressed: _checkUsagePermission,
             tooltip: '重新检查权限',
           ),
@@ -192,8 +192,8 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                               ? Icons.check_circle
                               : Icons.error_outline,
                           color: _hasUsagePermission
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.tertiary,
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                         const SizedBox(width: 8),
                         Text('使用统计权限', style: theme.textTheme.titleMedium),
@@ -206,7 +206,7 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                           : '需要授予使用情况访问权限才能查询应用使用时长',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: _hasUsagePermission
-                            ? Theme.of(context).colorScheme.primary
+                            ? Colors.green
                             : theme.colorScheme.onSurface.withValues(
                                 alpha: 0.7,
                               ),
@@ -216,7 +216,7 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         onPressed: _openUsageSettings,
-                        icon: Icon(Icons.settings),
+                        icon: const Icon(Icons.settings),
                         label: const Text('打开设置'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: theme.colorScheme.primary,
@@ -334,15 +334,15 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
                           ? _queryAppUsage
                           : null,
                       icon: _isLoading
-                          ? SizedBox(
+                          ? const SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Theme.of(context).colorScheme.surface,
+                                color: Colors.white,
                               ),
                             )
-                          : Icon(Icons.query_stats),
+                          : const Icon(Icons.query_stats),
                       label: Text(_isLoading ? '查询中...' : '查询今日应用使用时长'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,

@@ -57,11 +57,11 @@ class _WaveCapsuleState extends State<_WaveCapsule>
           width: 60,
           height: 160,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: const Color(0xFFE8EDFE),
             borderRadius: BorderRadius.circular(80),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                color: Colors.grey.withValues(alpha: 0.4),
                 offset: const Offset(2, 2),
                 blurRadius: 4,
               ),
@@ -76,7 +76,6 @@ class _WaveCapsuleState extends State<_WaveCapsule>
                   painter: _WavePainter(
                     waveValue: _controller.value,
                     level: _level,
-                    scheme: Theme.of(context).colorScheme,
                   ),
                   child: Center(
                     child: Column(
@@ -84,18 +83,18 @@ class _WaveCapsuleState extends State<_WaveCapsule>
                       children: [
                         Text(
                           _level.round().toString(),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 24,
-                            color: Theme.of(context).colorScheme.surface,
+                            color: Colors.white,
                           ),
                         ),
-                        Text(
+                        const Text(
                           '%',
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: 14,
-                            color: Theme.of(context).colorScheme.surface,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -125,11 +124,11 @@ class _WaveCapsuleState extends State<_WaveCapsule>
   Widget _buildControlButton(IconData icon, VoidCallback onTap) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: const Color(0xFFFAFAFA),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+            color: const Color(0xFF2633C5).withValues(alpha: 0.4),
             offset: const Offset(2, 2),
             blurRadius: 6,
           ),
@@ -140,7 +139,7 @@ class _WaveCapsuleState extends State<_WaveCapsule>
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
+          child: Icon(icon, color: const Color(0xFF2633C5), size: 24),
         ),
       ),
     );
@@ -151,14 +150,9 @@ class _WavePainter extends CustomPainter {
   final double waveValue;
   final int level;
 
-  /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
-  final ColorScheme scheme;
+  static const Color _nearlyDarkBlue = Color(0xFF2633C5);
 
-  _WavePainter({
-    required this.waveValue,
-    required this.level,
-    required this.scheme,
-  });
+  _WavePainter({required this.waveValue, required this.level});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -183,7 +177,7 @@ class _WavePainter extends CustomPainter {
     canvas.drawPath(
       path1,
       Paint()
-        ..color = scheme.primary.withValues(alpha: 0.5)
+        ..color = _nearlyDarkBlue.withValues(alpha: 0.5)
         ..style = PaintingStyle.fill,
     );
 
@@ -202,7 +196,7 @@ class _WavePainter extends CustomPainter {
     canvas.drawPath(
       path2,
       Paint()
-        ..color = scheme.primary
+        ..color = _nearlyDarkBlue
         ..style = PaintingStyle.fill,
     );
   }

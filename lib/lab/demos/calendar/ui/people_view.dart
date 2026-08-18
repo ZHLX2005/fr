@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 import '../data/lab_people_provider.dart';
@@ -34,11 +35,11 @@ class PeopleView extends StatelessWidget {
         }
 
         return ListView(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           children: [
             for (final entry in groups.entries) ...[
               Text(entry.key.name, style: AppText.title()),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               ...entry.value.map((p) {
                 final birthday = cal.events
                     .where((e) => e.personId == p.id && e.type == EventType.birthday)
@@ -72,7 +73,7 @@ class PeopleView extends StatelessWidget {
                   ),
                 );
               }),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
             ],
             PaperPrimaryButton(
               icon: Icons.add_rounded,

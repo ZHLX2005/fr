@@ -70,13 +70,19 @@ const Map<int, List<List<int>>> kPieceMatrices = {
   ],
 };
 
-/// 7 种方块色由 context.gameColors.pieceColors 提供（按 [kPieceI..kPieceL] 索引）。
-///
-/// 7 色由 GameColorsStrategy 从 ColorScheme 派生（7 种语义角色）。
-/// 之前这里有 const Map kPieceColors，已删除（自我豁免硬编码 → 零硬编码）。
+/// 7 种方块的现代色（堆积格与下落块共用）。
+const Map<int, Color> kPieceColors = {
+  kPieceI: Color(0xFF22D3EE), // cyan
+  kPieceO: Color(0xFFFACC15), // yellow
+  kPieceT: Color(0xFFA855F7), // purple
+  kPieceS: Color(0xFF22C55E), // green
+  kPieceZ: Color(0xFFEF4444), // red
+  kPieceJ: Color(0xFF3B82F6), // blue
+  kPieceL: Color(0xFFF97316), // orange
+};
 
 /// 强调色（与 I 块同色青），用于建房/加入表单的焦点色与标题图标。
-const Color kTetrisAccent = Color(0xFF22D3EE); // 主题豁免：tetris 品牌青色
+const Color kTetrisAccent = Color(0xFF22D3EE);
 
 /// 空格颜色码（grid 里 0 = 空）。
 const int kEmptyCell = 0;

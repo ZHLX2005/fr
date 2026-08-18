@@ -5,17 +5,10 @@
 // 与围追堵截的格子棋盘不同：五子棋落子在**线条交点**上，
 // 所以绘制方式是"先画网格线，再在交点画棋子"。
 //
-// 颜色策略（v6.2）：
-//   · 棋盘 UI 色（底/网格/星位/红点/提示）→ context.boardColors
-//   · 黑白棋子本体色 → boardColors.player1Stone / player2Stone
-//     （切到任意主题自动跟：zen 米底+暖墨黑子/米白子，深色主题+白子/深子）
-//   · 阴影/遮罩 → boardColors.scheme.onSurface 半透叠加
-//
 // 纯展示组件：棋盘状态通过构造函数传入，触摸交互由外层 GestureDetector 处理。
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_board_colors.dart';
 import 'constants.dart' show kGomokuSize;
 import 'engine.dart' show GomokuBoard;
 
@@ -43,7 +36,15 @@ class GomokuBoardWidget extends StatelessWidget {
   final bool previewIsBlack;
 
   // 棋盘视觉参数
-  static const double _padding = 16.0;
+  static const Color _lineColor = Color(0xFF5C4E3A);        // 网格线（暖棕）
+  static const Color _boardBg = Color(0xFFF8F0E3);          // 棋盘底（米白）
+  static const Color _starColor = Color(0xFF5C4E3A);        // 星位
+  static const Color _blackStone = Color(0xFF2A2A2A);       // 黑子
+  static const Color _whiteStone = Color(0xFFF5F5F5);       // 白子
+  static const Color _stoneRim = Color(0xFF8A7A60);         // 棋子边
+  static const Color _lastMark = Color(0xFFE53935);         // 最后一步红点
+  static const Color _validHint = Color(0xFF7CFFE5);        // 合法落点提示
+  static const double _padding = 16.0;                       // 棋盘外边距
 
   /// 标准 15x15 星位（天元 + 4 个角星 + 4 个边星）
   static const List<(int, int)> _starPoints = [
@@ -53,10 +54,6 @@ class GomokuBoardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bc = context.boardColors;
-    final shadow = bc.scheme.onSurface.withValues(alpha: 0.15);
-    final stoneShadow = bc.scheme.onSurface.withValues(alpha: 0.3);
-
     return LayoutBuilder(builder: (context, constraints) {
       // 棋盘边长 = min(宽, 高) - padding*2，确保正方形
       final side = constraints.biggest.shortestSide;
@@ -69,15 +66,15 @@ class GomokuBoardWidget extends StatelessWidget {
         width: side,
         height: side,
         child: Stack(clipBehavior: Clip.none, children: [
-          // 棋盘背景（圆角米白 = boardColors.background）
+          // 棋盘背景（圆角米白）
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                color: bc.background,
+                color: _boardBg,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: shadow,
+                    color: Colors.black.withValues(alpha: 0.15),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -85,15 +82,15 @@ class GomokuBoardWidget extends StatelessWidget {
               ),
             ),
           ),
-          // 网格线 + 星位
+          // 网格线
           CustomPaint(
             size: Size.infinite,
             painter: _GridPainter(
               step: step,
               padding: _padding,
-              lineColor: bc.gridLine,
+              lineColor: _lineColor,
               starPoints: _starPoints,
-              starColor: bc.gridLine,
+              starColor: _starColor,
             ),
           ),
           // 落子
@@ -101,43 +98,30 @@ class GomokuBoardWidget extends StatelessWidget {
             for (int x = 0; x < kGomokuSize; x++)
               if (board[y][x] != 0)
                 _buildStone(
-                  context, x, y, step, stoneRadius,
+                  x, y, step, stoneRadius,
                   board[y][x] == 1,
                   isLast: lastMove == (x, y),
-                  stoneShadow: stoneShadow,
-                  stoneRim: bc.gridLine,
                 ),
           // 合法落点提示（半透明圆点）
           for (final (x, y) in validMoves)
-            _buildHintDot(x, y, step, bc.hint, stoneRadius * 0.3),
+            _buildHintDot(x, y, step, _validHint, stoneRadius * 0.3),
           // 预览子（触摸悬停）
           if (previewPoint != null)
             _buildStone(
-              context, previewPoint!.$1, previewPoint!.$2, step, stoneRadius,
+              previewPoint!.$1, previewPoint!.$2, step, stoneRadius,
               previewIsBlack,
               isPreview: true,
-              stoneShadow: stoneShadow,
-              stoneRim: bc.gridLine,
             ),
         ]),
       );
     });
   }
 
-  Widget _buildStone(
-    BuildContext context,
-    int x, int y, double step, double radius,
-    bool isBlack, {
-    bool isLast = false,
-    bool isPreview = false,
-    required Color stoneShadow,
-    required Color stoneRim,
-  }) {
-    final bc = context.boardColors;
+  Widget _buildStone(int x, int y, double step, double radius,
+      bool isBlack, {bool isLast = false, bool isPreview = false}) {
     final cx = _padding + x * step;
     final cy = _padding + y * step;
-    // 黑白两色跟主题：player1Stone（深）/ player2Stone（浅），zen 米底也清晰
-    final color = isBlack ? bc.player1Stone : bc.player2Stone;
+    final color = isBlack ? _blackStone : _whiteStone;
     return Positioned(
       left: cx - radius,
       top: cy - radius,
@@ -150,12 +134,12 @@ class GomokuBoardWidget extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             border: Border.all(
-              color: isBlack ? stoneShadow : stoneRim,
+              color: isBlack ? Colors.black54 : _stoneRim,
               width: isBlack ? 0.5 : 1.5,
             ),
             boxShadow: isPreview ? [] : [
               BoxShadow(
-                color: stoneShadow,
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 2,
                 offset: const Offset(1, 1),
               ),
@@ -166,8 +150,8 @@ class GomokuBoardWidget extends StatelessWidget {
                   child: Container(
                     width: radius * 0.5,
                     height: radius * 0.5,
-                    decoration: BoxDecoration(
-                      color: bc.lastMove,
+                    decoration: const BoxDecoration(
+                      color: _lastMark,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -250,7 +234,5 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GridPainter oldDelegate) =>
-      step != oldDelegate.step ||
-      lineColor != oldDelegate.lineColor ||
-      starColor != oldDelegate.starColor;
+      step != oldDelegate.step;
 }

@@ -114,7 +114,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
     return ChangeNotifierProvider.value(
       value: _timerProvider,
       child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: const Color(0xFFFAF9F6),
         body: SafeArea(
           child: Stack(
             children: [
@@ -149,7 +149,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                               _formatDate(),
                               style: TextStyle(
                                 fontSize: screenWidth * 0.035,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Colors.grey[600],
                                 fontWeight: FontWeight.w300,
                               ),
                             ),
@@ -163,7 +163,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                               style: TextStyle(
                                 fontSize: timeFontSize,
                                 fontWeight: FontWeight.w100,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Colors.grey[700],
                                 letterSpacing: -2,
                                 height: 1,
                               ),
@@ -219,7 +219,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                 style: TextStyle(
                   fontSize: fontSize * 1.2,
                   fontWeight: FontWeight.w100,
-                  color: Theme.of(context).colorScheme.tertiary,
+                  color: const Color(0xFF7A9A6E),
                   letterSpacing: -4,
                   height: 1,
                 ),
@@ -227,7 +227,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
               const SizedBox(height: 12),
               Text(
                 _getTimerText(timer),
-                style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
               ),
             ],
           ),
@@ -257,13 +257,13 @@ class _FocusTimerPageState extends State<FocusTimerPage>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1), Theme.of(context).colorScheme.surface.withValues(alpha: 0.0)],
+          colors: [Colors.black.withValues(alpha: 0.1), Colors.transparent],
         ),
       ),
       child: Row(
         children: [
           IconButton(
-            icon: Icon(Icons.arrow_back_ios, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.grey),
             onPressed: () {
               if (_showControls) {
                 setState(() => _showControls = false);
@@ -278,7 +278,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF7A9A6E), // 主题豁免：sage 家族识别色
+              color: Color(0xFF7A9A6E),
             ),
           ),
           const Spacer(),
@@ -294,11 +294,11 @@ class _FocusTimerPageState extends State<FocusTimerPage>
         vertical: screenWidth * 0.05,
       ),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+        color: Colors.white.withValues(alpha: 0.95),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -314,7 +314,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: Colors.grey[300],
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -324,7 +324,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                   _buildActionButton(
                     icon: Icons.stop,
                     label: '退出',
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: Colors.grey[600]!,
                     onTap: () {
                       timer.stopTimer();
                       Navigator.pop(context);
@@ -333,7 +333,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                   _buildActionButton(
                     icon: timer.isPaused ? Icons.play_arrow : Icons.pause,
                     label: timer.isPaused ? '继续' : '暂停',
-                    color: Theme.of(context).colorScheme.error,
+                    color: const Color(0xFFD4AA96),
                     onTap: () {
                       if (timer.isPaused) {
                         timer.resumeTimer();
@@ -346,7 +346,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                   _buildActionButton(
                     icon: Icons.check_circle,
                     label: '完成',
-                    color: Theme.of(context).colorScheme.tertiary,
+                    color: const Color(0xFF7A9A6E),
                     onTap: () => _showEndConfirmDialog(context, timer),
                   ),
                 ],
@@ -402,8 +402,8 @@ class _FocusTimerPageState extends State<FocusTimerPage>
   void _showEndConfirmDialog(BuildContext context, FocusTimerProvider timer) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-      barrierColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.26),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black26,
       builder: (context) => Container(
         padding: EdgeInsets.only(
           left: 24,
@@ -411,8 +411,8 @@ class _FocusTimerPageState extends State<FocusTimerPage>
           top: 24,
           bottom: MediaQuery.of(context).padding.bottom + 24,
         ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+        decoration: const BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
@@ -422,7 +422,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -432,7 +432,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF7A9A6E), // 主题豁免：sage 家族识别色
+                color: Color(0xFF7A9A6E),
               ),
             ),
             const SizedBox(height: 12),
@@ -441,7 +441,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w200,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Colors.grey[700],
               ),
             ),
             const SizedBox(height: 32),
@@ -452,7 +452,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                     onPressed: () => Navigator.pop(context),
                     style: EmphasisButton.ghostEmphasis(
                       context,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: Colors.grey,
                     ),
                     child: const Text(
                       '取消',
@@ -481,7 +481,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
                     },
                     style: EmphasisButton.borderEmphasis(
                       context,
-                      color: Theme.of(context).colorScheme.tertiary,
+                      color: const Color(0xFF7A9A6E),
                     ),
                     child: const Text(
                       '完成',
@@ -509,7 +509,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, color: Color(0xFFB5C9A3) /* 豁免：sage */, size: 64),
+            const Icon(Icons.check_circle, color: Color(0xFFB5C9A3), size: 64),
             const SizedBox(height: 16),
             const Text(
               '专注完成',
@@ -518,7 +518,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
             const SizedBox(height: 8),
             Text(
               '${session.durationMinutes} 分钟',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w200,
                 color: Color(0xFFB5C9A3),
@@ -534,7 +534,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
             },
             style: EmphasisButton.borderEmphasis(
               context,
-              color: Theme.of(context).colorScheme.tertiary,
+              color: const Color(0xFFB5C9A3),
             ),
             child: const Text('返回'),
           ),

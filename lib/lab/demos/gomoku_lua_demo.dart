@@ -93,7 +93,7 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
           child: Align(
             alignment: Alignment.topCenter,
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 440),
                 child: Column(
@@ -107,13 +107,13 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
                         border: Border.all(color: theme.panelBorder),
                         boxShadow: [
                           BoxShadow(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
+                            color: Colors.black.withValues(alpha: 0.06),
                             blurRadius: 16,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -122,7 +122,7 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
                         ],
                       ),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     // ── 卡片外次要入口 ──
                     Center(
                       child: TextButton.icon(
@@ -131,7 +131,7 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
                         style: TextButton.styleFrom(
                           foregroundColor: theme.btnSub,
                         ),
-                        icon: Icon(Icons.school_outlined, size: 18),
+                        icon: const Icon(Icons.school_outlined, size: 18),
                         label: const Text('开局学习',
                             style: TextStyle(letterSpacing: 1)),
                       ),

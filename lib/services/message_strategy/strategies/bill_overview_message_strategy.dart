@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart' show AppColorsExtension;
 import '../interfaces/interfaces.dart';
 import '../data/bill_overview_message_data.dart';
 
@@ -174,7 +173,7 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
                       theme,
                       '总收入',
                       '¥ ${widget.data.totalIncome.toStringAsFixed(2)}',
-                      Theme.of(context).colorScheme.primary,
+                      Colors.green,
                     ),
                     _buildMetricItem(
                       theme,
@@ -198,9 +197,6 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
                       child: CustomPaint(
                         painter: _PieChartPainter(
                           expenses: widget.data.categoryExpenses,
-                          categoryColors: Theme.of(context)
-                              .extension<AppColorsExtension>()!
-                              .category,
                         ),
                         child: Center(
                           child: Column(
@@ -287,7 +283,7 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
                       AnimatedRotation(
                         turns: _isExpanded ? 0.5 : 0,
                         duration: const Duration(milliseconds: 200),
-                        child: Icon(Icons.keyboard_arrow_down, size: 20),
+                        child: const Icon(Icons.keyboard_arrow_down, size: 20),
                       ),
                     ],
                   ),
@@ -339,7 +335,7 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          Text(expense.icon, style: TextStyle(fontSize: 12)),
+          Text(expense.icon, style: const TextStyle(fontSize: 12)),
           const SizedBox(width: 4),
           Expanded(
             child: Text(
@@ -394,7 +390,7 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
       ),
       child: Row(
         children: [
-          Text(expense.icon, style: TextStyle(fontSize: 18)),
+          Text(expense.icon, style: const TextStyle(fontSize: 18)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -437,7 +433,7 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Row(
               children: [
-                Text(expense.icon, style: TextStyle(fontSize: 16)),
+                Text(expense.icon, style: const TextStyle(fontSize: 16)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -487,10 +483,16 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
 class _PieChartPainter extends CustomPainter {
   final List<CategoryExpense> expenses;
 
-  /// 分类色板（来自 AppColorsExtension.category，由 build() 注入）
-  final List<Color> categoryColors;
+  _PieChartPainter({required this.expenses});
 
-  _PieChartPainter({required this.expenses, required this.categoryColors});
+  static const List<Color> _colors = [
+    Color(0xFF6366F1), // 蓝
+    Color(0xFFF59E0B), // 黄
+    Color(0xFF10B981), // 绿
+    Color(0xFFEC4899), // 粉
+    Color(0xFF8B5CF6), // 紫
+    Color(0xFF6B7280), // 灰
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -503,7 +505,7 @@ class _PieChartPainter extends CustomPainter {
     for (int i = 0; i < expenses.length; i++) {
       final sweepAngle = (expenses[i].percentage / 100) * 2 * 3.14159;
       final paint = Paint()
-        ..color = categoryColors[i % categoryColors.length]
+        ..color = _colors[i % _colors.length]
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.butt;

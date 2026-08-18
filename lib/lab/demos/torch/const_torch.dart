@@ -1,8 +1,10 @@
+import 'package:flutter/material.dart';
+
 /// 手电筒模块常量 — 仅动画时长与亮度参数。
 ///
-/// UI 颜色（背景/边框/按钮/文本）已迁移到 `BoardTheme.of(context)` token。
-/// 护眼颜色预设由 `context.gameColors.protectPresets` / `protectPresetNames`
-/// 从 ColorScheme 派生（之前这里是 const Color 自我豁免清单 → 零硬编码）。
+/// UI 颜色（背景/边框/按钮/文本）已迁移到 `BoardTheme.of(context)` token，
+/// 这里**不**再持有任何 hex；护眼颜色预设是功能（灯色选择），不是 UI 主题，
+/// 因此保留在 [EyeProtectionColors] 中。
 class TorchConst {
   TorchConst._();
 
@@ -16,4 +18,67 @@ class TorchConst {
   static const double minBrightness = 0.1;
   static const double maxBrightness = 1.0;
   static const double brightnessSwipeSensitivity = 200.0;
+}
+
+/// 护眼颜色预设
+class EyeProtectionColors {
+  EyeProtectionColors._();
+
+  /// 经典护眼黄
+  static const Color warmYellow = Color(0xFFFFE066);
+
+  /// 琥珀色
+  static const Color amber = Color(0xFFFFBF00);
+
+  /// 暖白色
+  static const Color warmWhite = Color(0xFFFFF8E7);
+
+  /// 羊皮纸
+  static const Color sepia = Color(0xFFF5DEB3);
+
+  /// 暗琥珀
+  static const Color darkAmber = Color(0xFFCC9900);
+
+  /// 墨绿色
+  static const Color darkGreen = Color(0xFF2E8B57);
+
+  /// 暗青色
+  static const Color darkCyan = Color(0xFF008B8B);
+
+  /// 珊瑚橙
+  static const Color coral = Color(0xFFFF7F50);
+
+  /// 玫瑰棕
+  static const Color rosyBrown = Color(0xFFBC8F8F);
+
+  /// 午夜蓝
+  static const Color midnightBlue = Color(0xFF191970);
+
+  /// 所有预设颜色列表
+  static const List<Color> presets = [
+    warmYellow,
+    amber,
+    warmWhite,
+    sepia,
+    darkAmber,
+    darkGreen,
+    darkCyan,
+    coral,
+    rosyBrown,
+    midnightBlue,
+  ];
+
+  /// 预设颜色名称
+  static const List<String> presetNames = [
+    '护眼黄',
+    '琥珀',
+    '暖白',
+    '羊皮纸',
+    '暗琥珀',
+    '墨绿',
+    '暗青',
+    '珊瑚',
+    '玫瑰棕',
+    '午夜蓝',
+  ];
 }

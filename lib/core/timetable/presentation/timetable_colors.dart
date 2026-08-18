@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/theme/zen_theme.dart';
 
-import '../../../../core/theme/app_theme.dart' show AppColorsExtension;
-
-/// 课表配色通道。
+/// 课表配色 —— 课程身份色 + Zen 主题背景色。
 ///
-/// 历史：原为 static const 字段（M1 时期），批量重构时被改为函数 + BuildContext 入参。
-/// 调用方全部走 `TimetableColors.Xxx(context)`，跟随当前主题切换。
+/// - 课程身份色（[courseColors]/[getCourseColor]）：莫兰迪 8 色，保留为课程的视觉
+///   标识，不随主题切换（与桌面小组件 TimetableWidgetColors 同源）。
+/// - 背景/边框/文字色：委托 [ZenColors]，与全局 zen 暖米系对齐（clock/recorder/
+/// timetable 设置页同源）。
 class TimetableColors {
   TimetableColors._();
 
-  // ─── 课程色板（8 色）───
-  // 主题豁免：原"莫兰迪 8 色"是设计语言身份（课表视觉风格），保留为 light 主题专用；
-  //         非 light 主题走 AppColorsExtension.category 自适应。
-  /// 莫兰迪 8 色：light 主题下专属课程底色（保留设计语言身份）。
-  static const List<Color> _morandi = [
+  /// 莫兰迪色系 - 用于课程单元格背景（保留为课程身份色）
+  static const List<Color> courseColors = [
     Color(0xFF8B9DC3), // 灰蓝
     Color(0xFF9E8FA8), // 灰紫
     Color(0xFFB58AA5), // 灰粉
@@ -24,39 +22,37 @@ class TimetableColors {
     Color(0xFFC4B5A0), // 灰棕
   ];
 
-  /// 获取课程色：light 主题用莫兰迪，dark/pink/... 走 AppColorsExtension.category。
-  static Color getCourseColor(BuildContext context, int seed) {
-    final scheme = Theme.of(context);
-    final isLight = scheme.brightness == Brightness.light;
-    if (isLight) return _morandi[seed % _morandi.length];
-    final cat = scheme.extension<AppColorsExtension>()?.category ?? _morandi;
-    return cat[seed % cat.length];
+  /// 获取课程颜色（课程身份色，不随主题）
+  static Color getCourseColor(int seed) {
+    return courseColors[seed % courseColors.length];
   }
 
-  // ─── 边框强调（中性灰 → 走 scheme.outline） ───
-  static Color accent(BuildContext context) =>
-      Theme.of(context).colorScheme.outline;
-  static Color accentLight(BuildContext context) =>
-      Theme.of(context).colorScheme.outlineVariant;
+  // ──────── 背景/边框/文字色：委托 ZenColors（暖米系） ────────
 
-  // ─── 鼠尾草绿：zen 家族识别色（主题豁免） ───
-  static const Color sage = Color(0xFF7A9A7E);
+  /// 边框强调色 - 中性灰（→ ZenColors.secondary 暖灰）
+  static Color get accent => ZenColors.secondary;
 
-  // ─── 选中 / 边框 / 文字 / 表面（走 scheme 派生） ───
-  static Color selectedBg(BuildContext context) =>
-      Theme.of(context).colorScheme.surfaceContainerHighest;
-  static Color border(BuildContext context) =>
-      Theme.of(context).colorScheme.outline;
-  static Color borderLight(BuildContext context) =>
-      Theme.of(context).colorScheme.outlineVariant;
-  static Color textPrimary(BuildContext context) =>
-      Theme.of(context).colorScheme.onSurface;
-  static Color textSecondary(BuildContext context) =>
-      Theme.of(context).colorScheme.onSurfaceVariant;
-  static Color textTertiary(BuildContext context) =>
-      Theme.of(context).colorScheme.outline;
-  static Color surface(BuildContext context) =>
-      Theme.of(context).colorScheme.surface;
-  static Color surfaceVariant(BuildContext context) =>
-      Theme.of(context).colorScheme.surfaceContainerHighest;
+  /// 浅灰强调（→ ZenColors.secondary）
+  static Color get accentLight => ZenColors.secondary;
+
+  /// 鼠尾草绿 - "今天"列头高亮 / 主操作强调
+  static Color get sage => ZenColors.sage;
+
+  /// 选中状态背景（→ ZenColors.surface 卡片底）
+  static Color get selectedBg => ZenColors.surface;
+
+  /// 边框色（→ ZenColors.hair 发丝线）
+  static Color get border => ZenColors.hair;
+
+  /// 浅边框（→ ZenColors.surface）
+  static Color get borderLight => ZenColors.surface;
+
+  /// 文字色
+  static Color get textPrimary => ZenColors.ink;
+  static Color get textSecondary => ZenColors.secondary;
+  static Color get textTertiary => ZenColors.hair; // 最浅（发丝线）
+
+  /// 背景色
+  static Color get surface => ZenColors.bg;
+  static Color get surfaceVariant => ZenColors.surface;
 }

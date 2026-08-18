@@ -83,7 +83,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kPageBg(context),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: ValueListenableBuilder<LocalMatchState>(
           valueListenable: _viewModel,
@@ -193,9 +193,9 @@ class _IdleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Text('游戏已退出',
-          style: TextStyle(color: kTextMuted(context), fontSize: 16)),
+          style: TextStyle(color: kTextMuted, fontSize: 16)),
     );
   }
 }
@@ -222,7 +222,7 @@ class _BottomBar extends StatelessWidget {
             child: _BarButton(
               icon: Icons.arrow_back_rounded,
               label: '返回',
-              tint: kTextNormal(context),
+              tint: kTextNormal,
               onTap: onExit,
             ),
           ),
@@ -240,7 +240,7 @@ class _BottomBar extends StatelessWidget {
             child: _BarButton(
               icon: Icons.menu_book_rounded,
               label: '教程',
-              tint: Theme.of(context).colorScheme.tertiary,
+              tint: const Color(0xFFD97706),
               onTap: onTutorial,
             ),
           ),
@@ -325,7 +325,7 @@ class _VictoryOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final w = winner;
-    final tint = w == null ? Theme.of(context).colorScheme.tertiary : playerTint(w);
+    final tint = w == null ? const Color(0xFFFBBF24) : playerTint(w);
     final title = w == null ? '平局' : '${playerName(w)} 获胜！';
 
     final headline = Column(
@@ -343,23 +343,23 @@ class _VictoryOverlay extends StatelessWidget {
         ),
         if (reason.isNotEmpty) ...[
           const SizedBox(height: 4),
-          Text(reason, style: TextStyle(fontSize: 13, color: kTextMuted(context))),
+          Text(reason, style: const TextStyle(fontSize: 13, color: kTextMuted)),
         ],
       ],
     );
 
     return Container(
-      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
+      color: Colors.black.withValues(alpha: 0.45),
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 32),
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
@@ -388,7 +388,7 @@ class _VictoryOverlay extends StatelessWidget {
                   _BarButton(
                     icon: Icons.logout_rounded,
                     label: '退出',
-                    tint: kTextNormal(context),
+                    tint: kTextNormal,
                     onTap: onExit,
                   ),
                 ],

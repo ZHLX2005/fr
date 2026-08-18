@@ -5,7 +5,7 @@ import 'demos/api_test_demo.dart';
 import 'demos/body_map_demo.dart';
 import 'demos/calendar_demo.dart';
 import 'demos/clock_demo.dart';
-import 'demos/crash_log_demo.dart';
+import 'demos/color_palette_demo.dart';
 // demo_laboratory_demo 已并入 rive_demo（统一 Rive 演示）
 import 'demos/rive_demo/rive_demo.dart' show registerRiveDemo;
 import 'demos/doubletime_demo.dart';
@@ -50,7 +50,6 @@ import 'demos/relation_calc_demo.dart' show registerRelationCalcDemo;
 void registerAllDemos() {
   registerClockDemo();
   registerCalendarDemo();
-  registerCrashLogDemo();
   registerNetworkDemo();
   registerGame2048Demo();
   registerStorageAnalyzeDemo();
@@ -65,7 +64,8 @@ void registerAllDemos() {
   registerMessageNetDemo();
   registerGalleryDemo();
   registerSchemaDemo();
-    registerGithubDemo();
+  registerColorPaletteDemo();
+  registerGithubDemo();
   registerWebBookmarkDemo();
   registerDoubleTimeDemo();
   registerNovelReaderDemo();

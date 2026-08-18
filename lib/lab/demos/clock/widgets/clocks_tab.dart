@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock_record.dart';
@@ -71,13 +70,13 @@ class _ClocksTabState extends State<ClocksTab> {
             if (provider.clocks.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
                   child: _EmptyState(onAdd: () => _openEditor(context)),
                 ),
               )
             else
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 sliver: SliverGrid(
                   gridDelegate:
                       const SliverGridDelegateWithFixedCrossAxisCount(
@@ -167,8 +166,8 @@ class _ClockCard extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        decoration: zenCardTheme(context),
-        padding: EdgeInsets.all(12),
+        decoration: zenCard(),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -178,7 +177,7 @@ class _ClockCard extends StatelessWidget {
                   width: 10, height: 10,
                   decoration: BoxDecoration(color: baseColor, shape: BoxShape.circle),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     clock.title,
@@ -189,15 +188,15 @@ class _ClockCard extends StatelessWidget {
                 ),
                 InkWell(
                   onTap: () => _confirmDelete(context, p),
-                  customBorder: CircleBorder(),
+                  customBorder: const CircleBorder(),
                   child: Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(Icons.close, size: 18, color: context.colors.textMuted),
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 18, color: ZenColors.secondary),
                   ),
                 ),
               ],
             ),
-            Spacer(),
+            const Spacer(),
             Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -205,17 +204,17 @@ class _ClockCard extends StatelessWidget {
                   formatTime(remaining),
                   style: ZenText.monoDigit.copyWith(
                     fontSize: 32,
-                    color: remaining < 0 ? context.colors.danger : context.colors.text,
+                    color: remaining < 0 ? ZenColors.mutedRed : ZenColors.ink,
                   ),
                 ),
               ),
             ),
-            Spacer(),
+            const Spacer(),
             if (hasBeat)
               Row(
                 children: [
-                  ZenDot(),
-                  SizedBox(width: 6),
+                  ZenDot(active: isActive),
+                  const SizedBox(width: 6),
                   Text(
                     (() {
                       final modeLabel = clock.beatPattern == '1/4' ? '单拍' : '双拍';
@@ -225,7 +224,7 @@ class _ClockCard extends StatelessWidget {
                   ),
                 ],
               ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -236,10 +235,10 @@ class _ClockCard extends StatelessWidget {
                       ? p.pauseCountdown(clock.id)
                       : p.startCountdown(clock.id),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 ZenIconButton(
                   icon: Icons.refresh_rounded,
-                  color: context.colors.textMuted,
+                  color: ZenColors.secondary,
                   onTap: () => p.resetCountdown(clock.id),
                 ),
               ],
@@ -279,15 +278,15 @@ class _RecordTileState extends State<_RecordTile> {
     final p = context.read<LabClockProvider>();
     final record = widget.record;
     final isCompleted = record.completed;
-    final color = isCompleted ? context.colors.accent : context.colors.danger;
+    final color = isCompleted ? ZenColors.sage : ZenColors.mutedRed;
     final dateStr = formatRecordDate(record.startTime);
 
     // The card content (slides left on swipe). No margin here — the outer
     // Padding provides horizontal insets so the action buttons behind it align
     // to the same right edge as the card.
     final card = Container(
-      decoration: zenCardTheme(context),
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: zenCard(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           Container(
@@ -303,7 +302,7 @@ class _RecordTileState extends State<_RecordTile> {
               size: 22,
             ),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +319,7 @@ class _RecordTileState extends State<_RecordTile> {
             ),
           ),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
@@ -337,7 +336,7 @@ class _RecordTileState extends State<_RecordTile> {
     // Ported from original `_RecordSwipeAction` (clock_demo.dart:1396-1570).
     // Swipe left reveals two action buttons (Delete / Create) — no tap-to-sheet.
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onHorizontalDragUpdate: (details) {
@@ -369,7 +368,7 @@ class _RecordTileState extends State<_RecordTile> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(6),
           // Clips both the card and the action buttons to the same 6px
-          // rounding as zenCardTheme(context), so sharp-cornered action buttons don't
+          // rounding as zenCard(), so sharp-cornered action buttons don't
           // bleed past the card's rounded corners when swiped left.
           child: Stack(
             children: [
@@ -383,7 +382,7 @@ class _RecordTileState extends State<_RecordTile> {
                     ZenSwipeAction(
                       label: '删除',
                       icon: Icons.delete_outline,
-                      color: context.colors.danger,
+                      color: ZenColors.mutedRed,
                       // Round both left corners so it tucks under the card's
                       // right edge cleanly.
                       leftRounded: true,
@@ -405,7 +404,7 @@ class _RecordTileState extends State<_RecordTile> {
                     ZenSwipeAction(
                       label: '新建',
                       icon: Icons.add,
-                      color: context.colors.accent,
+                      color: ZenColors.sage,
                       leftRounded: false,
                       onTap: () async {
                         setState(() {
@@ -442,18 +441,18 @@ class _RecordTileState extends State<_RecordTile> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: context.colors.surface,
-        title: Text('重命名记录'),
+        backgroundColor: ZenColors.surface,
+        title: const Text('重命名记录'),
         content: TextField(controller: ctl, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('取消', style: TextStyle(color: context.colors.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消', style: TextStyle(color: ZenColors.secondary))),
           TextButton(
             onPressed: () {
               final v = ctl.text.trim();
               if (v.isNotEmpty) p.updateRecordTitle(record.id, v);
               Navigator.pop(ctx);
             },
-            child: Text('保存', style: TextStyle(color: context.colors.accent)),
+            child: const Text('保存', style: TextStyle(color: ZenColors.sage)),
           ),
         ],
       ),

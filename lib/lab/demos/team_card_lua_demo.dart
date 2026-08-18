@@ -80,7 +80,7 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
       body: Column(
         children: [
           Padding(
-            padding: EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             child: SegmentedButton<bool>(
               segments: const [
                 ButtonSegment(value: true, label: Text('我是房主')),

@@ -10,9 +10,6 @@
 //
 // 为什么按 slug 而不是 `is DemoClass` 判类型：常量层不依赖任何 demo 实现文件，
 // 新增/删除游戏不会牵动 import 图，也避免游戏中心反向耦合 lab/demos。
-//
-// 主题豁免：[kGameMeta] 内 13 个 `gradient: [Color(0xFF...), Color(0xFF...)]` 是各游戏的
-// 封面艺术设计身份（非 UI 通用色），跟随游戏识别保留硬编码。
 
 import 'package:flutter/material.dart';
 

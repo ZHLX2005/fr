@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 import 'ai_models.dart';
 
 /// 内联 AI 回复气泡 — 显示在 block 下方
@@ -7,7 +6,7 @@ class AiBubble extends StatelessWidget {
   final BlockAIConversation conversation;
   final VoidCallback onOpenConversation;
 
-  AiBubble({
+  const AiBubble({
     super.key,
     required this.conversation,
     required this.onOpenConversation,
@@ -15,13 +14,13 @@ class AiBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = context.colors.scheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final text = conversation.latestResponseText;
-    if (text.isEmpty) return SizedBox.shrink();
+    if (text.isEmpty) return const SizedBox.shrink();
 
     return Container(
-      margin: EdgeInsets.only(left: 8, right: 8, bottom: 4),
-      padding: EdgeInsets.all(10),
+      margin: const EdgeInsets.only(left: 8, right: 8, bottom: 4),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(8),
@@ -38,7 +37,7 @@ class AiBubble extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           // 操作按钮行 — 仅对话、撤回、确认
           Row(
             children: [
@@ -49,10 +48,10 @@ class AiBubble extends StatelessWidget {
                 () => onOpenConversation(),
                 label: '对话',
               ),
-              Spacer(),
+              const Spacer(),
               // 撤回
               _actionBtn(context, Icons.undo, null),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               // 确认按钮
               _actionBtn(context, Icons.check, null, isPrimary: true),
             ],
@@ -64,7 +63,7 @@ class AiBubble extends StatelessWidget {
 
   Widget _actionBtn(BuildContext context, IconData icon, VoidCallback? onTap,
       {String? label, bool isPrimary = false}) {
-    final colorScheme = context.colors.scheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (isPrimary) {
       final isDark = colorScheme.brightness == Brightness.dark;
@@ -88,21 +87,21 @@ class AiBubble extends StatelessWidget {
     }
 
     return Material(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Container(
           height: 32,
           padding: label != null
-              ? EdgeInsets.symmetric(horizontal: 8)
-              : EdgeInsets.all(0),
+              ? const EdgeInsets.symmetric(horizontal: 8)
+              : const EdgeInsets.all(0),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
               if (label != null) ...[
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 Text(
                   label,
                   style: TextStyle(

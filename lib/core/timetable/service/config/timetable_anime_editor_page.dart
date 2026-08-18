@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
@@ -108,25 +107,24 @@ class _TimetableAnimeEditorPageState
           }();
 
     return zenPageScaffold(
-      context: context,
-  title: '追剧排期',
+      title: '追剧排期',
       actions: [
         TextButton.icon(
           onPressed: _previewDsl,
-          icon: Icon(Icons.visibility_outlined,
-              size: 18, color: context.colors.accent),
+          icon: const Icon(Icons.visibility_outlined,
+              size: 18, color: ZenColors.sage),
           label: Text(
             '查看 DSL',
-            style: ZenText.button.copyWith(color: context.colors.accent, fontSize: 14),
+            style: ZenText.button.copyWith(color: ZenColors.sage, fontSize: 14),
           ),
         ),
       ],
       fab: FloatingActionButton.extended(
         onPressed: _addSeries,
-        backgroundColor: context.colors.accent,
-        foregroundColor: Theme.of(context).colorScheme.surface,
-        icon: Icon(Icons.add),
-        label: Text('添加剧'),
+        backgroundColor: ZenColors.sage,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('添加剧'),
       ),
       body: Column(
         children: [
@@ -134,22 +132,22 @@ class _TimetableAnimeEditorPageState
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: context.colors.accent.withValues(alpha: 0.08),
+            color: ZenColors.sage.withValues(alpha: 0.08),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.auto_awesome,
                   size: 16,
-                  color: context.colors.accent,
+                  color: ZenColors.sage,
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     series.isEmpty
                         ? '添加剧后自动计算并应用排期'
                         : '已自动应用：$summary · ${series.length} 部剧',
                     style: ZenText.body.copyWith(
-                      color: context.colors.accent,
+                      color: ZenColors.sage,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -158,7 +156,7 @@ class _TimetableAnimeEditorPageState
               ],
             ),
           ),
-          Divider(height: 1, color: context.colors.outline),
+          const Divider(height: 1, color: ZenColors.hair),
           Expanded(
             child: sorted.isEmpty
                 ? ZenEmptyState(
@@ -206,7 +204,7 @@ class _SeriesTile extends StatelessWidget {
     final title = draft.title.trim().isEmpty ? '（未命名剧）' : draft.title.trim();
 
     return Container(
-      decoration: zenCardTheme(context),
+      decoration: zenCard(),
       child: InkWell(
         onTap: onEdit,
         borderRadius: BorderRadius.circular(6),
@@ -218,19 +216,19 @@ class _SeriesTile extends StatelessWidget {
                 width: 68,
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
-                  color: context.colors.accent.withValues(alpha: 0.08),
+                  color: ZenColors.sage.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   draft.time.trim().isEmpty ? '--:--' : draft.time.trim(),
                   style: ZenText.body.copyWith(
-                    color: context.colors.accent,
+                    color: ZenColors.sage,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,7 +239,7 @@ class _SeriesTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       '周${_weekdayNames[draft.weekday - 1]} · '
                       '${draft.episodes == null ? '长期更新' : '${draft.episodes} 期'} · '
@@ -252,15 +250,15 @@ class _SeriesTile extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.edit_outlined,
-                    size: 18, color: context.colors.textMuted),
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: ZenColors.secondary),
                 visualDensity: VisualDensity.compact,
                 tooltip: '编辑',
                 onPressed: onEdit,
               ),
               IconButton(
-                icon: Icon(Icons.close,
-                    size: 18, color: context.colors.danger),
+                icon: const Icon(Icons.close,
+                    size: 18, color: ZenColors.mutedRed),
                 visualDensity: VisualDensity.compact,
                 tooltip: '删除',
                 onPressed: onDelete,
@@ -274,7 +272,7 @@ class _SeriesTile extends StatelessWidget {
 }
 
 /// zen 风格输入框装饰 —— 编辑弹窗内统一使用
-InputDecoration _zenInputDecoration(BuildContext context, String label) => InputDecoration(
+InputDecoration _zenInputDecoration(String label) => InputDecoration(
       labelText: label,
       isDense: true,
       labelStyle: ZenText.label,
@@ -282,15 +280,15 @@ InputDecoration _zenInputDecoration(BuildContext context, String label) => Input
           const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: context.colors.outline),
+        borderSide: const BorderSide(color: ZenColors.hair),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: context.colors.outline),
+        borderSide: const BorderSide(color: ZenColors.hair),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: context.colors.accent),
+        borderSide: const BorderSide(color: ZenColors.sage),
       ),
     );
 
@@ -382,13 +380,13 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
     }
     if (startDateIso.isNotEmpty && DateTime.tryParse(startDateIso) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('开播日期无效')),
+        const SnackBar(content: Text('开播日期无效')),
       );
       return null;
     }
     if (episodesRaw.isNotEmpty && (episodes == null || episodes < 1)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('总集数应为正整数（留空 = 长期更新）')),
+        const SnackBar(content: Text('总集数应为正整数（留空 = 长期更新）')),
       );
       return null;
     }
@@ -409,10 +407,10 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: context.colors.surface,
+      backgroundColor: ZenColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: context.colors.outline),
+        side: const BorderSide(color: ZenColors.hair),
       ),
       child: Container(
         width: 340,
@@ -431,7 +429,7 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                 controller: _titleCtrl,
                 autofocus: widget.initial == null,
                 style: ZenText.body,
-                decoration: _zenInputDecoration(context, '剧名（番名）'),
+                decoration: _zenInputDecoration('剧名（番名）'),
               ),
               const SizedBox(height: 10),
               Row(
@@ -443,13 +441,13 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                             keyboardType: TextInputType.number,
                             style: ZenText.body,
                             decoration:
-                                _zenInputDecoration(context, '当前第几期'),
+                                _zenInputDecoration('当前第几期'),
                           )
                         : InkWell(
                             onTap: _pickDate,
                             borderRadius: BorderRadius.circular(6),
                             child: InputDecorator(
-                              decoration: _zenInputDecoration(context, '开播日期'),
+                              decoration: _zenInputDecoration('开播日期'),
                               child: Text(
                                 _dateCtrl.text.isEmpty
                                     ? '选择日期'
@@ -469,13 +467,13 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                     child: Text(
                       _useBackfill ? '直接选日期' : '当前第N期反推',
                       style: ZenText.button
-                          .copyWith(color: context.colors.accent, fontSize: 12),
+                          .copyWith(color: ZenColors.sage, fontSize: 12),
                     ),
                   ),
                   if (_useBackfill)
                     IconButton(
-                      icon: Icon(Icons.auto_fix_high,
-                          size: 18, color: context.colors.accent),
+                      icon: const Icon(Icons.auto_fix_high,
+                          size: 18, color: ZenColors.sage),
                       tooltip: '反推并填入',
                       onPressed: _backfill,
                     ),
@@ -489,7 +487,7 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                       initialValue: _weekday,
                       isDense: true,
                       style: ZenText.body.copyWith(fontSize: 14),
-                      decoration: _zenInputDecoration(context, '星期几'),
+                      decoration: _zenInputDecoration('星期几'),
                       items: const [
                         DropdownMenuItem(value: 1, child: Text('周一')),
                         DropdownMenuItem(value: 2, child: Text('周二')),
@@ -504,25 +502,25 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                       },
                     ),
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _timeCtrl,
                       keyboardType: TextInputType.datetime,
                       style: ZenText.body,
-                      decoration: _zenInputDecoration(context, '几点播出（22→22:00）'),
+                      decoration: _zenInputDecoration('几点播出（22→22:00）'),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextField(
                 controller: _episodesCtrl,
                 keyboardType: TextInputType.number,
                 style: ZenText.body,
-                decoration: _zenInputDecoration(context, '总集数（留空=长期更新）'),
+                decoration: _zenInputDecoration('总集数（留空=长期更新）'),
               ),
-              SizedBox(height: 14),
+              const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -530,10 +528,10 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       '取消',
-                      style: ZenText.button.copyWith(color: context.colors.textMuted),
+                      style: ZenText.button.copyWith(color: ZenColors.secondary),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   TextButton(
                     onPressed: () {
                       final draft = _submit();
@@ -542,7 +540,7 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
                     child: Text(
                       '保存',
                       style: ZenText.button.copyWith(
-                        color: context.colors.accent,
+                        color: ZenColors.sage,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -598,10 +596,10 @@ class _DslPreviewDialogState extends ConsumerState<_DslPreviewDialog> {
   Widget build(BuildContext context) {
     final r = _result;
     return Dialog(
-      backgroundColor: context.colors.surface,
+      backgroundColor: ZenColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: context.colors.outline),
+        side: const BorderSide(color: ZenColors.hair),
       ),
       child: Container(
         width: 360,
@@ -611,64 +609,64 @@ class _DslPreviewDialogState extends ConsumerState<_DslPreviewDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('当前追剧 DSL', style: ZenText.title),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               '起始 ${r.config.startDateIso} · '
               '每天 ${r.config.slotsPerDay} 行 · '
               '共 ${r.config.cycleCount} 周 · 已自动应用',
               style: ZenText.label,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              constraints: BoxConstraints(maxHeight: 320),
+              constraints: const BoxConstraints(maxHeight: 320),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: context.colors.accent.withValues(alpha: 0.06),
+                color: ZenColors.sage.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: context.colors.outline),
+                border: Border.all(color: ZenColors.hair),
               ),
               child: SingleChildScrollView(
                 child: Text(
                   r.dsl,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     fontFamily: 'monospace',
                     height: 1.5,
-                    color: context.colors.text,
+                    color: ZenColors.ink,
                   ),
                 ),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton.icon(
                   onPressed: _refreshing ? null : _refresh,
                   icon: _refreshing
-                      ? SizedBox(
+                      ? const SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: context.colors.accent,
+                            color: ZenColors.sage,
                           ),
                         )
-                      : Icon(Icons.refresh,
-                          size: 16, color: context.colors.accent),
+                      : const Icon(Icons.refresh,
+                          size: 16, color: ZenColors.sage),
                   label: Text(
                     '刷新',
-                    style: ZenText.button.copyWith(color: context.colors.accent),
+                    style: ZenText.button.copyWith(color: ZenColors.sage),
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(
                     '关闭',
                     style: ZenText.button
-                        .copyWith(color: context.colors.textMuted),
+                        .copyWith(color: ZenColors.secondary),
                   ),
                 ),
               ],

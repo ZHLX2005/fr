@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 
 import '../state.dart';
 import 'ai_settings_store.dart';
@@ -63,9 +62,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('AI 配置')),
       body: _loading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -78,7 +77,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                     ),
                     obscureText: true,
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _modelCtl,
                     decoration: const InputDecoration(
@@ -87,7 +86,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _baseUrlCtl,
                     decoration: const InputDecoration(
@@ -95,15 +94,15 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   OutlinedButton.icon(
                     onPressed: _save,
-                    icon: Icon(Icons.save),
-                    label: Text('保存'),
+                    icon: const Icon(Icons.save),
+                    label: const Text('保存'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: context.colors.accent,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       side: BorderSide(
-                        color: context.colors.accent.withValues(alpha: 0.5),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                       ),
                     ),
                   ),

@@ -1,6 +1,4 @@
 import 'dart:async';
-import '../../widgets/context_colors.dart';
-import '../../widgets/context_game_colors.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,11 +48,8 @@ class _TorchPageState extends State<_TorchPage>
   double _savedBrightness = 0.5;
   bool _keepScreenOn = false;
 
-  // 颜色状态 - 索引指向 context.gameColors.protectPresets 的某个护眼色
-  // _customColor 存 HSV 微调后的色（null 时用 preset）
-  int _selectedPresetIndex = 0;
-  Color? _customColor;
-  Color get _selectedColor => _customColor ?? context.gameColors.protectPresets[_selectedPresetIndex];
+  // 颜色状态 - 默认护眼黄
+  Color _selectedColor = EyeProtectionColors.warmYellow;
 
   // 模式: 0=手电筒, 1=屏幕光
   int _currentMode = 0;
@@ -282,7 +277,7 @@ class _TorchPageState extends State<_TorchPage>
   void _onHueChanged(double hue) {
     final hsv = HSVColor.fromColor(_selectedColor);
     setState(() {
-      _customColor = HSVColor.fromAHSV(
+      _selectedColor = HSVColor.fromAHSV(
         1.0,
         hue,
         hsv.saturation,
@@ -295,7 +290,7 @@ class _TorchPageState extends State<_TorchPage>
   void _onSaturationChanged(double saturation) {
     final hsv = HSVColor.fromColor(_selectedColor);
     setState(() {
-      _customColor = HSVColor.fromAHSV(
+      _selectedColor = HSVColor.fromAHSV(
         1.0,
         hsv.hue,
         saturation.clamp(0.0, 1.0),
@@ -305,10 +300,9 @@ class _TorchPageState extends State<_TorchPage>
     _resetHideTimer();
   }
 
-  void _onPresetColorSelected(int index) {
+  void _onPresetColorSelected(Color color) {
     setState(() {
-      _selectedPresetIndex = index;
-      _customColor = null;  // 重置回 preset
+      _selectedColor = color;
     });
     _resetHideTimer();
   }
@@ -347,7 +341,7 @@ class _TorchPageState extends State<_TorchPage>
   // ===== Build Methods =====
   @override
   Widget build(BuildContext context) {
-    final theme = context.colors.scheme;
+    final theme = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: theme.surface,
       body: Stack(
@@ -372,8 +366,8 @@ class _TorchPageState extends State<_TorchPage>
 
   Widget _buildModeSelector(ColorScheme theme) {
     return Container(
-      margin: EdgeInsets.all(16),
-      padding: EdgeInsets.all(4),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: theme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
@@ -398,12 +392,12 @@ class _TorchPageState extends State<_TorchPage>
       },
       child: AnimatedContainer(
         duration: TorchConst.modeSwitchDuration,
-        padding: EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? theme.surface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+          color: isSelected ? theme.surface : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? theme.outline : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+            color: isSelected ? theme.outline : Colors.transparent,
             width: 1.4,
           ),
         ),
@@ -455,7 +449,7 @@ class _TorchPageState extends State<_TorchPage>
             },
           ),
         ),
-        SizedBox(height: 40),
+        const SizedBox(height: 40),
         Text(
           _isTorchOn ? '点击关闭手电筒' : '点击开启手电筒',
           style: TextStyle(
@@ -466,7 +460,7 @@ class _TorchPageState extends State<_TorchPage>
         ),
         if (!_torchAvailable)
           Padding(
-            padding: EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 8),
             child: Text(
               '当前设备不支持闪光灯',
               style: TextStyle(
@@ -475,7 +469,7 @@ class _TorchPageState extends State<_TorchPage>
               ),
             ),
           ),
-        SizedBox(height: 60),
+        const SizedBox(height: 60),
         _buildLargeButton(
           theme: theme,
           onTap: _torchAvailable ? _toggleTorch : _showPermissionDialog,
@@ -499,7 +493,7 @@ class _TorchPageState extends State<_TorchPage>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   // 颜色预览圆
                   GestureDetector(
                     onVerticalDragUpdate: (details) {
@@ -524,12 +518,12 @@ class _TorchPageState extends State<_TorchPage>
                         Icons.light_mode,
                         size: 70,
                         color: _getDisplayColor().computeLuminance() > 0.5
-                            ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)
-                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
+                            ? Colors.black38
+                            : Colors.white38,
                       ),
                     ),
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   Text(
                     '屏幕灯光',
                     style: TextStyle(
@@ -538,7 +532,7 @@ class _TorchPageState extends State<_TorchPage>
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     '上下滑动预览亮度 · ${(_screenBrightness * 100).toInt()}%',
                     style: TextStyle(
@@ -546,12 +540,12 @@ class _TorchPageState extends State<_TorchPage>
                       fontSize: 13,
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   // 颜色控制区域 - 始终显示
                   _buildColorControlArea(theme),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   _buildKeepScreenOnSwitch(theme),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   _buildLargeButton(
                     theme: theme,
                     onTap: _turnOnScreenLight,
@@ -560,7 +554,7 @@ class _TorchPageState extends State<_TorchPage>
                     color: theme.onSurface,
                     isEnabled: true,
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -573,8 +567,8 @@ class _TorchPageState extends State<_TorchPage>
   // 颜色控制区域（非全屏模式）
   Widget _buildColorControlArea(ColorScheme theme) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 20),
-      padding: EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
@@ -605,13 +599,13 @@ class _TorchPageState extends State<_TorchPage>
               ),
             ],
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           // 色相环
           _buildHueRing(size: 160),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           // 饱和度滑块
           _buildSaturationSlider(theme),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           // 预设颜色
           _buildPresetColors(theme),
         ],
@@ -629,7 +623,6 @@ class _TorchPageState extends State<_TorchPage>
         height: size,
         child: CustomPaint(
           painter: _HueRingPainter(
-            scheme: Theme.of(context).colorScheme,
             selectedHue: hsv.hue,
             saturation: hsv.saturation,
           ),
@@ -677,7 +670,7 @@ class _TorchPageState extends State<_TorchPage>
             ),
           ],
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             activeTrackColor: _getPureColor(),
@@ -698,8 +691,8 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Widget _buildPresetColors(ColorScheme theme) {
-    final presets = context.gameColors.protectPresets;
-    final names = context.gameColors.protectPresetNames;
+    final presets = EyeProtectionColors.presets;
+    final names = EyeProtectionColors.presetNames;
 
     // 分两行，平衡数量
     final half = (presets.length / 2).ceil();
@@ -713,7 +706,7 @@ class _TorchPageState extends State<_TorchPage>
       children: [
         _buildColorRow(theme, firstRow, firstNames),
         if (secondRow.isNotEmpty) ...[
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           _buildColorRow(theme, secondRow, secondNames),
         ],
       ],
@@ -728,7 +721,7 @@ class _TorchPageState extends State<_TorchPage>
         final name = names[index];
         final isSelected = _selectedColor == color;
         return GestureDetector(
-          onTap: () => _onPresetColorSelected(index),
+          onTap: () => _onPresetColorSelected(color),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -739,12 +732,12 @@ class _TorchPageState extends State<_TorchPage>
                   shape: BoxShape.circle,
                   color: color,
                   border: Border.all(
-                    color: isSelected ? theme.onSurface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                    color: isSelected ? theme.onSurface : Colors.transparent,
                     width: 2,
                   ),
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
                 name,
                 style: TextStyle(
@@ -763,7 +756,7 @@ class _TorchPageState extends State<_TorchPage>
     return GestureDetector(
       onTap: _toggleKeepScreenOn,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: _keepScreenOn
               ? theme.surface
@@ -785,7 +778,7 @@ class _TorchPageState extends State<_TorchPage>
                   ? theme.onSurface
                   : theme.onSurfaceVariant,
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
               '保持常亮',
               style: TextStyle(
@@ -796,7 +789,7 @@ class _TorchPageState extends State<_TorchPage>
                 fontWeight: FontWeight.w500,
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Container(
               width: 44,
               height: 26,
@@ -814,9 +807,9 @@ class _TorchPageState extends State<_TorchPage>
                 child: Container(
                   width: 22,
                   height: 22,
-                  margin: EdgeInsets.symmetric(horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.onSurface,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -839,7 +832,7 @@ class _TorchPageState extends State<_TorchPage>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         decoration: BoxDecoration(
           color: theme.surface,
           borderRadius: BorderRadius.circular(6),
@@ -849,7 +842,7 @@ class _TorchPageState extends State<_TorchPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: color, size: 24),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Text(
               label,
               style: TextStyle(
@@ -896,22 +889,22 @@ class _TorchPageState extends State<_TorchPage>
                     right: 0,
                     child: Center(
                       child: Container(
-                        padding: EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
                           color: isLight
-                              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)
-                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                              ? Colors.black.withValues(alpha: 0.2)
+                              : Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           '上下滑动调整亮度 · ${(_screenBrightness * 100).toInt()}%',
                           style: TextStyle(
                             color: isLight
-                                ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)
-                                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70),
+                                ? Colors.black54
+                                : Colors.white70,
                             fontSize: 14,
                           ),
                         ),
@@ -927,14 +920,14 @@ class _TorchPageState extends State<_TorchPage>
                         GestureDetector(
                           onTap: _toggleColorPanel,
                           child: Container(
-                            padding: EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 24,
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
                               color: isLight
-                                  ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15)
-                                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+                                  ? Colors.black.withValues(alpha: 0.15)
+                                  : Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(24),
                             ),
                             child: Row(
@@ -948,18 +941,18 @@ class _TorchPageState extends State<_TorchPage>
                                     color: _getPureColor(),
                                     border: Border.all(
                                       color: isLight
-                                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.26)
-                                          : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.30),
+                                          ? Colors.black26
+                                          : Colors.white30,
                                     ),
                                   ),
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
                                   '调色',
                                   style: TextStyle(
                                     color: isLight
-                                        ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)
-                                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70),
+                                        ? Colors.black54
+                                        : Colors.white70,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -969,8 +962,8 @@ class _TorchPageState extends State<_TorchPage>
                                       ? Icons.keyboard_arrow_up
                                       : Icons.keyboard_arrow_down,
                                   color: isLight
-                                      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)
-                                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70),
+                                      ? Colors.black54
+                                      : Colors.white70,
                                   size: 18,
                                 ),
                               ],
@@ -982,14 +975,14 @@ class _TorchPageState extends State<_TorchPage>
                           duration: const Duration(milliseconds: 300),
                           child: _showColorPanel
                               ? Container(
-                                  margin: EdgeInsets.only(top: 16),
-                                  padding: EdgeInsets.all(16),
+                                  margin: const EdgeInsets.only(top: 16),
+                                  padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: isLight
-                                        ? Theme.of(context).colorScheme.onSurface.withValues(
+                                        ? Colors.black.withValues(
                                             alpha: 0.15,
                                           )
-                                        : Theme.of(context).colorScheme.onSurface.withValues(
+                                        : Colors.white.withValues(
                                             alpha: 0.15,
                                           ),
                                     borderRadius: BorderRadius.circular(20),
@@ -998,17 +991,17 @@ class _TorchPageState extends State<_TorchPage>
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       _buildHueRing(size: 140),
-                                      SizedBox(height: 12),
+                                      const SizedBox(height: 12),
                                       SizedBox(
                                         width: 240,
                                         child: _buildSaturationSlider(theme),
                                       ),
-                                      SizedBox(height: 8),
+                                      const SizedBox(height: 8),
                                       _buildPresetColorsCompact(theme),
                                     ],
                                   ),
                                 )
-                              : SizedBox.shrink(),
+                              : const SizedBox.shrink(),
                         ),
                       ],
                     ),
@@ -1026,14 +1019,14 @@ class _TorchPageState extends State<_TorchPage>
                           GestureDetector(
                             onTap: _toggleKeepScreenOn,
                             child: Container(
-                              padding: EdgeInsets.symmetric(
+                              padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 12,
                               ),
                               decoration: BoxDecoration(
                                 color: isLight
-                                    ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15)
-                                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+                                    ? Colors.black.withValues(alpha: 0.15)
+                                    : Colors.white.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               child: Row(
@@ -1047,18 +1040,18 @@ class _TorchPageState extends State<_TorchPage>
                                     color: _keepScreenOn
                                         ? theme.onSurface
                                         : (isLight
-                                            ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)
-                                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70)),
+                                            ? Colors.black54
+                                            : Colors.white70),
                                   ),
-                                  SizedBox(width: 6),
+                                  const SizedBox(width: 6),
                                   Text(
                                     '常亮',
                                     style: TextStyle(
                                       color: _keepScreenOn
                                           ? theme.onSurface
                                           : (isLight
-                                              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)
-                                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70)),
+                                              ? Colors.black54
+                                              : Colors.white70),
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -1067,19 +1060,19 @@ class _TorchPageState extends State<_TorchPage>
                               ),
                             ),
                           ),
-                          SizedBox(width: 16),
+                          const SizedBox(width: 16),
                           // 关闭按钮
                           GestureDetector(
                             onTap: _closeScreenLight,
                             child: Container(
-                              padding: EdgeInsets.symmetric(
+                              padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                                 vertical: 12,
                               ),
                               decoration: BoxDecoration(
                                 color: isLight
-                                    ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2)
-                                    : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                                    ? Colors.black.withValues(alpha: 0.2)
+                                    : Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(24),
                               ),
                               child: Row(
@@ -1088,17 +1081,17 @@ class _TorchPageState extends State<_TorchPage>
                                   Icon(
                                     Icons.close,
                                     color: isLight
-                                        ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)
-                                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70),
+                                        ? Colors.black54
+                                        : Colors.white70,
                                     size: 20,
                                   ),
-                                  SizedBox(width: 6),
+                                  const SizedBox(width: 6),
                                   Text(
                                     '关闭',
                                     style: TextStyle(
                                       color: isLight
-                                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)
-                                          : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70),
+                                          ? Colors.black54
+                                          : Colors.white70,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -1121,7 +1114,7 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Widget _buildPresetColorsCompact(ColorScheme theme) {
-    final presets = context.gameColors.protectPresets;
+    final presets = EyeProtectionColors.presets;
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -1130,7 +1123,7 @@ class _TorchPageState extends State<_TorchPage>
         final color = presets[index];
         final isSelected = _selectedColor == color;
         return GestureDetector(
-          onTap: () => _onPresetColorSelected(index),
+          onTap: () => _onPresetColorSelected(color),
           child: Container(
             width: 32,
             height: 32,
@@ -1138,7 +1131,7 @@ class _TorchPageState extends State<_TorchPage>
               shape: BoxShape.circle,
               color: color,
               border: Border.all(
-                color: isSelected ? theme.onSurface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                color: isSelected ? theme.onSurface : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -1153,10 +1146,8 @@ class _TorchPageState extends State<_TorchPage>
 class _HueRingPainter extends CustomPainter {
   final double selectedHue;
   final double saturation;
-  final ColorScheme scheme;
 
   _HueRingPainter({
-    required this.scheme,
     required this.selectedHue,
     required this.saturation,
   });
@@ -1222,14 +1213,14 @@ class _HueRingPainter extends CustomPainter {
       indicatorPos,
       8,
       Paint()
-        ..color = scheme.onSurface
+        ..color = Colors.white
         ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
       indicatorPos,
       8,
       Paint()
-        ..color = scheme.onSurface.withValues(alpha: 0.38)
+        ..color = Colors.black38
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
@@ -1252,7 +1243,7 @@ class _HueRingPainter extends CustomPainter {
       center,
       innerRadius * 0.9,
       Paint()
-        ..color = scheme.onSurface.withValues(alpha: 0.24)
+        ..color = Colors.white24
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );

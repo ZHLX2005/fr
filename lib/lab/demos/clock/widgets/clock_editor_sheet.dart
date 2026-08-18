@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
 import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
@@ -30,7 +29,7 @@ Future<ClockEditorResult?> showClockEditor(BuildContext context, {LabClock? exis
   return showModalBottomSheet<ClockEditorResult>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: context.colors.surface,
+    backgroundColor: ZenColors.bg,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -135,20 +134,20 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
           children: [
             // Drag handle
             Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(
-              color: context.colors.outline, borderRadius: BorderRadius.circular(2),
+              color: ZenColors.hair, borderRadius: BorderRadius.circular(2),
             ))),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Row(children: [
               Expanded(child: Text(widget.existing == null ? '添加时钟' : '编辑时钟', style: ZenText.title)),
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: Icon(Icons.close),
+                icon: const Icon(Icons.close),
                 iconSize: 24,
-                color: context.colors.text,
+                color: ZenColors.ink,
                 tooltip: '取消',
               ),
             ]),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             TextField(
               controller: _titleCtl,
               style: ZenText.body,
@@ -157,7 +156,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             TextField(
               controller: _descCtl,
               style: ZenText.body,
@@ -167,22 +166,22 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 16),
-            Text('时长', style: ZenText.label),
-            SizedBox(height: 8),
+            const SizedBox(height: 16),
+            const Text('时长', style: ZenText.label),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _WheelPicker(label: 'h', value: _hours, max: 23, onChanged: (v) => setState(() => _hours = v)),
-                Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text(':', style: ZenText.title)),
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text(':', style: ZenText.title)),
                 _WheelPicker(label: 'm', value: _minutes, max: 59, onChanged: (v) => setState(() => _minutes = v)),
-                Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text(':', style: ZenText.title)),
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text(':', style: ZenText.title)),
                 _WheelPicker(label: 's', value: _seconds, max: 59, onChanged: (v) => setState(() => _seconds = v)),
               ],
             ),
-            SizedBox(height: 16),
-            Text('颜色', style: ZenText.label),
-            SizedBox(height: 8),
+            const SizedBox(height: 16),
+            const Text('颜色', style: ZenText.label),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -195,24 +194,24 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                     decoration: BoxDecoration(
                       color: Color(int.parse(c.replaceFirst('#', '0xFF'))),
                       shape: BoxShape.circle,
-                      border: selected ? Border.all(color: context.colors.text, width: 3) : null,
+                      border: selected ? Border.all(color: ZenColors.ink, width: 3) : null,
                     ),
                   ),
                 );
               }).toList(),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             // Beat section: rounds + mode → auto-computed bpm/pattern.
             Row(children: [
-              Expanded(child: Text('节拍', style: ZenText.label)),
+              const Expanded(child: Text('节拍', style: ZenText.label)),
               Switch(
                 value: _beatEnabled,
-                activeThumbColor: context.colors.accent,
+                activeThumbColor: ZenColors.sage,
                 onChanged: (v) => setState(() => _beatEnabled = v),
               ),
             ]),
             if (_beatEnabled) ...[
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               // Total rounds input.
               TextField(
                 controller: _roundsCtl,
@@ -224,10 +223,10 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               // Mode toggle: 1beat (all strong) vs 2beat (strong-weak).
-              Text('模式', style: ZenText.label),
-              SizedBox(height: 8),
+              const Text('模式', style: ZenText.label),
+              const SizedBox(height: 8),
               Row(children: [
                 Expanded(
                   child: _ModeChip(
@@ -237,7 +236,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                     onTap: () => setState(() => _mode = '1beat'),
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _ModeChip(
                     label: '每轮 2 拍',
@@ -247,19 +246,19 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                   ),
                 ),
               ]),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               // Live preview.
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: zenCardTheme(context),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: zenCard(),
                 child: Text(_preview, style: ZenText.monoDigitSmall.copyWith(
-                  color: _computedBpm == null ? context.colors.danger : context.colors.text,
+                  color: _computedBpm == null ? ZenColors.mutedRed : ZenColors.ink,
                   fontSize: 13,
                 )),
               ),
             ],
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -273,7 +272,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                     beatPattern: _beatEnabled ? _computedPattern : null,
                   ));
                 },
-                style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+                style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
                 child: Text(widget.existing == null ? '添加' : '保存'),
               ),
             ),
@@ -308,7 +307,7 @@ class _WheelPicker extends StatelessWidget {
               i.toString().padLeft(2, '0'),
               style: ZenText.monoDigitSmall.copyWith(
                 fontSize: i == value ? 24 : 16,
-                color: i == value ? context.colors.text : context.colors.textMuted,
+                color: i == value ? ZenColors.ink : ZenColors.secondary,
                 fontWeight: i == value ? FontWeight.w700 : FontWeight.normal,
               ),
             ),
@@ -338,23 +337,23 @@ class _ModeChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(4),
       child: Container(
-        constraints: BoxConstraints(minHeight: 56),
-        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 56),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? context.colors.accent : context.colors.surface,
-          border: Border.all(color: selected ? context.colors.accent : context.colors.outline),
+          color: selected ? ZenColors.sage : ZenColors.surface,
+          border: Border.all(color: selected ? ZenColors.sage : ZenColors.hair),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label, style: ZenText.button.copyWith(
-              color: selected ? Theme.of(context).colorScheme.onSurface : context.colors.text,
+              color: selected ? Colors.white : ZenColors.ink,
               fontSize: 14,
             )),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(sub, style: ZenText.monoDigitSmall.copyWith(
-              color: selected ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85) : context.colors.textMuted,
+              color: selected ? Colors.white.withValues(alpha: 0.85) : ZenColors.secondary,
               fontSize: 11,
             )),
           ],

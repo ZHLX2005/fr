@@ -175,7 +175,7 @@ class _PlayerPill extends StatelessWidget {
           boxShadow: isActive
               ? [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -191,9 +191,9 @@ class _PlayerPill extends StatelessWidget {
               decoration: BoxDecoration(
                 color: pieceColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5), width: 1.5),
-                boxShadow: [
-                  BoxShadow(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38), blurRadius: 2, offset: Offset(0, 1)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1.5),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black38, blurRadius: 2, offset: Offset(0, 1)),
                 ],
               ),
             ),
@@ -524,12 +524,12 @@ class _ReversiPiece extends StatelessWidget {
           border: Border.all(
             color: isLastMove
                 ? theme.lastMoveRing
-                : Theme.of(context).colorScheme.surface.withValues(alpha: isBlack ? 0.15 : 0.6),
+                : Colors.white.withValues(alpha: isBlack ? 0.15 : 0.6),
             width: isLastMove ? 2.5 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+              color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),

@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../../../widgets/context_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -110,7 +109,7 @@ class _NetworkHttpTabState extends State<NetworkHttpTab>
     super.build(context);
     final ok = _statusCode >= 200 && _statusCode < 300;
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -122,7 +121,7 @@ class _NetworkHttpTabState extends State<NetworkHttpTab>
               hintText: 'https://api.example.com/endpoint',
             ),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -134,7 +133,7 @@ class _NetworkHttpTabState extends State<NetworkHttpTab>
                   ),
                 ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 flex: 3,
                 child: TextField(
@@ -148,7 +147,7 @@ class _NetworkHttpTabState extends State<NetworkHttpTab>
               ),
             ],
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           TextField(
             controller: _bodyController,
             decoration: const InputDecoration(
@@ -158,40 +157,40 @@ class _NetworkHttpTabState extends State<NetworkHttpTab>
             ),
             maxLines: 4,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _loading ? null : _sendRequest,
               icon: _loading
-                  ? SizedBox(
+                  ? const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                       ),
                     )
-                  : Icon(Icons.send),
+                  : const Icon(Icons.send),
               label: Text(_loading ? '请求中...' : '发送请求'),
               style: EmphasisButton.borderEmphasis(
                 context,
-                color: context.colors.accent,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           if (_statusCode > 0 || _result.isNotEmpty) ...[
             Container(
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: ok
-                    ? NetworkConst.colorSuccess(context).withValues(alpha: 0.1)
-                    : NetworkConst.colorError(context).withValues(alpha: 0.1),
+                    ? NetworkConst.colorSuccess.withValues(alpha: 0.1)
+                    : NetworkConst.colorError.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: ok
-                      ? NetworkConst.colorSuccess(context)
-                      : NetworkConst.colorError(context),
+                      ? NetworkConst.colorSuccess
+                      : NetworkConst.colorError,
                 ),
               ),
               child: Row(
@@ -199,46 +198,46 @@ class _NetworkHttpTabState extends State<NetworkHttpTab>
                   Icon(
                     ok ? Icons.check_circle : Icons.error,
                     color: ok
-                        ? NetworkConst.colorSuccess(context)
-                        : NetworkConst.colorError(context),
+                        ? NetworkConst.colorSuccess
+                        : NetworkConst.colorError,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     'Status: $_statusCode',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: ok
-                          ? NetworkConst.colorSuccess(context)
-                          : NetworkConst.colorError(context),
+                          ? NetworkConst.colorSuccess
+                          : NetworkConst.colorError,
                     ),
                   ),
-                  Spacer(),
+                  const Spacer(),
                   if (_duration != null)
                     Text(
                       '${_duration!.inMilliseconds}ms',
                       style: TextStyle(
-                        color: context.colors.outline,
+                        color: Theme.of(context).colorScheme.outline,
                       ),
                     ),
                 ],
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
           ],
           if (_result.isNotEmpty)
             Container(
               width: double.infinity,
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Colors.grey[900],
                 borderRadius: BorderRadius.circular(8),
               ),
               child: SelectableText(
                 _result,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 12,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Colors.green,
                 ),
               ),
             ),

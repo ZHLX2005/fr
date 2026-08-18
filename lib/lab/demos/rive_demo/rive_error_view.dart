@@ -13,19 +13,19 @@ class RiveErrorView extends StatelessWidget {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline, size: 42, color: theme.colorScheme.error),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
               'Rive 加载失败',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               error,
               textAlign: TextAlign.center,

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 
 /// 周视图
 class WeekView extends StatelessWidget {
   final void Function(DateTime) onDayTap;
-  WeekView({super.key, required this.onDayTap});
+  const WeekView({super.key, required this.onDayTap});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +27,7 @@ class WeekView extends StatelessWidget {
           leading: Text(
             '${d.month}/${d.day}',
             style: AppText.body().copyWith(
-              color: isToday ? context.colors.danger : context.colors.text,
+              color: isToday ? PaperPalette.today : PaperPalette.ink,
               fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
             ),
           ),

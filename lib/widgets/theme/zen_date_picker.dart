@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
 import 'zen_theme.dart';
 
 /// Zen 主题日历日期选择器 —— 替代系统 [showDatePicker] 的 Material 亮色弹窗。
@@ -93,10 +92,10 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
     final todayKey = DateTime(today.year, today.month, today.day);
 
     return Dialog(
-      backgroundColor: context.colors.surface,
+      backgroundColor: ZenColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: context.colors.outline),
+        side: const BorderSide(color: ZenColors.hair),
       ),
       child: Container(
         width: 320,
@@ -138,7 +137,7 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
                 ),
               ],
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             // 星期表头
             Row(
               children: [
@@ -150,22 +149,22 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
                   ),
               ],
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             // 日网格
             _buildGrid(todayKey),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             // 底部操作
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('取消', style: ZenText.button.copyWith(color: context.colors.textMuted)),
+                  child: Text('取消', style: ZenText.button.copyWith(color: ZenColors.secondary)),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(context, _selected),
-                  child: Text('确定', style: ZenText.button.copyWith(color: context.colors.accent)),
+                  child: Text('确定', style: ZenText.button.copyWith(color: ZenColors.sage)),
                 ),
               ],
             ),
@@ -182,10 +181,10 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
   }) {
     return InkWell(
       onTap: enabled ? onTap : null,
-      customBorder: CircleBorder(),
+      customBorder: const CircleBorder(),
       child: Opacity(
         opacity: enabled ? 1 : 0.25,
-        child: Icon(icon, size: 22, color: context.colors.textMuted),
+        child: Icon(icon, size: 22, color: ZenColors.secondary),
       ),
     );
   }
@@ -231,7 +230,7 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
       onTap: enabled
           ? () => setState(() => _selected = date)
           : null,
-      customBorder: CircleBorder(),
+      customBorder: const CircleBorder(),
       child: Opacity(
         opacity: enabled ? 1 : 0.3,
         child: Container(
@@ -240,9 +239,9 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isSelected ? context.colors.accent : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+            color: isSelected ? ZenColors.sage : Colors.transparent,
             border: Border.all(
-              color: isToday && !isSelected ? context.colors.danger : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+              color: isToday && !isSelected ? ZenColors.mutedRed : Colors.transparent,
             ),
           ),
           child: Text(
@@ -251,8 +250,8 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
               fontSize: 14,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
               color: isSelected
-                  ? Theme.of(context).colorScheme.surface
-                  : (isWeekend ? context.colors.danger : context.colors.text),
+                  ? Colors.white
+                  : (isWeekend ? ZenColors.mutedRed : ZenColors.ink),
             ),
           ),
         ),

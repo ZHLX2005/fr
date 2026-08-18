@@ -6,6 +6,10 @@ import '../../data/lab_people_provider.dart';
 import '../../domain/person.dart';
 import 'day_cell.dart';
 
+/// '#C8553D' → Color(0xFFC8553D)
+Color _hexToColor(String hex) =>
+    Color(int.parse('FF${hex.substring(1)}', radix: 16));
+
 class MonthGrid extends StatelessWidget {
   final int year;
   final int month;
@@ -33,7 +37,7 @@ class MonthGrid extends StatelessWidget {
 
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
         mainAxisSpacing: 4,
@@ -62,12 +66,21 @@ class MonthGrid extends StatelessWidget {
             if (e.personId != null)
               if (people.byId(e.personId!) != null) people.byId(e.personId!)!,
         ];
+        // 当天所有事件的 colorTag 去重（保持插入顺序）→ 彩色小圆点
+        final seen = <String>{};
+        final dotColors = <Color>[];
+        for (final e in events) {
+          if (seen.add(e.colorTag.name)) {
+            dotColors.add(_hexToColor(e.colorTag.hex));
+          }
+        }
         return DayCell(
           date: date,
           inCurrentMonth: inMonth,
           isToday: isToday,
           events: events,
           people: evPeople,
+          eventDotColors: inMonth ? dotColors : const [],
           onTap: inMonth ? () => onDayTap(date) : null,
           onLongPress: inMonth ? () => onDayLongPress(date) : null,
         );

@@ -1,22 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/theme_provider.dart';
+import 'package:provider/provider.dart';
+import '../../../core/color/theme/theme_provider.dart';
+import '../../../core/color/theme/app_theme.dart';
 
 /// 主题设置页面
-class ThemePage extends ConsumerWidget {
+class ThemePage extends StatelessWidget {
   const ThemePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentMode = ref.watch(themeNotifierProvider);
-
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('主题设置'), centerTitle: true),
-      body: _ThemeGrid(
-        currentMode: currentMode,
-        onSelect: (mode) => ref
-            .read(themeNotifierProvider.notifier)
-            .setMode(mode),
+      body: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return _ThemeGrid(currentMode: themeProvider.themeMode);
+        },
       ),
     );
   }
@@ -25,9 +23,8 @@ class ThemePage extends ConsumerWidget {
 /// 双列主题网格
 class _ThemeGrid extends StatelessWidget {
   final AppThemeMode currentMode;
-  final void Function(AppThemeMode) onSelect;
 
-  const _ThemeGrid({required this.currentMode, required this.onSelect});
+  const _ThemeGrid({required this.currentMode});
 
   @override
   Widget build(BuildContext context) {
@@ -49,18 +46,15 @@ class _ThemeGrid extends StatelessWidget {
         return _ThemeCard(
           mode: mode,
           isSelected: isSelected,
-          onTap: () => _selectTheme(context, mode, onSelect),
+          onTap: () => _selectTheme(context, mode),
         );
       },
     );
   }
 
-  void _selectTheme(
-    BuildContext context,
-    AppThemeMode mode,
-    void Function(AppThemeMode) onSelect,
-  ) {
-    onSelect(mode);
+  void _selectTheme(BuildContext context, AppThemeMode mode) async {
+    final provider = context.read<ThemeProvider>();
+    await provider.setThemeMode(mode);
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -112,10 +106,14 @@ class _ThemeCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: colorScheme.primary,
+                  gradient: LinearGradient(
+                    colors: [colorScheme.primary, colorScheme.secondary],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(AppTheme.getThemeIcon(mode), color: Theme.of(context).colorScheme.surface),
+                child: Icon(AppTheme.getThemeIcon(mode), color: Colors.white),
               ),
               const SizedBox(height: 10),
 

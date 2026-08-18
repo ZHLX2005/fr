@@ -77,15 +77,11 @@ const double kLabEmptyIconBoxRadius = 16.0;
 const double kLabEmptyIconSize = 26.0;
 
 // ── 拖拽删除区 ──────────────────────────────────────────────────
-/// 删除按钮 active 状态固定红（scheme.error 已统一为红族，跨主题保持破坏性语义）。
-const Color kLabDeleteActiveColor = Color(0xFFD63B3B); // 历史参考，build 时改用 scheme.error
-const Color kLabDeleteIdleColor = Color(0xFFEF6B6B);     // 同上，build 时改用 scheme.error + alpha
+/// 危险操作固定用红（破坏性语义不随主题走）
+const Color kLabDeleteActiveColor = Color(0xFFD63B3B);
+const Color kLabDeleteIdleColor = Color(0xFFEF6B6B);
 const double kLabDeleteIdleAlpha = 0.92;
-const Color kLabDeleteShadowColor = Color(0xFFB3261E);  // 同上，build 时改用 scheme.errorContainer
-
-// ★ 迁移说明：以下 3 个 const Color 字段保留作历史参考常量，实际使用点已迁到
-//   `Theme.of(context).colorScheme.error` / `.errorContainer` 派生（lab_panel_content.dart
-//   builder 内）。后续可移除。
+const Color kLabDeleteShadowColor = Color(0xFFB3261E);
 
 const double kLabDeleteRadius = 24.0;
 const double kLabDeleteMinHeight = 76.0;

@@ -85,8 +85,8 @@ class _DemoCardState extends State<DemoCard> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Theme.of(context).colorScheme.onSurface.withValues(alpha: kLabCardScrimTopAlpha),
-                          Theme.of(context).colorScheme.onSurface.withValues(
+                          Colors.black.withValues(alpha: kLabCardScrimTopAlpha),
+                          Colors.black.withValues(
                             alpha: kLabCardScrimBottomAlpha,
                           ),
                         ],
@@ -102,7 +102,7 @@ class _DemoCardState extends State<DemoCard> {
                     Icon(
                       Icons.widgets,
                       color: backgroundUrl != null
-                          ? Theme.of(context).colorScheme.surface
+                          ? Colors.white
                           : theme.colorScheme.primary,
                       size: 32,
                     ),
@@ -111,7 +111,7 @@ class _DemoCardState extends State<DemoCard> {
                       widget.title,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: backgroundUrl != null ? Theme.of(context).colorScheme.surface : null,
+                        color: backgroundUrl != null ? Colors.white : null,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -122,7 +122,7 @@ class _DemoCardState extends State<DemoCard> {
                         widget.description,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: backgroundUrl != null
-                              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70)
+                              ? Colors.white70
                               : theme.colorScheme.onSurface.withValues(
                                   alpha: 0.7,
                                 ),
@@ -207,19 +207,19 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
         children: [
           Row(
             children: [
-              Icon(Icons.image, size: 24),
+              const Icon(Icons.image, size: 24),
               const SizedBox(width: 8),
               Text('设置卡片背景', style: theme.textTheme.titleLarge),
               const Spacer(),
               if (widget.currentUrl != null)
                 TextButton.icon(
                   onPressed: widget.onRemove,
-                  icon: Icon(Icons.delete_outline),
+                  icon: const Icon(Icons.delete_outline),
                   label: const Text('移除'),
                 ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: Icon(Icons.close),
+                icon: const Icon(Icons.close),
               ),
             ],
           ),
@@ -232,17 +232,17 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                 child: OutlinedButton.icon(
                   onPressed: _isLoading ? null : _pickAndCropImage,
                   icon: _isLoading
-                      ? SizedBox(
+                      ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Colors.green,
                           ),
                         )
-                      : Icon(Icons.crop),
-                  label: Text('选图并裁剪'),
-                  style: _outlinedBtnStyle(Theme.of(context).colorScheme.primary, borderWidth: 2),
+                      : const Icon(Icons.crop),
+                  label: const Text('选图并裁剪'),
+                  style: _outlinedBtnStyle(Colors.green, borderWidth: 2),
                 ),
               ),
               const SizedBox(width: 8),
@@ -250,7 +250,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                 // 次要操作 → theme 描边（border-emphasis）
                 child: OutlinedButton.icon(
                   onPressed: _isLoading ? null : _pickLocalImage,
-                  icon: Icon(Icons.photo_library),
+                  icon: const Icon(Icons.photo_library),
                   label: const Text('仅选图'),
                   style: _outlinedBtnStyle(theme.colorScheme.primary),
                 ),

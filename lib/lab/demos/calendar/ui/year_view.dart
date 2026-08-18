@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 
 /// 年视图（3×4 月份小卡）
 class YearView extends StatelessWidget {
   final void Function(int month) onMonthTap;
-  YearView({super.key, required this.onMonthTap});
+  const YearView({super.key, required this.onMonthTap});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,7 @@ class YearView extends StatelessWidget {
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
       ),
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       itemCount: 12,
       itemBuilder: (_, i) {
         final m = i + 1;
@@ -34,23 +34,23 @@ class YearView extends StatelessWidget {
           onTap: () => onMonthTap(m),
           child: Container(
             decoration: BoxDecoration(
-              border: Border.all(color: context.colors.outline, width: 1),
+              border: Border.all(color: PaperPalette.line, width: 1),
               borderRadius: BorderRadius.circular(8),
             ),
-            padding: EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '$m 月',
                   style: TextStyle(
-                    color: context.colors.text,
+                    color: PaperPalette.ink,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     height: 1.25,
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 Text('$events 个事件', style: AppText.caption()),
               ],
             ),

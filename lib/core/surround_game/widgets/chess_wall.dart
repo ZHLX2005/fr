@@ -76,14 +76,14 @@ class ChessWall extends StatelessWidget {
             // Layer 0 — 投影：简单柔和的阴影
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
             ],
             // Layer 2 — 极淡的白色内描边
             border: Border.all(
-              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               width: 1.0,
             ),
           ),

@@ -15,7 +15,7 @@ class NetworkWidgets {
     bool mono = true,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -24,7 +24,7 @@ class NetworkWidgets {
             child: Text(
               label,
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Colors.grey.shade600,
                 fontSize: 13,
               ),
             ),
@@ -35,7 +35,7 @@ class NetworkWidgets {
               style: TextStyle(
                 fontFamily: mono ? 'monospace' : null,
                 fontSize: 13,
-                color: value.isEmpty ? Theme.of(context).colorScheme.onSurfaceVariant : null,
+                color: value.isEmpty ? Colors.grey : null,
               ),
             ),
           ),
@@ -43,9 +43,9 @@ class NetworkWidgets {
             InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () => _copy(context, value, label),
-              child: Padding(
+              child: const Padding(
                 padding: EdgeInsets.all(4),
-                child: Icon(Icons.copy, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                child: Icon(Icons.copy, size: 14, color: Colors.grey),
               ),
             ),
         ],
@@ -63,7 +63,7 @@ class NetworkWidgets {
   }) {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -71,7 +71,7 @@ class NetworkWidgets {
               children: [
                 if (icon != null) ...[
                   Icon(icon, color: color, size: 20),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                 ],
                 Expanded(
                   child: Text(
@@ -86,7 +86,7 @@ class NetworkWidgets {
                 if (trailing != null) trailing,
               ],
             ),
-            Divider(),
+            const Divider(),
             ...children,
           ],
         ),
@@ -96,14 +96,13 @@ class NetworkWidgets {
 
   /// 状态徽标 (Pill)
   static Widget statusPill(
-    BuildContext context,
     String text, {
     required bool ok,
     IconData? icon,
   }) {
-    final color = ok ? NetworkConst.colorSuccess(context) : NetworkConst.colorError(context);
+    final color = ok ? NetworkConst.colorSuccess : NetworkConst.colorError;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
@@ -117,7 +116,7 @@ class NetworkWidgets {
             size: 16,
             color: color,
           ),
-          SizedBox(width: 6),
+          const SizedBox(width: 6),
           Flexible(
             child: Text(
               text,
@@ -131,21 +130,21 @@ class NetworkWidgets {
   }
 
   /// 信号强度图标 (RSSI -> icon + color)
-  static Widget signalIcon(BuildContext context, int rssi, {double size = 16}) {
+  static Widget signalIcon(int rssi, {double size = 16}) {
     IconData icon;
     Color color;
     if (rssi > NetworkConst.rssiExcellent) {
       icon = Icons.signal_wifi_4_bar;
-      color = Theme.of(context).colorScheme.primary;
+      color = Colors.green;
     } else if (rssi > NetworkConst.rssiGood) {
       icon = Icons.network_wifi_3_bar;
       color = Colors.lightGreen;
     } else if (rssi > NetworkConst.rssiFair) {
       icon = Icons.network_wifi_2_bar;
-      color = Theme.of(context).colorScheme.tertiary;
+      color = Colors.orange;
     } else {
       icon = Icons.network_wifi_1_bar;
-      color = Theme.of(context).colorScheme.error;
+      color = Colors.red;
     }
     return Icon(icon, size: size, color: color);
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../widgets/context_colors.dart';
 import '../lab_container.dart';
 
 class BottomBarDemo extends DemoPage {
@@ -27,11 +26,13 @@ class _BarItem {
   final String label;
   final IconData icon;
   final IconData? selectedIcon;
+  final Color color;
 
   const _BarItem({
     required this.label,
     required this.icon,
     this.selectedIcon,
+    this.color = Colors.blue,
   });
 }
 
@@ -52,32 +53,37 @@ class _LegacyBottomBarState extends State<_LegacyBottomBar>
     with TickerProviderStateMixin {
   static const double _indicatorSize = 52.0;
   static const double _barHeight = 68.0;
-  // 导航底色 → scheme.surfaceContainerHighest（跟随主题）
+  static const Color _navBg = Color(0xFFFFFFFF);
 
   static const List<_BarItem> _items = [
     _BarItem(
       label: '主页',
       icon: Icons.home_outlined,
       selectedIcon: Icons.home,
+      color: Color(0xFF6C63FF),
     ),
     _BarItem(
       label: '聊天',
       icon: Icons.chat_bubble_outline,
       selectedIcon: Icons.chat_bubble,
+      color: Color(0xFFF472B6),
     ),
     _BarItem(
       label: '专注',
       icon: Icons.radio_button_unchecked,
       selectedIcon: Icons.radio_button_checked,
+      color: Color(0xFFFB923C),
     ),
     _BarItem(
       label: 'Game',
       icon: Icons.sports_esports,
+      color: Color(0xFF34D399),
     ),
     _BarItem(
       label: '图库',
       icon: Icons.photo_library_outlined,
       selectedIcon: Icons.photo_library,
+      color: Color(0xFF60A5FA),
     ),
   ];
 
@@ -123,8 +129,8 @@ class _LegacyBottomBarState extends State<_LegacyBottomBar>
     final pageBg = colorScheme.surface;
 
     return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      decoration: const BoxDecoration(
+        color: _navBg,
       ),
       padding: EdgeInsets.only(
         left: 8,
@@ -187,7 +193,7 @@ class _LegacyBottomBarState extends State<_LegacyBottomBar>
               width: 16,
               height: 16,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: _navBg,
                 borderRadius:
                     const BorderRadius.only(topRight: Radius.circular(10)),
                 boxShadow: [
@@ -207,7 +213,7 @@ class _LegacyBottomBarState extends State<_LegacyBottomBar>
               width: 16,
               height: 16,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: _navBg,
                 borderRadius:
                     const BorderRadius.only(topLeft: Radius.circular(10)),
                 boxShadow: [
@@ -256,7 +262,7 @@ class _LegacyBottomBarState extends State<_LegacyBottomBar>
                     fontSize: 10,
                     fontWeight:
                         isSelected ? FontWeight.w600 : FontWeight.normal,
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: Colors.black,
                   ),
                 ),
               ),
@@ -278,7 +284,7 @@ class _LegacyBottomBarState extends State<_LegacyBottomBar>
                   isSelected ? (item.selectedIcon ?? item.icon) : item.icon,
                   size: 22,
                   color:
-                      isSelected ? Theme.of(context).colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                      isSelected ? Colors.white : colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -349,17 +355,17 @@ class _BottomBarDemoPageState extends State<_BottomBarDemoPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.touch_app, size: 80,
-                color: context.colors.outline),
-            SizedBox(height: 24),
+                color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 24),
             Text(
               _titles[index],
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               '当前选中',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: context.colors.outline,
+                color: Theme.of(context).colorScheme.outline,
               ),
             ),
           ],

@@ -87,7 +87,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -95,8 +95,8 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.75,
               ),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+              decoration: const BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
@@ -108,7 +108,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: Colors.grey[300],
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -163,7 +163,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                             children: [
                               _LaneChip(
                                 label: 'Plan',
-                                color: Theme.of(context).colorScheme.primary,
+                                color: const Color(0xFF6366F1),
                                 selected: selectedLane == DoubleTimeLane.plan,
                                 onTap: () =>
                                     setSheetState(() => selectedLane = DoubleTimeLane.plan),
@@ -171,7 +171,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                               const SizedBox(width: 12),
                               _LaneChip(
                                 label: 'Actual',
-                                color: Theme.of(context).colorScheme.error,
+                                color: const Color(0xFFF97316),
                                 selected:
                                     selectedLane == DoubleTimeLane.actual,
                                 onTap: () => setSheetState(
@@ -235,7 +235,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                     shape: BoxShape.circle,
                                     border: isSelected
                                         ? Border.all(
-                                            color: Theme.of(context).colorScheme.onSurface, width: 3)
+                                            color: Colors.black, width: 3)
                                         : null,
                                     boxShadow: isSelected
                                         ? [
@@ -249,8 +249,8 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                         : null,
                                   ),
                                   child: isSelected
-                                      ? Icon(Icons.check,
-                                          color: Theme.of(context).colorScheme.surface, size: 18)
+                                      ? const Icon(Icons.check,
+                                          color: Colors.white, size: 18)
                                       : null,
                                 ),
                               );
@@ -348,7 +348,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -356,8 +356,8 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.75,
               ),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+              decoration: const BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
@@ -369,7 +369,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: Colors.grey[300],
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -400,7 +400,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // 标题输入
-                          _SectionLabel('事件名称'),
+                          const _SectionLabel('事件名称'),
                           const SizedBox(height: 8),
                           TextField(
                             controller: titleController,
@@ -418,13 +418,13 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                           const SizedBox(height: 20),
 
                           // 车道选择
-                          _SectionLabel('时间轴'),
+                          const _SectionLabel('时间轴'),
                           const SizedBox(height: 8),
                           Row(
                             children: [
                               _LaneChip(
                                 label: 'Plan',
-                                color: Theme.of(context).colorScheme.primary,
+                                color: const Color(0xFF6366F1),
                                 selected: selectedLane == DoubleTimeLane.plan,
                                 onTap: () =>
                                     setSheetState(() => selectedLane = DoubleTimeLane.plan),
@@ -432,7 +432,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                               const SizedBox(width: 12),
                               _LaneChip(
                                 label: 'Actual',
-                                color: Theme.of(context).colorScheme.error,
+                                color: const Color(0xFFF97316),
                                 selected:
                                     selectedLane == DoubleTimeLane.actual,
                                 onTap: () => setSheetState(
@@ -478,7 +478,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                           ),
 
                           // 颜色选择
-                          _SectionLabel('色块颜色'),
+                          const _SectionLabel('色块颜色'),
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 10,
@@ -496,7 +496,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                     shape: BoxShape.circle,
                                     border: isSelected
                                         ? Border.all(
-                                            color: Theme.of(context).colorScheme.onSurface, width: 3)
+                                            color: Colors.black, width: 3)
                                         : null,
                                     boxShadow: isSelected
                                         ? [
@@ -510,8 +510,8 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                         : null,
                                   ),
                                   child: isSelected
-                                      ? Icon(Icons.check,
-                                          color: Theme.of(context).colorScheme.surface, size: 18)
+                                      ? const Icon(Icons.check,
+                                          color: Colors.white, size: 18)
                                       : null,
                                 ),
                               );
@@ -543,7 +543,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                       ),
                                     ),
                                   ),
-                                  child: Icon(Icons.delete_outline),
+                                  child: const Icon(Icons.delete_outline),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -638,7 +638,7 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('删除 "${event.title}"？'),
         content: Text(
@@ -675,9 +675,9 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
         : (size.width - 56 - 12 - 24) / 2;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
-        title: Text('Double Time'),
+        title: const Text('Double Time'),
         centerTitle: true,
         actions: [
           TextButton(
@@ -700,17 +700,11 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _LegendChip(
-                  label: 'Plan',
-                  color: Theme.of(context).colorScheme.tertiary,
-                ),
-                _LegendChip(
-                  label: 'Actual',
-                  color: Theme.of(context).colorScheme.error,
-                ),
+                const _LegendChip(label: 'Plan', color: Color(0xFF6366F1)),
+                const _LegendChip(label: 'Actual', color: Color(0xFFF97316)),
                 _LegendChip(
                   label: '${_events.length} events',
-                  color: Theme.of(context).colorScheme.tertiary,
+                  color: const Color(0xFF14B8A6),
                 ),
               ],
             ),
@@ -724,7 +718,6 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                   final painter = DualTimelinePainter(
                     day: _day,
                     allocations: allocations,
-                    scheme: Theme.of(context).colorScheme,
                     laneWidth: laneWidth,
                     hidePlanLane: _focusActual,
                   );
@@ -745,7 +738,6 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                   painter: DualTimelinePainter(
                     day: _day,
                     allocations: allocations,
-                    scheme: Theme.of(context).colorScheme,
                     laneWidth: laneWidth,
                     hidePlanLane: _focusActual,
                   ),
@@ -763,12 +755,12 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
           onPressed: _showAddEventSheet,
           style: EmphasisButton.borderEmphasis(
             context,
-            color: Theme.of(context).colorScheme.primary,
+            color: const Color(0xFF6366F1),
           ).copyWith(
             shape: WidgetStatePropertyAll(const CircleBorder()),
             padding: const WidgetStatePropertyAll(EdgeInsets.zero),
           ),
-          child: Icon(Icons.add),
+          child: const Icon(Icons.add),
         ),
       ),
     );
@@ -823,9 +815,9 @@ class _TimeScrollPickerState extends State<_TimeScrollPicker> {
     return Container(
       height: _itemHeight * _visibleCount,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).colorScheme.surface),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Stack(
         children: [
@@ -834,7 +826,7 @@ class _TimeScrollPickerState extends State<_TimeScrollPicker> {
             child: Container(
               height: _itemHeight,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                color: const Color(0xFF6366F1).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -859,7 +851,7 @@ class _TimeScrollPickerState extends State<_TimeScrollPicker> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: const Color(0xFF1E293B),
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -883,10 +875,10 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(
+      style: const TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        color: Color(0xFF64748B),
         letterSpacing: 0.3,
       ),
     );
@@ -914,10 +906,10 @@ class _LaneChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? color : Theme.of(context).colorScheme.surface,
+          color: selected ? color : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? color : Theme.of(context).colorScheme.surface,
+            color: selected ? color : const Color(0xFFE2E8F0),
           ),
         ),
         child: Row(
@@ -927,7 +919,7 @@ class _LaneChip extends StatelessWidget {
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: selected ? Theme.of(context).colorScheme.surface : color,
+                color: selected ? Colors.white : color,
                 shape: BoxShape.circle,
               ),
             ),
@@ -935,7 +927,7 @@ class _LaneChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: selected ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.primary,
+                color: selected ? Colors.white : const Color(0xFF334155),
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
@@ -958,7 +950,7 @@ class _LegendChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),

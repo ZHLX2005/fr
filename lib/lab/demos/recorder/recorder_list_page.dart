@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
 
 import 'const_recorder.dart';
 import 'recorder_controller.dart';
 import 'recorder_list_utils.dart';
 import 'recording_file.dart';
-import '../../../widgets/base/base_icon_button.dart';
 import '../../../widgets/theme/zen_theme.dart';
 
 /// 录音列表页 —— CRUD 的 Read/Update/Delete + 试听。
@@ -57,7 +55,7 @@ class _RecorderListPageState extends State<RecorderListPage> {
     final newName = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(RecorderUiText.renameTitle),
+        title: const Text(RecorderUiText.renameTitle),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -67,15 +65,15 @@ class _RecorderListPageState extends State<RecorderListPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(RecorderUiText.renameCancel),
+            child: const Text(RecorderUiText.renameCancel),
           ),
           OutlinedButton(
-            style: zenButtonTheme(context,
-              foreground: context.colors.accent,
-              border: context.colors.accent,
+            style: zenButton(
+              foreground: ZenColors.sage,
+              border: ZenColors.sage,
             ),
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: Text(RecorderUiText.renameOk),
+            child: const Text(RecorderUiText.renameOk),
           ),
         ],
       ),
@@ -94,7 +92,7 @@ class _RecorderListPageState extends State<RecorderListPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(RecorderUiText.deleteTitle),
+        title: const Text(RecorderUiText.deleteTitle),
         content: Text(
           '${RecorderUiText.deleteConfirmPrefix}${f.name}'
           '${RecorderUiText.deleteConfirmSuffix}',
@@ -102,15 +100,15 @@ class _RecorderListPageState extends State<RecorderListPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(RecorderUiText.renameCancel),
+            child: const Text(RecorderUiText.renameCancel),
           ),
           OutlinedButton(
-            style: zenButtonTheme(context,
-              foreground: context.colors.danger,
-              border: context.colors.danger,
+            style: zenButton(
+              foreground: ZenColors.mutedRed,
+              border: ZenColors.mutedRed,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(RecorderUiText.deleteBtn),
+            child: const Text(RecorderUiText.deleteBtn),
           ),
         ],
       ),
@@ -188,9 +186,9 @@ class _RecorderListPageState extends State<RecorderListPage> {
             onRefresh: _load,
             child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               itemCount: items.length,
-              separatorBuilder: (_, _) => SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) => items[index],
             ),
           ),
@@ -201,14 +199,14 @@ class _RecorderListPageState extends State<RecorderListPage> {
 
   Widget _buildToolRow() {
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Row(
         children: [
           InkWell(
             onTap: () => setState(() => _groupByDay = !_groupByDay),
             borderRadius: BorderRadius.circular(4),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Row(
                 children: [
                   Icon(
@@ -216,18 +214,18 @@ class _RecorderListPageState extends State<RecorderListPage> {
                         ? Icons.calendar_today
                         : Icons.calendar_today_outlined,
                     size: 16,
-                    color: context.colors.accent,
+                    color: ZenColors.sage,
                   ),
-                  SizedBox(width: 4),
+                  const SizedBox(width: 4),
                   Text(
                     '按日期',
-                    style: ZenText.label.copyWith(color: context.colors.accent),
+                    style: ZenText.label.copyWith(color: ZenColors.sage),
                   ),
                 ],
               ),
             ),
           ),
-          Spacer(),
+          const Spacer(),
           PopupMenuButton<RecordingSort>(
             onSelected: (s) => setState(() => _sort = s),
             itemBuilder: (ctx) => [
@@ -235,12 +233,12 @@ class _RecorderListPageState extends State<RecorderListPage> {
                 PopupMenuItem(value: s, child: Text(_sortLabel(s))),
             ],
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Row(
                 children: [
-                  Icon(Icons.swap_vert,
-                      size: 16, color: context.colors.textMuted),
-                  SizedBox(width: 4),
+                  const Icon(Icons.swap_vert,
+                      size: 16, color: ZenColors.secondary),
+                  const SizedBox(width: 4),
                   Text(_sortLabel(_sort), style: ZenText.label),
                 ],
               ),
@@ -255,18 +253,17 @@ class _RecorderListPageState extends State<RecorderListPage> {
   Widget build(BuildContext context) {
     final files = _files;
     return zenPageScaffold(
-      context: context,
-  title: RecorderUiText.listTitle,
+      title: RecorderUiText.listTitle,
       actions: [
         IconButton(
-          icon: Icon(Icons.refresh, color: context.colors.textMuted),
+          icon: const Icon(Icons.refresh, color: ZenColors.secondary),
           tooltip: '刷新',
           onPressed: _load,
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
       ],
       body: switch (files) {
-        null => Center(child: CircularProgressIndicator(color: context.colors.accent)),
+        null => const Center(child: CircularProgressIndicator(color: ZenColors.sage)),
         _ when files.isEmpty => ZenEmptyState(
             icon: Icons.mic_none,
             message: RecorderUiText.emptyList,
@@ -289,11 +286,11 @@ class _GroupHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(4, 8, 4, 4),
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
       child: Row(
         children: [
           Text(label, style: ZenText.label),
-          SizedBox(width: 6),
+          const SizedBox(width: 6),
           Text('($count)', style: ZenText.monoDigitSmall),
         ],
       ),
@@ -350,14 +347,14 @@ class _RecordingTileState extends State<_RecordingTile> {
       builder: (context, _) {
         final playing = _isPlaying();
         return Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: zenCardTheme(context),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: zenCard(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildHeader(context, playing),
               if (widget.expanded) ...[
-                Divider(color: context.colors.outline, height: 16),
+                const Divider(color: ZenColors.hair, height: 16),
                 _buildTimeline(context),
               ],
             ],
@@ -375,10 +372,10 @@ class _RecordingTileState extends State<_RecordingTile> {
         children: [
           Icon(
             playing ? Icons.graphic_eq : Icons.audiotrack,
-            color: playing ? context.colors.danger : context.colors.accent,
+            color: playing ? ZenColors.mutedRed : ZenColors.sage,
             size: 24,
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,26 +399,26 @@ class _RecordingTileState extends State<_RecordingTile> {
           ),
           ZenIconButton(
             icon: playing ? Icons.stop_circle : Icons.play_circle,
-            color: playing ? context.colors.danger : context.colors.accent,
-            variant: BaseIconButtonVariant.tint,
+            color: playing ? ZenColors.mutedRed : ZenColors.sage,
+            variant: ZenIconButtonVariant.tint,
             size: 40,
             iconSize: 20,
             onTap: widget.onPlay,
           ),
-          SizedBox(width: 4),
+          const SizedBox(width: 4),
           ZenIconButton(
             icon: Icons.edit_outlined,
-            color: context.colors.textMuted,
-            variant: BaseIconButtonVariant.tint,
+            color: ZenColors.secondary,
+            variant: ZenIconButtonVariant.tint,
             size: 40,
             iconSize: 20,
             onTap: widget.onRename,
           ),
-          SizedBox(width: 4),
+          const SizedBox(width: 4),
           ZenIconButton(
             icon: Icons.delete_outline,
-            color: context.colors.danger,
-            variant: BaseIconButtonVariant.tint,
+            color: ZenColors.mutedRed,
+            variant: ZenIconButtonVariant.tint,
             size: 40,
             iconSize: 20,
             onTap: widget.onDelete,
@@ -454,10 +451,10 @@ class _RecordingTileState extends State<_RecordingTile> {
               children: [
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: context.colors.accent,
-                    inactiveTrackColor: context.colors.outline,
-                    thumbColor: context.colors.accent,
-                    overlayColor: context.colors.accent.withValues(alpha: 0.1),
+                    activeTrackColor: ZenColors.sage,
+                    inactiveTrackColor: ZenColors.hair,
+                    thumbColor: ZenColors.sage,
+                    overlayColor: ZenColors.sage.withValues(alpha: 0.1),
                     trackHeight: 3,
                   ),
                   child: Slider(

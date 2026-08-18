@@ -53,23 +53,23 @@ class _NotePanelState extends State<NotePanel> {
           children: [
             // 标题栏
             Container(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Theme.of(context).colorScheme.outline),
+                  bottom: BorderSide(color: Colors.grey[200]!),
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.article, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.article, size: 20),
+                  const SizedBox(width: 8),
                   const Text(
                     '笔记列表',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
-                  Spacer(),
+                  const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.add, size: 20),
+                    icon: const Icon(Icons.add, size: 20),
                     onPressed: () async {
                       await widget.editorState.createNewNote();
                       await _loadNotes();
@@ -83,20 +83,20 @@ class _NotePanelState extends State<NotePanel> {
             // 笔记列表
             Expanded(
               child: _isLoading
-                  ? Center(child: CircularProgressIndicator())
+                  ? const Center(child: CircularProgressIndicator())
                   : _notes.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.note_add, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              SizedBox(height: 12),
-                              Text('暂无笔记', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                              Icon(Icons.note_add, size: 48, color: Colors.grey[400]),
+                              const SizedBox(height: 12),
+                              Text('暂无笔记', style: TextStyle(color: Colors.grey[600])),
                             ],
                           ),
                         )
                       : ListView.builder(
-                          padding: EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 4),
                           itemCount: _notes.length,
                           itemBuilder: (context, index) {
                             final note = _notes[index];
@@ -106,18 +106,18 @@ class _NotePanelState extends State<NotePanel> {
                               direction: DismissDirection.endToStart,
                               background: Container(
                                 alignment: Alignment.centerRight,
-                                padding: EdgeInsets.only(right: 20),
+                                padding: const EdgeInsets.only(right: 20),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.error,
+                                  color: Colors.red,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onSurface),
+                                child: const Icon(Icons.delete, color: Colors.white),
                               ),
                               confirmDismiss: (_) async {
                                 final confirmed = await showDialog<bool>(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
-                                    title: Text('删除笔记'),
+                                    title: const Text('删除笔记'),
                                     content: Text('确定要删除「${note.title}」吗？'),
                                     actions: [
                                       TextButton(
@@ -127,8 +127,8 @@ class _NotePanelState extends State<NotePanel> {
                                       OutlinedButton(
                                         onPressed: () => Navigator.pop(ctx, true),
                                         style: OutlinedButton.styleFrom(
-                                          foregroundColor: Theme.of(context).colorScheme.error,
-                                          side: BorderSide(color: Theme.of(context).colorScheme.error),
+                                          foregroundColor: Colors.red,
+                                          side: const BorderSide(color: Colors.red),
                                         ),
                                         child: const Text('删除'),
                                       ),
@@ -178,9 +178,9 @@ class _NoteListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: isCurrent ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08) : null,
+        color: isCurrent ? Colors.blue.withValues(alpha: 0.08) : null,
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
@@ -188,7 +188,7 @@ class _NoteListTile extends StatelessWidget {
         leading: Icon(
           Icons.article_outlined,
           size: 20,
-          color: isCurrent ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
+          color: isCurrent ? Colors.blue : Colors.grey[600],
         ),
         title: Text(
           note.title,
@@ -197,17 +197,17 @@ class _NoteListTile extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: isCurrent ? FontWeight.w600 : null,
-            color: isCurrent ? Theme.of(context).colorScheme.primary : null,
+            color: isCurrent ? Colors.blue[700] : null,
           ),
         ),
         subtitle: Text(
           '${note.blockCount} 块',
-          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
         ),
         trailing: Icon(
           Icons.chevron_right,
           size: 16,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          color: Colors.grey[400],
         ),
         onTap: onTap,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

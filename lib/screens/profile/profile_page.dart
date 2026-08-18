@@ -83,9 +83,9 @@ class _ProfilePageState extends State<ProfilePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        icon: Icon(Icons.auto_awesome, size: 40),
+        icon: const Icon(Icons.auto_awesome, size: 40),
         title: const Text('🎉 发现彩蛋！'),
-        content: Text('人物小谱已经解锁，要不要进去看看？'),
+        content: const Text('人物小谱已经解锁，要不要进去看看？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -170,7 +170,7 @@ class _ProfilePageState extends State<ProfilePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(Icons.crop),
+              leading: const Icon(Icons.crop),
               title: const Text('选择并裁剪图片'),
               onTap: () {
                 Navigator.pop(context);
@@ -179,10 +179,10 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             if (_bannerPath != null)
               ListTile(
-                leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
-                title: Text(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text(
                   '移除Banner',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  style: TextStyle(color: Colors.red),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -384,7 +384,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildDefaultBanner(BuildContext context) {
     return Container(
-      color: Theme.of(context).colorScheme.primary,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.secondary,
+          ],
+        ),
+      ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -392,13 +401,13 @@ class _ProfilePageState extends State<ProfilePage> {
             Icon(
               Icons.add_photo_alternate,
               size: 48,
-              color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+              color: Colors.white.withOpacity(0.7),
             ),
             const SizedBox(height: 8),
             Text(
               '点击设置Banner',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+                color: Colors.white.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -415,36 +424,34 @@ class _ProfilePageState extends State<ProfilePage> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    final scheme = Theme.of(context).colorScheme;
-    // 设计规则（v6）：
-    //   - 边框统一：outline 2px，所有 Card / icon-box 共用，不撞主色
-    //   - 主色聚焦：icon-box bg=primaryContainer，icon=primary（仅这两处用主色）
-    //   - 取消 elevation：平面卡片靠边框线撑起层级
+    final theme = Theme.of(context);
+    // 统一使用主题主色：边框强调式 icon（浅 tint 底 + 同色描边 + 同色 icon）
+    final accent = theme.colorScheme.primary;
+
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: scheme.outline, width: 2),
-      ),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
+              // 边框强调式 icon：浅色 tint 底 + 同色描边 + 同色 icon
+              // 替代原先的实心渐变填充，大幅降低左侧视觉重量，左右更平衡
               Container(
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
+                  color: accent.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: scheme.outline,
-                    width: 2,
+                    color: accent.withValues(alpha: 0.35),
+                    width: 1.5,
                   ),
                 ),
-                child: Icon(icon, color: scheme.primary, size: 24),
+                child: Icon(icon, color: accent, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -453,23 +460,23 @@ class _ProfilePageState extends State<ProfilePage> {
                   children: [
                     Text(
                       title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurface.withValues(alpha: 0.6),
-                          ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
                   ],
                 ),
               ),
               Icon(
                 Icons.chevron_right,
-                color: scheme.onSurface.withValues(alpha: 0.35),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
               ),
             ],
           ),

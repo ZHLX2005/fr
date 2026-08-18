@@ -1,28 +1,27 @@
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
 
 class TrackRecordsPage extends StatelessWidget {
-  TrackRecordsPage({super.key});
+  const TrackRecordsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: context.colors.surface,
+      backgroundColor: ZenColors.bg,
       appBar: AppBar(
-        backgroundColor: context.colors.surface,
+        backgroundColor: ZenColors.bg,
         elevation: 0,
-        title: Text('编排记录', style: ZenText.title),
+        title: const Text('编排记录', style: ZenText.title),
         actions: [
           Consumer<LabTrackProvider>(
             builder: (context, p, _) => p.records.isEmpty
-                ? SizedBox.shrink()
+                ? const SizedBox.shrink()
                 : TextButton(
                     onPressed: () => _confirmClear(context, p),
-                    child: Text('清空', style: TextStyle(color: context.colors.danger)),
+                    child: const Text('清空', style: TextStyle(color: ZenColors.mutedRed)),
                   ),
           ),
         ],
@@ -30,10 +29,10 @@ class TrackRecordsPage extends StatelessWidget {
       body: Consumer<LabTrackProvider>(
         builder: (context, p, _) {
           if (p.records.isEmpty) {
-            return Center(child: Text('暂无编排记录', style: ZenText.label));
+            return const Center(child: Text('暂无编排记录', style: ZenText.label));
           }
           return ListView.builder(
-            padding: EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: p.records.length,
             itemBuilder: (_, i) => _TrackRecordTile(record: p.records[i]),
           );
@@ -61,15 +60,15 @@ class _TrackRecordTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.read<LabTrackProvider>();
     final isCompleted = record.completed;
-    final color = isCompleted ? context.colors.accent : context.colors.danger;
+    final color = isCompleted ? ZenColors.sage : ZenColors.mutedRed;
     final dateStr = formatRecordDate(record.startTime);
 
     return InkWell(
       onLongPress: () => _rename(context, p),
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: EdgeInsets.all(12),
-        decoration: zenCardTheme(context),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: zenCard(),
         child: Row(
           children: [
             Container(
@@ -85,7 +84,7 @@ class _TrackRecordTile extends StatelessWidget {
                 size: 22,
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +96,7 @@ class _TrackRecordTile extends StatelessWidget {
               ),
             ),
             IconButton(
-              icon: Icon(Icons.delete_outline, color: context.colors.danger),
+              icon: const Icon(Icons.delete_outline, color: ZenColors.mutedRed),
               onPressed: () {
                 if (!record.canDelete) {
                   ScaffoldMessenger.of(context)
@@ -121,18 +120,18 @@ class _TrackRecordTile extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: context.colors.surface,
-        title: Text('重命名记录'),
+        backgroundColor: ZenColors.surface,
+        title: const Text('重命名记录'),
         content: TextField(controller: ctl, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('取消', style: TextStyle(color: context.colors.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消', style: TextStyle(color: ZenColors.secondary))),
           TextButton(
             onPressed: () {
               final v = ctl.text.trim();
               if (v.isNotEmpty) p.updateRecordTitle(record.id, v);
               Navigator.pop(ctx);
             },
-            child: Text('保存', style: TextStyle(color: context.colors.accent)),
+            child: const Text('保存', style: TextStyle(color: ZenColors.sage)),
           ),
         ],
       ),

@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../../widgets/context_colors.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -78,13 +77,13 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text('游戏结束'),
+        title: const Text('游戏结束'),
         content: Text(
           '最终得分: $_score',
-          style: TextStyle(
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: Theme.of(context).colorScheme.primary,
+            color: Colors.green,
           ),
         ),
         actions: [
@@ -95,7 +94,7 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
             },
             style: EmphasisButton.borderEmphasis(
               context,
-              color: context.colors.accent,
+              color: Theme.of(context).colorScheme.primary,
             ),
             child: const Text('重新开始'),
           ),
@@ -198,8 +197,6 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final snakeBorder = scheme.outline;
 
     return SafeArea(
       child: RawKeyboardListener(
@@ -210,7 +207,7 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
           children: [
             // 标题栏
             Container(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer,
               ),
@@ -224,26 +221,26 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                   Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: scheme.primary,
+                          color: Colors.green,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
                           '得分: $_score',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: scheme.onPrimary,
+                            color: Colors.white,
                           ),
                         ),
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       IconButton(
-                        icon: Icon(Icons.refresh),
+                        icon: const Icon(Icons.refresh),
                         onPressed: _startGame,
                         tooltip: '重新开始',
                       ),
@@ -277,9 +274,9 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                         ); // 限制大小范围
 
                         return Container(
-                          margin: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                           decoration: BoxDecoration(
-                            border: Border.all(color: snakeBorder, width: 2),
+                            border: Border.all(color: Colors.blue, width: 2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
@@ -298,7 +295,7 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                                     margin: EdgeInsets.all(
                                       actualCellSize * 0.05,
                                     ),
-                                    color: _boxFillColor(index, scheme),
+                                    color: _boxFillColor(index),
                                   );
                                 },
                               ),
@@ -312,7 +309,7 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                   Expanded(
                     flex: 2,
                     child: Container(
-                      margin: EdgeInsets.fromLTRB(12, 8, 12, 16),
+                      margin: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -326,7 +323,7 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
                               }
                             },
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           // 下一行：左、向下、右
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -373,28 +370,23 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
     );
   }
 
-  Color _boxFillColor(int index, ColorScheme scheme) {
+  Color _boxFillColor(int index) {
     if (_borderList.contains(index)) {
-      // 边框（棋盘边界）跟主题 outline
-      return scheme.outline;
+      return Colors.blue;
     } else {
       if (_snakePosition.contains(index)) {
         if (_snakeHead == index) {
-          // 蛇头：主色（zen 下 = sage 绿）
-          return scheme.primary;
+          return Colors.green;
         } else {
-          // 蛇身：传统绿（业务语义保留）
-          return Theme.of(context).colorScheme.primary;
+          return Colors.green.shade300;
         }
       } else {
         if (index == _foodPosition) {
-          // 食物：红（危险/吸引 语义，跨主题一致）
-          return scheme.error;
+          return Colors.red;
         }
       }
     }
-    // 空地：主题 surface
-    return scheme.surface;
+    return Colors.grey.shade200;
   }
 
   void _makeBorder() {
@@ -436,24 +428,21 @@ class _DirectionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
     return Material(
-      color: scheme.primary,
+      color: Colors.blue.shade600,
       borderRadius: BorderRadius.circular(size / 3),
       elevation: 4,
-      shadowColor: scheme.primary.withValues(alpha: 0.2),
+      shadowColor: Colors.blue.shade200,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(size / 3),
-        splashColor: scheme.primary.withValues(alpha: 0.3),
-        highlightColor: scheme.primary.withValues(alpha: 0.4),
+        splashColor: Colors.blue.shade300,
+        highlightColor: Colors.blue.shade400,
         child: Container(
           width: size,
           height: size,
           alignment: Alignment.center,
-          child: Icon(icon, color: scheme.onPrimary, size: size * 0.5),
+          child: Icon(icon, color: Colors.white, size: size * 0.5),
         ),
       ),
     );

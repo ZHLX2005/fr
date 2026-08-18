@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../../../../widgets/context_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';
@@ -57,9 +56,9 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
         );
         if (track.segments.isEmpty) {
           return Scaffold(
-            backgroundColor: context.colors.surface,
-            appBar: AppBar(backgroundColor: context.colors.surface, elevation: 0),
-            body: Center(child: Text('空编排', style: ZenText.body)),
+            backgroundColor: ZenColors.bg,
+            appBar: AppBar(backgroundColor: ZenColors.bg, elevation: 0),
+            body: const Center(child: Text('空编排', style: ZenText.body)),
           );
         }
         final idx = p.currentSegmentIndex.clamp(0, track.segments.length - 1);
@@ -74,38 +73,38 @@ class _TrackRunnerPageState extends State<TrackRunnerPage> {
         final hasBeat = seg.snapshotBpm != null;
 
         return Scaffold(
-          backgroundColor: context.colors.surface,
+          backgroundColor: ZenColors.bg,
           appBar: AppBar(
-            backgroundColor: context.colors.surface,
+            backgroundColor: ZenColors.bg,
             elevation: 0,
             title: Text(track.title, style: ZenText.title),
           ),
           body: Padding(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text('第 ${idx + 1} 段（共 ${track.segments.length} 段）', style: ZenText.label),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(seg.snapshotTitle, style: ZenText.title, textAlign: TextAlign.center),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Center(
                   child: Text(
                     formatTime(segRem),
                     style: ZenText.monoDigitLarge.copyWith(
-                      color: segRem < 0 ? context.colors.danger : context.colors.text,
+                      color: segRem < 0 ? ZenColors.mutedRed : ZenColors.ink,
                     ),
                   ),
                 ),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 _ProgressBar(progress: segProgress.clamp(0.0, 1.0), label: '段'),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 _ProgressBar(progress: totalProgress.clamp(0.0, 1.0), label: '编排'),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 if (hasBeat) _BeatDotRow(active: !isPaused, count: 4),
-                Spacer(),
+                const Spacer(),
                 Text('剩余总时长：${formatTime(totalRem)}', style: ZenText.monoDigitSmall, textAlign: TextAlign.center),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -155,14 +154,14 @@ class _ProgressBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: ZenText.label),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         ClipRRect(
           borderRadius: BorderRadius.circular(3),
           child: LinearProgressIndicator(
             value: progress,
             minHeight: 6,
-            backgroundColor: context.colors.outline,
-            valueColor: AlwaysStoppedAnimation(context.colors.accent),
+            backgroundColor: ZenColors.hair,
+            valueColor: const AlwaysStoppedAnimation(ZenColors.sage),
           ),
         ),
       ],
@@ -179,8 +178,8 @@ class _BeatDotRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(count, (i) => Padding(
-        padding: EdgeInsets.symmetric(horizontal: 4),
-        child: ZenDot(),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: ZenDot(active: active),
       )),
     );
   }
@@ -197,7 +196,7 @@ class _RunnerButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         ZenIconButton(icon: icon, onTap: onTap),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(label, style: ZenText.label),
       ],
     );

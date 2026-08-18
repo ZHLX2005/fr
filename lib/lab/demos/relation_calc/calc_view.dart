@@ -7,9 +7,7 @@
 //   底部：撤销 / 清空
 
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
 
-import '../../../../widgets/base/base_icon_button.dart';
 import '../../../../widgets/theme/zen_theme.dart';
 import 'const_relation_calc.dart';
 import 'relation_calc_models.dart';
@@ -76,21 +74,21 @@ class _CalcViewState extends State<CalcView> {
     if (entities.isEmpty) return;
     final picked = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: context.colors.surface,
+      backgroundColor: ZenColors.surface,
       builder: (ctx) => SafeArea(
         child: ListView(
           shrinkWrap: true,
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12),
           children: [
             Text(RelationCalcUiText.pickStart, style: ZenText.title),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             for (final e in entities)
               ListTile(
                 title: Text(e.name),
                 subtitle: e.note.isEmpty ? null : Text(e.note,
                     style: ZenText.label),
                 trailing: e.id == _startId
-                    ? Icon(Icons.check, color: context.colors.accent)
+                    ? const Icon(Icons.check, color: ZenColors.sage)
                     : null,
                 onTap: () => Navigator.pop(ctx, e.id),
               ),
@@ -116,7 +114,7 @@ class _CalcViewState extends State<CalcView> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 minHeight: constraints.maxHeight - 32,
@@ -125,13 +123,13 @@ class _CalcViewState extends State<CalcView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildStartRow(start),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   _buildChainCard(result, start),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   _buildResultCard(result),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   _buildTermPad(),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   _buildActions(),
                 ],
               ),
@@ -147,7 +145,7 @@ class _CalcViewState extends State<CalcView> {
     return Row(
       children: [
         Text(RelationCalcUiText.startEntityLabel, style: ZenText.label),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
         Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
@@ -156,15 +154,15 @@ class _CalcViewState extends State<CalcView> {
               borderRadius: BorderRadius.circular(6),
               child: Container(
                 padding:
-                    EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: zenCardTheme(context),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: zenCard(),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(start?.name ?? '—', style: ZenText.button),
-                    SizedBox(width: 6),
-                    Icon(Icons.swap_vert,
-                        size: 16, color: context.colors.textMuted),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.swap_vert,
+                        size: 16, color: ZenColors.secondary),
                   ],
                 ),
               ),
@@ -186,10 +184,10 @@ class _CalcViewState extends State<CalcView> {
             _chainChip(start?.name ?? '—',
                 emphasized: true, failed: false),
             for (var i = 0; i < _termIds.length; i++) ...[
-              Padding(
+              const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(Icons.arrow_forward,
-                    size: 16, color: context.colors.outline),
+                    size: 16, color: ZenColors.hair),
               ),
               _chainChip(
                 _engine.term(_termIds[i])?.name ?? '?',
@@ -206,16 +204,16 @@ class _CalcViewState extends State<CalcView> {
   Widget _chainChip(String label,
       {required bool emphasized, required bool failed}) {
     final color = failed
-        ? context.colors.danger
-        : (emphasized ? context.colors.accent : context.colors.text);
+        ? ZenColors.mutedRed
+        : (emphasized ? ZenColors.sage : ZenColors.ink);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: failed
-            ? context.colors.danger.withValues(alpha: 0.08)
-            : context.colors.surface,
+            ? ZenColors.mutedRed.withValues(alpha: 0.08)
+            : ZenColors.surface,
         border: Border.all(
-          color: failed ? context.colors.danger : context.colors.outline,
+          color: failed ? ZenColors.mutedRed : ZenColors.hair,
           width: emphasized ? 2 : 1,
         ),
         borderRadius: BorderRadius.circular(6),
@@ -234,15 +232,15 @@ class _CalcViewState extends State<CalcView> {
       title: RelationCalcUiText.resultLabel,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-        decoration: zenCard(color: context.colors.surface),
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+        decoration: zenCard(color: ZenColors.surface),
         child: Column(
           children: [
             if (finalName != null)
               Text(
                 finalName,
                 style: ZenText.monoDigitLarge.copyWith(
-                  color: context.colors.text,
+                  color: ZenColors.ink,
                   fontSize: 56,
                   fontWeight: FontWeight.w700,
                 ),
@@ -252,8 +250,8 @@ class _CalcViewState extends State<CalcView> {
               )
             else ...[
               Text(RelationCalcUiText.notResolvable,
-                  style: ZenText.title.copyWith(color: context.colors.danger)),
-              SizedBox(height: 6),
+                  style: ZenText.title.copyWith(color: ZenColors.mutedRed)),
+              const SizedBox(height: 6),
               Text(
                 _termIds.isEmpty
                     ? RelationCalcUiText.emptyChainHint
@@ -286,9 +284,9 @@ class _CalcViewState extends State<CalcView> {
           for (final t in terms)
             OutlinedButton(
               onPressed: () => _appendTerm(t.id),
-              style: zenButtonTheme(context,
-                foreground: context.colors.text,
-                border: context.colors.outline,
+              style: zenButton(
+                foreground: ZenColors.ink,
+                border: ZenColors.hair,
               ),
               child: Text(t.name),
             ),
@@ -307,18 +305,18 @@ class _CalcViewState extends State<CalcView> {
           child: ZenIconButton(
             icon: Icons.undo,
             onTap: _termIds.isEmpty ? null : _undo,
-            color: context.colors.textMuted,
-            variant: BaseIconButtonVariant.outline,
+            color: ZenColors.secondary,
+            variant: ZenIconButtonVariant.outline,
           ),
         ),
-        SizedBox(width: 16),
+        const SizedBox(width: 16),
         Tooltip(
           message: RelationCalcUiText.clear,
           child: ZenIconButton(
             icon: Icons.restart_alt,
             onTap: _termIds.isEmpty ? null : _clear,
-            color: context.colors.accent,
-            variant: BaseIconButtonVariant.outline,
+            color: ZenColors.sage,
+            variant: ZenIconButtonVariant.outline,
           ),
         ),
       ],

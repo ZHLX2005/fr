@@ -31,26 +31,31 @@ const _categoryBuckets = [
     id: 'noun',
     name: '名词',
     icon: Icons.category,
+    color: Color(0xFF3B82F6),
   ),
   CategoryBucket(
     id: 'verb',
     name: '动词',
     icon: Icons.play_arrow,
+    color: Color(0xFF10B981),
   ),
   CategoryBucket(
     id: 'adj',
     name: '形容词',
     icon: Icons.color_lens,
+    color: Color(0xFFF59E0B),
   ),
   CategoryBucket(
     id: 'adv',
     name: '副词',
     icon: Icons.speed,
+    color: Color(0xFF8B5CF6),
   ),
   CategoryBucket(
     id: 'other',
     name: '其他',
     icon: Icons.more_horiz,
+    color: Color(0xFF6B7280),
   ),
 ];
 
@@ -82,7 +87,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     final state = notifier.state;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.onSurface,
+      backgroundColor: const Color(0xFF0f0f1e),
       body: SafeArea(
         child: Stack(
           children: [
@@ -288,13 +293,13 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
       child: GestureDetector(
         onTap: _hideDetail,
         child: Container(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.9),
+          color: Colors.black.withValues(alpha: 0.9),
           child: Center(
             child: Container(
               margin: const EdgeInsets.all(32),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
@@ -302,10 +307,10 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                 children: [
                   Text(
                     word.text,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
+                      color: Color(0xFF1A1A2E),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -313,7 +318,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                     word.phonetic,
                     style: TextStyle(
                       fontSize: 16,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: Colors.grey.shade600,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -322,14 +327,14 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       word.definition,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
-                        color: Theme.of(context).colorScheme.surface,
+                        color: Color(0xFF2D2D44),
                         height: 1.5,
                       ),
                     ),
@@ -339,9 +344,9 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
+                      color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Theme.of(context).colorScheme.primary),
+                      border: Border.all(color: Colors.blue.shade100),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,7 +355,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                           children: [
                             Icon(
                               Icons.format_quote,
-                              color: Theme.of(context).colorScheme.primary,
+                              color: Colors.blue.shade400,
                               size: 16,
                             ),
                             const SizedBox(width: 4),
@@ -358,7 +363,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                               '例句',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: Colors.blue.shade600,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -369,7 +374,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                           word.example,
                           style: TextStyle(
                             fontSize: 15,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Colors.blue.shade900,
                             fontStyle: FontStyle.italic,
                             height: 1.5,
                           ),
@@ -380,7 +385,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                   const SizedBox(height: 24),
                   Text(
                     '点击任意处关闭',
-                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),
                 ],
               ),
@@ -404,7 +409,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
           height: 6,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(3),
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            color: Colors.grey.shade800,
           ),
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
@@ -413,7 +418,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(3),
                 gradient: LinearGradient(
-                  colors: [Theme.of(context).colorScheme.tertiary, Theme.of(context).colorScheme.tertiary],
+                  colors: [Colors.deepPurple.shade400, Colors.purple.shade400],
                 ),
               ),
             ),
@@ -434,31 +439,31 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
             shape: BoxShape.circle,
             gradient: RadialGradient(
               colors: [
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.0),
+                Colors.green.withValues(alpha: 0.3),
+                Colors.green.withValues(alpha: 0.0),
               ],
             ),
           ),
           child: Icon(
             Icons.celebration,
             size: 60,
-            color: Theme.of(context).colorScheme.primary,
+            color: Colors.green.shade400,
           ),
         ),
         const SizedBox(height: 32),
-        Text(
+        const Text(
           '太棒了！',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.surface,
+            color: Colors.white,
             letterSpacing: 2,
           ),
         ),
         const SizedBox(height: 12),
         Text(
           '已完成全部 ${Word.sampleWords.length} 个单词',
-          style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style: TextStyle(fontSize: 16, color: Colors.grey.shade400),
         ),
         const SizedBox(height: 40),
         OutlinedButton(
@@ -545,11 +550,11 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
   }
 
   Color _actionColor(String action) {
-    if (action.contains('←')) return Theme.of(context).colorScheme.error; // 红色 - 左
-    if (action.contains('→')) return Theme.of(context).colorScheme.tertiary; // 绿色 - 右
-    if (action.contains('↑')) return Theme.of(context).colorScheme.primary; // 蓝色 - 上
-    if (action.contains('↓')) return Theme.of(context).colorScheme.tertiary; // 黄色 - 下
-    return Theme.of(context).colorScheme.onSurfaceVariant;
+    if (action.contains('←')) return const Color(0xFFEF4444); // 红色 - 左
+    if (action.contains('→')) return const Color(0xFF10B981); // 绿色 - 右
+    if (action.contains('↑')) return const Color(0xFF3B82F6); // 蓝色 - 上
+    if (action.contains('↓')) return const Color(0xFFF59E0B); // 黄色 - 下
+    return Colors.grey;
   }
 
   @override
@@ -566,11 +571,11 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.2),
-                Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
+                Colors.deepPurple.withValues(alpha: 0.2),
+                Colors.purple.withValues(alpha: 0.1),
               ],
             ),
-            border: Border.all(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3)),
+            border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.3)),
           ),
           child: Column(
             children: [
@@ -588,14 +593,14 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
                             colors: [
-                              Theme.of(context).colorScheme.tertiary,
-                              Theme.of(context).colorScheme.tertiary,
+                              Colors.deepPurple.shade400,
+                              Colors.purple.shade400,
                             ],
                           ),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.bug_report,
-                          color: Theme.of(context).colorScheme.surface,
+                          color: Colors.white,
                           size: 20,
                         ),
                       ),
@@ -605,10 +610,10 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               '操作日志',
                               style: TextStyle(
-                                color: Theme.of(context).colorScheme.surface,
+                                color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -628,7 +633,7 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                               Text(
                                 '${widget.actionLog.length} 条记录',
                                 style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Colors.grey.shade400,
                                   fontSize: 12,
                                 ),
                               ),
@@ -640,7 +645,7 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                         duration: const Duration(milliseconds: 300),
                         child: Icon(
                           Icons.keyboard_arrow_down,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Colors.grey.shade400,
                         ),
                       ),
                     ],
@@ -655,7 +660,7 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                             '暂无操作记录\n滑动卡片触发操作',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Colors.grey.shade500,
                               fontSize: 13,
                             ),
                           ),
@@ -710,8 +715,8 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                                       children: [
                                         Text(
                                           entry.word,
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.surface,
+                                          style: const TextStyle(
+                                            color: Colors.white,
                                             fontSize: 13,
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -729,7 +734,7 @@ class _ActionLogDrawerState extends State<_ActionLogDrawer>
                                   Text(
                                     '${entry.timestamp.hour}:${entry.timestamp.minute.toString().padLeft(2, '0')}:${entry.timestamp.second.toString().padLeft(2, '0')}',
                                     style: TextStyle(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Colors.grey.shade500,
                                       fontSize: 10,
                                     ),
                                   ),

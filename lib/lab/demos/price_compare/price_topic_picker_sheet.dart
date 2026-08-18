@@ -2,12 +2,11 @@
 // 入参改为 PriceTopicSummary 列表，使 sheet 不依赖 Hive / PriceTopic。
 
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
 
 import 'price_compare_models.dart';
 
 class PriceTopicPickerSheet extends StatelessWidget {
-  PriceTopicPickerSheet({
+  const PriceTopicPickerSheet({
     super.key,
     required this.summaries,
     required this.currentId,
@@ -22,11 +21,11 @@ class PriceTopicPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = context.colors.scheme;
+    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -34,22 +33,22 @@ class PriceTopicPickerSheet extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.folder_open_rounded, color: scheme.primary),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 const Text('比价主题',
                     style: TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w600)),
-                Spacer(),
+                const Spacer(),
                 TextButton.icon(
                   onPressed: onNew,
-                  icon: Icon(Icons.add_rounded),
+                  icon: const Icon(Icons.add_rounded),
                   label: const Text('新建'),
                 ),
               ],
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             if (summaries.isEmpty)
               Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
+                padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
                   '还没有主题，点右上"新建"开始',
                   textAlign: TextAlign.center,
@@ -64,7 +63,7 @@ class PriceTopicPickerSheet extends StatelessWidget {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: summaries.length,
-                  separatorBuilder: (ctx, i) => SizedBox(height: 6),
+                  separatorBuilder: (ctx, i) => const SizedBox(height: 6),
                   itemBuilder: (ctx, i) {
                     final s = summaries[i];
                     final title = s.title.trim();
@@ -82,7 +81,7 @@ class PriceTopicPickerSheet extends StatelessWidget {
                         border: Border.all(
                           color: isCurrent
                               ? scheme.primary.withValues(alpha: 0.45)
-                              : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                              : Colors.transparent,
                         ),
                       ),
                       child: ListTile(
@@ -103,7 +102,7 @@ class PriceTopicPickerSheet extends StatelessWidget {
                           tooltip: '删除主题',
                           icon: Icon(
                             Icons.delete_outline_rounded,
-                            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.8),
+                            color: Colors.red.withValues(alpha: 0.8),
                           ),
                           onPressed: () => _confirmDelete(context, s.id, title),
                         ),
@@ -124,7 +123,7 @@ class PriceTopicPickerSheet extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('删除主题'),
+        title: const Text('删除主题'),
         content: Text('确定删除「${title.isEmpty ? '未命名主题' : title}」？'),
         actions: [
           TextButton(
@@ -133,7 +132,7 @@ class PriceTopicPickerSheet extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('删除'),
           ),
         ],

@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../../../widgets/context_colors.dart';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import '../../../core/note/note_root_scope.dart';
@@ -159,8 +158,8 @@ class _BlockCardState extends State<BlockCard> {
     final body = Material(
       type: MaterialType.transparency,
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(4),
         ),
@@ -168,7 +167,7 @@ class _BlockCardState extends State<BlockCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: content),
-            if (widget.isSelected) SizedBox(width: 24),
+            if (widget.isSelected) const SizedBox(width: 24),
           ],
         ),
       ),
@@ -178,7 +177,7 @@ class _BlockCardState extends State<BlockCard> {
     if (canLongPress && widget.editorState.isDeleteMenuShown(widget.block.id)) {
       return Padding(
         // 给顶部负偏移腾出 hit test 空间
-        padding: EdgeInsets.only(top: 38),
+        padding: const EdgeInsets.only(top: 38),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -351,7 +350,7 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _buildAiResult(BuildContext context, List<Block> blocks) {
-    final colorScheme = context.colors.scheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final noteRoot = NoteRootScope.of(context).noteRoot;
     final blockText = widget.block.content.toPlainText();
 
@@ -360,14 +359,14 @@ class _BlockCardState extends State<BlockCard> {
         border: Border.all(color: colorScheme.primary, width: 1.5),
         borderRadius: BorderRadius.circular(8),
       ),
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 错误提示（编辑意图走 inline 后，这里只承担纯问答的错误展示）
           if (widget.editorState.aiError != null) ...[
             Container(
-              padding: EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: colorScheme.errorContainer,
                 borderRadius: BorderRadius.circular(6),
@@ -377,7 +376,7 @@ class _BlockCardState extends State<BlockCard> {
                 style: TextStyle(fontSize: 12, color: colorScheme.onErrorContainer),
               ),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
           ],
           // 逐个渲染每个 Block（纯问答的 AI 回复）
           for (final block in blocks)
@@ -387,7 +386,7 @@ class _BlockCardState extends State<BlockCard> {
               onToggleTodo: null,
               onTapAddImage: null,
             ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Row(
             children: [
               _aiResultBtn(context, Icons.forum, '对话', () {
@@ -404,11 +403,11 @@ class _BlockCardState extends State<BlockCard> {
                   );
                 }
               }),
-              Spacer(),
+              const Spacer(),
               _aiResultBtn(context, Icons.undo, null, () {
                 widget.editorState.clearAiResult(widget.block.id);
               }),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Container(
                 width: 28,
                 height: 28,
@@ -435,21 +434,21 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _aiResultBtn(BuildContext context, IconData icon, String? label, VoidCallback? onTap) {
-    final colorScheme = context.colors.scheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+      color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Container(
           height: 28,
-          padding: label != null ? EdgeInsets.symmetric(horizontal: 6) : EdgeInsets.zero,
+          padding: label != null ? const EdgeInsets.symmetric(horizontal: 6) : EdgeInsets.zero,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
               if (label != null) ...[
-                SizedBox(width: 3),
+                const SizedBox(width: 3),
                 Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
               ],
             ],
@@ -512,17 +511,17 @@ class _BlockCardState extends State<BlockCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(Icons.photo_library),
+              leading: const Icon(Icons.photo_library),
               title: const Text('从相册选择'),
               onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
             ListTile(
-              leading: Icon(Icons.camera_alt),
+              leading: const Icon(Icons.camera_alt),
               title: const Text('拍照'),
               onTap: () => Navigator.pop(ctx, 'camera'),
             ),
             ListTile(
-              leading: Icon(Icons.link),
+              leading: const Icon(Icons.link),
               title: const Text('输入 URL'),
               onTap: () => Navigator.pop(ctx, 'url'),
             ),
@@ -586,37 +585,37 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _buildPendingRemoved(Block? block) {
-    final colorScheme = context.colors.scheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final baseStyle = NoteRootScope.of(context).noteRoot.textStyleFor(widget.block, context)
         ?? TextStyle(fontSize: 14, color: colorScheme.onSurface);
     return Opacity(
       opacity: 0.5,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+          color: Colors.red.shade50,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.delete_outline, size: 13, color: Theme.of(context).colorScheme.error),
-            SizedBox(width: 4),
+            Icon(Icons.delete_outline, size: 13, color: Colors.red.shade400),
+            const SizedBox(width: 4),
             Flexible(
               child: Text(
                 block?.content.toPlainText() ?? '(空)',
                 style: baseStyle.copyWith(
                   decoration: TextDecoration.lineThrough,
-                  decorationColor: Theme.of(context).colorScheme.error,
+                  decorationColor: Colors.red.shade400,
                   decorationThickness: 2,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
             Text('— 待删除',
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.error)),
+                style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
           ],
         ),
       ),
@@ -625,32 +624,32 @@ class _BlockCardState extends State<BlockCard> {
 
   Widget _buildPendingNew(Block block) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-        border: Border(left: BorderSide(color: Theme.of(context).colorScheme.primary, width: 3)),
+        color: Colors.green.shade50,
+        border: Border(left: BorderSide(color: Colors.green.shade400, width: 3)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(top: 2),
             child: Icon(Icons.add_circle_outline,
-                size: 13, color: Theme.of(context).colorScheme.primary),
+                size: 13, color: Colors.green.shade700),
           ),
-          SizedBox(width: 4),
+          const SizedBox(width: 4),
           Expanded(
             child: NoteRootScope.of(context).noteRoot.renderBlock(
               context,
               block,
             ),
           ),
-          SizedBox(width: 4),
+          const SizedBox(width: 4),
           Padding(
-            padding: EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(top: 2),
             child: Text('+ 新增',
-                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.primary)),
+                style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
           ),
         ],
       ),
@@ -658,7 +657,7 @@ class _BlockCardState extends State<BlockCard> {
   }
 
   Widget _buildDiffHighlight(List<DiffSegment> segments) {
-    final colorScheme = context.colors.scheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final baseStyle = NoteRootScope.of(context).noteRoot.textStyleFor(widget.block, context)
         ?? TextStyle(fontSize: 14, color: colorScheme.onSurface);
 
@@ -672,17 +671,17 @@ class _BlockCardState extends State<BlockCard> {
           style: baseStyle.copyWith(
             color: colorScheme.onSurface.withValues(alpha: 0.5),
             decoration: TextDecoration.lineThrough,
-            decorationColor: Theme.of(context).colorScheme.error,
+            decorationColor: Colors.red.shade400,
             decorationThickness: 2,
-            backgroundColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+            backgroundColor: Colors.red.shade50,
           ),
         ));
       } else if (seg.isAdded) {
         spans.add(TextSpan(
           text: seg.text,
           style: baseStyle.copyWith(
-            color: Theme.of(context).colorScheme.primary,
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            color: Colors.green.shade900,
+            backgroundColor: Colors.green.shade100,
             fontWeight: FontWeight.w500,
           ),
         ));
@@ -705,7 +704,7 @@ class _DeletePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = context.colors.scheme;
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -717,7 +716,7 @@ class _DeletePill extends StatelessWidget {
           onTap: onDelete,
           child: Container(
             height: 32,
-            padding: EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
               color: scheme.error.withValues(alpha: 0.08),
@@ -730,7 +729,7 @@ class _DeletePill extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.delete_outline, size: 15, color: scheme.error),
-                SizedBox(width: 5),
+                const SizedBox(width: 5),
                 Text('删除', style: TextStyle(
                   fontSize: 13,
                   height: 1.0,

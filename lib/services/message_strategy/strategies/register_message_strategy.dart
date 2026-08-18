@@ -448,12 +448,12 @@ class _InviteStepState extends State<_InviteStep> {
                 ),
                 onPressed: _loading ? null : _register,
                 child: _loading
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Theme.of(context).colorScheme.surface,
+                          color: Colors.white,
                         ),
                       )
                     : const Text('提交注册'),
@@ -506,7 +506,7 @@ class _SuccessStep extends StatelessWidget {
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: flow.gotoLogin,
-            icon: Icon(Icons.login),
+            icon: const Icon(Icons.login),
             label: const Text('去登录'),
           ),
         ],
