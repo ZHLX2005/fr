@@ -263,7 +263,6 @@ class _CalendarSettingsPageState
       ).showSnackBar(const SnackBar(content: Text('已清空')));
     }
   }
-  }
 }
 
 class _GroupTile extends StatelessWidget {
