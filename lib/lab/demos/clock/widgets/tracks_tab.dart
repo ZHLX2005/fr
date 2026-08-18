@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
@@ -47,7 +48,7 @@ class _TracksTabState extends State<TracksTab> {
           );
         }
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 96),
           itemCount: tp.tracks.length,
           itemBuilder: (_, i) => _TrackCard(
             track: tp.tracks[i],
@@ -77,21 +78,21 @@ class _TrackCard extends StatelessWidget {
     final totalSeconds = track.segments.fold(0, (s, seg) => s + seg.snapshotDurationSeconds);
     final canRun = track.segments.isNotEmpty && !beatLocked && !otherTrackRunning;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: zenCard(),
+      margin: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(16),
+      decoration: zenCardTheme(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(track.title, style: ZenText.body.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text('${track.segments.length} 段 · ${formatDuration(totalSeconds)}',
               style: ZenText.monoDigitSmall),
           if (track.description.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(track.description, style: ZenText.label),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -107,25 +108,25 @@ class _TrackCard extends StatelessWidget {
                           }
                         }
                       : null,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('开始'),
-                  style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
+                  icon: Icon(Icons.play_arrow),
+                  label: Text('开始'),
+                  style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               OutlinedButton(
                 onPressed: () async {
                   final result = await showTrackEditor(context, existing: track);
                   if (result == null) return;
                   await tp.updateTrack(result);
                 },
-                style: zenButton(),
-                child: const Text('编辑'),
+                style: zenButtonTheme(context),
+                child: Text('编辑'),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               IconButton(
                 onPressed: () => _confirmDelete(context, tp),
-                icon: const Icon(Icons.delete_outline, color: ZenColors.mutedRed),
+                icon: Icon(Icons.delete_outline, color: context.colors.danger),
                 tooltip: '删除',
               ),
             ],

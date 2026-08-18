@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../widgets/context_colors.dart';
 import '../../../../../../widgets/theme/zen_theme.dart';
 
 /// 高级设置共享 Zen 控件 —— 各模式高级设置页/策略共用。
@@ -12,7 +13,7 @@ class ZenSegmentButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const ZenSegmentButton({
+  ZenSegmentButton({
     super.key,
     required this.label,
     required this.selected,
@@ -28,10 +29,10 @@ class ZenSegmentButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: selected
-              ? ZenColors.sage.withValues(alpha: 0.1)
-              : Colors.transparent,
+              ? context.colors.accent.withValues(alpha: 0.1)
+              : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           border: Border.all(
-            color: selected ? ZenColors.sage : ZenColors.hair,
+            color: selected ? context.colors.accent : context.colors.outline,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(6),
@@ -40,7 +41,7 @@ class ZenSegmentButton extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? ZenColors.sage : ZenColors.secondary,
+            color: selected ? context.colors.accent : context.colors.textMuted,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             fontSize: 14,
           ),
@@ -59,7 +60,7 @@ class ZenConfigSlider extends StatelessWidget {
   final int divisions;
   final ValueChanged<double> onChanged;
 
-  const ZenConfigSlider({
+  ZenConfigSlider({
     super.key,
     required this.label,
     required this.value,
@@ -84,13 +85,13 @@ class ZenConfigSlider extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
-                color: ZenColors.sage.withValues(alpha: 0.08),
+                color: context.colors.accent.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 value.round().toString(),
                 style: ZenText.body.copyWith(
-                  color: ZenColors.sage,
+                  color: context.colors.accent,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -99,10 +100,10 @@ class ZenConfigSlider extends StatelessWidget {
         ),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: ZenColors.sage,
-            inactiveTrackColor: ZenColors.hair,
-            thumbColor: ZenColors.sage,
-            overlayColor: ZenColors.sage.withValues(alpha: 0.2),
+            activeTrackColor: context.colors.accent,
+            inactiveTrackColor: context.colors.outline,
+            thumbColor: context.colors.accent,
+            overlayColor: context.colors.accent.withValues(alpha: 0.2),
           ),
           child: Slider(
             value: value,
@@ -122,7 +123,7 @@ class ZenFixedLabel extends StatelessWidget {
   final String label;
   final String value;
 
-  const ZenFixedLabel({super.key, required this.label, required this.value});
+  ZenFixedLabel({super.key, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -138,13 +139,13 @@ class ZenFixedLabel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
-              color: ZenColors.sage.withValues(alpha: 0.08),
+              color: context.colors.accent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               value,
               style: ZenText.body.copyWith(
-                color: ZenColors.sage,
+                color: context.colors.accent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -163,7 +164,7 @@ class ZenActionButton extends StatelessWidget {
   final bool danger;
   final bool secondary;
 
-  const ZenActionButton({
+  ZenActionButton({
     super.key,
     required this.icon,
     required this.label,
@@ -175,13 +176,13 @@ class ZenActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = danger
-        ? ZenColors.mutedRed
-        : (secondary ? ZenColors.secondary : ZenColors.sage);
+        ? context.colors.danger
+        : (secondary ? context.colors.textMuted : context.colors.accent);
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: onPressed,
-        style: zenButton(
+        style: zenButtonTheme(context,
           foreground: color,
           border: color.withValues(alpha: 0.5),
         ),

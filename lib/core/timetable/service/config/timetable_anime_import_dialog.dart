@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../widgets/context_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'anime_source_adapter.dart';
 import '../../../../../widgets/theme/zen_theme.dart';
@@ -73,24 +74,24 @@ class _TimetableAnimeImportDialogState
       children: [
         GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: Container(color: Colors.black26),
+          child: Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.26)),
         ),
         Center(
           child: Material(
             elevation: 4,
-            color: ZenColors.surface,
+            color: context.colors.surface,
             // Material 断言禁止 shape 与 borderRadius 同时传（fr 28 修复崩溃）；
             // 圆角由 shape 自带
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: ZenColors.hair),
+              side: BorderSide(color: context.colors.outline),
             ),
             child: Container(
               width: 360,
               height: 500,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: ZenColors.hair, width: 1),
+                border: Border.all(color: context.colors.outline, width: 1),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -107,22 +108,22 @@ class _TimetableAnimeImportDialogState
                           ),
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: ZenColors.hair,
+                              color: context.colors.outline,
                               width: 1,
                             ),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.movie_outlined,
-                                  size: 16, color: ZenColors.sage),
+                                  size: 16, color: context.colors.accent),
                               SizedBox(width: 6),
                               Text('番剧导入', style: ZenText.title),
                             ],
                           ),
                         ),
-                        const Spacer(),
+                        Spacer(),
                         // 来源切换
                         DropdownButton<String>(
                           value: _adapter.id,
@@ -148,14 +149,14 @@ class _TimetableAnimeImportDialogState
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close,
-                              size: 20, color: ZenColors.secondary),
+                          icon: Icon(Icons.close,
+                              size: 20, color: context.colors.textMuted),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
                   ),
-                  const Divider(height: 1, color: ZenColors.hair),
+                  Divider(height: 1, color: context.colors.outline),
                   // 季节 / 年份 选择（fr 28 扩展）
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -183,9 +184,9 @@ class _TimetableAnimeImportDialogState
                             _fetch();
                           },
                         ),
-                        const SizedBox(width: 16),
+                        SizedBox(width: 16),
                         Text('年份', style: ZenText.label.copyWith(fontSize: 12)),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         DropdownButton<int>(
                           value: _year,
                           isDense: true,
@@ -209,10 +210,10 @@ class _TimetableAnimeImportDialogState
                       ],
                     ),
                   ),
-                  const Divider(height: 1, color: ZenColors.hair),
+                  Divider(height: 1, color: context.colors.outline),
                   // 内容
                   Expanded(child: _buildBody()),
-                  const Divider(height: 1, color: ZenColors.hair),
+                  Divider(height: 1, color: context.colors.outline),
                   // 底部操作
                   Padding(
                     padding: const EdgeInsets.all(12),
@@ -231,26 +232,26 @@ class _TimetableAnimeImportDialogState
                           child: Text(
                             '刷新',
                             style: ZenText.button.copyWith(
-                                color: ZenColors.secondary, fontSize: 14),
+                                color: context.colors.textMuted, fontSize: 14),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           flex: 2,
                           child: OutlinedButton(
                             onPressed: _selectedCount > 0 && !_loading
                                 ? _doConfirm
                                 : null,
-                            style: zenButton(
-                              foreground: ZenColors.sage,
-                              border: ZenColors.sage.withValues(alpha: 0.5),
+                            style: zenButtonTheme(context,
+                              foreground: context.colors.accent,
+                              border: context.colors.accent.withValues(alpha: 0.5),
                             ),
                             child: Text(
                               _selectedCount > 0
                                   ? '添加 $_selectedCount 部'
                                   : '添加',
                               style: ZenText.button
-                                  .copyWith(color: ZenColors.sage),
+                                  .copyWith(color: context.colors.accent),
                             ),
                           ),
                         ),
@@ -275,10 +276,10 @@ class _TimetableAnimeImportDialogState
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: ZenColors.sage,
+          color: context.colors.accent,
         ),
       );
     }
@@ -289,23 +290,23 @@ class _TimetableAnimeImportDialogState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.cloud_off,
                 size: 40,
-                color: ZenColors.secondary,
+                color: context.colors.textMuted,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
                 style: ZenText.label.copyWith(fontSize: 12),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               OutlinedButton(
                 onPressed: _fetch,
-                style: zenButton(
-                  foreground: ZenColors.sage,
-                  border: ZenColors.sage.withValues(alpha: 0.5),
+                style: zenButtonTheme(context,
+                  foreground: context.colors.accent,
+                  border: context.colors.accent.withValues(alpha: 0.5),
                 ),
                 child: const Text('重试'),
               ),
@@ -329,8 +330,8 @@ class _TimetableAnimeImportDialogState
         final isSelected = _selectedKeys.contains(key);
         return CheckboxListTile(
           dense: true,
-          activeColor: ZenColors.sage,
-          checkColor: Colors.white,
+          activeColor: context.colors.accent,
+          checkColor: Theme.of(context).colorScheme.surface,
           value: isSelected,
           onChanged: (checked) {
             setState(() {

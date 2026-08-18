@@ -250,7 +250,7 @@ class _PriceComparePageState extends State<_PriceComparePage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator());
     }
     // 最低单价索引（用于高亮）
     final prices = _topic!.rows.map((r) => r.unitPrice).toList();
@@ -269,7 +269,7 @@ class _PriceComparePageState extends State<_PriceComparePage> {
         ),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
+            padding: EdgeInsets.fromLTRB(12, 4, 12, 96),
             itemCount: _topic!.rows.length,
             itemBuilder: (ctx, i) => PriceCompareRow(
               index: i,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 
-import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 import '../domain/event.dart';
@@ -8,7 +8,7 @@ import '../domain/event.dart';
 /// 日视图（今日）
 class DayView extends StatelessWidget {
   final LabCalendarProvider cal;
-  const DayView({super.key, required this.cal});
+  DayView({super.key, required this.cal});
 
   @override
   Widget build(BuildContext context) {
@@ -18,20 +18,20 @@ class DayView extends StatelessWidget {
         final today = DateTime.now();
         final events = cal.eventsOnDate(today);
         return ListView(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20),
           children: [
             Text(
               '${today.year}年${today.month}月${today.day}日',
               style: TextStyle(
-                color: PaperPalette.ink,
+                color: context.colors.text,
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             if (events.isEmpty)
-              Text('今天没有事件', style: AppText.body(color: PaperPalette.inkMuted))
+              Text('今天没有事件', style: AppText.body(color: context.colors.textMuted))
             else
               ...events.map(
                 (e) => ListTile(

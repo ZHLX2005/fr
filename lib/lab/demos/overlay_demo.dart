@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/context_colors.dart';
 import '../lab_container.dart';
 import '../../native/overlay/overlay_service.dart';
 
@@ -147,7 +148,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
     if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('配置已保存')));
+      ).showSnackBar(SnackBar(content: Text('配置已保存')));
     }
   }
 
@@ -155,20 +156,20 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('悬浮截屏演示'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text('悬浮截屏演示'),
+        backgroundColor: context.colors.scheme.inversePrimary,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildPermissionCard(),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             _buildOverlayControlCard(),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             _buildAiConfigCard(),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             _buildInstructionCard(),
           ],
         ),
@@ -179,7 +180,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   Widget _buildPermissionCard() {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -187,31 +188,31 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               '悬浮窗权限',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               children: [
                 Icon(
                   _hasPermission ? Icons.check_circle : Icons.cancel,
-                  color: _hasPermission ? Colors.green : Colors.red,
+                  color: _hasPermission ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   _hasPermission ? '已授权' : '未授权',
                   style: TextStyle(
-                    color: _hasPermission ? Colors.green : Colors.red,
+                    color: _hasPermission ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             if (!_hasPermission)
               OutlinedButton(
                 onPressed: _requestPermission,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0A84FF),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                   side: BorderSide(
-                    color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                   ),
                 ),
                 child: const Text('前往授权'),
@@ -230,7 +231,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   Widget _buildOverlayControlCard() {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -238,24 +239,24 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               '悬浮窗控制',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               children: [
                 Icon(
                   _isOverlayActive ? Icons.visibility : Icons.visibility_off,
-                  color: _isOverlayActive ? Colors.blue : Colors.grey,
+                  color: _isOverlayActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   _isOverlayActive ? '运行中' : '已停止',
                   style: TextStyle(
-                    color: _isOverlayActive ? Colors.blue : Colors.grey,
+                    color: _isOverlayActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -264,15 +265,15 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
                         ? _toggleOverlay
                         : null,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0A84FF),
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       side: BorderSide(
-                        color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                       ),
                     ),
                     child: const Text('显示悬浮窗'),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _isOverlayActive ? _hideOverlay : null,
@@ -290,7 +291,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   Widget _buildAiConfigCard() {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -298,9 +299,9 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               'AI 配置',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'API Key',
                 hintText: '输入 API Key',
                 border: OutlineInputBorder(),
@@ -309,9 +310,9 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               onChanged: (v) => _apiKey = v,
               obscureText: true,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'API URL',
                 hintText: '输入 API URL',
                 border: OutlineInputBorder(),
@@ -319,10 +320,10 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               controller: TextEditingController(text: _apiUrl),
               onChanged: (v) => _apiUrl = v,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _selectedModel,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '模型',
                 border: OutlineInputBorder(),
               ),
@@ -335,9 +336,9 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
                 }
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '系统提示词',
                 hintText: '自定义 AI 行为指令',
                 border: OutlineInputBorder(),
@@ -346,23 +347,23 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               onChanged: (v) => _systemPrompt = v,
               maxLines: 2,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             SwitchListTile(
-              title: const Text('点击直接全屏截图'),
+              title: Text('点击直接全屏截图'),
               subtitle: const Text('启用后点击悬浮窗直接截取全图，无需框选'),
               value: _directScreenshot,
               onChanged: (v) => setState(() => _directScreenshot = v),
               contentPadding: EdgeInsets.zero,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: _saveConfig,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0A84FF),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                   side: BorderSide(
-                    color: const Color(0xFF0A84FF).withValues(alpha: 0.5),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                   ),
                 ),
                 child: const Text('保存配置'),
@@ -377,7 +378,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
   Widget _buildInstructionCard() {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -385,7 +386,7 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
               '使用说明',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             const Text(
               '1. 授权悬浮窗权限\n'
               '2. 配置 API Key 并保存\n'

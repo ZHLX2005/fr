@@ -39,7 +39,7 @@ class _RivePendulumViewState extends State<RivePendulumView> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Expanded(
           child: Card(
             clipBehavior: Clip.antiAlias,
@@ -76,7 +76,7 @@ class _RivePendulumViewState extends State<RivePendulumView> {
                               child: rive.RiveWidgetBuilder(
                                 fileLoader: _fileLoader,
                                 builder: (context, state) => switch (state) {
-                                  rive.RiveLoading() => const Center(
+                                  rive.RiveLoading() => Center(
                                       child: CircularProgressIndicator(),
                                     ),
                                   rive.RiveFailed() =>
@@ -96,7 +96,7 @@ class _RivePendulumViewState extends State<RivePendulumView> {
                 ),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surfaceContainerHighest
                         .withValues(alpha: 0.55),
@@ -110,7 +110,7 @@ class _RivePendulumViewState extends State<RivePendulumView> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(
                         RiveAssets.pendulum,
                         style: theme.textTheme.bodySmall?.copyWith(

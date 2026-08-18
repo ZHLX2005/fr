@@ -8,6 +8,10 @@
 //   - 落子两步确认（pending + 确认按钮）；回合切换自动清 pending
 //
 // 业务逻辑全部走 ReversiRoom 封装 + 服务端权威 history + 客户端引擎 (ReversiBoard) 重建。
+//
+// 颜色策略（v6.2）：见 tetris_lua/widgets.dart 同段注释（vs-room 模板独立暗色
+// 场景设计，硬编码保留）。黑白棋棋子本体（#1A1A1A 黑 / #FAFAFA 白）是国际
+// 黑白棋视觉识别色，保留。
 
 import 'dart:async';
 
@@ -145,7 +149,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
           hintText: hint,
           hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.6)),
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
+          contentPadding: EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 14,
           ),
@@ -175,7 +179,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         textAlignVertical: TextAlignVertical.center,
         onChanged: LuaGameAlias.save,
       ),
-      const SizedBox(height: 12),
+      SizedBox(height: 12),
 
       // ── 房间号 ──
       TextField(
@@ -193,22 +197,22 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         maxLength: 6,
         onSubmitted: (_) => _busy ? null : _go(),
       ),
-      const SizedBox(height: 12),
+      SizedBox(height: 12),
 
       // ── 提示行 ──
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: theme.btnText.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
-            padding: const EdgeInsets.only(top: 1),
+            padding: EdgeInsets.only(top: 1),
             child: Text('◐',
                 style: TextStyle(color: theme.btnSub, fontSize: 13)),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               '输入同一号码即可对战，黑白由服务端开局随机分配',
@@ -220,32 +224,32 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
 
       // ── 错误提示 ──
       if (_error != null) ...[
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFB33A1F).withValues(alpha: 0.08),
+            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 1),
               child: Text('◉',
-                  style: TextStyle(color: Color(0xFFB33A1F), fontSize: 12)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Expanded(
               child: Text(
                 _error!,
-                style: const TextStyle(
-                    color: Color(0xFFB33A1F), fontSize: 12, height: 1.4),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.error, fontSize: 12, height: 1.4),
               ),
             ),
           ]),
         ),
       ],
 
-      const SizedBox(height: 20),
+      SizedBox(height: 20),
 
       // ── 主按钮 ──
       SizedBox(
@@ -520,7 +524,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         child: Align(
           alignment: Alignment.topCenter,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Container(
@@ -530,13 +534,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   border: Border.all(color: theme.panelBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
+                padding: EdgeInsets.fromLTRB(28, 28, 28, 28),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -547,13 +551,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                         )),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Container(width: 24, height: 2, color: theme.btnText),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
 
                     // 房间号 chip
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
                         color: theme.btnText.withValues(alpha: 0.05),
@@ -574,21 +578,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    SizedBox(height: 22),
 
                     // 玩家头像列表（圆环 + ACK 状态）
                     ...players.entries.map((e) {
                       final isMe = e.key == myId;
                       final isReady = readyMap[e.key] == true;
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: EdgeInsets.symmetric(vertical: 6),
                         child: Row(children: [
                           _ReadyAvatar(
                             name: e.value,
                             isReady: isReady,
                             color: theme.btnText,
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: 14),
                           Expanded(
                             child: Text(
                               '${e.value}${isMe ? "  (我)" : ""}',
@@ -602,11 +606,11 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: isReady
-                                  ? const Color(0xFF16A34A)
+                                  ? Theme.of(context).colorScheme.primary
                                       .withValues(alpha: 0.12)
                                   : theme.btnSub.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
@@ -615,7 +619,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                               isReady ? '已准备 ✓' : '未准备',
                               style: TextStyle(
                                 color: isReady
-                                    ? const Color(0xFF16A34A)
+                                    ? Theme.of(context).colorScheme.primary
                                     : theme.btnSub,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -628,7 +632,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     }),
 
                     if (players.length < 2) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       Text(
                         '把房间号发给朋友',
                         style: TextStyle(
@@ -640,7 +644,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     ],
 
                     if (players.length >= 2) ...[
-                      const SizedBox(height: 22),
+                      SizedBox(height: 22),
                       SizedBox(
                         width: double.infinity,
                         height: 48,
@@ -703,9 +707,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                         _canPerform('ACK') ? _ack : null,
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor:
-                                          const Color(0xFF16A34A),
-                                      side: const BorderSide(
-                                        color: Color(0xFF16A34A),
+                                          Theme.of(context).colorScheme.primary,
+                                      side: BorderSide(
+                                        color: Theme.of(context).colorScheme.primary,
                                         width: 1.6,
                                       ),
                                       shape: RoundedRectangleBorder(
@@ -803,19 +807,19 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           _buildConfirmSlot(theme),
           // 底部操作栏：认输 / 悔棋 / 退出
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (_canPerform('RESIGN')) ...[
                   _bottomAction(
                       Icons.flag_outlined, '认输', _showResignConfirm, theme),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                 ],
                 if (_canPerform('UNDO')) ...[
                   _bottomAction(
                       Icons.undo_outlined, '悔棋', _confirmUndo, theme),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                 ],
                 _bottomAction(Icons.logout_outlined, '退出', widget.onLeave,
                     theme),
@@ -831,7 +835,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final myLabel = _imBlack ? '黑' : '白';
     final turnLabel = isBlackTurn ? '黑' : '白';
     final myColor =
-        _imBlack ? const Color(0xFF1A1A1A) : const Color(0xFFFAFAFA);
+        _imBlack ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.surface;
     final statusText = _pendingPoint != null && _isMyTurn
         ? '落子 ${_pendingPoint!.col + 1}-${String.fromCharCode('A'.codeUnitAt(0) + _pendingPoint!.row)}？点别处改点'
         : _isMyTurn
@@ -841,7 +845,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       height: 44,
       width: double.infinity,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(horizontal: 16),
         color: theme.panelBg.withValues(alpha: 0.5),
         alignment: Alignment.center,
         child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -850,13 +854,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             height: 14,
             decoration: BoxDecoration(
               color: isBlackTurn
-                  ? const Color(0xFF1A1A1A)
-                  : const Color(0xFFFAFAFA),
+                  ? Theme.of(context).colorScheme.onSurface
+                  : Theme.of(context).colorScheme.surface,
               shape: BoxShape.circle,
               border: Border.all(color: theme.panelBorder),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Flexible(
             child: Text(
               statusText,
@@ -868,7 +872,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   fontWeight: FontWeight.w500),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Container(
             width: 12,
             height: 12,
@@ -897,7 +901,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 ),
                 child: FilledButton.icon(
                   onPressed: _confirmMove,
-                  icon: const Icon(Icons.check, size: 18),
+                  icon: Icon(Icons.check, size: 18),
                   label: const Text(
                     '确认落子',
                     maxLines: 1,
@@ -909,9 +913,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     backgroundColor: theme.btnText,
                     foregroundColor: theme.panelBg,
                     minimumSize: const Size(140, 40),
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                         horizontal: 18, vertical: 6),
-                    textStyle: const TextStyle(
+                    textStyle: TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w600),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -920,7 +924,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   ),
                 ),
               )
-            : const SizedBox.shrink(),
+            : SizedBox.shrink(),
       ),
     );
   }
@@ -931,12 +935,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16, color: theme.btnSub),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             Text(label,
                 style: TextStyle(
                     color: theme.btnSub,
@@ -1042,15 +1046,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           // 终局卡片
           Center(
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
+              margin: EdgeInsets.symmetric(horizontal: 32),
+              padding: EdgeInsets.fromLTRB(28, 28, 28, 28),
               decoration: BoxDecoration(
                 color: theme.panelBg,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: theme.panelBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
@@ -1064,20 +1068,20 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     size: 48,
                     color: revTheme.winAccent,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text(title,
                       style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
                           color: theme.btnText,
                           letterSpacing: 2)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text('$black : $white',
                       style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: theme.btnSub)),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   if (_canPerform('RESET'))
                     SizedBox(
                       width: double.infinity,
@@ -1141,19 +1145,19 @@ class _ReadyAvatar extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isReady
-                  ? const Color(0xFF16A34A).withValues(alpha: 0.12)
-                  : Colors.transparent,
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+                  : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
               border: Border.all(
                 color: isReady
-                    ? const Color(0xFF16A34A)
+                    ? Theme.of(context).colorScheme.primary
                     : color.withValues(alpha: 0.35),
                 width: isReady ? 2.4 : 1.6,
               ),
             ),
           ),
           if (isReady)
-            const Icon(Icons.check_rounded,
-                size: 22, color: Color(0xFF16A34A))
+            Icon(Icons.check_rounded,
+                size: 22, color: Theme.of(context).colorScheme.primary)
           else
             Text(
               letter,

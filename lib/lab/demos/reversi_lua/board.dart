@@ -202,7 +202,7 @@ class _PiecesPainter extends CustomPainter {
         // 描边：lastMove 高亮 vs 普通
         final ringColor = lastMove == pos
             ? theme.lastMoveRing
-            : Colors.white.withValues(alpha: isBlack ? 0.15 : 0.6);
+            : theme.boardSurface.withValues(alpha: isBlack ? 0.15 : 0.6);
         final stroke = Paint()
           ..color = ringColor
           ..style = PaintingStyle.stroke

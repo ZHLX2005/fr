@@ -59,7 +59,7 @@ class SongListTile extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? color : Colors.transparent,
+            color: isSelected ? color : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
             width: 1.5,
           ),
         ),

@@ -361,11 +361,11 @@ class _PageCurlViewState extends State<PageCurlView>
                               ? Alignment.centerLeft
                               : Alignment.centerRight,
                           colors: [
-                            Colors.black.withValues(
+                            Theme.of(context).colorScheme.onSurface.withValues(
                               alpha: 0.05 + 0.16 * _progress,
                             ),
-                            Colors.black.withValues(alpha: 0.03),
-                            Colors.transparent,
+                            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
+                            Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                           ],
                           stops: const [0.0, 0.42, 1.0],
                         ),
@@ -427,9 +427,9 @@ class _PageCurlViewState extends State<PageCurlView>
                                   ? Alignment.centerRight
                                   : Alignment.centerLeft,
                               colors: [
-                                Colors.black.withValues(alpha: 0.18),
-                                Colors.black.withValues(alpha: 0.06),
-                                Colors.transparent,
+                                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18),
+                                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
+                                Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                               ],
                               stops: const [0.0, 0.24, 0.72],
                             ),
@@ -445,9 +445,9 @@ class _PageCurlViewState extends State<PageCurlView>
                                   ? Alignment.centerRight
                                   : Alignment.centerLeft,
                               colors: [
-                                const Color(0xFFFDF6EA).withValues(alpha: 0.96),
-                                const Color(0xFFF1E1CA).withValues(alpha: 0.90),
-                                const Color(0xFFD2B699).withValues(alpha: 0.48),
+                                Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
+                                Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.90),
+                                Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.48),
                               ],
                               stops: const [0.0, 0.68, 1.0],
                             ),
@@ -463,9 +463,9 @@ class _PageCurlViewState extends State<PageCurlView>
                                   ? Alignment.centerRight
                                   : Alignment.centerLeft,
                               colors: [
-                                const Color(0xFFF3E8D9).withValues(alpha: 0.92),
-                                const Color(0xFFE2D1C0).withValues(alpha: 0.74),
-                                const Color(0xFFB99778).withValues(alpha: 0.18),
+                                Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.92),
+                                Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.74),
+                                Theme.of(context).colorScheme.error.withValues(alpha: 0.18),
                               ],
                               stops: const [0.0, 0.72, 1.0],
                             ),
@@ -477,9 +477,9 @@ class _PageCurlViewState extends State<PageCurlView>
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.white.withValues(alpha: 0.22),
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.08),
+                                Theme.of(context).colorScheme.surface.withValues(alpha: 0.22),
+                                Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
                               ],
                               stops: const [0.0, 0.35, 1.0],
                             ),
@@ -502,13 +502,13 @@ class _PageCurlViewState extends State<PageCurlView>
                                       ? Alignment.centerRight
                                       : Alignment.centerLeft,
                                   colors: [
-                                    const Color(0xFFB48E6C).withValues(
+                                    Theme.of(context).colorScheme.error.withValues(
                                       alpha: 0.62,
                                     ),
-                                    const Color(0xFFE6D1BB).withValues(
+                                    Theme.of(context).colorScheme.tertiary.withValues(
                                       alpha: 0.72,
                                     ),
-                                    Colors.white.withValues(alpha: 0.18),
+                                    Theme.of(context).colorScheme.surface.withValues(alpha: 0.18),
                                   ],
                                   stops: const [0.0, 0.46, 1.0],
                                 ),
@@ -533,8 +533,8 @@ class _PageCurlViewState extends State<PageCurlView>
                                       ? Alignment.centerRight
                                       : Alignment.centerLeft,
                                   colors: [
-                                    Colors.white.withValues(alpha: 0.30),
-                                    Colors.transparent,
+                                    Theme.of(context).colorScheme.surface.withValues(alpha: 0.30),
+                                    Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                                   ],
                                 ),
                               ),
@@ -566,11 +566,11 @@ class _PageCurlViewState extends State<PageCurlView>
                             ? Alignment.centerRight
                             : Alignment.centerLeft,
                         colors: [
-                          Colors.black.withValues(
+                          Theme.of(context).colorScheme.onSurface.withValues(
                             alpha: 0.20 + 0.12 * _progress,
                           ),
-                          Colors.black.withValues(alpha: 0.05),
-                          Colors.transparent,
+                          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+                          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                         ],
                       ),
                     ),
@@ -596,8 +596,8 @@ class _PageCurlViewState extends State<PageCurlView>
                             ? Alignment.centerRight
                             : Alignment.centerLeft,
                         colors: [
-                          Colors.white.withValues(alpha: 0.38),
-                          Colors.black.withValues(alpha: 0.14),
+                          Theme.of(context).colorScheme.surface.withValues(alpha: 0.38),
+                          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.14),
                         ],
                       ),
                     ),

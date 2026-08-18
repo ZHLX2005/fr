@@ -98,17 +98,17 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清理历史记录'),
-        content: const Text('确定清空所有小票识别历史？此操作不可撤销。'),
+        title: Text('清理历史记录'),
+        content: Text('确定清空所有小票识别历史？此操作不可撤销。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text('取消'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('清空'),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: Text('清空'),
           ),
         ],
       ),
@@ -216,7 +216,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
     if (prompt) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('请先配置 LLM API Key'),
+          content: Text('请先配置 LLM API Key'),
           action: SnackBarAction(
             label: '去设置',
             onPressed: _navigateToSettings,
@@ -250,8 +250,8 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
               backgroundColor: accent.withValues(alpha: 0.12),
               child: Icon(Icons.receipt_long, size: 18, color: accent),
             ),
-            const SizedBox(width: 8),
-            const Expanded(
+            SizedBox(width: 8),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -259,7 +259,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
                   Text('小票', style: TextStyle(fontSize: 16)),
                   Text(
                     'OCR 识别 → 快速比价',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -271,13 +271,13 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
           IconButton(
             tooltip: '清理历史',
             onPressed: _entries.isEmpty ? null : _clearHistory,
-            icon: const Icon(Icons.delete_sweep_outlined),
+            icon: Icon(Icons.delete_sweep_outlined),
           ),
           // 设置（边框强调 IconButton）
           IconButton(
             tooltip: '设置',
             onPressed: _openSettings,
-            icon: const Icon(Icons.settings_outlined),
+            icon: Icon(Icons.settings_outlined),
           ),
         ],
       ),
@@ -365,7 +365,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
         children: [
           Icon(Icons.error_outline,
               size: 16, color: theme.colorScheme.error),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Flexible(
             child: Text(
               message,
@@ -394,12 +394,12 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
+          SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Text(
             '识别中…',
             style: theme.textTheme.bodySmall,
@@ -431,7 +431,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
               onTap: _busy ? null : _pickFromGallery,
               tooltip: '相册',
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             // 相机
             _iconBtn(
               icon: Icons.camera_alt_outlined,
@@ -439,7 +439,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
               onTap: _busy ? null : _pickFromCamera,
               tooltip: '拍照',
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             // 待发送图片缩略图 or 提示
             Expanded(
               child: _pendingImage != null
@@ -486,7 +486,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
                       ),
                     ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             // 发送
             _sendBtn(accent, theme),
           ],
@@ -559,7 +559,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
           children: [
             Icon(Icons.receipt_long_outlined,
                 size: 48, color: hintColor.withValues(alpha: 0.5)),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               '小票 OCR',
               style: TextStyle(
@@ -568,7 +568,7 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
                 color: hintColor,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
               '点底部相册 / 相机选一张小票，\n识别后每行可 ✓ 记入比价 / × 拒绝',
               textAlign: TextAlign.center,

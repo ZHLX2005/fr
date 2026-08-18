@@ -57,7 +57,7 @@ class _RiveDemoPageState extends State<RiveDemoPage>
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -67,16 +67,16 @@ class _RiveDemoPageState extends State<RiveDemoPage>
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   '统一展示 Rive 摆钟、ViewModel 数据绑定与交互实验室三种用法',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 _buildTabBar(theme, tabs),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
@@ -102,7 +102,7 @@ class _RiveDemoPageState extends State<RiveDemoPage>
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(999),
       ),
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(4),
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
@@ -110,7 +110,7 @@ class _RiveDemoPageState extends State<RiveDemoPage>
           borderRadius: BorderRadius.circular(999),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
+        dividerColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
         labelColor: colorScheme.onPrimary,
         unselectedLabelColor: colorScheme.onSurfaceVariant,
         labelStyle: theme.textTheme.labelLarge?.copyWith(

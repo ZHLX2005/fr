@@ -32,37 +32,37 @@ class TimetableCell extends StatelessWidget {
       onLongPress: onLongPress,
       child: Container(
         margin: const EdgeInsets.all(1),
-        decoration: _buildDecoration(),
+        decoration: _buildDecoration(context),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: _buildContent(),
+          child: _buildContent(context),
         ),
       ),
     );
   }
 
-  BoxDecoration _buildDecoration() {
+  BoxDecoration _buildDecoration(BuildContext context) {
     switch (state) {
       case TimetableCellState.empty:
-        return const BoxDecoration();
+        return BoxDecoration();
       case TimetableCellState.selected:
         return BoxDecoration(
-          color: TimetableColors.selectedBg,
+          color: TimetableColors.selectedBg(context),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: TimetableColors.accent.withValues(alpha: 0.25),
+            color: TimetableColors.accent(context).withValues(alpha: 0.25),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: TimetableColors.accent.withValues(alpha: 0.08),
+              color: TimetableColors.accent(context).withValues(alpha: 0.08),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
           ],
         );
       case TimetableCellState.filled:
-        final baseColor = TimetableColors.getCourseColor(course?.colorSeed ?? 0);
+        final baseColor = TimetableColors.getCourseColor(context, course?.colorSeed ?? 0);
         return BoxDecoration(
           color: baseColor.withValues(alpha: 0.82),
           borderRadius: BorderRadius.circular(8),
@@ -81,10 +81,10 @@ class TimetableCell extends StatelessWidget {
     }
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
     switch (state) {
       case TimetableCellState.empty:
-        return Container(color: Colors.transparent);
+        return Container(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0));
       case TimetableCellState.selected:
         return Stack(
           children: [
@@ -96,8 +96,8 @@ class TimetableCell extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.white.withValues(alpha: 0.4),
-                      Colors.transparent,
+                      Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
+                      Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                     ],
                   ),
                 ),
@@ -107,7 +107,7 @@ class TimetableCell extends StatelessWidget {
               child: Icon(
                 Icons.add,
                 size: 18,
-                color: TimetableColors.accent.withValues(alpha: 0.7),
+                color: TimetableColors.accent(context).withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -127,12 +127,12 @@ class _CourseContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = TimetableColors.getCourseColor(course.colorSeed ?? 0);
+    final color = TimetableColors.getCourseColor(context, course.colorSeed ?? 0);
     final isLight = color.computeLuminance() > 0.55;
-    final textColor = isLight ? const Color(0xFF3D3D3D) : Colors.white;
+    final textColor = isLight ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.surface;
     final subTextColor = isLight
-        ? const Color(0xFF5D5D5D).withValues(alpha: 0.8)
-        : Colors.white.withValues(alpha: 0.75);
+        ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8)
+        : Theme.of(context).colorScheme.surface.withValues(alpha: 0.75);
 
     return Stack(
       children: [
@@ -149,8 +149,8 @@ class _CourseContent extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.white.withValues(alpha: 0.18),
-                  Colors.white.withValues(alpha: 0.0),
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.18),
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                 ],
               ),
             ),

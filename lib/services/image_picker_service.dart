@@ -24,6 +24,7 @@ class ImagePickerService {
   /// [cropTitle] 裁剪界面标题
   /// 返回裁剪后的图片本地文件路径，如果用户取消则返回 null
   Future<String?> pickAndCropImage({
+    required BuildContext context,
     double aspectRatio = 16 / 9,
     String cropTitle = '裁剪图片',
     CropAspectRatioPreset aspectRatioPreset = CropAspectRatioPreset.original,
@@ -36,8 +37,8 @@ class ImagePickerService {
       // 2. 裁剪图片
       // 先设置状态栏为亮色（适配深色工具栏）
       SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
+        SystemUiOverlayStyle(
+          statusBarColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           statusBarIconBrightness: Brightness.light,
           statusBarBrightness: Brightness.dark,
         ),
@@ -51,12 +52,12 @@ class ImagePickerService {
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: cropTitle,
-              toolbarColor: Colors.blue,
-              toolbarWidgetColor: Colors.white,
+              toolbarColor: Theme.of(context).colorScheme.primary,
+              toolbarWidgetColor: Theme.of(context).colorScheme.surface,
               initAspectRatio: aspectRatioPreset,
               lockAspectRatio: false,
               hideBottomControls: false,
-              statusBarColor: Colors.transparent,
+              statusBarColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
             ),
             IOSUiSettings(
               title: cropTitle,
@@ -69,8 +70,8 @@ class ImagePickerService {
       } finally {
         // 恢复状态栏样式
         SystemChrome.setSystemUIOverlayStyle(
-          const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
+          SystemUiOverlayStyle(
+            statusBarColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
             statusBarIconBrightness: Brightness.dark,
             statusBarBrightness: Brightness.light,
           ),

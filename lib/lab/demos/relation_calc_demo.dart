@@ -4,6 +4,7 @@
 // 引擎不感知领域（亲戚/公司团队等级/宠物…），内置亲戚称呼预设。
 
 import 'package:flutter/material.dart';
+import '../../widgets/context_colors.dart';
 
 import '../../widgets/theme/zen_theme.dart';
 import '../lab_container.dart';
@@ -91,24 +92,24 @@ class _RelationCalcPageState extends State<RelationCalcPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: ZenColors.sage),
+      return Center(
+        child: CircularProgressIndicator(color: context.colors.accent),
       );
     }
     final data = _data!;
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: ZenColors.bg,
+        backgroundColor: context.colors.surface,
         appBar: AppBar(
-          backgroundColor: ZenColors.bg,
+          backgroundColor: context.colors.surface,
           elevation: 0,
-          title: const Text(RelationCalcConsts.demoTitle,
+          title: Text(RelationCalcConsts.demoTitle,
               style: ZenText.title),
           bottom: TabBar(
-            labelColor: ZenColors.sage,
-            unselectedLabelColor: ZenColors.secondary,
-            indicatorColor: ZenColors.sage,
+            labelColor: context.colors.accent,
+            unselectedLabelColor: context.colors.textMuted,
+            indicatorColor: context.colors.accent,
             indicatorSize: TabBarIndicatorSize.label,
             tabs: const [
               Tab(text: RelationCalcUiText.calcTab),

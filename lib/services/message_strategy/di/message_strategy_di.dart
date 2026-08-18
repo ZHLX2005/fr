@@ -4,7 +4,6 @@ import '../strategies/strategies.dart';
 import '../factory/factory.dart';
 import '../panel/panel.dart';
 import '../../../api/user/user_auth_service.dart';
-import '../../../core/ai_chat/system_messages/system_events_controller.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -26,7 +25,6 @@ void registerMessageStrategies() {
     CardManagerMessageWidgetStrategy(),
     LoginMessageWidgetStrategy(),
     RegisterMessageWidgetStrategy(),
-    SystemEventMessageWidgetStrategy(),
   ];
 
   final strategies = <String, MessageWidgetStrategy<IMessageData>>{};
@@ -51,7 +49,4 @@ void registerMessageStrategies() {
   if (!getIt.isRegistered<RegisterFlowController>()) {
     getIt.registerSingleton<RegisterFlowController>(RegisterFlowController());
   }
-
-  // 系统事件控制器（AI 聊天设置 → 系统消息 Tab 数据源）
-  registerSystemEventsController();
 }

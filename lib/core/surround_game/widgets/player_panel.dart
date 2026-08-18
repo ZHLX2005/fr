@@ -78,7 +78,7 @@ class PlayerPanel extends StatelessWidget {
 
     // 确认阶段：当前回合玩家的面板变成 取消/旋转/确定
     if (phase == TouchPhase.confirming && active) {
-      return _buildConfirmPanel(theme);
+      return _buildConfirmPanel(context, theme);
     }
 
     final opacity = active ? 1.0 : 0.4;
@@ -88,8 +88,8 @@ class PlayerPanel extends StatelessWidget {
 
     // 渐变色：基于 panelBg 上下浮动 6%，保持换肤一致性
     final bg = theme.panelBg;
-    final bgTop = Color.lerp(bg, Colors.white, 0.06)!;
-    final bgBottom = Color.lerp(bg, Colors.black, 0.06)!;
+    final bgTop = Color.lerp(bg, Theme.of(context).colorScheme.surface, 0.06)!;
+    final bgBottom = Color.lerp(bg, Theme.of(context).colorScheme.onSurface, 0.06)!;
     // active 模式按钮的橙色胶囊
     final activeCapsule = theme.piecePlayerA.withValues(alpha: 0.16);
 
@@ -106,24 +106,24 @@ class PlayerPanel extends StatelessWidget {
               colors: [bgTop, bg, bgBottom],
             ),
             borderRadius: BorderRadius.circular(_PanelMetrics.radius),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+            border: Border.all(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5)),
             boxShadow: [
               // 顶部 inset 高光
               BoxShadow(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
                 blurRadius: 0,
                 spreadRadius: 0,
                 offset: const Offset(0, 1),
               ),
               // 主体柔投影
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.22),
                 blurRadius: 22,
                 offset: const Offset(0, 10),
               ),
               // 近距硬投影
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -182,14 +182,14 @@ class PlayerPanel extends StatelessWidget {
   }
 
   /// 确认阶段面板 — 取消 / 旋转(墙) / 确定
-  Widget _buildConfirmPanel(BoardThemeData theme) {
+  Widget _buildConfirmPanel(BuildContext context, BoardThemeData theme) {
     // 确认阶段强调色 — 始终用玩家 A 主题色（当前回合玩家在 UI 上为上方面板）
     final accent = theme.piecePlayerA;
 
     // 渐变 + 双层投影，与普通面板一致
     final bg = theme.panelBg;
-    final bgTop = Color.lerp(bg, Colors.white, 0.06)!;
-    final bgBottom = Color.lerp(bg, Colors.black, 0.06)!;
+    final bgTop = Color.lerp(bg, Theme.of(context).colorScheme.surface, 0.06)!;
+    final bgBottom = Color.lerp(bg, Theme.of(context).colorScheme.onSurface, 0.06)!;
 
     // pendingWall 非空 → 这是墙模式确认（显示旋转按钮）
     final showRotate = pendingWall != null;
@@ -208,19 +208,19 @@ class PlayerPanel extends StatelessWidget {
             colors: [bgTop, bg, bgBottom],
           ),
           borderRadius: BorderRadius.circular(_PanelMetrics.radius),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+          border: Border.all(color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5)),
           boxShadow: [
             BoxShadow(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
               offset: const Offset(0, 1),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.22),
               blurRadius: 22,
               offset: const Offset(0, 10),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -361,7 +361,7 @@ class _ModeSegment extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? activeCapsule : Colors.transparent,
+          color: selected ? activeCapsule : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           borderRadius: BorderRadius.circular(_PanelMetrics.segInnerRadius - 4),
         ),
         child: Column(
@@ -486,7 +486,7 @@ class _ConfirmButton extends StatelessWidget {
       icon: Icon(icon, size: _PanelMetrics.iconSize),
       label: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: _PanelMetrics.subSize,
           fontWeight: FontWeight.w600,
         ),

@@ -68,7 +68,7 @@ class _RecordSheetState extends State<RecordSheet> {
   }
 
   Color get _painColor =>
-      Color.lerp(Colors.green, Colors.red, _pain / 10) ?? Colors.grey;
+      Color.lerp(Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.error, _pain / 10) ?? Theme.of(context).colorScheme.onSurfaceVariant;
 
   void _startEdit(BodyRecord record) {
     setState(() {
@@ -120,7 +120,7 @@ class _RecordSheetState extends State<RecordSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -145,7 +145,7 @@ class _RecordSheetState extends State<RecordSheet> {
                 const SizedBox(width: 8),
                 Text(widget.bodyPart.label, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(width: 8),
-                Text(tissueLabels[widget.bodyPart.tissue]!, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                Text(tissueLabels[widget.bodyPart.tissue]!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
               ],
             ),
           ),
@@ -184,7 +184,7 @@ class _RecordSheetState extends State<RecordSheet> {
                 hintText: _editing != null ? '编辑记录...' : '描述你的感受...',
                 border: const OutlineInputBorder(),
                 suffixIcon: _editing != null
-                    ? IconButton(icon: const Icon(Icons.close, size: 18), onPressed: _cancelEdit)
+                    ? IconButton(icon: Icon(Icons.close, size: 18), onPressed: _cancelEdit)
                     : null,
               ),
             ),
@@ -225,7 +225,7 @@ class _RecordSheetState extends State<RecordSheet> {
                 controller: _searchCtrl,
                 decoration: InputDecoration(
                   hintText: '搜索记录...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
+                  prefixIcon: Icon(Icons.search, size: 20),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
@@ -259,7 +259,7 @@ class _RecordSheetState extends State<RecordSheet> {
           if (_filtered.isEmpty && _searchQuery.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('没有找到匹配的记录', style: TextStyle(color: Colors.grey[500]), textAlign: TextAlign.center),
+              child: Text('没有找到匹配的记录', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant), textAlign: TextAlign.center),
             ),
           // 底部安全区
           SizedBox(height: MediaQuery.of(context).padding.bottom),
@@ -279,7 +279,7 @@ class _RecordTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final painColor = Color.lerp(Colors.green, Colors.red, (record.painLevel ?? 0) / 10);
+    final painColor = Color.lerp(Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.error, (record.painLevel ?? 0) / 10);
 
     return Dismissible(
       key: ValueKey(record.key),
@@ -287,8 +287,8 @@ class _RecordTile extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
+        color: Theme.of(context).colorScheme.error,
+        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.surface),
       ),
       onDismissed: (_) => onDelete(),
       child: ListTile(
@@ -300,8 +300,8 @@ class _RecordTile extends StatelessWidget {
         dense: true,
         leading: Icon(Icons.circle, size: 10, color: painColor),
         trailing: isEditing
-            ? const Icon(Icons.edit, size: 16, color: Colors.blue)
-            : IconButton(icon: const Icon(Icons.edit_outlined, size: 18), onPressed: onEdit, tooltip: '编辑', visualDensity: VisualDensity.compact),
+            ? Icon(Icons.edit, size: 16, color: Theme.of(context).colorScheme.primary)
+            : IconButton(icon: Icon(Icons.edit_outlined, size: 18), onPressed: onEdit, tooltip: '编辑', visualDensity: VisualDensity.compact),
         onTap: onEdit,
       ),
     );

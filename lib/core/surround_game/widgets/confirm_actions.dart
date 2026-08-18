@@ -75,7 +75,7 @@ class ConfirmActions extends StatelessWidget {
         top = y * distance + cellSize * 0.1;
       }
 
-      return _buildButtons(left, top, false);
+      return _buildButtons(context, left, top, false);
     }
 
     // 放墙
@@ -95,13 +95,13 @@ class ConfirmActions extends StatelessWidget {
         top = w.y * distance + cellSize * 0.45;
       }
 
-      return _buildButtons(left, top, true);
+      return _buildButtons(context, left, top, true);
     }
 
     return const SizedBox.shrink();
   }
 
-  Widget _buildButtons(double left, double top, bool isWall) {
+  Widget _buildButtons(BuildContext context, double left, double top, bool isWall) {
     return Positioned(
       left: left,
       top: top,
@@ -111,7 +111,7 @@ class ConfirmActions extends StatelessWidget {
           // 取消按钮
           _ActionButton(
             icon: Icons.close,
-            color: Colors.red.withValues(alpha: 0.85),
+            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.85),
             onTap: onCancel,
             // isTopTurn 标志是否需要翻转图标方向
             // false=bottom player视角, true=top player视角（已经翻转过）
@@ -157,7 +157,7 @@ class _ActionButton extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -169,13 +169,13 @@ class _ActionButton extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 24,
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                 ),
               )
             : Icon(
                 icon,
                 size: 24,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
               ),
       ),
     );

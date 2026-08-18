@@ -27,7 +27,7 @@ class BottomToolbarFactory extends ChangeNotifier {
 
   Widget build(BuildContext context, EditorState editorState) {
     final mode = _registry[_currentMode];
-    if (mode == null) return const SizedBox.shrink();
+    if (mode == null) return SizedBox.shrink();
     return mode.build(
       context,
       editorState,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
@@ -141,13 +142,13 @@ class _ClockShellState extends State<_ClockShell> {
       // 所有 tab 都保留，因为卡死时 Clocks tab 本身可能都进不去。
       IconButton(
         tooltip: '清空所有时钟数据',
-        icon: const Icon(Icons.delete_forever_outlined),
+        icon: Icon(Icons.delete_forever_outlined),
         onPressed: _confirmWipeAll,
       ),
       if (_index == 1)
         IconButton(
           tooltip: '编排记录',
-          icon: const Icon(Icons.history),
+          icon: Icon(Icons.history),
           onPressed: () {
             // push 出来的新 route 不在 ClockDemo 的 ChangeNotifierProvider 树里，
             // 必须把当前的 LabTrackProvider 实例手动带进去，否则
@@ -159,7 +160,7 @@ class _ClockShellState extends State<_ClockShell> {
               MaterialPageRoute(
                 builder: (_) => ChangeNotifierProvider<LabTrackProvider>.value(
                   value: trackP,
-                  child: const TrackRecordsPage(),
+                  child: TrackRecordsPage(),
                 ),
               ),
             );
@@ -184,7 +185,7 @@ class _ClockShellState extends State<_ClockShell> {
         await trackP.wipeAllData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已清空所有时钟数据。')),
+            SnackBar(content: Text('已清空所有时钟数据。')),
           );
         }
       },
@@ -207,18 +208,18 @@ class _ClockShellState extends State<_ClockShell> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        scaffoldBackgroundColor: ZenColors.bg,
-        canvasColor: ZenColors.bg,
-        primaryColor: ZenColors.sage,
-        splashColor: ZenColors.sage.withValues(alpha: 0.1),
-        highlightColor: ZenColors.sage.withValues(alpha: 0.05),
+        scaffoldBackgroundColor: context.colors.surface,
+        canvasColor: context.colors.surface,
+        primaryColor: context.colors.accent,
+        splashColor: context.colors.accent.withValues(alpha: 0.1),
+        highlightColor: context.colors.accent.withValues(alpha: 0.05),
         fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       ),
       home: Scaffold(
-        backgroundColor: ZenColors.bg,
+        backgroundColor: context.colors.surface,
         appBar: AppBar(
-          backgroundColor: ZenColors.bg,
+          backgroundColor: context.colors.surface,
           elevation: 0,
           title: Text(_title, style: ZenText.title),
           actions: _appBarActions,
@@ -232,7 +233,7 @@ class _ClockShellState extends State<_ClockShell> {
             TracksTab(
               onReady: (openEditor) => _tracksOpenEditor = openEditor,
             ),
-            const DashboardTab(),
+            DashboardTab(),
           ],
         ),
         floatingActionButton: showFab
@@ -240,14 +241,14 @@ class _ClockShellState extends State<_ClockShell> {
                 onPressed: _onFabPressed,
                 style: EmphasisButton.borderEmphasis(
                   context,
-                  color: ZenColors.sage,
+                  color: context.colors.accent,
                 ),
-                child: const Icon(Icons.add),
+                child: Icon(Icons.add),
               )
             : null,
         bottomNavigationBar: NavigationBar(
-          backgroundColor: ZenColors.surface,
-          indicatorColor: ZenColors.sage.withValues(alpha: 0.15),
+          backgroundColor: context.colors.surface,
+          indicatorColor: context.colors.accent.withValues(alpha: 0.15),
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),
           destinations: const [

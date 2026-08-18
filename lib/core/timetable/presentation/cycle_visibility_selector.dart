@@ -118,7 +118,7 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
                     ? '全部周期'
                     : '已选${widget.selectedCycles.length}个',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: TimetableColors.textSecondary,
+                  color: TimetableColors.textSecondary(context),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -192,7 +192,7 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
                         child: Text(
                           '灰色周期已被其他课程占用',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: TimetableColors.textSecondary,
+                            color: TimetableColors.textSecondary(context),
                             fontSize: 11,
                           ),
                         ),
@@ -259,7 +259,7 @@ class _QuickActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: Colors.transparent,
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -283,7 +283,7 @@ class _QuickActionChip extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: isSelected
                   ? theme.colorScheme.outline
-                  : TimetableColors.textPrimary,
+                  : TimetableColors.textPrimary(context),
             ),
           ),
         ),
@@ -324,12 +324,12 @@ class _CycleChip extends StatelessWidget {
       textColor = theme.colorScheme.outline;
     } else {
       borderColor = theme.colorScheme.outline.withValues(alpha: 0.3);
-      bgColor = Colors.transparent;
-      textColor = TimetableColors.textPrimary;
+      bgColor = Theme.of(context).colorScheme.surface.withValues(alpha: 0.0);
+      textColor = TimetableColors.textPrimary(context);
     }
 
     return Material(
-      color: Colors.transparent,
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: isOccupied ? null : onTap,

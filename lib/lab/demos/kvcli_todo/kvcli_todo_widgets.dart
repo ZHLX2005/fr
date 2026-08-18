@@ -3,13 +3,14 @@
 // 添加 = green / 主操作；完成 = blue；删除/清空 = red / 危险。
 
 import 'package:flutter/material.dart';
+import '../../../widgets/context_colors.dart';
 
 import '../../../core/design/emphasis_button.dart';
 import 'kvcli_todo_models.dart';
 
 /// 待办 / 已完成 切换 chip
 class KvTabChip extends StatelessWidget {
-  const KvTabChip({
+  KvTabChip({
     super.key,
     required this.label,
     required this.selected,
@@ -22,13 +23,13 @@ class KvTabChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = context.colors.scheme;
     final accent = selected ? scheme.primary : scheme.outline;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: accent.withValues(alpha: selected ? 0.12 : 0.06),
           borderRadius: BorderRadius.circular(20),
@@ -52,7 +53,7 @@ class KvTabChip extends StatelessWidget {
 
 /// 快捷 topic chip：点击回填主题框。删除集中在管理弹层，chip 不带 ✕。
 class KvTopicChip extends StatelessWidget {
-  const KvTopicChip({
+  KvTopicChip({
     super.key,
     required this.label,
     this.onTap,
@@ -63,12 +64,12 @@ class KvTopicChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
+    final accent = context.colors.accent;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: accent.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(16),
@@ -92,7 +93,7 @@ class KvTopicChip extends StatelessWidget {
 
 /// 任务卡片：信息列 + 编辑/删除 + （待办）完成按钮。
 class KvTaskCard extends StatelessWidget {
-  const KvTaskCard({
+  KvTaskCard({
     super.key,
     required this.task,
     required this.isOpen,
@@ -111,11 +112,11 @@ class KvTaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = context.colors.scheme;
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: EdgeInsets.only(bottom: 10),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        padding: EdgeInsets.fromLTRB(12, 10, 8, 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -133,9 +134,9 @@ class KvTaskCard extends StatelessWidget {
                           fontSize: 12,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 6,
                           vertical: 1,
                         ),
@@ -154,25 +155,25 @@ class KvTaskCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     task.text,
                     style: const TextStyle(fontSize: 14),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     isOpen ? '创建于 ${task.createdAt}' : '完成于 ${task.doneAt}',
                     style: TextStyle(
-                      color: Colors.grey.shade600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 11,
                     ),
                   ),
                   if (!isOpen && task.note.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       'note: ${task.note}',
                       style: TextStyle(
-                        color: Colors.grey.shade700,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 11,
                         fontStyle: FontStyle.italic,
                       ),
@@ -181,7 +182,7 @@ class KvTaskCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -207,14 +208,14 @@ class KvTaskCard extends StatelessWidget {
                   ],
                 ),
                 if (onDone != null) ...[
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   OutlinedButton.icon(
                     onPressed: onDone,
                     style: EmphasisButton.borderEmphasis(
                       context,
-                      color: Colors.blue,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                    icon: const Icon(Icons.check, size: 16),
+                    icon: Icon(Icons.check, size: 16),
                     label: const Text('完成'),
                   ),
                 ],
@@ -248,7 +249,7 @@ class _IconAction extends StatelessWidget {
       tooltip: tooltip,
       icon: Icon(icon, size: 18, color: color),
       visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(4),
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
     );
   }

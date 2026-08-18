@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/context_colors.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'const_network.dart';
@@ -110,7 +111,7 @@ class _NetworkWsTabState extends State<NetworkWsTab>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Column(
             children: [
               TextField(
@@ -121,42 +122,43 @@ class _NetworkWsTabState extends State<NetworkWsTab>
                   hintText: 'wss://example.com/ws',
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: NetworkWidgets.statusPill(
+                      context,
                       _connectionStatus,
                       ok: _connected,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   if (!_connected)
                     OutlinedButton.icon(
                       onPressed: _connect,
-                      icon: const Icon(Icons.link),
-                      label: const Text('连接'),
+                      icon: Icon(Icons.link),
+                      label: Text('连接'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue,
+                        foregroundColor: Theme.of(context).colorScheme.primary,
                         side: BorderSide(
-                            color: Colors.blue.withValues(alpha: 0.5)),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                       ),
                     )
                   else
                     OutlinedButton.icon(
                       onPressed: _disconnect,
-                      icon: const Icon(Icons.link_off),
+                      icon: Icon(Icons.link_off),
                       label: const Text('断开'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: NetworkConst.colorError,
+                        foregroundColor: NetworkConst.colorError(context),
                         side: BorderSide(
-                            color: NetworkConst.colorError.withValues(
+                            color: NetworkConst.colorError(context).withValues(
                                 alpha: 0.5)),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -169,15 +171,15 @@ class _NetworkWsTabState extends State<NetworkWsTab>
                       enabled: _connected,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   OutlinedButton.icon(
                     onPressed: _connected ? _send : null,
-                    icon: const Icon(Icons.send),
-                    label: const Text('发送'),
+                    icon: Icon(Icons.send),
+                    label: Text('发送'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       side: BorderSide(
-                          color: Colors.blue.withValues(alpha: 0.5)),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                     ),
                   ),
                 ],
@@ -185,33 +187,33 @@ class _NetworkWsTabState extends State<NetworkWsTab>
             ],
           ),
         ),
-        const Divider(height: 1),
+        Divider(height: 1),
         Expanded(
           child: _messages.isEmpty
               ? Center(
                   child: Text(
                     '暂无消息',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.outline,
+                      color: context.colors.outline,
                     ),
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(8),
                   itemCount: _messages.length,
                   itemBuilder: (context, index) {
                     final msg = _messages[index];
                     final isSent = msg.contains('发送:');
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.symmetric(
+                      margin: EdgeInsets.only(bottom: 4),
+                      padding: EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         color: isSent
-                            ? Colors.blue.withValues(alpha: 0.1)
-                            : Colors.grey.withValues(alpha: 0.1),
+                            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                            : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: SelectableText(
@@ -219,7 +221,7 @@ class _NetworkWsTabState extends State<NetworkWsTab>
                         style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
-                          color: isSent ? Colors.blue : Colors.black87,
+                          color: isSent ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     );

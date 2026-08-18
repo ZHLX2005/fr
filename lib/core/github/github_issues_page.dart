@@ -192,7 +192,7 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.refresh),
+                    : Icon(Icons.refresh),
               ),
             ],
           ),
@@ -265,8 +265,8 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.add),
-            label: const Text('创建 Issue'),
+                : Icon(Icons.add),
+            label: Text('创建 Issue'),
             style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,
@@ -305,11 +305,11 @@ class _IssueCard extends StatelessWidget {
           child: Row(
             children: [
               CircleAvatar(
-                backgroundColor: isOpen ? Colors.green : Colors.purple,
+                backgroundColor: isOpen ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.tertiary,
                 radius: 16,
                 child: Text(
                   '#${issue.number}',
-                  style: const TextStyle(fontSize: 11, color: Colors.white),
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.surface),
                 ),
               ),
               const SizedBox(width: 12),
@@ -321,7 +321,7 @@ class _IssueCard extends StatelessWidget {
                       issue.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -518,10 +518,10 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: isOpen ? Colors.green : Colors.purple,
+                  backgroundColor: isOpen ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.tertiary,
                   child: Text(
                     '#${_issue.number}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).colorScheme.surface, fontSize: 12),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -548,7 +548,7 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
               (_issue.body == null || _issue.body!.trim().isEmpty)
                   ? '（无内容）'
                   : _issue.body!,
-              style: const TextStyle(height: 1.6),
+              style: TextStyle(height: 1.6),
             ),
             const SizedBox(height: 24),
             Row(
@@ -564,8 +564,8 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                               ),
                             );
                           },
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('查看 URL'),
+                    icon: Icon(Icons.open_in_new),
+                    label: Text('查看 URL'),
                     style: EmphasisButton.borderEmphasis(
                       context,
                       color: Theme.of(context).colorScheme.primary,
@@ -595,8 +595,8 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
                   onPressed: _loading ? null : _showCloneDialog,
-                  icon: const Icon(Icons.copy),
-                  label: const Text('克隆'),
+                  icon: Icon(Icons.copy),
+                  label: Text('克隆'),
                   style: EmphasisButton.borderEmphasis(
                     context,
                     color: Theme.of(context).colorScheme.primary,
@@ -623,14 +623,14 @@ class _GithubIssuesErrorState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+          Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
           const SizedBox(height: 16),
-          Text(message, style: const TextStyle(color: Colors.red)),
+          Text(message, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('重试'),
+            icon: Icon(Icons.refresh),
+            label: Text('重试'),
             style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,

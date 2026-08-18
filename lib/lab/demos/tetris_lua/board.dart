@@ -4,17 +4,18 @@
 //   [TetrisBoardView]   主棋盘：堆积 + 下落块 + ghost 落点预览
 //   [TetrisMiniBoard]   对方迷你预览：只画堆积（复用主棋盘，无 current/ghost）
 //   [TetrisPiecePreview] 单方块预览：Hold / Next 槽用
+//
+// 所有颜色（背景/网格/高光/方块/ghost）从 ColorScheme + GameColorsStrategy 派生。
 
 import 'dart:math' as math show min;
 
 import 'package:flutter/material.dart';
 
+import '../../../widgets/context_board_colors.dart';
+import '../../../widgets/context_game_colors.dart';
+import '../../../core/theme/strategy/board_color_strategy.dart';
 import 'constants.dart';
 import 'engine.dart' show TetrisPiece;
-
-// ══════════════════════════════════════════════════════════════
-// 主棋盘 / 迷你预览
-// ══════════════════════════════════════════════════════════════
 
 class TetrisBoardView extends StatelessWidget {
   const TetrisBoardView({
@@ -32,7 +33,7 @@ class TetrisBoardView extends StatelessWidget {
   Widget build(BuildContext context) {
     // 自适应：在父约束内取最大且不溢出的尺寸（宽高比 cols:rows = 1:2）
     return LayoutBuilder(
-      builder: (context, c) {
+      builder: (ctx, c) {
         final ratio = kTetrisCols / kTetrisRows;
         final w = math.min(c.maxWidth, c.maxHeight * ratio);
         return SizedBox(
@@ -40,6 +41,9 @@ class TetrisBoardView extends StatelessWidget {
           height: w / ratio,
           child: CustomPaint(
             painter: _BoardPainter(
+              scheme: Theme.of(ctx).colorScheme,
+              bc: ctx.boardColors,
+              pieceColors: ctx.gameColors.pieceColors,
               grid: grid,
               current: current,
               ghost: ghostOffset,
@@ -61,7 +65,17 @@ class TetrisMiniBoard extends StatelessWidget {
 }
 
 class _BoardPainter extends CustomPainter {
-  const _BoardPainter({required this.grid, this.current, this.ghost = 0});
+  _BoardPainter({
+    required this.scheme,
+    required this.bc,
+    required this.pieceColors,
+    required this.grid,
+    this.current,
+    this.ghost = 0,
+  });
+  final ColorScheme scheme;
+  final BoardColorStrategy bc;
+  final List<Color> pieceColors;
   final List<List<int>> grid;
   final TetrisPiece? current;
   final int ghost;
@@ -71,14 +85,13 @@ class _BoardPainter extends CustomPainter {
     final cellW = size.width / kTetrisCols;
     final cellH = size.height / kTetrisRows;
 
-    // 背景
+    // 背景走 boardColors.background，网格线走 boardColors.gridLine（棋局策略模式）
     canvas.drawRect(
       Offset.zero & size,
-      Paint()..color = const Color(0xFF0F172A),
+      Paint()..color = bc.background,
     );
-    // 网格线
     final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.05)
+      ..color = bc.gridLine
       ..strokeWidth = 1;
     for (var i = 1; i < kTetrisCols; i++) {
       canvas.drawLine(
@@ -95,20 +108,13 @@ class _BoardPainter extends CustomPainter {
       );
     }
 
-    // 堆积格（容错：grid 行/列不足时按实际长度，剩余当空）
+    // 堆积格
     for (var y = 0; y < grid.length && y < kTetrisRows; y++) {
       final row = grid[y];
       for (var x = 0; x < row.length && x < kTetrisCols; x++) {
         final t = row[x];
         if (t != kEmptyCell) {
-          _drawCell(
-            canvas,
-            cellW * x,
-            cellH * y,
-            cellW,
-            cellH,
-            kPieceColors[t]!,
-          );
+          _drawCell(canvas, cellW * x, cellH * y, cellW, cellH, pieceColors[t]);
         }
       }
     }
@@ -118,26 +124,19 @@ class _BoardPainter extends CustomPainter {
 
     // ghost 落点
     if (ghost > 0) {
-      final color = kPieceColors[cur.type]!;
+      final color = pieceColors[cur.type];
       for (var i = 0; i < cur.matrix.length; i++) {
         for (var j = 0; j < cur.matrix[i].length; j++) {
           if (cur.matrix[i][j] == 0) continue;
           final gy = cur.y + i + ghost;
           if (gy < 0 || gy >= kTetrisRows) continue;
-          _drawGhost(
-            canvas,
-            cellW * (cur.x + j),
-            cellH * gy,
-            cellW,
-            cellH,
-            color,
-          );
+          _drawGhost(canvas, cellW * (cur.x + j), cellH * gy, cellW, cellH, color);
         }
       }
     }
 
-    // 下落块（顶部出生区 gy<0 不画）
-    final color = kPieceColors[cur.type]!;
+    // 下落块
+    final color = pieceColors[cur.type];
     for (var i = 0; i < cur.matrix.length; i++) {
       for (var j = 0; j < cur.matrix[i].length; j++) {
         if (cur.matrix[i][j] == 0) continue;
@@ -148,37 +147,22 @@ class _BoardPainter extends CustomPainter {
     }
   }
 
-  void _drawCell(
-    Canvas c,
-    double x,
-    double y,
-    double w,
-    double h,
-    Color color,
-  ) {
+  void _drawCell(Canvas c, double x, double y, double w, double h, Color color) {
     final r = RRect.fromRectAndRadius(
       Rect.fromLTWH(x + 1, y + 1, w - 2, h - 2),
       Radius.circular(math.min(w, h) * 0.14),
     );
     c.drawRRect(r, Paint()..color = color);
-    // 顶部高光
     c.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(x + 2.5, y + 2.5, w - 5, (h - 5) * 0.32),
         const Radius.circular(2),
       ),
-      Paint()..color = Colors.white.withValues(alpha: 0.28),
+      Paint()..color = bc.player2Stone.withValues(alpha: 0.28),
     );
   }
 
-  void _drawGhost(
-    Canvas c,
-    double x,
-    double y,
-    double w,
-    double h,
-    Color color,
-  ) {
+  void _drawGhost(Canvas c, double x, double y, double w, double h, Color color) {
     final r = RRect.fromRectAndRadius(
       Rect.fromLTWH(x + 2, y + 2, w - 4, h - 4),
       const Radius.circular(3),
@@ -193,44 +177,57 @@ class _BoardPainter extends CustomPainter {
     );
   }
 
-  // grid 是 engine 内部 mutate 的同一引用；中途变化引用不变 → 用内容快照不可靠。
-  // 俄罗斯方块每秒重绘几次、仅 200 格，直接恒重绘，零漏帧。
   @override
-  bool shouldRepaint(covariant _BoardPainter old) => true;
+  bool shouldRepaint(covariant _BoardPainter old) =>
+      scheme != old.scheme || pieceColors != old.pieceColors || true;
 }
 
 // ══════════════════════════════════════════════════════════════
-// 单方块预览（Hold / Next 槽）
+// 单方块预览
 // ══════════════════════════════════════════════════════════════
 
 class TetrisPiecePreview extends StatelessWidget {
   const TetrisPiecePreview({super.key, this.type});
-  final int? type; // null = 空
+  final int? type;
 
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 1,
-      child: CustomPaint(painter: _PiecePreviewPainter(type)),
+      child: CustomPaint(
+        painter: _PiecePreviewPainter(
+          scheme: Theme.of(context).colorScheme,
+          bc: context.boardColors,
+          pieceColors: context.gameColors.pieceColors,
+          type: type,
+        ),
+      ),
     );
   }
 }
 
 class _PiecePreviewPainter extends CustomPainter {
-  const _PiecePreviewPainter(this.type);
+  _PiecePreviewPainter({
+    required this.scheme,
+    required this.bc,           // BoardColorStrategy for outer frame
+    required this.pieceColors,
+    required this.type,
+  });
+  final ColorScheme scheme;
+  final BoardColorStrategy bc;
+  final List<Color> pieceColors;
   final int? type;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 外框
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)),
-      Paint()..color = const Color(0xFF1E293B),
+      Paint()..color = bc.background,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)),
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.08)
+        ..color = bc.gridLine
         ..style = PaintingStyle.stroke,
     );
 
@@ -239,11 +236,9 @@ class _PiecePreviewPainter extends CustomPainter {
     final matrix = kPieceMatrices[t];
     if (matrix == null) return;
 
-    // 在 4x4 网格内居中绘制方块的矩阵
     final n = 4.0;
     final cell = size.shortestSide / n;
     final matLen = matrix.length;
-    // 计算方块内容的包围盒，居中
     var minR = matLen, maxR = -1, minC = 99, maxC = -1;
     for (var i = 0; i < matLen; i++) {
       for (var j = 0; j < matrix[i].length; j++) {
@@ -260,19 +255,14 @@ class _PiecePreviewPainter extends CustomPainter {
     final ox = (size.width - boxW) / 2 - minC * cell;
     final oy = (size.height - boxH) / 2 - minR * cell;
 
-    final color = kPieceColors[t]!;
+    final color = pieceColors[t];
     final paint = Paint()..color = color;
     for (var i = 0; i < matLen; i++) {
       for (var j = 0; j < matrix[i].length; j++) {
         if (matrix[i][j] == 0) continue;
         canvas.drawRRect(
           RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-              ox + j * cell + 1,
-              oy + i * cell + 1,
-              cell - 2,
-              cell - 2,
-            ),
+            Rect.fromLTWH(ox + j * cell + 1, oy + i * cell + 1, cell - 2, cell - 2),
             Radius.circular(cell * 0.14),
           ),
           paint,
@@ -282,5 +272,8 @@ class _PiecePreviewPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PiecePreviewPainter old) => old.type != type;
+  bool shouldRepaint(covariant _PiecePreviewPainter old) =>
+      scheme != old.scheme ||
+      pieceColors != old.pieceColors ||
+      type != old.type;
 }

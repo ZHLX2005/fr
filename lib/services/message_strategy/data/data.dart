@@ -13,4 +13,3 @@ export 'card_manager_message_data.dart';
 export 'login_message_data.dart';
 export 'register_message_data.dart';
 export 'receipt_ocr_message_data.dart';
-export 'system_event_message_data.dart';

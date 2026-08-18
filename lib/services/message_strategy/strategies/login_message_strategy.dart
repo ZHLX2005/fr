@@ -142,12 +142,12 @@ class _LoginContentState extends State<_LoginContent> {
             ),
             onPressed: _loading ? null : _submit,
             child: _loading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                     ),
                   )
                 : const Text('登录'),

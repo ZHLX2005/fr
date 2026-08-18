@@ -87,17 +87,21 @@ class AccentFrequency {
 }
 
 /// 重音级别对应的颜色（用于 UI 显示）
+///
+/// 走主题策略通道：强拍→error / 次强拍→tertiary / 弱拍→primary，随主题切换。
 class AccentColor {
   AccentColor._();
 
-  static const Map<AccentLevel, Color> colorMap = {
-    AccentLevel.accent: Color(0xFFE53935), // 红色 - 强拍
-    AccentLevel.medium: Color(0xFFFFA726), // 橙色 - 次强拍
-    AccentLevel.weak: Color(0xFF66BB6A),   // 绿色 - 弱拍
-  };
-
-  static Color getColor(AccentLevel level) {
-    return colorMap[level] ?? Colors.grey;
+  static Color getColor(BuildContext context, AccentLevel level) {
+    final scheme = Theme.of(context).colorScheme;
+    switch (level) {
+      case AccentLevel.accent:
+        return scheme.error;
+      case AccentLevel.medium:
+        return scheme.tertiary;
+      case AccentLevel.weak:
+        return scheme.primary;
+    }
   }
 }
 

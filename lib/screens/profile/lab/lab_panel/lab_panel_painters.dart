@@ -7,8 +7,9 @@ import 'lab_panel_colors.dart';
 class PanelSurfacePainter extends CustomPainter {
   final double progress;
   final LabPanelColors colors;
+  final ColorScheme scheme;
 
-  PanelSurfacePainter({required this.progress, required this.colors});
+  PanelSurfacePainter({required this.progress, required this.colors, required this.scheme});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -25,7 +26,7 @@ class PanelSurfacePainter extends CustomPainter {
     final edgePaint = Paint()
       ..shader = LinearGradient(
         colors: [
-          Colors.white.withValues(alpha: colors.isDark ? 0.18 : 0.95),
+          scheme.surface.withValues(alpha: colors.isDark ? 0.18 : 0.95),
           colors.accentSoft.withValues(alpha: 0.38),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, waveDepth));
@@ -40,8 +41,8 @@ class PanelSurfacePainter extends CustomPainter {
       ..shader =
           RadialGradient(
             colors: [
-              Colors.white.withValues(alpha: colors.isDark ? 0.10 : 0.42),
-              Colors.white.withValues(alpha: 0.0),
+              scheme.surface.withValues(alpha: colors.isDark ? 0.10 : 0.42),
+              scheme.surface.withValues(alpha: 0.0),
             ],
           ).createShader(
             Rect.fromCircle(

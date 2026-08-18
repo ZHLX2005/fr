@@ -290,12 +290,12 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                 title: const Text('Lab'),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.cleaning_services_outlined),
+                    icon: Icon(Icons.cleaning_services_outlined),
                     onPressed: () => _showCacheInfo(context),
                     tooltip: '缓存',
                   ),
                   IconButton(
-                    icon: const Icon(Icons.info_outline),
+                    icon: Icon(Icons.info_outline),
                     onPressed: () => _showLabInfo(context),
                   ),
                 ],
@@ -365,6 +365,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                                   painter: PanelSurfacePainter(
                                     progress: progress,
                                     colors: panelColors,
+                                    scheme: Theme.of(context).colorScheme,
                                   ),
                                 ),
                               ),
@@ -496,8 +497,8 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
               }
             },
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+              foregroundColor: Theme.of(context).colorScheme.error,
+              side: BorderSide(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5)),
             ),
             child: const Text('清空缓存'),
           ),

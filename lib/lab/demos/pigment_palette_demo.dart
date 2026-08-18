@@ -26,6 +26,10 @@ void registerPigmentPaletteDemo() {
   demoRegistry.register(PigmentPaletteDemo());
 }
 
+// 主题豁免：本 demo 的内容就是展示这套"纯白 iOS 风调色板"（F7F7F4 底 /
+// 111111 主字 / 6B6B6B 次字 / 1F7AFF 强调），demo 的设计身份即这些 hex，
+// 不随主题切换。
+
 class PigmentPaletteDemoPage extends StatefulWidget {
   const PigmentPaletteDemoPage({super.key});
 
@@ -36,7 +40,6 @@ class PigmentPaletteDemoPage extends StatefulWidget {
 class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
     with WidgetsBindingObserver {
   static const _pageBackground = Color(0xFFF7F7F4);
-  static const _surfaceColor = Colors.white;
   static const _softTextColor = Color(0xFF6B6B6B);
   static const _primaryTextColor = Color(0xFF111111);
   static const _accentColor = Color(0xFF1F7AFF);
@@ -115,7 +118,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
       backgroundColor: _pageBackground,
       appBar: AppBar(
         backgroundColor: _pageBackground,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
         elevation: 0,
         centerTitle: true,
         title: const Text(
@@ -132,7 +135,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
         top: false,
         child: RefreshIndicator(
           color: _accentColor,
-          backgroundColor: _surfaceColor,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           onRefresh: _refreshStatus,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(
@@ -140,7 +143,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
             ),
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 28),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _HeroPanel(
@@ -148,7 +151,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                       isActive: _isActive,
                       isRefreshing: _isRefreshing,
                     ),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     _SectionCard(
                       title: '权限状态',
                       subtitle: '启动前只需要确认悬浮窗授权，页面返回前会自动刷新状态。',
@@ -164,7 +167,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                                 ? _StatusTone.success
                                 : _StatusTone.danger,
                           ),
-                          const SizedBox(height: 14),
+                          SizedBox(height: 14),
                           Row(
                             children: [
                               Expanded(
@@ -175,7 +178,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                                   prominence: _ButtonProminence.primary,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              SizedBox(width: 10),
                               Expanded(
                                 child: _ActionButton(
                                   label: '刷新状态',
@@ -189,7 +192,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _SectionCard(
                       title: '画板控制',
                       subtitle: '保留纯白控制面板，只在当前页面承载入口和运行反馈。',
@@ -205,7 +208,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                                 ? _StatusTone.accent
                                 : _StatusTone.neutral,
                           ),
-                          const SizedBox(height: 14),
+                          SizedBox(height: 14),
                           Row(
                             children: [
                               Expanded(
@@ -216,7 +219,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                                   prominence: _ButtonProminence.primary,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              SizedBox(width: 10),
                               Expanded(
                                 child: _ActionButton(
                                   label: '停止服务',
@@ -230,7 +233,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     const _GroupedListCard(
                       title: '原生能力',
                       items: [
@@ -241,7 +244,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                         '取色完成后会同步当前颜色和色板状态。',
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     const _GroupedListCard(
                       title: '实现说明',
                       items: [
@@ -250,7 +253,7 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
                         '后续如果继续增强画板能力，建议仍沿用当前原生链路扩展。',
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     Center(
                       child: Text(
                         '下拉可刷新状态',
@@ -282,7 +285,6 @@ class _HeroPanel extends StatelessWidget {
   final bool isActive;
   final bool isRefreshing;
 
-  static const _surfaceColor = Colors.white;
   static const _lineColor = Color(0xFFE7E7E3);
   static const _softTextColor = Color(0xFF6B6B6B);
   static const _primaryTextColor = Color(0xFF111111);
@@ -290,9 +292,9 @@ class _HeroPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+      padding: EdgeInsets.fromLTRB(20, 22, 20, 18),
       decoration: BoxDecoration(
-        color: _surfaceColor,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: _lineColor),
         boxShadow: const [
@@ -316,12 +318,12 @@ class _HeroPanel extends StatelessWidget {
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           const Text(
             '保留现在的白色基调，用更轻的边界、清晰的分组和更克制的操作层级来贴近 iOS 风格。',
             style: TextStyle(fontSize: 14, height: 1.55, color: _softTextColor),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -366,11 +368,11 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE7E7E3)),
+        border: Border.all(color: Theme.of(context).colorScheme.surface),
         boxShadow: const [
           BoxShadow(
             color: Color(0x05000000),
@@ -384,23 +386,23 @@ class _SectionCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.w700,
               color: Color(0xFF111111),
               letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               height: 1.5,
               color: Color(0xFF6B6B6B),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           child,
         ],
       ),
@@ -418,18 +420,18 @@ class _GroupedListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE7E7E3)),
+        border: Border.all(color: Theme.of(context).colorScheme.surface),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+            padding: EdgeInsets.fromLTRB(18, 18, 18, 10),
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF111111),
@@ -439,7 +441,7 @@ class _GroupedListCard extends StatelessWidget {
           ),
           for (var index = 0; index < items.length; index++) ...[
             if (index > 0)
-              const Divider(
+              Divider(
                 height: 1,
                 thickness: 1,
                 color: Color(0xFFF0F0ED),
@@ -447,24 +449,24 @@ class _GroupedListCard extends StatelessWidget {
                 endIndent: 18,
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+              padding: EdgeInsets.fromLTRB(18, 14, 18, 14),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    margin: const EdgeInsets.only(top: 3),
+                    margin: EdgeInsets.only(top: 3),
                     width: 7,
                     height: 7,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: Color(0xFFCACAC5),
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       items[index],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         height: 1.55,
                         color: Color(0xFF303030),
@@ -490,20 +492,20 @@ class _MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F4),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE9E9E5)),
+        border: Border.all(color: Theme.of(context).colorScheme.surface),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF303030)),
-          const SizedBox(width: 8),
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurface),
+          SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: Color(0xFF303030),
@@ -530,40 +532,40 @@ class _StatusRow extends StatelessWidget {
   final String detail;
   final _StatusTone tone;
 
-  Color get _tint {
+  Color _tint(BuildContext context) {
     switch (tone) {
       case _StatusTone.success:
-        return const Color(0xFF24A148);
+        return Theme.of(context).colorScheme.tertiary;
       case _StatusTone.danger:
-        return const Color(0xFFD93025);
+        return Theme.of(context).colorScheme.error;
       case _StatusTone.accent:
-        return const Color(0xFF1F7AFF);
+        return Theme.of(context).colorScheme.primary;
       case _StatusTone.neutral:
-        return const Color(0xFF7A7A7A);
+        return Theme.of(context).colorScheme.outlineVariant;
     }
   }
 
-  Color get _softBackground {
+  Color _softBackground(BuildContext context) {
     switch (tone) {
       case _StatusTone.success:
-        return const Color(0xFFEFF9F1);
+        return Theme.of(context).colorScheme.surface;
       case _StatusTone.danger:
-        return const Color(0xFFFDEEEE);
+        return Theme.of(context).colorScheme.surface;
       case _StatusTone.accent:
-        return const Color(0xFFEEF5FF);
+        return Theme.of(context).colorScheme.surface;
       case _StatusTone.neutral:
-        return const Color(0xFFF3F3F1);
+        return Theme.of(context).colorScheme.surface;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAF8),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFEDEDE8)),
+        border: Border.all(color: Theme.of(context).colorScheme.surface),
       ),
       child: Row(
         children: [
@@ -571,30 +573,30 @@ class _StatusRow extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: _softBackground,
+              color: _softBackground(context),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: _tint, size: 22),
+            child: Icon(icon, color: _tint(context), size: 22),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF111111),
                   ),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Text(
                   detail,
                   style: TextStyle(
                     fontSize: 13,
-                    color: _tint,
+                    color: _tint(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -636,20 +638,20 @@ class _ActionButton extends StatelessWidget {
           // primary = 暗底白字（主操作）；secondary = 描边透明底。
           // 若 primary 只给白字不给暗底，落在白色面板上整块「全白」。
           backgroundColor:
-              isPrimary ? const Color(0xFF111111) : Colors.transparent,
+              isPrimary ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           foregroundColor:
-              isPrimary ? Colors.white : const Color(0xFF111111),
+              isPrimary ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.onSurface,
           disabledBackgroundColor:
-              isPrimary ? const Color(0xFFE8E8E5) : Colors.transparent,
-          disabledForegroundColor: const Color(0xFF9A9A96),
+              isPrimary ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+          disabledForegroundColor: Theme.of(context).colorScheme.outlineVariant,
           side: BorderSide(
             color: (isPrimary
-                    ? const Color(0xFF111111)
-                    : const Color(0xFF111111))
+                    ? Theme.of(context).colorScheme.onSurface
+                    : Theme.of(context).colorScheme.onSurface)
                 .withValues(alpha: 0.5),
           ),
           elevation: 0,
-          textStyle: const TextStyle(
+          textStyle: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.1,

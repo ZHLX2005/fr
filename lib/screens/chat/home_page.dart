@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/ai_chat/ai_chat_format/format_compatibility_page.dart';
 import '../../core/ai_chat/ai_chat_sports/agent_chat_page.dart';
 import '../../core/ai_chat/receipt_ocr/receipt_ocr_page.dart';
-import '../../core/ai_chat/system_messages/system_events_controller.dart';
-import '../../core/ai_chat/system_messages/system_messages_page.dart';
 
 /// AI 助手功能入口条目配置。
 ///
@@ -17,21 +15,16 @@ class AssistantEntry {
   final Color Function(BuildContext) color; // 主题色（依赖 Theme）
   final Widget Function(BuildContext) builder; // 目标页面
 
-  /// 可选徽章（如"未读消息数"小红点）。传 null 则不显示。
-  /// 用 builder 是因为未读数通常是响应式数据（需要 ListenableBuilder）。
-  final Widget Function(BuildContext)? badgeBuilder;
-
   const AssistantEntry({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.color,
     required this.builder,
-    this.badgeBuilder,
   });
 }
 
-/// 功能列表单一数据源。加第 N 个功能 = 在此追加一项。
+/// 功能列表单一数据源。加第三个功能 = 在此追加一项。
 final List<AssistantEntry> _entries = [
   AssistantEntry(
     icon: Icons.assistant,
@@ -54,36 +47,6 @@ final List<AssistantEntry> _entries = [
     color: (context) => Theme.of(context).colorScheme.tertiary,
     builder: (context) => const ReceiptOcrPage(),
   ),
-  AssistantEntry(
-    icon: Icons.smart_toy,
-    title: '小助手',
-    subtitle: '后台事件汇报（APK 下载 / 崩溃日志）',
-    color: (context) => Colors.teal,
-    builder: (context) => const SystemMessagesPage(),
-    // 未读系统消息数（响应式：监听 SystemEventsController）
-    badgeBuilder: (context) => ListenableBuilder(
-      listenable: SystemEventsController(),
-      builder: (context, _) {
-        final n = SystemEventsController().unreadCount;
-        if (n == 0) return const SizedBox.shrink();
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            n > 99 ? '99+' : '$n',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        );
-      },
-    ),
-  ),
 ];
 
 class HomePage extends StatelessWidget {
@@ -91,36 +54,33 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 标题区：紧凑
+            const SizedBox(height: 20),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 'AI 助手',
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ),
-            // 列表：无边框设计，仅靠细分隔线隐式划界
+            const SizedBox(height: 8),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: _entries.length,
-                // 分隔线：从图标右侧开始（22 icon + 14 gap + 16 padding = 52），
-                // 细淡色，高度极小，视觉上只是一道隐约的线
-                separatorBuilder: (context, index) => Divider(
+                separatorBuilder: (context, index) => const Divider(
                   height: 1,
-                  thickness: 0.5,
-                  indent: 52,
+                  indent: 84,
                   endIndent: 16,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
                 ),
                 itemBuilder: (context, index) =>
                     _AssistantTile(entry: _entries[index]),
@@ -133,8 +93,7 @@ class HomePage extends StatelessWidget {
   }
 }
 
-/// IM 风格功能条目：紧凑无边框，图标 + 标题/副标题 + 箭头，靠左侧对齐。
-/// 高度 ~52px（原来的 60%），4 条 items 在同屏内不溢出。
+/// IM 风格功能条目：最左圆形头像图标、中间主题+简介、最右进入箭头。
 class _AssistantTile extends StatelessWidget {
   final AssistantEntry entry;
 
@@ -143,74 +102,35 @@ class _AssistantTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = entry.color(context);
-    final badge = entry.badgeBuilder?.call(context);
-    final theme = Theme.of(context);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: entry.builder),
-          );
-        },
-        // 左对齐：去掉 ListTile 默认的大水平 padding
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              // 左侧图标：无圆形容器，纯色图标 + badge
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(entry.icon, size: 22, color: color),
-                  if (badge != null)
-                    Positioned(
-                      right: -8,
-                      top: -6,
-                      child: badge,
-                    ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              // 中间：标题 + 副标题（垂直对齐，标题加粗，副标题浅色小字）
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      entry.title,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      entry.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                        fontSize: 12,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // 右侧箭头：弱化，用 opacity 控制
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
-              ),
-            ],
-          ),
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: CircleAvatar(
+        radius: 26,
+        backgroundColor: color.withValues(alpha: 0.1),
+        child: Icon(entry.icon, size: 28, color: color),
+      ),
+      title: Text(
+        entry.title,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text(
+        entry.subtitle,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
         ),
       ),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+      ),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: entry.builder),
+        );
+      },
     );
   }
 }

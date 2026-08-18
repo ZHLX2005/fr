@@ -250,17 +250,17 @@ class _SongDetailPanelState extends State<SongDetailPanel>
   Color _gradeColor(String grade) {
     switch (grade) {
       case 'P':
-        return const Color(0xFFc44dff);
+        return Theme.of(context).colorScheme.tertiary;
       case 'S':
-        return const Color(0xFFffd700);
+        return Theme.of(context).colorScheme.tertiary;
       case 'A':
-        return const Color(0xFF4fc3f7);
+        return Theme.of(context).colorScheme.tertiary;
       case 'B':
-        return const Color(0xFF81c784);
+        return Theme.of(context).colorScheme.tertiary;
       case 'C':
-        return const Color(0xFFffb74d);
+        return Theme.of(context).colorScheme.tertiary;
       default:
-        return const Color(0xFFe57373);
+        return Theme.of(context).colorScheme.error;
     }
   }
 

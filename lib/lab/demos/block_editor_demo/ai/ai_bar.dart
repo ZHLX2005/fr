@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 import 'package:flutter/services.dart';
 
 /// 内联 AI 输入栏 — 空格触发后替换 block 的 TextField
@@ -57,14 +58,14 @@ class _AiBarState extends State<AiBar> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme = context.colors.scheme;
 
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: colorScheme.primary, width: 1.5),
         borderRadius: BorderRadius.circular(8),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       child: Focus(
         onKeyEvent: (node, event) {
           if (widget.isLoading) return KeyEventResult.ignored;
@@ -96,7 +97,7 @@ class _AiBarState extends State<AiBar> {
             color: colorScheme.primary,
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Expanded(
           child: Text(
             'AI 思考中...',
@@ -107,7 +108,7 @@ class _AiBarState extends State<AiBar> {
           onTap: widget.onCancel,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(2),
+            padding: EdgeInsets.all(2),
             child: Icon(
               Icons.close,
               size: 16,
@@ -125,7 +126,7 @@ class _AiBarState extends State<AiBar> {
         Container(
           width: 24,
           height: 24,
-          margin: const EdgeInsets.only(right: 8),
+          margin: EdgeInsets.only(right: 8),
           decoration: BoxDecoration(
             color: colorScheme.primaryContainer,
             shape: BoxShape.circle,
@@ -158,7 +159,7 @@ class _AiBarState extends State<AiBar> {
         Container(
           width: 28,
           height: 28,
-          margin: const EdgeInsets.only(left: 4),
+          margin: EdgeInsets.only(left: 4),
           decoration: BoxDecoration(
             color: colorScheme.primaryContainer,
             shape: BoxShape.circle,

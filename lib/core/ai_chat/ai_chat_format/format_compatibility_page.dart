@@ -99,8 +99,8 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                 color: theme.colorScheme.secondary,
               ),
             ),
-            const SizedBox(width: 8),
-            const Expanded(
+            SizedBox(width: 8),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -108,7 +108,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                   Text('Format 测试', style: TextStyle(fontSize: 16)),
                   Text(
                     '消息策略聚合（含登录/注册）',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -117,7 +117,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _reset,
             tooltip: '重置',
           ),
@@ -184,7 +184,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
               size: 44,
               color: hintColor.withValues(alpha: 0.5),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               '面板为空',
               style: TextStyle(
@@ -193,7 +193,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                 color: hintColor,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
               '在底部输入 type 或点下方胶囊唤出卡片\n'
               '输入 card_manager 可唤出卡片管理器',
@@ -217,7 +217,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -250,7 +250,7 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                 onSubmitted: (value) => _handleSend(value),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             _SendButton(
               onPressed: () => _handleSend(_inputController.text),
             ),
@@ -379,7 +379,7 @@ class _TypeChipStrip extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: types.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => SizedBox(width: 8),
         itemBuilder: (context, index) {
           final type = types[index];
           return Center(

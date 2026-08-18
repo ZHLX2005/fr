@@ -7,6 +7,12 @@
 //   - 标题跟随 phase：等待对手 → 双方已就绪
 //
 // playing 内核（本地实时非回合制）完全保留不动。
+//
+// 颜色策略（v6.2）：vs-room 模板的对话框 Toast / 警示色（_warnColor = scheme.error 派生的朱红）/
+// 就绪色（#16A34A 绿）/ 遮罩色（Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)/white70 等）是 versus-game-room 模板
+// 的"独立暗色游戏场景"设计决策 —— 切到 zen 米底主题时对战房间仍保持深色 + 警示色更清晰，
+// 与通用主题策略（context.colors）解耦。该设计同时被 reversi_lua/widgets.dart 与
+// surround_game_lua/widgets.dart 共享，改造需保持模板统一性，因此保留硬编码。
 
 import 'dart:async';
 
@@ -131,7 +137,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
           hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.6)),
           isDense: true,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           filled: true,
           fillColor: theme.btnBg,
           border: OutlineInputBorder(
@@ -157,7 +163,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         textAlignVertical: TextAlignVertical.center,
         onChanged: LuaGameAlias.save,
       ),
-      const SizedBox(height: 12),
+      SizedBox(height: 12),
       TextField(
         controller: _codeCtrl,
         decoration: inputDec('房间号（4–6 位大写字母数字）'),
@@ -173,20 +179,20 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         maxLength: 6,
         onSubmitted: (_) => _busy ? null : _go(),
       ),
-      const SizedBox(height: 12),
+      SizedBox(height: 12),
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: theme.btnText.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
-            padding: const EdgeInsets.only(top: 1),
+            padding: EdgeInsets.only(top: 1),
             child:
                 Text('◐', style: TextStyle(color: theme.btnSub, fontSize: 13)),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               '输入同一号码即可对战，谁先到谁是房主',
@@ -196,30 +202,30 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         ]),
       ),
       if (_error != null) ...[
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: _warnColor.withValues(alpha: 0.08),
+            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 1),
-              child: Text('◉', style: TextStyle(color: _warnColor, fontSize: 12)),
+              child: Text('◉', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Expanded(
               child: Text(
                 _error!,
-                style: const TextStyle(
-                    color: _warnColor, fontSize: 12, height: 1.4),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.error, fontSize: 12, height: 1.4),
               ),
             ),
           ]),
         ),
       ],
-      const SizedBox(height: 20),
+      SizedBox(height: 20),
       SizedBox(
         width: double.infinity,
         height: 48,
@@ -252,7 +258,6 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
 }
 
 /// 暖红色（错误提示，避免纯红）
-const Color _warnColor = Color(0xFFB33A1F);
 
 /// 断线重连连续失败的判定次数（join 失败按 0.5s·2^n 退避重试）
 const int kMaxRecoverAttempts = 5;
@@ -557,18 +562,18 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       children: [
         content,
         ColoredBox(
-          color: Colors.black54,
+          color: Theme.of(context).colorScheme.scrim,
           child: Center(
             child: _recoverFailed
                 ? _buildRecoverFailed()
-                : const Column(
+                : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 12),
                       Text(
                         '连接断开，正在重连…',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                       ),
                     ],
                   ),
@@ -584,15 +589,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
+        Text(
           '连接恢复失败',
           style: TextStyle(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.onPrimary,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         OutlinedButton(
           onPressed: widget.onLeave,
           style: OutlinedButton.styleFrom(
@@ -625,7 +630,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Container(
@@ -635,13 +640,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   border: Border.all(color: theme.panelBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
+                padding: EdgeInsets.fromLTRB(28, 28, 28, 28),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -652,13 +657,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                         )),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Container(width: 24, height: 2, color: theme.btnText),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
 
                     // 房间号 chip
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
                         color: theme.btnText.withValues(alpha: 0.05),
@@ -679,21 +684,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 22),
+                    SizedBox(height: 22),
 
                     // 玩家列表（圆环头像 + ACK 状态）
                     ...players.entries.map((e) {
                       final isMe = e.key == myId;
                       final isReady = readyMap[e.key] == true;
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: EdgeInsets.symmetric(vertical: 6),
                         child: Row(children: [
                           _ReadyAvatar(
                             name: e.value,
                             isReady: isReady,
                             color: theme.btnText,
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: 14),
                           Expanded(
                             child: Text(
                               '${e.value}${isMe ? "  (我)" : ""}',
@@ -707,11 +712,11 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: isReady
-                                  ? const Color(0xFF16A34A)
+                                  ? Theme.of(context).colorScheme.primary
                                       .withValues(alpha: 0.12)
                                   : theme.btnSub.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
@@ -720,7 +725,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                               isReady ? '已准备 ✓' : '未准备',
                               style: TextStyle(
                                 color: isReady
-                                    ? const Color(0xFF16A34A)
+                                    ? Theme.of(context).colorScheme.primary
                                     : theme.btnSub,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -733,7 +738,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     }),
 
                     if (players.length < 2) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       Text(
                         '把房间号发给朋友',
                         style: TextStyle(
@@ -745,7 +750,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     ],
 
                     if (players.length >= 2) ...[
-                      const SizedBox(height: 22),
+                      SizedBox(height: 22),
                       SizedBox(
                         width: double.infinity,
                         height: 48,
@@ -807,9 +812,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                     onPressed: canAck ? _ack : null,
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor:
-                                          const Color(0xFF16A34A),
-                                      side: const BorderSide(
-                                        color: Color(0xFF16A34A),
+                                          Theme.of(context).colorScheme.primary,
+                                      side: BorderSide(
+                                        color: Theme.of(context).colorScheme.primary,
                                         width: 1.6,
                                       ),
                                       shape: RoundedRectangleBorder(
@@ -846,25 +851,25 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final opp = oppId == null ? null : TetrisRoom.stateOf(_snap, oppId);
     final eng = _engine;
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1120),
+      backgroundColor: Theme.of(context).colorScheme.scrim,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Column(
             children: [
               _buildOpponentBar(theme, oppId, opp),
               Expanded(
                 child: eng == null
-                    ? const Center(child: CircularProgressIndicator())
+                    ? Center(child: CircularProgressIndicator())
                     : Stack(
                         fit: StackFit.expand,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            padding: EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               children: [
                                 _buildSidePanel(eng),
-                                const SizedBox(width: 8),
+                                SizedBox(width: 8),
                                 Expanded(
                                   child: AnimatedBuilder(
                                     animation: eng,
@@ -900,7 +905,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         ? '?'
         : (TetrisRoom.players(_snap)[oppId] ?? '对手');
     return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 6),
+      padding: EdgeInsets.only(top: 4, bottom: 6),
       child: SizedBox(
         height: 84,
         child: Row(
@@ -910,17 +915,17 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               height: 84,
               child: opp == null
                   ? Container(
-                      color: const Color(0xFF1E293B),
-                      child: const Center(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: Center(
                         child: Icon(
                           Icons.person_outline,
-                          color: Colors.white38,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
                         ),
                       ),
                     )
                   : TetrisMiniBoard(board: opp.board),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -930,35 +935,34 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     alias,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     '分数 ${opp?.score ?? 0}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70), fontSize: 12),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     '消行 ${opp?.lines ?? 0}',
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 11),
                   ),
                 ],
               ),
             ),
             if (opp != null && !opp.alive)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.2),
+                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.20),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  '已 GG',
-                  style: TextStyle(color: Colors.redAccent, fontSize: 11),
+                child: Text(
+                  '已 GG', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 11),
                 ),
               ),
           ],
@@ -985,10 +989,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             Column(
               children: [
                 _stat('分数', '${eng.score}', kTetrisAccent),
-                const SizedBox(height: 6),
-                _stat('消行', '${eng.lines}', Colors.greenAccent),
-                const SizedBox(height: 6),
-                _stat('等级', '${eng.level}', Colors.amberAccent),
+                SizedBox(height: 6),
+                _stat('消行', '${eng.lines}', Theme.of(context).colorScheme.primary),
+                SizedBox(height: 6),
+                _stat('等级', '${eng.level}', Theme.of(context).colorScheme.tertiary),
               ],
             ),
           ],
@@ -1002,13 +1006,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     children: [
       Text(
         label,
-        style: const TextStyle(
-          color: Colors.white54,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
           fontSize: 10,
           letterSpacing: 1,
         ),
       ),
-      const SizedBox(height: 4),
+      SizedBox(height: 4),
       SizedBox(width: 56, height: 56, child: child),
     ],
   );
@@ -1016,7 +1020,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _stat(String label, String value, Color color) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+      Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38), fontSize: 9)),
       Text(
         value,
         style: TextStyle(
@@ -1032,7 +1036,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final eng = _engine;
     final dead = eng != null && !eng.alive;
     return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 6),
+      padding: EdgeInsets.only(top: 4, bottom: 6),
       child: Row(
         children: [
           // 左半：方向键（左移 / 软降 / 右移，长按连发）
@@ -1060,7 +1064,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               ],
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           // 右半：动作键（左旋 / 右旋 / 硬降，单次）
           Expanded(
             child: Row(
@@ -1110,17 +1114,17 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         onTapUp: repeat == null ? null : (_) => _endRepeat(),
         onTapCancel: repeat == null ? null : _endRepeat,
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+          margin: EdgeInsets.symmetric(horizontal: 3, vertical: 4),
           height: 58,
           decoration: BoxDecoration(
             color: accent
                 ? kTetrisAccent.withValues(alpha: 0.18)
-                : const Color(0xFF1E293B),
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: accent
                   ? kTetrisAccent.withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.08),
+                  : Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.08),
             ),
           ),
           child: Opacity(
@@ -1130,14 +1134,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               children: [
                 Icon(
                   icon,
-                  color: accent ? kTetrisAccent : Colors.white,
+                  color: accent ? kTetrisAccent : Theme.of(context).colorScheme.onPrimary,
                   size: 24,
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   label,
                   style: TextStyle(
-                    color: accent ? kTetrisAccent : Colors.white54,
+                    color: accent ? kTetrisAccent : Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.54),
                     fontSize: 9,
                   ),
                 ),
@@ -1162,11 +1166,11 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final myFin = TetrisRoom.finishedOf(_snap, myId);
     final oppFin = TetrisRoom.finishedOf(_snap, oppId ?? '');
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1120),
+      backgroundColor: Theme.of(context).colorScheme.scrim,
       body: SafeArea(
         child: Center(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+            padding: EdgeInsets.symmetric(horizontal: 32, vertical: 28),
             decoration: BoxDecoration(
               color: theme.panelBg,
               borderRadius: BorderRadius.circular(16),
@@ -1177,34 +1181,34 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 Icon(
                   iWon ? Icons.emoji_events : Icons.sentiment_dissatisfied,
                   size: 48,
-                  color: iWon ? Colors.amberAccent : Colors.redAccent,
+                  color: iWon ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.error,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   msg,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: iWon ? Colors.amberAccent : Colors.redAccent,
+                    color: iWon ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.error,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   '按最终分判定（先 GG 扣 ${myFin?.penalty ?? oppFin?.penalty ?? 500}）',
                   style: TextStyle(color: theme.btnSub, fontSize: 11),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 // 比分明细
                 _scoreRow('我', myFin?.score, myFin, true, theme),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 _scoreRow(oppAlias, oppFin?.score, oppFin, false, theme),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 if (_room.isHost)
                   OutlinedButton(
                     onPressed: _reset,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kTetrisAccent,
-                      side: const BorderSide(color: kTetrisAccent),
+                      side: BorderSide(color: kTetrisAccent),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
@@ -1255,16 +1259,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           ),
         ),
         if (fin != null && fin.penalty > 0) ...[
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
             '(原 ${fin.rawScore} −${fin.penalty})',
             style: TextStyle(
-              color: Colors.redAccent.withValues(alpha: 0.8),
+              color: Theme.of(context).colorScheme.error.withValues(alpha: 0.8),
               fontSize: 10,
             ),
           ),
         ] else if (fin != null) ...[
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
             '(原 ${fin.rawScore})',
             style: TextStyle(color: theme.btnSub, fontSize: 10),
@@ -1282,29 +1286,29 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   ) {
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withValues(alpha: 0.55),
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.hourglass_top,
-                color: Colors.amberAccent,
+                color: Theme.of(context).colorScheme.tertiary,
                 size: 40,
               ),
-              const SizedBox(height: 12),
-              const Text(
+              SizedBox(height: 12),
+              Text(
                 '你已 GG，等待对手完成…',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 '对手当前分数 ${opp?.score ?? 0}',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70), fontSize: 13),
               ),
             ],
           ),
@@ -1350,19 +1354,19 @@ class _ReadyAvatar extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isReady
-                  ? const Color(0xFF16A34A).withValues(alpha: 0.12)
-                  : Colors.transparent,
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+                  : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
               border: Border.all(
                 color: isReady
-                    ? const Color(0xFF16A34A)
+                    ? Theme.of(context).colorScheme.primary
                     : color.withValues(alpha: 0.35),
                 width: isReady ? 2.4 : 1.6,
               ),
             ),
           ),
           if (isReady)
-            const Icon(Icons.check_rounded,
-                size: 22, color: Color(0xFF16A34A))
+            Icon(Icons.check_rounded,
+                size: 22, color: Theme.of(context).colorScheme.primary)
           else
             Text(
               letter,

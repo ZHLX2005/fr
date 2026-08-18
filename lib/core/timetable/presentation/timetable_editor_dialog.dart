@@ -162,7 +162,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
         // 半透明遮罩
         GestureDetector(
           onTap: widget.onClose,
-          child: Container(color: Colors.black26),
+          child: Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.26)),
         ),
         // 居中的对话框
         Center(
@@ -174,7 +174,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
               width: 340,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: TimetableColors.border, width: 1),
+                border: Border.all(color: TimetableColors.border(context), width: 1),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -204,7 +204,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                                 isEditing ? '编辑课程' : '添加课程',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: TimetableColors.textPrimary,
+                                  color: TimetableColors.textPrimary(context),
                                 ),
                               ),
                             ),
@@ -225,7 +225,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                               child: Text(
                                 '第${widget.dayOfCycle + 1}天 · 第${widget.slotIndex + 1}节',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: TimetableColors.textSecondary,
+                                  color: TimetableColors.textSecondary(context),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -291,7 +291,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                                         ),
                                         color: isSelected
                                             ? theme.colorScheme.outline.withValues(alpha: 0.08)
-                                            : Colors.transparent,
+                                            : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                                       ),
                                       child: Text(
                                         course.title,
@@ -300,7 +300,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                                           color: isSelected
                                               ? theme.colorScheme.outline
-                                              : TimetableColors.textPrimary,
+                                              : TimetableColors.textPrimary(context),
                                         ),
                                       ),
                                     ),
@@ -322,7 +322,7 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                       children: [
                         TextField(
                           controller: _titleController,
-                          style: const TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: 14),
                           decoration: InputDecoration(
                             labelText: '课程名称 *',
                             hintText: '例如：高等数学',
@@ -336,11 +336,11 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                         const SizedBox(height: 16),
                         TextField(
                           controller: _locationController,
-                          style: const TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: 14),
                           decoration: InputDecoration(
                             labelText: '地点',
                             hintText: '例如：教学楼A101',
-                            prefixIcon: const Icon(
+                            prefixIcon: Icon(
                               Icons.location_on_outlined,
                               size: 18,
                             ),
@@ -352,11 +352,11 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
                         const SizedBox(height: 16),
                         TextField(
                           controller: _teacherController,
-                          style: const TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: 14),
                           decoration: InputDecoration(
                             labelText: '老师',
                             hintText: 'xx',
-                            prefixIcon: const Icon(
+                            prefixIcon: Icon(
                               Icons.person_outline,
                               size: 18,
                             ),

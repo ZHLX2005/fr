@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../widgets/context_colors.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'recorder_controller.dart';
 import 'const_recorder.dart';
 import 'recorder_list_page.dart';
 import 'waveform_view.dart';
+import '../../../widgets/base/base_icon_button.dart';
 import '../../../widgets/theme/zen_theme.dart';
 
 /// 录音机 widget 桥接 —— 给桌面 widget 点击后的 autostart 用。
@@ -131,7 +133,7 @@ class RecorderPageScaffold extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onDiscard;
 
-  const RecorderPageScaffold({
+  RecorderPageScaffold({
     super.key,
     required this.controller,
     required this.onStart,
@@ -145,12 +147,13 @@ class RecorderPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return zenPageScaffold(
-      title: '录音机',
+      context: context,
+  title: '录音机',
       actions: [
         ZenIconButton(
           icon: Icons.library_music_outlined,
-          color: ZenColors.ink,
-          variant: ZenIconButtonVariant.outline,
+          color: context.colors.text,
+          variant: BaseIconButtonVariant.outline,
           size: 40,
           iconSize: 20,
           onTap: () => Navigator.of(context).push(
@@ -159,22 +162,22 @@ class RecorderPageScaffold extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
       ],
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _FormatInfoSection(),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _WaveformSection(controller: controller),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _LevelSection(controller: controller),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               _ElapsedDisplay(listenable: controller.tickListenable),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               _ControlPanel(
                 controller: controller,
                 onStart: onStart,
@@ -184,9 +187,9 @@ class RecorderPageScaffold extends StatelessWidget {
                 onSave: onSave,
                 onDiscard: onDiscard,
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               _LastRecordingCard(controller: controller),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _PermissionBanner(controller: controller),
             ],
           ),
@@ -226,22 +229,22 @@ class _WaveformSection extends StatelessWidget {
       builder: (context, _) {
         final isLive = controller.state == RecorderState.recording;
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: zenCard(),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: zenCardTheme(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  ZenDot(active: isLive, color: ZenColors.mutedRed),
-                  const SizedBox(width: 8),
+                  ZenDot(),
+                  SizedBox(width: 8),
                   Text(
                     isLive ? '正在录音' : _stateLabel(controller.state),
                     style: ZenText.label,
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               WaveformView(
                 dbListenable: controller.dbListenable,
                 active: isLive,
@@ -273,8 +276,8 @@ class _LevelSection extends StatelessWidget {
       builder: (context, _) {
         final isLive = controller.state == RecorderState.recording;
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: zenCard(),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: zenCardTheme(context),
           child: LevelMeterView(
             dbListenable: controller.dbListenable,
             active: isLive,
@@ -340,24 +343,24 @@ class _ControlPanel extends StatelessWidget {
           case RecorderState.recording:
             return _CenterControls([
               _OutlineBtn(
-                  icon: Icons.pause, label: '暂停', color: ZenColors.secondary, onTap: onPause),
-              const SizedBox(width: 24),
+                  icon: Icons.pause, label: '暂停', color: context.colors.textMuted, onTap: onPause),
+              SizedBox(width: 24),
               _HeroRecord(onTap: () async => onStop(), icon: Icons.stop),
             ]);
           case RecorderState.paused:
             return _CenterControls([
               _OutlineBtn(
-                  icon: Icons.play_arrow, label: '继续', color: ZenColors.sage, onTap: onResume),
-              const SizedBox(width: 24),
+                  icon: Icons.play_arrow, label: '继续', color: context.colors.accent, onTap: onResume),
+              SizedBox(width: 24),
               _HeroRecord(onTap: () async => onStop(), icon: Icons.stop),
             ]);
           case RecorderState.stopped:
             return _CenterControls([
               _OutlineBtn(
-                  icon: Icons.check, label: '保存', color: ZenColors.sage, onTap: () async => onSave()),
-              const SizedBox(width: 24),
+                  icon: Icons.check, label: '保存', color: context.colors.accent, onTap: () async => onSave()),
+              SizedBox(width: 24),
               _OutlineBtn(
-                  icon: Icons.close, label: '放弃', color: ZenColors.mutedRed, onTap: () async => onDiscard()),
+                  icon: Icons.close, label: '放弃', color: context.colors.danger, onTap: () async => onDiscard()),
             ]);
         }
       },
@@ -390,26 +393,26 @@ class _HeroRecord extends StatelessWidget {
     // 本地自绘 hero 键 —— ZenIconButton.hero 硬编码 sage,忽略 color 参数
     // (clocks/metronome/track 依赖该 sage 行为,不改 zen_theme)。
     // 这里直接复刻 hero 视觉规格(80×80 圆 + 0.4 alpha 阴影 + 48px 白图标),
-    // 但把底色换成 ZenColors.mutedRed,使录音/停止键与状态指示器同色。
+    // 但把底色换成 context.colors.danger,使录音/停止键与状态指示器同色。
     return InkWell(
       onTap: () async => await onTap(),
-      customBorder: const CircleBorder(),
+      customBorder: CircleBorder(),
       child: Container(
         width: 80,
         height: 80,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: ZenColors.mutedRed,
+          color: context.colors.danger,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: ZenColors.mutedRed.withValues(alpha: 0.4),
+              color: context.colors.danger.withValues(alpha: 0.4),
               blurRadius: 20,
               spreadRadius: 2,
             ),
           ],
         ),
-        child: Icon(icon, color: Colors.white, size: 48),
+        child: Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 48),
       ),
     );
   }
@@ -433,16 +436,16 @@ class _OutlineBtn extends StatelessWidget {
       onTap: () async => await onTap(),
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: ZenColors.hair),
+          border: Border.all(color: context.colors.outline),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: color, size: 22),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(label, style: ZenText.label.copyWith(color: color)),
           ],
         ),
@@ -471,12 +474,12 @@ class _LastRecordingCard extends StatelessWidget {
         final sizeKb = (controller.lastFileSize / 1024).toStringAsFixed(1);
         final name = path.split(Platform.pathSeparator).last;
         return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: zenCard(),
+          padding: EdgeInsets.all(12),
+          decoration: zenCardTheme(context),
           child: Row(
             children: [
-              const Icon(Icons.audiotrack, color: ZenColors.sage),
-              const SizedBox(width: 12),
+              Icon(Icons.audiotrack, color: context.colors.accent),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,28 +513,28 @@ class _PermissionBanner extends StatelessWidget {
         final status = controller.permissionStatus;
         if (status == RecorderPermissionStatus.granted ||
             status == RecorderPermissionStatus.unknown) {
-          return const SizedBox.shrink();
+          return SizedBox.shrink();
         }
         final isPermanent = status == RecorderPermissionStatus.permanentlyDenied;
         return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: zenCard(color: ZenColors.mutedRed.withValues(alpha: 0.06)),
+          padding: EdgeInsets.all(12),
+          decoration: zenCard(color: context.colors.danger.withValues(alpha: 0.06)),
           child: Row(
             children: [
-              const Icon(Icons.mic_off, color: ZenColors.mutedRed, size: 20),
-              const SizedBox(width: 12),
+              Icon(Icons.mic_off, color: context.colors.danger, size: 20),
+              SizedBox(width: 12),
               Expanded(
                 child: Text(
                   isPermanent
                       ? RecorderUiText.permissionDeniedHint
                       : RecorderUiText.requestPermission,
-                  style: ZenText.label.copyWith(color: ZenColors.mutedRed),
+                  style: ZenText.label.copyWith(color: context.colors.danger),
                 ),
               ),
               OutlinedButton(
-                style: zenButton(
-                  foreground: ZenColors.mutedRed,
-                  border: ZenColors.mutedRed,
+                style: zenButtonTheme(context,
+                  foreground: context.colors.danger,
+                  border: context.colors.danger,
                 ),
                 onPressed: () => controller.ensurePermission(),
                 child: Text(isPermanent ? '打开设置' : '授权'),
