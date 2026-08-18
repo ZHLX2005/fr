@@ -12,9 +12,9 @@ import 'calendar/ui/people_view.dart';
 import 'calendar/ui/week_view.dart';
 import 'calendar/ui/widgets/pill_segmented.dart';
 import 'calendar/ui/year_view.dart';
+import 'calendar/service/config/calendar_settings_page.dart';
 import '../../core/theme/paper_palette.dart';
 import '../../core/theme/typography.dart';
-import 'service/config/calendar_settings_page.dart';
 
 /// 日历待办 Demo（v2 进化版）
 ///
@@ -135,7 +135,7 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
             tooltip: '日历设置（group / DSL）',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => const CalendarSettingsPage(),
+                builder: (_) => CalendarSettingsPage(),
                 fullscreenDialog: true,
               ),
             ),
