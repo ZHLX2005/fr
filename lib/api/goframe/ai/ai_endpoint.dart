@@ -73,8 +73,8 @@ class AiEndpoint {
           if (type != null && type.isNotEmpty) 'type': type,
           'template': template,
           'customPrompt': customPrompt,
-          'images': ?images,
-          'maxTokens': ?maxTokens,
+          if (images != null) 'images': images,
+          if (maxTokens != null) 'maxTokens': maxTokens,
         },
         fromJson: (json) => FlexChatResponse.fromJson(json),
       );
