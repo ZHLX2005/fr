@@ -15,6 +15,7 @@ import 'lab/demos/clock/providers/lab_clock_provider.dart';
 import 'core/storage/hive/body_record_repository.dart';
 import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
+import 'core/ai_chat/system_messages/system_events_controller.dart';
 import 'core/note/note_root_scope.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
@@ -54,6 +55,11 @@ void main() async {
 
   // 初始化消息策略
   registerMessageStrategies();
+
+  // 系统消息持久化恢复：把上次会话的事件列表从 SharedPreferences 加载
+  // 回 SystemEventsController（不 await —— 恢复内部会把磁盘旧事件合并到
+  // 已 append 的新事件之前，启动钩子先写入也不会丢）。
+  unawaited(SystemEventsController().restore());
 
   // 初始化笔记模块
   final noteRoot = NoteFactory.create();

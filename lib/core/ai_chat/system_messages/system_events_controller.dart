@@ -8,13 +8,23 @@
 //     可清空，不消费）
 //
 // 上限保护：默认 200 条；超过自动截断最早的事件，避免长时间运行内存增长。
+//
+// 持久化：事件 + 已读下标以 JSON 存入 SharedPreferences（异步落盘），
+// 冷启动后 restore() 恢复 —— 避免"重新进入 App 后消息列表消失"。
+// 竞态保护：main() 里 crash 摄入等启动钩子可能在 restore 完成前就
+// append()；恢复时把磁盘上的旧事件插到已有新事件前面，不丢任何一方。
+
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/message_strategy/interfaces/interfaces.dart';
 import '../../../services/message_strategy/data/system_event_message_data.dart';
 
 const int _kMaxEvents = 200;
+const String _kPrefsKey = 'system_events_controller.v1';
+const String _kPrefsReadIndexKey = 'system_events_controller.read_index.v1';
 
 /// 系统事件控制器（GetIt 单例 + ChangeNotifier）。
 class SystemEventsController extends ChangeNotifier {
@@ -23,6 +33,9 @@ class SystemEventsController extends ChangeNotifier {
   factory SystemEventsController() => _instance;
 
   final List<SystemEventMessageData> _events = [];
+
+  /// 恢复任务守卫：restore() 只生效一次（重复调用直接返回同一 Future）。
+  Future<void>? _restoreFuture;
 
   /// 用户"最后已读"事件下标（含）。当用户在消息页打开时调用
   /// [markAllRead]，未读徽章从 [_events.length - lastReadIndex] 计算。
@@ -72,6 +85,7 @@ class SystemEventsController extends ChangeNotifier {
       _events.removeRange(0, drop);
       _lastReadIndex = (_lastReadIndex - drop).clamp(0, _events.length);
     }
+    _schedulePersist();
     notifyListeners();
   }
 
@@ -79,6 +93,7 @@ class SystemEventsController extends ChangeNotifier {
   void markAllRead() {
     if (_lastReadIndex == _events.length) return;
     _lastReadIndex = _events.length;
+    _schedulePersist();
     notifyListeners();
   }
 
@@ -87,6 +102,80 @@ class SystemEventsController extends ChangeNotifier {
     if (_events.isEmpty && _lastReadIndex == 0) return;
     _events.clear();
     _lastReadIndex = 0;
+    _schedulePersist();
+    notifyListeners();
+  }
+
+  // ---------------- 持久化 ----------------
+
+  /// 异步落盘（fire-and-forget）。失败静默 —— 持久化是尽力而为，
+  /// 不能影响主流程的 append/markAllRead。
+  void _schedulePersist() {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(
+        _kPrefsKey,
+        jsonEncode([
+          for (final e in _events)
+            {
+              'time': e.time,
+              'eventType': e.eventType,
+              'title': e.title,
+              'detail': e.detail,
+            }
+        ]),
+      );
+      prefs.setInt(_kPrefsReadIndexKey, _lastReadIndex);
+    }).catchError((_) {});
+  }
+
+  /// 冷启动恢复磁盘上的事件列表。
+  ///
+  /// 调用时机：main() 中 registerMessageStrategies() 之后（此时单例已
+  /// 挂到 GetIt，启动钩子的 emit 也能落到同一实例）。
+  ///
+  /// 竞态保护：若在恢复完成前已有新事件 append 进来（如 crash 摄入），
+  /// 把磁盘旧事件插入到它们前面，两侧都不丢。重复调用返回同一 Future。
+  Future<void> restore() {
+    return _restoreFuture ??= _doRestore();
+  }
+
+  Future<void> _doRestore() async {
+    List<SystemEventMessageData> restored = [];
+    int savedReadIndex = 0;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kPrefsKey);
+      if (raw != null && raw.isNotEmpty) {
+        final list = jsonDecode(raw) as List<dynamic>;
+        for (final item in list) {
+          final map = (item as Map).cast<String, dynamic>();
+          restored.add(SystemEventMessageData(
+            time: map['time'] as String? ?? '',
+            eventType: map['eventType'] as String? ?? '',
+            title: map['title'] as String? ?? '',
+            detail: map['detail'] as String?,
+          ));
+        }
+      }
+      savedReadIndex = prefs.getInt(_kPrefsReadIndexKey) ?? 0;
+    } catch (e) {
+      debugPrint('[sys-event] restore FAILED: $e');
+      return;
+    }
+    if (restored.isEmpty) return;
+
+    // 旧事件在前、本次会话已 append 的新事件在后；再按上限截断。
+    final pending = _events;
+    _events
+      ..clear()
+      ..addAll(restored)
+      ..addAll(pending);
+    if (_events.length > _kMaxEvents) {
+      final drop = _events.length - _kMaxEvents;
+      _events.removeRange(0, drop);
+      savedReadIndex = (savedReadIndex - drop).clamp(0, _events.length);
+    }
+    _lastReadIndex = savedReadIndex.clamp(0, _events.length);
     notifyListeners();
   }
 
