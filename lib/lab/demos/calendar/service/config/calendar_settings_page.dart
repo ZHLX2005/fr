@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 
 import '../../data/lab_calendar_provider.dart';
 import '../../data/lab_people_provider.dart';
@@ -26,7 +27,8 @@ class _CalendarSettingsPageState
   @override
   Widget build(BuildContext context) {
     // 监听 provider 变化：group 列表 / 激活 group 变化时立即重建
-    final cal = context.watch<LabCalendarProvider>();
+    // 使用 provider.watch (provider 包) — ConsumerStatefulWidget 不支持 context.watch
+    final cal = Provider.of<LabCalendarProvider>(context, listen: true);
     final people = LabPeopleProvider.current;
     if (people == null) {
       return const Scaffold(body: Center(child: Text('日历尚未初始化')));
