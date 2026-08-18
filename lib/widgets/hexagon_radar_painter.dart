@@ -15,7 +15,10 @@ class HexagonRadarPainter extends CustomPainter {
   final List<HexagonItem> items;
   final String? selectedLabel;
 
-  HexagonRadarPainter({required this.items, this.selectedLabel});
+  /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
+  final ColorScheme scheme;
+
+  HexagonRadarPainter({required this.items, this.selectedLabel, required this.scheme});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -44,8 +47,8 @@ class HexagonRadarPainter extends CustomPainter {
 
       final gradient = RadialGradient(
         colors: [
-          Colors.blue.withValues(alpha: 0.02 * i),
-          Colors.purple.withValues(alpha: 0.02 * i),
+          scheme.primary.withValues(alpha: 0.02 * i),
+          scheme.tertiary.withValues(alpha: 0.02 * i),
         ],
       );
 
@@ -61,7 +64,7 @@ class HexagonRadarPainter extends CustomPainter {
 
   void _drawGridLines(Canvas canvas, Offset center, double radius, int sides) {
     final gridPaint = Paint()
-      ..color = Colors.grey.withValues(alpha: 0.2)
+      ..color = scheme.onSurfaceVariant.withValues(alpha: 0.2)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -108,9 +111,9 @@ class HexagonRadarPainter extends CustomPainter {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        Colors.blue.withValues(alpha: 0.3),
-        Colors.purple.withValues(alpha: 0.3),
-        Colors.pink.withValues(alpha: 0.3),
+        scheme.primary.withValues(alpha: 0.3),
+        scheme.tertiary.withValues(alpha: 0.3),
+        scheme.tertiary.withValues(alpha: 0.3),
       ],
     );
 
@@ -124,7 +127,7 @@ class HexagonRadarPainter extends CustomPainter {
 
     // 边框
     final borderPaint = Paint()
-      ..color = Colors.blue.withValues(alpha: 0.5)
+      ..color = scheme.primary.withValues(alpha: 0.5)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -178,7 +181,7 @@ class HexagonRadarPainter extends CustomPainter {
 
       // 外圈
       final outerPaint = Paint()
-        ..color = Colors.white
+        ..color = scheme.surface
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
 
@@ -194,7 +197,7 @@ class HexagonRadarPainter extends CustomPainter {
         text: TextSpan(
           text: item.label,
           style: TextStyle(
-            color: isSelected ? item.color : Colors.black87,
+            color: isSelected ? item.color : scheme.onSurface,
             fontSize: isSelected ? 14 : 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
@@ -219,7 +222,7 @@ class HexagonRadarPainter extends CustomPainter {
       );
 
       final bgPaint = Paint()
-        ..color = isSelected ? item.color.withValues(alpha: 0.15) : Colors.white;
+        ..color = isSelected ? item.color.withValues(alpha: 0.15) : scheme.surface;
 
       canvas.drawRRect(bgRect, bgPaint);
 

@@ -222,7 +222,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('清空 API Key'),
-        content: const Text('确定要清除已保存的 API Key 吗？'),
+        content: Text('确定要清除已保存的 API Key 吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -230,7 +230,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('清空', style: TextStyle(color: Colors.red)),
+            child: Text('清空', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
@@ -718,12 +718,12 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(12),
@@ -734,7 +734,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                   Icons.record_voice_over,
                   color: theme.colorScheme.primary,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 const Text(
                   'MiniMax 语音合成',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -742,11 +742,11 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -754,7 +754,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                     'API Key',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   TextField(
                     controller: _apiKeyController,
                     decoration: InputDecoration(
@@ -763,7 +763,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                       isDense: true,
                       suffixIcon: _apiKeyController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
+                              icon: Icon(Icons.clear, size: 18),
                               onPressed: _clearApiKey,
                               tooltip: '清除已保存的 Key',
                             )
@@ -776,11 +776,11 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -790,7 +790,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                         '选择模型',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      const Spacer(),
+                      Spacer(),
                       TextButton.icon(
                         onPressed: () =>
                             setState(() => _showAdvanced = !_showAdvanced),
@@ -803,7 +803,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     value: _selectedModel,
                     decoration: const InputDecoration(
@@ -823,7 +823,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                       _customModelController.text = v;
                     }),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   TextField(
                     controller: _customModelController,
                     decoration: const InputDecoration(
@@ -838,12 +838,12 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           if (_showAdvanced) ...[
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -851,10 +851,10 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                       '语音设置',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       children: [
-                        const SizedBox(width: 80, child: Text('速度')),
+                        SizedBox(width: 80, child: Text('速度')),
                         Expanded(
                           child: Slider(
                             value: _speed,
@@ -873,7 +873,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                     ),
                     Row(
                       children: [
-                        const SizedBox(width: 80, child: Text('音量')),
+                        SizedBox(width: 80, child: Text('音量')),
                         Expanded(
                           child: Slider(
                             value: _vol,
@@ -892,7 +892,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                     ),
                     Row(
                       children: [
-                        const SizedBox(width: 80, child: Text('音调')),
+                        SizedBox(width: 80, child: Text('音调')),
                         Expanded(
                           child: Slider(
                             value: _pitch,
@@ -920,10 +920,10 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -931,10 +931,10 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                       '音频设置',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       children: [
-                        const SizedBox(width: 80, child: Text('采样率')),
+                        SizedBox(width: 80, child: Text('采样率')),
                         Expanded(
                           child: SegmentedButton<int>(
                             segments: _sampleRates
@@ -952,10 +952,10 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       children: [
-                        const SizedBox(width: 80, child: Text('比特率')),
+                        SizedBox(width: 80, child: Text('比特率')),
                         Expanded(
                           child: SegmentedButton<int>(
                             segments: _bitrates
@@ -973,10 +973,10 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       children: [
-                        const SizedBox(width: 80, child: Text('格式')),
+                        SizedBox(width: 80, child: Text('格式')),
                         SegmentedButton<String>(
                           segments: _formats
                               .map(
@@ -992,10 +992,10 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       children: [
-                        const SizedBox(width: 80, child: Text('声道')),
+                        SizedBox(width: 80, child: Text('声道')),
                         SegmentedButton<int>(
                           segments: _channels
                               .map(
@@ -1015,12 +1015,12 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
           ],
 
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1028,12 +1028,12 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                     '选择音色',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
+                  SizedBox(height: 12),
+                  Text(
                     '中文音色',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -1046,12 +1046,12 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
+                  SizedBox(height: 12),
+                  Text(
                     '英文音色',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -1065,21 +1065,21 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                     }).toList(),
                   ),
                   if (_selectedVoiceName != null) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.green[50],
+                        color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.green),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary),
                       ),
                       child: Text(
                         '已选择: $_selectedVoiceName',
                         style: TextStyle(
-                          color: Colors.green[700],
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 12,
                         ),
                       ),
@@ -1089,11 +1089,11 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1101,7 +1101,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                     '合成文本',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   TextField(
                     controller: _textController,
                     maxLines: 4,
@@ -1110,12 +1110,12 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
+                  SizedBox(height: 12),
+                  Text(
                     '快速测试文本',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -1135,24 +1135,24 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           if (_statusMessage != null)
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: _statusMessage!.contains('失败') ||
                         _statusMessage!.contains('错误')
-                    ? Colors.red[50]
+                    ? Theme.of(context).colorScheme.error
                     : _statusMessage!.contains('流式')
-                        ? Colors.orange[50]
-                        : Colors.blue[50],
+                        ? Theme.of(context).colorScheme.tertiary
+                        : Theme.of(context).colorScheme.primary,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   if (_isPlaying)
-                    const SizedBox(
+                    SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
@@ -1164,9 +1164,9 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                           ? Icons.error_outline
                           : Icons.info_outline,
                       size: 16,
-                      color: Colors.grey,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _statusMessage!,
@@ -1174,19 +1174,19 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                         fontSize: 12,
                         color: _statusMessage!.contains('失败') ||
                                 _statusMessage!.contains('错误')
-                            ? Colors.red[700]
-                            : Colors.blue[700],
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           Card(
             child: SwitchListTile(
-              title: const Text('流式输出'),
+              title: Text('流式输出'),
               subtitle: Text(
                 _useStreaming
                     ? 'WebSocket 边合成边播放'
@@ -1196,69 +1196,69 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
               onChanged: (v) => setState(() => _useStreaming = v),
               secondary: Icon(
                 _useStreaming ? Icons.stream : Icons.cloud_download,
-                color: _useStreaming ? Colors.green : Colors.grey,
+                color: _useStreaming ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _isPlaying ? null : _synthesize,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('合成并播放'),
+                  icon: Icon(Icons.play_arrow),
+                  label: Text('合成并播放'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.deepPurple,
+                    foregroundColor: Theme.of(context).colorScheme.tertiary,
                     side: BorderSide(
-                      color: Colors.deepPurple.withValues(alpha: 0.5),
+                      color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.5),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _isPlaying ? _stopAudio : null,
-                  icon: const Icon(Icons.stop),
-                  label: const Text('停止'),
+                  icon: Icon(Icons.stop),
+                  label: Text('停止'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.orange,
+                    foregroundColor: Theme.of(context).colorScheme.tertiary,
                     side: BorderSide(
-                      color: Colors.orange.withValues(alpha: 0.5),
+                      color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.5),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed:
                       _audioChunks.isEmpty ? null : _manualSaveAudio,
-                  icon: const Icon(Icons.save_alt),
-                  label: const Text('保存'),
+                  icon: Icon(Icons.save_alt),
+                  label: Text('保存'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blue,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                     side: BorderSide(
-                      color: Colors.blue.withValues(alpha: 0.5),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           if (_savedFiles.isNotEmpty) ...[
             const Text(
               '已保存音频',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Container(
               constraints: const BoxConstraints(maxHeight: 200),
               child: ListView.builder(
@@ -1267,9 +1267,9 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                 itemBuilder: (context, index) {
                   final file = _savedFiles[index];
                   return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
+                    margin: EdgeInsets.only(bottom: 8),
                     child: ListTile(
-                      leading: const Icon(Icons.audio_file),
+                      leading: Icon(Icons.audio_file),
                       title: Text(
                         file.fileName,
                         style: const TextStyle(fontSize: 13),
@@ -1279,9 +1279,9 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                         style: const TextStyle(fontSize: 11),
                       ),
                       trailing: IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.delete_outline,
-                          color: Colors.red,
+                          color: Theme.of(context).colorScheme.error,
                         ),
                         onPressed: () => _deleteSavedFile(index),
                         tooltip: '删除',

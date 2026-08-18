@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 
-import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 import '../data/lab_people_provider.dart';
@@ -30,7 +30,7 @@ class PersonDetailPage extends StatelessWidget {
         if (person == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const Center(child: Text('人已被删除')),
+            body: Center(child: Text('人已被删除')),
           );
         }
         final events = cal.events.where((e) => e.personId == personId).toList();
@@ -47,14 +47,14 @@ class PersonDetailPage extends StatelessWidget {
             : cal.ageOfBirthdayPerson(birthday, today);
 
         return Scaffold(
-          backgroundColor: PaperPalette.bg,
+          backgroundColor: context.colors.scheme.surfaceContainerHighest,
           appBar: AppBar(
-            backgroundColor: PaperPalette.bg,
+            backgroundColor: context.colors.scheme.surfaceContainerHighest,
             elevation: 0,
             title: Text(person.name, style: AppText.title()),
             actions: [
               IconButton(
-                icon: const Icon(Icons.edit_outlined),
+                icon: Icon(Icons.edit_outlined),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -67,15 +67,15 @@ class PersonDetailPage extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline_rounded),
-                color: PaperPalette.today,
+                icon: Icon(Icons.delete_outline_rounded),
+                color: context.colors.danger,
                 onPressed: () => _confirmDelete(context),
                 tooltip: '删除',
               ),
             ],
           ),
           body: ListView(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             children: [
               Center(
                 child: Text(
@@ -83,14 +83,14 @@ class PersonDetailPage extends StatelessWidget {
                   style: const TextStyle(fontSize: 72),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Center(child: Text(person.name, style: AppText.display())),
               Center(
                   child: Text(person.relation.name, style: AppText.caption())),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               if (birthday != null && next != null) ...[
                 Text('生日', style: AppText.title()),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 // SoT：显示存储的原值（已是该 system 历法下的值）+ 历法标签
                 Builder(builder: (_) {
                   final leap = birthday.isLeap ? '闰' : '';
@@ -101,7 +101,7 @@ class PersonDetailPage extends StatelessWidget {
                     style: AppText.body(),
                   );
                 }),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 // 对方历法等值（双向）
                 Builder(builder: (_) {
                   if (birthday.system == CalendarSystem.solar) {
@@ -110,7 +110,7 @@ class PersonDetailPage extends StatelessWidget {
                     );
                     return Text(
                       '≈ 农历 ${l.year} 年 ${l.isLeap ? "闰" : ""}${l.month} 月 ${l.day}',
-                      style: AppText.caption(color: PaperPalette.inkMuted),
+                      style: AppText.caption(color: context.colors.textMuted),
                     );
                   } else {
                     final anchor = birthday.lunarAnchorYear ?? birthday.year;
@@ -122,25 +122,25 @@ class PersonDetailPage extends StatelessWidget {
                     );
                     return Text(
                       '≈ 公历 ${s.year} 年 ${s.month} 月 ${s.day}',
-                      style: AppText.caption(color: PaperPalette.inkMuted),
+                      style: AppText.caption(color: context.colors.textMuted),
                     );
                   }
                 }),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   '下次生日：${next.year}年${next.month}月${next.day}日 · 距今 ${NextBirthdayResolver.daysUntil(next, today)} 天',
                   style: AppText.caption(),
                 ),
                 if (age != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4),
+                    padding: EdgeInsets.only(top: 4),
                     child: Text('$age 岁', style: AppText.caption()),
                   ),
               ],
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               Text('备注', style: AppText.title()),
               Text(person.note ?? '—', style: AppText.body()),
-              const SizedBox(height: 32),
+              SizedBox(height: 32),
               PaperDangerButton(
                 label: '删除此人',
                 onPressed: () => _confirmDelete(context),
@@ -159,7 +159,7 @@ class PersonDetailPage extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: PaperPalette.bgElevated,
+        backgroundColor: context.colors.surface,
         title: Text('删除人物', style: AppText.title()),
         content: Text(
           '确定要删除"${person.name}"？\n\n将一并删除 ${linkedEvents.length} 个关联事件。',
@@ -168,11 +168,11 @@ class PersonDetailPage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text('取消'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: PaperPalette.today),
+            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
             child: const Text('删除'),
           ),
         ],
@@ -193,7 +193,7 @@ class PaperDangerButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
 
-  const PaperDangerButton({
+  PaperDangerButton({
     super.key,
     required this.label,
     this.onPressed,
@@ -202,10 +202,10 @@ class PaperDangerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: PaperPalette.bgElevated,
+      color: context.colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: PaperPalette.today, width: 1.5),
+        side: BorderSide(color: context.colors.danger, width: 1.5),
       ),
       child: InkWell(
         onTap: onPressed,
@@ -216,7 +216,7 @@ class PaperDangerButton extends StatelessWidget {
           child: Text(
             label,
             style: AppText.body().copyWith(
-              color: PaperPalette.today,
+              color: context.colors.danger,
               fontWeight: FontWeight.w600,
             ),
           ),

@@ -99,7 +99,7 @@ class _GithubActionsTabState extends State<GithubActionsTab> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.refresh),
+                    : Icon(Icons.refresh),
               ),
             ],
           ),
@@ -118,7 +118,7 @@ class _WorkflowRunCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(run.status, run.conclusion);
+    final color = _statusColor(context, run.status, run.conclusion);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -133,7 +133,7 @@ class _WorkflowRunCard extends StatelessWidget {
           run.name,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
@@ -198,7 +198,7 @@ class _WorkflowJobTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(job.status, job.conclusion);
+    final color = _statusColor(context, job.status, job.conclusion);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -217,7 +217,7 @@ class _WorkflowJobTile extends StatelessWidget {
               children: [
                 Text(
                   job.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -275,14 +275,14 @@ class _GithubActionsErrorState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+          Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
           const SizedBox(height: 16),
-          Text(message, style: const TextStyle(color: Colors.red)),
+          Text(message, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('重试'),
+            icon: Icon(Icons.refresh),
+            label: Text('重试'),
             style: EmphasisButton.borderEmphasis(
               context,
               color: Theme.of(context).colorScheme.primary,
@@ -327,19 +327,19 @@ class _GithubActionsEmptyState extends StatelessWidget {
   }
 }
 
-Color _statusColor(String status, String? conclusion) {
+Color _statusColor(BuildContext context, String status, String? conclusion) {
   if (status != 'completed') {
-    return Colors.orange;
+    return Theme.of(context).colorScheme.tertiary;
   }
   switch (conclusion) {
     case 'success':
-      return Colors.green;
+      return Theme.of(context).colorScheme.primary;
     case 'failure':
     case 'timed_out':
     case 'cancelled':
-      return Colors.red;
+      return Theme.of(context).colorScheme.error;
     default:
-      return Colors.blueGrey;
+      return Theme.of(context).colorScheme.outlineVariant;
   }
 }
 

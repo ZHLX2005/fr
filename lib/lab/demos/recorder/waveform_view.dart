@@ -1,4 +1,5 @@
 import 'dart:collection';
+import '../../../widgets/context_colors.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -95,9 +96,9 @@ class _WaveformViewState extends State<WaveformView> {
       painter: WaveformPainter(
         dbs: _dbs.toList(growable: false),
         maxBars: widget.maxBars,
-        baseColor: ZenColors.sage,
-        hotColor: ZenColors.mutedRed,
-        centerLine: ZenColors.hair,
+        baseColor: context.colors.accent,
+        hotColor: context.colors.danger,
+        centerLine: context.colors.outline,
       ),
       size: const Size.fromHeight(140),
       isComplex: true,
@@ -195,11 +196,11 @@ class LevelMeterView extends StatelessWidget {
         return Row(
           children: [
             Text('L', style: ZenText.monoDigitSmall),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Expanded(child: _MeterStrip(litCount: litCount)),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Text('R', style: ZenText.monoDigitSmall),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             SizedBox(
               width: 64,
               child: Text(
@@ -226,14 +227,14 @@ class _MeterStrip extends StatelessWidget {
         final lit = i < litCount;
         // 0-9 sage,10-13 浅黄(用 secondary 代替,zen 无黄),14-15 mutedRed
         final color = i < 10
-            ? ZenColors.sage
-            : (i < 14 ? ZenColors.secondary : ZenColors.mutedRed);
+            ? context.colors.accent
+            : (i < 14 ? context.colors.textMuted : context.colors.danger);
         return Expanded(
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 1),
+            margin: EdgeInsets.symmetric(horizontal: 1),
             height: 10,
             decoration: BoxDecoration(
-              color: lit ? color : ZenColors.hair.withValues(alpha: 0.3),
+              color: lit ? color : context.colors.outline.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(1),
             ),
           ),

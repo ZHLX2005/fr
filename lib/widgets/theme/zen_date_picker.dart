@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../widgets/context_colors.dart';
 import 'zen_theme.dart';
 
 /// Zen 主题日历日期选择器 —— 替代系统 [showDatePicker] 的 Material 亮色弹窗。
@@ -92,10 +93,10 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
     final todayKey = DateTime(today.year, today.month, today.day);
 
     return Dialog(
-      backgroundColor: ZenColors.surface,
+      backgroundColor: context.colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: ZenColors.hair),
+        side: BorderSide(color: context.colors.outline),
       ),
       child: Container(
         width: 320,
@@ -137,7 +138,7 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             // 星期表头
             Row(
               children: [
@@ -149,22 +150,22 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
                   ),
               ],
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             // 日网格
             _buildGrid(todayKey),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             // 底部操作
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('取消', style: ZenText.button.copyWith(color: ZenColors.secondary)),
+                  child: Text('取消', style: ZenText.button.copyWith(color: context.colors.textMuted)),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(context, _selected),
-                  child: Text('确定', style: ZenText.button.copyWith(color: ZenColors.sage)),
+                  child: Text('确定', style: ZenText.button.copyWith(color: context.colors.accent)),
                 ),
               ],
             ),
@@ -181,10 +182,10 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
   }) {
     return InkWell(
       onTap: enabled ? onTap : null,
-      customBorder: const CircleBorder(),
+      customBorder: CircleBorder(),
       child: Opacity(
         opacity: enabled ? 1 : 0.25,
-        child: Icon(icon, size: 22, color: ZenColors.secondary),
+        child: Icon(icon, size: 22, color: context.colors.textMuted),
       ),
     );
   }
@@ -230,7 +231,7 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
       onTap: enabled
           ? () => setState(() => _selected = date)
           : null,
-      customBorder: const CircleBorder(),
+      customBorder: CircleBorder(),
       child: Opacity(
         opacity: enabled ? 1 : 0.3,
         child: Container(
@@ -239,9 +240,9 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isSelected ? ZenColors.sage : Colors.transparent,
+            color: isSelected ? context.colors.accent : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
             border: Border.all(
-              color: isToday && !isSelected ? ZenColors.mutedRed : Colors.transparent,
+              color: isToday && !isSelected ? context.colors.danger : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
             ),
           ),
           child: Text(
@@ -250,8 +251,8 @@ class _ZenDatePickerDialogState extends State<_ZenDatePickerDialog> {
               fontSize: 14,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
               color: isSelected
-                  ? Colors.white
-                  : (isWeekend ? ZenColors.mutedRed : ZenColors.ink),
+                  ? Theme.of(context).colorScheme.surface
+                  : (isWeekend ? context.colors.danger : context.colors.text),
             ),
           ),
         ),

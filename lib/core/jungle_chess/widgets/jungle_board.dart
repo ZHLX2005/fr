@@ -94,6 +94,7 @@ class _JungleBoardState extends State<JungleBoard> {
                   painter: _BoardBgPainter(
                     cellSize: cellSize,
                     highlights: widget.highlightCells,
+                    scheme: Theme.of(context).colorScheme,
                   ),
                 ),
               ),
@@ -171,14 +172,14 @@ class _JungleBoardState extends State<JungleBoard> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: hasPiece
-                  ? Colors.red.withValues(alpha: isHover ? 0.9 : 0.55)
-                  : Colors.green.withValues(alpha: isHover ? 0.9 : 0.55),
+                  ? Theme.of(context).colorScheme.error.withValues(alpha: isHover ? 0.9 : 0.55)
+                  : Theme.of(context).colorScheme.primary.withValues(alpha: isHover ? 0.9 : 0.55),
               border:
-                  isHover ? Border.all(color: Colors.amber, width: 2.5) : null,
+                  isHover ? Border.all(color: Theme.of(context).colorScheme.tertiary, width: 2.5) : null,
               boxShadow: isHover
                   ? [
                       BoxShadow(
-                        color: Colors.amber.withValues(alpha: 0.6),
+                        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.6),
                         blurRadius: 8,
                       )
                     ]
@@ -242,8 +243,7 @@ class _JungleBoardState extends State<JungleBoard> {
           child: SvgPicture.asset(
             'assets/animal/trap.svg',
             fit: BoxFit.contain,
-            colorFilter:
-                const ColorFilter.mode(Color(0xFF9CA3AF), BlendMode.srcIn),
+            colorFilter: ColorFilter.mode(kTextMuted(context), BlendMode.srcIn),
           ),
         ),
       );
@@ -253,8 +253,8 @@ class _JungleBoardState extends State<JungleBoard> {
   /// 把蓝穴 / 红穴渲染为 SvgPicture.asset
   List<Widget> _buildDenIcons(double cellSize) {
     final dens = [
-      (idx: kBlueDen, color: const Color(0xFF3B82F6)),
-      (idx: kRedDen, color: const Color(0xFFEF4444)),
+      (idx: kBlueDen, color: Theme.of(context).colorScheme.primary),
+      (idx: kRedDen, color: Theme.of(context).colorScheme.error),
     ];
     return dens.map((d) {
       final row = d.idx ~/ 7;
@@ -341,7 +341,10 @@ class _BoardBgPainter extends CustomPainter {
   final double cellSize;
   final Map<int, Color> highlights;
 
-  _BoardBgPainter({required this.cellSize, this.highlights = const {}});
+    /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
+  final ColorScheme scheme;
+
+  _BoardBgPainter({required this.cellSize, this.highlights = const {}, required this.scheme});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -372,7 +375,7 @@ class _BoardBgPainter extends CustomPainter {
     // 网格线
     final gridPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..color = Colors.brown.withValues(alpha: 0.25);
+      ..color = scheme.onSurfaceVariant.withValues(alpha: 0.25);
     for (int r = 0; r < 9; r++) {
       for (int c = 0; c < 7; c++) {
         canvas.drawRect(

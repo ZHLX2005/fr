@@ -32,7 +32,7 @@ class EditToolbar implements ToolbarMode {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
             children: [
               Expanded(
@@ -43,13 +43,15 @@ class EditToolbar implements ToolbarMode {
                       ...NoteRootScope.of(context).noteRoot.availableTypes.map(
                         (info) => _toolbarTypeButton(context, editorState, info),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       _toolbarButton(
+                        context: context,
                         label: '导入文件',
                         icon: Icons.description,
                         onTap: onImportMdFile ?? () {},
                       ),
                       _toolbarButton(
+                        context: context,
                         label: '导入文字',
                         icon: Icons.paste,
                         onTap: onImportMdText ?? () {},
@@ -58,15 +60,15 @@ class EditToolbar implements ToolbarMode {
                   ),
                 ),
               ),
-              const SizedBox(width: 2),
+              SizedBox(width: 2),
               Material(
                 borderRadius: BorderRadius.circular(6),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(6),
                   onTap: () => TypePanel.show(context, editorState),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Icon(Icons.expand_less, size: 22, color: Colors.grey[600]),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Icon(Icons.expand_less, size: 22, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
               ),
@@ -79,7 +81,7 @@ class EditToolbar implements ToolbarMode {
 
   Widget _toolbarTypeButton(BuildContext context, EditorState editorState, BlockTypeInfo info) {
     return Padding(
-      padding: const EdgeInsets.only(right: 2),
+      padding: EdgeInsets.only(right: 2),
       child: Tooltip(
         message: info.label,
         child: Material(
@@ -88,8 +90,8 @@ class EditToolbar implements ToolbarMode {
             borderRadius: BorderRadius.circular(6),
             onTap: () => editorState.addBlockWithType(info.prototype),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Icon(info.icon, size: 20, color: Colors.grey[600]),
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Icon(info.icon, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
         ),
@@ -98,20 +100,21 @@ class EditToolbar implements ToolbarMode {
   }
 
   Widget _toolbarButton({
+    required BuildContext context,
     required String label,
     required IconData icon,
     required VoidCallback onTap,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(right: 2),
+      padding: EdgeInsets.only(right: 2),
       child: Material(
         borderRadius: BorderRadius.circular(6),
         child: InkWell(
           borderRadius: BorderRadius.circular(6),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Icon(icon, size: 20, color: Colors.grey[600]),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
       ),

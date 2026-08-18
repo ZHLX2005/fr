@@ -171,12 +171,12 @@ class _NetworkBleTabState extends State<NetworkBleTab>
       children: [
         _buildControlRow(),
         _buildFilterRow(),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         if (!_isConnected)
           SizedBox(
             height: 150,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: EdgeInsets.symmetric(horizontal: 12),
               child: BleDeviceList(
                 devices: _filteredDevices,
                 isScanning: _isScanning,
@@ -189,11 +189,11 @@ class _NetworkBleTabState extends State<NetworkBleTab>
             device: _connectedDevice!,
             characteristic: _selectedCharacteristic,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _buildSendRow(),
         ],
-        const SizedBox(height: 8),
-        const Divider(height: 1),
+        SizedBox(height: 8),
+        Divider(height: 1),
         Expanded(child: BleLogList(logs: _logs)),
       ],
     );
@@ -201,44 +201,44 @@ class _NetworkBleTabState extends State<NetworkBleTab>
 
   Widget _buildControlRow() {
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton.icon(
               onPressed: _isScanning ? null : _startScan,
-              icon: const Icon(Icons.search),
+              icon: Icon(Icons.search),
               label: Text(_isScanning ? '扫描中...' : '扫描设备'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.blue,
+                foregroundColor: Theme.of(context).colorScheme.primary,
                 side: BorderSide(
-                    color: Colors.blue.withValues(alpha: 0.5)),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
               ),
             ),
           ),
           if (_isScanning) ...[
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: _stopScan,
-              icon: const Icon(Icons.stop),
+              icon: Icon(Icons.stop),
               label: const Text('停止'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: NetworkConst.colorWarn,
+                foregroundColor: NetworkConst.colorWarn(context),
                 side: BorderSide(
-                    color: NetworkConst.colorWarn.withValues(alpha: 0.5)),
+                    color: NetworkConst.colorWarn(context).withValues(alpha: 0.5)),
               ),
             ),
           ],
           if (_isConnected) ...[
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: _disconnect,
-              icon: const Icon(Icons.link_off),
+              icon: Icon(Icons.link_off),
               label: const Text('断开'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: NetworkConst.colorError,
+                foregroundColor: NetworkConst.colorError(context),
                 side: BorderSide(
-                    color: NetworkConst.colorError.withValues(alpha: 0.5)),
+                    color: NetworkConst.colorError(context).withValues(alpha: 0.5)),
               ),
             ),
           ],
@@ -249,7 +249,7 @@ class _NetworkBleTabState extends State<NetworkBleTab>
 
   Widget _buildFilterRow() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         children: [
           TextField(
@@ -264,7 +264,7 @@ class _NetworkBleTabState extends State<NetworkBleTab>
             onChanged: (value) =>
                 setState(() => _searchKeyword = value.toLowerCase()),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Row(
             children: [
               FilterChip(
@@ -273,7 +273,7 @@ class _NetworkBleTabState extends State<NetworkBleTab>
                 onSelected: (selected) =>
                     setState(() => _filterNamedOnly = selected),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Row(
                   children: [
@@ -304,7 +304,7 @@ class _NetworkBleTabState extends State<NetworkBleTab>
 
   Widget _buildSendRow() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
           Expanded(
@@ -318,15 +318,15 @@ class _NetworkBleTabState extends State<NetworkBleTab>
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           OutlinedButton.icon(
             onPressed: _sendMessage,
-            icon: const Icon(Icons.send),
-            label: const Text('发送'),
+            icon: Icon(Icons.send),
+            label: Text('发送'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blue,
+              foregroundColor: Theme.of(context).colorScheme.primary,
               side: BorderSide(
-                  color: Colors.blue.withValues(alpha: 0.5)),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
             ),
           ),
         ],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 
-import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 import '../data/lab_people_provider.dart';
@@ -192,23 +192,23 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PaperPalette.bg,
+      backgroundColor: context.colors.scheme.surfaceContainerHighest,
       appBar: AppBar(
-        backgroundColor: PaperPalette.bg,
+        backgroundColor: context.colors.scheme.surfaceContainerHighest,
         elevation: 0,
         title: Text(widget.existing == null ? '新增人' : '编辑人', style: AppText.title()),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         children: [
           // 边框强调：当前操作的人卡片
           Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(16),
+            margin: EdgeInsets.only(bottom: 16),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: PaperPalette.bgElevated,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: PaperPalette.accent, width: 1.5),
+              border: Border.all(color: context.colors.accent, width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,7 +218,7 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
                   style: AppText.title(),
                 ),
                 if (widget.existing != null) Padding(
-                  padding: const EdgeInsets.only(top: 2),
+                  padding: EdgeInsets.only(top: 2),
                   child: Text(
                     widget.existing!.relation.name,
                     style: AppText.caption(),
@@ -240,12 +240,12 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
               ),
               if (_lunarPreview != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 4),
+                  padding: EdgeInsets.only(top: 4, left: 4),
                   child: Text(
                     _system == CalendarSystem.solar
                         ? '≈ 农历 $_lunarPreview'
                         : '≈ 公历 $_lunarPreview',
-                    style: AppText.caption(color: PaperPalette.accent),
+                    style: AppText.caption(color: context.colors.accent),
                   ),
                 ),
             ],
@@ -284,7 +284,7 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
           // 仅农历可见：是否闰月
           if (_system == CalendarSystem.lunar)
             Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.only(bottom: 16),
               child: Row(
                 children: [
                   Checkbox(
@@ -305,7 +305,7 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
                     },
                     child: Text(
                       '闰月',
-                      style: AppText.body(color: PaperPalette.ink),
+                      style: AppText.body(color: context.colors.text),
                     ),
                   ),
                 ],
@@ -324,16 +324,16 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
             hint: '可选',
             maxLines: 3,
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
-              foregroundColor: PaperPalette.accent,
-              backgroundColor: PaperPalette.bgElevated,
+              foregroundColor: context.colors.accent,
+              backgroundColor: context.colors.surface,
               side: BorderSide(
-                color: PaperPalette.accent.withValues(alpha: 0.5),
+                color: context.colors.accent.withValues(alpha: 0.5),
                 width: 1.5,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -384,38 +384,38 @@ class _PaperField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(label, style: AppText.caption(color: PaperPalette.inkMuted)),
+            padding: EdgeInsets.only(bottom: 6),
+            child: Text(label, style: AppText.caption(color: context.colors.textMuted)),
           ),
           TextField(
             controller: controller,
             maxLines: maxLines,
             keyboardType: keyboardType,
             onChanged: onChanged,
-            cursorColor: PaperPalette.accent,
+            cursorColor: context.colors.accent,
             style: AppText.body(),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: AppText.body(color: PaperPalette.inkFaint),
+              hintStyle: AppText.body(color: context.colors.scheme.outlineVariant),
               filled: true,
-              fillColor: PaperPalette.bgElevated,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              fillColor: context.colors.surface,
+              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: PaperPalette.line, width: 1),
+                borderSide: BorderSide(color: context.colors.outline, width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: PaperPalette.line, width: 1),
+                borderSide: BorderSide(color: context.colors.outline, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: PaperPalette.accent, width: 1.5),
+                borderSide: BorderSide(color: context.colors.accent, width: 1.5),
               ),
             ),
           ),

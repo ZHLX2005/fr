@@ -1,9 +1,11 @@
 import 'dart:io';
+import '../../../../widgets/context_colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../services/media_service.dart';
 import '../../../services/audio_recording_service.dart';
+import '../../../widgets/base/base_icon_button.dart';
 import '../../../widgets/theme/zen_theme.dart';
 
 /// 原生媒体功能测试页面
@@ -283,7 +285,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
         title: const Text('原生媒体测试'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _checkCapabilities,
             tooltip: '重新检测',
           ),
@@ -372,7 +374,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: _isLoading ? null : _pickFromGallery,
-                      icon: const Icon(Icons.photo_library),
+                      icon: Icon(Icons.photo_library),
                       label: const Text('从图库选择图片'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,
@@ -386,7 +388,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _isLoading ? null : _takePicture,
-                      icon: const Icon(Icons.camera_alt),
+                      icon: Icon(Icons.camera_alt),
                       label: const Text('拍照'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,
@@ -400,7 +402,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _isLoading ? null : _pickVideo,
-                      icon: const Icon(Icons.videocam),
+                      icon: Icon(Icons.videocam),
                       label: const Text('选择视频'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,
@@ -411,10 +413,10 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _isLoading ? null : _pickFile,
-                      icon: const Icon(Icons.attach_file),
+                      icon: Icon(Icons.attach_file),
                       label: const Text('选择文件'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,
@@ -425,26 +427,26 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // 录音测试
                     Text('录音功能测试', style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Row(
                       children: [
                         ZenIconButton(
                           icon: Icons.mic,
-                          color: ZenColors.mutedRed,
+                          color: context.colors.danger,
                           variant: _isAudioRecording
-                              ? ZenIconButtonVariant.tint
-                              : ZenIconButtonVariant.outline,
+                              ? BaseIconButtonVariant.tint
+                              : BaseIconButtonVariant.outline,
                           onTap: _isAudioRecording ? null : _startRecording,
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         ZenIconButton(
                           icon: Icons.stop,
-                          color: ZenColors.secondary,
-                          variant: ZenIconButtonVariant.outline,
+                          color: context.colors.textMuted,
+                          variant: BaseIconButtonVariant.outline,
                           onTap: _isAudioRecording ? _stopRecording : null,
                         ),
                         const SizedBox(width: 12),
@@ -460,7 +462,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _checkAudioPermission,
-                      icon: const Icon(Icons.check_circle_outline),
+                      icon: Icon(Icons.check_circle_outline),
                       label: const Text('检查麦克风权限'),
                     ),
                   ],
@@ -479,7 +481,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('测试结果', style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text(_testResult),
                     ],
                   ),
@@ -490,18 +492,18 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
             if (_recordedAudioPath != null && _recordedAudioPath!.isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: zenCard(),
+                decoration: zenCardTheme(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('录音预览', style: ZenText.title),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         ZenIconButton(
                           icon: _isPlaying ? Icons.pause_circle : Icons.play_circle,
-                          color: ZenColors.sage,
-                          variant: ZenIconButtonVariant.tint,
+                          color: context.colors.accent,
+                          variant: BaseIconButtonVariant.tint,
                           size: 48,
                           iconSize: 24,
                           onTap: () => _playAudio(_recordedAudioPath!),
@@ -544,7 +546,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                                 errorBuilder: (context, error, stackTrace) {
                                   return Container(
                                     height: 200,
-                                    color: Colors.grey[300],
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     child: const Center(child: Text('图片加载失败')),
                                   );
                                 },
@@ -558,7 +560,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                                 errorBuilder: (context, error, stackTrace) {
                                   return Container(
                                     height: 200,
-                                    color: Colors.grey[300],
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     child: const Center(child: Text('图片加载失败')),
                                   );
                                 },
@@ -571,7 +573,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                                 errorBuilder: (context, error, stackTrace) {
                                   return Container(
                                     height: 200,
-                                    color: Colors.grey[300],
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     child: Center(
                                       child: Text(
                                         '图片加载失败: $_selectedImagePath',
@@ -596,7 +598,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
       children: [
         Icon(
           value ? Icons.check_circle : Icons.cancel,
-          color: value ? Colors.green : Colors.red,
+          color: value ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
           size: 20,
         ),
         const SizedBox(width: 8),

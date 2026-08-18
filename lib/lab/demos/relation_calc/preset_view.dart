@@ -3,6 +3,7 @@
 // 重置：清空用户自定义数据，恢复内置预设（需确认）。
 
 import 'package:flutter/material.dart';
+import '../../../widgets/context_colors.dart';
 
 import '../../../../widgets/theme/zen_theme.dart';
 import 'const_relation_calc.dart';
@@ -16,7 +17,7 @@ class PresetView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -24,7 +25,7 @@ class PresetView extends StatelessWidget {
             title: RelationCalcUiText.presetInfoTitle,
             child: Text(RelationCalcUiText.presetInfoBody, style: ZenText.body),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           ZenSection(
             title: '自定义领域',
             child: Text(
@@ -34,7 +35,7 @@ class PresetView extends StatelessWidget {
               style: ZenText.body,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Center(
             child: OutlinedButton.icon(
               onPressed: () async {
@@ -47,12 +48,12 @@ class PresetView extends StatelessWidget {
                 );
                 if (ok) onReset();
               },
-              style: zenButton(
-                foreground: ZenColors.mutedRed,
-                border: ZenColors.mutedRed,
+              style: zenButtonTheme(context,
+                foreground: context.colors.danger,
+                border: context.colors.danger,
               ),
-              icon: const Icon(Icons.restart_alt, size: 18),
-              label: const Text(RelationCalcUiText.resetPreset),
+              icon: Icon(Icons.restart_alt, size: 18),
+              label: Text(RelationCalcUiText.resetPreset),
             ),
           ),
         ],

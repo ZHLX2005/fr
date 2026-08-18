@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../../widgets/context_colors.dart';
 
-import '../../../../../core/theme/paper_palette.dart';
 import '../../../../../core/theme/typography.dart';
 
 /// 通用 chip 选项组（平铺多选/单选）
@@ -14,7 +14,7 @@ class ChipChoice<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final String Function(T) displayName;
 
-  const ChipChoice({
+  ChipChoice({
     super.key,
     required this.label,
     required this.values,
@@ -26,13 +26,13 @@ class ChipChoice<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.only(bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 8, top: 4),
-            child: Text(label, style: AppText.caption(color: PaperPalette.inkMuted)),
+            padding: EdgeInsets.only(bottom: 8, top: 4),
+            child: Text(label, style: AppText.caption(color: context.colors.textMuted)),
           ),
           Wrap(
             spacing: 8,
@@ -43,12 +43,12 @@ class ChipChoice<T> extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => onChanged(v),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: active ? PaperPalette.bgElevated : PaperPalette.bg,
+                    color: active ? context.colors.surface : context.colors.scheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: active ? PaperPalette.accent : PaperPalette.line,
+                      color: active ? context.colors.accent : context.colors.outline,
                       width: active ? 1.5 : 1,
                     ),
                   ),
@@ -56,7 +56,7 @@ class ChipChoice<T> extends StatelessWidget {
                     displayName(v),
                     style: AppText.caption().copyWith(
                       fontSize: 12,
-                      color: active ? PaperPalette.ink : PaperPalette.inkMuted,
+                      color: active ? context.colors.text : context.colors.textMuted,
                       fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),

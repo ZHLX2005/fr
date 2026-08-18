@@ -71,7 +71,7 @@ class _RiveLabViewState extends State<RiveLabView> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -84,12 +84,12 @@ class _RiveLabViewState extends State<RiveLabView> {
             ),
             ActionChip(
               label: const Text('重置'),
-              avatar: const Icon(Icons.refresh, size: 18),
+              avatar: Icon(Icons.refresh, size: 18),
               onPressed: _resetStage,
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Expanded(
           child: Card(
             clipBehavior: Clip.antiAlias,
@@ -155,7 +155,7 @@ class _RiveLabViewState extends State<RiveLabView> {
                                         fileLoader: _fileLoader,
                                         builder: (context, state) =>
                                             switch (state) {
-                                          rive.RiveLoading() => const Center(
+                                          rive.RiveLoading() => Center(
                                               child: CircularProgressIndicator(),
                                             ),
                                           rive.RiveFailed() => RiveErrorView(
@@ -180,7 +180,7 @@ class _RiveLabViewState extends State<RiveLabView> {
                 ),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surfaceContainerHighest
                         .withValues(alpha: 0.55),
@@ -194,7 +194,7 @@ class _RiveLabViewState extends State<RiveLabView> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(
                         RiveAssets.smiley,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -223,7 +223,7 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(999),

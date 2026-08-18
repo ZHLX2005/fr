@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../widgets/context_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../lab_container.dart';
@@ -152,7 +153,7 @@ class _SensorPageState extends State<_SensorPage>
     // 两层 elevation（Material 规范 + 项目统一约定）：
     //   - surface（base）: scaffold / tab 选中 / 卡片内部 inset
     //   - surfaceContainerHighest + outline（elevated panel）: 卡片 / tab 容器
-    final cs = Theme.of(context).colorScheme;
+    final cs = context.colors.scheme;
     return Scaffold(
       backgroundColor: cs.surface,
       body: SafeArea(
@@ -178,7 +179,7 @@ class _SensorPageState extends State<_SensorPage>
 
   Widget _buildTabBar(ColorScheme cs) {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
@@ -194,8 +195,8 @@ class _SensorPageState extends State<_SensorPage>
         indicatorSize: TabBarIndicatorSize.tab,
         labelColor: cs.onSurface,
         unselectedLabelColor: cs.onSurfaceVariant,
-        dividerColor: Colors.transparent,
-        tabs: const [
+        dividerColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+        tabs: [
           Tab(text: 'ACC'),
           Tab(text: 'GYRO'),
           Tab(text: 'MAG'),
@@ -207,7 +208,7 @@ class _SensorPageState extends State<_SensorPage>
 
   Widget _buildAccelerometerTab(ColorScheme cs) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -217,15 +218,15 @@ class _SensorPageState extends State<_SensorPage>
             '含重力影响，单位 m/s²',
             _accelAvailable,
           ),
-          const SizedBox(height: 16),
-          _buildWaveChart(cs, 'X', _accelHistoryX, Colors.red),
-          _buildWaveChart(cs, 'Y', _accelHistoryY, Colors.green),
-          _buildWaveChart(cs, 'Z', _accelHistoryZ, Colors.blue),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
+          _buildWaveChart(cs, 'X', _accelHistoryX, Theme.of(context).colorScheme.error),
+          _buildWaveChart(cs, 'Y', _accelHistoryY, Theme.of(context).colorScheme.primary),
+          _buildWaveChart(cs, 'Z', _accelHistoryZ, Theme.of(context).colorScheme.primary),
+          SizedBox(height: 16),
           _buildValueCard(cs, 'X', _accelX),
           _buildValueCard(cs, 'Y', _accelY),
           _buildValueCard(cs, 'Z', _accelZ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _buildMagnitudeCard(cs),
         ],
       ),
@@ -234,16 +235,16 @@ class _SensorPageState extends State<_SensorPage>
 
   Widget _buildGyroscopeTab(ColorScheme cs) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSensorInfo(cs, '陀螺仪 (Gyroscope)', '角速度，单位 rad/s', _gyroAvailable),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildValueCard(cs, 'X', _gyroX, precision: 4),
           _buildValueCard(cs, 'Y', _gyroY, precision: 4),
           _buildValueCard(cs, 'Z', _gyroZ, precision: 4),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildDescriptionCard(
             cs,
             '典型值参考',
@@ -256,16 +257,16 @@ class _SensorPageState extends State<_SensorPage>
 
   Widget _buildMagnetometerTab(ColorScheme cs) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSensorInfo(cs, '磁力计 (Magnetometer)', '磁场强度，单位 μT', _magAvailable),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildValueCard(cs, 'X', _magX),
           _buildValueCard(cs, 'Y', _magY),
           _buildValueCard(cs, 'Z', _magZ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildDescriptionCard(
             cs,
             '典型值参考',
@@ -278,7 +279,7 @@ class _SensorPageState extends State<_SensorPage>
 
   Widget _buildUserAccelerometerTab(ColorScheme cs) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -288,11 +289,11 @@ class _SensorPageState extends State<_SensorPage>
             '去除重力后的加速度，单位 m/s²',
             true,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildValueCard(cs, 'X', _userAccelX),
           _buildValueCard(cs, 'Y', _userAccelY),
           _buildValueCard(cs, 'Z', _userAccelZ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildDescriptionCard(
             cs,
             '说明',
@@ -310,7 +311,7 @@ class _SensorPageState extends State<_SensorPage>
     bool available,
   ) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
@@ -321,10 +322,10 @@ class _SensorPageState extends State<_SensorPage>
           Icon(
             available ? Icons.sensors : Icons.sensors_off,
             color: available
-                ? const Color(0xFF30D158)
-                : const Color(0xFFFF453A),
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.error,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,7 +338,7 @@ class _SensorPageState extends State<_SensorPage>
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: TextStyle(
@@ -349,7 +350,7 @@ class _SensorPageState extends State<_SensorPage>
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: cs.surface,
               borderRadius: BorderRadius.circular(6),
@@ -359,8 +360,8 @@ class _SensorPageState extends State<_SensorPage>
               available ? '可用' : '不可用',
               style: TextStyle(
                 color: available
-                    ? const Color(0xFF30D158)
-                    : const Color(0xFFFF453A),
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.error,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -380,14 +381,14 @@ class _SensorPageState extends State<_SensorPage>
     final isPositive = value >= 0;
     final absValue = value.abs();
     final color = axis == 'X'
-        ? Colors.red
+        ? Theme.of(context).colorScheme.error
         : axis == 'Y'
-            ? Colors.green
-            : Colors.blue;
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.primary;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
@@ -414,7 +415,7 @@ class _SensorPageState extends State<_SensorPage>
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,7 +444,7 @@ class _SensorPageState extends State<_SensorPage>
     final deviation = (sqrtMag - 9.8).abs();
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
@@ -455,7 +456,7 @@ class _SensorPageState extends State<_SensorPage>
             '向量模长 (|a|)',
             style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             sqrtMag.toStringAsFixed(3),
             style: TextStyle(
@@ -465,7 +466,7 @@ class _SensorPageState extends State<_SensorPage>
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             '与重力加速度偏差: ${deviation.toStringAsFixed(3)} m/s²',
             style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
@@ -482,8 +483,8 @@ class _SensorPageState extends State<_SensorPage>
     Color color,
   ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
@@ -503,7 +504,7 @@ class _SensorPageState extends State<_SensorPage>
                   border: Border.all(color: cs.outline, width: 1),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
@@ -512,7 +513,7 @@ class _SensorPageState extends State<_SensorPage>
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const Spacer(),
+              Spacer(),
               Text(
                 history.isNotEmpty ? history.last.toStringAsFixed(2) : '0.00',
                 style: TextStyle(
@@ -523,7 +524,7 @@ class _SensorPageState extends State<_SensorPage>
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           SizedBox(
             height: 30,
             child: CustomPaint(
@@ -542,7 +543,7 @@ class _SensorPageState extends State<_SensorPage>
     String content,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
@@ -559,7 +560,7 @@ class _SensorPageState extends State<_SensorPage>
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             content,
             style: TextStyle(

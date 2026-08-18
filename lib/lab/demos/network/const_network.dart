@@ -59,12 +59,17 @@ class NetworkConst {
   static const Duration httpProbeTimeout = Duration(seconds: 5);
   static const Duration dnsLookupTimeout = Duration(seconds: 3);
 
-  // ===== 颜色 =====
-  static const Color colorSuccess = Colors.green;
-  static const Color colorError = Colors.red;
-  static const Color colorWarn = Colors.orange;
-  static const Color colorInfo = Colors.blue;
-  static const Color colorMuted = Colors.grey;
+  // ===== 颜色（走主题策略通道，随主题切换）=====
+  static Color colorSuccess(BuildContext context) =>
+      Theme.of(context).colorScheme.primary;
+  static Color colorError(BuildContext context) =>
+      Theme.of(context).colorScheme.error;
+  static Color colorWarn(BuildContext context) =>
+      Theme.of(context).colorScheme.tertiary;
+  static Color colorInfo(BuildContext context) =>
+      Theme.of(context).colorScheme.primary;
+  static Color colorMuted(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
 
   // ===== 私有 IP 段说明 =====
   static const List<({String range, String desc})> privateIpRanges = [

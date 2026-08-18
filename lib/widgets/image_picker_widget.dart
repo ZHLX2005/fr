@@ -152,8 +152,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: widget.config.cropTitle,
-              toolbarColor: widget.config.toolbarColor ?? Colors.blue,
-              toolbarWidgetColor: Colors.white,
+              toolbarColor: widget.config.toolbarColor ?? Theme.of(context).colorScheme.primary,
+              toolbarWidgetColor: Theme.of(context).colorScheme.surface,
               initAspectRatio: widget.config.aspectRatioPreset,
               lockAspectRatio: widget.config.lockAspectRatio,
               hideBottomControls: false,
@@ -212,8 +212,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: widget.config.cropTitle,
-            toolbarColor: widget.config.toolbarColor ?? Colors.blue,
-            toolbarWidgetColor: Colors.white,
+            toolbarColor: widget.config.toolbarColor ?? Theme.of(context).colorScheme.primary,
+            toolbarWidgetColor: Theme.of(context).colorScheme.surface,
             initAspectRatio: widget.config.aspectRatioPreset,
             lockAspectRatio: widget.config.lockAspectRatio,
             hideBottomControls: false,
@@ -312,11 +312,11 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(Icons.check),
-                        label: const Text('确认使用'),
+                            : Icon(Icons.check),
+                        label: Text('确认使用'),
                         style: EmphasisButton.borderEmphasis(
                           context,
-                          color: Colors.green,
+                          color: Theme.of(context).colorScheme.primary,
                         ).copyWith(
                           padding: const MaterialStatePropertyAll(
                             EdgeInsets.symmetric(vertical: 16),
@@ -328,7 +328,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _isLoading ? null : _cancelChanges,
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                         label: const Text('取消'),
                         style: EmphasisButton.dangerEmphasis(context).copyWith(
                           padding: const MaterialStatePropertyAll(
@@ -346,7 +346,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: _isLoading ? null : _pickAndCropImage,
-                  icon: const Icon(Icons.photo_library),
+                  icon: Icon(Icons.photo_library),
                   label: Text(displayPath != null ? '重新选择' : '选择图片'),
                   style: EmphasisButton.borderEmphasis(
                     context,
@@ -366,8 +366,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : _reCropImage,
-                    icon: const Icon(Icons.crop),
-                    label: const Text('调整裁剪区域'),
+                    icon: Icon(Icons.crop),
+                    label: Text('调整裁剪区域'),
                     style: EmphasisButton.borderEmphasis(
                       context,
                       color: Theme.of(context).colorScheme.primary,
@@ -410,7 +410,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -443,7 +443,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                         : Icons.info_outline,
                     size: 16,
                     color: _croppedPath != null
-                        ? Colors.green
+                        ? Theme.of(context).colorScheme.primary
                         : theme.colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),

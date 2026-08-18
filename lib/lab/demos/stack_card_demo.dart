@@ -9,8 +9,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../lab_container.dart';
 
 // =============== 常量（v14b＋增高） ===============
-const Color _bg = Color(0xFFF5EFE2); // 暖米浅色背景
-const Color _accent = Color(0xFF60a5fa);
+// 主题豁免：每张卡片的 brand 配色（Peonies/Cherry/Carolina/Steel/Beige）
+// 是卡片封面艺术身份，与 game_center 封面渐变同性质，不随主题切换。
+
+const Color _bg = Color(0xFFF5EFE2); // 主题豁免：demo 暖米设计底色
+const Color _accent = Color(0xFF60a5fa); // 主题豁免：demo 品牌强调蓝
 const double _foldH = 140.0;  // 折叠卡高（v14b 60→90→*1.8=162）
 const double _fullH = 756.0;  // 展开卡高（540→*1.4）
 const double _step = 108.0;   // 折叠时 top 增量
@@ -101,13 +104,13 @@ class _DemoState extends State<_Demo> {
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        title: Text('堆叠色卡', style: _cg(size: 18, c: Colors.black87)),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.black87,
+        title: Text('堆叠色卡', style: _cg(size: 18, c: Theme.of(context).colorScheme.onSurface)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.unfold_less),
+            icon: Icon(Icons.unfold_less),
             tooltip: '全部折叠',
             onPressed: () => setState(() => _exp = 0),
           ),
@@ -115,7 +118,7 @@ class _DemoState extends State<_Demo> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(12, 32, 12, 48),
+          padding: EdgeInsets.fromLTRB(12, 32, 12, 48),
           child: AnimatedContainer(
             duration: _anim, curve: _curve, height: dh,
             child: Stack(
@@ -194,8 +197,8 @@ class _DemoState extends State<_Demo> {
   Widget _topEdge() => Container(
     height: 2,
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Colors.transparent, Color(0x73FFFFFF), Colors.transparent],
+      gradient: LinearGradient(
+        colors: [Theme.of(context).colorScheme.surface.withValues(alpha: 0.0), Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.45), Theme.of(context).colorScheme.surface.withValues(alpha: 0.0)],
         stops: [0.0, 0.5, 1.0],
       ),
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -206,7 +209,7 @@ class _DemoState extends State<_Demo> {
   Widget _tab(_Card d, bool isE) => AnimatedContainer(
     duration: _anim, curve: _curve,
     height: isE ? 28 : 30,
-    padding: const EdgeInsets.symmetric(horizontal: 22),
+    padding: EdgeInsets.symmetric(horizontal: 22),
     constraints: isE ? const BoxConstraints(minWidth: 96) : null,
     decoration: BoxDecoration(
       color: d.color,
@@ -220,9 +223,9 @@ class _DemoState extends State<_Demo> {
       gradient: LinearGradient(
         begin: Alignment.topCenter, end: Alignment.bottomCenter,
         colors: [
-          Colors.white.withValues(alpha: 0.28),
-          Colors.white.withValues(alpha: 0.06),
-          Colors.transparent,
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.28),
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
+          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
         ],
         stops: const [0.0, 0.45, 1.0],
       ),
@@ -232,7 +235,8 @@ class _DemoState extends State<_Demo> {
       child: Text(
         d.tab,
         style: _cg(size: isE ? 13 : 15, w: FontWeight.w500, ls: 0.6,
-          c: d.color.computeLuminance() > 0.55 ? Colors.black54 : Colors.white.withValues(alpha: 0.95)),
+          c: d.color.computeLuminance() > 0.55 ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54) : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.95),
+        ),
       ),
     ),
   );
@@ -246,22 +250,22 @@ class _DemoState extends State<_Demo> {
       duration: const Duration(milliseconds: 500), curve: _curve,
       child: Container(
         color: d.paper,
-        padding: const EdgeInsets.only(top: 50, bottom: 28),
+        padding: EdgeInsets.only(top: 50, bottom: 28),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(d.tab, style: _cg(size: 56, w: FontWeight.w600, c: Colors.black87)),
-            const SizedBox(height: 12),
+            Text(d.tab, style: _cg(size: 56, w: FontWeight.w600, c: Theme.of(context).colorScheme.onSurface)),
+            SizedBox(height: 12),
             Text(d.sub,
               style: TextStyle(
                 fontSize: 11, letterSpacing: 3.2,
-                color: Colors.black.withValues(alpha: 0.7),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             Transform.rotate(
               angle: -3 * math.pi / 180,
-              child: Text(d.name, style: _cg(size: 26, c: Colors.black54)),
+              child: Text(d.name, style: _cg(size: 26, c: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
             ),
           ],
         ),
@@ -275,7 +279,7 @@ class _DemoState extends State<_Demo> {
   ];
   List<BoxShadow> _shadowD(int d) => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.4 + d * 0.05),
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4 + d * 0.05),
       blurRadius: 14 + d * 6,
       spreadRadius: -6 - d * 2,
       offset: const Offset(0, 8),

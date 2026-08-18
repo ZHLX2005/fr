@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 import '../state.dart';
 import 'ai_chat_service.dart';
 import 'ai_models.dart';
@@ -58,7 +59,7 @@ class AiConversationOverlay {
     overlay.insert(_currentOverlay!);
   }
 
-  static void _minimize(OverlayState overlay) {
+  static void _minimize(BuildContext context, OverlayState overlay) {
     _currentOverlay?.remove();
     _currentOverlay = null;
 
@@ -71,15 +72,15 @@ class AiConversationOverlay {
           child: Material(
             elevation: 4,
             borderRadius: BorderRadius.circular(24),
-            color: Theme.of(ctx).colorScheme.primary,
+            color: Theme.of(context).colorScheme.primary,
             child: Container(
               width: 44,
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Theme.of(ctx).colorScheme.primary,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              child: Icon(Icons.forum, color: Colors.white, size: 20),
+              child: Icon(Icons.forum, color: Theme.of(context).colorScheme.onSurface, size: 20),
             ),
           ),
         ),
@@ -242,14 +243,14 @@ class _AiConversationOverlayWidgetState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme = context.colors.scheme;
 
     return Stack(
       children: [
         Positioned.fill(
           child: GestureDetector(
             onTap: AiConversationOverlay.dismissAll,
-            child: Container(color: Colors.black.withValues(alpha: 0.03)),
+            child: Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03)),
           ),
         ),
         Positioned(
@@ -274,7 +275,7 @@ class _AiConversationOverlayWidgetState
   Widget _buildPanel(BuildContext context, ColorScheme colorScheme) {
     return Material(
       elevation: 0,
-      color: Colors.transparent,
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       child: Container(
         width: _manager.geo.size.width,
         height: _manager.geo.size.height,
@@ -283,12 +284,12 @@ class _AiConversationOverlayWidgetState
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -320,7 +321,7 @@ class _AiConversationOverlayWidgetState
 
   Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+      padding: EdgeInsets.fromLTRB(14, 10, 4, 10),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
@@ -329,19 +330,19 @@ class _AiConversationOverlayWidgetState
       child: Row(
         children: [
           Icon(Icons.forum, size: 16, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text('对话',
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: colorScheme.onSurface)),
-          const Spacer(),
+          Spacer(),
           // 最小化按钮
           _headerBtn(context, Icons.minimize, colorScheme, onTap: () {
             final overlay = _findOverlay();
-            if (overlay != null) AiConversationOverlay._minimize(overlay);
+            if (overlay != null) AiConversationOverlay._minimize(context, overlay);
           }),
-          const SizedBox(width: 2),
+          SizedBox(width: 2),
           // 关闭按钮
           _headerBtn(context, Icons.close, colorScheme,
               onTap: AiConversationOverlay.dismissAll),
@@ -353,7 +354,7 @@ class _AiConversationOverlayWidgetState
   Widget _headerBtn(BuildContext context, IconData icon,
       ColorScheme colorScheme, {required VoidCallback onTap}) {
     return Material(
-      color: Colors.transparent,
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
         onTap: onTap,
@@ -370,7 +371,7 @@ class _AiConversationOverlayWidgetState
   Widget _buildBody(BuildContext context, ColorScheme colorScheme) {
     final messages = widget.holder.messages;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       child: messages.isEmpty
           ? Center(
               child: Text('开始对话',
@@ -396,7 +397,7 @@ class _AiConversationOverlayWidgetState
       BuildContext context, ColorScheme colorScheme, AIChatMessage msg) {
     final isUser = msg.isUser;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: 8),
       child: Align(
         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
         child: Column(
@@ -405,13 +406,13 @@ class _AiConversationOverlayWidgetState
           children: [
             if (!isUser)
               Padding(
-                padding: const EdgeInsets.only(bottom: 4, left: 2),
+                padding: EdgeInsets.only(bottom: 4, left: 2),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.auto_awesome,
                         size: 12, color: colorScheme.primary),
-                    const SizedBox(width: 3),
+                    SizedBox(width: 3),
                     Text('AI',
                         style: TextStyle(
                             fontSize: 11,
@@ -424,7 +425,7 @@ class _AiConversationOverlayWidgetState
               constraints:
                   BoxConstraints(maxWidth: _manager.geo.size.width * 0.8),
               padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: isUser
                     ? colorScheme.primary
@@ -447,12 +448,12 @@ class _AiConversationOverlayWidgetState
 
   Widget _buildLoadingBubble(ColorScheme colorScheme) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
@@ -468,7 +469,7 @@ class _AiConversationOverlayWidgetState
                     color: colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text('AI 思考中...',
                     style: TextStyle(
                         fontSize: 12, color: colorScheme.onSurfaceVariant)),
@@ -482,7 +483,7 @@ class _AiConversationOverlayWidgetState
 
   Widget _buildInputArea(BuildContext context, ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
@@ -496,7 +497,7 @@ class _AiConversationOverlayWidgetState
               border: Border.all(color: colorScheme.primary, width: 1.5),
               borderRadius: BorderRadius.circular(10),
             ),
-            padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+            padding: EdgeInsets.fromLTRB(10, 8, 8, 8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -522,7 +523,7 @@ class _AiConversationOverlayWidgetState
                     onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 Container(
                   width: 28,
                   height: 28,
@@ -546,13 +547,13 @@ class _AiConversationOverlayWidgetState
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Row(
             children: [
               _footerBtn(context, Icons.attach_file, colorScheme),
-              const SizedBox(width: 2),
+              SizedBox(width: 2),
               _footerBtn(context, Icons.palette, colorScheme),
-              const Spacer(),
+              Spacer(),
               Text('Auto',
                   style: TextStyle(
                     fontSize: 11,
@@ -569,7 +570,7 @@ class _AiConversationOverlayWidgetState
   Widget _footerBtn(
       BuildContext context, IconData icon, ColorScheme colorScheme) {
     return Material(
-      color: Colors.transparent,
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         borderRadius: BorderRadius.circular(4),
         onTap: () {},

@@ -48,13 +48,13 @@ class JunglePieceWidget extends StatelessWidget {
           color: kPieceDiskColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: elevated ? 0.3 : 0.18),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: elevated ? 0.3 : 0.18),
               blurRadius: elevated ? 12 : 4,
               offset: Offset(0, elevated ? 6 : 2),
             ),
             if (isSelected)
               BoxShadow(
-                color: Colors.amber.withValues(alpha: 0.7),
+                color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.7),
                 blurRadius: 12,
                 spreadRadius: 1,
               ),
@@ -87,7 +87,7 @@ class JunglePieceWidget extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.amber, width: 3),
+                    border: Border.all(color: Theme.of(context).colorScheme.tertiary, width: 3),
                   ),
                 ),
               ),

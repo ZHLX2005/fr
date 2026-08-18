@@ -39,9 +39,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   @override
   void initState() {
     super.initState();
-    // hydrate 状态（从 SP 读取已下载路径/开关/上次版本）。
-    // 自动检查由 ApkAutoUpdateHost 隐藏宿主负责（随开关挂载/销毁），
-    // 本页只展示，不触发检查。
     _apkManager.loadSavedState();
   }
 
@@ -145,28 +142,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     }
   }
 
-  /// 切换自动下载开关
-  Future<void> _toggleAutoDownload(bool enabled) async {
-    await _apkManager.setAutoDownloadEnabled(enabled);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            enabled
-                ? '已开启自动下载：启动 App 时自动检查新版本'
-                : '已关闭自动下载',
-          ),
-        ),
-      );
-    }
-  }
-
-  /// 把 APK 上传时间格式化成"YYYY-MM-DD HH:MM"短串。空值返回占位符。
-  String _fmtTime(String? s) {
-    if (s == null || s.isEmpty) return '—';
-    return s.length >= 16 ? s.substring(0, 16) : s;
-  }
-
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
@@ -206,7 +181,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           children: [
             // 标题栏
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer,
               ),
@@ -216,13 +191,13 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                     'API 测试',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const Spacer(),
+                  Spacer(),
                   ValueListenableBuilder<ApkDownloadState>(
                     valueListenable: _apkManager.state,
                     builder: (context, apkState, child) {
                       final isBusy = apkState.isCheckingUpdate;
-                      if (!isBusy) return const SizedBox.shrink();
-                      return const SizedBox(
+                      if (!isBusy) return SizedBox.shrink();
+                      return SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
@@ -262,19 +237,19 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       valueListenable: _apkManager.state,
       builder: (context, apkState, child) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // APK 更新卡片
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.update, size: 32, color: Colors.blue),
+                          Icon(Icons.update, size: 32, color: Theme.of(context).colorScheme.primary),
                           SizedBox(width: 12),
                           Text(
                             'FR 最新版 APK',
@@ -285,16 +260,16 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       // APK 信息
                       if (apkState.apkMetadata != null) ...[
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha: 0.10),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                                color: Colors.grey.withValues(alpha: 0.35),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
                                 width: 1.5),
                           ),
                           child: Column(
@@ -306,45 +281,42 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                       ],
-                      // 自动下载设置 + 版本槽位
-                      _buildAutoDownloadCard(apkState),
-                      const SizedBox(height: 16),
                       // 状态信息
                       if (apkState.statusMessage != null) ...[
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: apkState.statusMessage!.contains('完成')
-                                ? Colors.green[50]
-                                : Colors.blue[50],
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.primary,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             apkState.statusMessage!,
                             style: TextStyle(
                               color: apkState.statusMessage!.contains('完成')
-                                  ? Colors.green[700]
-                                  : Colors.blue[700],
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.primary,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
                       ],
                       // 下载进度条（下载中或已暂停都显示，便于查看续传进度）
                       if (apkState.isDownloading || apkState.isPaused) ...[
                         LinearProgressIndicator(value: apkState.progress),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                         Text(
                           _buildProgressText(apkState),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                       ],
                       // 操作按钮
                       Wrap(
@@ -356,73 +328,73 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             onPressed:
                                 apkState.isCheckingUpdate ? null : _checkApkUpdate,
                             icon: apkState.isCheckingUpdate
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.indigo,
+                                      color: Theme.of(context).colorScheme.tertiary,
                                     ),
                                   )
-                                : const Icon(Icons.refresh),
-                            label: const Text('检查更新'),
-                            style: _outlinedBtnStyle(Colors.indigo),
+                                : Icon(Icons.refresh),
+                            label: Text('检查更新'),
+                            style: _outlinedBtnStyle(Theme.of(context).colorScheme.tertiary),
                           ),
                           OutlinedButton.icon(
                             onPressed: _downloadApkWithBrowser,
-                            icon: const Icon(Icons.open_in_browser),
-                            label: const Text('浏览器下载'),
-                            style: _outlinedBtnStyle(Colors.deepPurple),
+                            icon: Icon(Icons.open_in_browser),
+                            label: Text('浏览器下载'),
+                            style: _outlinedBtnStyle(Theme.of(context).colorScheme.tertiary),
                           ),
                           // 三态主操作：内部下载 / 暂停 / 继续
                           if (apkState.isDownloading)
                             OutlinedButton.icon(
                               onPressed: _pauseDownload,
-                              icon: const Icon(Icons.pause),
-                              label: const Text('暂停'),
-                              style: _outlinedBtnStyle(Colors.orange),
+                              icon: Icon(Icons.pause),
+                              label: Text('暂停'),
+                              style: _outlinedBtnStyle(Theme.of(context).colorScheme.tertiary),
                             )
                           else if (apkState.isPaused)
                             OutlinedButton.icon(
                               onPressed: _resumeDownload,
-                              icon: const Icon(Icons.play_arrow),
-                              label: const Text('继续下载'),
-                              style: _outlinedBtnStyle(Colors.teal),
+                              icon: Icon(Icons.play_arrow),
+                              label: Text('继续下载'),
+                              style: _outlinedBtnStyle(Theme.of(context).colorScheme.tertiary),
                             )
                           else
                             OutlinedButton.icon(
                               onPressed: _downloadApkInternal,
-                              icon: const Icon(Icons.download_for_offline),
-                              label: const Text('内部下载'),
-                              style: _outlinedBtnStyle(Colors.blue),
+                              icon: Icon(Icons.download_for_offline),
+                              label: Text('内部下载'),
+                              style: _outlinedBtnStyle(Theme.of(context).colorScheme.primary),
                             ),
                           // 取消按钮：下载中或暂停时都可用
                           if (apkState.isDownloading || apkState.isPaused)
                             OutlinedButton.icon(
                               onPressed: _cancelDownload,
-                              icon: const Icon(Icons.cancel),
-                              label: const Text('取消'),
-                              style: _outlinedBtnStyle(Colors.red),
+                              icon: Icon(Icons.cancel),
+                              label: Text('取消'),
+                              style: _outlinedBtnStyle(Theme.of(context).colorScheme.error),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       // 已下载的 APK 文件卡片
                       if (apkState.downloadedPath != null) ...[
                         _buildApkFileCard(apkState),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                       ],
                       // 下载地址信息
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.10),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: Colors.blue.withValues(alpha: 0.35),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
                               width: 1.5),
                         ),
-                        child: const Column(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
@@ -434,7 +406,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                               'http://47.110.80.47:8988/files/by-key/fr_latest_apk',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.blue,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontFamily: 'monospace',
                               ),
                             ),
@@ -443,7 +415,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                               'Key: fr_latest_apk (覆盖更新) | 永不过期',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -453,9 +425,9 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               // 安装说明
-              const Card(
+              Card(
                 child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Column(
@@ -463,7 +435,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                          Icon(Icons.info_outline, size: 20, color: Theme.of(context).colorScheme.primary),
                           SizedBox(width: 8),
                           Text(
                             '安装步骤',
@@ -480,7 +452,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                         '2. 下载完成后点击绿色卡片的"安装"按钮\n'
                         '3. 系统弹出应用选择面板，选择 APK 安装器\n'
                         '4. 如遇问题，点击"分享"按钮用其他方式打开',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -490,137 +462,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           ),
         );
       },
-    );
-  }
-
-  /// 自动下载设置卡：Switch 切换开关 + 显示"已记录的最新上传时间"和"已见过的版本"
-  Widget _buildAutoDownloadCard(ApkDownloadState apkState) {
-    final isOn = apkState.autoDownloadOnUpdate;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isOn
-            ? Colors.teal.withValues(alpha: 0.08)
-            : Colors.grey.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isOn
-              ? Colors.teal.withValues(alpha: 0.45)
-              : Colors.grey.withValues(alpha: 0.30),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 顶部：Switch + 标题 + 说明
-          Row(
-            children: [
-              Icon(
-                isOn ? Icons.bolt : Icons.power_settings_new,
-                size: 20,
-                color: isOn ? Colors.teal : Colors.grey[600],
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  '自动下载新版本',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
-              ),
-              Switch(
-                value: isOn,
-                onChanged: apkState.isDownloading || apkState.isPaused
-                    ? null
-                    : _toggleAutoDownload,
-                activeThumbColor: Colors.teal,
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 28),
-            child: Text(
-              isOn
-                  ? '下次启动 App 时自动检查，发现新版本立即下载'
-                  : '关闭后只在手动点击"检查更新"时触发',
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // 槽位：服务器最新上传时间（已记录）
-          Row(
-            children: [
-              const Icon(Icons.schedule, size: 14, color: Colors.grey),
-              const SizedBox(width: 6),
-              const Text(
-                '服务器最新版本',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                      color: Colors.blue.withValues(alpha: 0.35),
-                      width: 1),
-                ),
-                child: Text(
-                  _fmtTime(apkState.apkUpdateTime),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.blue,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // 槽位：已下载/已见过的版本时间
-          Row(
-            children: [
-              const Icon(Icons.history, size: 14, color: Colors.grey),
-              const SizedBox(width: 6),
-              const Text(
-                '本地已处理版本',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: apkState.lastSeenUploadTime != null
-                      ? Colors.green.withValues(alpha: 0.10)
-                      : Colors.grey.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: apkState.lastSeenUploadTime != null
-                        ? Colors.green.withValues(alpha: 0.35)
-                        : Colors.grey.withValues(alpha: 0.35),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  apkState.lastSeenUploadTime != null
-                      ? _fmtTime(apkState.lastSeenUploadTime)
-                      : '尚未下载',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: apkState.lastSeenUploadTime != null
-                        ? Colors.green[700]
-                        : Colors.grey[600],
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -634,22 +475,22 @@ class _ApiTestPageState extends State<_ApiTestPage> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.green[50],
+        color: Theme.of(context).colorScheme.primary,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green[200]!),
+        border: Border.all(color: Theme.of(context).colorScheme.primary),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.10),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-                color: Colors.green.withValues(alpha: 0.35), width: 1.5),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35), width: 1.5),
           ),
-          child: const Icon(Icons.android, color: Colors.green),
+          child: Icon(Icons.android, color: Theme.of(context).colorScheme.primary),
         ),
         title: Text(
           name,
@@ -659,7 +500,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
         ),
         subtitle: Text(
           '$sizeStr\n$path',
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -670,22 +511,22 @@ class _ApiTestPageState extends State<_ApiTestPage> {
               onPressed: _openApkInstall,
               style: EmphasisButton.borderEmphasis(
                 context,
-                color: Colors.green,
+                color: Theme.of(context).colorScheme.primary,
               ),
               child: const Text('安装'),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             IconButton(
               onPressed: _openApk,
-              icon: const Icon(Icons.share),
+              icon: Icon(Icons.share),
               tooltip: '分享',
-              color: Colors.blue,
+              color: Theme.of(context).colorScheme.primary,
             ),
             IconButton(
               onPressed: _clearDownloadedApk,
-              icon: const Icon(Icons.delete_outline),
+              icon: Icon(Icons.delete_outline),
               tooltip: '清除',
-              color: Colors.red,
+              color: Theme.of(context).colorScheme.error,
             ),
           ],
         ),

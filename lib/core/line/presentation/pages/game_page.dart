@@ -194,6 +194,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                         dropDuration: widget.chart.dropDuration.toDouble(),
                         scrollSpeed: c.scrollSpeed,
                         gameElapsed: c.gameStopwatch.elapsedMilliseconds,
+                        scheme: theme.colorScheme,
                       ),
                     );
                   },

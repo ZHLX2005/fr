@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/design/emphasis_button.dart';
 import '../lab_container.dart';
 
+// 主题豁免：2048 数字色阶（776E65 字 / EEE4DA 格底）是原版国际识别色。
+
 /// 2048 游戏 Demo
 class Game2048Demo extends DemoPage {
   @override
@@ -247,48 +249,51 @@ class _Game2048PageState extends State<_Game2048Page> {
   Color _getTileColor(int value) {
     switch (value) {
       case 0:
-        return const Color(0xFFCDC1B4);
+        return Theme.of(context).colorScheme.surfaceContainerHighest;
       case 2:
-        return const Color(0xFFEEE4DA);
+        return Theme.of(context).colorScheme.surface;
       case 4:
-        return const Color(0xFFEDE0C8);
+        return Theme.of(context).colorScheme.tertiary;
       case 8:
-        return const Color(0xFFF2B179);
+        return Theme.of(context).colorScheme.error;
       case 16:
-        return const Color(0xFFF59563);
+        return Theme.of(context).colorScheme.error;
       case 32:
-        return const Color(0xFFF67C5F);
+        return Theme.of(context).colorScheme.error;
       case 64:
-        return const Color(0xFFF65E3B);
+        return Theme.of(context).colorScheme.error;
       case 128:
-        return const Color(0xFFEDCF72);
+        return Theme.of(context).colorScheme.tertiary;
       case 256:
-        return const Color(0xFFEDCC61);
+        return Theme.of(context).colorScheme.tertiary;
       case 512:
-        return const Color(0xFFEDC850);
+        return Theme.of(context).colorScheme.tertiary;
       case 1024:
-        return const Color(0xFFEDC53F);
+        return Theme.of(context).colorScheme.tertiary;
       case 2048:
-        return const Color(0xFFEDC22E);
+        return Theme.of(context).colorScheme.tertiary;
       default:
-        return const Color(0xFF3C3A32);
+        return Theme.of(context).colorScheme.onSurfaceVariant;
     }
   }
 
   Color _getTextColor(int value) {
-    return value <= 4 ? const Color(0xFF776E65) : Colors.white;
+    return value <= 4
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : Theme.of(context).colorScheme.surface;
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF8EF),
+      backgroundColor: scheme.surface,
       body: SafeArea(
         child: Column(
           children: [
             // 头部
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -304,7 +309,7 @@ class _Game2048PageState extends State<_Game2048Page> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       _buildScoreBox('SCORE', _score),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       _buildScoreBox('BEST', _bestScore),
                     ],
                   ),
@@ -313,7 +318,7 @@ class _Game2048PageState extends State<_Game2048Page> {
             ),
             // 游戏说明
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -330,14 +335,14 @@ class _Game2048PageState extends State<_Game2048Page> {
                     },
                     style: EmphasisButton.borderEmphasis(
                       context,
-                      color: const Color(0xFF8F7A66),
+                      color: Theme.of(context).colorScheme.error,
                     ),
                     child: const Text('新游戏'),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             // 游戏面板
             Expanded(
               child: Center(
@@ -363,9 +368,9 @@ class _Game2048PageState extends State<_Game2048Page> {
                   child: Container(
                     width: MediaQuery.of(context).size.width - 48,
                     height: MediaQuery.of(context).size.width - 48,
-                    padding: const EdgeInsets.all(8),
+                    padding: EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFBBADA0),
+                      color: Theme.of(context).colorScheme.outline,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: GridView.builder(
@@ -408,21 +413,21 @@ class _Game2048PageState extends State<_Game2048Page> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             // 游戏结束/胜利提示
             if (_gameOver || _won)
               Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
+                margin: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.black54,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   _won ? '🎉 你赢了!' : '💀 游戏结束',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 24,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -435,16 +440,16 @@ class _Game2048PageState extends State<_Game2048Page> {
 
   Widget _buildScoreBox(String label, int score) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFFBBADA0),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.all(Radius.circular(4)),
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               color: Color(0xFFEEE4DA),
               fontWeight: FontWeight.bold,
@@ -452,9 +457,9 @@ class _Game2048PageState extends State<_Game2048Page> {
           ),
           Text(
             '$score',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               fontWeight: FontWeight.bold,
             ),
           ),

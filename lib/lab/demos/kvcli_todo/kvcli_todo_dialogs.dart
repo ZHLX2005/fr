@@ -1,6 +1,7 @@
 // KV 清单 —— 弹窗（编辑 / 删除确认 / 完成结果 / 添加快捷 topic）。
 
 import 'package:flutter/material.dart';
+import '../../../widgets/context_colors.dart';
 
 import '../../../core/design/emphasis_button.dart';
 import 'kvcli_todo_models.dart';
@@ -68,7 +69,7 @@ Future<KvEditResult?> showKvTaskEditDialog(
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
             ],
             TextField(
               controller: textCtrl,
@@ -81,7 +82,7 @@ Future<KvEditResult?> showKvTaskEditDialog(
               ),
             ),
             if (isDone) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextField(
                 controller: noteCtrl,
                 maxLines: 3,
@@ -261,10 +262,10 @@ class _KvTopicManagerSheetState extends State<_KvTopicManagerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = context.colors.scheme;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -275,19 +276,19 @@ class _KvTopicManagerSheetState extends State<_KvTopicManagerSheet> {
                   '快捷 topic',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const Spacer(),
+                Spacer(),
                 OutlinedButton.icon(
                   onPressed: _add,
-                  icon: const Icon(Icons.add, size: 16),
+                  icon: Icon(Icons.add, size: 16),
                   label: const Text('新增'),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Flexible(
               child: _topics.isEmpty
                   ? Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: EdgeInsets.all(24),
                       child: Text(
                         '暂无快捷 topic',
                         textAlign: TextAlign.center,

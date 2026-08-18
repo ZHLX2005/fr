@@ -37,7 +37,7 @@ class KvEndpoint implements KvOps {
       body: {
         'key': key,
         'value': value,
-        if (ttl != null) 'ttl': ttl,
+        'ttl': ?ttl,
         if (includeGid) 'groupId': groupId,
       },
     );

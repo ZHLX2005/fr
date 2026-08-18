@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/context_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/design/emphasis_button.dart';
@@ -95,28 +96,28 @@ class _GithubDemoShellState extends State<_GithubDemoShell> {
     return Scaffold(
       body: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(24),
+          constraints: BoxConstraints(maxWidth: 400),
+          padding: EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.key,
                 size: 64,
-                color: Theme.of(context).colorScheme.primary,
+                color: context.colors.accent,
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               Text(
                 'GitHub PAT Token',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 '访问 $_owner/$_repo 的 Issues 与 $_owner/$_actionsRepo 的 Actions 需要认证',
-                style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                style: TextStyle(color: context.colors.outline),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32),
               TextField(
                 controller: _tokenController,
                 decoration: const InputDecoration(
@@ -127,19 +128,19 @@ class _GithubDemoShellState extends State<_GithubDemoShell> {
                 obscureText: true,
                 onSubmitted: (_) => _confirm(),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: _confirm,
                   style: EmphasisButton.borderEmphasis(
                     context,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: context.colors.accent,
                   ),
                   child: const Text('确认并进入'),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               TextButton(
                 onPressed: () {
                   _inputToken = _tokenController.text.trim();

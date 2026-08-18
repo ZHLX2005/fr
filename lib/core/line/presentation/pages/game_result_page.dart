@@ -5,6 +5,9 @@ import 'game_page.dart' show GamePage;
 import 'song_select_page.dart';
 import '../painters/water_effect_painter.dart';
 
+// 主题豁免：以下两个 LinearGradient 是音游评级 UI 的奖励视觉设计（玩家视觉风格），
+// P 级粉紫蓝、S 级金橙 —— 跨主题保留以维持奖励感识别。
+
 class GameResultPage extends StatefulWidget {
   final GameResult result;
   final ChartData chart;
@@ -242,7 +245,7 @@ class _GameResultPageState extends State<GameResultPage>
           style: TextStyle(
             fontSize: 96 * w / 750,
             fontWeight: FontWeight.w100,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             height: 1,
           ),
         ),
@@ -259,7 +262,7 @@ class _GameResultPageState extends State<GameResultPage>
           style: TextStyle(
             fontSize: 96 * w / 750,
             fontWeight: FontWeight.w100,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             height: 1,
           ),
         ),
@@ -300,7 +303,7 @@ class _GameResultPageState extends State<GameResultPage>
               _countItem(
                 '${r.perfectCount}',
                 'Perfect',
-                const Color(0xFF4fc3f7),
+                Theme.of(context).colorScheme.tertiary,
                 style,
                 numStyle,
               ),
@@ -308,7 +311,7 @@ class _GameResultPageState extends State<GameResultPage>
               _countItem(
                 '${r.greatCount}',
                 'Great',
-                const Color(0xFF81c784),
+                Theme.of(context).colorScheme.tertiary,
                 style,
                 numStyle,
               ),
@@ -321,7 +324,7 @@ class _GameResultPageState extends State<GameResultPage>
               _countItem(
                 '${r.goodCount}',
                 'Good',
-                const Color(0xFFffb74d),
+                Theme.of(context).colorScheme.tertiary,
                 style,
                 numStyle,
               ),
@@ -329,7 +332,7 @@ class _GameResultPageState extends State<GameResultPage>
               _countItem(
                 '${r.missCount}',
                 'Miss',
-                const Color(0xFFe57373),
+                Theme.of(context).colorScheme.error,
                 style,
                 numStyle,
               ),

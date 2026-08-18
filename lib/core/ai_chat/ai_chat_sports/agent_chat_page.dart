@@ -53,7 +53,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
     if (!agentProvider.isConfigured) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('请先配置 API Key'),
+          content: Text('请先配置 API Key'),
           action: SnackBarAction(
             label: '去设置',
             onPressed: _openSettings,
@@ -98,19 +98,19 @@ class _AgentChatPageState extends State<AgentChatPage> {
                 color: theme.colorScheme.secondary,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(widget.title, style: const TextStyle(fontSize: 16)),
+                  Text(widget.title, style: TextStyle(fontSize: 16)),
                   Consumer<AgentChatProvider>(
                     builder: (context, provider, _) {
                       if (provider.isLoading) {
-                        return const Text(
+                        return Text(
                           '处理中...',
-                          style: TextStyle(fontSize: 12, color: Colors.blue),
+                          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
                         );
                       }
                       return Text(
@@ -118,8 +118,8 @@ class _AgentChatPageState extends State<AgentChatPage> {
                         style: TextStyle(
                           fontSize: 12,
                           color: provider.isConfigured
-                              ? Colors.green
-                              : Colors.orange,
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.tertiary,
                         ),
                       );
                     },
@@ -131,7 +131,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: Icon(Icons.settings),
             onPressed: _openSettings,
             tooltip: '设置',
           ),
@@ -142,11 +142,11 @@ class _AgentChatPageState extends State<AgentChatPage> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, color: Colors.red),
+                    Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
                     SizedBox(width: 8),
                     Text('清空聊天记录'),
                   ],
@@ -213,9 +213,9 @@ class _AgentChatPageState extends State<AgentChatPage> {
                 color: Theme.of(context).colorScheme.secondary,
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text('事件记录 Agent', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               provider.isConfigured ? '记录你的事件，我会为你生成分析报告' : '请先配置 API Key',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -224,9 +224,9 @@ class _AgentChatPageState extends State<AgentChatPage> {
               textAlign: TextAlign.center,
             ),
             if (!provider.isConfigured) ...[
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
             ],
-            const SizedBox(height: 32),
+            SizedBox(height: 32),
             // 快捷提示
             Text(
               '例如：',
@@ -234,7 +234,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -267,7 +267,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -300,7 +300,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
                 onSubmitted: (value) => _handleSend(value),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.secondary,
@@ -311,15 +311,15 @@ class _AgentChatPageState extends State<AgentChatPage> {
                     ? null
                     : () => _handleSend(_inputController.text),
                 icon: _isSending
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surface,
                         ),
                       )
-                    : const Icon(Icons.send, color: Colors.white),
+                    : Icon(Icons.send, color: Theme.of(context).colorScheme.surface),
               ),
             ),
           ],
@@ -332,19 +332,19 @@ class _AgentChatPageState extends State<AgentChatPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清空聊天记录'),
-        content: const Text('确定要清空所有聊天记录吗？'),
+        title: Text('清空聊天记录'),
+        content: Text('确定要清空所有聊天记录吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text('取消'),
           ),
           TextButton(
             onPressed: () {
               context.read<AgentChatProvider>().clearMessages();
               Navigator.pop(context);
             },
-            child: const Text('清空', style: TextStyle(color: Colors.red)),
+            child: Text('清空', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
@@ -375,7 +375,7 @@ class _MessageBubble extends StatelessWidget {
       onLongPress: () {
         Clipboard.setData(ClipboardData(text: message.content));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已复制到剪贴板')),
+          SnackBar(content: Text('已复制到剪贴板')),
         );
       },
       child: Align(
@@ -401,7 +401,7 @@ class _MessageBubble extends StatelessWidget {
               ? Text(
                   message.content,
                   style: TextStyle(
-                    color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                    color: isMe ? Theme.of(context).colorScheme.surface : theme.colorScheme.onSurface,
                   ),
                 )
               : GetIt.instance<MessageWidgetFactory>().create(
@@ -419,7 +419,7 @@ class _LoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Align(
+    return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 8),

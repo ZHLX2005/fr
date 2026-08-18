@@ -127,15 +127,15 @@ class _JungleTutorialPageState extends State<JungleTutorialPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kPageBg,
+      backgroundColor: kPageBg(context),
       appBar: AppBar(
         title: const Text(
           '斗兽棋规则教程',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: kTextStrong,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: kTextStrong(context),
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -187,19 +187,19 @@ class _JungleTutorialPageState extends State<JungleTutorialPage> {
               decoration: BoxDecoration(
                 color: active
                     ? kBluePieceTint.withValues(alpha: 0.10)
-                    : Colors.white,
+                    : Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
                   color: active
                       ? kBluePieceTint.withValues(alpha: 0.55)
-                      : kPanelBorder,
+                      : kPanelBorder(context),
                   width: active ? 1.5 : 1,
                 ),
               ),
               child: Text(
                 '${i + 1}. ${kTutorialChapters[i].title}',
                 style: TextStyle(
-                  color: active ? kBluePieceTint : kTextNormal,
+                  color: active ? kBluePieceTint : kTextNormal(context),
                   fontSize: 13,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                 ),
@@ -223,10 +223,10 @@ class _JungleTutorialPageState extends State<JungleTutorialPage> {
       margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: move == null ? Colors.white : accent.withValues(alpha: 0.07),
+        color: move == null ? Theme.of(context).colorScheme.surface : accent.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(kPanelRadius),
         border: Border.all(
-          color: move == null ? kPanelBorder : accent.withValues(alpha: 0.45),
+          color: move == null ? kPanelBorder(context) : accent.withValues(alpha: 0.45),
         ),
       ),
       child: Row(
@@ -237,7 +237,7 @@ class _JungleTutorialPageState extends State<JungleTutorialPage> {
                 ? Icons.menu_book_rounded
                 : (blocked ? Icons.block_rounded : Icons.play_arrow_rounded),
             size: 18,
-            color: move == null ? kTextMuted : accent,
+            color: move == null ? kTextMuted(context) : accent,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -245,7 +245,7 @@ class _JungleTutorialPageState extends State<JungleTutorialPage> {
               child: Text(
                 move?.caption ?? _ch.summary,
                 style: TextStyle(
-                  color: move == null ? kTextNormal : kTextStrong,
+                  color: move == null ? kTextNormal(context) : kTextStrong(context),
                   fontSize: 13.5,
                   height: 1.55,
                   fontWeight:
@@ -269,7 +269,7 @@ class _JungleTutorialPageState extends State<JungleTutorialPage> {
           _CtrlButton(
             icon: Icons.skip_previous_rounded,
             label: '上一步',
-            tint: kTextNormal,
+            tint: kTextNormal(context),
             onTap: _step > 0 ? _prev : null,
           ),
           const SizedBox(width: 10),
@@ -313,9 +313,9 @@ class _CtrlButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final c = enabled ? tint : kTextMuted.withValues(alpha: 0.55);
+    final c = enabled ? tint : kTextMuted(context).withValues(alpha: 0.55);
     return Material(
-      color: enabled ? c.withValues(alpha: 0.08) : Colors.transparent,
+      color: enabled ? c.withValues(alpha: 0.08) : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,

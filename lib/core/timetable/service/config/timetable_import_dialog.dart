@@ -76,7 +76,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
         // 半透明遮罩
         GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: Container(color: Colors.black26),
+          child: Container(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.26)),
         ),
         // 居中的对话框
         Center(
@@ -88,7 +88,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
               width: 340,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: TimetableColors.border, width: 1),
+                border: Border.all(color: TimetableColors.border(context), width: 1),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -123,7 +123,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                                 '批量导入',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: TimetableColors.textPrimary,
+                                  color: TimetableColors.textPrimary(context),
                                 ),
                               ),
                             ],
@@ -131,7 +131,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                         ),
                         const Spacer(),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: Icon(Icons.close),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
@@ -148,15 +148,15 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: TimetableColors.surfaceVariant,
+                            color: TimetableColors.surfaceVariant(context),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: TimetableColors.border),
+                            border: Border.all(color: TimetableColors.border(context)),
                           ),
                           child: Text(
                             '课程名 @ 星期(1-7) 节次 [w周次] [位置] [教师]\n'
                             '例: 高等数学 @ 1 1-2 w1,3,5 教学楼A101',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: TimetableColors.textSecondary,
+                              color: TimetableColors.textSecondary(context),
                               height: 1.5,
                             ),
                           ),
@@ -166,11 +166,11 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                         TextField(
                           controller: _controller,
                           maxLines: 5,
-                          style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+                          style: TextStyle(fontSize: 13, fontFamily: 'monospace'),
                           decoration: InputDecoration(
                             hintText: '粘贴 DSL 格式的课程数据...',
                             hintStyle: TextStyle(
-                              color: TimetableColors.textTertiary,
+                              color: TimetableColors.textTertiary(context),
                               fontSize: 12,
                             ),
                             border: OutlineInputBorder(
@@ -194,14 +194,14 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.red.shade50,
+                              color: Theme.of(context).colorScheme.error,
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.red.shade200),
+                              border: Border.all(color: Theme.of(context).colorScheme.error),
                             ),
                             child: Text(
                               _preview!.errors.join('\n'),
                               style: TextStyle(
-                                color: Colors.red.shade700,
+                                color: Theme.of(context).colorScheme.error,
                                 fontSize: 11,
                               ),
                             ),
@@ -213,7 +213,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                             Expanded(
                               child: OutlinedButton(
                                 onPressed: _doPreview,
-                                style: EmphasisButton.borderEmphasis(context, color: TimetableColors.accent),
+                                style: EmphasisButton.borderEmphasis(context, color: TimetableColors.accent(context)),
                                 child: const Text('预览'),
                               ),
                             ),
@@ -224,7 +224,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                                 onPressed: (_preview != null && _preview!.courses.isNotEmpty)
                                     ? _doImport
                                     : null,
-                                style: EmphasisButton.borderEmphasis(context, color: TimetableColors.accent),
+                                style: EmphasisButton.borderEmphasis(context, color: TimetableColors.accent(context)),
                                 child: Text(
                                   _preview != null && _preview!.courses.isNotEmpty
                                       ? '导入 ${_preview!.courses.length} 门'
@@ -249,9 +249,9 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
   Widget _buildPreview(ThemeData theme) {
     return Container(
       decoration: BoxDecoration(
-        color: TimetableColors.surfaceVariant,
+        color: TimetableColors.surfaceVariant(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: TimetableColors.border),
+        border: Border.all(color: TimetableColors.border(context)),
       ),
       child: ListView.builder(
         padding: const EdgeInsets.all(8),
@@ -267,7 +267,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                   width: 6,
                   height: 18,
                   decoration: BoxDecoration(
-                    color: TimetableColors.getCourseColor(course.colorSeed ?? 0),
+                    color: TimetableColors.getCourseColor(context, course.colorSeed ?? 0),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -285,7 +285,7 @@ class _TimetableImportDialogState extends ConsumerState<TimetableImportDialog> {
                 Text(
                   '${weekdayNames[course.dayOfCycle]}${course.slotIndex + 1}',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: TimetableColors.textSecondary,
+                    color: TimetableColors.textSecondary(context),
                   ),
                 ),
               ],

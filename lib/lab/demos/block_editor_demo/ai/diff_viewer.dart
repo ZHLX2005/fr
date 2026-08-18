@@ -12,11 +12,11 @@ class DiffViewer extends StatelessWidget {
     final theme = Theme.of(context);
     final lines = diff.isEmpty ? <String>[] : diff.split('\n');
 
-    if (lines.isEmpty) return const SizedBox.shrink();
+    if (lines.isEmpty) return SizedBox.shrink();
 
     return Container(
       constraints: BoxConstraints(maxHeight: 28.0 * maxLines),
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
@@ -45,10 +45,10 @@ class DiffViewer extends StatelessWidget {
       return theme.colorScheme.onSurfaceVariant;
     }
     if (line.startsWith('+')) {
-      return Colors.green.shade700;
+      return theme.colorScheme.primary;
     }
     if (line.startsWith('-')) {
-      return Colors.red.shade700;
+      return theme.colorScheme.error;
     }
     if (line.startsWith('@@')) {
       return theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6);
