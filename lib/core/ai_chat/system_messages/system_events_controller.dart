@@ -111,21 +111,28 @@ class SystemEventsController extends ChangeNotifier {
   /// 异步落盘（fire-and-forget）。失败静默 —— 持久化是尽力而为，
   /// 不能影响主流程的 append/markAllRead。
   void _schedulePersist() {
+    final count = _events.length;
+    final readIx = _lastReadIndex;
     SharedPreferences.getInstance().then((prefs) {
-      prefs.setString(
-        _kPrefsKey,
-        jsonEncode([
-          for (final e in _events)
-            {
-              'time': e.time,
-              'eventType': e.eventType,
-              'title': e.title,
-              'detail': e.detail,
-            }
-        ]),
-      );
-      prefs.setInt(_kPrefsReadIndexKey, _lastReadIndex);
-    }).catchError((_) {});
+      final raw = jsonEncode([
+        for (final e in _events)
+          {
+            'time': e.time,
+            'eventType': e.eventType,
+            'title': e.title,
+            'detail': e.detail,
+          }
+      ]);
+      return prefs.setString(_kPrefsKey, raw).then((_) {
+        // ignore: avoid_print
+        print('[sys-event] PERSIST ok count=$count readIx=$readIx '
+            'bytes=${raw.length}');
+      }).then((_) => prefs.setInt(_kPrefsReadIndexKey, readIx));
+    }).catchError((Object e, StackTrace st) {
+      // ignore: avoid_print
+      print('[sys-event] PERSIST FAIL: $e');
+      return false;
+    });
   }
 
   /// 冷启动恢复磁盘上的事件列表。
@@ -142,9 +149,14 @@ class SystemEventsController extends ChangeNotifier {
   Future<void> _doRestore() async {
     List<SystemEventMessageData> restored = [];
     int savedReadIndex = 0;
+    String? raw;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_kPrefsKey);
+      // 关键诊断：读 prefs 时把 raw 字节数和 hash 都打出来，
+      // —— 排查"prefs 真的没东西" vs "prefs 有但解析失败" vs "数据正确但被某处清了"
+      raw = prefs.getString(_kPrefsKey);
+      // ignore: avoid_print
+      print('[sys-event] RESTORE rawLen=${raw?.length ?? -1}');
       if (raw != null && raw.isNotEmpty) {
         final list = jsonDecode(raw) as List<dynamic>;
         for (final item in list) {
@@ -159,9 +171,12 @@ class SystemEventsController extends ChangeNotifier {
       }
       savedReadIndex = prefs.getInt(_kPrefsReadIndexKey) ?? 0;
     } catch (e) {
-      debugPrint('[sys-event] restore FAILED: $e');
+      // ignore: avoid_print
+      print('[sys-event] RESTORE FAIL: $e');
       return;
     }
+    // ignore: avoid_print
+    print('[sys-event] RESTORE parsed=${restored.length} pending=${_events.length}');
     if (restored.isEmpty) return;
 
     // 旧事件在前、本次会话已 append 的新事件在后；再按上限截断。
