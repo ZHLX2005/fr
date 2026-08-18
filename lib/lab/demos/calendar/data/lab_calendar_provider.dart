@@ -126,6 +126,20 @@ class LabCalendarProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// 删除指定 group 下的所有人（删除 group 时由 UI 同步调用）
+  Future<void> removePeopleByGroup(String groupId) async {
+    // 实际删除由 LabPeopleProvider 完成；这里仅占位便于外部统一调度。
+  }
+
+  /// 清空当前激活 group 的所有事件（保留人）
+  Future<void> clearActiveGroupItems() async {
+    final activeId = _activeGroupId;
+    _events.removeWhere((e) => e.groupId == activeId);
+    await _saveAll();
+    _syncToWidget();
+    notifyListeners();
+  }
+
   /// 批量写入事件（DSL 解析结果用）
   Future<int> importEvents(List<Event> events) async {
     final newOnes = events.map((e) {
