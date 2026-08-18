@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/lab_calendar_provider.dart';
@@ -14,16 +13,16 @@ import '../../../../../widgets/theme/zen_theme.dart';
 /// 提供：
 /// - group 列表/切换/新建/重命名/删除（仿 timetable 多空间）
 /// - DSL 导出/导入入口（高级操作）
-class CalendarSettingsPage extends ConsumerStatefulWidget {
+class CalendarSettingsPage extends StatefulWidget {
   const CalendarSettingsPage({super.key});
 
   @override
-  ConsumerState<CalendarSettingsPage> createState() =>
+  State<CalendarSettingsPage> createState() =>
       _CalendarSettingsPageState();
 }
 
 class _CalendarSettingsPageState
-    extends ConsumerState<CalendarSettingsPage> {
+    extends State<CalendarSettingsPage> {
   @override
   Widget build(BuildContext context) {
     // 监听 provider 变化：group 列表 / 激活 group 变化时立即重建
