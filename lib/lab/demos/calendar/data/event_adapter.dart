@@ -47,7 +47,7 @@ class EventAdapter extends TypeAdapter<Event> {
   @override
   void write(BinaryWriter writer, Event obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -81,6 +81,8 @@ class EventAdapter extends TypeAdapter<Event> {
       ..writeByte(15)
       ..write(obj.isLeap)
       ..writeByte(16)
-      ..write(obj.groupId);
+      ..write(obj.groupId)
+      ..writeByte(17)
+      ..write(obj.everyNDays);
   }
 }

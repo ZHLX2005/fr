@@ -48,6 +48,11 @@ class Event {
   /// 所属日历 group（仿 timetable 多空间：default + 自建）
   final String groupId;
 
+  /// 每 N 天展开（solar only）：从锚点 [year]/[month]/[day] 起每 N 天出现一次。
+  /// null = 单次/周期（school/general/追剧周期模式），由 [Recurrence] 驱动。
+  /// 用于"面向事件"的"每 x 天"语法：例如 every-4-days 表示每 4 天一次。
+  final int? everyNDays;
+
   const Event({
     required this.id,
     required this.type,
@@ -56,16 +61,17 @@ class Event {
     required this.year,
     required this.month,
     required this.day,
-    required this.recurrence,
-    required this.colorTag,
-    required this.createdAt,
     this.isLeap = false,
     this.solarYearOffset,
+    this.recurrence = Recurrence.none,
     this.personId,
+    this.colorTag = ColorTag.gray,
     this.note,
+    required this.createdAt,
     this.systemCalendarEventId,
     this.lunarAnchorYear,
     this.groupId = CalendarGroup.defaultGroupId,
+    this.everyNDays,
   });
 
   Event copyWith({
@@ -84,6 +90,7 @@ class Event {
     int? systemCalendarEventId,
     int? lunarAnchorYear,
     String? groupId,
+    int? everyNDays,
   }) {
     return Event(
       id: id,
@@ -102,6 +109,7 @@ class Event {
       systemCalendarEventId: systemCalendarEventId ?? this.systemCalendarEventId,
       lunarAnchorYear: lunarAnchorYear ?? this.lunarAnchorYear,
       groupId: groupId ?? this.groupId,
+      everyNDays: everyNDays ?? this.everyNDays,
       createdAt: createdAt,
     );
   }
@@ -123,6 +131,7 @@ class Event {
         if (systemCalendarEventId != null) 'systemCalendarEventId': systemCalendarEventId,
         if (lunarAnchorYear != null) 'lunarAnchorYear': lunarAnchorYear,
         if (groupId != CalendarGroup.defaultGroupId) 'groupId': groupId,
+        if (everyNDays != null) 'everyNDays': everyNDays,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -144,5 +153,6 @@ class Event {
         lunarAnchorYear: j['lunarAnchorYear'] as int?,
         createdAt: DateTime.parse(j['createdAt'] as String),
         groupId: j['groupId'] as String? ?? CalendarGroup.defaultGroupId,
+        everyNDays: j['everyNDays'] as int?,
       );
 }

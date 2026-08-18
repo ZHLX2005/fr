@@ -187,6 +187,13 @@ class LabCalendarProvider with ChangeNotifier {
   List<Event> eventsOnDate(DateTime date) {
     final lunar = _lunar.fromSolar(date);
     return _events.where((e) {
+      // every-N-days 展开（solar only）：从锚点 (year/month/day) 起每 N 天一次
+      if (e.everyNDays != null && e.system == CalendarSystem.solar) {
+        final start = DateTime(e.year, e.month, e.day);
+        final diff = date.difference(start).inDays;
+        if (diff < 0) return false;
+        return diff % e.everyNDays! == 0;
+      }
       if (e.system == CalendarSystem.solar) {
         return e.month == date.month && e.day == date.day;
       }

@@ -63,9 +63,13 @@ CalendarSystem _parseSystem(String s) =>
     s == 'lunar' ? CalendarSystem.lunar : CalendarSystem.solar;
 
 ({int n, DateTime? starting})? _parseEveryDays(String s) {
-  final m = RegExp(r'^every-(\d+)-days(?::starting=(\d{4}-\d{1,2}-\d{1,2}))?$').firstMatch(s);
+  // every-N-days REQUIRES starting= anchor (so the parse reflects first occurrence
+  // and round-trips losslessly). Without starting, we cannot expand the event
+  // meaningfully; reject and let the progressive probe fall through to other forms.
+  if (!s.contains('starting=')) return null;
+  final m = RegExp(r'^every-(\d+)-days starting=(\d{4}-\d{1,2}-\d{1,2})$').firstMatch(s);
   if (m == null) return null;
-  return (n: int.parse(m.group(1)!), starting: m.group(2) == null ? null : _parseYmd(m.group(2)!));
+  return (n: int.parse(m.group(1)!), starting: _parseYmd(m.group(2)!));
 }
 
 ({int n, Set<int> weekdays, DateTime? starting})? _parseEveryWeeks(String s) {
@@ -220,7 +224,10 @@ _ParseResult _parseDateExpr(String s) {
   if (raw.startsWith('every-') && raw.contains('-days')) {
     final ed = _parseEveryDays(raw);
     if (ed == null) return _ParseResult(error: 'every-N-days invalid: $raw');
-    return _ParseResult(freq: _ParsedFreq(everyNDays: ed.n));
+    return _ParseResult(freq: _ParsedFreq(
+      everyNDays: ed.n,
+      everyNWeeksStarting: ed.starting,
+    ));
   }
   if (raw.startsWith('every-') && raw.contains('-weeks')) {
     final ew = _parseEveryWeeks(raw);
@@ -361,11 +368,10 @@ CalendarDslFullResult parseCalendarDsl(String input) {
     final rest = line.substring(atIdx + 1).trim();
     _ParseResult? parsed;
     int dateEndIdx = -1;
-    // Probe longest substring first to avoid partial-match.
     for (int i = rest.length; i >= 0; i--) {
       final probe = rest.substring(0, i);
       final r = _parseDateExpr(probe);
-      if (r.freq != null && r.error == null) {
+      if (r.error == null) {
         parsed = r;
         dateEndIdx = i;
         break;
@@ -433,6 +439,16 @@ CalendarDslFullResult parseCalendarDsl(String input) {
       year = int.parse(start.substring(0, 4));
       month = 1; // monthly: 月份不固定,1 占位（由 Resolver 在每次发生推算）
       day = freq.monthlyDay!;
+    } else if (freq.everyNDays != null) {
+      // every-N-days — anchor from freq.everyNWeeksStarting if set, else from config start.
+      final start =
+          freq.everyNWeeksStarting ??
+              (config?.startDateIso != null
+                  ? DateTime.parse(config!.startDateIso!)
+                  : DateTime(now.year, now.month, now.day));
+      year = start.year;
+      month = start.month;
+      day = start.day;
     } else {
       // Freq expressions (every-N-days/weeks/monthly/nth-weekday): use start year
       // as first occurrence year. Precise first-occurrence date resolved at
@@ -459,6 +475,7 @@ CalendarDslFullResult parseCalendarDsl(String input) {
       note: attrs['note'],
       createdAt: now,
       lunarAnchorYear: lunarAnchorYear,
+      everyNDays: freq.everyNDays,
     );
     events.add(event);
   }
@@ -499,6 +516,9 @@ String exportCalendarDsl(
     if (e.recurrence != Recurrence.none) {
       attrs.add('recurrence=${_recurrenceName(e.recurrence)}');
     }
+    if (e.everyNDays != null) {
+      attrs.add('everyNDays=${e.everyNDays}');
+    }
     if (e.system == CalendarSystem.lunar) attrs.add('system=lunar');
     if (e.personId != null) attrs.add('person=${e.personId}');
     if (e.colorTag != ColorTag.gray) attrs.add('color=${e.colorTag.name}');
@@ -512,6 +532,9 @@ String _exportDateExpr(Event e) {
   final y = e.year.toString().padLeft(4, '0');
   final m = e.month.toString().padLeft(2, '0');
   final d = e.day.toString().padLeft(2, '0');
+  if (e.everyNDays != null) {
+    return 'every-${e.everyNDays}-days starting=$y-$m-$d';
+  }
   if (e.recurrence == Recurrence.yearly) {
     return 'yearly-solar:$m-$d';
   }

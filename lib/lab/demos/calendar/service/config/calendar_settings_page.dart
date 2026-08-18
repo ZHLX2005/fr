@@ -25,9 +25,10 @@ class _CalendarSettingsPageState
     extends ConsumerState<CalendarSettingsPage> {
   @override
   Widget build(BuildContext context) {
-    final cal = LabCalendarProvider.current;
+    // 监听 provider 变化：group 列表 / 激活 group 变化时立即重建
+    final cal = context.watch<LabCalendarProvider>();
     final people = LabPeopleProvider.current;
-    if (cal == null || people == null) {
+    if (people == null) {
       return const Scaffold(body: Center(child: Text('日历尚未初始化')));
     }
     final groups = cal.groups;
@@ -108,6 +109,7 @@ class _CalendarSettingsPageState
     final people = LabPeopleProvider.current!;
     await cal.setActiveGroup(id);
     await people.setActiveGroup(id);
+    if (mounted) setState(() {}); // 兜底 rebuild（provider notify 失败时）
   }
 
   Future<void> _createGroup() async {

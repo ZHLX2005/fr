@@ -140,6 +140,27 @@ void main() {
     });
   });
 
+  group('event everyNDays 字段', () {
+    test('every-N-days 解析保留 everyNDays 字段', () {
+      final r = parseCalendarDsl('打卡 @every-4-days starting=2026-08-10');
+      expect(r.errors, isEmpty);
+      expect(r.events, hasLength(1));
+      expect(r.events.first.everyNDays, 4);
+      // first occurrence = 锚点
+      expect(r.events.first.year, 2026);
+      expect(r.events.first.month, 8);
+      expect(r.events.first.day, 10);
+    });
+
+    test('导出 everyNDays → 回灌 every-N-days 字段一致', () {
+      final r1 = parseCalendarDsl('打卡 @every-4-days starting=2026-08-10');
+      final dsl = exportCalendarDsl(r1.events, config: r1.config);
+      expect(dsl, contains('everyNDays=4'));
+      final r2 = parseCalendarDsl(dsl);
+      expect(r2.events.first.everyNDays, 4);
+    });
+  });
+
   group('exportCalendarDsl 导出', () {
     test('导出包含 config 头部', () {
       final dsl = exportCalendarDsl([], config: const CalendarConfig());
