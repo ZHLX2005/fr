@@ -39,14 +39,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   @override
   void initState() {
     super.initState();
-    // 先 hydrate 状态（从 SP 读取已下载路径/开关/上次版本）
-    _apkManager.loadSavedState().then((_) {
-      // 开关开启 → 节流检查（15min 内不重复请求）。
-      // 是否下载由 checkUpdate.shouldAuto 单点决定。
-      if (_apkManager.state.value.autoDownloadOnUpdate) {
-        _apkManager.maybeAutoCheck();
-      }
-    });
+    // hydrate 状态（从 SP 读取已下载路径/开关/上次版本）。
+    // 自动检查由 ApkAutoUpdateHost 隐藏宿主负责（随开关挂载/销毁），
+    // 本页只展示，不触发检查。
+    _apkManager.loadSavedState();
   }
 
   @override

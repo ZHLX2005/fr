@@ -13,6 +13,7 @@ import '../screens/profile/profile_page.dart';
 import '../core/focus/focus_home_page.dart';
 import '../screens/chat/home_page.dart';
 import '../widgets/xiaodouzi_bottom_bar.dart';
+import 'apk_auto_update_host.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -87,53 +88,62 @@ class _MainScreenState extends State<MainScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final w = constraints.maxWidth;
-          return Stack(
-            children: [
-              // 底层：目标页面（静止不动）
-              SizedBox(
-                width: w,
-                child: _pages[_isAnimating ? _toIndex : _selectedIndex],
-              ),
-              // 覆盖层：双页同时平移（传送带效果）
-              if (_isAnimating)
-                AnimatedBuilder(
-                  animation: _pageCurve,
-                  builder: (context, _) {
-                    final isForward = _toIndex > _selectedIndex;
-                    final t = _pageCurve.value;
-                    // 新页从异侧滑入，旧页往同侧滑出
-                    final newDx = isForward ? (1 - t) * w : -(1 - t) * w;
-                    final oldDx = isForward ? -t * w : t * w;
-                    return SizedBox(
-                      width: w,
-                      child: Stack(
-                        children: [
-                          Transform.translate(
-                            offset: Offset(newDx, 0),
-                            child: SizedBox(width: w, child: _pages[_toIndex]),
+    return Stack(
+      children: [
+        Scaffold(
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              return Stack(
+                children: [
+                  // 底层：目标页面（静止不动）
+                  SizedBox(
+                    width: w,
+                    child: _pages[_isAnimating ? _toIndex : _selectedIndex],
+                  ),
+                  // 覆盖层：双页同时平移（传送带效果）
+                  if (_isAnimating)
+                    AnimatedBuilder(
+                      animation: _pageCurve,
+                      builder: (context, _) {
+                        final isForward = _toIndex > _selectedIndex;
+                        final t = _pageCurve.value;
+                        // 新页从异侧滑入，旧页往同侧滑出
+                        final newDx = isForward ? (1 - t) * w : -(1 - t) * w;
+                        final oldDx = isForward ? -t * w : t * w;
+                        return SizedBox(
+                          width: w,
+                          child: Stack(
+                            children: [
+                              Transform.translate(
+                                offset: Offset(newDx, 0),
+                                child:
+                                    SizedBox(width: w, child: _pages[_toIndex]),
+                              ),
+                              Transform.translate(
+                                offset: Offset(oldDx, 0),
+                                child: SizedBox(
+                                    width: w,
+                                    child: _pages[_selectedIndex]),
+                              ),
+                            ],
                           ),
-                          Transform.translate(
-                            offset: Offset(oldDx, 0),
-                            child: SizedBox(width: w, child: _pages[_selectedIndex]),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-            ],
-          );
-        },
-      ),
-      bottomNavigationBar: XiaoDouZiBottomBar(
-        currentIndex: _isAnimating ? _toIndex : _selectedIndex,
-        onItemSelected: _onItemTapped,
-        onAddPressed: _onAddPressed,
-      ),
+                        );
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
+          bottomNavigationBar: XiaoDouZiBottomBar(
+            currentIndex: _isAnimating ? _toIndex : _selectedIndex,
+            onItemSelected: _onItemTapped,
+            onAddPressed: _onAddPressed,
+          ),
+        ),
+        // 隐藏宿主：开关开启时挂载 APK 自动检查/下载触发逻辑（0x0 不可见）
+        const ApkAutoUpdateMount(),
+      ],
     );
   }
 }

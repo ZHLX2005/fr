@@ -18,7 +18,6 @@ import 'services/message_strategy/di/di.dart';
 import 'core/note/note_root_scope.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
-import 'lab/demos/api_test/api_download_manager.dart';
 import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
@@ -83,7 +82,7 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends ConsumerState<MyApp> {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
   static const _channel = MethodChannel('io.github.xiaodouzi.fr/widget');
@@ -92,7 +91,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _channel.setMethodCallHandler(_handleMethodCall);
     _themeProvider = ThemeProvider()..init();
 
@@ -105,13 +103,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     });
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 标准双触发点之一：App 回前台时自动检查 APK 更新（内部有 15min 节流）
-    if (state == AppLifecycleState.resumed) {
-      unawaited(ApkDownloadManager().maybeAutoCheck());
-    }
-  }
+  /// App 生命周期（回前台自动检查 APK 更新）已移至
+  /// ApkAutoUpdateHost 隐藏组件（app_lifecycle/apk_auto_update_host.dart），
+  /// 随开关创建/销毁。
 
   /// 桌面 widget MethodChannel 回调 — 翻译走 `FrMethodChannelTranslator`
   /// (lib/app_lifecycle/fr_method_channel_translator.dart),
@@ -123,12 +117,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FrNavigator.handle(navigatorKey.currentContext, frUrl);
     });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
   }
 
   @override
