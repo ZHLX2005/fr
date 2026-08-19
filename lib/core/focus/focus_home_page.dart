@@ -18,12 +18,12 @@ class _ToolItem {
     this.slug,
     this.onTap,
   });
-  factory _ToolItem.registry(String slug) {
+  factory _ToolItem.registry(BuildContext context, String slug) {
     final meta = timePageMetaOf(slug);
     return _ToolItem._(
       label: meta.label,
       icon: meta.icon,
-      color: meta.color,
+      color: colorFor(context, slug),
       slug: slug,
     );
   }
@@ -71,7 +71,7 @@ class FocusHomePage extends StatelessWidget {
                 .toList();
             final grid = <_ToolItem>[
               for (final m in registryMetas)
-                _ToolItem.registry(m.slug),
+                _ToolItem.registry(context, m.slug),
               _ToolItem.internal(
                 label: '时间课表',
                 icon: Icons.calendar_month_outlined,
@@ -278,7 +278,7 @@ class _ToolCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: zenCard(),
+        decoration: zenCardTheme(context),
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

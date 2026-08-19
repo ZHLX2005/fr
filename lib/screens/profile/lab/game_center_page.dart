@@ -133,8 +133,8 @@ class _GameCenterPageState extends State<GameCenterPage>
         // 进度淡入 —— 头部滑走多少，AppBar 就补上多少同色底，交界处不换色系。
         // 前景恒定白色：AppBar 始终压在蓝色上（先是身后的 Hero，后是自己的渐变），
         // 不再出现"白底浅色"与蓝头部对撞的突兀感。
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+        foregroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -150,7 +150,7 @@ class _GameCenterPageState extends State<GameCenterPage>
                   gradient: _headerGradient(scheme),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(
                         alpha: 0.10 * _titleReveal,
                       ),
                       blurRadius: 10,
@@ -261,7 +261,7 @@ class _GameCenterPageState extends State<GameCenterPage>
                 Text(
                   '游戏中心',
                   style: theme.textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.4,
                   ),
@@ -271,7 +271,7 @@ class _GameCenterPageState extends State<GameCenterPage>
                 Text(
                   '${_games.length} 款 · 联机 $onlineCount · 收藏 $favCount',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.78),
                     letterSpacing: 0.2,
                   ),
                 ),
@@ -469,7 +469,7 @@ class _Blob extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: alpha),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: alpha),
       ),
     );
   }

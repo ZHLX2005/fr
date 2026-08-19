@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../widgets/context_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
@@ -133,10 +134,11 @@ class _TimetableSettingsPageState
   @override
   Widget build(BuildContext context) {
     return zenPageScaffold(
-      title: '时间配置',
+      context: context,
+  title: '时间配置',
       actions: [
         IconButton(
-          icon: const Icon(Icons.save),
+          icon: Icon(Icons.save),
           tooltip: '保存',
           onPressed: _save,
         ),
@@ -277,17 +279,17 @@ class _TimetableSettingsPageState
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: zenCard(),
+          decoration: zenCardTheme(context),
           child: Row(
             children: [
-              const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
-              const SizedBox(width: 10),
+              Icon(Icons.calendar_today, size: 18, color: context.colors.textMuted),
+              SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('起始日期（周一，周数推算自动对齐）', style: ZenText.label),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       _startDateController.text,
                       style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
@@ -295,7 +297,7 @@ class _TimetableSettingsPageState
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
+              Icon(Icons.chevron_right, color: context.colors.textMuted, size: 18),
             ],
           ),
         ),
@@ -318,17 +320,17 @@ class _TimetableSettingsPageState
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: zenCard(),
+        decoration: zenCardTheme(context),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, size: 18, color: ZenColors.secondary),
-            const SizedBox(width: 10),
+            Icon(Icons.calendar_today, size: 18, color: context.colors.textMuted),
+            SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('起始日期', style: ZenText.label),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     _startDateController.text,
                     style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
@@ -336,7 +338,7 @@ class _TimetableSettingsPageState
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: ZenColors.secondary, size: 18),
+            Icon(Icons.chevron_right, color: context.colors.textMuted, size: 18),
           ],
         ),
       ),
@@ -404,9 +406,9 @@ class _ZenSegmentButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? ZenColors.sage.withValues(alpha: 0.1) : Colors.transparent,
+          color: selected ? context.colors.accent.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           border: Border.all(
-            color: selected ? ZenColors.sage : ZenColors.hair,
+            color: selected ? context.colors.accent : context.colors.outline,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(6),
@@ -415,7 +417,7 @@ class _ZenSegmentButton extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? ZenColors.sage : ZenColors.secondary,
+            color: selected ? context.colors.accent : context.colors.textMuted,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             fontSize: 14,
           ),
@@ -440,12 +442,12 @@ class _ZenActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = secondary ? ZenColors.secondary : ZenColors.sage;
+    final color = secondary ? context.colors.textMuted : context.colors.accent;
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: onPressed,
-        style: zenButton(
+        style: zenButtonTheme(context,
           foreground: color,
           border: color.withValues(alpha: 0.5),
         ),

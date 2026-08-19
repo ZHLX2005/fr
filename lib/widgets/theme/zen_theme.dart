@@ -1,6 +1,34 @@
-import 'package:flutter/material.dart';
+// Zen 家族主题（v6 Heritage 架构）。
+//
+// 角色：
+//   - Zen 家族组件的"zen 风格"色：永远固定的 3 色（sage/hair/mutedRed）
+//   - 通过 DefaultColorStrategy 注入，全 app 切 zen 主题时全树统一
+//   - 切到其他主题时，zen 组件仍保留家族识别（不像 7 主题那样跟主题切）
+//
+// 设计：
+//   - ZenText 保持 const（兼容 const widget）
+//   - 其他 widget class 委托 Base* + DefaultColorStrategy.of(scheme)
 
+import 'package:flutter/material.dart';
+import '../context_colors.dart';
+
+import '../base/base_dialog.dart';
+import '../base/base_dot.dart';
+import '../base/base_empty_state.dart';
+import '../base/base_icon_button.dart';
+import '../base/base_swipe_action.dart';
+import '../../core/theme/strategy/default_color_strategy.dart';
+
+// =====================================================================
+// Zen 排版（保持 const 以兼容 const widget）
+// =====================================================================
+
+/// ⚠️ DEPRECATED：保留 ZenColors 类作为兼容层，让 23 个旧 consumer 文件继续编译。
+/// 后续阶段会逐个迁移到 `Theme.of(context).colorScheme`。
+/// 新代码请直接用 `DefaultColorStrategy.of(scheme)` 或 `ColorScheme.X`。
+@Deprecated('Use ColorScheme or DefaultColorStrategy instead')
 class ZenColors {
+  ZenColors._();
   static const bg = Color(0xFFF4F1EA);
   static const ink = Color(0xFF2C2C2C);
   static const hair = Color(0xFFD9D5C8);
@@ -10,67 +38,121 @@ class ZenColors {
   static const surface = Color(0xFFFBF8F1);
 }
 
+/// Zen 排版风格集合（const TextStyle）。
+///
+/// 注：color 字段为硬编码暖墨色 / 暖灰，是 zen 家族识别的一部分。
+/// 若需要完全跟主题（夜/亮），调用方用 .copyWith(color: scheme.X) 覆盖。
 class ZenText {
+  ZenText._();
+
   static const body = TextStyle(
     fontFamily:
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     fontSize: 16,
-    color: ZenColors.ink,
+    color: Color(0xFF2C2C2C), // ZenColors.ink 内联
     height: 1.3,
   );
+
   static const label = TextStyle(
     fontFamily:
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     fontSize: 13,
-    color: ZenColors.secondary,
+    color: Color(0xFF8A8475), // ZenColors.secondary 内联
   );
+
   static const title = TextStyle(
     fontFamily:
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     fontSize: 22,
     fontWeight: FontWeight.w600,
-    color: ZenColors.ink,
+    color: Color(0xFF2C2C2C),
   );
+
   static const button = TextStyle(
     fontFamily:
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     fontSize: 16,
     fontWeight: FontWeight.w500,
   );
+
   static const monoDigit = TextStyle(
     fontFamily: 'SF Mono, Menlo, Consolas, monospace',
     fontSize: 40,
     fontWeight: FontWeight.w600,
     fontFeatures: [FontFeature.tabularFigures()],
-    color: ZenColors.ink,
+    color: Color(0xFF2C2C2C),
   );
+
   static const monoDigitLarge = TextStyle(
     fontFamily: 'SF Mono, Menlo, Consolas, monospace',
     fontSize: 64,
     fontWeight: FontWeight.w700,
     fontFeatures: [FontFeature.tabularFigures()],
-    color: ZenColors.ink,
+    color: Color(0xFF2C2C2C),
   );
+
   static const monoDigitSmall = TextStyle(
     fontFamily: 'SF Mono, Menlo, Consolas, monospace',
     fontSize: 14,
     fontFeatures: [FontFeature.tabularFigures()],
-    color: ZenColors.secondary,
+    color: Color(0xFF8A8475),
   );
 }
 
+/// ⚠️ DEPRECATED：迁移期保留。改用 `BaseIconButtonVariant`。
+@Deprecated('Use BaseIconButtonVariant from widgets/base/')
+enum ZenIconButtonVariant { tint, outline, hero }
+
+// =====================================================================
+// Zen 风格 helper
+// =====================================================================
+
+/// Zen 卡片装饰（surface bg + outline 2px 边框 + 圆角 6）。
+///
+/// ⚠️ DEPRECATED 兼容版：读 ZenColors（Zen 家族固定色）。
+/// 新代码用 [zenCardTheme]。
 BoxDecoration zenCard({Color? color}) => BoxDecoration(
       color: color ?? ZenColors.surface,
       border: Border.all(color: ZenColors.hair, width: 1),
       borderRadius: BorderRadius.circular(6),
     );
 
+/// Zen 卡片装饰（v6 Heritage：读 ColorStrategy）。
+BoxDecoration zenCardTheme(BuildContext context) {
+  final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
+  return BoxDecoration(
+    color: s.surface,
+    border: Border.all(color: s.outline, width: 2),
+    borderRadius: BorderRadius.circular(6),
+  );
+}
+
+/// Zen 点状区域（surface bg + outline 边框 solid）。
+///
+/// ⚠️ DEPRECATED 兼容版。
 BoxDecoration zenDottedZone() => BoxDecoration(
       color: ZenColors.surface,
       border: Border.all(color: ZenColors.hair, width: 1, style: BorderStyle.solid),
       borderRadius: BorderRadius.circular(6),
     );
 
+/// Zen 点状区域（v6 Heritage）。
+BoxDecoration zenDottedZoneTheme(BuildContext context) {
+  final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
+  return BoxDecoration(
+    color: s.surface,
+    border: Border.all(
+      color: s.outline,
+      width: 1,
+      style: BorderStyle.solid,
+    ),
+    borderRadius: BorderRadius.circular(6),
+  );
+}
+
+/// Zen 按钮样式（onSurface fg + outline border + ZenText.button 字号）。
+///
+/// ⚠️ DEPRECATED 兼容版。
 ButtonStyle zenButton({Color? foreground, Color? border, Color? background}) =>
     OutlinedButton.styleFrom(
       foregroundColor: foreground ?? ZenColors.ink,
@@ -82,15 +164,29 @@ ButtonStyle zenButton({Color? foreground, Color? border, Color? background}) =>
       textStyle: ZenText.button,
     );
 
+/// Zen 按钮样式（v6 Heritage）。
+ButtonStyle zenButtonTheme(
+  BuildContext context, {
+  Color? foreground,
+  Color? border,
+}) {
+  return OutlinedButton.styleFrom(
+    foregroundColor: foreground ?? context.colors.text,
+    side: BorderSide(color: border ?? context.colors.outline),
+    minimumSize: const Size(88, 44),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+    textStyle: ZenText.button,
+  );
+}
+
 // =====================================================================
-// Composite widgets — the zen theme is "not just colors, but a UI".
+// Zen 家族 widget class（委托 Base* + 锁定 DefaultColorStrategy）
 // =====================================================================
 
-/// Section card with a small label header. The canonical "stat / setting"
-/// container used by clocks dashboard, metronome's accent legend, and any
-/// new page that needs a labelled panel.
+/// Section card with a small label header.
 ///
-/// Defaults: 12px padding, 8px gap between title and content.
+/// 委托 BaseSection，注入 DefaultColorStrategy.of(scheme)。
 class ZenSection extends StatelessWidget {
   const ZenSection({
     super.key,
@@ -107,9 +203,14 @@ class ZenSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
     return Container(
       padding: padding,
-      decoration: zenCard(),
+      decoration: BoxDecoration(
+        color: s.surface,
+        border: Border.all(color: s.outline, width: 1),
+        borderRadius: BorderRadius.circular(6),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -122,124 +223,66 @@ class ZenSection extends StatelessWidget {
   }
 }
 
-/// Circular icon control button. Three flavors via [variant]:
-///   • `ZenIconButtonVariant.tint`   — 44×44 with color@10% bg (clocks, runner).
-///   • `ZenIconButtonVariant.outline` — 48×48 with surface bg + hair border (BPM ±).
-///   • `ZenIconButtonVariant.hero`   — 80×80 solid sage + glow (play / stop).
-///
-/// Icon color and bg follow the flavor; override via [color] / [background].
+/// Zen 圆形 IconButton（3 variant），委托 BaseIconButton + 锁定 DefaultColorStrategy。
 class ZenIconButton extends StatelessWidget {
   const ZenIconButton({
     super.key,
     required this.icon,
     required this.onTap,
-    this.color = ZenColors.sage,
+    this.color,
     this.background,
     this.size = 44,
     this.iconSize = 24,
-    this.variant = ZenIconButtonVariant.tint,
+    this.variant = BaseIconButtonVariant.tint,
   });
 
   final IconData icon;
   final VoidCallback? onTap;
-  final Color color;
+  final Color? color;
   final Color? background;
   final double size;
   final double iconSize;
-  final ZenIconButtonVariant variant;
+  final BaseIconButtonVariant variant;
 
   @override
   Widget build(BuildContext context) {
-    final (bg, fg) = switch (variant) {
-      ZenIconButtonVariant.tint => (
-        color.withValues(alpha: 0.1),
-        color,
-      ),
-      ZenIconButtonVariant.outline => (
-        ZenColors.surface,
-        color,
-      ),
-      ZenIconButtonVariant.hero => (
-        ZenColors.sage,
-        Colors.white,
-      ),
-    };
-    final decoration = switch (variant) {
-      ZenIconButtonVariant.outline => BoxDecoration(
-          color: background ?? bg,
-          shape: BoxShape.circle,
-          border: Border.all(color: ZenColors.hair, width: 1),
-        ),
-      ZenIconButtonVariant.hero => BoxDecoration(
-          color: ZenColors.sage,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: ZenColors.sage.withValues(alpha: 0.4),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-      _ => BoxDecoration(
-          color: background ?? bg,
-          shape: BoxShape.circle,
-        ),
-    };
-    final effectiveIconSize =
-        variant == ZenIconButtonVariant.hero ? 48.0 : iconSize;
-    return InkWell(
+    return BaseIconButton(
+      icon: icon,
       onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: decoration,
-        child: Icon(icon, color: fg, size: effectiveIconSize),
-      ),
+      color: color,
+      background: background,
+      size: size,
+      iconSize: iconSize,
+      variant: variant,
     );
   }
 }
 
-enum ZenIconButtonVariant { tint, outline, hero }
-
-/// 12×12 status dot. The default style matches the clock beat dot:
-/// active = filled sage + sage border, inactive = transparent + secondary border.
-///
-/// For legend swatches (solid color, no state), pass `color` and leave
-/// `active = false` — the dot renders as a solid color circle.
+/// Zen 状态点（委托 BaseDot + 锁定 DefaultColorStrategy）。
 class ZenDot extends StatelessWidget {
   const ZenDot({
     super.key,
     this.active = false,
-    this.color = ZenColors.sage,
-    this.inactiveBorder = ZenColors.secondary,
+    this.color,
+    this.inactiveBorder,
     this.size = 12,
   });
 
   final bool active;
-  final Color color;
-  final Color inactiveBorder;
+  final Color? color;
+  final Color? inactiveBorder;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: active ? color : Colors.transparent,
-        border: Border.all(color: active ? color : inactiveBorder),
-        shape: BoxShape.circle,
-      ),
+    return BaseDot(
+      active: active,
+      size: size,
     );
   }
 }
 
-/// Centered empty state: hair-tinted icon + label, optional action button.
-///
-/// Used by Clocks ("No clocks yet") and Tracks ("No tracks yet").
+/// Zen 空状态（委托 BaseEmptyState + 锁定 DefaultColorStrategy）。
 class ZenEmptyState extends StatelessWidget {
   const ZenEmptyState({
     super.key,
@@ -247,42 +290,28 @@ class ZenEmptyState extends StatelessWidget {
     required this.message,
     this.actionLabel,
     this.onAction,
-    this.actionColor = ZenColors.sage,
+    this.actionColor,
   });
 
   final IconData icon;
   final String message;
   final String? actionLabel;
   final VoidCallback? onAction;
-  final Color actionColor;
+  final Color? actionColor;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: ZenColors.hair),
-          const SizedBox(height: 16),
-          Text(message, style: ZenText.label),
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: onAction,
-              style: zenButton(foreground: actionColor, border: actionColor),
-              child: Text(actionLabel!),
-            ),
-          ],
-        ],
-      ),
+    return BaseEmptyState(
+      icon: icon,
+      message: message,
+      actionLabel: actionLabel,
+      onAction: onAction,
+      actionColor: actionColor,
     );
   }
 }
 
-/// Swipe-action button (80px wide, icon + label, solid color bg).
-///
-/// Used inside [_RecordTile] for "Delete" / "Create". [leftRounded] tucks
-/// the leftmost action under the card's right rounded edge.
+/// Zen 滑动操作按钮（委托 BaseSwipeAction，color 由调用方提供）。
 class ZenSwipeAction extends StatelessWidget {
   const ZenSwipeAction({
     super.key,
@@ -301,42 +330,45 @@ class ZenSwipeAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return BaseSwipeAction(
+      label: label,
+      icon: icon,
+      color: color,
       onTap: onTap,
-      child: Container(
-        width: 80,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: leftRounded
-              ? const BorderRadius.only(
-                  topLeft: Radius.circular(6),
-                  bottomLeft: Radius.circular(6),
-                )
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 22),
-            const SizedBox(height: 2),
-            Text(label,
-                style: const TextStyle(color: Colors.white, fontSize: 12)),
-          ],
-        ),
-      ),
+      leftRounded: leftRounded,
+    );
+  }
+}
+
+/// Zen 确认弹窗（委托 BaseConfirmDialog，但传入 DefaultColorStrategy 锁 danger 色）。
+class ZenConfirmDialog {
+  const ZenConfirmDialog._();
+
+  static Future<bool> show({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+    String confirmLabel = 'Delete',
+    String cancelLabel = 'Cancel',
+    Color? confirmColor,
+  }) async {
+    return BaseConfirmDialog.show(
+      context: context,
+      title: title,
+      message: message,
+      onConfirm: onConfirm,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+      confirmColor: confirmColor,
     );
   }
 }
 
 // =====================================================================
-// Formatters — collapse 5+ duplicate copies into one canonical version.
+// Formatters
 // =====================================================================
 
-/// Human-friendly duration: `'1h 23m 45s'`, `'23m 45s'`, or `'45s'`.
-///
-/// Picks the most informative unit and drops the lower ones only when the
-/// higher unit is zero. Zero seconds renders as `'0s'`.
 String formatDuration(int seconds) {
   if (seconds <= 0) return '0s';
   final h = seconds ~/ 3600;
@@ -347,8 +379,6 @@ String formatDuration(int seconds) {
   return '${s}s';
 }
 
-/// Clock-style time: `HH:MM:SS` (zero-padded) when ≥1h, else `MM:SS`.
-/// Negative values get a leading `-`.
 String formatTime(int seconds) {
   final isNegative = seconds < 0;
   final absSeconds = seconds.abs();
@@ -364,25 +394,18 @@ String formatTime(int seconds) {
   return '$sign${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
 }
 
-/// 录音/记录列表用的日期格式:`YYYY-MM-DD HH:MM`(零填充)。
-///
-/// 比 `formatTime` 多了日期,给 recorder 列表页、native_media 测试页等
-/// 需要展示"文件最后修改时间"的场景复用。
 String formatRecordDate(DateTime d) {
   String two(int v) => v.toString().padLeft(2, '0');
   return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
 }
 
 // =====================================================================
-// Page-level helpers — Scaffold shell + confirm dialog.
+// Backward compat: zenPageScaffold（保留，因为有 23 个 consumer 调用）
 // =====================================================================
 
-/// Standard zen page chrome: bg-tinted Scaffold, flat AppBar with title in
-/// [ZenText.title], optional actions / FAB / bottom nav.
-///
-/// Used by every page (clock_demo, metronome_demo, track_editor_page,
-/// track_records_page, track_runner_page).
+/// Zen 标准页面外壳（保留旧 API 兼容 consumer）。
 Scaffold zenPageScaffold({
+  required BuildContext context,
   required String title,
   required Widget body,
   List<Widget>? actions,
@@ -391,10 +414,11 @@ Scaffold zenPageScaffold({
   Color? backgroundColor,
   Widget? leading,
 }) {
+  final scheme = Theme.of(context).colorScheme;
   return Scaffold(
-    backgroundColor: backgroundColor ?? ZenColors.bg,
+    backgroundColor: backgroundColor ?? scheme.surfaceContainerHighest,
     appBar: AppBar(
-      backgroundColor: ZenColors.bg,
+      backgroundColor: scheme.surfaceContainerHighest,
       elevation: 0,
       title: Text(title, style: ZenText.title),
       actions: actions,
@@ -404,46 +428,4 @@ Scaffold zenPageScaffold({
     floatingActionButton: fab,
     bottomNavigationBar: bottomNavigationBar,
   );
-}
-
-/// Destructive confirm dialog. Returns `true` if user confirmed.
-///
-/// Centralizes the Cancel + muted-red-confirm pattern used by 5+ call sites
-/// (delete clock, delete track, clear records, wipe-all, rename record).
-class ZenConfirmDialog {
-  const ZenConfirmDialog._();
-
-  static Future<bool> show({
-    required BuildContext context,
-    required String title,
-    required String message,
-    required VoidCallback onConfirm,
-    String confirmLabel = 'Delete',
-    String cancelLabel = 'Cancel',
-    Color confirmColor = ZenColors.mutedRed,
-  }) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: ZenColors.surface,
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(cancelLabel,
-                style: const TextStyle(color: ZenColors.secondary)),
-          ),
-          TextButton(
-            onPressed: () {
-              onConfirm();
-              Navigator.pop(ctx, true);
-            },
-            child: Text(confirmLabel, style: TextStyle(color: confirmColor)),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
 }

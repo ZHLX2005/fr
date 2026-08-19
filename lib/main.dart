@@ -1,15 +1,18 @@
-import 'dart:async';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart' hide Animation;
-import 'core/color/theme/theme_provider.dart';
+import 'core/theme/theme_provider.dart';
 import 'services/ai_chat/ai_chat_provider.dart';
 import 'services/ai_chat/agent_chat_provider.dart';
+import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
+import 'screens/profile/profile_page.dart';
+import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
+import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
 import 'lab/demos/clock/providers/lab_clock_provider.dart';
 import 'core/storage/hive/body_record_repository.dart';
@@ -17,12 +20,25 @@ import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/ai_chat/system_messages/system_events_controller.dart';
 import 'core/note/note_root_scope.dart';
+import 'core/share_receive/share_receive_store.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
-import 'app_lifecycle/fr_method_channel_translator.dart';
-import 'app_lifecycle/apk_startup_hook.dart';
-import 'app_lifecycle/crash_log_startup_hook.dart';
-import 'app_lifecycle/main_screen.dart';
+
+/// 全局 Navigator Key（桌面 widget MethodChannel 跳转需要）
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
+/// 桌面 widget MethodChannel 名（与 Kotlin 端 WidgetChannel.kt 对齐）
+const _kWidgetChannel = 'io.github.xiaodouzi.fr/widget';
+
+/// 桌面 widget MethodChannel 回调 —— 走 FrMethodChannelTranslator，
+/// 统一经 FrNavigator.handle 分发（CLEAR_TOP 防栈累加）。
+Future<dynamic> _handleRootMethodCall(MethodCall call) async {
+  final frUrl = FrMethodChannelTranslator.translate(call);
+  if (frUrl == null) return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    FrNavigator.handle(rootNavigatorKey.currentContext, frUrl);
+  });
+}
 
 void main() async {
   // 确保 Flutter 绑定初始化
@@ -31,13 +47,6 @@ void main() async {
 
   // 初始化 APK 后台下载服务（Android Foreground Service）
   await ApkDownloadService().initialize();
-
-  // APK 自动下载生命周期：先 hydrate 状态（lastSeenUploadTime / autoDownloadEnabled）
-  // 再触发启动期检查；开关关闭时静默返回，不影响冷启动。
-  unawaited(runApkAutoDownloadOnStartup());
-
-  // 崩溃日志摄入：启动时一次性把原生侧累积的 crash 日志导入系统消息面板。
-  unawaited(runCrashLogIntakeOnStartup());
 
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();
@@ -64,72 +73,51 @@ void main() async {
   // 初始化笔记模块
   final noteRoot = NoteFactory.create();
 
-  // 使用 NoteRootScope 包裹应用根节点
+  // ★ 创建根 ProviderContainer，把课表仓库注入 Riverpod
+  final container = ProviderContainer(
+    overrides: [
+      TimetableStore.repoProvider.overrideWithValue(hiveRepo),
+      TimetableStore.syncerProvider.overrideWithValue(
+        const DefaultTimetableWidgetSyncer(),
+      ),
+    ],
+  );
+
+  // ★ 启动前同步预加载：主题从 SharedPreferences 读出、课表 hydrate
+  // 这样首帧渲染就能拿到正确主题，避免 flash-to-default。
+  await container.read(themeNotifierProvider.notifier).hydrate();
+  await container.read(TimetableStore.provider.notifier).hydrate();
+
+  // ★ 注册桌面 widget MethodChannel（在 runApp 前注册，handler 在 widget 树之外也可调用）
+  const channel = MethodChannel(_kWidgetChannel);
+  channel.setMethodCallHandler(_handleRootMethodCall);
+
+  // 使用 NoteRootScope + UncontrolledProviderScope（preloaded container）包裹应用根节点
   runApp(
     NoteRootScope(
       noteRoot: noteRoot,
-      child: ProviderScope(
-        overrides: [
-          TimetableStore.repoProvider.overrideWithValue(hiveRepo),
-          TimetableStore.syncerProvider.overrideWithValue(
-            const DefaultTimetableWidgetSyncer(),
-          ),
-        ],
+      child: UncontrolledProviderScope(
+        container: container,
         child: const MyApp(),
       ),
     ),
   );
 }
 
-class MyApp extends ConsumerStatefulWidget {
+/// App 根 widget — ConsumerWidget（无状态，主题走 Riverpod）
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  ConsumerState<MyApp> createState() => _MyAppState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    // ★ 主题从 Riverpod 派生 provider 取值（state 变 → 整树重建）
+    final themeData = ref.watch(themeDataProvider);
+    final themeMode = ref.watch(materialThemeModeProvider);
 
-class _MyAppState extends ConsumerState<MyApp> {
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
-  static const _channel = MethodChannel('io.github.xiaodouzi.fr/widget');
-  late ThemeProvider _themeProvider;
-
-  @override
-  void initState() {
-    super.initState();
-    _channel.setMethodCallHandler(_handleMethodCall);
-    _themeProvider = ThemeProvider()..init();
-
-    // Task 8: 改用 FrNavigator（统一 fr:// URL 分发入口）替换 SchemaNavigator。
-    FrNavigator.setNavigatorKey(navigatorKey);
-
-    // 加载课表数据
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(TimetableStore.provider.notifier).hydrate();
-    });
-  }
-
-  /// App 生命周期（回前台自动检查 APK 更新）已移至
-  /// ApkAutoUpdateHost 隐藏组件（app_lifecycle/apk_auto_update_host.dart），
-  /// 随开关创建/销毁。
-
-  /// 桌面 widget MethodChannel 回调 — 翻译走 `FrMethodChannelTranslator`
-  /// (lib/app_lifecycle/fr_method_channel_translator.dart),
-  /// 统一经 FrNavigator.handle 分发（FrNavigator 内部按 RouteSettings.name
-  /// 做 CLEAR_TOP 防重复堆叠：已在栈中则提到栈顶，不再 push）。
-  Future<dynamic> _handleMethodCall(MethodCall call) async {
-    final frUrl = FrMethodChannelTranslator.translate(call);
-    if (frUrl == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      FrNavigator.handle(navigatorKey.currentContext, frUrl);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return classic_provider.MultiProvider(
       providers: [
-        classic_provider.ChangeNotifierProvider.value(value: _themeProvider),
+        // 主题已迁 Riverpod，这里不再注册 ThemeProvider
+        // 其它业务 Provider 仍走 classic_provider（增量迁移策略）
         // lazy:false → 冷启动即创建，立即 loadClocks + _syncToWidget。
         // 否则桌面 widget 要等用户进入 ClockDemo 页面才会被同步。
         classic_provider.ChangeNotifierProvider(
@@ -149,27 +137,208 @@ class _MyAppState extends ConsumerState<MyApp> {
           create: (_) => FocusProvider()..init(),
         ),
       ],
-      child: classic_provider.Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          return MaterialApp(
-            navigatorKey: navigatorKey,
-            // fr:// CLEAR_TOP 防栈累加依赖的路由栈跟踪器
-            navigatorObservers: [frRouteStack],
-            title: '小豆子',
-            debugShowCheckedModeBanner: false,
-            theme: themeProvider.themeData,
-            themeMode: themeProvider.themeModeValue,
-            initialRoute: '/',
-            onGenerateRoute: (settings) {
-              // Task 8: 删 /lab 特殊分支 — fr://lab 走 frRouter 统一处理。
-              return MaterialPageRoute(
-                builder: (_) => const MainScreen(),
-                settings: settings,
-              );
-            },
+      child: MaterialApp(
+        navigatorKey: rootNavigatorKey,
+        // fr:// CLEAR_TOP 防栈累加依赖的路由栈跟踪器
+        navigatorObservers: [frRouteStack],
+        title: '小豆子',
+        debugShowCheckedModeBanner: false,
+        theme: themeData,
+        themeMode: themeMode,
+        initialRoute: '/',
+        onGenerateRoute: (settings) {
+          // Task 8: 删 /lab 特殊分支 — fr://lab 走 frRouter 统一处理。
+          return MaterialPageRoute(
+            builder: (_) => const MainScreen(),
+            settings: settings,
           );
         },
       ),
     );
+  }
+}
+
+/// Task 8: `_CalendarDeepLinkPage` 已删除 — 日历入口统一走
+/// `fr://lab/demo/calendar` -> frRouter -> LabDemoHandler。
+/// `NotionImageHostDeepLinkPage` 整体搬到
+/// `lib/core/schema/handlers/notion_image_host_handler.dart`。
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
+  int _selectedIndex = 0;
+
+  // RepaintBoundary 缓存渲染层，Transform 平移时只移 GPU 图层
+  final List<Widget> _pages = const [
+    RepaintBoundary(child: ProfilePage()),    // 主页（左）
+    RepaintBoundary(child: FocusHomePage()),  // Time（中）
+    RepaintBoundary(child: HomePage()),       // AI 助手（右）
+  ];
+
+  late final AnimationController _ctrl;
+  late final CurvedAnimation _pageCurve;
+  bool _isAnimating = false;
+  int _toIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 预热 banner 路径，消除首页切换时 ProfilePage State 重建的占位帧（fr #3）
+    HomeBannerCache.warmUp();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _pageCurve = CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeInOutQuint,
+    );
+    _ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          _selectedIndex = _toIndex;
+          _isAnimating = false;
+        });
+        _ctrl.reset();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageCurve.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onItemTapped(int index) {
+    if (index == _selectedIndex || _isAnimating) return;
+    _startTransition(index);
+  }
+
+  void _onAddPressed() {
+    if (_isAnimating) return;
+    _startTransition(2);
+  }
+
+  void _startTransition(int target) {
+    _toIndex = target;
+    _isAnimating = true;
+    setState(() {});
+    _ctrl.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          return Stack(
+            children: [
+              // 底层：目标页面（静止不动）
+              SizedBox(
+                width: w,
+                child: _pages[_isAnimating ? _toIndex : _selectedIndex],
+              ),
+              // 覆盖层：双页同时平移（传送带效果）
+              if (_isAnimating)
+                AnimatedBuilder(
+                  animation: _pageCurve,
+                  builder: (context, _) {
+                    final isForward = _toIndex > _selectedIndex;
+                    final t = _pageCurve.value;
+                    // 新页从异侧滑入，旧页往同侧滑出
+                    final newDx = isForward ? (1 - t) * w : -(1 - t) * w;
+                    final oldDx = isForward ? -t * w : t * w;
+                    return SizedBox(
+                      width: w,
+                      child: Stack(
+                        children: [
+                          Transform.translate(
+                            offset: Offset(newDx, 0),
+                            child: SizedBox(width: w, child: _pages[_toIndex]),
+                          ),
+                          Transform.translate(
+                            offset: Offset(oldDx, 0),
+                            child: SizedBox(width: w, child: _pages[_selectedIndex]),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          );
+        },
+      ),
+      bottomNavigationBar: XiaoDouZiBottomBar(
+        currentIndex: _isAnimating ? _toIndex : _selectedIndex,
+        onItemSelected: _onItemTapped,
+        onAddPressed: _onAddPressed,
+      ),
+    );
+  }
+}
+
+/// fr:// URL 翻译器 —— 把原生 MethodChannel call(method + args)翻译成
+/// 项目内统一路由 URL,供 main.dart 的 _handleMethodCall 调用。
+///
+/// 设计目的:
+///   - 翻译表与 `bootstrap_routes.dart` 的注册表同目录可见
+///   - 加新 widget → 改这一个文件 + bootstrap_routes + handler,不需进 main.dart
+///   - 防腐蚀:把"method name → fr:// URL"的唯一映射关系收口到本文件
+///
+/// 调用约定:
+///   返回 null 表示该 method 不归本层管(常见情况:notImplemented);
+///   调用方应保留旧行为:不 push、不抛错。
+///
+/// 已支持的 method(与 WidgetChannel.kt 的 when 分支严格对称):
+///   navigateToLab              → fr://lab
+///   navigateToCalendar         → fr://lab/demo/calendar
+///   navigateToClock            → fr://lab/demo/clock
+///   navigateToTimetable        → fr://timetable
+///   navigateToNotionImage      → fr://notion/image-host?autocapture=<bool>
+///   navigateToRecorder         → fr://lab/demo/recorder?autostart=<bool>
+///   navigateToClockWidgetToggle→ fr://clock/widget-toggle
+///   shareReceived              → fr://share/receive（载荷存 ShareReceiveStore.pending）
+class FrMethodChannelTranslator {
+  FrMethodChannelTranslator._();
+
+  /// 同步翻译:输入 call,返回 fr:// URL 或 null。
+  ///
+  /// 不读 clock / context,纯字符串拼接 + 类型断言 —— 单元可测。
+  static String? translate(MethodCall call) {
+    return switch (call.method) {
+      'navigateToLab' => 'fr://lab',
+      'navigateToCalendar' => 'fr://lab/demo/calendar',
+      'navigateToClock' => 'fr://lab/demo/clock',
+      'navigateToTimetable' => 'fr://timetable',
+      'navigateToNotionImage' =>
+        'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
+      'navigateToRecorder' =>
+        'fr://lab/demo/recorder?autostart=${(call.arguments as bool?) ?? true}',
+      'navigateToClockWidgetToggle' => 'fr://clock/widget-toggle',
+      'shareReceived' => _translateShareReceived(call.arguments),
+      _ => null,
+    };
+  }
+
+  /// 分享接收：原生传 `{text: String?, files: List<String>}`，
+  /// 载荷经 URL 不便传输（文本长/含特殊字符），存入
+  /// [ShareReceiveStore.pending] 供 handler 页面消费，URL 仅作导航信号。
+  static String? _translateShareReceived(Object? arguments) {
+    final map = (arguments as Map?)?.cast<String, dynamic>() ?? const {};
+    ShareReceiveStore.pending = ShareReceiveData(
+      text: map['text'] as String?,
+      fileUris: (map['files'] as List?)?.cast<String>() ?? const [],
+    );
+    return 'fr://share/receive';
   }
 }

@@ -2,7 +2,17 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/color/color_utils.dart';
+/// 线性混色：Color a 向 b 过渡 t（0~1）。
+Color _mix(Color a, Color b, double t) {
+  int blend(int va, int vb) =>
+      (va + (vb - va) * t).round().clamp(0, 255);
+  return Color.fromARGB(
+    (a.a * 255).round(),
+    blend((a.r * 255).round(), (b.r * 255).round()),
+    blend((a.g * 255).round(), (b.g * 255).round()),
+    blend((a.b * 255).round(), (b.b * 255).round()),
+  );
+}
 
 class LabPanelColors {
   final Color gradientTop;
@@ -39,7 +49,7 @@ class LabPanelColors {
     return LabPanelColors(
       // 渐变背景：surface → surfaceContainerHighest，使用主题设计好的色阶
       gradientTop: cs.surface,
-      gradientMiddle: ColorUtils.mix(
+      gradientMiddle: _mix(
         cs.surface,
         cs.surfaceContainerHighest,
         0.5,

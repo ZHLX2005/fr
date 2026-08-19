@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
@@ -99,19 +100,20 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
   @override
   Widget build(BuildContext context) {
     return zenPageScaffold(
-      title: widget.existing == null ? '新建编排' : '编辑编排',
+      context: context,
+  title: widget.existing == null ? '新建编排' : '编辑编排',
       actions: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: EdgeInsets.symmetric(horizontal: 8),
           child: OutlinedButton(
             onPressed: _segments.isEmpty ? null : _save,
-            style: zenButton(foreground: ZenColors.sage, border: ZenColors.sage),
+            style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
             child: const Text('保存'),
           ),
         ),
       ],
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         children: [
           TextField(
             controller: _titleCtl,
@@ -121,7 +123,7 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           TextField(
             controller: _descCtl,
             style: ZenText.body,
@@ -131,9 +133,9 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           const Text('来源', style: ZenText.label),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Consumer<LabClockProvider>(
             builder: (context, provider, _) {
               if (provider.clocks.isEmpty) {
@@ -144,7 +146,7 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: provider.clocks.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  separatorBuilder: (_, _) => SizedBox(width: 8),
                   itemBuilder: (_, i) {
                     final c = provider.clocks[i];
                     final color = Color(int.parse(c.color?.replaceFirst('#', '0xFF') ?? '0xFFD4644B'));
@@ -153,8 +155,8 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                       borderRadius: BorderRadius.circular(4),
                       child: Container(
                         width: 120,
-                        padding: const EdgeInsets.all(8),
-                        decoration: zenCard(),
+                        padding: EdgeInsets.all(8),
+                        decoration: zenCardTheme(context),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -163,12 +165,12 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                                 width: 8, height: 8,
                                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                               ),
-                              const SizedBox(width: 6),
+                              SizedBox(width: 6),
                               Expanded(
                                 child: Text(c.title, style: ZenText.body, maxLines: 1, overflow: TextOverflow.ellipsis),
                               ),
                             ]),
-                            const Spacer(),
+                            Spacer(),
                             Text(formatDuration(c.durationSeconds ?? 0), style: ZenText.monoDigitSmall),
                           ],
                         ),
@@ -179,14 +181,14 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
               );
             },
           ),
-          const SizedBox(height: 20),
-          const Text('序列', style: ZenText.label),
-          const SizedBox(height: 8),
+          SizedBox(height: 20),
+          Text('序列', style: ZenText.label),
+          SizedBox(height: 8),
           if (_segments.isEmpty)
             Container(
-              padding: const EdgeInsets.all(24),
-              decoration: zenDottedZone(),
-              child: const Center(
+              padding: EdgeInsets.all(24),
+              decoration: zenCardTheme(context),
+              child: Center(
                 child: Text('点上方时钟加入编排', style: ZenText.label),
               ),
             )
@@ -195,20 +197,20 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
               final seg = _segments[i];
               final color = seg.snapshotColor != null
                   ? Color(int.parse(seg.snapshotColor!.replaceFirst('#', '0xFF')))
-                  : ZenColors.ink;
+                  : context.colors.text;
               return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: zenCard(),
+                margin: EdgeInsets.only(bottom: 8),
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: zenCardTheme(context),
                 child: Row(
                   children: [
                     Text('${i + 1}', style: ZenText.monoDigitSmall),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Container(
                       width: 8, height: 8,
                       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,27 +224,27 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                     Text(formatDuration(seg.snapshotDurationSeconds), style: ZenText.monoDigitSmall),
                     IconButton(
                       onPressed: i == 0 ? null : () => _moveUp(i),
-                      icon: const Icon(Icons.keyboard_arrow_up, size: 20),
+                      icon: Icon(Icons.keyboard_arrow_up, size: 20),
                       tooltip: '上移',
                     ),
                     IconButton(
                       onPressed: i == _segments.length - 1 ? null : () => _moveDown(i),
-                      icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+                      icon: Icon(Icons.keyboard_arrow_down, size: 20),
                       tooltip: '下移',
                     ),
                     IconButton(
                       onPressed: () => _removeSegment(i),
-                      icon: const Icon(Icons.close, size: 20, color: ZenColors.mutedRed),
+                      icon: Icon(Icons.close, size: 20, color: context.colors.danger),
                       tooltip: '移除',
                     ),
                   ],
                 ),
               );
             }),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           ZenSection(
             title: '合计',
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text(formatDuration(_totalSeconds),
                 style: ZenText.monoDigit.copyWith(fontSize: 20)),
           ),

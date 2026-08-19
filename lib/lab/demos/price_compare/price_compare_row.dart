@@ -2,12 +2,13 @@
 // 两行布局：第一行「资源/金额 → 单价」，第二行「备注 · 创建时间 · 删除」
 
 import 'package:flutter/material.dart';
+import '../../../widgets/context_colors.dart';
 import 'package:flutter/services.dart';
 
 import 'price_compare_models.dart';
 
 class PriceCompareRow extends StatelessWidget {
-  const PriceCompareRow({
+  PriceCompareRow({
     super.key,
     required this.index,
     required this.unitPrice,
@@ -36,7 +37,7 @@ class PriceCompareRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = context.colors.scheme;
     final isMin =
         unitPrice != null && minPrice != null && unitPrice == minPrice;
     // 单价色：最低=绿；有效但非最低=主题色；无效=灰
@@ -44,12 +45,12 @@ class PriceCompareRow extends StatelessWidget {
     if (unitPrice == null) {
       tagColor = scheme.outline;
     } else if (isMin) {
-      tagColor = const Color(0xFF16A34A); // 主操作绿：这行是"该买的"
+      tagColor = Theme.of(context).colorScheme.primary; // 主操作绿：这行是"该买的"
     } else {
       tagColor = scheme.primary;
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: EdgeInsets.symmetric(vertical: 6),
       child: Container(
         decoration: BoxDecoration(
           color: tagColor.withValues(alpha: isMin ? 0.08 : 0.03),
@@ -59,7 +60,7 @@ class PriceCompareRow extends StatelessWidget {
             width: isMin ? 1.4 : 1,
           ),
         ),
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        padding: EdgeInsets.fromLTRB(12, 8, 8, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -67,7 +68,7 @@ class PriceCompareRow extends StatelessWidget {
             Row(
               children: [
                 _seqBadge(tagColor),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   flex: 3,
                   child: _NumField(
@@ -85,7 +86,7 @@ class PriceCompareRow extends StatelessWidget {
                     onChanged: onAmountChanged,
                   ),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Expanded(
                   flex: 3,
                   child: Align(
@@ -104,7 +105,7 @@ class PriceCompareRow extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             // ---- 第二行：备注 · 创建时间 · 删除 ----
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -115,7 +116,7 @@ class PriceCompareRow extends StatelessWidget {
                   size: 14,
                   color: scheme.outline.withValues(alpha: 0.7),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: noteController,
@@ -136,7 +137,7 @@ class PriceCompareRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 // 创建时间
                 Text(
                   formatCreatedAt(createdAt),
@@ -212,7 +213,7 @@ class _NumField extends StatelessWidget {
       textAlign: TextAlign.center,
       decoration: InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 6),
+        contentPadding: EdgeInsets.symmetric(vertical: 6),
         border: InputBorder.none,
         hintText: hint,
       ),

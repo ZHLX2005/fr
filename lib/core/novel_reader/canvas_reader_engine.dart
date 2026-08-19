@@ -274,10 +274,8 @@ class NovelCanvasReaderController extends ChangeNotifier {
   final String title;
   final NovelCanvasProgressChanged? onProgressChanged;
 
-  final Paint bgPaint = Paint()
-    ..isAntiAlias = true
-    ..style = PaintingStyle.fill
-    ..color = const Color(0xFFF9F1E4);
+  late final Paint bgPaint;
+  ColorScheme? _colorScheme;
 
   final ListQueue<int> _microParseQueue = ListQueue<int>();
   final ListQueue<int> _parseQueue = ListQueue<int>();
@@ -325,11 +323,19 @@ class NovelCanvasReaderController extends ChangeNotifier {
   bool isCanGoPre() =>
       _currentPageIndex > 0 && prePageData?.picture != null;
 
+  void setColorScheme(ColorScheme scheme) {
+    _colorScheme = scheme;
+  }
+
   void initialize({
     required String text,
     required int initialPageIndex,
     required int? initialPageOffset,
   }) {
+    bgPaint = Paint()
+      ..isAntiAlias = true
+      ..style = PaintingStyle.fill
+      ..color = _theme.pageColor;
     _bookText = text;
     _savedPageIndex = initialPageIndex;
     _savedPageOffset = initialPageOffset;
@@ -569,7 +575,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = const Color(0xFFD9C4AE)
+        ..color = _colorScheme!.tertiary
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
@@ -735,6 +741,14 @@ class _NovelCanvasReaderViewState extends State<NovelCanvasReaderView>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scheme = Theme.of(context).colorScheme;
+    _pageManager.setScheme(scheme);
+    widget.controller.setColorScheme(scheme);
+  }
+
+  @override
   void didUpdateWidget(covariant NovelCanvasReaderView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
@@ -857,6 +871,7 @@ class CanvasPageManager {
   GlobalKey? canvasKey;
   AnimationController? animationController;
   Animation<Offset>? _boundAnimation;
+  ColorScheme? _scheme;
 
   void setCurrentTouchEvent(CanvasTouchEvent event) {
     if (currentState == CanvasPageManagerState.animating) {
@@ -896,10 +911,16 @@ class CanvasPageManager {
     currentAnimationPage?.onDraw(canvas);
   }
 
+  void setScheme(ColorScheme scheme) {
+    _scheme = scheme;
+  }
+
   void setCurrentAnimation(int animationType) {
     currentAnimationType = animationType;
     if (animationType == typeAnimationSimulationTurn) {
-      currentAnimationPage = SimulationTurnCanvasAnimation();
+      final anim = SimulationTurnCanvasAnimation();
+      if (_scheme != null) anim.scheme = _scheme!;
+      currentAnimationPage = anim;
     }
   }
 
@@ -1052,6 +1073,7 @@ abstract class BaseCanvasAnimationPage {
 }
 
 class SimulationTurnCanvasAnimation extends BaseCanvasAnimationPage {
+  ColorScheme scheme = const ColorScheme.light();
   bool isStartAnimation = false;
   final Path mTopPagePath = Path();
   final Path mBottomPagePath = Path();
@@ -1282,7 +1304,7 @@ class SimulationTurnCanvasAnimation extends BaseCanvasAnimationPage {
         ..lineTo(mBezierControl1.dx + dx, mBezierControl1.dy + dy)
         ..close(),
     );
-    canvas.drawShadow(shadowPath, Colors.black, 5, true);
+    canvas.drawShadow(shadowPath, scheme.onSurface, 5, true);
   }
 
   void drawBottomPageCanvas(Canvas canvas) {
@@ -1335,14 +1357,14 @@ class SimulationTurnCanvasAnimation extends BaseCanvasAnimationPage {
     if (mIsRTandLB) {
       left = 0;
       right = mTouchToCornerDis / 4;
-      shadowGradient = const LinearGradient(
-        colors: [Color(0xAA000000), Colors.transparent],
+      shadowGradient = LinearGradient(
+        colors: [Color(0xAA000000), scheme.surface.withValues(alpha: 0.0)],
       );
     } else {
       left = -mTouchToCornerDis / 4;
       right = 0;
-      shadowGradient = const LinearGradient(
-        colors: [Colors.transparent, Color(0xAA000000)],
+      shadowGradient = LinearGradient(
+        colors: [scheme.surface.withValues(alpha: 0.0), Color(0xAA000000)],
       );
     }
 
@@ -1383,7 +1405,7 @@ class SimulationTurnCanvasAnimation extends BaseCanvasAnimationPage {
 
     canvas.save();
     canvas.clipPath(mTopBackAreaPagePath);
-    canvas.drawPaint(Paint()..color = readerController?.bgPaint.color ?? const Color(0xFFF9F1E4));
+    canvas.drawPaint(Paint()..color = readerController?.bgPaint.color ?? scheme.surface);
     canvas.save();
     canvas.translate(mBezierControl1.dx, mBezierControl1.dy);
 
@@ -1448,8 +1470,8 @@ class SimulationTurnCanvasAnimation extends BaseCanvasAnimationPage {
       Paint()
         ..isAntiAlias = true
         ..style = PaintingStyle.fill
-        ..shader = const LinearGradient(
-          colors: [Colors.transparent, Color(0xAA000000)],
+        ..shader = LinearGradient(
+          colors: [scheme.surface.withValues(alpha: 0.0), Color(0xAA000000)],
         ).createShader(Rect.fromLTRB(0, 0, shaderWidth, mMaxLength)),
     );
     canvas.restore();

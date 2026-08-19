@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../../domain/models.dart';
@@ -142,16 +143,16 @@ class _TimetableAdvancedSettingsPageState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清空确认'),
-        content: const Text('确定要清空所有课程吗？此操作不可恢复。'),
+        title: Text('清空确认'),
+        content: Text('确定要清空所有课程吗？此操作不可恢复。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text('取消'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: ZenColors.mutedRed),
+            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
             child: const Text('清空'),
           ),
         ],
@@ -174,7 +175,8 @@ class _TimetableAdvancedSettingsPageState
     final cycleStrategy = cycleStrategyFor(config);
 
     return zenPageScaffold(
-      title: '高级设置',
+      context: context,
+  title: '高级设置',
       actions: [
         IconButton(
           icon: const Icon(Icons.save),
@@ -334,7 +336,7 @@ class _TimetableAdvancedSettingsPageState
                   child: Text(
                     '第${i + 1}节',
                     style: ZenText.body.copyWith(
-                      color: ZenColors.secondary,
+                      color: context.colors.textMuted,
                       fontSize: 13,
                     ),
                   ),
@@ -353,11 +355,11 @@ class _TimetableAdvancedSettingsPageState
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: ZenColors.hair),
+                        borderSide: BorderSide(color: context.colors.outline),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: ZenColors.hair),
+                        borderSide: BorderSide(color: context.colors.outline),
                       ),
                     ),
                   ),
@@ -383,7 +385,7 @@ class _TimetableAdvancedSettingsPageState
                   child: Text(
                     '第${i + 1}节',
                     style: ZenText.body.copyWith(
-                      color: ZenColors.secondary,
+                      color: context.colors.textMuted,
                       fontSize: 13,
                     ),
                   ),
@@ -401,11 +403,11 @@ class _TimetableAdvancedSettingsPageState
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: ZenColors.hair),
+                        borderSide: BorderSide(color: context.colors.outline),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: ZenColors.hair),
+                        borderSide: BorderSide(color: context.colors.outline),
                       ),
                     ),
                   ),

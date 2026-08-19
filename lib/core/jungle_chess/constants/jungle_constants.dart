@@ -25,6 +25,8 @@ const List<int> kRiverCells = [
 final Set<int> kRiverSet = Set.from(kRiverCells);
 
 // 棋盘视觉
+// 主题豁免：以下 7 个棋盘/棋子常量是斗兽棋国际识别色（暖米白棋盘/浅蓝河/
+// 金色兽穴/蓝红方棋子描边等），跨主题保留以维持游戏视觉规范。
 const double kCellSize = 64.0;
 const double kPieceRatio = 0.85;
 const Color kBoardBg = Color(0xFFFAF7F0); // 暖米白（与白底主题协调）
@@ -43,26 +45,32 @@ const double kPieceIconRatio = 0.82; // PNG 占圆盘的比例（PNG 平均高/�
 const int kMaxRounds = 150;
 
 // ══════════════════════════════════════════════════════════════
-// 页面配色 / 尺寸 — 全屏对称热座布局
+// 页面配色 / 尺寸 — 全屏对称热座布局（走主题策略通道）
 // ══════════════════════════════════════════════════════════════
 
-/// 页面底色（棋盘外的整片背景）
-const Color kPageBg = Color(0xFFF7F8FC);
+/// 页面底色（棋盘外的整片背景）→ scheme.surfaceContainer
+Color kPageBg(BuildContext context) =>
+    Theme.of(context).colorScheme.surfaceContainer;
 
 /// 玩家面板
 const double kPanelHeight = 58.0;
 const double kPanelRadius = 16.0;
 const double kPanelHMargin = 16.0;
-const Color kPanelBg = Colors.white;
-const Color kPanelBorder = Color(0xFFE5E7EB);
+
+/// 面板边框 → scheme.outline
+Color kPanelBorder(BuildContext context) =>
+    Theme.of(context).colorScheme.outline;
 
 /// 非当前回合方面板的整体透明度
 const double kPanelIdleOpacity = 0.45;
 
-/// 文字色阶
-const Color kTextStrong = Color(0xFF1F2937);
-const Color kTextNormal = Color(0xFF4B5563);
-const Color kTextMuted = Color(0xFF9CA3AF);
+/// 文字色阶（→ scheme.onSurface / onSurfaceVariant / outline）
+Color kTextStrong(BuildContext context) =>
+    Theme.of(context).colorScheme.onSurface;
+Color kTextNormal(BuildContext context) =>
+    Theme.of(context).colorScheme.onSurfaceVariant;
+Color kTextMuted(BuildContext context) =>
+    Theme.of(context).colorScheme.outline;
 
 /// 棋子走子位移动画时长（正式对局与教程共用）
 const Duration kPieceMoveDuration = Duration(milliseconds: 260);

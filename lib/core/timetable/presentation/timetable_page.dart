@@ -100,7 +100,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library),
+              leading: Icon(Icons.photo_library),
               title: const Text('更换背景图'),
               onTap: () async {
                 Navigator.pop(sheetContext);
@@ -117,8 +117,8 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('移除背景图', style: TextStyle(color: Colors.red)),
+              leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+              title: Text('移除背景图', style: TextStyle(color: Theme.of(context).colorScheme.error)),
               onTap: () {
                 Navigator.pop(sheetContext);
                 ref
@@ -156,7 +156,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -168,17 +168,17 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         actions: [
           // 头部空间选择（仿 kv 清单工作空间选择模式）
           IconButton(
-            icon: const Icon(Icons.workspaces_outlined),
+            icon: Icon(Icons.workspaces_outlined),
             tooltip: '工作空间: $activeSpaceName（点击切换）',
             onPressed: _openSpaceSheet,
           ),
           IconButton(
-            icon: const Icon(Icons.image_outlined),
+            icon: Icon(Icons.image_outlined),
             onPressed: _pickBackgroundImage,
             tooltip: '设置背景图',
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: Icon(Icons.settings_outlined),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const TimetableSettingsPage()),
@@ -239,10 +239,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: TimetableColors.accent.withValues(alpha: 0.15),
+                              color: TimetableColors.accent(context).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: TimetableColors.accent.withValues(alpha: 0.5),
+                                color: TimetableColors.accent(context).withValues(alpha: 0.5),
                                 width: 1,
                               ),
                             ),
@@ -252,13 +252,13 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                                 Icon(
                                   Icons.today,
                                   size: 14,
-                                  color: TimetableColors.accent,
+                                  color: TimetableColors.accent(context),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   '今天',
                                   style: TextStyle(
-                                    color: TimetableColors.accent,
+                                    color: TimetableColors.accent(context),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -301,17 +301,17 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.75),
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.75),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
                   width: 1,
                 ),
               ),
               child: Text(
                 '第${_currentCycleIndex + 1}周期',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: TimetableColors.textPrimary,
+                  color: TimetableColors.textPrimary(context),
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
                 ),
@@ -346,7 +346,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: isToday
                                 ? TimetableColors.sage
-                                : TimetableColors.textPrimary,
+                                : TimetableColors.textPrimary(context),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -358,7 +358,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: isToday
                                 ? TimetableColors.sage
-                                : TimetableColors.textTertiary,
+                                : TimetableColors.textTertiary(context),
                             fontSize: 10,
                             fontWeight: isToday ? FontWeight.w600 : null,
                           ),
@@ -492,7 +492,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (context) => _CoursePreviewSheet(
         course: course,
         cycleIndex: cycleIndex,
@@ -636,7 +636,7 @@ class _SpaceSheetState extends State<_SpaceSheet> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除空间'),
+        title: Text('删除空间'),
         content: Text('确定删除「${space.name}」吗？该空间下的课表数据将一并删除，不可恢复。'),
         actions: [
           TextButton(
@@ -645,7 +645,7 @@ class _SpaceSheetState extends State<_SpaceSheet> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
+            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
@@ -705,7 +705,7 @@ class _SpaceSheetState extends State<_SpaceSheet> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: space.isDefault
-                        ? const Text('默认空间（历史数据）')
+                        ? Text('默认空间（历史数据）')
                         : null,
                     trailing: space.isDefault
                         ? (_activeId == space.id
@@ -715,7 +715,7 @@ class _SpaceSheetState extends State<_SpaceSheet> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (space.id == _activeId)
-                                const Text('当前'),
+                                Text('当前'),
                               PopupMenuButton<String>(
                                 onSelected: (value) {
                                   if (value == 'rename') {
@@ -724,7 +724,7 @@ class _SpaceSheetState extends State<_SpaceSheet> {
                                     _deleteSpace(space);
                                   }
                                 },
-                                itemBuilder: (_) => const [
+                                itemBuilder: (_) => [
                                   PopupMenuItem(
                                     value: 'rename',
                                     child: Text('重命名'),
@@ -733,7 +733,7 @@ class _SpaceSheetState extends State<_SpaceSheet> {
                                     value: 'delete',
                                     child: Text(
                                       '删除',
-                                      style: TextStyle(color: Colors.red),
+                                      style: TextStyle(color: Theme.of(context).colorScheme.error),
                                     ),
                                   ),
                                 ],
@@ -800,7 +800,7 @@ class _SlotLabel extends StatelessWidget {
           config.slotLabel(slotIndex),
           textAlign: TextAlign.center,
           style: theme.textTheme.titleSmall?.copyWith(
-            color: TimetableColors.textPrimary,
+            color: TimetableColors.textPrimary(context),
             fontWeight: FontWeight.w700,
             height: 1.2,
             fontSize: config.leftLabelMode == 0 ? 16 : 11,
@@ -826,10 +826,10 @@ class _CycleChips extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: TimetableColors.surfaceVariant,
+            color: TimetableColors.surfaceVariant(context),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: TimetableColors.border,
+              color: TimetableColors.border(context),
               width: 1,
             ),
           ),
@@ -837,7 +837,7 @@ class _CycleChips extends StatelessWidget {
             '周期${cycle + 1}',
             style: TextStyle(
               fontSize: 12,
-              color: TimetableColors.textSecondary,
+              color: TimetableColors.textSecondary(context),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -868,7 +868,7 @@ class _CoursePreviewSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = TimetableColors.getCourseColor(course.colorSeed ?? 0);
+    final color = TimetableColors.getCourseColor(context, course.colorSeed ?? 0);
 
     return Container(
       decoration: BoxDecoration(
@@ -884,7 +884,7 @@ class _CoursePreviewSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: TimetableColors.border,
+              color: TimetableColors.border(context),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -920,7 +920,7 @@ class _CoursePreviewSheet extends StatelessWidget {
                           Text(
                             '第${dayOfCycle + 1}天 · 第${slotIndex + 1}节',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: TimetableColors.textTertiary,
+                              color: TimetableColors.textTertiary(context),
                             ),
                           ),
                         ],
@@ -936,7 +936,7 @@ class _CoursePreviewSheet extends StatelessWidget {
                       Icon(
                         Icons.location_on_outlined,
                         size: 20,
-                        color: TimetableColors.textTertiary,
+                        color: TimetableColors.textTertiary(context),
                       ),
                       const SizedBox(width: 8),
                       Text(course.location!, style: theme.textTheme.bodyMedium),

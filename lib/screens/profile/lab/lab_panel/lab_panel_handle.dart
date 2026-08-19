@@ -60,7 +60,7 @@ class PanelHandle extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Colors.white.withValues(alpha: 0.88),
+                    Theme.of(context).colorScheme.surface.withValues(alpha: 0.88),
                     pc.accentSoft.withValues(alpha: 0.68),
                   ],
                 ),

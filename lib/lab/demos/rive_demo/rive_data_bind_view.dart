@@ -70,9 +70,9 @@ class _RiveDataBindViewState extends State<RiveDataBindView> {
             color: colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         _buildStatusChips(theme, colorScheme),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Expanded(
           child: Card(
             clipBehavior: Clip.antiAlias,
@@ -102,7 +102,7 @@ class _RiveDataBindViewState extends State<RiveDataBindView> {
         _InfoChip(
           label: '绑定状态',
           value: _inputFound ? '已连接' : '未连接',
-          color: _inputFound ? Colors.green : colorScheme.error,
+          color: _inputFound ? Theme.of(context).colorScheme.primary : colorScheme.error,
         ),
       ],
     );
@@ -142,7 +142,7 @@ class _RiveDataBindViewState extends State<RiveDataBindView> {
                   );
                 }
                 return switch (state) {
-                  rive.RiveLoading() => const Center(
+                  rive.RiveLoading() => Center(
                       child: CircularProgressIndicator(),
                     ),
                   rive.RiveFailed() => RiveErrorView(
@@ -164,7 +164,7 @@ class _RiveDataBindViewState extends State<RiveDataBindView> {
   Widget _buildControlPanel(ThemeData theme, ColorScheme colorScheme) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
       ),
@@ -177,7 +177,7 @@ class _RiveDataBindViewState extends State<RiveDataBindView> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -189,7 +189,7 @@ class _RiveDataBindViewState extends State<RiveDataBindView> {
                   activeColor: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: _ActionCard(
                   label: '脉冲触发',
@@ -208,10 +208,10 @@ class _RiveDataBindViewState extends State<RiveDataBindView> {
             ],
           ),
           if (!_inputFound) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colorScheme.errorContainer.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(12),
@@ -223,7 +223,7 @@ class _RiveDataBindViewState extends State<RiveDataBindView> {
                     size: 18,
                     color: colorScheme.onErrorContainer,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '未找到 ${RiveDataBindKeys.inInput} 布尔属性。请确保 Rive 文件通过 ViewModel 绑定了名为 ${RiveDataBindKeys.inInput} 的布尔属性。',
@@ -257,7 +257,7 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(999),
@@ -271,7 +271,7 @@ class _InfoChip extends StatelessWidget {
             height: 8,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text('$label: ', style: theme.textTheme.labelLarge),
           Text(
             value,
@@ -317,7 +317,7 @@ class _ToggleCard extends StatelessWidget {
         onTap: enabled ? () => onChanged?.call(!value) : null,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               AnimatedContainer(
@@ -325,7 +325,7 @@ class _ToggleCard extends StatelessWidget {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: value ? activeColor : Colors.transparent,
+                  color: value ? activeColor : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                   border: Border.all(
                     color: enabled
                         ? (value ? activeColor : colorScheme.outline)
@@ -335,10 +335,10 @@ class _ToggleCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: value
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    ? Icon(Icons.check, size: 14, color: Theme.of(context).colorScheme.onSurface)
                     : null,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,7 +352,7 @@ class _ToggleCard extends StatelessWidget {
                             : colorScheme.onSurface.withValues(alpha: 0.4),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       value ? '开启' : '关闭',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -401,7 +401,7 @@ class _ActionCard extends StatelessWidget {
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Icon(
@@ -411,7 +411,7 @@ class _ActionCard extends StatelessWidget {
                     ? color
                     : colorScheme.onSurface.withValues(alpha: 0.3),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   label,

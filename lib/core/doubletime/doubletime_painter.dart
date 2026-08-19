@@ -39,9 +39,13 @@ class DualTimelinePainter extends CustomPainter {
   final bool hidePlanLane;
   final EventTapCallback? onEventTap;
 
+  /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
+  final ColorScheme scheme;
+
   DualTimelinePainter({
     required this.day,
     required this.allocations,
+    required this.scheme,
     this.hourRowHeight = 56,
     this.labelWidth = 56,
     this.gutter = 12,
@@ -52,14 +56,14 @@ class DualTimelinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()..color = const Color(0xFFF4F7FB);
+    final bgPaint = Paint()..color = scheme.surface;
     canvas.drawRect(Offset.zero & size, bgPaint);
 
     final gridPaint = Paint()
-      ..color = const Color(0xFFDBE4F0)
+      ..color = scheme.surface
       ..strokeWidth = 1;
 
-    final panelPaint = Paint()..color = Colors.white;
+    final panelPaint = Paint()..color = scheme.surface;
     final labelPainter = TextPainter(textDirection: TextDirection.ltr);
 
     final timeLabelX = 0.0;
@@ -94,8 +98,8 @@ class DualTimelinePainter extends CustomPainter {
       if (hour < 24) {
         labelPainter.text = TextSpan(
           text: '${hour.toString().padLeft(2, '0')}:00',
-          style: const TextStyle(
-            color: Color(0xFF66758A),
+          style: TextStyle(
+            color: scheme.onSurfaceVariant,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -118,8 +122,8 @@ class DualTimelinePainter extends CustomPainter {
     final painter = TextPainter(
       text: TextSpan(
         text: title,
-        style: const TextStyle(
-          color: Color(0xFF0F172A),
+        style: TextStyle(
+          color: scheme.onSurface,
           fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
@@ -265,7 +269,7 @@ class DualTimelinePainter extends CustomPainter {
   /// 色块上的最佳文字颜色
   Color _bestOnColor(Color bg) {
     final luminance = bg.computeLuminance();
-    return luminance > 0.5 ? const Color(0xFF1A1A2E) : Colors.white;
+    return luminance > 0.5 ? scheme.onSurface : scheme.surface;
   }
 
   @override

@@ -12,6 +12,10 @@ import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';
 import 'novel_volume_key_turn.dart';
 
+// 主题豁免：本文件其余 `Color(0xFF...)` 都是"纸质书视觉风格"识别色
+// （纸张底色 0xFFF4EDE3/0xFFEEE6D8、棕色墨水 0xFF4B3728/0xFF7A5D47/0xFF6C523F、
+// 烫金封面渐变 0xFFDFB982→0xFF6E3D27 等），跨主题保留以维持阅读器视觉语言。
+
 class NovelReaderBookshelfPage extends StatefulWidget {
   const NovelReaderBookshelfPage({super.key});
 
@@ -215,9 +219,9 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
 
     if (book == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF4EDE3),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           elevation: 0,
           title: const Text(NovelReaderConstants.title),
         ),
@@ -240,9 +244,9 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
         final isDownloaded =
             snapshot.data ?? book.source == NovelBookSource.imported;
         return Scaffold(
-          backgroundColor: const Color(0xFFF4EDE3),
+          backgroundColor: Theme.of(context).colorScheme.surface,
           appBar: AppBar(
-            backgroundColor: Colors.transparent,
+            backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
             elevation: 0,
             title: const Text(NovelReaderConstants.title),
           ),
@@ -255,7 +259,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                   Text(
                     'Swipe left or right to switch books. At the edge, swipe again or tap the empty slot to import TXT.',
                     style: TextStyle(
-                      color: const Color(0xFF6F5846).withValues(alpha: 0.92),
+                      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.92),
                       height: 1.45,
                     ),
                   ),
@@ -283,8 +287,8 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
                     const SizedBox(height: 12),
                     Text(
                       _error!,
-                      style: const TextStyle(
-                        color: Color(0xFF8F3B21),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
                         fontSize: 13,
                       ),
                     ),
@@ -520,7 +524,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: const Color(0xFFF8F1E6),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (context) {
         return SafeArea(
           child: Column(
@@ -550,8 +554,8 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                     final selected = index == controller.currentPageIndex;
                     return Material(
                       color: selected
-                          ? const Color(0xFFE8D4BE)
-                          : const Color(0xFFFFFBF5),
+                          ? Theme.of(context).colorScheme.tertiary
+                          : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
                       child: ListTile(
                         shape: RoundedRectangleBorder(
@@ -562,13 +566,13 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             color: selected
-                                ? const Color(0xFF5F402B)
-                                : const Color(0xFF4B3728),
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.error,
                           ),
                         ),
                         subtitle: Text(
                           'Offset ${config.startOffset}-${config.endOffset}',
-                          style: const TextStyle(color: Color(0xFF7A5D47)),
+                          style: TextStyle(color: Color(0xFF7A5D47)),
                         ),
                         onTap: () async {
                           Navigator.of(context).pop();
@@ -590,7 +594,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: const Color(0xFFF8F1E6),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -650,7 +654,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                     ),
                     const SizedBox(height: 10),
                     Material(
-                      color: const Color(0xFFFFFBF5),
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
                       child: SwitchListTile.adaptive(
                         title: const Text(
@@ -698,12 +702,12 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                         return ChoiceChip(
                           label: Text(theme.label),
                           selected: selected,
-                          selectedColor: const Color(0xFFE8D4BE),
-                          backgroundColor: const Color(0xFFFFFBF5),
+                          selectedColor: Theme.of(context).colorScheme.tertiary,
+                          backgroundColor: Theme.of(context).colorScheme.surface,
                           side: BorderSide(
                             color: selected
-                                ? const Color(0xFF8A6246)
-                                : const Color(0xFFD7C3AE),
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.tertiary,
                           ),
                           onSelected: (_) async {
                             controller.setTheme(theme);
@@ -734,9 +738,9 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFEEE6D8),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           elevation: 0,
           title: Text(widget.book.title),
         ),
@@ -746,7 +750,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, size: 40),
+                Icon(Icons.error_outline, size: 40),
                 const SizedBox(height: 12),
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 12),
@@ -774,7 +778,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEBE2D4),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Stack(
         children: [
           SafeArea(
@@ -796,7 +800,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.10),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
                           blurRadius: 24,
                           offset: const Offset(0, 12),
                         ),
@@ -1095,7 +1099,7 @@ class _CurrentBookCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.14),
             blurRadius: 28,
             offset: const Offset(0, 18),
           ),
@@ -1112,10 +1116,10 @@ class _CurrentBookCard extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.16),
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.35),
+                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
                       width: 1.5,
                     ),
                   ),
@@ -1123,7 +1127,7 @@ class _CurrentBookCard extends StatelessWidget {
                     book.isBuiltIn
                         ? Icons.auto_stories_rounded
                         : Icons.description_rounded,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     size: 28,
                   ),
                 ),
@@ -1134,17 +1138,17 @@ class _CurrentBookCard extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.35),
+                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
                       width: 1.5,
                     ),
                   ),
                   child: Text(
                     book.isBuiltIn ? 'Built-in' : 'Imported TXT',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.surface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1156,8 +1160,8 @@ class _CurrentBookCard extends StatelessWidget {
               book.title,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.surface,
                 fontSize: 30,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
@@ -1167,7 +1171,7 @@ class _CurrentBookCard extends StatelessWidget {
             Text(
               cardDescription,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.86),
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.86),
                 fontSize: 15,
                 height: 1.45,
               ),
@@ -1220,22 +1224,22 @@ class _SideBookCard extends StatelessWidget {
             width: cardWidth,
             height: cardHeight,
             child: Material(
-              color: Colors.transparent,
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
               child: InkWell(
                 borderRadius: BorderRadius.circular(28),
                 onTap: onTap == null ? null : () => onTap!.call(),
                 child: isPlaceholder
                     ? Ink(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFD7E5DC),
+                          color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(28),
                           border: Border.all(
-                            color: const Color(
+                            color: Color(
                               0xFF2F6A55,
                             ).withValues(alpha: 0.30),
                           ),
                         ),
-                        child: const Padding(
+                        child: Padding(
                           padding: EdgeInsets.all(24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1250,7 +1254,7 @@ class _SideBookCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF2F6A55),
+                                  color: Theme.of(context).colorScheme.tertiary,
                                   fontSize: 30,
                                   letterSpacing: 0.4,
                                 ),
@@ -1261,7 +1265,7 @@ class _SideBookCard extends StatelessWidget {
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: Color(0xDD2F6A55),
+                                  color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.867),
                                   fontSize: 15,
                                   height: 1.45,
                                 ),
@@ -1295,12 +1299,12 @@ class _ImportPlaceholderIcon extends StatelessWidget {
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        color: const Color(0xFF2F6A55).withValues(alpha: 0.12),
+        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(18),
       ),
-      child: const Icon(
+      child: Icon(
         Icons.upload_file_rounded,
-        color: Color(0xFF2F6A55),
+        color: Theme.of(context).colorScheme.tertiary,
         size: 28,
       ),
     );
@@ -1319,15 +1323,15 @@ class _ReaderTopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFFF6EEE1).withValues(alpha: 0.96),
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFF7A5339).withValues(alpha: 0.35),
+            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.35),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -1339,14 +1343,14 @@ class _ReaderTopBar extends StatelessWidget {
             children: [
               IconButton(
                 onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: Icon(Icons.arrow_back_rounded),
               ),
               Expanded(
                 child: Text(
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF4B3728),
                   ),
@@ -1355,7 +1359,7 @@ class _ReaderTopBar extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 pageLabel,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF7A5D47),
                 ),
@@ -1398,15 +1402,15 @@ class _ReaderBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFBF5EA).withValues(alpha: 0.97),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF7A5339).withValues(alpha: 0.35),
+          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.35),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
             blurRadius: 24,
             offset: const Offset(0, 14),
           ),
@@ -1421,14 +1425,14 @@ class _ReaderBottomBar extends StatelessWidget {
               children: [
                 IconButton.filledTonal(
                   onPressed: onCatalog,
-                  icon: const Icon(Icons.list_alt_rounded),
+                  icon: Icon(Icons.list_alt_rounded),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     pageLabel,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF6C523F),
                     ),
@@ -1437,17 +1441,17 @@ class _ReaderBottomBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
                   onPressed: onSettings,
-                  icon: const Icon(Icons.tune_rounded),
+                  icon: Icon(Icons.tune_rounded),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                activeTrackColor: const Color(0xFF7A5339),
-                thumbColor: const Color(0xFF7A5339),
-                inactiveTrackColor: const Color(0xFFD8C5B1),
-                overlayColor: const Color(0x337A5339),
+                activeTrackColor: Theme.of(context).colorScheme.error,
+                thumbColor: Theme.of(context).colorScheme.error,
+                inactiveTrackColor: Theme.of(context).colorScheme.tertiary,
+                overlayColor: Color(0x337A5339),
               ),
               child: Slider(
                 value: totalPages <= 1
@@ -1524,7 +1528,7 @@ class _ReaderSettingSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF5),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
@@ -1536,7 +1540,7 @@ class _ReaderSettingSlider extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF4B3728),
                     ),
@@ -1544,7 +1548,7 @@ class _ReaderSettingSlider extends StatelessWidget {
                 ),
                 Text(
                   valueLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Color(0xFF7A5D47),
                     fontWeight: FontWeight.w600,
                   ),
@@ -1553,10 +1557,10 @@ class _ReaderSettingSlider extends StatelessWidget {
             ),
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                activeTrackColor: const Color(0xFF7A5339),
-                thumbColor: const Color(0xFF7A5339),
-                inactiveTrackColor: const Color(0xFFD8C5B1),
-                overlayColor: const Color(0x337A5339),
+                activeTrackColor: Theme.of(context).colorScheme.error,
+                thumbColor: Theme.of(context).colorScheme.error,
+                inactiveTrackColor: Theme.of(context).colorScheme.tertiary,
+                overlayColor: Color(0x337A5339),
               ),
               child: Slider(
                 value: value.clamp(min, max),

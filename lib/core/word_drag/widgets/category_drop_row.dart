@@ -7,13 +7,14 @@ class CategoryBucket {
   final String id;
   final String name;
   final IconData icon;
-  final Color color;
+
+  /// 颜色：构建时由 `Theme.of(context)` 派生（accent/danger/...）
+  /// —— 不在数据模型里固化，跟随主题切换。
 
   const CategoryBucket({
     required this.id,
     required this.name,
     required this.icon,
-    required this.color,
   });
 }
 
@@ -553,20 +554,20 @@ class _BucketItemState extends State<_BucketItem>
                   height: WordDragConstants.bucketIconSize,
                   decoration: BoxDecoration(
                     color: widget.isActive
-                        ? const Color(0xFFEFF6FF)
-                        : Colors.white,
+                        ? Theme.of(context).colorScheme.surface
+                        : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(
                       WordDragConstants.bucketRadius,
                     ),
                     border: Border.all(
                       color: widget.isActive
-                          ? const Color(0xFF3B82F6)
-                          : Colors.transparent,
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
                       width: 2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -575,8 +576,8 @@ class _BucketItemState extends State<_BucketItem>
                   child: Icon(
                     widget.bucket.icon,
                     color: widget.isActive
-                        ? const Color(0xFF3B82F6)
-                        : Colors.grey.shade600,
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 32,
                   ),
                 ),
@@ -589,8 +590,8 @@ class _BucketItemState extends State<_BucketItem>
                 fontSize: 12,
                 fontWeight: widget.isActive ? FontWeight.bold : FontWeight.w500,
                 color: widget.isActive
-                    ? const Color(0xFF3B82F6)
-                    : Colors.grey.shade700,
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
               maxLines: 1,

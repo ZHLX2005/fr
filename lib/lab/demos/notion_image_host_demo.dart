@@ -563,12 +563,12 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
             width: double.infinity,
             decoration: BoxDecoration(
               color: hasCaptured
-                  ? Colors.black
+                  ? Theme.of(context).colorScheme.onSurface
                   : theme.colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: hasCaptured
-                    ? Colors.transparent
+                    ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.0)
                     : theme.colorScheme.outline.withValues(alpha: 0.3),
                 width: 2,
               ),
@@ -589,7 +589,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                         size: 56,
                         color: theme.colorScheme.primary.withValues(alpha: 0.6),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Text(
                         '点击拍照',
                         style: TextStyle(
@@ -611,29 +611,29 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
               children: [
                 // ＋：再拍一张（累积到当前批次）
                 Material(
-                  color: Colors.black.withValues(alpha: 0.5),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
                     onTap: _isBusy ? null : _capture,
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.add_a_photo_outlined,
-                          color: Colors.white, size: 20),
+                          color: Theme.of(context).colorScheme.onSurface, size: 20),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 // ×：清除当前预览图（不影响其他累积的图）
                 Material(
-                  color: Colors.black.withValues(alpha: 0.5),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
                     onTap: _isBusy ? null : _removeCurrentPhoto,
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
-                      child: Icon(Icons.close, color: Colors.white, size: 20),
+                      child: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface, size: 20),
                     ),
                   ),
                 ),
@@ -671,12 +671,12 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
           width: 2,
         ),
       ),
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Text(
               '已拍 ${_capturedPaths.length} 张（长按删除）',
               style: TextStyle(
@@ -685,7 +685,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Expanded(
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -743,16 +743,16 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                       top: 4,
                       left: 4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '${i + 1}',
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 11),
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface, fontSize: 11),
                         ),
                       ),
                     ),
@@ -778,7 +778,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
           width: 2,
         ),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: TextField(
         controller: _textController,
         maxLines: null,
@@ -810,7 +810,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
         title: const Text('Notion 图床'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: Icon(Icons.settings_outlined),
             tooltip: '设置（Token / 数据库）',
             onPressed: _isBusy ? null : _openSettings,
           ),
@@ -818,13 +818,13 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Column(
             children: [
               // ── 顶部：当前数据库 + 最新 page (按标题) ──
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -832,7 +832,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                         children: [
                           Icon(Icons.storage,
                               size: 18, color: theme.colorScheme.primary),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _dbName.isEmpty ? '(未选数据库)' : _dbName,
@@ -843,19 +843,19 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                             ),
                           ),
                           if (_isBusy)
-                            const SizedBox(
+                            SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                         ],
                       ),
-                      const Divider(height: 16),
+                      Divider(height: 16),
                       Row(
                         children: [
-                          const Icon(Icons.article_outlined,
-                              size: 18, color: Colors.teal),
-                          const SizedBox(width: 8),
+                          Icon(Icons.article_outlined,
+                              size: 18, color: Theme.of(context).colorScheme.tertiary),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _latestPageTitle.isEmpty
@@ -867,7 +867,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.refresh, size: 18),
+                            icon: Icon(Icons.refresh, size: 18),
                             visualDensity: VisualDensity.compact,
                             tooltip: '刷新最新 page',
                             onPressed: _isBusy ? null : _refreshLatestPage,
@@ -878,7 +878,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // ── 中央：预览区（PageView：0=多图列表、1=图片、2=文字）──
               Expanded(
@@ -895,7 +895,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               // PageView 指示器（3 个小点，current 跟着 controller 走）
               AnimatedBuilder(
                 animation: _previewPageController,
@@ -907,15 +907,15 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _PageDot(active: currentPage == 0, theme: theme),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       _PageDot(active: currentPage == 1, theme: theme),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       _PageDot(active: currentPage == 2, theme: theme),
                     ],
                   );
                 },
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
 
               // ── 底部：操作按钮（两页通用：新建 + 一站式提交）──
               // 提交按钮统一调 _submitAll：根据当前状态（有无图、有无文字）
@@ -925,12 +925,12 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _isBusy ? null : _createNewPageWithCapture,
-                      icon: const Icon(Icons.add, size: 18),
+                      icon: Icon(Icons.add, size: 18),
                       label: const Text(
                         '新页',
                         style: TextStyle(fontSize: 14),
                       ),
-                      style: _outlinedBtnStyle(Colors.blue).copyWith(
+                      style: _outlinedBtnStyle(Theme.of(context).colorScheme.primary).copyWith(
                         padding: const WidgetStatePropertyAll(
                           EdgeInsets.symmetric(
                               horizontal: 8, vertical: 12),
@@ -938,7 +938,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     flex: 2,
                     child: OutlinedButton.icon(
@@ -949,7 +949,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.green,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             )
                           : Icon(
@@ -957,7 +957,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                                   ? Icons.cloud_upload_outlined
                                   : Icons.send,
                               size: 18,
-                              color: Colors.green,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                       label: Text(
                         _submitButtonLabel(),
@@ -966,7 +966,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                           fontSize: 14,
                         ),
                       ),
-                      style: _outlinedBtnStyle(Colors.green, borderWidth: 2)
+                      style: _outlinedBtnStyle(Theme.of(context).colorScheme.primary, borderWidth: 2)
                           .copyWith(
                         padding: const WidgetStatePropertyAll(
                           EdgeInsets.symmetric(
@@ -977,12 +977,12 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
               // ── 状态栏（操作反馈）──
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
@@ -1237,7 +1237,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       ),
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1245,23 +1245,23 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               Row(
                 children: [
                   Icon(Icons.settings, color: theme.colorScheme.primary),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   const Text(
                     '设置',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const Spacer(),
+                  Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: Icon(Icons.close),
                     onPressed: _saving ? null : () => Navigator.of(context).pop(false),
                   ),
                 ],
               ),
-              const Divider(),
+              Divider(),
 
               const Text('Token',
                   style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               TextField(
                 controller: _tokenController,
                 obscureText: !_tokenVisible,
@@ -1278,58 +1278,58 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               const Text('数据库',
                   style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.storage, color: Colors.indigo),
+                  leading: Icon(Icons.storage, color: Theme.of(context).colorScheme.tertiary),
                   title: Text(
                     _dbName.isEmpty ? '(未选择)' : _dbName,
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: Icon(Icons.chevron_right),
                   onTap: _pickDatabase,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
               OutlinedButton.icon(
                 onPressed: _loadingDbs ? null : _fetchDatabases,
                 icon: _loadingDbs
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.cloud_download_outlined),
-                label: const Text('加载数据库列表'),
+                    : Icon(Icons.cloud_download_outlined),
+                label: Text('加载数据库列表'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.indigo,
-                  side: BorderSide(color: Colors.indigo.withValues(alpha: 0.5)),
+                  foregroundColor: Theme.of(context).colorScheme.tertiary,
+                  side: BorderSide(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.5)),
                 ),
               ),
               if (_dbLoadError != null) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   _dbLoadError!,
-                  style: const TextStyle(fontSize: 11, color: Colors.red),
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.error),
                 ),
               ],
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
 
               // ── 自动开新 page 配置（防单 page 内容堆积）──
               Row(
                 children: [
-                  const Icon(Icons.schedule, color: Colors.teal),
-                  const SizedBox(width: 8),
+                  Icon(Icons.schedule, color: Theme.of(context).colorScheme.tertiary),
+                  SizedBox(width: 8),
                   const Text(
                     '自动开新 page',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  const Spacer(),
+                  Spacer(),
                   Switch(
                     value: _autoHoursEnabled,
                     onChanged: (v) => setState(() => _autoHoursEnabled = v),
@@ -1337,7 +1337,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                 ],
               ),
               if (_autoHoursEnabled) ...[
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   '超过设定小时数，下次进入时自动开新 page（避免单 page 内容堆积）',
                   style: TextStyle(
@@ -1345,7 +1345,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
@@ -1361,7 +1361,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Text(
                       '小时',
                       style: TextStyle(
@@ -1372,34 +1372,34 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   ],
                 ),
               ],
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
 
               SizedBox(
                 height: 48,
                 child: OutlinedButton.icon(
                   onPressed: _saving ? null : _save,
                   icon: _saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.save),
+                      : Icon(Icons.save),
                   label: const Text(
                     '保存设置',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.green,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                     side: BorderSide(
-                        color: Colors.green.withValues(alpha: 0.6), width: 2),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6), width: 2),
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 'Tip: Token 和数据库会保存到 SharedPreferences',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1433,52 +1433,52 @@ class _DatabasePickerSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                const Icon(Icons.storage, color: Colors.indigo),
-                const SizedBox(width: 8),
+                Icon(Icons.storage, color: Theme.of(context).colorScheme.tertiary),
+                SizedBox(width: 8),
                 const Text(
                   '选择数据库',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                const Spacer(),
+                Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.refresh),
+                  icon: Icon(Icons.refresh),
                   tooltip: '重新加载',
                   onPressed: loading ? null : onRetry,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const Divider(),
+            Divider(),
             if (loading)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(40),
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (error != null)
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Text(
                   error!,
-                  style: const TextStyle(color: Colors.red),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                   textAlign: TextAlign.center,
                 ),
               )
             else if (databases.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(40),
                 child: Text(
                   '没有找到任何数据库。\n确认 Token 有访问权限，并先在 Notion 里把数据库分享给 integration。',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   textAlign: TextAlign.center,
                 ),
               )
@@ -1496,7 +1496,7 @@ class _DatabasePickerSheet extends StatelessWidget {
                         isCurrent
                             ? Icons.check_circle
                             : Icons.radio_button_unchecked,
-                        color: isCurrent ? Colors.green : Colors.grey,
+                        color: isCurrent ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       title: Text(
                         db.title,

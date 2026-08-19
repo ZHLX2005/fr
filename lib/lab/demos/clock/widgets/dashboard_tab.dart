@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
@@ -46,38 +47,38 @@ class DashboardTab extends StatelessWidget {
           final recent = merged.take(5).toList();
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             children: [
               Row(
                 children: [
                   Expanded(child: _StatTile(label: '今天', value: formatDuration(todaySeconds))),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(child: _StatTile(label: '完成时钟', value: '$clocksDone')),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(child: _StatTile(label: '完成编排', value: '$tracksDone')),
                 ],
               ),
-              const SizedBox(height: 24),
-              const Text('最近', style: ZenText.label),
-              const SizedBox(height: 8),
+              SizedBox(height: 24),
+              Text('最近', style: ZenText.label),
+              SizedBox(height: 8),
               if (recent.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: Text('暂无记录。', style: ZenText.label),
                 )
               else
                 ...recent.map((r) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: zenCard(),
+                      margin: EdgeInsets.only(bottom: 8),
+                      padding: EdgeInsets.all(12),
+                      decoration: zenCardTheme(context),
                       child: Row(
                         children: [
                           Icon(
                             r.isClock ? Icons.access_time : Icons.queue_music,
-                            color: ZenColors.secondary,
+                            color: context.colors.textMuted,
                             size: 20,
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

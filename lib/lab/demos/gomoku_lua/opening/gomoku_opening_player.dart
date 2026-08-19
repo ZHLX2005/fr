@@ -93,7 +93,7 @@ class _GomokuOpeningPlayerState extends State<GomokuOpeningPlayer> {
         title: const Text('开局学习'),
         leading: IconButton(
           onPressed: widget.onBack,
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back),
         ),
       ),
       body: SafeArea(
@@ -103,12 +103,12 @@ class _GomokuOpeningPlayerState extends State<GomokuOpeningPlayer> {
               height: 48,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 8,
                 ),
                 itemCount: gomokuOpeningCases.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => SizedBox(width: 8),
                 itemBuilder: (context, index) => ChoiceChip(
                   label: Text(gomokuOpeningCases[index].title),
                   selected: index == _caseIndex,
@@ -117,7 +117,7 @@ class _GomokuOpeningPlayerState extends State<GomokuOpeningPlayer> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 _case.noteAt(_player.step),
                 maxLines: 2,
@@ -154,21 +154,21 @@ class _GomokuOpeningPlayerState extends State<GomokuOpeningPlayer> {
             ),
             Text('第 ${_player.step} / ${_case.moves.length} 手'),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+              padding: EdgeInsets.fromLTRB(12, 6, 12, 12),
               child: Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 8,
                 children: [
                   OutlinedButton.icon(
                     onPressed: _player.step == 0 ? null : () => _step(-1),
-                    icon: const Icon(Icons.chevron_left),
+                    icon: Icon(Icons.chevron_left),
                     label: const Text('上一步'),
                   ),
                   FilledButton.icon(
                     onPressed: _player.step >= _case.moves.length
                         ? null
                         : () => _step(1),
-                    icon: const Icon(Icons.chevron_right),
+                    icon: Icon(Icons.chevron_right),
                     label: const Text('下一步'),
                   ),
                   IconButton(
@@ -181,7 +181,7 @@ class _GomokuOpeningPlayerState extends State<GomokuOpeningPlayer> {
                   IconButton(
                     tooltip: '重置',
                     onPressed: _reset,
-                    icon: const Icon(Icons.replay),
+                    icon: Icon(Icons.replay),
                   ),
                 ],
               ),

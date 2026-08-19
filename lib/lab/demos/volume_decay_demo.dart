@@ -19,7 +19,7 @@ class VolumeDecayDemo extends DemoPage {
   @override
   Widget buildPage(BuildContext context) {
     if (!Platform.isAndroid) {
-      return const Center(
+      return Center(
         child: Text('仅支持 Android 设备'),
       );
     }
@@ -92,22 +92,22 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 状态卡片
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Row(
                 children: [
                   Icon(
                     _isRunning ? Icons.volume_off : Icons.volume_up,
                     size: 32,
-                    color: _isRunning ? Colors.orange : Colors.green,
+                    color: _isRunning ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +116,7 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
                           _isRunning ? '响度衰减已开启' : '响度衰减已关闭',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           '当前增益: $_currentGain%',
                           style: Theme.of(context).textTheme.bodySmall,
@@ -128,14 +128,14 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           // 增益滑块
           Text(
             '衰减增益: $_currentGain%',
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Row(
             children: [
               const Text('10%'),
@@ -152,21 +152,21 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
               const Text('100%'),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             '建议设置为 30%-50%，可大幅降低短视频响度',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           // 快捷预设
           Text(
             '快捷预设',
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -193,7 +193,7 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
               ),
             ],
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
 
           // 开关按钮
           SizedBox(
@@ -203,52 +203,52 @@ class _VolumeDecayPageState extends State<_VolumeDecayPage> {
               icon: Icon(_isRunning ? Icons.stop : Icons.play_arrow),
               label: Text(_isRunning ? '关闭响度衰减' : '开启响度衰减'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: _isRunning ? Colors.red : Colors.green,
+                foregroundColor: _isRunning ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
                 side: BorderSide(
-                  color: (_isRunning ? Colors.red : Colors.green).withValues(alpha: 0.5),
+                  color: (_isRunning ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary).withValues(alpha: 0.5),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: EdgeInsets.symmetric(vertical: 16),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
 
           // 说明
           Card(
-            color: Colors.blue.withValues(alpha: 0.08),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: Colors.blue.withValues(alpha: 0.3),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                 width: 1.5,
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.blue.shade700),
-                      const SizedBox(width: 8),
+                      Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+                      SizedBox(width: 8),
                       Text(
                         '使用说明',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text(
                     '• 长按桌面图标可快速开启/关闭衰减\n'
                     '• 衰减开启后，系统音量会被等比压缩\n'
                     '• 关闭后会自动恢复原始音量\n'
                     '• 推荐配合系统音量 1-2 格使用',
                     style: TextStyle(
-                      color: Colors.blue.shade900,
+                      color: Theme.of(context).colorScheme.primary,
                       height: 1.5,
                     ),
                   ),
@@ -277,9 +277,9 @@ class _PresetChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return ActionChip(
       label: Text(label),
-      backgroundColor: selected ? Colors.green.shade100 : null,
+      backgroundColor: selected ? Theme.of(context).colorScheme.primary : null,
       side: BorderSide(
-        color: selected ? Colors.green : Colors.grey.shade300,
+        color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       onPressed: onTap,
     );

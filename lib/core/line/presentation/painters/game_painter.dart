@@ -21,6 +21,9 @@ class GamePainter extends CustomPainter {
   final double scrollSpeed;
   final int gameElapsed; // 用于脉冲动画
 
+  /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
+  final ColorScheme scheme;
+
   GamePainter({
     required this.columns,
     required this.explodes,
@@ -36,6 +39,7 @@ class GamePainter extends CustomPainter {
     required this.dropDuration,
     required this.scrollSpeed,
     required this.gameElapsed,
+    required this.scheme,
   });
 
   @override
@@ -294,7 +298,7 @@ class GamePainter extends CustomPainter {
         final edgePaint = Paint()
           ..color = Color.lerp(
             color,
-            Colors.white,
+            scheme.surface,
             0.4,
           )!.withValues(alpha: (0.6 + 0.3 * computedHoldProgress) * alpha)
           ..style = PaintingStyle.stroke
@@ -309,7 +313,7 @@ class GamePainter extends CustomPainter {
         if (computedHoldProgress > 0 && computedHoldProgress < 1) {
           final edgeAlpha = alpha * (0.7 + 0.3 * computedHoldProgress);
           final frontPaint = Paint()
-            ..color = Colors.white.withValues(alpha: edgeAlpha.clamp(0.0, 1.0))
+            ..color = scheme.surface.withValues(alpha: edgeAlpha.clamp(0.0, 1.0))
             ..style = PaintingStyle.fill;
           // 圆角前沿
           final frontRect = RRect.fromRectAndCorners(
@@ -372,7 +376,7 @@ class GamePainter extends CustomPainter {
         final pPaint = Paint()
           ..color = Color.lerp(
             color,
-            Colors.white,
+            scheme.surface,
             0.3,
           )!.withValues(alpha: particleAlpha)
           ..style = PaintingStyle.fill;

@@ -522,11 +522,11 @@ class _DraggableWordCardState extends State<DraggableWordCard>
                             : null,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -574,22 +574,22 @@ class _ActionIndicatorWidget extends StatelessWidget {
 
     switch (indicator) {
       case ActionIndicator.like:
-        color = const Color(0xFFFF9800);
+        color = Theme.of(context).colorScheme.tertiary;
         icon = Icons.favorite;
         text = 'LIKE';
         break;
       case ActionIndicator.delete:
-        color = const Color(0xFFEF4444);
+        color = Theme.of(context).colorScheme.error;
         icon = Icons.delete_outline;
         text = 'DELETE';
         break;
       case ActionIndicator.skip:
-        color = const Color(0xFF3B82F6);
+        color = Theme.of(context).colorScheme.primary;
         icon = Icons.arrow_upward;
         text = 'SKIP';
         break;
       case ActionIndicator.folder:
-        color = const Color(0xFF9C27B0);
+        color = Theme.of(context).colorScheme.tertiary;
         icon = Icons.drive_file_move;
         text = 'FOLDER';
         break;
@@ -598,7 +598,7 @@ class _ActionIndicatorWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(8),
           bottomRight: Radius.circular(8),
@@ -606,7 +606,7 @@ class _ActionIndicatorWidget extends StatelessWidget {
         border: Border.all(color: color, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
