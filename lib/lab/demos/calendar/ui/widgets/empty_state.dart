@@ -9,10 +9,11 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(message, style: AppText.body(color: PaperPalette.inkMuted)),
+        child: Text(message, style: AppText.body(color: pp.inkMuted)),
       ),
     );
   }

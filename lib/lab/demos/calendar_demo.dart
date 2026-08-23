@@ -103,14 +103,15 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
     // 从 loading 切到真实 PageView。
     final cal = context.watch<LabCalendarProvider>();
     final people = context.watch<LabPeopleProvider>();
+    final pp = PaperPalette.of(context);
     return Scaffold(
-      backgroundColor: PaperPalette.bg,
+      backgroundColor: pp.bg,
       appBar: AppBar(
-        backgroundColor: PaperPalette.bg,
+        backgroundColor: pp.bg,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.home_outlined),
-          color: PaperPalette.ink,
+          color: pp.ink,
           onPressed: () {
             cal.jumpToday();
             setState(() => _index = 1);
@@ -144,8 +145,8 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
         ],
       ),
       body: (!cal.ready || !people.ready)
-          ? const Center(
-              child: CircularProgressIndicator(color: PaperPalette.inkMuted),
+          ? Center(
+              child: CircularProgressIndicator(color: pp.inkMuted),
             )
           : PageView(
         controller: _page,

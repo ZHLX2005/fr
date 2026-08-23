@@ -12,6 +12,7 @@ class DayView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return AnimatedBuilder(
       animation: cal,
       builder: (context, _) {
@@ -23,7 +24,7 @@ class DayView extends StatelessWidget {
             Text(
               '${today.year}年${today.month}月${today.day}日',
               style: TextStyle(
-                color: PaperPalette.ink,
+                color: pp.ink,
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
@@ -31,7 +32,7 @@ class DayView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (events.isEmpty)
-              Text('今天没有事件', style: AppText.body(color: PaperPalette.inkMuted))
+              Text('今天没有事件', style: AppText.body(color: pp.inkMuted))
             else
               ...events.map(
                 (e) => ListTile(

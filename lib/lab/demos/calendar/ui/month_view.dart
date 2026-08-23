@@ -67,13 +67,14 @@ class MonthHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
           IconButton(
             icon: const Icon(Icons.chevron_left_rounded),
-            color: PaperPalette.ink,
+            color: pp.ink,
             onPressed: onPrev,
           ),
           Expanded(
@@ -85,8 +86,8 @@ class MonthHeader extends StatelessWidget {
                     onTap: onJumpToday,
                     child: Text(
                       '$year年$month月',
-                      style: const TextStyle(
-                        color: PaperPalette.ink,
+                      style: TextStyle(
+                        color: pp.ink,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         height: 1.25,
@@ -105,15 +106,15 @@ class MonthHeader extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: PaperPalette.today,
+                            color: pp.today,
                             width: 1,
                           ),
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: const Text(
+                        child: Text(
                           '今天',
                           style: TextStyle(
-                            color: PaperPalette.today,
+                            color: pp.today,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -127,7 +128,7 @@ class MonthHeader extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right_rounded),
-            color: PaperPalette.ink,
+            color: pp.ink,
             onPressed: onNext,
           ),
         ],
@@ -141,6 +142,7 @@ class _WeekdayHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     const days = ['日', '一', '二', '三', '四', '五', '六'];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -155,8 +157,8 @@ class _WeekdayHeader extends StatelessWidget {
                     e.value,
                     style: AppText.caption(
                       color: (e.key == 0 || e.key == 6)
-                          ? PaperPalette.inkMuted
-                          : PaperPalette.inkFaint,
+                          ? pp.inkMuted
+                          : pp.inkFaint,
                     ),
                   ),
                 ),

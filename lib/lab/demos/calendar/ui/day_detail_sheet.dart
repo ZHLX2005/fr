@@ -28,6 +28,7 @@ class DayDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return AnimatedBuilder(
       animation: Listenable.merge([cal, people]),
       builder: (context, _) {
@@ -40,9 +41,9 @@ class DayDetailSheet extends StatelessWidget {
             right: 20,
             top: 16,
           ),
-          decoration: const BoxDecoration(
-            color: PaperPalette.bgElevated,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          decoration: BoxDecoration(
+            color: pp.bgElevated,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -68,18 +69,18 @@ class DayDetailSheet extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
-                    color: PaperPalette.inkMuted,
+                    color: pp.inkMuted,
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              const Divider(height: 1, color: PaperPalette.line),
+              Divider(height: 1, color: pp.line),
               if (events.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text('暂无事件',
-                      style: AppText.body(color: PaperPalette.inkMuted)),
+                      style: AppText.body(color: pp.inkMuted)),
                 )
               else
                 ...events.map(
@@ -131,6 +132,7 @@ class _EventRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     final color = _hexToColor(event.colorTag.hex);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -180,11 +182,11 @@ class _EventRow extends StatelessWidget {
                 ),
               ),
               if (event.systemCalendarEventId != null)
-                const Icon(Icons.cloud_done_outlined,
-                    size: 14, color: PaperPalette.inkMuted),
+                Icon(Icons.cloud_done_outlined,
+                    size: 14, color: pp.inkMuted),
               IconButton(
                 icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                color: PaperPalette.inkMuted,
+                color: pp.inkMuted,
                 onPressed: () => _confirmDelete(context),
                 tooltip: '删除',
                 padding: EdgeInsets.zero,
@@ -198,10 +200,11 @@ class _EventRow extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
+    final pp = PaperPalette.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: PaperPalette.bgElevated,
+        backgroundColor: pp.bgElevated,
         title: Text('删除事件', style: AppText.title()),
         content: Text(
           '确定要删除"${event.title}"？',
@@ -214,7 +217,7 @@ class _EventRow extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: PaperPalette.today),
+            style: TextButton.styleFrom(foregroundColor: pp.today),
             child: const Text('删除'),
           ),
         ],
@@ -337,10 +340,11 @@ class _EventFormSheetState extends State<EventFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return Scaffold(
-      backgroundColor: PaperPalette.bg,
+      backgroundColor: pp.bg,
       appBar: AppBar(
-        backgroundColor: PaperPalette.bg,
+        backgroundColor: pp.bg,
         elevation: 0,
         title: Text(widget.existing == null ? '新建事件' : '编辑事件', style: AppText.title()),
       ),
@@ -350,8 +354,8 @@ class _EventFormSheetState extends State<EventFormSheet> {
           // 日期 header：同时显示公历与农历
           Container(
             padding: const EdgeInsets.only(bottom: 16),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: PaperPalette.line, width: 1)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: pp.line, width: 1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -421,10 +425,10 @@ class _EventFormSheetState extends State<EventFormSheet> {
           const SizedBox(height: 24),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
-              foregroundColor: PaperPalette.accent,
-              backgroundColor: PaperPalette.bgElevated,
+              foregroundColor: pp.accent,
+              backgroundColor: pp.bgElevated,
               side: BorderSide(
-                color: PaperPalette.accent.withValues(alpha: 0.5),
+                color: pp.accent.withValues(alpha: 0.5),
                 width: 1.5,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -531,6 +535,7 @@ class _PaperField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -538,30 +543,30 @@ class _PaperField extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text(label, style: AppText.caption(color: PaperPalette.inkMuted)),
+            child: Text(label, style: AppText.caption(color: pp.inkMuted)),
           ),
           TextField(
             controller: controller,
             maxLines: maxLines,
-            cursorColor: PaperPalette.accent,
+            cursorColor: pp.accent,
             style: AppText.body(),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: AppText.body(color: PaperPalette.inkFaint),
+              hintStyle: AppText.body(color: pp.inkFaint),
               filled: true,
-              fillColor: PaperPalette.bgElevated,
+              fillColor: pp.bgElevated,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: PaperPalette.line, width: 1),
+                borderSide: BorderSide(color: pp.line, width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: PaperPalette.line, width: 1),
+                borderSide: BorderSide(color: pp.line, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: PaperPalette.accent, width: 1.5),
+                borderSide: BorderSide(color: pp.accent, width: 1.5),
               ),
             ),
           ),

@@ -12,6 +12,7 @@ class WeekView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     final p = context.watch<LabCalendarProvider>();
     final today = DateTime.now();
     final weekStart = today.subtract(Duration(days: today.weekday % 7));
@@ -27,7 +28,7 @@ class WeekView extends StatelessWidget {
           leading: Text(
             '${d.month}/${d.day}',
             style: AppText.body().copyWith(
-              color: isToday ? PaperPalette.today : PaperPalette.ink,
+              color: isToday ? pp.today : pp.ink,
               fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
             ),
           ),

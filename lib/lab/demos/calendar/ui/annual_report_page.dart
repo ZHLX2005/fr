@@ -14,6 +14,7 @@ class AnnualReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return AnimatedBuilder(
       animation: Listenable.merge([cal, people]),
       builder: (context, _) {
@@ -25,7 +26,7 @@ class AnnualReportPage extends StatelessWidget {
             Text(
               '${cal.viewYear} 年度报表',
               style: TextStyle(
-                color: PaperPalette.ink,
+                color: pp.ink,
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
@@ -44,7 +45,7 @@ class AnnualReportPage extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: PaperPalette.line),
+                  border: Border.all(color: pp.line),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -53,7 +54,7 @@ class AnnualReportPage extends StatelessWidget {
                     Text(
                       '$m 月',
                       style: TextStyle(
-                        color: PaperPalette.ink,
+                        color: pp.ink,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         height: 1.25,

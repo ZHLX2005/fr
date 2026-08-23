@@ -18,12 +18,13 @@ class PillSegmented extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: PaperPalette.bgElevated,
+        color: pp.bgElevated,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: PaperPalette.line, width: 1),
+        border: Border.all(color: pp.line, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -35,13 +36,13 @@ class PillSegmented extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
-                color: active ? PaperPalette.ink : Colors.transparent,
+                color: active ? pp.ink : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
                 items[i],
                 style: AppText.caption().copyWith(
-                  color: active ? PaperPalette.bg : PaperPalette.inkMuted,
+                  color: active ? pp.bg : pp.inkMuted,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                   fontSize: 11,
                 ),

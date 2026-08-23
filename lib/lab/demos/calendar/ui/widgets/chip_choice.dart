@@ -25,6 +25,7 @@ class ChipChoice<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
@@ -32,7 +33,7 @@ class ChipChoice<T> extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 8, top: 4),
-            child: Text(label, style: AppText.caption(color: PaperPalette.inkMuted)),
+            child: Text(label, style: AppText.caption(color: pp.inkMuted)),
           ),
           Wrap(
             spacing: 8,
@@ -45,10 +46,10 @@ class ChipChoice<T> extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: active ? PaperPalette.bgElevated : PaperPalette.bg,
+                    color: active ? pp.bgElevated : pp.bg,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: active ? PaperPalette.accent : PaperPalette.line,
+                      color: active ? pp.accent : pp.line,
                       width: active ? 1.5 : 1,
                     ),
                   ),
@@ -56,7 +57,7 @@ class ChipChoice<T> extends StatelessWidget {
                     displayName(v),
                     style: AppText.caption().copyWith(
                       fontSize: 12,
-                      color: active ? PaperPalette.ink : PaperPalette.inkMuted,
+                      color: active ? pp.ink : pp.inkMuted,
                       fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),

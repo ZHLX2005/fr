@@ -36,13 +36,14 @@ class DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     final Color numberColor;
     if (isToday) {
-      numberColor = PaperPalette.today;
+      numberColor = pp.today;
     } else if (!inCurrentMonth) {
-      numberColor = PaperPalette.inkFaint;
+      numberColor = pp.inkFaint;
     } else {
-      numberColor = PaperPalette.ink;
+      numberColor = pp.ink;
     }
 
     final hasBirthday = events.any((e) => e.type == EventType.birthday);
@@ -56,7 +57,7 @@ class DayCell extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           border: isToday
-              ? Border.all(color: PaperPalette.today, width: 1)
+              ? Border.all(color: pp.today, width: 1)
               : null,
         ),
         child: Stack(
@@ -91,8 +92,8 @@ class DayCell extends StatelessWidget {
                 child: Container(
                   width: 4,
                   height: 4,
-                  decoration: const BoxDecoration(
-                    color: PaperPalette.highlight,
+                  decoration: BoxDecoration(
+                    color: pp.highlight,
                     shape: BoxShape.circle,
                   ),
                 ),

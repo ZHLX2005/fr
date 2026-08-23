@@ -18,15 +18,16 @@ class PersonChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     final emoji = emojiOf(person);
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: PaperPalette.bgElevated,
+        color: pp.bgElevated,
         shape: BoxShape.circle,
-        border: Border.all(color: PaperPalette.line, width: 1),
+        border: Border.all(color: pp.line, width: 1),
       ),
       child: Text(emoji, style: TextStyle(fontSize: size * 0.55)),
     );

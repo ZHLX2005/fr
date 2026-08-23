@@ -12,6 +12,7 @@ class YearView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     final p = context.watch<LabCalendarProvider>();
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -34,7 +35,7 @@ class YearView extends StatelessWidget {
           onTap: () => onMonthTap(m),
           child: Container(
             decoration: BoxDecoration(
-              border: Border.all(color: PaperPalette.line, width: 1),
+              border: Border.all(color: pp.line, width: 1),
               borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.all(12),
@@ -44,7 +45,7 @@ class YearView extends StatelessWidget {
                 Text(
                   '$m 月',
                   style: TextStyle(
-                    color: PaperPalette.ink,
+                    color: pp.ink,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     height: 1.25,

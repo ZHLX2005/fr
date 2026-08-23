@@ -22,27 +22,28 @@ class PaperSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pp = PaperPalette.of(context);
     final child = icon == null
         ? Text(label, style: AppText.body().copyWith(
-              color: PaperPalette.accent,
+              color: pp.accent,
               fontWeight: FontWeight.w600,
             ))
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: PaperPalette.accent),
+              Icon(icon, size: 16, color: pp.accent),
               const SizedBox(width: 6),
               Text(label, style: AppText.body().copyWith(
-                color: PaperPalette.accent,
+                color: pp.accent,
                 fontWeight: FontWeight.w600,
               )),
             ],
           );
     return Material(
-      color: PaperPalette.bgElevated,
+      color: pp.bgElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: PaperPalette.accent, width: 1.5),
+        side: BorderSide(color: pp.accent, width: 1.5),
       ),
       child: InkWell(
         onTap: onPressed,
@@ -78,7 +79,8 @@ class PaperPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = PaperPalette.accent;
+    final pp = PaperPalette.of(context);
+    final accent = pp.accent;
     final child = icon == null
         ? Text(label, style: AppText.body().copyWith(
               color: accent,
@@ -96,7 +98,7 @@ class PaperPrimaryButton extends StatelessWidget {
             ],
           );
     return Material(
-      color: PaperPalette.bgElevated,
+      color: pp.bgElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: accent.withValues(alpha: 0.5), width: 1.5),
