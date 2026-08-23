@@ -1,6 +1,6 @@
 // Layer 2 — Semantic color tokens.
 //
-// zen / purple 主题 ColorScheme 调色板。设计：v6.1「主色不动 · 环境染互补色温」——
+// zen / purple / ink 主题 ColorScheme 调色板。设计：v6.1「主色不动 · 环境染互补色温」——
 //   · 主色族（原色不变）：primary / primaryContainer / 强调
 //   · 环境族（按互补 hue 重新染色）：bg / surface / outline / onSurface /
 //     onSurfaceVariant / secondary（环境灰）
@@ -12,11 +12,12 @@
 // 色温互补：环境 hue 与主色 hue 差约 150°~170°，形成整页色温对比。
 // 茶禅范本（zen）：sage 绿（hue128°）漂在暖米环境（hue42°）。
 // 暮紫（purple）：暮紫主色（hue275°）漂在鎏金暖黑环境（hue45°）。
+// 墨白（ink）：墨黑主色 + 纯纸白底 + 墨赭（hue18°）作互补强调 + 章印朱红 error。
 
 import 'package:flutter/material.dart';
 import '../tokens/colors.dart';
 
-/// zen / purple 主题 ColorScheme 调色板。
+/// zen / purple / ink 主题 ColorScheme 调色板。
 ///
 /// onPrimary/onError 等纯黑/纯白优先引用 [RawColors]（tokens 层）。
 class ThemeColorSchemes {
@@ -85,5 +86,42 @@ class ThemeColorSchemes {
     outline: Color(0xFFDCD8D0),
     outlineVariant: Color(0xFFE8E6E3),
     surfaceTint: Color(0xFF7A9A7E),
+  );
+
+  /// 墨白主题（ink）— 墨黑主色 + 纯纸白底 + 墨赭互补强调。
+  ///
+  /// 纸墨语义：
+  ///   primary       → 墨黑（笔锋）
+  ///   surface       → 纯纸白（生宣底）
+  ///   surfaceContainerHighest → 浅纸灰（抬升纸面）
+  ///   onSurface     → 墨黑（墨字落纸）
+  ///   onSurfaceVariant → 纸灰（弱字）
+  ///   tertiary      → 墨赭（呼应纸墨章印）
+  ///   error         → 章印朱红（保留危险语义）
+  static const ColorScheme ink = ColorScheme(
+    brightness: Brightness.light,
+    primary: Color(0xFF1A1A1A),                // 墨黑（笔锋）
+    onPrimary: RawColors.pureWhite,
+    primaryContainer: Color(0xFFE8E8E8),        // 浅纸灰（笔触留白）
+    onPrimaryContainer: Color(0xFF0D0D0D),     // 深炭（浓墨）
+    secondary: Color(0xFF6E6E6E),                // 纸灰文字
+    onSecondary: RawColors.pureWhite,
+    secondaryContainer: Color(0xFFEEEEEE),     // 浅纸边
+    onSecondaryContainer: Color(0xFF1F1F1F),
+    tertiary: Color(0xFF8C5A4F),                // 互补强调（墨赭）
+    onTertiary: RawColors.pureWhite,
+    tertiaryContainer: Color(0xFFE5D2CB),
+    onTertiaryContainer: Color(0xFF3F1F18),
+    surface: Color(0xFFFAFAFA),                // 纯纸白（生宣）
+    onSurface: Color(0xFF1A1A1A),                // 墨黑字
+    onSurfaceVariant: Color(0xFF707070),        // 纸灰字
+    surfaceContainerHighest: Color(0xFFF0F0F0),
+    error: Color(0xFFB04650),                    // 章印朱红
+    onError: RawColors.pureWhite,
+    errorContainer: Color(0xFFE8CCD0),
+    onErrorContainer: Color(0xFF3F1518),
+    outline: Color(0xFFD0D0D0),                // 纸线
+    outlineVariant: Color(0xFFE5E5E5),
+    surfaceTint: Color(0xFF1A1A1A),
   );
 }

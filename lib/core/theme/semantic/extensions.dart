@@ -107,7 +107,7 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   }
 }
 
-/// zen / purple 主题对应的 AppColorsExtension 调色板。
+/// zen / purple / ink 主题对应的 AppColorsExtension 调色板。
 ///
 /// v6.1：category 8 色板混合主色族（4 档浅深）+ 环境色族（2 档）+ 互补色族（2 档），
 /// 让分类调色板跨色域，匹配主页"主色 vs 环境色温互补"的视觉语言。
@@ -151,6 +151,29 @@ class ThemeAppColors {
     category: [
       Color(0xFF7A9A7E), Color(0xFF8A8475), Color(0xFFA0594A), Color(0xFFD9D5C8),
       Color(0xFF6F6A60), Color(0xFF2C2C2C), Color(0xFFE8F0E5), Color(0xFFA0594A),
+    ],
+  );
+
+  /// 墨白主题（ink）— info 用墨色呼应主色，category 跨白/黑/纸灰/墨赭/朱印。
+  ///
+  /// 主色族 4 档（白/纯黑/深炭/浅纸）+ 环境族 2 档（纸灰/深灰）+
+  /// 互补族 2 档（墨赭/朱印），与"墨白纸质感"一致。
+  static const AppColorsExtension ink = AppColorsExtension(
+    success: Color(0xFF8AAD94),                // 淡墨绿
+    onSuccess: Color(0xFFFFFFFF),
+    successContainer: Color(0xFFD8E4DC),
+    onSuccessContainer: Color(0xFF1F3326),
+    warning: Color(0xFFA89377),                // 纸墨黄褐
+    onWarning: Color(0xFFFFFFFF),
+    warningContainer: Color(0xFFE0DBCF),
+    onWarningContainer: Color(0xFF3F2D14),
+    info: Color(0xFF1A1A1A),                    // 墨色（呼应主色）
+    onInfo: Color(0xFFFFFFFF),
+    infoContainer: Color(0xFFE0E0E0),
+    onInfoContainer: Color(0xFF0D0D0D),
+    category: [
+      Color(0xFFE8E8E8), Color(0xFF1A1A1A), Color(0xFFB0B0B0), Color(0xFF0D0D0D),
+      Color(0xFF707070), Color(0xFF8C5A4F), Color(0xFFE0E0E0), Color(0xFF2A2A2A),
     ],
   );
 }

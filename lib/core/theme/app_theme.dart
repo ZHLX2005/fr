@@ -1,4 +1,4 @@
-// 应用主题工厂（zen / purple 主题入口）。
+// 应用主题工厂（zen / purple / ink 主题入口）。
 //
 // 设计：v6.1「主色不动 · 环境染互补色温」——
 //   所有颜色统一从 ColorScheme 派生（theme.component/ 单数据源）。
@@ -11,7 +11,7 @@
 //   tokens/       raw 原子色（colors / typography / spacing / radius / elevation）
 //   semantic/     ColorScheme + AppColorsExtension（语义角色）
 //   component/    button / card / section / input（复合组件样式）
-//   this file     zen / purple 主题 ThemeData 工厂 + 各组件主题覆盖
+//   this file     zen / purple / ink 主题 ThemeData 工厂 + 各组件主题覆盖
 
 import 'package:flutter/material.dart';
 import 'extensions/board_color_strategy_extension.dart';
@@ -32,6 +32,8 @@ enum AppThemeMode {
   purple,
   /// 茶禅主题（zen）—— sage 绿 + 暖米环境 + 陶土红强调。
   zen,
+  /// 墨白主题（ink）—— 墨黑主色 + 纯纸白底 + 墨赭互补强调。
+  ink,
 }
 
 /// 应用主题配置类
@@ -45,6 +47,7 @@ class AppTheme {
     return switch (mode) {
       AppThemeMode.purple => '暮紫主题',
       AppThemeMode.zen => '茶禅主题',
+      AppThemeMode.ink => '墨白主题',
     };
   }
 
@@ -53,6 +56,7 @@ class AppTheme {
     return switch (mode) {
       AppThemeMode.purple => Icons.nights_stay,
       AppThemeMode.zen => Icons.self_improvement,
+      AppThemeMode.ink => Icons.brush_outlined,
     };
   }
 
@@ -67,6 +71,11 @@ class AppTheme {
       AppThemeMode.zen => _buildTheme(
           scheme: ThemeColorSchemes.zen,
           ext: ThemeAppColors.zen,
+          cardShadow: Color(0x14000000)
+        ),
+      AppThemeMode.ink => _buildTheme(
+          scheme: ThemeColorSchemes.ink,
+          ext: ThemeAppColors.ink,
           cardShadow: Color(0x14000000)
         ),
     };
