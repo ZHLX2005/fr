@@ -32,7 +32,7 @@ class ThemeNotifier extends Notifier<AppThemeMode> {
   AppThemeMode build() {
     // 同步给出 default，避免 build 阶段空值
     // 真实持久化值由外部 hydrate() 在 runApp 前覆盖
-    return AppThemeMode.light;
+    return AppThemeMode.zen;
   }
 
   /// 从 SharedPreferences 同步加载持久化主题。
@@ -44,7 +44,7 @@ class ThemeNotifier extends Notifier<AppThemeMode> {
     if (saved == null) return;
     final m = AppThemeMode.values.firstWhere(
       (e) => e.name == saved,
-      orElse: () => AppThemeMode.light,
+      orElse: () => AppThemeMode.zen,
     );
     state = m;
   }
@@ -68,11 +68,7 @@ final themeDataProvider = Provider<ThemeData>((ref) {
   return AppTheme.getThemeData(mode);
 });
 
-/// 派生：Material ThemeMode（dark 主题对应 Material dark）。
+/// 派生：Material ThemeMode（zen 是浅色 → ThemeMode.light）。
 final materialThemeModeProvider = Provider<ThemeMode>((ref) {
-  final mode = ref.watch(themeNotifierProvider);
-  return switch (mode) {
-    AppThemeMode.dark || AppThemeMode.purple => ThemeMode.dark,
-    _ => ThemeMode.light,
-  };
+  return ThemeMode.light;
 });

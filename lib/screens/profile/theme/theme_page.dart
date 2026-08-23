@@ -3,155 +3,83 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme_provider.dart';
 
 /// 主题设置页面
+///
+/// v6.2 收敛后只剩茶禅主题，body 仅展示当前主题的静态预览卡片，
+/// 保留 Scaffold + AppBar 骨架便于后续扩展新主题。
 class ThemePage extends ConsumerWidget {
   const ThemePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentMode = ref.watch(themeNotifierProvider);
+    final themeData = AppTheme.getThemeData(currentMode);
+    final scheme = themeData.colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('主题设置'), centerTitle: true),
-      body: _ThemeGrid(
-        currentMode: currentMode,
-        onSelect: (mode) => ref
-            .read(themeNotifierProvider.notifier)
-            .setMode(mode),
-      ),
-    );
-  }
-}
-
-/// 双列主题网格
-class _ThemeGrid extends StatelessWidget {
-  final AppThemeMode currentMode;
-  final void Function(AppThemeMode) onSelect;
-
-  const _ThemeGrid({required this.currentMode, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    final themes = AppThemeMode.values;
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 1.15,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: themes.length,
-      itemBuilder: (context, index) {
-        final mode = themes[index];
-        final isSelected = currentMode == mode;
-
-        return _ThemeCard(
-          mode: mode,
-          isSelected: isSelected,
-          onTap: () => _selectTheme(context, mode, onSelect),
-        );
-      },
-    );
-  }
-
-  void _selectTheme(
-    BuildContext context,
-    AppThemeMode mode,
-    void Function(AppThemeMode) onSelect,
-  ) {
-    onSelect(mode);
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已切换到${AppTheme.getThemeDisplayName(mode)}'),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-}
-
-/// 主题卡片
-class _ThemeCard extends StatelessWidget {
-  final AppThemeMode mode;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ThemeCard({
-    required this.mode,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final themeData = AppTheme.getThemeData(mode);
-    final colorScheme = themeData.colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Card(
-        elevation: isSelected ? 4 : 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: isSelected
-              ? BorderSide(color: colorScheme.primary, width: 2)
-              : BorderSide.none,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 主题图标
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  borderRadius: BorderRadius.circular(12),
+      body: Center(
+        child: Card(
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 主题图标方块
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    AppTheme.getThemeIcon(currentMode),
+                    color: scheme.onPrimary,
+                    size: 32,
+                  ),
                 ),
-                child: Icon(AppTheme.getThemeIcon(mode), color: Theme.of(context).colorScheme.surface),
-              ),
-              const SizedBox(height: 10),
+                const SizedBox(height: 16),
 
-              // 主题名称
-              Text(
-                AppTheme.getThemeDisplayName(mode),
-                style: themeData.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? colorScheme.primary : null,
+                // 主题名称
+                Text(
+                  AppTheme.getThemeDisplayName(currentMode),
+                  style: themeData.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
+                const SizedBox(height: 14),
 
-              // 颜色预览点
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildColorDot(colorScheme.primary),
-                  const SizedBox(width: 4),
-                  _buildColorDot(colorScheme.secondary),
-                  const SizedBox(width: 4),
-                  _buildColorDot(colorScheme.tertiary),
-                ],
-              ),
-            ],
+                // 主/环境/互补 3 色预览点
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _ColorDot(scheme.primary),
+                    const SizedBox(width: 8),
+                    _ColorDot(scheme.secondary),
+                    const SizedBox(width: 8),
+                    _ColorDot(scheme.tertiary),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildColorDot(Color color) {
+/// 颜色预览点
+class _ColorDot extends StatelessWidget {
+  final Color color;
+  const _ColorDot(this.color);
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: 12,
-      height: 12,
+      width: 16,
+      height: 16,
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,

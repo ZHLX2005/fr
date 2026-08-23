@@ -1,4 +1,4 @@
-// 应用主题工厂（8 套主题入口）。
+// 应用主题工厂（茶禅主题入口）。
 //
 // 设计：v6.1「主色不动 · 环境染互补色温」——
 //   所有颜色统一从 ColorScheme 派生（theme.component/ 单数据源）。
@@ -11,7 +11,7 @@
 //   tokens/       raw 原子色（colors / typography / spacing / radius / elevation）
 //   semantic/     ColorScheme + AppColorsExtension（语义角色）
 //   component/    button / card / section / input（复合组件样式）
-//   this file     8 套 ThemeData 工厂 + 各组件主题覆盖
+//   this file     茶禅主题 ThemeData 工厂 + 各组件主题覆盖
 
 import 'package:flutter/material.dart';
 import 'extensions/board_color_strategy_extension.dart';
@@ -28,13 +28,6 @@ export 'semantic/extensions.dart' show AppColorsExtension;
 
 /// 应用主题模式枚举
 enum AppThemeMode {
-  light,
-  dark,
-  pink,
-  green,
-  orange,
-  rose,
-  purple,
   /// 茶禅主题（zen）—— sage 绿 + 暖米环境 + 陶土红强调。
   zen,
 }
@@ -47,100 +40,27 @@ class AppTheme {
 
   /// 获取主题显示名称
   static String getThemeDisplayName(AppThemeMode mode) {
-    switch (mode) {
-      case AppThemeMode.light:
-        return '墨青主题';
-      case AppThemeMode.dark:
-        return '夜间主题';
-      case AppThemeMode.pink:
-        return '茶玫主题';
-      case AppThemeMode.green:
-        return '苔绿主题';
-      case AppThemeMode.orange:
-        return '陶橙主题';
-      case AppThemeMode.rose:
-        return '玫紫主题';
-      case AppThemeMode.purple:
-        return '暮紫主题';
-      case AppThemeMode.zen:
-        return '茶禅主题';
-    }
+    return switch (mode) {
+      AppThemeMode.zen => '茶禅主题',
+    };
   }
 
   /// 获取主题图标
   static IconData getThemeIcon(AppThemeMode mode) {
-    switch (mode) {
-      case AppThemeMode.light:
-        return Icons.water_drop_outlined;
-      case AppThemeMode.dark:
-        return Icons.dark_mode;
-      case AppThemeMode.pink:
-        return Icons.local_florist;
-      case AppThemeMode.green:
-        return Icons.eco;
-      case AppThemeMode.orange:
-        return Icons.wb_sunny_outlined;
-      case AppThemeMode.rose:
-        return Icons.spa_outlined;
-      case AppThemeMode.purple:
-        return Icons.nights_stay;
-      case AppThemeMode.zen:
-        return Icons.self_improvement;
-    }
+    return switch (mode) {
+      AppThemeMode.zen => Icons.self_improvement,
+    };
   }
 
   /// 根据模式获取主题数据
   static ThemeData getThemeData(AppThemeMode mode) {
-    switch (mode) {
-      case AppThemeMode.light:
-        return _buildTheme(
-          scheme: ThemeColorSchemes.light,
-          ext: ThemeAppColors.light,
-          cardShadow: Color(0x14000000)
-        );
-      case AppThemeMode.dark:
-        return _buildTheme(
-          scheme: ThemeColorSchemes.dark,
-          ext: ThemeAppColors.dark,
-          cardShadow: Color(0x4D000000)
-        );
-      case AppThemeMode.pink:
-        return _buildTheme(
-          scheme: ThemeColorSchemes.pink,
-          ext: ThemeAppColors.pink,
-          cardShadow: Color(0x14000000)
-        );
-      case AppThemeMode.green:
-        return _buildTheme(
-          scheme: ThemeColorSchemes.green,
-          ext: ThemeAppColors.green,
-          cardShadow: Color(0x14000000)
-        );
-      case AppThemeMode.orange:
-        return _buildTheme(
-          scheme: ThemeColorSchemes.orange,
-          ext: ThemeAppColors.orange,
-          cardShadow: Color(0x14000000)
-        );
-      case AppThemeMode.rose:
-        return _buildTheme(
-          scheme: ThemeColorSchemes.rose,
-          ext: ThemeAppColors.rose,
-          cardShadow: Color(0x14000000)
-        );
-      case AppThemeMode.purple:
-        return _buildTheme(
-          scheme: ThemeColorSchemes.purple,
-          ext: ThemeAppColors.purple,
-          cardShadow: Color(0x66000000)
-        );
-      case AppThemeMode.zen:
-        return _buildTheme(
+    return switch (mode) {
+      AppThemeMode.zen => _buildTheme(
           scheme: ThemeColorSchemes.zen,
           ext: ThemeAppColors.zen,
           cardShadow: Color(0x14000000)
-        );
-    }
+        ),
+    };
   }
 
   // ============================================================
@@ -220,17 +140,5 @@ class AppTheme {
     );
   }
 
-  /// 创建主题预览颜色（用于主题设置卡片）
-  static Map<String, Color> getPreviewColors(AppThemeMode mode) {
-    final scheme = getThemeData(mode).colorScheme;
-    return {
-      'primary': scheme.primary,
-      'secondary': scheme.secondary,
-      'tertiary': scheme.tertiary,
-      'surface': scheme.surface,
-      'background': scheme.surfaceContainerHighest,
-      'error': scheme.error,
-    };
-  }
 }
 
