@@ -1,6 +1,6 @@
 // Layer 2 — Semantic color tokens.
 //
-// 茶禅主题 ColorScheme 调色板。设计：v6.1「主色不动 · 环境染互补色温」——
+// zen / purple 主题 ColorScheme 调色板。设计：v6.1「主色不动 · 环境染互补色温」——
 //   · 主色族（原色不变）：primary / primaryContainer / 强调
 //   · 环境族（按互补 hue 重新染色）：bg / surface / outline / onSurface /
 //     onSurfaceVariant / secondary（环境灰）
@@ -11,15 +11,44 @@
 //
 // 色温互补：环境 hue 与主色 hue 差约 150°~170°，形成整页色温对比。
 // 茶禅范本（zen）：sage 绿（hue128°）漂在暖米环境（hue42°）。
+// 暮紫（purple）：暮紫主色（hue275°）漂在鎏金暖黑环境（hue45°）。
 
 import 'package:flutter/material.dart';
 import '../tokens/colors.dart';
 
-/// 茶禅主题 ColorScheme 调色板。
+/// zen / purple 主题 ColorScheme 调色板。
 ///
 /// onPrimary/onError 等纯黑/纯白优先引用 [RawColors]（tokens 层）。
 class ThemeColorSchemes {
   ThemeColorSchemes._();
+
+  /// 暮紫主题（深色）— 暮紫主色 ↔ 鎏金暖黑环境（hue45°）。
+  static const ColorScheme purple = ColorScheme(
+    brightness: Brightness.dark,
+    primary: Color(0xFFAB97BF),
+    onPrimary: Color(0xFF1B1722),
+    primaryContainer: Color(0xFF3D2E5C),
+    onPrimaryContainer: Color(0xFFE0DAF0),
+    secondary: Color(0xFFA8A394),                // 环境灰（鎏金档）
+    onSecondary: Color(0xFF191713),
+    secondaryContainer: Color(0xFF323029),
+    onSecondaryContainer: Color(0xFFE7E3DA),
+    tertiary: Color(0xFFC0A873),                // 互补强调（鎏金）
+    onTertiary: Color(0xFF1B1722),
+    tertiaryContainer: Color(0xFFCBB88C),
+    onTertiaryContainer: Color(0xFF3E3018),
+    surface: Color(0xFF201F1A),                // 鎏金暖黑底
+    onSurface: Color(0xFFE3E2DD),                // 暖墨浅字
+    onSurfaceVariant: Color(0xFFA8A499),
+    surfaceContainerHighest: Color(0xFF191713),
+    error: Color(0xFFC99DBA),                    // 红紫系保持
+    onError: Color(0xFF1B1722),
+    errorContainer: Color(0xFF8D6E82),
+    onErrorContainer: Color(0xFFF2D9E8),
+    outline: Color(0xFF3F3C34),                // 环境深灰
+    outlineVariant: Color(0xFF34322D),
+    surfaceTint: Color(0xFFAB97BF),
+  );
 
   /// 茶禅主题（zen）— sage 绿 ↔ 暖米环境（hue42°，范本）。
   ///

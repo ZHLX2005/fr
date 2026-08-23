@@ -1,4 +1,4 @@
-// 应用主题工厂（茶禅主题入口）。
+// 应用主题工厂（zen / purple 主题入口）。
 //
 // 设计：v6.1「主色不动 · 环境染互补色温」——
 //   所有颜色统一从 ColorScheme 派生（theme.component/ 单数据源）。
@@ -11,7 +11,7 @@
 //   tokens/       raw 原子色（colors / typography / spacing / radius / elevation）
 //   semantic/     ColorScheme + AppColorsExtension（语义角色）
 //   component/    button / card / section / input（复合组件样式）
-//   this file     茶禅主题 ThemeData 工厂 + 各组件主题覆盖
+//   this file     zen / purple 主题 ThemeData 工厂 + 各组件主题覆盖
 
 import 'package:flutter/material.dart';
 import 'extensions/board_color_strategy_extension.dart';
@@ -28,6 +28,8 @@ export 'semantic/extensions.dart' show AppColorsExtension;
 
 /// 应用主题模式枚举
 enum AppThemeMode {
+  /// 暮紫主题（深色）— 暮紫主色 ↔ 鎏金暖黑环境（hue45°）。
+  purple,
   /// 茶禅主题（zen）—— sage 绿 + 暖米环境 + 陶土红强调。
   zen,
 }
@@ -41,6 +43,7 @@ class AppTheme {
   /// 获取主题显示名称
   static String getThemeDisplayName(AppThemeMode mode) {
     return switch (mode) {
+      AppThemeMode.purple => '暮紫主题',
       AppThemeMode.zen => '茶禅主题',
     };
   }
@@ -48,6 +51,7 @@ class AppTheme {
   /// 获取主题图标
   static IconData getThemeIcon(AppThemeMode mode) {
     return switch (mode) {
+      AppThemeMode.purple => Icons.nights_stay,
       AppThemeMode.zen => Icons.self_improvement,
     };
   }
@@ -55,6 +59,11 @@ class AppTheme {
   /// 根据模式获取主题数据
   static ThemeData getThemeData(AppThemeMode mode) {
     return switch (mode) {
+      AppThemeMode.purple => _buildTheme(
+          scheme: ThemeColorSchemes.purple,
+          ext: ThemeAppColors.purple,
+          cardShadow: Color(0x66000000)
+        ),
       AppThemeMode.zen => _buildTheme(
           scheme: ThemeColorSchemes.zen,
           ext: ThemeAppColors.zen,

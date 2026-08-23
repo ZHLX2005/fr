@@ -107,12 +107,32 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   }
 }
 
-/// 茶禅主题对应的 AppColorsExtension 调色板。
+/// zen / purple 主题对应的 AppColorsExtension 调色板。
 ///
 /// v6.1：category 8 色板混合主色族（4 档浅深）+ 环境色族（2 档）+ 互补色族（2 档），
 /// 让分类调色板跨色域，匹配主页"主色 vs 环境色温互补"的视觉语言。
 class ThemeAppColors {
   ThemeAppColors._();
+
+  /// 暮紫主题（purple）— info 用鎏金（互补），category 跨紫/金/金。
+  static const AppColorsExtension purple = AppColorsExtension(
+    success: Color(0xFF95B89E),
+    onSuccess: Color(0xFF1B1722),
+    successContainer: Color(0xFF2A3F30),
+    onSuccessContainer: Color(0xFFB8D6BE),
+    warning: Color(0xFFD4B68E),
+    onWarning: Color(0xFF1B1722),
+    warningContainer: Color(0xFF4A3D24),
+    onWarningContainer: Color(0xFFF0D9A8),
+    info: Color(0xFFC0A873),
+    onInfo: Color(0xFF1B1722),
+    infoContainer: Color(0xFF3D3423),
+    onInfoContainer: Color(0xFFF0D9A8),
+    category: [
+      Color(0xFFE6E0EC), Color(0xFFAB97BF), Color(0xFFD1C6DC), Color(0xFF1F1B22),
+      Color(0xFFA8A394), Color(0xFFC0A873), Color(0xFFECE5D5), Color(0xFF231E15),
+    ],
+  );
 
   /// 茶禅主题（zen）— category 跨绿/暖灰/陶土红（范本，原结构保留）。
   static const AppColorsExtension zen = AppColorsExtension(

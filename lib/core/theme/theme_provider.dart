@@ -68,7 +68,11 @@ final themeDataProvider = Provider<ThemeData>((ref) {
   return AppTheme.getThemeData(mode);
 });
 
-/// 派生：Material ThemeMode（zen 是浅色 → ThemeMode.light）。
+/// 派生：Material ThemeMode（深色主题对应 Material dark）。
 final materialThemeModeProvider = Provider<ThemeMode>((ref) {
-  return ThemeMode.light;
+  final mode = ref.watch(themeNotifierProvider);
+  return switch (mode) {
+    AppThemeMode.purple => ThemeMode.dark,
+    _ => ThemeMode.light,
+  };
 });
